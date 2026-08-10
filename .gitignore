@@ -1,0 +1,9 @@
+node_modules/
+dist/
+build/
+.svelte-kit/
+.env
+.env.*
+__omp_shell(".env.example")
+*.log
+.DS_Store
