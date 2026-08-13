@@ -1,0 +1,37 @@
+# Development and test dependencies only: Postgres and Qdrant, both on loopback.
+# The web app runs on the host with `pnpm dev` against these. The deployed stack is
+# docker/compose.yml, which also runs web and is fronted by Caddy.
+#
+# Ports are deliberately high and loopback-bound. On prodbox, publishing to 0.0.0.0
+# bypasses UFW, so binding to 127.0.0.1 is a habit worth keeping everywhere.
+name: canonry-dev
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: canonry
+      POSTGRES_PASSWORD: canonry
+      POSTGRES_DB: canonry
+    ports:
+      - '127.0.0.1:55432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U canonry -d canonry']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:56333:6333'
+    volumes:
+      - qdrantdata:/qdrant/storage
+
+volumes:
+  pgdata:
+  qdrantdata:

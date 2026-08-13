@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+# esbuild ships a platform binary from its install script, and tsx, vitest and
+# drizzle-kit all sit on top of it, so this one has to be allowed to build.
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - '@ai-sdk/gateway@4.0.52'
+  - ai@7.0.65

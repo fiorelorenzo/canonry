@@ -1,0 +1,25 @@
+{
+	"name": "canonry",
+	"private": true,
+	"version": "0.0.0",
+	"license": "AGPL-3.0-only",
+	"type": "module",
+	"packageManager": "pnpm@11.6.0",
+	"engines": {
+		"node": ">=22.22.0 <23"
+	},
+	"scripts": {
+		"dev": "pnpm --filter web dev",
+		"build": "pnpm -r --sequential build",
+		"check": "pnpm -r --sequential check",
+		"lint": "pnpm -r --sequential lint",
+		"format": "pnpm -r --sequential format",
+		"test": "pnpm -r --sequential test",
+		"db:migrate": "pnpm --filter @canonry/db migrate",
+		"db:up": "docker compose -f docker/compose.dev.yml up -d",
+		"db:down": "docker compose -f docker/compose.dev.yml down"
+	},
+	"devDependencies": {
+		"typescript": "^6.0.3"
+	}
+}
