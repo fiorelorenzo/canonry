@@ -1,0 +1,21 @@
+# Keeps the docker build context (repo root, per docker/Dockerfile) small and
+# the layer cache useful. The build stage copies host-installed node_modules
+# and build caches would otherwise poison a from-scratch pnpm install.
+node_modules/
+**/node_modules/
+.svelte-kit/
+apps/*/build/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+.git/
+.github/
+docs/
+*.md
+.vscode/
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example

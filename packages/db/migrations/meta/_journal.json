@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1786655979438,
+      "tag": "0000_empty_darwin",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786655986720,
+      "tag": "0001_seed_relation_type_catalogue",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786657188535,
+      "tag": "0002_stormy_wolfpack",
+      "breakpoints": true
+    }
+  ]
+}

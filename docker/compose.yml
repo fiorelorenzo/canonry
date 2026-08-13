@@ -1,0 +1,81 @@
+# Deployed stack: web, Postgres and Qdrant, three containers and no fourth
+# (SPEC.md #12). Every published port is bound to 127.0.0.1 -- on prodbox,
+# publishing to 0.0.0.0 bypasses UFW, and Caddy (docker/Caddyfile.example) is
+# the only thing meant to face the internet, reverse-proxying to web here.
+#
+# Run from the repo root (copy .env.example to .env first):
+#   docker compose -f docker/compose.yml up -d --build
+name: canonry
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-0.0.0-dev}
+        APP_COMMIT: ${APP_COMMIT:-unknown}
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:5196:5196'
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      PORT: '5196'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test: ['CMD', 'node', '-e', 'fetch("http://127.0.0.1:5196/healthz").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-canonry}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-canonry}
+      POSTGRES_DB: ${POSTGRES_DB:-canonry}
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-canonry} -d ${POSTGRES_DB:-canonry}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:6333:6333'
+    volumes:
+      - qdrantdata:/qdrant/storage
+    healthcheck:
+      # qdrant's image ships neither curl nor wget; bash's /dev/tcp is the
+      # smallest thing that can speak enough HTTP to check the endpoint.
+      test:
+        [
+          'CMD',
+          'bash',
+          '-c',
+          'exec 3<>/dev/tcp/127.0.0.1/6333 && printf "GET /healthz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 && grep -q "200 OK" <&3'
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
+  qdrantdata:
