@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .worklayout { display: grid; grid-template-columns: 200px minmax(0,1fr) 232px; min-height: 260px; }
+  .worklayout.two { grid-template-columns: minmax(0,1fr); }
+  .worklayout > .wside { background: var(--panel-2); border-right: 1px solid var(--line); padding: 10px 8px; }
+  .worklayout > .wmain { padding: 16px 20px; min-width: 0; }
+  .worklayout > .waside { background: var(--panel-2); border-left: 1px solid var(--line); padding: 13px; }
+
+  .wtree { display: flex; flex-direction: column; gap: 1px; font-size: 13px; }
+  .wtree .node { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border-radius: 6px; color: var(--ink-2); }
+  .wtree .node.on { background: var(--panel); color: var(--ink); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
+  .wtree .node .car { width: 11px; color: var(--muted); font-size: 10px; flex: none; }
+  .wtree .l2 { padding-left: 14px; }
+  .wtree .l3 { padding-left: 28px; font-size: 12.5px; }
+  .wtree .node .n { margin-left: auto; color: var(--muted); font-size: 10.5px; font-family: var(--mono); }
+  .wtree .node .badge { margin-left: auto; }
+
+  /* the freshness signal, reused across all three layouts */
+  .uses { display: flex; flex-direction: column; gap: 7px; }
+  .uses.row { flex-direction: row; flex-wrap: wrap; gap: 8px; }
+  .uses .u {
+    display: flex; align-items: center; gap: 7px; padding: 7px 9px;
+    border: 1px solid var(--line); border-radius: 7px; font-size: 12.5px; background: var(--panel);
+  }
+  .uses .u.fresh { border-color: var(--ai-line); background: var(--ai-bg); }
+  .uses .u .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line-2); flex: none; }
+  .uses .u.fresh .dot { background: var(--ai); }
+  .uses .u .name { font-weight: 600; color: var(--ink); }
+  .uses .u .why { color: var(--muted); font-size: 11.5px; }
+  .uses .u .sp { flex: 1; }
+  .uses .u .when { color: var(--ai); font-size: 11px; font-family: var(--mono); white-space: nowrap; }
+  .uses-note { font-size: 11.5px; color: var(--muted); margin-top: 9px; }
+
+  /* option B: outline that expands in place */
+  .outline .snode { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 6px; }
+  .outline .shead { display: flex; align-items: center; gap: 8px; padding: 8px 11px; background: var(--panel-2); border-radius: 8px; font-size: 13px; }
+  .outline .shead .car { color: var(--muted); font-size: 10px; width: 10px; }
+  .outline .shead .n { margin-left: auto; color: var(--muted); font-size: 10.5px; font-family: var(--mono); }
+  .outline .sbody { padding: 12px 13px 13px; border-top: 1px solid var(--line); background: var(--panel); border-radius: 0 0 8px 8px; }
+  .outline .l1 > .shead { font-weight: 600; }
+  .outline .l2 { margin-left: 16px; }
+  .outline .l3 { margin-left: 32px; }
+
+  /* option C: board of scenes */
+  .board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 4px; }
+  .board .col { flex: 0 0 216px; }
+  .board .col h5 { font: 600 11.5px var(--mono); text-transform: uppercase; letter-spacing: .03em; color: var(--muted); margin-bottom: 8px; }
+  .board .card2 { border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel); padding: 10px 11px; margin-bottom: 8px; font-size: 12.5px; }
+  .board .card2 h6 { font-size: 13px; margin-bottom: 7px; }
+  .board .card2.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .board .card2 .uses.row { gap: 5px; }
+  .board .card2 .uses .u { padding: 3px 7px; font-size: 11px; }
+</style>
+</head>
+<body data-decision="B5">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">SPEC 4.3 makes a work (oneshot, module, campaign, story, novel). Its
+  own thing: an ordered tree of act, chapter, scene, encounter, separate from the universe because
+  it has a different shape and lifecycle. The link that makes it worth having runs both ways:
+  <code>work_node_entity</code> records which entries a scene uses, so changing Aldric Vane tells
+  you scene 3 of chapter 2 is affected, and whatever happens while writing or playing flows back
+  into the universe <b>as proposals</b>, never as a direct write. This page is only about the
+  first half: how a GM edits a work next to the canon it draws on, and how "this scene depends on
+  an entry that just changed" gets in front of them.</p>
+  <p>Get the layout wrong and one of two things happens. Either the tree drowns a long campaign
+  like <i>Debts of Valdoria</i> in navigation and the actual prose nobody ever gets to, or the
+  "this scene uses Aldric Vane" signal grows accept and reject buttons of its own and becomes a
+  second place proposals get decided.</p>
+  <div class="callout guard">
+    <p>The propagate-back half of 4.3 is <span class="guardref">Guardrail 1</span>'s territory:
+    one explicit accept, per entry, and <a href="c2-proposal-routing.html">C2</a> owns where that
+    happens. If a scene's "uses" list also carries a Confirm button, the product now has two
+    places that can each believe they hold the current answer for the same proposal, and the
+    accept-rate instrumentation SPEC 4.4 depends on stops being a single, trustworthy count. So
+    every option below treats the freshness signal as <b>read and link, never review</b>.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Tree beside a scene editor</h3></header>
+      <p class="sub">The familiar three-pane shape the rest of the app already uses: the work's
+      tree on the left, the open scene's text in the middle, its canon dependencies on the right.
+      One scene open at a time, but the whole tree stays reachable.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="worklayout">
+            <div class="wside">
+              <div class="wtree">
+                <div class="node l1"><span class="car">&#9656;</span>Act 1<span class="n">4 ch</span></div>
+                <div class="node l1"><span class="car">&#9662;</span>Act 2</div>
+                <div class="node l2"><span class="car">&#9656;</span>Chapter 1<span class="n">3 sc</span></div>
+                <div class="node l2"><span class="car">&#9662;</span>Chapter 2: The Lantern Quarter</div>
+                <div class="node l3"><span class="car"></span>Scene 1</div>
+                <div class="node l3"><span class="car"></span>Scene 2</div>
+                <div class="node l3 on"><span class="car"></span>Scene 3<span class="badge now">current</span></div>
+              </div>
+            </div>
+            <div class="wmain">
+              <div class="tbar" style="padding-left:0;">
+                <span class="crumb">Debts of Valdoria / Act 2 / Ch 2 / <b>Scene 3</b></span>
+              </div>
+              <h1 class="title" style="margin-top:10px;">A drink with the ex-captain</h1>
+              <div class="prose">
+                <p>The party finds Aldric Vane at his corner table in the Gilded Rat and buys him
+                a drink. Mother Sennah keeps pouring and pretends not to listen. He talks if paid
+                or trusted. The watch turned him out the same week the strait iced over
+                again.</p>
+              </div>
+            </div>
+            <div class="waside">
+              <h4>Uses</h4>
+              <div class="uses">
+                <div class="u fresh"><span class="dot"></span><span class="name">Aldric Vane</span><span class="sp"></span><span class="when">4m ago</span></div>
+                <div class="u"><span class="dot"></span><span class="name">The Gilded Rat</span></div>
+                <div class="u"><span class="dot"></span><span class="name">Mother Sennah</span></div>
+              </div>
+              <p class="why" style="margin-top:5px;">Aldric: employed by the Ashen Ledger now, not the watch's captain.</p>
+              <p class="uses-note">Open the entry to read the change. Accepting the propagation happens there, or in Review.</p>
+            </div>
+          </div>
+        </div>
+        <figcaption>Four levels fit the rail without crowding; the "current" scene and the one stale dependency are both visible without opening anything.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Same shape as every entry page in the app; nothing new to learn to start writing a scene.</li>
+          <li>The tree scales cleanly to four levels (act, chapter, scene, encounter) without the outline needing to nest visually.</li>
+          <li>The editor pane gets full width for actual prose, which is most of what prep time is.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Three panes is a lot of a laptop screen; on anything narrower, one of them has to go first.</li>
+          <li>Only one scene open at a time, so checking whether scene 2 also depends on Aldric means switching away from scene 3.</li>
+          <li>A campaign with many acts makes the left rail tall enough to need its own scroll and, eventually, search.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>An outline that expands in place</h3></header>
+      <p class="sub">One column. Acts and chapters collapse to a line; opening a scene expands its
+      text and its uses directly underneath, and its siblings stay in view above and below it.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="worklayout two">
+            <div class="wmain outline">
+              <div class="snode l1">
+                <div class="shead"><span class="car">&#9656;</span>Act 1<span class="n">4 chapters</span></div>
+              </div>
+              <div class="snode l1">
+                <div class="shead"><span class="car">&#9662;</span>Act 2</div>
+              </div>
+              <div class="snode l2">
+                <div class="shead"><span class="car">&#9656;</span>Chapter 1<span class="n">3 scenes</span></div>
+              </div>
+              <div class="snode l2">
+                <div class="shead"><span class="car">&#9662;</span>Chapter 2: The Lantern Quarter</div>
+              </div>
+              <div class="snode l3">
+                <div class="shead"><span class="car">&#9656;</span>Scene 1</div>
+              </div>
+              <div class="snode l3">
+                <div class="shead"><span class="car">&#9656;</span>Scene 2</div>
+              </div>
+              <div class="snode l3">
+                <div class="shead"><span class="car">&#9662;</span>Scene 3: A drink with the ex-captain<span class="badge now">current</span></div>
+                <div class="sbody">
+                  <p class="prose" style="margin:0 0 10px;">The party finds Aldric Vane at his
+                  corner table in the Gilded Rat and buys him a drink. Mother Sennah keeps pouring
+                  and pretends not to listen.</p>
+                  <div class="uses row">
+                    <div class="u fresh"><span class="dot"></span><span class="name">Aldric Vane</span><span class="why">employed by the Ashen Ledger now</span><span class="when">4m</span></div>
+                    <div class="u"><span class="dot"></span><span class="name">The Gilded Rat</span></div>
+                    <div class="u"><span class="dot"></span><span class="name">Mother Sennah</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Scene 3 is open, its siblings are one line each above and below it. The uses row sits right under the text it explains, not off to the side.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>No context switch: opening scene 3 does not hide scene 2 or chapter 1.</li>
+          <li>Works on a narrow screen without dropping a pane, which the three-column shape cannot do below 900px.</li>
+          <li>Comparing two open scenes side by side is just scrolling, not two separate views.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>The uses row is horizontal and short on room, so the "why" text is the first thing that gets cut on a longer relation.</li>
+          <li>A chapter with several scenes open at once gets tall fast, and a long campaign's whole outline never fits one screen.</li>
+          <li>Four levels of indentation reads fine for act/chapter/scene, but a scene's own encounter nodes are one nesting level further than this pattern comfortably holds.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>A board of scenes</h3></header>
+      <p class="sub">Chapters as columns, scenes as cards. Built for looking at a whole chapter at
+      once before a session, not for writing prose. Opening a card is a link out to the
+      editor, not an edit in place.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div style="padding:16px 18px;">
+            <div class="tbar" style="padding-left:0;margin-bottom:12px;">
+              <span class="crumb">Debts of Valdoria / <b>Act 2</b></span>
+            </div>
+            <div class="board">
+              <div class="col">
+                <h5>Chapter 1</h5>
+                <div class="card2"><h6>Scene 1</h6></div>
+                <div class="card2"><h6>Scene 2</h6></div>
+                <div class="card2"><h6>Scene 3</h6></div>
+              </div>
+              <div class="col">
+                <h5>Chapter 2: The Lantern Quarter</h5>
+                <div class="card2"><h6>Scene 1</h6></div>
+                <div class="card2"><h6>Scene 2</h6></div>
+                <div class="card2 on">
+                  <h6>Scene 3: A drink with the ex-captain</h6>
+                  <div class="uses row">
+                    <div class="u fresh"><span class="dot"></span><span class="name">Aldric Vane</span><span class="when">4m</span></div>
+                    <div class="u"><span class="dot"></span><span class="name">Gilded Rat</span></div>
+                    <div class="u"><span class="dot"></span><span class="name">M. Sennah</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Every scene in the two open chapters shows its uses at a glance; only scene 3 has a fresh one, and the dot alone makes it findable without reading each card.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The best view of "what's changed across this whole act" before a session, which is exactly the moment this signal matters most.</li>
+          <li>Every scene's freshness is visible at once, not one at a time behind a click.</li>
+          <li>Reads like session prep already looks on paper: a chapter, its scenes, at a glance.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Not an editor. Writing a scene's actual text still means a click-through, so the board is a router wearing an editor's clothes.</li>
+          <li>Encounter nodes have no natural column; they would need to be a filter or a separate view rather than a place on the board.</li>
+          <li>A campaign with many chapters scrolls sideways, which degrades faster than a tree or an outline scrolls down.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>The uses list carries its own Confirm and Reject</h3>
+    <p>It reads as a convenience: the GM is already looking at the scene, so let them clear the
+    Aldric change right there. It is exactly the second proposal inbox this decision has to avoid.
+    <span class="guardref">Guardrail 1</span> asks for one explicit accept per entry, not one
+    explicit accept per place the entry happens to be mentioned, and §14's accept-rate metric stops
+    meaning anything the moment two surfaces can each register an outcome for the same proposal.
+    The fix costs nothing: the chip links to the entry or to <a href="c2-proposal-routing.html">C2</a>'s
+    review, and stays read-only everywhere else.</p>
+  </div>
+  <div class="callout rejected mt24">
+    <h3>Scenes as free text with no entity links</h3>
+    <p>The cheapest thing to build: a scene is a heading and a textarea, same as any notes app.
+    It is also <code>work_node_entity</code> deleted by omission, and without it this whole
+    decision has nothing to draw. There is no way to know a scene depends on Aldric Vane at
+    all, let alone that he changed four minutes ago. That is not a smaller version of the feature,
+    it is Obsidian with extra steps, and Obsidian is the incumbent SPEC &sect;2 says this product
+    has to beat on exactly this point.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>A, tree beside the editor</h3>
+    <p>I would take <b>A</b>. It costs nothing against the shape the rest of the app already
+    commits to for reading and editing something long-form next to structured metadata, which is
+    exactly what a scene is: prose plus a short list of entities. <i>Debts of Valdoria</i> is a
+    running campaign with real depth in its tree, and A is the only option that keeps all four
+    levels reachable without either drowning the page in indentation (B) or losing the ability to
+    write the scene's own text in place at all (C).</p>
+    <p><b>Cheapest way to find out this is wrong</b>: build this after table mode
+    (<a href="e1-table-layout.html">E1</a>) and watch whether GMs actually open the work tree
+    during a session, versus only ever during prep. If play-time use is real, that is a case for
+    something closer to C's glanceable board as a companion view, not a reason to change how the
+    scene itself gets written.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#20</b> the work model needs an efficient reverse lookup (which scenes
+      reference entity X). Not just a top-down tree read, because every option above depends
+      on answering "who uses Aldric Vane" cheaply enough to run on every page load.</li>
+      <li><b>#20</b> also needs a rule for what counts as "changed": since the GM last opened this
+      node, since the last session, or a fixed rolling window. This page assumes "since last
+      opened" but does not decide it.</li>
+      <li>Deferred to <a href="c2-proposal-routing.html">C2</a>: what actually happens when a GM
+      clicks through from a stale dependency. This page only promises a link, not a
+      destination.</li>
+      <li>Deferred to <a href="e1-table-layout.html">E1</a>: whether a work needs a second,
+      play-time view distinct from this prep-time one. Nothing here rules it out.</li>
+      <li>Hard to undo: A commits "Works" to its own three-pane shape, distinct from an entry
+      page's, which is a second layout the app has to keep consistent as it grows rather than a
+      variation on the first.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

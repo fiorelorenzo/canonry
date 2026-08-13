@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .quote {
+    border-left: 3px solid var(--line-2); background: var(--panel-2);
+    padding: 10px 14px; margin-bottom: 12px; font-size: 13px; color: var(--ink-2);
+  }
+  .quote .src { display: block; margin-top: 6px; font: 11px var(--mono); color: var(--muted); }
+  .quote.weak { border-left-color: var(--warn); }
+  .quote .reason { display: inline-block; margin-top: 6px; font: 12px var(--sans); color: var(--warn); }
+  .dh2 { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--line); background: var(--panel-2); font-size: 13px; }
+  .dh2 .sp { flex: 1; }
+  .padbox { padding: 16px; }
+  .padbox.evroom { padding-bottom: 130px; }
+  .evcol { display: grid; grid-template-columns: 1fr 260px; }
+  .evcol > div + div { border-left: 1px solid var(--line); padding: 14px; }
+  .evcol > div:first-child { padding: 16px; }
+  .evcard { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--panel); font-size: 12px; margin-bottom: 10px; }
+  .evcard.weak { border-color: #eadcbe; background: var(--warn-bg); }
+  .evcard b { display: block; margin-bottom: 4px; color: var(--ink); }
+  .evcard .reason { color: var(--warn); font-weight: 600; }
+  .rowpair { display: flex; flex-direction: column; gap: 14px; }
+</style>
+</head>
+<body data-decision="C5">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">The spec is explicit about the shape of evidence (which entry, which
+  sentence) and explicit about what it is not: a number. That leaves the actual
+  reading experience open, and it leaves a harder problem unaddressed: what does the
+  UI say when the honest evidence is weak? A relation with a hop count is confident by
+  construction. A candidate reached only by embedding similarity has nothing that firm
+  to point to, and dressing that up as equally solid evidence is worse than showing
+  nothing.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 3</span> every proposal shows its evidence:
+    which entry, which sentence, never an arbitrary confidence score. This page
+    decides where that evidence sits on screen, and what stands in for a confidence
+    number when the system wants to say "this one is a stretch."</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <p>Two proposals, drawn under each treatment: <b>The Valdoria Watch</b>, reached by a
+  direct relation (strong evidence), and <b>Cairnmouth</b>, reached only by embedding
+  similarity to "the thaw after the Sable Winter", no relation to Aldric Vane, no
+  textual mention of him, a fishing town two days up the coast that the Sable Winter
+  also touched. It is the weakest evidence in the fixture set, which is exactly why it
+  is the test case: whatever a treatment does with Cairnmouth is what it actually does
+  under guardrail 3, not what it does in the easy case.</p>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Source sentence, quoted above the diff</h3></header>
+      <p class="sub">A persistent quote block sits above every diff: the exact source
+      sentence, plus the retrieval reason in plain words. Always visible, no interaction.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="dh2"><b>The Valdoria Watch</b></div>
+          <div class="padbox">
+            <div class="quote">&ldquo;Dismissed from the watch in the thaw after the Sable Winter, he now answers to the Ashen Ledger.&rdquo;
+              <span class="src">Aldric Vane &middot; saved 2 min ago &middot; reached via relation <code>commands</code>, 1 hop</span></div>
+            <div class="prose small">Captain Aldric Vane commands the watch&hellip; <ins class="i">The captaincy has sat empty since Aldric Vane was dismissed&hellip;</ins></div>
+          </div>
+        </div>
+        <figcaption>Strong evidence: relation and hop count sit right in the source line.</figcaption>
+      </figure>
+      <figure class="mock">
+        <div class="frame">
+          <div class="dh2"><b>Cairnmouth</b></div>
+          <div class="padbox">
+            <div class="quote weak">&ldquo;Dismissed from the watch in the thaw after the Sable Winter, he now answers to the Ashen Ledger.&rdquo;
+              <span class="src">Aldric Vane &middot; saved 2 min ago</span>
+              <span class="reason">reached via similar wording, no direct link to Cairnmouth in the graph</span></div>
+            <div class="prose small">Fishing town two days up the coast&hellip; <ins class="i">felt the same thaw that broke the watch captain&hellip;</ins></div>
+          </div>
+        </div>
+        <figcaption>Weak evidence: the same quote, honestly labelled as wording-only.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Evidence is read before the diff, in the order the model itself worked: source, then proposal.</li>
+          <li>On screen the moment the diff is, which matters most exactly when the channel is weak, as with Cairnmouth.</li>
+          <li>One place for both a quote and a plain-word reason; no separate component to build.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Ten diffs means ten quote blocks stacked above them, and most quote the same Aldric Vane sentence.</li>
+          <li>Takes vertical space from the diff itself, the thing actually being decided on.</li>
+          <li>For strong relation-sourced candidates the quote often repeats what the relation label already says.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Popover on the changed text</h3></header>
+      <p class="sub">The changed span carries a dotted underline (<code>.ev</code>);
+      hover or click opens the evidence in a floating box (<code>.pop</code>). Costs
+      nothing until asked for.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="dh2"><b>The Valdoria Watch</b></div>
+          <div class="padbox evroom"><div class="prose small">Captain Aldric Vane commands the watch from the old customs house&hellip;
+            <span class="ev open"><span class="q">The captaincy has sat empty since Aldric Vane was dismissed&hellip;</span>
+              <span class="pop"><b>Evidence</b> &ldquo;Dismissed from the watch in the thaw after the Sable Winter&hellip;&rdquo;
+                <span class="src">Aldric Vane &middot; reached via relation <code>commands</code>, 1 hop</span></span></span>
+          </div></div>
+        </div>
+        <figcaption>Strong evidence, open state: click or hover reveals quote and reason.</figcaption>
+      </figure>
+      <figure class="mock">
+        <div class="frame">
+          <div class="dh2"><b>Cairnmouth</b></div>
+          <div class="padbox evroom"><div class="prose small">Fishing town two days up the coast, thirty boats and a bad harbour&hellip;
+            <span class="ev open"><span class="q">felt the same thaw that broke the watch captain&hellip;</span>
+              <span class="pop"><b>Evidence</b> &ldquo;&hellip;the thaw after the Sable Winter&hellip;&rdquo;
+                <span class="src">Aldric Vane &middot; reached via similar wording, no graph link</span></span></span>
+          </div></div>
+        </div>
+        <figcaption>Weak evidence, same closed-by-default affordance as the strong case; nothing marks it as worth a second look.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Costs nothing until wanted; a GM who trusts the diff reviews ten entries without reading ten quotes.</li>
+          <li><code>.ev</code>/<code>.pop</code> already exists in the shared kit with click support wired for keyboard and touch.</li>
+          <li>Scales to any number of proposals without stacking real estate.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>The one case guardrail 3 exists for (a stretch reached only by embedding similarity) is exactly the one an unopened popover hides.</li>
+          <li>Hover does not exist on the table-mode surfaces (E4); click-only has to be the real behaviour everywhere, not a fallback.</li>
+          <li>A GM skimming ten accepts can miss that Cairnmouth's evidence was worth a second look; nothing on the closed state signals that.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Permanent evidence column</h3></header>
+      <p class="sub">A docked column runs beside the diff, one card per proposal,
+      always visible, never opened or closed.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="dh2"><b>The Valdoria Watch</b></div>
+          <div class="evcol">
+            <div><div class="prose small">Captain Aldric Vane commands the watch from the old customs house&hellip; <ins class="i">The captaincy has sat empty since Aldric Vane was dismissed&hellip;</ins></div></div>
+            <div><div class="evcard"><b>Evidence</b>&ldquo;Dismissed from the watch in the thaw after the Sable Winter&hellip;&rdquo;<br><span class="muted">Aldric Vane &middot; relation <code>commands</code>, 1 hop</span></div></div>
+          </div>
+        </div>
+        <figcaption>Strong evidence, always on screen, no interaction.</figcaption>
+      </figure>
+      <figure class="mock">
+        <div class="frame">
+          <div class="dh2"><b>Cairnmouth</b></div>
+          <div class="evcol">
+            <div><div class="prose small">Fishing town two days up the coast, thirty boats and a bad harbour&hellip; <ins class="i">felt the same thaw that broke the watch captain&hellip;</ins></div></div>
+            <div><div class="evcard weak"><b>Evidence</b>&ldquo;&hellip;the thaw after the Sable Winter&hellip;&rdquo;<br><span class="reason">similar wording only, no graph link</span></div></div>
+          </div>
+        </div>
+        <figcaption>Weak evidence, visibly weaker card without needing a click to find out.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Every proposal's strength is visible at a glance, weak ones included, without opening anything.</li>
+          <li>Reading order is the reader's choice: content first or evidence first, unlike A which fixes the order.</li>
+          <li>Room for a longer, specific reason on the embedding case, not competing for space inside a 320px popover.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A three-column layout (nav, entry, evidence) is tight before B1 has settled the sidebar's own width.</li>
+          <li>The Debts of Valdoria scene candidate lives in a work node, not an entry; a docked column assumes parallel real estate a work view may not have.</li>
+          <li>Ten evidence cards visible at once for a ten-entry plan is the review screen shouting evidence at a GM who asked about one diff.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>A bare confidence number, "87% match"</h3>
+    <p>The most familiar pattern from every recommender system the team has used
+    elsewhere, and the literal thing <span class="guardref">Guardrail 3</span> forbids:
+    "never an arbitrary confidence score." It is also the wrong instrument for
+    Cairnmouth specifically, an embedding cosine similarity dressed up as a percentage
+    implies a precision the model does not have, and it is exactly what makes a stretch
+    look as trustworthy as a direct relation.</p>
+  </div>
+  <div class="callout rejected mt24">
+    <h3>Skip evidence for "obvious" relation-sourced candidates</h3>
+    <p>Tempting as a decluttering move: a one-hop <code>commands</code> relation feels
+    self-evident, why quote it. It still breaks <span class="guardref">Guardrail 3</span>,
+    which says every proposal, not every uncertain one. A relation can itself be wrong
+    or stale; that is the entire premise of the Iselde Wrenn candidate, whose relation
+    is the thing being corrected, so the source stays visible even when confidence
+    feels high.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>B, with A forced open for embedding-only proposals</h3>
+    <p>Take <b>B</b> as the default: costless for the nine cases out of ten that do not
+    need a second look, and it already exists as a component. But B's own cost list
+    names the exact failure this decision cannot ship with: the weakest evidence is
+    the easiest to skip. So the rule is not "B everywhere," it is "B, except." Any
+    proposal whose only channel is embedding similarity, with no relation and no
+    textual mention, renders with its evidence forced open, A's treatment, not hidden
+    behind a click. Cairnmouth never gets the option to be skipped past; the strong,
+    ordinary cases keep B's quiet default.</p>
+    <p>The stand-in for a confidence number, in every treatment above: the retrieval
+    reason, in plain words, always present: <i>relation <code>commands</code>, 1 hop</i>
+    for a strong case, <i>similar wording only, no graph link</i> for a weak one. It is
+    honest in both directions without ever being a score.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: once <a href="c2-proposal-routing.html">the
+    proposal model</a> is instrumented (#47's outcome field), split accept rate by
+    retrieval channel against whether the evidence was ever opened. If embedding-only
+    proposals get accepted without their forced-open evidence ever being read, forcing
+    it open did not work and the channel needs a harder gate than visibility, maybe a
+    confirmation step instead.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#47</b> the retrieval reason and the source span are fields on the
+      <code>proposal</code> row, not text generated at render time, so both the quote
+      and the plain-word reason survive a page reload and are queryable for the accept
+      rate split above.</li>
+      <li><b>#51</b> evidence lives on the same per-entry diff screen the accept and
+      reject buttons live on; it is never a separate step the GM can accept past.</li>
+      <li>Hard to undo: once "forced open for embedding-only" ships, quietly relaxing it
+      later to reduce clutter is the same mistake guardrail 3 exists to prevent, just
+      introduced after the fact instead of at launch.</li>
+      <li>Deferred on purpose: whether rejecting a forced-open, embedding-only proposal
+      needs a different one-word reason set than a normal reject. That belongs to
+      <a href="c7-reject-reasons.html">C7</a>.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

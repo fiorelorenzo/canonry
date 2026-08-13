@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  /* Layout for the entry+aside mocks below. Not nested in .app, so the aside
+     look is rebuilt here rather than relying on the .app > .aside selector. */
+  .relmock { display: grid; grid-template-columns: minmax(0, 1fr) 244px; min-height: 210px; }
+  .relmock > .entry { padding: 18px 22px; }
+  .relmock > .aside { background: var(--panel-2); border-left: 1px solid var(--line); padding: 14px; }
+  .relmock .rel .sp { flex: 1; }
+  .relmock .infer {
+    background: var(--ai-bg); border: 1px solid var(--ai-line); border-radius: 8px;
+    padding: 9px 10px; margin-top: 6px;
+  }
+  .relmock .infer .rel { padding: 0; }
+  .relmock .infer .rel .lbl { color: var(--ai); font-weight: 600; }
+  .relmock .infer .why { display: block; font-size: 11.5px; color: var(--muted); margin: 5px 0 7px; font-style: italic; }
+  .relmock .infer .row { display: flex; gap: 6px; }
+  .relmock .note { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+
+  /* Option A: one-line retype affordance sitting on a confirmed-but-stale row */
+  .relmock .rel .badge.soon { margin-right: 2px; }
+
+  /* Option B: dialog */
+  .frame.dlg-frame { position: relative; }
+  .dlg-backdrop {
+    position: absolute; inset: 0; background: rgba(24, 20, 14, 0.5);
+    display: flex; align-items: center; justify-content: center; padding: 18px;
+  }
+  .dlg {
+    width: 100%; max-width: 300px; background: var(--panel); border-radius: 10px;
+    box-shadow: 0 22px 50px -20px rgba(0,0,0,0.55); padding: 15px 17px;
+  }
+  .dlg h4 { font-size: 13.5px; }
+  .dlg .rel-line { font-size: 15px; margin: 10px 0 4px; }
+  .dlg .rel-line i { color: var(--accent-ink); font-style: normal; font-weight: 600; }
+  .dlg .row { display: flex; gap: 8px; margin-top: 10px; }
+  .dlg details.cat { margin-top: 11px; border-top: 1px dashed var(--line); padding-top: 9px; font-size: 12px; }
+  .dlg details.cat summary { cursor: pointer; color: var(--ink-2); }
+  .dlg details.cat table { width: 100%; border-collapse: collapse; margin-top: 7px; }
+  .dlg details.cat td { padding: 3px 2px; border-bottom: 1px solid var(--line); color: var(--muted); }
+  .dlg details.cat td:first-child { color: var(--ink-2); }
+
+  /* Option C: inline suggestion strip under the sentence that produced it */
+  .inline-confirm {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--ai-bg); border: 1px solid var(--ai-line); border-radius: 8px;
+    padding: 8px 10px; margin: -4px 0 12px; font-size: 12.5px;
+  }
+  .inline-confirm b { color: var(--ai); }
+  .inline-confirm .sp { flex: 1; }
+  .men.hasflag { position: relative; }
+  .men.hasflag::after {
+    content: ''; position: absolute; top: -2px; right: -6px; width: 5px; height: 5px;
+    border-radius: 50%; background: var(--ai);
+  }
+
+  /* pairwrap: the same row, two renderings */
+  .pairwrap { display: flex; gap: 14px; align-items: center; margin: 14px 0 4px; flex-wrap: wrap; }
+  .pairwrap .side {
+    flex: 1 1 210px; border: 1px solid var(--line-2); border-radius: 8px;
+    padding: 11px 13px; background: var(--panel);
+  }
+  .pairwrap .side h5 {
+    font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .03em;
+    color: var(--muted); margin: 0 0 7px;
+  }
+  .pairwrap .mid { font-size: 11px; color: var(--muted); text-align: center; flex: 0 0 90px; }
+</style>
+</head>
+<body data-decision="B3">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">SPEC 4.2 is precise about the data: <code>relation</code> is one row between two
+  entities, and the side you are reading from renders whichever label: forward or inverse
+  belongs to that direction, straight from <code>relation_type</code>. That much is fixed.
+  What is open is entirely about the interaction: where does a GM confirm that a mention has
+  become a typed relation, and how much of the catalogue behind it (label, inverse label,
+  cardinality, the entity types each end allows). Do they ever have to look at.</p>
+  <p>Get this wrong and the product regresses to the two tools it is explicitly not trying to be.
+  A dropdown-and-autocomplete form on every mention is Kanka. A GM who edits each side of a
+  relationship separately, from each entity's own page, is World Anvil, and is also how the two
+  sides drift: nothing stops "Aldric employs Corvin" existing next to "Corvin does not employ
+  Aldric" once they are two independent rows instead of one.</p>
+  <div class="pairwrap">
+    <div class="side">
+      <h5>Aldric Vane: Relations</h5>
+      <div class="rel"><span class="lbl">employed by</span> <a href="#" class="men">The Ashen Ledger</a></div>
+    </div>
+    <div class="mid">one row<br>rel_types.employs<br>&#8646;</div>
+    <div class="side">
+      <h5>The Ashen Ledger: Relations</h5>
+      <div class="rel"><span class="lbl">employs</span> <a href="#" class="men">Aldric Vane</a></div>
+    </div>
+  </div>
+  <p class="note" style="margin-top:6px;">Same primary key, both renderings. Neither entry has an
+  "add relation" button that writes a second row; every option below edits this one row from
+  whichever side the GM happens to be reading.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 1</span> the one click in "confirmed with one click" is
+    the accept, not a shortcut around it. It still produces a <code>revision</code> with
+    <code>author_kind = ai_accepted</code>). How that looks a month later is
+    <a href="b4-provenance-and-history.html">B4</a>'s decision, not this one. And
+    <span class="guardref">Guardrail 3</span> means the click is next to the sentence that
+    justified it, never next to a bare confidence number.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>In the margin</h3></header>
+      <p class="sub">Relations live in the entry's aside, always visible, the way A1's exemplar
+      already draws them. Confirmed rows sit at the top; a stale one carries a one-click retype;
+      a freshly inferred one arrives as its own small card with the evidence sentence and nothing
+      else. No relation_type dropdown lives here at all.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="relmock">
+            <div class="entry">
+              <h1 class="title">Aldric Vane</h1>
+              <div class="kicker">
+                <span class="badge">character</span>
+                <span>also: Captain Vane, the broken captain</span>
+                <span>&middot;</span><span>edited 4 minutes ago</span>
+              </div>
+              <div class="prose">
+                <p>Dismissed from the watch in the thaw after <a href="#" class="men t-place">the
+                Sable Winter</a>, he now answers to <a href="#" class="men t-place">the Ashen
+                Ledger</a>. He still drinks at <a href="#" class="men t-place">the Gilded
+                Rat</a>, in the corner seat nobody asks him to leave.</p>
+              </div>
+            </div>
+            <div class="aside">
+              <div class="sec">
+                <h4>Relations</h4>
+                <div class="rel"><span class="lbl">drinks at</span> <a href="#" class="men">The Gilded Rat</a></div>
+                <div class="rel">
+                  <span class="lbl">appointed by</span> <a href="#" class="men">Iselde Wrenn</a>
+                  <span class="badge soon">stale</span>
+                </div>
+                <div class="row" style="display:flex;justify-content:flex-end;margin:-2px 0 4px;">
+                  <button class="btn sm">Retype: dismissed by</button>
+                </div>
+                <div class="infer">
+                  <div class="rel"><span class="lbl">employed by</span> <a href="#" class="men">The Ashen Ledger</a> <span class="badge ai">inferred</span></div>
+                  <span class="why">&ldquo;&hellip;he now answers to the Ashen Ledger.&rdquo;</span>
+                  <div class="row"><button class="btn sm pri">Confirm</button><button class="btn sm">Not this</button></div>
+                </div>
+              </div>
+              <div class="sec">
+                <h4>Aliases</h4>
+                <div class="infer">
+                  <div class="rel"><span class="badge ai">inferred alias</span> &ldquo;the ex-captain&rdquo;</div>
+                  <span class="why">Debts of Valdoria &rsaquo; Act 2 &rsaquo; Ch 2 &rsaquo; Scene 3</span>
+                  <div class="row"><button class="btn sm pri">Add alias</button><button class="btn sm">Dismiss</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Aldric Vane, aside. One row is calm, one is flagged stale with a retype button, one is brand new and unconfirmed: three states of the same list.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Matches A1's exemplar exactly, so it costs nothing to build twice.</li>
+          <li>Relations stay visible while reading, which is when a GM notices one is wrong.</li>
+          <li>Prose is never interrupted; the mention keeps reading like a sentence.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>The margin is contested: proposals, relations, and (per B4) provenance all want it.</li>
+          <li>A relation from a paragraph the GM has scrolled past is easy to miss.</li>
+          <li>No room for the catalogue if a GM genuinely wants to browse it.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>In a dialog</h3></header>
+      <p class="sub">The aside stays a plain list with a "1 pending" line. Opening it is the only
+      way to act on an inferred relation, but the dialog has room for the full catalogue behind a
+      disclosure, for the GM who wants to see what else <code>character &rarr; faction</code>
+      allows.</p>
+
+      <figure class="mock">
+        <div class="frame dlg-frame">
+          <div class="relmock">
+            <div class="entry">
+              <h1 class="title">Aldric Vane</h1>
+              <div class="kicker">
+                <span class="badge">character</span>
+                <span>also: Captain Vane, the broken captain</span>
+                <span>&middot;</span><span>edited 4 minutes ago</span>
+              </div>
+              <div class="prose">
+                <p>Dismissed from the watch in the thaw after the Sable Winter, he now answers to
+                the Ashen Ledger. He still drinks at the Gilded Rat, in the corner seat nobody
+                asks him to leave.</p>
+              </div>
+            </div>
+            <div class="aside">
+              <div class="sec">
+                <h4>Relations</h4>
+                <div class="rel"><span class="lbl">drinks at</span> <a href="#" class="men">The Gilded Rat</a></div>
+                <div class="rel"><span class="lbl">appointed by</span> <a href="#" class="men">Iselde Wrenn</a><span class="badge soon">stale</span></div>
+                <div class="rel"><span class="badge ai">1 pending</span><span class="sp"></span><button class="btn sm pri">Review</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="dlg-backdrop">
+            <div class="dlg">
+              <h4>Type this relation</h4>
+              <p class="small muted mt0" style="margin-bottom:0;">From the edit 4 minutes ago.</p>
+              <p class="rel-line">Aldric Vane <i>employed by</i> The Ashen Ledger</p>
+              <p class="small muted">&ldquo;&hellip;he now answers to the Ashen Ledger.&rdquo;</p>
+              <div class="row"><button class="btn pri">Confirm</button><button class="btn sm">Not this</button></div>
+              <details class="cat">
+                <summary>Not "employed by"? 4 other types fit character &rarr; faction</summary>
+                <table>
+                  <tr><td>employs</td><td>employed by</td><td>1 &rarr; many</td></tr>
+                  <tr><td>member of</td><td>has member</td><td>many &rarr; many</td></tr>
+                  <tr><td>rival of</td><td>rival of</td><td>symmetric</td></tr>
+                  <tr><td>founded</td><td>founded by</td><td>many &rarr; 1</td></tr>
+                </table>
+              </details>
+            </div>
+          </div>
+        </div>
+        <figcaption>Reviewing the one pending relation opens this. The catalogue table only exists behind "4 other types fit," closed by default.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Full catalogue on demand, without ever defaulting to a form.</li>
+          <li>One focused decision at a time; nothing competes with it on screen.</li>
+          <li>Aside stays short: a count, not a growing stack of inference cards.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A modal is a stop; it is exactly the "form to fill in" feel SPEC 4.2 warns against, even with one button in it.</li>
+          <li>Reviewing several pending relations means opening and closing several dialogs.</li>
+          <li>The evidence sentence is quoted, not the live paragraph, so context is a step removed.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Inline, in the sentence</h3></header>
+      <p class="sub">The mention that produced the candidate gets a small dot; directly under the
+      paragraph, a one-line strip carries the inferred label, the confirm button, and a short,
+      cardinality-filtered alternative. The aside relations list becomes read-only reference.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="relmock">
+            <div class="entry">
+              <h1 class="title">Aldric Vane</h1>
+              <div class="kicker">
+                <span class="badge">character</span>
+                <span>also: Captain Vane, the broken captain</span>
+                <span>&middot;</span><span>edited 4 minutes ago</span>
+              </div>
+              <div class="prose">
+                <p>Dismissed from the watch in the thaw after <a href="#" class="men t-place">the
+                Sable Winter</a>, he now answers to <a href="#" class="men t-place hasflag">the
+                Ashen Ledger</a>. He still drinks at <a href="#" class="men t-place">the Gilded
+                Rat</a>, in the corner seat nobody asks him to leave.</p>
+                <div class="inline-confirm">
+                  <span>&#8618; <b>employed by</b> the Ashen Ledger, inferred from this sentence</span>
+                  <span class="sp"></span>
+                  <button class="btn sm pri">Confirm</button>
+                  <button class="btn sm">2 other fits &#9662;</button>
+                </div>
+              </div>
+            </div>
+            <div class="aside">
+              <div class="sec">
+                <h4>Relations</h4>
+                <div class="rel"><span class="lbl">drinks at</span> <a href="#" class="men">The Gilded Rat</a></div>
+                <div class="rel"><span class="lbl">appointed by</span> <a href="#" class="men">Iselde Wrenn</a><span class="badge soon">stale</span></div>
+                <p class="note">Editing happens at the mention. This list only reads.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>The dot on "the Ashen Ledger" and the strip under the paragraph are the same candidate; nothing about it lives anywhere else until confirmed.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Zero distance between the evidence and the decision: they are the same line.</li>
+          <li>Nothing to navigate to and back from; the click is where the eye already is.</li>
+          <li>A paragraph with three mentions can carry three independent, small decisions.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A dense paragraph of prose grows a stack of strips, which fights B1's document read.</li>
+          <li>Only room for a short filtered list, never the catalogue. A GM who wants to browse it has nowhere to go.</li>
+          <li>Once confirmed the strip disappears and the interaction leaves no trace at the mention, so a second read cannot tell what was decided there.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>An "add relation" button on each entity's own page</h3>
+    <p>It is the natural instinct: Aldric's page gets a button that writes "employs &rarr;
+    Ashen Ledger", the Ledger's page gets its own button that writes "employed by &rarr;
+    Aldric". SPEC 4.2 is explicit that this is wrong: <code>relation</code> is "one row, never
+    two, so the two sides cannot drift apart." Two independent writes can end in one accepted
+    and one rejected, one edited and one forgotten: a contradiction inside the graph
+    itself, which is exactly the class of thing <span class="guardref">Guardrail 7</span>'s audit,
+    running at F1 &asymp; 52%, is unlikely to ever catch. This is the World Anvil and Kanka
+    failure the assignment names, and it is a schema violation, not a taste call.</p>
+  </div>
+  <div class="callout rejected mt24">
+    <h3>A relation_type form on every mention</h3>
+    <p>Type dropdown, cardinality shown as a hint, an autocomplete for the far end, a submit
+    button. It is the most "correct" data-entry pattern and SPEC 4.2 forbids it by name:
+    "typing must be inferred and confirmed with one click, never imposed as a form to fill in."
+    A form on every mention is what makes Kanka feel like data entry instead of writing, and it
+    punishes the GM for every sentence that happens to name two things at once.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>A, with B's catalogue disclosure as its escape hatch</h3>
+    <p>I would take <b>A</b>. It costs nothing against A1's exemplar, which already draws
+    relations in the aside, and it keeps the one thing prose needs most: nothing appearing
+    mid-sentence while the GM is trying to read it. The inference and cardinality filter get the
+    type right often enough that a full catalogue browser is a rare need, not a daily one.</p>
+    <p>For that rare case, "not this" on the inferred card does not open a new UI. It
+    expands the same small disclosure table B draws in its dialog, right inside the aside card.
+    That way A and B are not really competing designs, they are the common case and the escape
+    hatch for the uncommon one.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: ship it against a homebrew world with
+    unusual relation_types (titles, oaths, debts, the kind of thing Valdoria Reach has plenty of)
+    and watch how often "not this" gets clicked. A low rate means the aside was enough. A high
+    rate on esoteric catalogues means the catalogue needed to be reachable on its own, not just as
+    an escape hatch, and that is a much smaller change than switching to B outright.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#16</b> the relation_type catalogue has to be queryable well enough to power ranking
+      (which type is inferred first) and the cardinality-filtered alternates, not just a lookup
+      table for rendering the inverse label.</li>
+      <li><b>#15</b> aliases[] gets a second write path: the one-click confirm here, separate from
+      editing the field directly in an entry's own form.</li>
+      <li>A confirm here still writes a <code>revision</code> with <code>author_kind =
+      ai_accepted</code>, exactly like a full propagation accept. <b>B4</b> owns what that looks
+      like afterwards, and it is a real question: a relation confirm is a much smaller event than
+      a ten-entry propagation accept, but the record it leaves has to be findable the same way.</li>
+      <li>Deferred to <b>C2</b>: whether a not-yet-confirmed inferred relation is also a
+      <code>proposal</code> row that shows up in the general proposal surface, or a lighter
+      mechanism scoped to mentions only. Both are defensible; this page assumes the latter but
+      does not decide it.</li>
+      <li>Hard to undo once shipped: GMs learn where relation editing lives within a session or
+      two. Moving it later (aside to dialog, say) is a retraining cost, not just a redesign.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

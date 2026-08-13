@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  /* Dark palette, tokens lifted from A1's skin-c so C1 is tested against the
+     same two palettes the product will actually ship. */
+  .skin-dark {
+    --bg: #0f1114; --panel: #171a1f; --panel-2: #12151a;
+    --ink: #e9e6e0; --ink-2: #b9b4ab; --muted: #7d8794;
+    --line: #262b33; --line-2: #333a45;
+    --accent: #57c3a4; --accent-ink: #8fd9c3; --accent-bg: #14312a;
+    --ai: #a893ff; --ai-bg: #211d38; --ai-line: #3d3563;
+    --ok: #6fce9f; --ok-bg: #14301f; --danger: #ef8b74; --danger-bg: #341a16;
+    --warn: #e5b567; --warn-bg: #322612;
+  }
+
+  /* removed text, shared by every treatment: neutral strike, never AI-hued,
+     because the thing going away is not "AI text", it is just leaving. */
+  .rm { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line-2); }
+
+  /* B: underline + margin marker */
+  .ai-b {
+    text-decoration: underline; text-decoration-style: dashed;
+    text-decoration-thickness: 2px; text-underline-offset: 4px;
+    text-decoration-color: var(--ai); color: var(--ink-2);
+  }
+  .mrow { position: relative; }
+  .mrow .mrk {
+    position: absolute; left: -19px; top: 3px; width: 13px; height: 13px;
+    border-radius: 4px; background: var(--ai); color: #fff;
+    font: 700 9px/13px var(--mono); text-align: center;
+  }
+
+  /* C: layered card, sits above the entry rather than inside it */
+  .stackwrap { position: relative; }
+  .stack-base { opacity: .5; }
+  .stack-top {
+    position: relative; margin: -8px 0 0 20px; max-width: 34em;
+    background: var(--ai-bg); border: 1px solid var(--ai-line); border-radius: 8px;
+    padding: 12px 14px; box-shadow: 0 14px 26px -18px rgba(0,0,0,.5), 0 0 0 3px var(--panel);
+  }
+  .stack-tag { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .stack-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+  .frame .entry { padding: 20px 26px; }
+  .worst-row { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 18px; margin-top: 4px; }
+  @media (max-width: 1100px) { .worst-row { grid-template-columns: 1fr; } }
+  .worst-row .frame .entry { padding: 16px 20px; }
+  .worst-row .prose { font-size: 13.5px; }
+  .mini-cap { font: 600 12px/1.4 var(--mono); color: var(--muted); margin: 0 0 8px; }
+</style>
+</head>
+<body data-decision="C1">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">Every propagation run and every completed field puts unaccepted text next
+  to written text on the same page. The GM has to tell them apart at a glance, forever,
+  because the whole loop depends on nobody mistaking a proposal for canon. What the spec
+  does not fix is how loud that marking gets to be. Pick the wrong answer by accident and
+  either the entry looks fine for a one-word change and unreadable for a real rewrite, or
+  it looks safely muted and a GM skims past a proposal thinking it is already theirs.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 2</span> AI text is visually distinct until
+    accepted, and stays tracked afterwards. "Visually distinct" is doing the real work in
+    that sentence: distinct for a reader who cannot rely on hue, not only for the reader
+    who can. A treatment that only works in full colour vision is not visually distinct,
+    it is visually distinct for most people.</p>
+  </div>
+  <p>Two constraints outside this page shape it anyway. A1 reserves violet as the one hue
+  that means "not yours yet", in both the light and the dark palette, so whatever marking
+  wins here has to read correctly against both sets of tokens. And <a href="c2-proposal-routing.html">C2</a>
+  decides propagation runs in the background after a save, which means the marking has to
+  survive being noticed minutes or hours later, cold, not in the middle of watching it
+  happen.</p>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Tint and rule</h3></header>
+      <p class="sub">The proposed sentence sits inline, tinted violet with a left rule,
+      immediately after the old sentence struck through. What is being asked for is shown
+      in place, in full, as part of the paragraph.</p>
+
+      <div class="uxtabs" data-ux-tabs="c1a"><button data-pane="light">Light</button><button data-pane="dark">Dark</button></div>
+      <div class="uxpane" data-group="c1a" data-name="light">
+        <figure class="mock">
+          <div class="frame">
+            <div class="entry">
+              <h1 class="title">Aldric Vane</h1>
+              <div class="kicker"><span class="badge">character</span><span>also: Captain Vane, the broken captain</span></div>
+              <div class="prose">
+                <p><span class="rm">Captain of the Valdoria Watch, forty sworn under him in the Lantern Quarter.</span>
+                <span class="ai-text">Dismissed from the watch in the thaw after the Sable Winter, he now answers to the Ashen Ledger.</span></p>
+              </div>
+            </div>
+          </div>
+          <figcaption>Single-sentence proposal, light palette.</figcaption>
+        </figure>
+      </div>
+      <div class="uxpane" data-group="c1a" data-name="dark">
+        <figure class="mock">
+          <div class="frame skin-dark">
+            <div class="entry">
+              <h1 class="title">Aldric Vane</h1>
+              <div class="kicker"><span class="badge">character</span><span>also: Captain Vane, the broken captain</span></div>
+              <div class="prose">
+                <p><span class="rm">Captain of the Valdoria Watch, forty sworn under him in the Lantern Quarter.</span>
+                <span class="ai-text">Dismissed from the watch in the thaw after the Sable Winter, he now answers to the Ashen Ledger.</span></p>
+              </div>
+            </div>
+          </div>
+          <figcaption>Same proposal, dark palette.</figcaption>
+        </figure>
+      </div>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Shows the exact proposed replacement without leaving the entry, so a one-sentence change is legible at a glance.</li>
+          <li>Reuses the provisional <code>.ai-text</code> class already in <code>ux.css</code>, so choosing A as-is costs no new component.</li>
+          <li>The left rule is a border, not only a fill, so it still reads under a grayscale filter.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A four-sentence rewrite becomes four struck-through and tinted pairs stacked in one paragraph. See the worst case below.</li>
+          <li>Shows the proposed wording as if it already belonged to the entry, which risks a skimming GM reading unaccepted text as canon.</li>
+          <li>Strikethrough plus tint roughly doubles the reading length of every touched paragraph.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Underline and margin marker</h3></header>
+      <p class="sub">The entry keeps its own written text, untouched. A dashed underline
+      marks which sentence has a pending proposal, and one numbered marker per paragraph
+      says how many. The proposed wording itself lives in the diff, not in the entry.</p>
+
+      <div class="uxtabs" data-ux-tabs="c1b"><button data-pane="light">Light</button><button data-pane="dark">Dark</button></div>
+      <div class="uxpane" data-group="c1b" data-name="light">
+        <figure class="mock">
+          <div class="frame">
+            <div class="entry">
+              <h1 class="title">Aldric Vane</h1>
+              <div class="kicker"><span class="badge">character</span><span>also: Captain Vane, the broken captain</span></div>
+              <div class="prose">
+                <p class="mrow"><span class="mrk">1</span><span class="ai-b">Captain of the Valdoria Watch, forty sworn under him in the Lantern Quarter.</span></p>
+              </div>
+            </div>
+          </div>
+          <figcaption>Single-sentence proposal, light palette. Original wording stays; only the marker changes.</figcaption>
+        </figure>
+      </div>
+      <div class="uxpane" data-group="c1b" data-name="dark">
+        <figure class="mock">
+          <div class="frame skin-dark">
+            <div class="entry">
+              <h1 class="title">Aldric Vane</h1>
+              <div class="kicker"><span class="badge">character</span><span>also: Captain Vane, the broken captain</span></div>
+              <div class="prose">
+                <p class="mrow"><span class="mrk">1</span><span class="ai-b">Captain of the Valdoria Watch, forty sworn under him in the Lantern Quarter.</span></p>
+              </div>
+            </div>
+          </div>
+          <figcaption>Same proposal, dark palette.</figcaption>
+        </figure>
+      </div>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The entry never shows text that is not yet true; the GM reads what they wrote, marked, not rewritten.</li>
+          <li>One marker per paragraph, not per sentence, so a four-sentence proposal is exactly as visible as a one-sentence one.</li>
+          <li>A dashed underline and a numbered marker both carry meaning without colour, so it holds under deuteranopia.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Adds a click between "I noticed something" and "I can read the proposal", which a one-sentence change may not need.</li>
+          <li>The marker needs a gutter the entry does not otherwise reserve, which competes with a docked sidebar for room.</li>
+          <li>A GM who never opens a marker gets no visible value from the copilot even though it did the work.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Layered card</h3></header>
+      <p class="sub">The entry is never mutated. A card carrying the full proposed
+      paragraph floats above it, offset like a note dropped on a page, with accept and
+      reject on the card itself.</p>
+
+      <div class="uxtabs" data-ux-tabs="c1c"><button data-pane="light">Light</button><button data-pane="dark">Dark</button></div>
+      <div class="uxpane" data-group="c1c" data-name="light">
+        <figure class="mock">
+          <div class="frame">
+            <div class="entry">
+              <h1 class="title">Aldric Vane</h1>
+              <div class="kicker"><span class="badge">character</span><span>also: Captain Vane, the broken captain</span></div>
+              <div class="prose stackwrap">
+                <div class="stack-base"><p>Captain of the Valdoria Watch, forty sworn under him in the Lantern Quarter.</p></div>
+                <div class="stack-top">
+                  <div class="stack-tag"><span class="badge ai">AI &middot; unaccepted</span><span class="small muted">from propagation, 2 min ago</span></div>
+                  <p>Dismissed from the watch in the thaw after the Sable Winter, he now answers to the Ashen Ledger.</p>
+                  <div class="stack-actions"><button class="btn sm pri">Accept</button><button class="btn sm">Reject</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Single-sentence proposal, light palette. Base paragraph is untouched, dimmed only to push focus to the card.</figcaption>
+        </figure>
+      </div>
+      <div class="uxpane" data-group="c1c" data-name="dark">
+        <figure class="mock">
+          <div class="frame skin-dark">
+            <div class="entry">
+              <h1 class="title">Aldric Vane</h1>
+              <div class="kicker"><span class="badge">character</span><span>also: Captain Vane, the broken captain</span></div>
+              <div class="prose stackwrap">
+                <div class="stack-base"><p>Captain of the Valdoria Watch, forty sworn under him in the Lantern Quarter.</p></div>
+                <div class="stack-top">
+                  <div class="stack-tag"><span class="badge ai">AI &middot; unaccepted</span><span class="small muted">from propagation, 2 min ago</span></div>
+                  <p>Dismissed from the watch in the thaw after the Sable Winter, he now answers to the Ashen Ledger.</p>
+                  <div class="stack-actions"><button class="btn sm pri">Accept</button><button class="btn sm">Reject</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Same proposal, dark palette.</figcaption>
+        </figure>
+      </div>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The entry reads exactly as written even mid-proposal, a direct answer to guardrail 4's "AI off still looks fine" test.</li>
+          <li>Accept and reject sit on the card itself, closer to the decision than a separate proposal queue.</li>
+          <li>The offset and shadow read as "not yet here" by position and depth, not colour, at any contrast setting.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Three stacked cards for three touched paragraphs push the entry's height up before any of them is read.</li>
+          <li>Easy to visually skip on a busy screen, which cuts against guardrail 2's "unmistakable".</li>
+          <li>Needs its own responsive behaviour at narrow entry widths that B1 has not settled yet.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="mt24">The worst case, together: a proposal that rewrites all four sentences of
+  one paragraph, the same three treatments, side by side, dark palette (the per-option
+  tabs above already cover light). Original wording is expanded from the entries table
+  for Aldric Vane, Iselde Wrenn and the Valdoria Watch, reused verbatim from A1's mock.</p>
+  <div class="worst-row">
+    <figure class="mock tight">
+      <p class="mini-cap">A &middot; tint and rule</p>
+      <div class="frame skin-dark"><div class="entry"><div class="prose">
+        <p><span class="rm">Captain of the Valdoria Watch, forty sworn under him in the Lantern Quarter.</span> <span class="ai-text">Dismissed from the watch in the thaw after the Sable Winter, he now answers to the Ashen Ledger.</span> <span class="rm">Iselde Wrenn appointed him after the second freeze, and the harbour has trusted his badge since.</span> <span class="ai-text">Iselde Wrenn broke him herself, the same magistrate who appointed him.</span> <span class="rm">He drinks at the Gilded Rat most nights, and the watch never bothers him there.</span> <span class="ai-text">He still drinks at the Gilded Rat, in the corner seat nobody asks him to leave.</span></p>
+      </div></div></div>
+    </figure>
+    <figure class="mock tight">
+      <p class="mini-cap">B &middot; underline and marker</p>
+      <div class="frame skin-dark"><div class="entry"><div class="prose mrow">
+        <span class="mrk">4</span>
+        <p><span class="ai-b">Captain of the Valdoria Watch, forty sworn under him in the Lantern Quarter. Iselde Wrenn appointed him after the second freeze, and the harbour has trusted his badge since. He drinks at the Gilded Rat most nights, and the watch never bothers him there. Three hundred and forty sworn take his word over a stranger's.</span></p>
+      </div></div></div>
+    </figure>
+    <figure class="mock tight">
+      <p class="mini-cap">C &middot; layered card</p>
+      <div class="frame skin-dark"><div class="entry"><div class="prose stackwrap">
+        <div class="stack-base"><p>Captain of the Valdoria Watch, forty sworn under him in the Lantern Quarter. Iselde Wrenn appointed him after the second freeze. He drinks at the Gilded Rat most nights.</p></div>
+        <div class="stack-top"><div class="stack-tag"><span class="badge ai">4 sentences</span></div><p>Dismissed after the Sable Winter, now answers to the Ashen Ledger. Broken by the same magistrate who appointed him. Still drinks at the Gilded Rat, corner seat.</p></div>
+      </div></div></div>
+    </figure>
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>Colour alone: violet text, no background, no border, no shape change</h3>
+    <p>It is the cheapest possible implementation of "distinct" and the first thing a
+    developer reaches for when the token exists. It also fails <span class="guardref">Guardrail 2</span>
+    for a colour-blind reader: violet-on-ink can sit close enough to the default link
+    colour under deuteranopia that "AI text" and "a mention chip" become the same grey
+    smear. "Visually distinct" has to mean distinct for every reader, not for the
+    majority. Every option above pairs the hue with a border, an underline shape, or a
+    position offset for exactly this reason.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>B, underline and margin marker</h3>
+    <p>Take <b>B</b>. It is the only treatment that never puts unaccepted wording into the
+    entry's own reading flow, which matters more than it looks: A and C both show the
+    proposed sentence as if it already belonged to the paragraph, and a GM skimming their
+    own canon at reading speed, not review speed, is exactly the reader guardrail 2 is
+    protecting. B keeps the entry saying only what the GM actually wrote, and moves the
+    proposed wording to the one place it is read deliberately: the diff, decided in
+    <a href="c4-diff-presentation.html">C4</a>. The worst-case row above shows why this
+    matters at scale too: A's four stacked strike-and-tint pairs are close to unreadable
+    as prose, B's single "4" marker is not, and C is the only real competitor, at the cost
+    of a card that has to find room on every touched paragraph.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: put a real four-sentence
+    propagation proposal (the Valdoria Watch worst case above is representative) in front
+    of a GM who has never seen the marker before, and watch whether they notice it at
+    all during normal reading, or whether it needs to be louder, with a bigger marker, or a
+    top-of-entry banner before it earns the word "unmistakable".</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#106</b> ships the marker CSS and the paragraph-level counting logic
+      described here, not a placeholder tint. The provisional <code>.ai-text</code> class
+      already in <code>ux.css</code> is retired once this ships, since B does not use it
+      for the marking itself.</li>
+      <li><b>#66</b> inherits the same vocabulary for a different content type: a
+      generated portrait gets the same violet hue and a badge shape rather than its own
+      convention, so "AI, not yet yours" means one thing across text and media.</li>
+      <li>Hard to undo: once a GM learns "dashed underline plus a number" means proposal
+      pending, changing the shape later breaks a habit, not just a stylesheet.</li>
+      <li>Deferred on purpose: how the marking changes once a proposal is <i>accepted</i>;
+      guardrail 2 also requires accepted AI text to "stay tracked". That belongs to B4,
+      where facts, spans and revision provenance are designed against the full authorship
+      model, not two paragraphs of fixture.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

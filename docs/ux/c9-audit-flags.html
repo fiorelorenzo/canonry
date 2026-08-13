@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .strings { width: 100%; border-collapse: collapse; font-size: 13px; margin: 14px 0 4px; max-width: 60em; }
+  .strings th { text-align: left; font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 0 14px 8px 0; border-bottom: 1px solid var(--line-2); }
+  .strings td { padding: 8px 14px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .strings td.yes { color: var(--ink-2); }
+  .strings td.no { color: var(--danger); }
+  .flagpair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+  .flagpair div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: 12px; color: var(--ink-2); }
+  .flagpair .who { font: 600 10px/1.4 var(--mono); text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+  .badge.warn { background: var(--warn-bg); border-color: #eadcbe; color: var(--warn); }
+</style>
+</head>
+<body data-decision="C9">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">SPEC §5.2 fixes the mechanics hard: audit runs on the sub-graph a recent edit touched,
+  produces at most a handful of flags, and each one carries the two statements that disagree. What is open is
+  where a flag surfaces: and just as much, in exactly what words, because <span class="guardref">Guardrail
+  7</span> can be broken by a technically correct layout wearing the wrong copy. "3 issues found" reads as a
+  verdict no matter which corner of the screen it sits in. The number worth holding in view while writing any
+  of it: LLM contradiction detection sits around <b>F1 &asymp; 52%</b>, barely better than a coin flip at
+  telling a real contradiction from two true statements that merely sound like they disagree. A flag is a
+  question addressed to the GM, never a finding addressed at the canon.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 7</span> never promise consistency. The product says "here is what
+    does not add up"; it never says "your canon is consistent," and copy implying the second is a bug.</p>
+  </div>
+  <table class="strings">
+    <tr><th>Allowed</th><th>Forbidden</th></tr>
+    <tr><td class="yes">"Aldric Vane and Cairnmouth do not agree on who led the watch through the second freeze."</td><td class="no">"Contradiction detected."</td></tr>
+    <tr><td class="yes">"Worth checking, not necessarily wrong."</td><td class="no">"Error: 2 statements conflict."</td></tr>
+    <tr><td class="yes">"2 statements disagree."</td><td class="no">"92% likely inconsistent."</td></tr>
+    <tr><td class="yes">"This does not look consistent. We don't know which one is right."</td><td class="no">"Your canon is consistent." / "No conflicts found."</td></tr>
+    <tr><td class="yes">"Dismiss" &middot; "Open both entries"</td><td class="no">"Fix this automatically"</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts three">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>A section of the proposal surface</h3></header>
+      <p class="sub">An "Audit" section in the aside, next to Proposals.</p>
+      <figure class="mock">
+        <div class="frame" style="padding:14px;max-width:340px">
+          <div class="sec"><h4>Audit &middot; 1</h4>
+            <div class="card">
+              <p class="small mt0">Aldric Vane and Cairnmouth do not agree on who led the watch through the second freeze.</p>
+              <div class="flagpair">
+                <div><div class="who">Aldric Vane</div>"Dismissed from the watch in the thaw after the Sable Winter."</div>
+                <div><div class="who">Cairnmouth</div>"Captain Vane led the watch through the second freeze, the winter after the thaw."</div>
+              </div>
+              <p class="small muted mt0">Worth checking, not necessarily wrong.</p>
+              <button class="btn sm">Dismiss</button> <button class="btn sm">Open both entries</button>
+            </div>
+          </div>
+        </div>
+        <figcaption>Same aside C2 already uses for Proposals, one section down.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Same place the GM already checks after an edit: no separate surface to discover.</li>
+          <li>Room to show both statements side by side without truncation.</li>
+          <li>"At most a handful" reads as a short list here, not as an interruption.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>If the GM never opens that aside this session, the flag sits unread the whole time.</li>
+          <li>Sitting next to Proposals invites the same posture as an editable diff, and a flag is not something to accept or reject.</li>
+          <li>Needs its own visual weight to avoid reading as a fourth kind of proposal at a glance.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">B</span><h3>A badge on the entry</h3></header>
+      <p class="sub">A quiet marker on the entry itself, where the disagreement actually lives.</p>
+      <figure class="mock">
+        <div class="frame" style="padding:14px;max-width:340px">
+          <div class="entry" style="padding:0">
+            <div class="kicker" style="margin-bottom:8px">
+              <h1 class="title" style="font-size:18px">Aldric Vane</h1>
+              <span class="badge warn">1 to check</span>
+            </div>
+          </div>
+          <div class="ev open" style="display:block">
+            <div class="pop" style="display:block;position:static;width:auto">
+              <b>Worth checking, not necessarily wrong.</b>
+              <div class="flagpair" style="margin-top:6px">
+                <div><div class="who">Aldric Vane</div>"Dismissed &hellip; after the Sable Winter."</div>
+                <div><div class="who">Cairnmouth</div>"led the watch through the second freeze&hellip;"</div>
+              </div>
+              <span class="src">Neither entry is edited automatically.</span>
+            </div>
+          </div>
+        </div>
+        <figcaption>Opens right where the mismatch lives; Cairnmouth carries the same badge, pointing here.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Surfaces exactly where the contradiction lives: open Aldric Vane, see there is something about Aldric Vane.</li>
+          <li>A quiet badge, not a queue item, is honest about what a 52% F1 detector can promise: a look, not a task.</li>
+          <li>Costs nothing to repeat: both Aldric Vane and Cairnmouth carry the same badge, pointing at one flag.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Invisible until the GM happens to open one of the two entries involved.</li>
+          <li>No single place to see everything a recent edit's audit produced.</li>
+          <li>A badge that only shows a count risks reading as a health indicator over time, "0" looks like a pass, which guardrail 7 forbids implying.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>A periodic digest</h3></header>
+      <p class="sub">Flags collect into a weekly or session-boundary list.</p>
+      <figure class="mock">
+        <div class="frame" style="padding:14px;max-width:340px">
+          <div class="sec"><h4>This week &middot; 1</h4>
+            <div class="rows">
+              <div class="r"><span class="sp"><b>Aldric Vane</b> &harr; <b>Cairnmouth</b><br><span class="why">who led the watch through the second freeze</span></span></div>
+            </div>
+            <p class="small muted" style="margin-top:8px">Worth checking, not a finding. Reviewed weekly, at most a handful at a time.</p>
+          </div>
+        </div>
+        <figcaption>One list, read on the GM's own schedule.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Batches naturally with a GM's own rhythm instead of interrupting mid-edit.</li>
+          <li>One list, one place to write the disclaimer once, instead of restating it per flag.</li>
+          <li>Cheap to build on top of A or B, as a second read of the same data.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A contradiction about tonight's scene sitting unseen for up to a week defeats the point of catching it near the edit.</li>
+          <li>"At most a handful" already caps volume; batching solves a noise problem that does not exist here.</li>
+          <li>A digest that arrives whether or not there is anything worth reading habituates the GM to ignore it.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>An aggregate consistency score on the universe</h3>
+    <p>"Valdoria Reach: 94% consistent" is the kind of number a dashboard wants to show, and it is exactly
+    what <span class="guardref">Guardrail 7</span> forbids by name: SPEC §3 singles this phrasing out
+    directly. With contradiction detection near F1 52%, a percentage across the whole graph is closer to
+    noise than a metric, and it implies a certainty the two-statement flag underneath it was never built to
+    support.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>B as the surface, reading the same list A would show</h3>
+    <p>Take <b>B</b>: the badge lives where the disagreement actually is, and it is a pointer into one
+    underlying flag list, not a second copy of the data: the same aside section from A exists regardless, as
+    the one place to see everything a recent audit produced, reachable without having opened either entry.
+    They are not competing surfaces. C is worth reconsidering only if audit volume per universe grows past "a
+    handful," which the cap makes unlikely by design.</p>
+    <p><b>Cheapest way to find out this is wrong:</b> count how often a GM opens the Audit section without
+    having first seen a badge on an entry. If that number is not near zero, the badge is not earning its
+    place and the aside list alone would have been enough.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#55</b> ships with both the badge and the aside list reading the same underlying flags, and with
+      the wording from the table above verbatim, not a rewritten version of it.</li>
+      <li>Once "worth checking, not necessarily wrong" ships as the framing, tightening the language later
+      toward certainty (even something as small as "check this") walks back a promise the whole product
+      depends on. Any future copy change here should be checked against guardrail 7 before it ships.</li>
+      <li>Deferred: a digest or notification surface (option C) is not covered by any current decision id. If
+      audit volume ever grows past a handful, it needs its own decision, not a retrofit of this one.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

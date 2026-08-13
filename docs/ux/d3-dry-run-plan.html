@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .bucket + .bucket { margin-top: 10px; }
+  .bucket > header { display: flex; align-items: center; gap: 10px; }
+  .chips { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .chip {
+    font: 600 12px/1 var(--mono); padding: 6px 11px; border-radius: 999px;
+    border: 1px solid var(--line-2); background: var(--panel); color: var(--ink-2); cursor: pointer;
+  }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: var(--panel); }
+  .chip.conflict { color: var(--danger); border-color: #eccbc2; }
+  .steps { display: flex; gap: 6px; margin-bottom: 14px; font: 600 11px/1 var(--mono); color: var(--muted); }
+  .steps span { padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line-2); }
+  .steps span.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .steps span.done { color: var(--ok); border-color: #c6dfd0; }
+</style>
+</head>
+<body data-decision="D3">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">SPEC 6.4 fixes the words: "142 unchanged, 19 to update, 4
+  conflicts to review, 31 new," and it fixes that the GM "can accept the whole
+  plan or walk it entity by entity." It does not fix how those four buckets are
+  laid out or what "accept the whole plan" actually presses.</p>
+  <p>There is a trap here worth naming before drawing anything.
+  <span class="guardref">Guardrail 1</span> says no accept-all default,
+  and propagation caps at ten entries with no bulk option at all
+  (SPEC 5.1). Yet import explicitly allows accepting a whole plan of dozens of
+  entries in one click. The spec is not contradicting itself: unchanged entries
+  are never proposals, they update silently because nothing of the user's is at
+  stake (SPEC 6.4's merge policy). Updates and new entities are a bounded,
+  freshly-computed plan the GM has already seen counted and can inspect before
+  pressing anything. Conflicts are the one bucket where the user's own edit is on
+  the line, and the merge policy is absolute: "never overwrite." A whole-plan
+  accept that also swallows conflicts is not a shortcut, it is the exact failure
+  guardrail 1 exists to prevent. The job of this page is to make that boundary
+  visible, not to make it a rule the reader has to already know.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 1</span> explicit accept, per entry, no
+    accept-all default: satisfied here because "accept the whole plan" is one
+    deliberate action over a bucket the GM has already inspected, and it is never
+    offered for the conflicts bucket. That bucket is always walked, one by one.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Four buckets, one card each</h3></header>
+      <p class="sub">The plan is a small dashboard: a summary card, then one card
+      per bucket. Unchanged and conflicts get no bulk button by construction;
+      updates and new each get their own "accept all" scoped to that bucket only.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding: 20px;">
+          <div class="card">
+            <header><h4>Dry run: valdoria-reach.zip, re-import</h4></header>
+            <p class="small muted mt0">142 unchanged, 19 to update, 4 conflicts to review, 31 new.</p>
+            <button class="btn pri">Accept plan: 19 updates + 31 new</button>
+            <span class="small muted" style="margin-left: 10px;">4 conflicts are always reviewed one by one, never included.</span>
+          </div>
+          <div class="bucket card">
+            <header><h4>Unchanged</h4><span class="badge later">142</span><span class="sp"></span>
+            <span class="small muted">matched on content hash, nothing to review</span></header>
+          </div>
+          <div class="bucket card">
+            <header><h4>To update</h4><span class="badge">19</span><span class="sp"></span><button class="btn sm">Accept all 19</button></header>
+            <div class="rows">
+              <div class="r"><span class="men t-place">Cairnmouth</span><span class="sp"></span><span class="why">population paragraph reworded at source</span></div>
+              <div class="r"><span class="men t-char">Mother Sennah</span><span class="sp"></span><span class="why">new alias found: "the Winter Surgeon"</span></div>
+              <div class="r"><span class="men">The Valdoria Watch</span><span class="sp"></span><span class="why">sworn count changed, 340 &rarr; 318</span></div>
+              <div class="r"><span class="why muted">+ 16 more</span></div>
+            </div>
+          </div>
+          <div class="bucket card">
+            <header><h4>Conflicts</h4><span class="badge now">4</span><span class="sp"></span><span class="small muted">reviewed individually, never bulk</span></header>
+            <div class="rows">
+              <div class="r"><span class="men t-place">The Gilded Rat</span><span class="sp"></span><span class="why">description edited by you, changed at source too</span><button class="btn sm">Review</button></div>
+              <div class="r"><span class="why muted">+ 3 more</span></div>
+            </div>
+          </div>
+          <div class="bucket card">
+            <header><h4>New</h4><span class="badge ok">31</span><span class="sp"></span><button class="btn sm">Accept all 31</button></header>
+            <div class="rows">
+              <div class="r"><span class="men t-place">Il Ratto Dorato</span><span class="sp"></span><span class="why">below threshold, kept separate from The Gilded Rat</span></div>
+              <div class="r"><span class="why muted">+ 30 more</span></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>The whole-plan button's own label states what it covers; the
+        conflicts card physically cannot grow a bulk button.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The bucket boundary from SPEC 6.4 is a boundary in the layout, not a rule the GM has to remember.</li>
+          <li>Scoped bulk actions ("accept all 19") are legible: the count on the button matches the count in the header.</li>
+          <li>A GM who only cares about conflicts can ignore three of the four cards entirely.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Four cards for 214 documents is a lot of vertical space before any single entity is visible.</li>
+          <li>The unchanged card, at 142 rows, has to stay collapsed or the page becomes a long scroll to nothing.</li>
+          <li>Walking "entity by entity" means jumping between cards rather than following one continuous list.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>One list, filtered by chips</h3></header>
+      <p class="sub">A single flat list of 214 rows. Four chips filter the view;
+      walking is scrolling. Selection and bulk accept operate only on what is
+      currently visible, and the conflicts chip disables the select-all control.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding: 20px;">
+          <div class="chips">
+            <span class="chip">Unchanged 142</span>
+            <span class="chip on">To update 19</span>
+            <span class="chip conflict">Conflicts 4</span>
+            <span class="chip">New 31</span>
+          </div>
+          <div class="card">
+            <header><h4>19 shown, filtered to "To update"</h4><span class="sp"></span>
+            <button class="btn sm">Select all 19 shown</button>
+            <button class="btn sm pri">Accept selected</button></header>
+            <div class="rows">
+              <div class="r on"><span class="men t-place">Cairnmouth</span><span class="sp"></span><span class="why">population paragraph reworded</span></div>
+              <div class="r on"><span class="men t-char">Mother Sennah</span><span class="sp"></span><span class="why">new alias found</span></div>
+              <div class="r on"><span class="men">The Valdoria Watch</span><span class="sp"></span><span class="why">sworn count changed</span></div>
+              <div class="r"><span class="why muted">+ 16 more rows, same filter</span></div>
+            </div>
+          </div>
+          <p class="small muted" style="margin-top: 10px;">Switching the chip to
+          "Conflicts" removes "Select all" from the toolbar; each of the 4 opens
+          its own review instead.</p>
+        </div>
+        <figcaption>The chip you are on decides what "select all" can even see.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One list, one scroll position, one mental model for "walk it entity by entity" across all 214.</li>
+          <li>Chips double as the count summary, no separate dashboard card needed.</li>
+          <li>Filtering to conflicts alone is a fast way to find the 4 that matter most.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Safety now depends on the conflicts chip correctly disabling bulk select every time, a single CSS or state bug away from the exact overwrite guardrail 1 forbids.</li>
+          <li>142 unchanged rows are technically in the list even if collapsed by default, tempting a "show all" that nobody should press.</li>
+          <li>Harder to see the shape of the whole plan at a glance; the chips carry the counts but not the relative weight.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Guided steps</h3></header>
+      <p class="sub">A short wizard: unchanged is skipped automatically, then one
+      step for updates, one for conflicts, one for new. Each step ends before the
+      next begins.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding: 20px;">
+          <div class="steps">
+            <span class="done">Unchanged 142 &middot; skipped</span>
+            <span class="on">Updates 19</span>
+            <span>Conflicts 4</span>
+            <span>New 31</span>
+          </div>
+          <div class="card">
+            <header><h4>Step 2 of 4: 19 updates</h4></header>
+            <div class="rows">
+              <div class="r"><span class="men t-place">Cairnmouth</span><span class="sp"></span><span class="why">population paragraph reworded</span></div>
+              <div class="r"><span class="men t-char">Mother Sennah</span><span class="sp"></span><span class="why">new alias found</span></div>
+              <div class="r"><span class="why muted">+ 17 more, this step only</span></div>
+            </div>
+            <button class="btn pri" style="margin-top:10px;">Accept these 19, next: conflicts</button>
+            <button class="btn sm">Skip for now</button>
+          </div>
+        </div>
+        <figcaption>Conflicts get their own dedicated step with no accept button
+        at all, only "Review the first of 4".</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Impossible to accidentally bulk-accept conflicts, the step simply never offers it.</li>
+          <li>Good for a first import where the GM genuinely wants to look at every bucket in order.</li>
+          <li>The "skipped" state on unchanged is explicit rather than implied by a collapsed card.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Forces a sequence on a GM who just wants to accept everything and go check the 4 conflicts, adding clicks for the common case.</li>
+          <li>No view of the whole plan at once, which fights "accept the whole plan" reading as one honest action rather than four small ones.</li>
+          <li>A wizard is the heaviest of the three to build and the easiest to make feel like a form, the exact tedium SPEC 4.2 warns against for a different surface.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>One "Accept everything" button covering all four buckets</h3>
+    <p>It is the most literal reading of "accept the whole plan" and the most
+    dangerous one. The merge policy table in SPEC 6.4 is unconditional for
+    conflicts: "conflict, raise a proposal... never overwrite." A button that also
+    resolves the 4 conflicts, silently taking the source version over the GM's own
+    edit to The Gilded Rat's description, is <span class="guardref">Guardrail 1</span>
+    broken in the one place it was written to stop: an edit applied without an
+    explicit, informed accept.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>A, four buckets as cards</h3>
+    <p>I would take <b>A</b>. The bucket boundary that matters, conflicts never get
+    a bulk button, is a fact about the layout rather than a fact the GM has to
+    trust the software got right. B is more elegant for a GM who lives in lists,
+    but it puts the safety property in application state (does the chip correctly
+    disable select-all) instead of in the DOM, which is a worse place for a
+    guardrail to live. C is the safest of all three but adds ceremony most re-imports
+    do not need, since most re-imports after the first are mostly unchanged and
+    a few updates.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: build A first, then run the
+    CI fixture from SPEC 6.4 (import the same export twice, expect zero changes on
+    the second run) against it and watch whether the "142 unchanged" card ever has
+    to render anything but a count. If unchanged entities keep leaking into the
+    updates bucket, the bug is in the matcher (#37), not the layout, and no
+    redesign here fixes it.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#37</b> the bucket a document lands in depends entirely on the
+      matcher's confidence and the merge policy computed from it; this page assumes
+      that split is already correct before anything is drawn.</li>
+      <li><b>#36</b> every entity in the plan needs its source reference (system,
+      external id, content hash) resolved before the dry run renders, since that is
+      what separates "unchanged" from "to update" in the first place.</li>
+      <li>Hard to undo: once "accept the whole plan" ships as a button that
+      explicitly excludes conflicts, weakening that later, offering a bulk action
+      that includes them, reopens a guardrail question that should stay closed.</li>
+      <li>Deferred on purpose: what the conflict review screen itself looks like,
+      which is <a href="d5-field-conflicts.html">D5</a>; how 200 new proposals from
+      a first import (no prior plan to diff against) get reviewed at scale, which is
+      <a href="d4-import-review.html">D4</a>.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .matchcols { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; align-items: stretch; }
+  .matchcols > div { padding: 14px 16px; }
+  .matchcols .mid { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 20px; padding: 0 6px; }
+  .matchcols .side:first-child { border-right: 1px solid var(--line); }
+  .matchcols h5 { font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; }
+  .matchcols .nm { font-size: 16px; font-weight: 620; margin-bottom: 4px; }
+  .matchcols .al { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .matchcols .al b { color: var(--ink-2); }
+  .evsent { font-size: 13px; color: var(--ink-2); line-height: 1.55; margin-bottom: 6px; }
+  .srcpath { font: 11px/1.4 var(--mono); color: var(--muted); }
+  .qtext { font-size: 15px; padding: 12px 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--panel-2); }
+  .actionrow { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 16px; }
+  .whatmerge { padding: 10px 16px; font-size: 12px; color: var(--muted); }
+  .whatmerge b { color: var(--ink-2); }
+  .toastbar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: var(--warn-bg); border: 1px solid #eadcbe; font-size: 13px; color: var(--ink-2); }
+</style>
+</head>
+<body data-decision="D6">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">SPEC 6.4 fixes the mechanics: above a high similarity it is a
+  match, below a low one it is new, and in between the user is asked, one
+  question, never a silent guess. The fixture sits exactly in that band: the
+  incoming article "Il Ratto Dorato" scores 0.86 against the existing entry
+  The Gilded Rat. What the spec leaves open is what the question actually shows
+  and when it interrupts the GM.</p>
+  <p>The alias list already makes this look obvious to a human: The Gilded Rat is
+  known as "Gilded Rat Tavern", and the incoming note is titled with what would
+  become its third name. That is exactly why the rule matters here rather than
+  feeling like bureaucracy: SPEC 6.4 is explicit that "normalised names and
+  aliases stay in the loop as a cheap pre-filter and as a tie-breaker, never as
+  the decision." A string match this close is precisely the case a false merge
+  hides inside, two different taverns that both happen to translate to something
+  gilded.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 3</span> every proposal shows its
+    evidence, never an arbitrary confidence score. "0.86 similarity" is exactly
+    the sentence this page is not allowed to print anywhere a GM can see it. The
+    question has to be answerable from what the two entries actually say, not
+    from a number the GM has no way to judge.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Live, one at a time</h3></header>
+      <p class="sub">The moment the matcher lands in the ambiguous band, the run
+      pauses on that document and asks immediately. The GM answers before the
+      import continues.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="toastbar" style="margin: 14px 16px 0;">Import paused, document 89 of 214: one match needs a decision.</div>
+          <div class="matchcols">
+            <div class="side">
+              <h5>Already in Valdoria Reach</h5>
+              <div class="nm">The Gilded Rat</div>
+              <div class="al">also known as <b>Gilded Rat Tavern</b></div>
+              <div class="evsent">"Inn in the Lantern Quarter kept by Mother
+              Sennah, a former field surgeon from the Sable Winter."</div>
+              <div class="srcpath">last updated from valdoria-reach/places/gilded-rat.md</div>
+            </div>
+            <div class="mid">?</div>
+            <div class="side">
+              <h5>Found in this import</h5>
+              <div class="nm">Il Ratto Dorato</div>
+              <div class="al">no aliases listed yet</div>
+              <div class="evsent ai-text">"Taverna nel quartiere del porto,
+              tenuta da un'ex chirurga di guerra della Sable Winter."</div>
+              <div class="srcpath">valdoria-reach/places/il-ratto-dorato.md</div>
+            </div>
+          </div>
+          <div class="qtext">Is <b>Il Ratto Dorato</b> the same place as
+          <b>The Gilded Rat</b>, or a different one?</div>
+          <div class="whatmerge">If the same place: adds "Il Ratto Dorato" to The
+          Gilded Rat's aliases, merges this note's text as a proposed update.</div>
+          <div class="actionrow">
+            <button class="btn pri">Same place</button>
+            <button class="btn">Different place</button>
+            <button class="btn sm">Not sure, decide later</button>
+          </div>
+        </div>
+        <figcaption>The import loop is stopped on this document until answered
+        or deferred; other documents are unaffected.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Resolved immediately, so the dry run's bucket counts (D3) are already final by the time the plan renders.</li>
+          <li>One decision in full context, nothing to remember from earlier in a long run.</li>
+          <li>Simplest to reason about: the loop genuinely waits, no separate queue to keep in sync.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A GM who is not watching (see D2's "closed the tab" case) leaves the whole import stalled on one question, defeating the point of checking back later.</li>
+          <li>Interrupts a run the GM chose to watch as a progress bar or a live feed, breaking either monitoring style mid-flow.</li>
+          <li>A vault with many near-duplicate notes could pause repeatedly, turning "roughly 9 minutes" into an unpredictable, attention-hungry wait.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">B</span><h3>Collected, answered before the dry run</h3></header>
+      <p class="sub">The run never blocks. Every ambiguous match found along the way
+      is queued silently, and the queue is answered in one batch screen right
+      before the dry run plan is computed, since the plan's bucket counts depend on
+      the answers.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="qhead" style="padding: 14px 16px 0; display:flex; justify-content:space-between; font-size:12px; color:var(--muted);">
+            <span>Before the dry run: <b>3</b> matches need a decision</span>
+            <span>Question <b>1</b> of 3</span>
+          </div>
+          <div class="matchcols">
+            <div class="side">
+              <h5>Already in Valdoria Reach</h5>
+              <div class="nm">The Gilded Rat</div>
+              <div class="al">also known as <b>Gilded Rat Tavern</b></div>
+              <div class="evsent">"Inn in the Lantern Quarter kept by Mother
+              Sennah, a former field surgeon from the Sable Winter."</div>
+              <div class="srcpath">last updated from valdoria-reach/places/gilded-rat.md</div>
+            </div>
+            <div class="mid">?</div>
+            <div class="side">
+              <h5>Found in this import</h5>
+              <div class="nm">Il Ratto Dorato</div>
+              <div class="al">no aliases listed yet</div>
+              <div class="evsent ai-text">"Taverna nel quartiere del porto,
+              tenuta da un'ex chirurga di guerra della Sable Winter."</div>
+              <div class="srcpath">valdoria-reach/places/il-ratto-dorato.md</div>
+            </div>
+          </div>
+          <div class="qtext">Is <b>Il Ratto Dorato</b> the same place as
+          <b>The Gilded Rat</b>, or a different one?</div>
+          <div class="whatmerge">If the same place: adds "Il Ratto Dorato" to The
+          Gilded Rat's aliases, merges this note's text as a proposed update.</div>
+          <div class="actionrow">
+            <button class="btn pri">Same place</button>
+            <button class="btn">Different place</button>
+            <span class="sp"></span>
+            <button class="btn sm">Next question &rarr;</button>
+          </div>
+        </div>
+        <figcaption>Question 1 of 3, reached after the run finishes, right before "142 unchanged, 19 to update..." is shown.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The run itself is never interrupted, so D2's estimate ("about 9 minutes") stays an honest number regardless of how many notes are ambiguous.</li>
+          <li>Three questions answered back to back is a short, self-contained task, easier to commit five minutes to than an unpredictable series of pauses.</li>
+          <li>Sits exactly where it is needed: the dry run cannot show final counts until these are resolved, so the screen order teaches that dependency for free.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A GM who watched the whole run only to hit three more questions at the end may feel like the wait was not actually over.</li>
+          <li>Matching has to run as a distinct pass after extraction rather than inline per document, a real pipeline constraint, not just a screen choice.</li>
+          <li>If a vault has forty ambiguous matches instead of three, "before the dry run" becomes its own review session, needing the same batching care as D4.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Live, non-blocking, batched as they accumulate</h3></header>
+      <p class="sub">The run keeps going regardless. A small counter appears
+      wherever the GM is watching (the progress screen from D2), and clicking it
+      opens the same batch of questions, answerable any time during or after the run.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding: 16px;">
+          <div class="card">
+            <header><h4>Importing valdoria-reach.zip</h4><span class="badge now">168 of 214</span></header>
+            <div class="meter" style="margin-bottom: 8px;"><i style="width: 78%"></i></div>
+            <p class="small muted mt0">About 1 minute left.</p>
+            <div class="toastbar">2 matches need a decision so far <span class="sp"></span> <button class="btn sm pri">Answer now</button></div>
+          </div>
+        </div>
+        <figcaption>The run does not wait for an answer; the counter just grows if
+        the GM ignores it, up to 3 by the time the run ends.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Never blocks the loop like A, never makes the GM wait for the whole run like B; answerable the moment it appears or much later.</li>
+          <li>Fits naturally on top of D2's live-feed or progress-bar screens as one more honest counter, no new screen to navigate to mid-run.</li>
+          <li>A GM who likes answering things immediately still can, just without stalling the other 213 documents while they think.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Three different possible moments to answer (during, right after, or ignored into the dry run) is three states to test and three ways for a GM to lose track.</li>
+          <li>If ignored, it has to resolve somewhere before the dry run can compute final buckets anyway, converging back to B's screen with extra steps taken to get there.</li>
+          <li>The most engineering of the three: a live counter, a background queue, and a hard deadline for when "later" runs out.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>Show the similarity score and let the GM judge the percentage</h3>
+    <p>"86% match, are these the same?" is the most literal way to ask this
+    question and it is exactly what <span class="guardref">Guardrail 3</span>
+    forbids: never an arbitrary confidence score. A GM has no way to calibrate
+    what 0.86 means for embeddings they never see trained, and a number invites
+    treating 90% as "probably fine to skip reading," which is the silent guess
+    SPEC 6.4 explicitly rules out. The evidence sentences from both entries are
+    the only thing that should ever justify the answer.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>B, collected and answered before the dry run</h3>
+    <p>I would take <b>B</b>. The estimate in D2 promises a number of minutes, and
+    A can break that promise on any vault with a few ambiguous notes, which is a
+    worse failure than three extra questions at a predictable, expected moment.
+    C solves the same problem as B with meaningfully more engineering (a live
+    background queue with a soft deadline) for a benefit, answering slightly
+    earlier, that most GMs will not use anyway since they are watching the run
+    finish either way.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: ship B, and log how many
+    ambiguous matches a typical vault actually produces. If it stays in the
+    low single digits, as the fixture suggests, B's one short batch screen is
+    right-sized. If some sources routinely produce dozens, batch answering needs
+    D4's own filtering and triage, not just a plain "question 1 of 40".</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#37</b> the matcher has to expose which specific pairs sit in the
+      ambiguous band as a distinct, queryable state, not just a final match or no
+      match, since this whole screen depends on that middle state existing and
+      being enumerable before the dry run runs.</li>
+      <li>Matching becomes a defined pass with a clear boundary: extraction can
+      finish while matching questions are still open, and the dry run plan cannot
+      be computed until they close.</li>
+      <li>Hard to undo: once "same place" merges aliases and text into a proposed
+      update rather than creating a duplicate, reversing a wrong answer later means
+      unmerging an alias and a revision, not just deleting a row.</li>
+      <li>Deferred on purpose: what the field conflict screen looks like once two
+      entities are confirmed the same and their text actually disagrees, which is
+      <a href="d5-field-conflicts.html">D5</a>; how the resolved match count feeds
+      into "31 new" or "19 to update" in the plan, which is
+      <a href="d3-dry-run-plan.html">D3</a>.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

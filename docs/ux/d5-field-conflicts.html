@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .cols > div { padding: 16px 18px; }
+  .cols > div:first-child { border-right: 1px solid var(--line); }
+  .cols h5 { font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; }
+  .cols .txt { font-size: 14px; line-height: 1.6; color: var(--ink-2); }
+  .actionrow { display: flex; gap: 8px; flex-wrap: wrap; padding: 14px 18px; border-top: 1px solid var(--line); background: var(--panel-2); }
+  .merged { padding: 16px 18px; }
+  .merged textarea { width: 100%; min-height: 90px; font: 14px/1.6 var(--sans); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+  .sechead { font: 600 11px/1 var(--mono); color: var(--muted); margin: 10px 0 4px; }
+</style>
+</head>
+<body data-decision="D5">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">SPEC 6.4's merge policy table is the law here and it is not up
+  for redesign: a field the GM edited after the last import, changed at the source
+  too, "raises a proposal with both versions side by side. Never overwrite." What
+  the table does not fix is the screen that proposal opens into, and that screen
+  is where a GM either trusts the product with their own prose or stops using it.</p>
+  <p>The fixture: The Gilded Rat's <code>description</code>. The GM rewrote it
+  inside Canonry on 2026-07-12. The underlying Obsidian note kept drifting and was
+  re-imported on 2026-07-28 with different wording. Neither side is wrong, and
+  neither side is canon until the GM says so.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 1</span> whatever the layout, "take theirs"
+    has to be a choice the GM makes, never a default the dry run walks past.
+    <span class="guardref">Guardrail 2</span> the incoming source text is AI-adjacent
+    only in the sense that it came from an extraction pass, not a human edit inside
+    Canonry, so it should read as distinctly "not yet yours" until accepted.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Two columns</h3></header>
+      <p class="sub">Yours on the left, theirs on the right, full paragraphs, no
+      attempt to align sentence by sentence. Four actions sit below both.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div style="padding: 14px 18px 0;">
+            <div class="kicker" style="margin-bottom:0;">
+              <span class="badge">place</span><b>The Gilded Rat</b>
+              <span>&middot;</span><span>field: description</span>
+            </div>
+          </div>
+          <div class="cols">
+            <div>
+              <h5>Yours, edited 2026-07-12</h5>
+              <p class="txt">The Gilded Rat is the last honest tavern in the
+              Lantern Quarter, kept by Mother Sennah since the Sable Winter.
+              Aldric Vane drinks in the corner seat nobody asks him to leave.</p>
+            </div>
+            <div>
+              <h5>From the source, changed 2026-07-28 <span class="ai-note">not yet accepted</span></h5>
+              <p class="txt ai-text">Inn in the Lantern Quarter kept by Mother
+              Sennah, a former field surgeon from the Sable Winter. Popular with
+              dockhands and off-duty watch, cheap and short on excuses.</p>
+            </div>
+          </div>
+          <div class="actionrow">
+            <button class="btn on">Keep mine</button>
+            <button class="btn">Take theirs</button>
+            <button class="btn">Keep both, as sections</button>
+            <button class="btn">Edit now</button>
+          </div>
+        </div>
+        <figcaption>Each paragraph is read whole, the way the GM actually wrote it.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Full sentences read naturally, no diff noise across two independently rewritten paragraphs.</li>
+          <li>Symmetric layout makes it obvious both versions are real candidates, not one "correct" and one "suggested".</li>
+          <li>Cheapest of the three to build: two text blocks and a button row.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>For a one-word change buried in a long paragraph, the GM has to read both columns in full to spot it.</li>
+          <li>Says nothing about which specific claim disagrees, only that the whole field does.</li>
+          <li>Does not scale past a paragraph or two before the columns force awkward wrapping.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Inline diff, source toggle</h3></header>
+      <p class="sub">Yours is the page. A toggle swaps in a word-level diff against
+      the source version, so the GM sees exactly what changed without leaving the
+      entry's own layout.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div style="padding: 14px 18px 0;">
+            <div class="kicker" style="margin-bottom:0;">
+              <span class="badge">place</span><b>The Gilded Rat</b>
+              <span>&middot;</span><span>field: description</span>
+              <span class="sp"></span>
+              <button class="btn sm on" data-ux-toggle="d5diff" data-class="show-diff">Show what changed at source</button>
+            </div>
+          </div>
+          <div class="merged" id="d5diff">
+            <p class="txt">The Gilded Rat is <del class="d">the last honest tavern</del><ins class="i">an inn</ins>
+            in the Lantern Quarter, kept by Mother Sennah<del class="d">, since the Sable Winter.</del><ins class="i">, a former field surgeon from the Sable Winter. Popular with dockhands and off-duty watch, cheap and short on excuses.</ins>
+            <del class="d">Aldric Vane drinks in the corner seat nobody asks him to leave.</del></p>
+            <p class="small muted">Source: <code>valdoria-reach/places/gilded-rat.md</code>, re-imported 2026-07-28.</p>
+          </div>
+          <div class="actionrow">
+            <button class="btn on">Keep mine</button>
+            <button class="btn">Take theirs</button>
+            <button class="btn">Keep both, as sections</button>
+            <button class="btn">Edit now</button>
+          </div>
+        </div>
+        <figcaption>Toggled state shown; the default state is the entry as it
+        already reads, undecorated.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Points at the exact clauses that disagree instead of asking the GM to diff two paragraphs by eye.</li>
+          <li>The entry stays in its normal reading layout, so a conflict does not look like a special mode.</li>
+          <li>Reuses the same ins/del marks the propagation diff (C4) already teaches the GM to read.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Two independently rewritten paragraphs produce a busy, hard-to-parse word diff, worse than reading them whole when the rewrite is heavy.</li>
+          <li>The default view hides that a conflict exists at all until the toggle is found, risking it being missed in a quiet corner of the entry.</li>
+          <li>A word diff implies a single throughline of edits; here there are two independent authors, which a diff visually flattens into one.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Merged editor</h3></header>
+      <p class="sub">One editable field, pre-filled with the GM's current text,
+      theirs shown as a quoted reference above it rather than a second panel to compare against.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div style="padding: 14px 18px 0;">
+            <div class="kicker" style="margin-bottom:0;">
+              <span class="badge">place</span><b>The Gilded Rat</b>
+              <span>&middot;</span><span>field: description</span>
+            </div>
+          </div>
+          <div class="merged">
+            <p class="sechead">From the source, 2026-07-28</p>
+            <p class="txt ai-text" style="font-size:13px;">Inn in the Lantern
+            Quarter kept by Mother Sennah, a former field surgeon from the Sable
+            Winter. Popular with dockhands and off-duty watch, cheap and short on
+            excuses.</p>
+            <p class="sechead">Yours, editable</p>
+            <textarea>The Gilded Rat is the last honest tavern in the Lantern Quarter, kept by Mother Sennah since the Sable Winter. Aldric Vane drinks in the corner seat nobody asks him to leave.</textarea>
+          </div>
+          <div class="actionrow">
+            <button class="btn pri">Save this version</button>
+            <button class="btn">Take theirs as-is instead</button>
+            <button class="btn">Discard, keep mine unchanged</button>
+          </div>
+        </div>
+        <figcaption>"Edit now" is not a fourth button here, it is the whole screen;
+        the other three choices become shortcuts around it.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One motion, read theirs, adjust yours, save, instead of choose-then-edit in two steps.</li>
+          <li>Naturally produces "keep both" results, since the GM is typing a genuine merge, not picking a side.</li>
+          <li>The textarea is the same control the entry editor already uses (B2), no new writing surface to learn.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Demands the most effort per conflict: reading, composing and saving, when four conflicts out of 214 documents should be fast, not a writing exercise each.</li>
+          <li>A distracted GM can start typing over their own text without registering what theirs actually said, since the comparison is a quote above, not a parallel column.</li>
+          <li>Weakest fit for "accept the whole plan minus conflicts" from D3: this screen assumes the GM wants to write, not just decide.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>Auto-merge the two versions and show the result as already saved</h3>
+    <p>A model could plausibly blend "the last honest tavern" and "popular with
+    dockhands and off-duty watch" into one paragraph, and it is tempting because it
+    removes a click. SPEC 6.4 forbids exactly this: the merge engine, not the
+    model, decides matches and conflicts, and a field the user edited is never
+    silently overwritten. <span class="guardref">Guardrail 1</span> and
+    <span class="guardref">Guardrail 3</span> both fail at once: nothing was
+    accepted, and there is no evidence shown for which clause came from where once
+    they are blended into one paragraph the GM never wrote.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>A, two columns, with all four actions always visible</h3>
+    <p>I would take <b>A</b>. Conflicts in this fixture are full paragraphs
+    rewritten independently in two directions, not single-word edits, and a
+    diff (B) turns that into noise rather than clarity. C is the right screen for
+    the GM who already knows they want to write a merged version, but it should be
+    reachable as "Edit now" from A rather than replace the comparison view for
+    every conflict, most of which resolve with a plain "keep mine" or "take theirs"
+    in under a second once both paragraphs are visible.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: instrument the four buttons
+    and watch the split. If "edit now" is the most-clicked action, most conflicts
+    are not two-choice decisions at all and C should be the primary screen with A's
+    two columns collapsed into the quoted reference above the textarea.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#37</b> this screen only exists for fields the matcher already scored
+      as the same entity; a false split here would show a conflict on what is
+      actually two different inns, so the benchmark's false-merge weighting matters
+      even though this page never shows a confidence number.</li>
+      <li>"Keep both, as sections" commits to a concrete data shape: the rejected
+      side has to persist somewhere reachable (a labelled section, not a discard),
+      or the fourth choice is cosmetic.</li>
+      <li>Hard to undo: once "take theirs" is a single explicit button next to
+      "keep mine", removing that symmetry later (say, hiding "take theirs" behind
+      an extra confirm) reads as the product trusting the GM less over time, not more.</li>
+      <li>Deferred on purpose: what happens to a whole entity that disappeared from
+      the source (<code>missing_in_source</code>), which is a different SPEC 6.4 row
+      from a field conflict and gets its own review state, not covered here; the
+      ambiguous-match question that decides whether two entities are the same one
+      before a field conflict can even be raised, which is
+      <a href="d6-ambiguous-match.html">D6</a>.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

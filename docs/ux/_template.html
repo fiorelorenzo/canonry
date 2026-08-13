@@ -1,0 +1,102 @@
+<!doctype html>
+<!-- TEMPLATE for a Canonry UX decision artifact. Copy this file, set
+     body[data-decision] to the id in assets/ux.js, and fill the five sections.
+     Rules that keep the set coherent:
+       * the head, breadcrumb and prev/next are injected from UX_REGISTER: do not
+         hand-write a title or an h1;
+       * every option must render as real mock UI, not a description of one, and
+         every mock uses the fixture data in SAMPLE-WORLD.md;
+       * options are lettered A, B, C in <header><span class="ltr">, because the
+         recorder reads its buttons from those letters;
+       * an option that breaks a guardrail is not an option: list it under
+         "Rejected outright" with the guardrail number;
+       * no external assets, no frameworks, no network. Vanilla only. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+</head>
+<body data-decision="X0">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">Two or three sentences: what the spec fixes, what it leaves open,
+  and what goes wrong downstream if the answer is picked by accident while
+  implementing an issue.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail n</span> the constraint, quoted or paraphrased
+    from SPEC.md section 3, that any answer has to satisfy.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts two">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Short name</h3></header>
+      <p class="sub">One line saying what it is.</p>
+
+      <figure class="mock">
+        <div class="frame"><!-- real mock UI here --></div>
+        <figcaption>What the reader is looking at.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul><li></li></ul></div>
+        <div><h4>Costs</h4><ul><li></li></ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Short name</h3></header>
+      <p class="sub">One line.</p>
+      <figure class="mock"><div class="frame"></div><figcaption></figcaption></figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul><li></li></ul></div>
+        <div><h4>Costs</h4><ul><li></li></ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>The tempting thing that breaks a guardrail</h3>
+    <p>Why it is tempting, which guardrail it breaks, and the failure mode.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>A, with one change</h3>
+    <p>The recommendation, the reason, and the cheapest way to find out it was wrong.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li>Issue #n changes shape: what it has to build instead.</li>
+      <li>What becomes hard to undo later.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

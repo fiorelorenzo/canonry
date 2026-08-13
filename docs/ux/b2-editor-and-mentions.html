@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  /* Scoped to this page only. */
+  .edbox {
+    border: 1px solid var(--line-2); border-radius: 10px 10px 0 0; background: var(--panel);
+    padding: 16px 18px; font-size: 15px; line-height: 1.7; color: var(--ink-2); max-width: 640px;
+  }
+  .edbox.mono { font-family: var(--mono); font-size: 13.5px; line-height: 1.75; white-space: pre-wrap; }
+  .men.unresolved { border-bottom-style: dashed; color: var(--danger); }
+  .men.new { border-bottom-style: dashed; color: var(--ai); background: var(--ai-bg); padding: 0 3px; border-radius: 3px; }
+  .amenu {
+    max-width: 640px; border: 1px solid var(--line-2); border-top: 0; border-radius: 0 0 8px 8px;
+    background: var(--panel); box-shadow: 0 14px 30px -18px rgba(0,0,0,0.4); overflow: hidden;
+  }
+  .amenu .rows .r { padding: 8px 12px; font-size: 13px; }
+  .amenu .hdr { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 8px 12px 4px; background: var(--panel-2); }
+  .demo-editor {
+    max-width: 560px; min-height: 64px; border: 1px solid var(--line-2); border-radius: 10px;
+    background: var(--panel); padding: 14px 16px; font-size: 15px; line-height: 1.7; color: var(--ink);
+    outline: none;
+  }
+  .demo-editor:focus { border-color: var(--accent); }
+  .demo-menu { max-width: 560px; margin-top: 6px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel); overflow: hidden; }
+  .demo-menu[hidden] { display: none; }
+  .demo-menu .r { padding: 8px 12px; font-size: 13px; }
+  .demo-menu .r.new .sp { color: var(--ai); }
+</style>
+</head>
+<body data-decision="B2">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">The Obsidian vault a GM imports arrives full of <code>[[wikilinks]]</code>
+  (SPEC 6.6): every one of them is a candidate relation, so whatever the editor stores has to
+  read that syntax on the way in even if it renders something else on the way out. What the
+  editor stores also has to round-trip: SPEC 13 ships markdown export from day one as the
+  answer to lock-in, so a rich proprietary document format that only serialises to markdown on
+  the way out is a one-way door dressed as an editor. And the mention itself is not typing a
+  link; it is proposing a relation, sometimes to an entity that does not exist yet, which is
+  meant to be the cheapest way canon grows rather than a typo the GM has to notice and fix.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 1</span> a mention becoming a relation is a canon
+    write. It goes through propose and accept like every other AI-touched change, even when
+    "the AI" here is just pattern-matching a bracket against the alias table.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Markdown source</h3></header>
+      <p class="sub">A plain textarea. What you type is what is stored, character for
+      character; syntax stays visible as literal characters throughout.</p>
+
+      <figure class="mock">
+        <div class="edbox mono">Dismissed from the watch in the thaw after [[the Sable Winter]],
+he now answers to [[the Ashen Ledger]]. He still drinks at
+[[<span class="men new">Il Ratto Dorato</span></div>
+        <div class="amenu">
+          <div class="hdr">No exact match</div>
+          <div class="rows">
+            <div class="r"><span class="sp">The Gilded Rat</span><span class="muted small">alias: Il Ratto Dorato</span></div>
+            <div class="r on"><span class="sp">Create &ldquo;Il Ratto Dorato&rdquo;</span><span class="badge ai">new</span></div>
+          </div>
+        </div>
+        <figcaption>Unresolved mention still typing; brackets and all are exactly what gets saved.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Exactly what is stored is exactly what is on screen; nothing to trust about a hidden conversion.</li>
+          <li>Perfect, lossless round-trip to markdown export by construction.</li>
+          <li>Zero surprise for anyone arriving from Obsidian's own source mode.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Reads like code even to someone who never asked for a code editor.</li>
+          <li>Bold, headings and mentions are all just brackets and asterisks until you squint.</li>
+          <li>The one thing SPEC 4.2 wants to feel automatic, typing a mention, looks identical to typing a bug.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Rich text surface</h3></header>
+      <p class="sub">A WYSIWYG contentEditable. No markdown characters ever appear; formatting
+      comes from a toolbar or its shortcuts, mentions render as chips from the first keystroke.</p>
+
+      <figure class="mock">
+        <div class="edbox">Dismissed from the watch in the thaw after <a href="#" class="men t-fact">the Sable Winter</a>,
+        he now answers to <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at
+        <span class="men new">Il Ratto Dorato</span></div>
+        <div class="amenu">
+          <div class="hdr">No exact match</div>
+          <div class="rows">
+            <div class="r"><span class="sp">The Gilded Rat</span><span class="muted small">alias: Il Ratto Dorato</span></div>
+            <div class="r on"><span class="sp">Create &ldquo;Il Ratto Dorato&rdquo;</span><span class="badge ai">new</span></div>
+          </div>
+        </div>
+        <figcaption>No brackets ever visible; the mention is already a chip while it is still unresolved.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Closest to Google Docs, which SPEC 2 names as the other thing GMs already use instead of a wiki tool.</li>
+          <li>A mention chip looks exactly like the finished relation it represents, no punctuation to parse.</li>
+          <li>Nothing to teach about syntax at all; the toolbar is the whole manual.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>The canonical stored form becomes a rich document, not text, so markdown export (SPEC 13, #21) is a conversion, not a serialisation.</li>
+          <li>Re-importing raw Obsidian wikilinks means silently up-converting them into the rich format on the way in, invisibly.</li>
+          <li>Pasting a paragraph from an existing markdown note has to be interpreted rather than simply accepted.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Markdown with live decorations</h3></header>
+      <p class="sub">Type markdown, see it decorated as you type: bold text renders bold while
+      the asterisks are still there to edit, a resolved mention becomes a chip, an unresolved
+      one gets a dashed underline instead of disappearing into brackets.</p>
+
+      <figure class="mock">
+        <div class="edbox">Dismissed from the watch in the thaw after <a href="#" class="men t-fact">the Sable Winter</a>,
+        he now answers to <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at
+        <span class="men new">[[Il Ratto Dorato</span></div>
+        <div class="amenu">
+          <div class="hdr">No exact match</div>
+          <div class="rows">
+            <div class="r"><span class="sp">The Gilded Rat</span><span class="muted small">alias: Il Ratto Dorato</span></div>
+            <div class="r on"><span class="sp">Create &ldquo;Il Ratto Dorato&rdquo;</span><span class="badge ai">new</span></div>
+          </div>
+        </div>
+        <figcaption>The finished mentions above are already decorated to chips; the brackets are still visible only on the one still being typed.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Markdown text is still the stored form, so export round-trips exactly like option A.</li>
+          <li>Reads close to finished prose while writing, without hiding what will end up in the file.</li>
+          <li>Matches Obsidian's own default editing mode, live preview, which most imported GMs already know.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Genuinely harder to build: decorations have to track cursor position without eating keystrokes.</li>
+          <li>An unresolved mention has to stay visually distinct from a resolved one without becoming noise.</li>
+          <li>Copy-paste from elsewhere can carry formatting the decorator has to normalise rather than trust.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>Auto-creating the relation the moment a mention resolves</h3>
+    <p>The moment a typed name matches an alias, silently writing the relation row feels like
+    the editor doing its job. It is <span class="guardref">Guardrail 1</span> broken twice
+    over: a relation is a canon write, proposed and accepted like any other, and if the name
+    does not resolve at all the tempting shortcut is worse, quietly creating the entity too.
+    SPEC 4.4 already names the right shape for that second case, a <code>proposal</code> of
+    kind <code>draft_entity</code>: a stub appears in Proposals, evidence attached, waiting to
+    be accepted, exactly like everything else the Loremaster suggests.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>C, with <code>[[</code> and <code>@</code> both opening the same menu</h3>
+    <p>Take <b>C</b>. It is the only option where the stored form is genuinely markdown, so
+    export (#21) is a serialiser rather than a translator, and it is also the only one that
+    looks like writing rather than either code or a word processor. It happens to match
+    Obsidian's own live preview mode, which is not a coincidence worth ignoring: SPEC 2 names
+    Obsidian as the actual competitor, and most of the first users arrive having already
+    trained their hands on exactly this editing metaphor.</p>
+    <p>On mention syntax specifically: trigger the same autocomplete menu on both
+    <code>[[</code>, because that is what an imported vault is full of, and <code>@</code>,
+    because that is the muscle memory everyone else brings from Slack, Notion and Linear. Both
+    resolve through the same menu shown above, and on save both normalise to one canonical
+    stored form, <code>[[Canonical Name]]</code>, so the file on disk never has to represent
+    two ways of saying the same relation.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: build the decorator against a paragraph
+    pasted straight from an exported Obsidian note, not hand-typed fixture text, and see
+    whether block references, embeds and Dataview inline fields (SPEC 6.6) survive the round
+    trip undecorated rather than mangled. If they do not, that is a decorator bug to fix, not a
+    reason to fall back to option A.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#105</b> this page is that ticket's own design: the editor surface, the trigger
+      characters and the one-click confirm on a mention become its acceptance criteria
+      directly, not an interpretation of them.</li>
+      <li><b>#15</b> autocomplete is a query against the entity table's <code>aliases[]</code>
+      column; if aliases are not cheaply queryable, every keystroke in the menu degrades into a
+      full-text search instead of a lookup.</li>
+      <li><b>#21</b> whatever this page decides the editor stores as its source of truth is
+      exactly what #21 has to walk back into a file; choosing option B here would have turned
+      that ticket into a lossy converter instead of a re-serialiser.</li>
+      <li>Deferred on purpose: the visual language of a confirmed relation chip versus an
+      unresolved one in the shipped product belongs to C1. The propose/accept screen a
+      <code>draft_entity</code> lands on belongs to C2 and C6, not to the editor itself.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Typing a mention, live</h2>
+  <p>Type in the box below. Start a word with <code>[[</code> or <code>@</code> to open the
+  menu; it filters the fixture entities and their aliases as you go, and offers to create
+  whatever does not match, exactly as option C's mock above.</p>
+  <div class="demo">
+    <div id="b2-demo-editor" class="demo-editor" contenteditable="true" data-placeholder="Try typing: he still drinks at [[Il Ratto"></div>
+    <div id="b2-demo-menu" class="demo-menu rows" hidden></div>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+
+<script>
+(function () {
+  var fixtures = [
+    { name: 'Aldric Vane', type: 'character' },
+    { name: 'Mother Sennah', type: 'character' },
+    { name: 'Corvin Ashe', type: 'character' },
+    { name: 'Iselde Wrenn', type: 'character' },
+    { name: 'Valdoria', type: 'place' },
+    { name: 'The Gilded Rat', type: 'place', alias: 'Il Ratto Dorato' },
+    { name: 'Cairnmouth', type: 'place' },
+    { name: 'The Sable Reach', type: 'place' },
+    { name: 'The Ashen Ledger', type: 'faction' },
+    { name: 'The Valdoria Watch', type: 'faction' },
+    { name: 'The Sable Winter', type: 'event' },
+  ];
+  function render() {
+    var editor = document.getElementById('b2-demo-editor');
+    var menu = document.getElementById('b2-demo-menu');
+    if (!editor || !menu) return;
+    var text = editor.textContent || '';
+    var m = /(?:\[\[|@)([^\[\]@]*)$/.exec(text);
+    if (!m) { menu.hidden = true; menu.innerHTML = ''; return; }
+    var q = m[1].toLowerCase();
+    if (!q) { menu.hidden = true; menu.innerHTML = ''; return; }
+    var hits = fixtures.filter(function (f) {
+      return f.name.toLowerCase().indexOf(q) !== -1 || (f.alias && f.alias.toLowerCase().indexOf(q) !== -1);
+    });
+    var rows = hits.slice(0, 5).map(function (f) {
+      var aliasNote = f.alias ? '<span class="muted small">alias: ' + f.alias + '</span>' : '<span class="badge">' + f.type + '</span>';
+      return '<div class="r"><span class="sp">' + f.name + '</span>' + aliasNote + '</div>';
+    }).join('');
+    rows += '<div class="r new"><span class="sp">Create &ldquo;' + m[1].replace(/</g, '&lt;') + '&rdquo;</span><span class="badge ai">new</span></div>';
+    menu.innerHTML = rows;
+    menu.hidden = false;
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    var editor = document.getElementById('b2-demo-editor');
+    if (editor) {
+      editor.addEventListener('input', render);
+      editor.addEventListener('keyup', render);
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  /* Table mock kit, shared in spirit across E1-E4: A1 decided table mode is dark
+     by default with taller rows. These tokens are copied from a1's skin-c so the
+     four table decisions read as one surface rather than four separate ones. */
+  .tmode {
+    --bg: #0f1114; --panel: #171a1f; --panel-2: #12151a;
+    --ink: #e9e6e0; --ink-2: #b9b4ab; --muted: #7d8794;
+    --line: #262b33; --line-2: #333a45;
+    --accent: #57c3a4; --accent-ink: #8fd9c3; --accent-bg: #14312a;
+    --ai: #a893ff; --ai-bg: #211d38; --ai-line: #3d3563;
+    --ok: #6fce9f; --ok-bg: #14301f; --danger: #ef8b74; --danger-bg: #341a16;
+    --warn: #e5b567; --warn-bg: #322612;
+    font-size: 14.5px; background: var(--bg);
+  }
+  .tmode .rows .r { padding: 13px 12px; }
+  .tscreen { padding: 18px 22px; }
+  .tctx { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tctx .uni { margin-bottom: 0; flex: none; }
+  .tctx .sp { flex: 1; }
+  .tfind { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tfind-box { background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 10px; width: 240px; }
+  .tfind-lbl { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+  .tfind-in { font: 14px var(--mono); color: var(--ink); margin-bottom: 6px; }
+  .tfind-in .crs { display: inline-block; width: 7px; height: 15px; background: var(--accent); vertical-align: text-bottom; margin-left: 1px; }
+  .tfind-opt { display: flex; justify-content: space-between; gap: 8px; padding: 5px 6px; border-radius: 5px; font-size: 12.5px; }
+  .tfind-opt.on { background: var(--accent-bg); color: var(--accent-ink); }
+  .tfind-meta { font: 12px/1.5 var(--sans); color: var(--muted); padding-top: 6px; }
+  .tfind-meta b { color: var(--ink-2); }
+  .pins { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .pin { width: 195px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 12px; }
+  .pin .ini { width: 28px; height: 28px; border-radius: 999px; background: var(--accent-bg); color: var(--accent-ink); font: 700 12px/28px var(--mono); text-align: center; float: left; margin-right: 9px; }
+  .pin h5 { font-size: 13.5px; margin: 3px 0 2px; }
+  .pin .role { font-size: 11.5px; color: var(--muted); margin-bottom: 8px; }
+  .pin .why { font-size: 12px; color: var(--ink-2); clear: both; }
+  .tactions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .strip { display: flex; align-items: center; gap: 10px; background: var(--panel); border-bottom: 1px solid var(--line); padding: 8px 16px; font-size: 12.5px; color: var(--muted); }
+  .strip b { color: var(--ink); }
+  .strip .sp { flex: 1; }
+  .layerhost { position: relative; display: flex; gap: 22px; align-items: flex-start; padding: 30px 28px; min-height: 300px; }
+  .layerhost .ghost { flex: 1; color: var(--muted); font-size: 13px; max-width: 22em; }
+  .drawercol { flex: none; width: 300px; }
+  .tab { display: inline-block; margin-bottom: 8px; background: var(--accent); color: #fff; font: 600 11px/1 var(--mono); padding: 6px 9px; border-radius: 6px; }
+  .drawer { background: var(--panel); border: 1px solid var(--line-2); border-radius: 10px; padding: 14px; box-shadow: 0 12px 28px -18px rgba(0,0,0,.35); }
+</style>
+</head>
+<body data-decision="E1">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">SPEC 8 fixes the rule: nothing the GM sees at the table waits on an LLM. And it fixes what
+  the declaration does: "they have entered Valdoria" sets <code>session_context</code>, which pins the
+  place's main characters with a 2-hop graph query, offers contextual quick actions, and starts warming
+  the next ring. It does not fix what table mode <i>is</i> as a surface, or what the declaration gesture
+  looks like. Both are load-bearing: #72 builds the exact declaration widget, #73 builds the exact pinned
+  query, and if either gets decided implicitly by whoever writes the first component, the two are likely to
+  disagree about what a "place" is or how context change propagates to the rest of the screen.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 1</span> propose, never apply. Whatever declares context, the GM
+    says it. Nothing infers it from what was said aloud and switches state on its own. A1 already settled
+    that table mode is dark by default with taller rows; that is inherited below, not re-argued.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Separate screen</h3></header>
+      <p class="sub">A dedicated <code>/table</code> route, its own item in the main nav. Leaving it means
+      leaving table mode entirely.</p>
+      <figure class="mock">
+        <div class="frame tmode">
+          <div class="tscreen">
+            <div class="tfind">
+              <div class="tfind-box">
+                <div class="tfind-lbl">Where are the players?</div>
+                <div class="tfind-in">val<span class="crs"></span></div>
+                <div class="tfind-opt on"><b>Valdoria</b><span class="muted">place</span></div>
+                <div class="tfind-opt"><span>The Valdoria Watch</span><span class="muted">faction</span></div>
+              </div>
+              <div class="tfind-meta">Big field, top of a blank screen. Type, <kbd class="k">&crarr;</kbd>.<br><b>&lt;3s</b>, 4 keystrokes.</div>
+            </div>
+            <div class="tctx">
+              <div class="uni"><span class="dot"></span> Valdoria <span class="badge later">session 7</span></div>
+              <span class="sp"></span>
+              <span class="muted small">pinned in 84ms</span>
+            </div>
+            <div class="pins">
+              <div class="pin"><div class="ini">AV</div><h5>Aldric Vane</h5><div class="role">character</div><div class="why">answers to the Ashen Ledger now</div></div>
+              <div class="pin"><div class="ini">MS</div><h5>Mother Sennah</h5><div class="role">character</div><div class="why">keeps the Gilded Rat</div></div>
+              <div class="pin"><div class="ini">CA</div><h5>Corvin Ashe</h5><div class="role">character</div><div class="why">factor of the Ashen Ledger</div></div>
+              <div class="pin"><div class="ini">IW</div><h5>Iselde Wrenn</h5><div class="role">character</div><div class="why">harbour magistrate</div></div>
+            </div>
+            <div class="tactions">
+              <button class="btn sm">Create an NPC here</button>
+              <button class="btn sm">Create an inn</button>
+              <button class="btn sm">Mark as revealed</button>
+              <button class="btn sm">Soundscape: Lantern Quarter, dusk &#9656;</button>
+            </div>
+          </div>
+        </div>
+        <figcaption>Nothing else is reachable from here except the nav back to the wiki.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Nothing on screen competes with the table: no sidebar, no entry chrome, maximum room for pins.</li>
+          <li>A route is the simplest thing to build and the simplest thing to bookmark or reload.</li>
+          <li>Unambiguous: the GM always knows whether they are "in" table mode.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Aldric's full entry (his history, his relations) is one navigation away, which means leaving.</li>
+          <li>Nothing about session_context follows the GM if they duck into Entries to check something.</li>
+          <li>A second, parallel place to keep in sync with the rest of the nav as the app grows.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>A mode the whole app switches into</h3></header>
+      <p class="sub">A toggle in the topbar of any screen. The chrome reskins to dark and tall; a context
+      strip persists across every page while it is on.</p>
+      <figure class="mock">
+        <div class="frame tmode">
+          <div class="strip"><b>Table mode: on</b> &middot; Valdoria, session 7 <span class="sp"></span>
+            <button class="btn sm">Change</button><button class="btn sm">Exit table mode</button></div>
+          <div class="tscreen">
+            <div class="tfind">
+              <div class="tfind-box">
+                <div class="tfind-lbl">Change context</div>
+                <div class="tfind-in">val<span class="crs"></span></div>
+                <div class="tfind-opt on"><b>Valdoria</b><span class="muted">place</span></div>
+              </div>
+              <div class="tfind-meta">Click the strip's context chip from <b>any</b> screen. No route change.<br><b>&lt;3s</b>, 1 click + type.</div>
+            </div>
+            <div class="pins">
+              <div class="pin"><div class="ini">AV</div><h5>Aldric Vane</h5><div class="role">character</div><div class="why">answers to the Ashen Ledger now</div></div>
+              <div class="pin"><div class="ini">MS</div><h5>Mother Sennah</h5><div class="role">character</div><div class="why">keeps the Gilded Rat</div></div>
+              <div class="pin"><div class="ini">CA</div><h5>Corvin Ashe</h5><div class="role">character</div><div class="why">factor of the Ashen Ledger</div></div>
+              <div class="pin"><div class="ini">IW</div><h5>Iselde Wrenn</h5><div class="role">character</div><div class="why">harbour magistrate</div></div>
+            </div>
+            <div class="tactions">
+              <button class="btn sm">Create an NPC here</button>
+              <button class="btn sm">Create an inn</button>
+              <button class="btn sm">Mark as revealed</button>
+              <button class="btn sm">Soundscape: Lantern Quarter, dusk &#9656;</button>
+            </div>
+          </div>
+        </div>
+        <figcaption>The strip is still there if the GM taps through to Aldric Vane's full entry mid-session.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The GM can open Aldric's full entry for a name they half-remember without losing the pins.</li>
+          <li>Matches A1's lock: table is a density mode over one app, not a second design system.</li>
+          <li>The strip is a single component every screen already has to render around, forcing discipline.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Every existing screen (Entries, Works, Ask) needs a "table mode is on" variant that fits a strip.</li>
+          <li>Two states per screen doubles what a reviewer has to check before shipping any of them.</li>
+          <li>"Am I still in table mode" is one more thing to track than a route the URL already answers.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>A layer over the wiki</h3></header>
+      <p class="sub">A dockable drawer, summoned over whatever page is open. The rest of the app never
+      changes skin at all.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="layerhost">
+            <p class="ghost">Aldric Vane &middot; character<br>Dismissed from the watch in the thaw after the
+            Sable Winter, he now answers to the Ashen Ledger&hellip; <i>(the ordinary, light entry page,
+            underneath the drawer, unchanged)</i></p>
+            <div class="drawercol">
+              <div class="tab">TABLE &#9656; pinned open</div>
+              <div class="drawer tmode">
+                <div class="tfind">
+                  <div class="tfind-box" style="width:100%;">
+                    <div class="tfind-lbl">Declare context</div>
+                    <div class="tfind-in">val<span class="crs"></span></div>
+                    <div class="tfind-opt on"><b>Valdoria</b><span class="muted">place</span></div>
+                  </div>
+                </div>
+                <div class="tctx"><div class="uni" style="margin-bottom:0;"><span class="dot"></span> Valdoria <span class="badge later">session 7</span></div></div>
+                <div class="pins" style="gap:8px;">
+                  <div class="pin" style="width:100%;"><div class="ini">AV</div><h5>Aldric Vane</h5><div class="role">answers to the Ashen Ledger now</div></div>
+                  <div class="pin" style="width:100%;"><div class="ini">MS</div><h5>Mother Sennah</h5><div class="role">keeps the Gilded Rat</div></div>
+                </div>
+                <div class="tactions"><button class="btn sm">NPC here</button><button class="btn sm">Reveal</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>One tap on the edge tab summons it over any page; another dismisses it.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Zero disruption to the rest of the app: no second skin, no strip every screen must reserve room for.</li>
+          <li>Cheapest to ship: one floating component, not a mode every existing screen has to support.</li>
+          <li>Works naturally as a "glance and dismiss" pattern that fits a GM checking one card mid-scene.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Narrow by construction: four pins and four actions is already tight in 300px of drawer.</li>
+          <li>Has to be re-summoned on every page load unless it remembers state, which is a feature to build.</li>
+          <li>Splits "the table" from "the wiki" exactly where A1 said not to: a second visual register, not a mode.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>Detect the location from what was said and switch context automatically</h3>
+    <p>Tempting because "they have entered Valdoria" is exactly the kind of sentence a transcript listener
+    could catch. Two failures stack here. It needs a model in the loop to parse speech into a place, which
+    cannot be bounded under the instant lane's 100&nbsp;ms and turns a graph query into a guess. And it
+    changes <code>session_context</code> (which pins NPCs, warms the next ring and anchors every
+    <code>revelation</code> row created from here on) without the GM doing anything, which is
+    <span class="guardref">Guardrail 1</span> applied to state instead of prose: an AI system changing what
+    the product believes is true, unasked.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>B, a mode the whole app switches into</h3>
+    <p>Take <b>B</b>. A1's own lock-in already commits to this shape: table mode is "not a separate design
+    system, only a separate density mode," which only makes sense if the rest of the app is one click away
+    while it is on. A dedicated screen (A) is the cheaper build and the one I would ship first if the
+    strip variant slipped, but it quietly encourages a second information architecture, and a layer (C)
+    is too small to hold what E3 is about to put in it.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: build the persistent strip first and actually run a
+    session against it. Open Aldric Vane's full entry mid-scene, then try to get back. If the instinct is
+    to reach for a "back to table" button that the mode does not have because the mode assumes you never
+    left, the boundary is wrong and table mode needs to be a screen after all.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#72</b> ships the declaration exactly as drawn: an autocomplete over place-typed entities
+      surfaced from a context chip, not a free-text box a model has to parse into an entity id.</li>
+      <li><b>#73</b>'s pinned-card query fires on whatever event B defines: a mode toggle plus a context
+      pick, which is a different trigger shape than a route change (A) and has to debounce against the
+      GM changing their mind mid-type.</li>
+      <li>Locks table mode to the same component library and skin tokens as the rest of the app; a
+      redesign of one is a redesign of both.</li>
+      <li>Deferred on purpose: which actions sit in the quick-action row (E3), how the lanes are shown on
+      each pin (E2), and the one-handed phone shape of this same strip (E4).</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

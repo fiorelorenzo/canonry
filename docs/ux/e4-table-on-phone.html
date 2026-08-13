@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .tmode {
+    --bg: #0f1114; --panel: #171a1f; --panel-2: #12151a;
+    --ink: #e9e6e0; --ink-2: #b9b4ab; --muted: #7d8794;
+    --line: #262b33; --line-2: #333a45;
+    --accent: #57c3a4; --accent-ink: #8fd9c3; --accent-bg: #14312a;
+    --ai: #a893ff; --ai-bg: #211d38; --ai-line: #3d3563;
+    --ok: #6fce9f; --ok-bg: #14301f; --danger: #ef8b74; --danger-bg: #341a16;
+    --warn: #e5b567; --warn-bg: #322612;
+  }
+  .phones { display: flex; gap: 26px; flex-wrap: wrap; align-items: flex-start; }
+  .phone.tmode { background: var(--bg); }
+  .phone .scr { font-size: 13px; }
+  .pctx { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--panel-2); border-bottom: 1px solid var(--line); font-size: 12px; color: var(--ink-2); }
+  .pctx b { color: var(--ink); }
+  .pctx .sp { flex: 1; }
+  .pctx .car { color: var(--muted); }
+  .plist { display: flex; flex-direction: column; }
+  .plist .pr { display: flex; align-items: center; gap: 9px; padding: 11px 2px; border-bottom: 1px solid var(--line); min-height: 44px; }
+  .plist .pr .ini { width: 24px; height: 24px; border-radius: 999px; background: var(--accent-bg); color: var(--accent-ink); font: 700 10px/24px var(--mono); text-align: center; flex: none; }
+  .plist .pr .nm { font-size: 12.5px; color: var(--ink); font-weight: 600; }
+  .plist .pr .rl { font-size: 11px; color: var(--muted); }
+  .pacts { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 2px; }
+  .pacts .btn { flex: 1; min-width: 0; }
+  .psearch { display: flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 12px 12px; font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
+  .pchips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .pchip { font: 11px var(--mono); padding: 5px 9px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line-2); color: var(--ink-2); }
+  .pfade { position: relative; }
+  .pfade::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 46px; background: linear-gradient(to bottom, transparent, var(--bg)); pointer-events: none; }
+  .pmore { text-align: center; font: 11px var(--mono); color: var(--muted); padding: 6px 0 2px; }
+  .tszspec { display: flex; flex-wrap: wrap; gap: 5px 18px; margin-top: 12px; font: 12px/1.6 var(--mono); color: var(--muted); max-width: 330px; }
+  .tszspec b { color: var(--ink-2); font-weight: 600; }
+</style>
+</head>
+<body data-decision="E4">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">#81 asks table mode to work one-handed, at a lit table, held by a GM who is mid-scene and
+  cannot study the screen. §2 is blunt about why this matters at all: the beachhead already runs generative
+  tools at the table, often from a phone propped against a dice tray. E1 through E3 already decided what
+  table mode is and what sits in it; E4 is the same content forced through 314px of usable width, which is
+  where a layout that looked fine on a laptop quietly stops working. Four pin cards do not become
+  four smaller pin cards, they become a decision about what does not fit.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 4</span> the AI switches off completely and a good wiki remains.
+    On a phone this reads literally: if the model is unreachable or the GM has it off, the pinned rows and
+  quick actions below are graph queries and GM-authored state. None of it depends on Ask working.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Bottom tabs</h3></header>
+      <p class="sub">A persistent four-tab bar: Here, Actions, Ask, Queue. Whatever the GM needs is always
+      exactly one known tap away.</p>
+      <figure class="mock">
+        <div class="phone tmode">
+          <div class="scr">
+            <div class="pctx"><b>Valdoria</b><span class="car">&middot;</span>session 7<span class="sp"></span><span class="badge later" style="font-size:10px;">Here</span></div>
+            <div class="body">
+              <div class="plist">
+                <div class="pr"><div class="ini">AV</div><div><div class="nm">Aldric Vane</div><div class="rl">answers to the Ashen Ledger now</div></div></div>
+                <div class="pr"><div class="ini">MS</div><div><div class="nm">Mother Sennah</div><div class="rl">keeps the Gilded Rat</div></div></div>
+                <div class="pr"><div class="ini">CA</div><div><div class="nm">Corvin Ashe</div><div class="rl">factor of the Ashen Ledger</div></div></div>
+                <div class="pr"><div class="ini">IW</div><div><div class="nm">Iselde Wrenn</div><div class="rl">harbour magistrate</div></div></div>
+              </div>
+              <div class="pacts"><button class="btn sm pri">+ NPC</button><button class="btn sm">Reveal</button></div>
+            </div>
+            <div class="tabs">
+              <a class="on">Here</a><a>Actions</a><a>Ask</a><a>Queue <span class="badge ai" style="font-size:9px;padding:0 4px;">1</span></a>
+            </div>
+          </div>
+        </div>
+        <figcaption>Same tab bar, same four positions, every session. Muscle memory over time.</figcaption>
+      </figure>
+      <div class="tszspec">
+        <span><b>Tab target</b> 78&times;48px</span>
+        <span><b>Row height</b> 44px min</span>
+        <span><b>Cut</b> aliases, relation labels, full portraits, per-layer sound sliders</span>
+      </div>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Fixed position, zero scrolling: the reveal tab is always the same thumb reach, every session.</li>
+          <li>The queue badge is visible from any tab, so a finished draft is never silently missed.</li>
+          <li>Familiar pattern: matches how every native app a GM already uses on a phone works.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A quarter of screen width is permanently spent on the tab bar itself, on top of everything else cut.</li>
+          <li>Switching tabs to act on a card in another tab (reveal a place while on Actions) costs a hop.</li>
+          <li>Four tabs is already tight; a fifth destination has nowhere obvious to go.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Single scrolling context sheet</h3></header>
+      <p class="sub">No tabs at all. A sticky context header, then everything (pins, actions, queue) stacked in one scroll.</p>
+      <figure class="mock">
+        <div class="phone tmode">
+          <div class="scr">
+            <div class="pctx"><b>Valdoria</b><span class="car">&middot;</span>session 7<span class="sp"></span><span class="muted" style="font-size:10px;">sticky</span></div>
+            <div class="body pfade">
+              <div class="plist">
+                <div class="pr"><div class="ini">AV</div><div><div class="nm">Aldric Vane</div><div class="rl">answers to the Ashen Ledger now</div></div></div>
+                <div class="pr"><div class="ini">MS</div><div><div class="nm">Mother Sennah</div><div class="rl">keeps the Gilded Rat</div></div></div>
+                <div class="pr"><div class="ini">CA</div><div><div class="nm">Corvin Ashe</div><div class="rl">factor of the Ashen Ledger</div></div></div>
+              </div>
+              <div class="pacts"><button class="btn sm pri">+ NPC</button><button class="btn sm">Reveal</button><button class="btn sm">+ Inn</button></div>
+              <div class="card" style="padding:9px;"><header style="margin-bottom:2px;"><span class="badge ai" style="font-size:10px;">1 to review</span></header><div class="small muted">A dockhand, unnamed &middot; from + NPC</div></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Iselde Wrenn and the soundscape control are below the fold, reached by scrolling, not tapping.</figcaption>
+      </figure>
+      <div class="tszspec">
+        <span><b>Row height</b> 44px min</span>
+        <span><b>Sticky header</b> 42px</span>
+        <span><b>Cut</b> nothing structurally, but 2 of 4 pins live below the fold</span>
+      </div>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>No navigation model to learn at all: what you see is what you scroll to, in one continuous document.</li>
+          <li>Zero chrome spent on tabs means more of the screen goes to actual content on first paint.</li>
+          <li>New content (a finished proposal) can just append to the bottom, exactly like it happened.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Iselde Wrenn's card is a scroll away right when the scene turns to the harbour magistrate.</li>
+          <li>"Where was the soundscape control again" has no fixed answer; it moves as content above it changes.</li>
+          <li>A long session (more pins, more proposals) makes the sheet longer, not smarter.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Search-first</h3></header>
+      <p class="sub">The screen opens on one big field: ask or find anything. Context and actions sit
+      condensed underneath it.</p>
+      <figure class="mock">
+        <div class="phone tmode">
+          <div class="scr">
+            <div class="pctx"><b>Valdoria</b><span class="car">&middot;</span>session 7</div>
+            <div class="body">
+              <div class="psearch">&#128269; Ask or find anything&hellip;</div>
+              <div class="pchips">
+                <span class="pchip">NPC</span><span class="pchip">Inn</span><span class="pchip">Reveal</span><span class="pchip">Sound</span>
+              </div>
+              <div class="plist">
+                <div class="pr"><div class="ini">AV</div><div><div class="nm">Aldric Vane</div><div class="rl">answers to the Ashen Ledger now</div></div></div>
+                <div class="pr"><div class="ini">MS</div><div><div class="nm">Mother Sennah</div><div class="rl">keeps the Gilded Rat</div></div></div>
+              </div>
+              <div class="pmore">+2 more pinned &#9662;</div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Typing "sen" and picking Mother Sennah is as fast as tapping her row, and also finds
+        anything not pinned.</figcaption>
+      </figure>
+      <div class="tszspec">
+        <span><b>Search field</b> 44px tall, full width</span>
+        <span><b>Chip target</b> 30px tall</span>
+        <span><b>Cut</b> pins beyond the first two, no persistent action dock</span>
+      </div>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One field answers "who is this NPC the players just mentioned" without leaving table mode at all.</li>
+          <li>Scales to a huge universe (214 entries) without a navigation tree, which a tab bar eventually needs.</li>
+          <li>Chips double as quick-action shortcuts, so nothing is purely a search affordance.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Typing on a phone at a table, one-handed, in the dark, is the single worst input this product has.</li>
+          <li>The two most likely NPCs are pinned by rank, but a table of four means someone is always cut.</li>
+          <li>The field's usefulness (search) is exactly what nothing at the table should ever need to wait on.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>Shrink the desktop three-pane layout to fit</h3>
+    <p>The cheapest option on paper: reuse the sidebar, main and aside columns from the wiki mocks (A1)
+    and let them stack or scale down. It is rejected because it is not actually an option. ux.css
+    already hides <code>.side</code> and <code>.aside</code> under 900px, and a phone at 314px usable width
+    cannot fit a three-column reading layout at any font size a GM can read across a table without
+    <span class="guardref">Guardrail 4</span> failing by omission: not by turning the AI off, but by
+    shipping a screen nobody can actually use one-handed, which is the same as the feature not existing
+    for the one context it was named for (#81, §2).</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>A, bottom tabs</h3>
+    <p>Take <b>A</b>. E1 already committed table mode to a persistent context strip that survives
+    navigation; bottom tabs are that same idea shaped for a thumb instead of a cursor, and they are the
+    only option where "which tab has the reveal button" has one fixed, memorisable answer under stress.
+    <b>C</b>'s search is genuinely better for the rare "who was that again" lookup, so I would keep a search
+    entry point inside the Ask tab rather than promoting it to the whole home screen. <b>B</b>'s single
+    sheet is the right shape for a session log read afterwards (E5's after-session review), not for a
+    screen consulted mid-scene in three seconds.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: hand someone a phone with option A mid-improvised-scene
+    and ask them to reveal Aldric Vane. If they reach for the tab bar without being told which one, the
+    labels and order are right; if they start scrolling or tapping the context chip instead, the mental
+    model is closer to B or E1's own strip than to tabs, and the phone should inherit that instead of
+    inventing its own.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#81</b> ships this exact tab set (Here, Actions, Ask, Queue) sized to real thumb targets, not
+      a responsive reflow of the desktop nav.</li>
+      <li>Locks the phone's pinned rows to a list, not a card grid: name, role, one line, nothing else,
+      because that is what survives 314px legibly.</li>
+      <li>Locks that the queue badge (from E2, E3) is visible from every tab, so a background draft never
+      goes unnoticed just because the GM is not looking at Queue.</li>
+      <li>Deferred: how Ask's five detail levels (§5) fit a phone screen belongs to C8, not here.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

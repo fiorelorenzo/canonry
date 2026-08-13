@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .stattop { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .statcard .num { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; }
+  .statcard .lbl { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  table.mt { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.mt th { text-align: left; font: 600 11px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 8px; border-bottom: 1px solid var(--line-2); }
+  table.mt td { padding: 7px 8px; border-bottom: 1px solid var(--line); }
+  table.mt tr:last-child td { border-bottom: 0; }
+  table.mt td.num { font-family: var(--mono); text-align: right; }
+  .rate-low { color: var(--danger); font-weight: 700; }
+  .rate-mid { color: var(--warn); font-weight: 700; }
+  .rate-ok { color: var(--ok); font-weight: 700; }
+  .internal-chrome {
+    background: #2a2c31; color: #d8d8d8; font-family: var(--mono); font-size: 11px;
+    padding: 5px 10px; display: flex; gap: 10px; align-items: center;
+  }
+  .internal-chrome .dotr { width: 7px; height: 7px; border-radius: 50%; background: #e5b567; }
+</style>
+</head>
+<body data-decision="F5">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">SPEC 14 lists seven metrics and says two decide the product: accept rate of
+  propagation proposals, and time from import to first accepted proposal. A third,
+  acceptance ratio per import, is explicitly instrumented per playbook rather than in
+  aggregate, because a playbook that produces noise is a maintenance problem the average
+  hides. None of that says who is allowed to see the numbers. The honest tension is that a
+  GM's own accept rate is genuinely useful feedback and also a strange thing to show a
+  customer: nobody wants to feel graded on how often they trusted the tool they are
+  paying for, and the tool should not have an incentive to nudge that number up by, say,
+  softening its own proposals.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 3</span> every proposal shows its evidence, never an
+    arbitrary confidence score. A summary metric shown back to a GM risks becoming exactly
+    that score, one level up, if it is not handled carefully.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <p>All three options render the same underlying numbers: only who can reach the
+  screen changes.</p>
+  <div class="opts three">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>A separate internal tool</h3></header>
+      <p class="sub">Not reachable from the product at all. A different, unstyled surface
+      staff opens on its own subdomain.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="internal-chrome"><span class="dotr"></span> internal.canonry.io/metrics
+            &middot; staff only, no product chrome</div>
+          <div style="padding:16px">
+            <div class="stattop">
+              <div class="statcard card"><div class="num">78%</div>
+                <div class="lbl">Propagation proposals accepted, 30d</div></div>
+              <div class="statcard card"><div class="num">6m 12s</div>
+                <div class="lbl">Median: import &rarr; first accepted proposal</div></div>
+            </div>
+            <h4 style="margin-bottom:8px">Import acceptance, per playbook: 30d</h4>
+            <div style="overflow-x:auto">
+            <table class="mt" style="min-width:520px">
+              <thead><tr><th>Playbook</th><th>Imports</th><th>Produced</th><th>Accepted</th><th>Rate</th><th>Time to first accept</th></tr></thead>
+              <tbody>
+                <tr><td>obsidian@3</td><td class="num">61</td><td class="num">2,204</td><td class="num">1,829</td><td class="num rate-ok">83%</td><td class="num">4m 40s</td></tr>
+                <tr><td>kanka@1</td><td class="num">14</td><td class="num">512</td><td class="num">452</td><td class="num rate-ok">88%</td><td class="num">3m 55s</td></tr>
+                <tr><td>world-anvil@2</td><td class="num">22</td><td class="num">1,140</td><td class="num">803</td><td class="num rate-mid">70%</td><td class="num">9m 05s</td></tr>
+                <tr><td>docx@1</td><td class="num">6</td><td class="num">140</td><td class="num">116</td><td class="num rate-ok">83%</td><td class="num">6m 30s</td></tr>
+                <tr><td>pdf@1</td><td class="num">9</td><td class="num">261</td><td class="num">132</td><td class="num rate-low">51%</td><td class="num">21m 10s</td></tr>
+                <tr><td>onenote@1</td><td class="num">2</td><td class="num">38</td><td class="num">19</td><td class="num rate-low">50%</td><td class="num">14m 00s</td></tr>
+                <tr><td>generic@1</td><td class="num">5</td><td class="num">96</td><td class="num">31</td><td class="num rate-low">32%</td><td class="num">26m 45s</td></tr>
+              </tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+        <figcaption>generic and pdf stand out as the playbooks to look at first, exactly
+        because they're separated from the aggregate.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Cannot leak into the product's own UI by accident: no shared components,
+          no shared auth to misconfigure.</li>
+          <li>Free to be blunt: raw tables, no product polish required.</li>
+          <li>Easy to restrict at the infrastructure level, not just with a role check.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A second surface to build, deploy and keep working: the exact kind of
+          extra container SPEC 12 spent effort avoiding elsewhere.</li>
+          <li>Staff have to context-switch out of the product to check it, which in practice
+          means it gets checked less.</li>
+          <li>No reuse of the app's own auth, so "who is staff" has to be re-solved here.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>An admin surface inside the product</h3></header>
+      <p class="sub">Same tables, same numbers, but behind a staff-only route inside the app,
+      reusing its chrome and its auth.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app narrow">
+            <div class="main">
+              <div class="tbar"><span class="crumb">Admin / <b>Metrics</b></span>
+                <span class="sp"></span><span class="badge">staff only</span></div>
+              <div class="entry">
+                <div class="stattop">
+                  <div class="statcard card"><div class="num">78%</div>
+                    <div class="lbl">Propagation proposals accepted, 30d</div></div>
+                  <div class="statcard card"><div class="num">6m 12s</div>
+                    <div class="lbl">Median: import &rarr; first accepted proposal</div></div>
+                </div>
+                <h2>Import acceptance, per playbook</h2>
+                <table class="mt">
+                  <thead><tr><th>Playbook</th><th>Produced</th><th>Accepted</th><th>Rate</th></tr></thead>
+                  <tbody>
+                    <tr><td>obsidian@3</td><td class="num">2,204</td><td class="num">1,829</td><td class="num rate-ok">83%</td></tr>
+                    <tr><td>world-anvil@2</td><td class="num">1,140</td><td class="num">803</td><td class="num rate-mid">70%</td></tr>
+                    <tr><td>pdf@1</td><td class="num">261</td><td class="num">132</td><td class="num rate-low">51%</td></tr>
+                    <tr><td>generic@1</td><td class="num">96</td><td class="num">31</td><td class="num rate-low">32%</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Same route pattern as any other admin screen the product already needs.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Reuses the app's own role and auth system instead of inventing a second one.</li>
+          <li>Staff are already logged into the product; checking metrics is one navigation
+          away, not a context switch.</li>
+          <li>Shares components with every other table in the app (D3's dry run, F2's usage
+          rows), so it costs less to build than a bespoke internal tool.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A staff-only route living inside the product is one misconfigured guard away
+          from a leak: the boundary is a role check, not a separate deployment.</li>
+          <li>Ties the internal tool's release cadence to the product's, instead of letting
+          it move independently.</li>
+          <li>Tempting to add "just one more" GM-facing chart here later, blurring the line
+          this decision is trying to hold.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Partly shown to the GM</h3></header>
+      <p class="sub">The GM's own account gets a small personal panel. Cross-GM aggregates and
+      per-playbook detail stay internal-only.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app narrow">
+            <div class="main">
+              <div class="tbar"><span class="crumb">Settings / <b>Your activity</b></span></div>
+              <div class="entry">
+                <div class="card">
+                  <header><h4>This month</h4></header>
+                  <div class="stattop" style="margin-bottom:0">
+                    <div class="statcard"><div class="num">77%</div>
+                      <div class="lbl">Proposals you accepted (91 of 118)</div></div>
+                    <div class="statcard"><div class="num">6m</div>
+                      <div class="lbl">After your last import, to your first accept</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>No playbook table, no comparison to anyone else: just the GM's own
+        two numbers.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Genuinely useful feedback: a GM who rejects almost everything might realise
+          their world is odd rather than the copilot being bad, or the reverse.</li>
+          <li>Transparency about the tool's own limits sits well with guardrail 7: a
+          visible accept rate is closer to "here is what doesn't add up" than a hidden one.</li>
+          <li>Costs little to add once B exists: a scoped query, not a new surface.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>The argument against is not hypothetical: an accept rate shown to the person
+          being measured by it is a strange incentive on both sides: the GM may start
+          accepting to keep their number up, and the product may be tempted to soften
+          proposals to keep GMs looking successful.</li>
+          <li>A percentage handed to a customer with no context reads like a grade, which is
+          adjacent to the arbitrary confidence score guardrail 3 forbids at the proposal
+          level.</li>
+          <li>Once shipped, removing it reads as taking away a feature, even if it was never
+          healthy for anyone's incentives.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>A public aggregate accept rate, as a trust signal</h3>
+    <p>"GMs accept 83% of what the Loremaster proposes" reads as marketing but functions as
+    exactly the arbitrary confidence score <span class="guardref">Guardrail 3</span> forbids,
+    just moved from the proposal to the whole product. It risks being read as permission to
+    stop reviewing carefully, which is the specific failure <span class="guardref">Guardrail 1</span>
+    exists to prevent by refusing an accept-all default in the first place.</p>
+  </div>
+  <div class="callout rejected mt24">
+    <h3>A grade or score for the GM's own accept rate</h3>
+    <p>A letter grade, a streak counter, or any framing that turns the GM's own number into a
+    score to keep up is the same failure aimed at the customer instead of the product:
+    <span class="guardref">Guardrail 3</span> says never an arbitrary confidence score, and a
+    gamified personal metric is one dressed differently.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>B, and defer C until there is real data to argue from</h3>
+    <p>Take <b>B</b>. Reusing the product's own auth and components is strictly cheaper than
+    standing up a separate tool, and per-playbook granularity (SPEC 14 point 6) is what
+    actually drives decisions (which playbook needs work) so it belongs where
+    the people who act on it already are. C is a real, defensible idea and I would not build
+    it yet: the incentive problem it raises is not solvable by design alone, it needs to be
+    watched. Ship B, watch whether a low playbook accept rate ever gets fixed faster because
+    staff can see it easily, and revisit whether GMs would benefit from their own number once
+    there is a year of internal data to know what a healthy range even looks like.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: check whether staff actually open the
+    admin route inside the product, or keep asking for a numbers pull in Slack anyway. If
+    nobody opens it, a weekly digest is cheaper to maintain than a UI at all, and B should
+    become an export, not a screen.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#100</b> the accept-rate and time-to-first-accept queries (SPEC 4.4:
+      <code>proposal</code>'s outcome column) get built as first-class, not derived later from
+      logs: the admin screen is the forcing function.</li>
+      <li><b>#101</b> per-playbook breakdown is the unit of the acceptance-ratio metric from
+      day one, never an aggregate with playbook as an afterthought filter.</li>
+      <li><b>#103</b> whatever ships for staff reuses the app's role system rather than a
+      second auth mechanism, which the admin-inside-the-product choice makes mandatory.</li>
+      <li>Deferred, on purpose: the GM-facing personal panel from C. Revisiting it needs a
+      real answer to the incentive question, not just a design for the screen.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

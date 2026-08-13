@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .estimate-rows .r span:first-child { color: var(--muted); font-size: 12px; min-width: 70px; }
+  .estimate-rows .r span.v { font-weight: 600; }
+  .logline { font: 12px/1.7 var(--mono); color: var(--ink-2); padding: 2px 0; }
+  .logline .t { color: var(--muted); margin-right: 8px; }
+  .commons { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-top: 8px; }
+  @media (max-width: 1100px) { .commons { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body data-decision="D2">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">SPEC 6.7 is explicit about the mechanics: an estimate before the
+  run covering size, time and cost, a queue with a global concurrency limit, a
+  per-user quota, a checkpoint per document, and a ceiling that stops cleanly with
+  proposals intact and asks whether to continue. It says nothing about what fills
+  the nine minutes on screen. That gap matters because nine minutes staring at a
+  spinner is nine minutes closer to the GM giving up and going back to Obsidian.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 1</span> extends past content: the estimate
+    is a consent screen for spending real money and quota, and it needs the same
+    explicit accept as any proposal, never an auto-start the instant a file lands.
+    <span class="guardref">Guardrail 3</span> matters too: whatever counts the GM
+    watches during the run, "trust me, it's working" is not one of them.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+
+  <figure class="mock" style="max-width: 480px;">
+    <div class="frame" style="padding: 20px;">
+      <div class="card">
+        <header><h4>Import estimate</h4></header>
+        <p class="small muted mt0">valdoria-reach.zip, Obsidian playbook</p>
+        <div class="rows estimate-rows">
+          <div class="r"><span>Size</span><span class="sp"></span><span class="v">214 documents</span></div>
+          <div class="r"><span>Time</span><span class="sp"></span><span class="v">about 9 minutes</span></div>
+          <div class="r"><span>Cost</span><span class="sp"></span><span class="v">0.42 EUR &middot; 41 credits</span></div>
+          <div class="r"><span>Queue</span><span class="sp"></span><span class="v">2nd in queue</span></div>
+        </div>
+        <p class="small muted" style="margin-top:10px;">Quota this month: 2,400 of 5,000 credits.</p>
+        <button class="btn pri">Start import</button>
+        <button class="btn sm">Not now</button>
+      </div>
+    </div>
+    <figcaption>The estimate and consent screen, identical across all three options below.</figcaption>
+  </figure>
+
+  <div class="opts one" style="margin-top: 20px;">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Progress bar with counts</h3></header>
+      <p class="sub">One number going up, one meter filling. The classic "please wait" screen, minimal and calm.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding: 20px; max-width: 480px;">
+          <div class="card">
+            <header><h4>Importing valdoria-reach.zip</h4><span class="badge now">running</span></header>
+            <p class="small muted mt0">142 of 214 documents &middot; about 3 minutes left</p>
+            <div class="meter" style="margin-bottom: 10px;"><i style="width: 66%"></i></div>
+            <p class="small muted">Checkpointed after every document. Safe to leave this tab.</p>
+            <button class="btn sm dgr">Cancel</button>
+          </div>
+        </div>
+        <figcaption>Nothing but a count and a bar; no sense of what is being found.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Cheapest to build and to read at a glance, no per-document rendering.</li>
+          <li>An ETA is an honest, well-understood signal a GM can plan around.</li>
+          <li>Never wrong in a way that embarrasses the product; a bar cannot misrepresent a proposal.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Delivers zero value until the run ends, which fights SPEC 14's time-to-first-value metric directly.</li>
+          <li>Nine minutes of a bar is exactly the wait Obsidian does not impose.</li>
+          <li>Gives no evidence of what is happening, which reads thin next to <span class="guardref">Guardrail 3</span>.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Live feed of proposals</h3></header>
+      <p class="sub">Every accepted extraction appears in a running list the moment
+      it clears validation. The GM can start reviewing before document 214 is even read.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding: 20px; max-width: 520px;">
+          <div class="card">
+            <header><h4>Importing valdoria-reach.zip</h4><span class="badge now">58 of 214</span></header>
+            <div class="rows">
+              <div class="r"><span class="men t-char">Aldric Vane</span><span class="sp"></span><span class="badge">update</span></div>
+              <div class="r"><span class="men t-place">The Gilded Rat</span><span class="sp"></span><span class="badge">new</span></div>
+              <div class="r"><span class="men t-place">Cairnmouth</span><span class="sp"></span><span class="badge">new</span></div>
+              <div class="r"><span class="men">employs, Ashen Ledger &rarr; Aldric Vane</span><span class="sp"></span><span class="badge">relation</span></div>
+            </div>
+            <p class="small muted" style="margin-top:10px;">17 proposals so far, 3 minutes left in the run.</p>
+            <button class="btn sm pri">Review 17 now</button>
+            <button class="btn sm dgr">Cancel</button>
+          </div>
+        </div>
+        <figcaption>The feed is a preview of the review queue, not a log; each row
+        is already a real, clickable proposal.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>First value can land in under a minute, well inside SPEC 6.6's "minutes, not an hour".</li>
+          <li>Doubles as evidence: the GM sees names they recognise from their own world, which builds trust before the run even finishes.</li>
+          <li>"Review 17 now" turns a wait into work, which is the whole point of not losing to Obsidian.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Reviewing mid-run means the entity list is still growing, so a match made now might be revised by a later document.</li>
+          <li>More surface to build: a streaming list, not a single number, and it has to survive a slow network gracefully.</li>
+          <li>A GM who starts reviewing gets pulled away from watching the run finish, which can make "is it done yet" harder to answer.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Log</h3></header>
+      <p class="sub">A scrolling technical trace of the loop itself: checkpoints and
+      tool calls, the same shape a coding agent's terminal output takes.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding: 20px; max-width: 520px;">
+          <div class="card">
+            <header><h4>Importing valdoria-reach.zip</h4><span class="badge now">running</span></header>
+            <div class="logline"><span class="t">08:41:02</span>checkpoint doc 141/214</div>
+            <div class="logline"><span class="t">08:41:04</span>entity_propose "The Gilded Rat" (place, new)</div>
+            <div class="logline"><span class="t">08:41:06</span>entity_propose "Cairnmouth" (place, update)</div>
+            <div class="logline"><span class="t">08:41:09</span>relation_propose employs (Ashen Ledger &rarr; Aldric Vane)</div>
+            <div class="logline"><span class="t">08:41:11</span>checkpoint doc 142/214</div>
+            <button class="btn sm dgr" style="margin-top:10px;">Cancel</button>
+          </div>
+        </div>
+        <figcaption>Raw and truthful, but written for someone who already knows
+        what <code>entity_propose</code> means.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Nothing hidden: every tool call in SPEC 6.3 is visible as it happens, which is the most literal reading of transparency.</li>
+          <li>Doubles as a debugging surface for support, without a second admin view to build.</li>
+          <li>Cheap to build if the job already emits structured events for checkpointing.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Tool names and JSON fragments mean nothing to a GM; it reads as "for developers" on a product that leads with the copilot for everyone.</li>
+          <li>Fast scrolling text is the least calming of the three during a nine-minute wait, closer to anxiety theatre than progress.</li>
+          <li>Delivers the same zero value before completion as A, dressed as more information.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+
+  <p style="margin-top: 22px;">Whichever style wins, three states come from the job
+  lifecycle in <b>#26</b>, <b>#27</b> and <b>#30</b>, not from the monitor, and look
+  the same regardless of the option chosen:</p>
+  <div class="commons">
+    <div class="card">
+      <header><h4>Cancel</h4></header>
+      <p class="small muted mt0">Stop the import now? 58 proposals already produced
+      stay in your review queue. The remaining 156 documents will not be read.</p>
+      <button class="btn sm">Keep going</button>
+      <button class="btn sm dgr">Stop, keep proposals</button>
+    </div>
+    <div class="card">
+      <header><h4>Ceiling reached</h4><span class="badge soon">paused</span></header>
+      <p class="small muted mt0">Stopped cleanly at its step ceiling, document 180
+      of 214. 61 proposals are ready to review now.</p>
+      <button class="btn sm pri">Resume from 180</button>
+      <button class="btn sm">Review 61 now</button>
+    </div>
+    <div class="card">
+      <header><h4>Closed the tab, came back</h4></header>
+      <p class="small muted mt0">Import running in the background: 197 of 214,
+      about 1 minute left. Nothing was lost, this runs server-side.</p>
+      <button class="btn sm pri">Open</button>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>Push past the ceiling automatically to avoid interrupting the GM</h3>
+    <p>It reads as a kindness, finish the job, do not make them click "continue".
+    SPEC 6.7 rules it out by name: a ceiling "stops cleanly... and asks whether to
+    continue." Spending past a budget line without a fresh yes is the same failure
+    mode <span class="guardref">Guardrail 1</span> names for content, applied to
+    money and quota instead of prose: the agent that keeps going without asking is
+    the one that gets uninstalled after the first surprising invoice.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>B, the live feed</h3>
+    <p>I would take <b>B</b>. It is the only option that turns the estimate's nine
+    minutes into progress on the metric that decides the product, time from import
+    to first accepted proposal (SPEC 14, item 2). A is safer to build and never
+    misleads, but it is nine minutes of nothing on a screen competing with a tool
+    that asks for nothing at all. C is honest in the wrong language for the
+    audience.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: ship B and watch whether GMs
+    actually click into the feed mid-run, versus waiting for the "done" state
+    before reviewing anything. If nobody reviews early, the streaming feed is
+    solving a problem nobody has at the cost of real complexity, and A with a
+    plain "17 proposals ready" counter underneath the bar gets the same honesty
+    for a tenth of the surface.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#26</b> the job lifecycle has to expose live status as a stream or a
+      cheap poll, not just a final outcome, and cancel has to be a first-class
+      state transition rather than a delete.</li>
+      <li><b>#30</b> the estimate card's queue position and quota line are not
+      decoration, every option above commits to showing them before the run starts.</li>
+      <li><b>#27</b> resume has to surface the exact checkpoint cursor ("document
+      180 of 214"), so the ceiling state cannot just say "paused", it has to say
+      where.</li>
+      <li>Hard to undo: once B ships, the review queue and the live feed are the
+      same component wearing two hats; splitting them later means two places that
+      can disagree about what happened during a run.</li>
+      <li>Deferred on purpose: what the review screen looks like once the feed or
+      the bar hands off to it, which is <a href="d4-import-review.html">D4</a>; what
+      the plan looks like once the whole run is done, which is
+      <a href="d3-dry-run-plan.html">D3</a>.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

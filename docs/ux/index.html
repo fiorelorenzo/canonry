@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Canonry UX audit and decision register</title>
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  table.inv { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.inv th {
+    text-align: left; font: 600 11px/1 var(--mono); text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--muted); padding: 0 10px 8px 0;
+    border-bottom: 1px solid var(--line-2);
+  }
+  table.inv td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.inv tr:hover td { background: var(--panel); }
+  table.inv .grp td {
+    font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--ink); background: var(--panel-2); padding: 12px 10px;
+  }
+  table.inv tr:hover .grp td { background: var(--panel-2); }
+  table.inv td.gate { white-space: nowrap; font: 600 13px/1.5 var(--mono); }
+  table.inv td.iss { font-size: 12px; color: var(--muted); }
+  table.inv td.iss a { color: var(--muted); text-decoration: none; }
+  table.inv td.iss a:hover { color: var(--ink); text-decoration: underline; }
+  .hero { max-width: 1360px; margin: 0 auto; padding: 46px 0 8px; }
+  .hero h1 { font-size: 40px; max-width: 24em; }
+  .hero .sub { font-size: 19px; color: var(--ink-2); max-width: 42em; margin-top: 16px; }
+  .tally { margin-top: 22px; font-size: 15px; color: var(--ink-2); }
+  ol.steps { max-width: 46em; }
+  ol.steps li { margin-bottom: 10px; }
+  textarea.out {
+    width: 100%; max-width: 60em; min-height: 200px; margin-top: 14px;
+    font: 12px/1.6 var(--mono); border: 1px solid var(--line-2); border-radius: 8px;
+    padding: 12px; background: var(--panel);
+  }
+</style>
+</head>
+<body>
+
+<div class="topline">
+  <b>Canonry</b><span>UX audit</span>
+  <span class="sp"></span>
+  <span>issue <a href="https://github.com/fiorelorenzo/canonry/issues/111">#111</a></span>
+  <span>·</span>
+  <a href="SAMPLE-WORLD.md">sample world</a>
+  <span>·</span>
+  <a href="https://github.com/orgs/fiorelorenzo/projects/9">board</a>
+</div>
+
+<header class="hero">
+  <h1>Every screen Canonry has to grow, and every decision that has to be taken before it does</h1>
+  <p class="sub">There is no UI yet. That is the good news: the decisions below are all
+  still free, and each one of them is about to be taken by accident by whoever
+  implements the first issue that needs it.</p>
+  <p class="tally" data-ux-tally></p>
+</header>
+
+<section>
+  <h2>What this is</h2>
+  <p>One page per decision. Each page states the question, renders two to four options
+  as working mock UI on the same sample world, lists what each option buys and costs,
+  names the option I would take and says what the choice locks in downstream. The
+  options are drawn rather than described because half of these questions cannot be
+  answered from a paragraph: density, marking, diff layout and phone ergonomics are
+  decided by looking.</p>
+  <ol class="steps">
+    <li>Walk the register below in order. It is sorted by section, and the
+    <span class="badge now">decide now</span> ones block P0 issues.</li>
+    <li>On each page, press the <b>Choose</b> button for the option you want and write
+    one line saying why. It is stored in this browser, nowhere else.</li>
+    <li>Come back here and press <b>Export</b>. You get markdown to paste into the
+    issues, or into <code>SPEC.md</code> where a decision belongs in the spec.</li>
+  </ol>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrails 1 to 7</span> are constraints on all of this,
+    not preferences. Where an obvious design breaks one, it appears on the page under
+    "rejected outright" with the guardrail number, so the reason survives the decision
+    and nobody reopens it in six months.</p>
+  </div>
+</section>
+
+<section>
+  <h2>The state of the UI today</h2>
+  <p>Two commits, no application code, 110 issues on the board and none of them
+  started. <code>SPEC.md</code> fixes the stack (SvelteKit 2, Svelte 5 runes, Tailwind 4,
+  shadcn-svelte) and the domain model, and it is deliberately quiet about the interface:
+  it says a proposal shows its evidence, not where the evidence sits; it says AI text is
+  visually distinct, not what distinct looks like; it says nothing at the table waits on
+  a model, not what replaces a spinner.</p>
+  <p>The inventory below maps every visible surface in the product to the issues that
+  build it and the decisions that gate it. Most engine issues (schema, matching, the
+  import loop, indexing) appear nowhere in it, which is the point: they can start today.
+  The surfaces can start as soon as their gate is answered.</p>
+</section>
+
+<section>
+  <h2>Surface inventory</h2>
+  <table class="inv">
+    <thead><tr><th>Surface</th><th>What it is</th><th>Built by</th><th>Gated by</th></tr></thead>
+    <tbody>
+
+      <tr class="grp"><td colspan="4">Shell and foundations</td></tr>
+      <tr><td><b>App shell</b></td><td>Sidebar, top bar, universe switcher, the frame every other screen sits in</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/104">#104</a></td><td class="gate">A1 A2</td></tr>
+      <tr><td><b>Command palette</b></td><td>Search, jump, run an action, possibly ask a question</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/104">#104</a> <a href="https://github.com/fiorelorenzo/canonry/issues/75">#75</a></td><td class="gate">A3</td></tr>
+      <tr><td><b>Auth screens</b></td><td>Signup, login, social login, the first screen anybody sees</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/86">#86</a></td><td class="gate">A1 D7</td></tr>
+      <tr><td><b>Settings</b></td><td>Account, universe, AI on and off, keys, style, export</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/107">#107</a> <a href="https://github.com/fiorelorenzo/canonry/issues/90">#90</a></td><td class="gate">C10 F3</td></tr>
+      <tr><td><b>Empty states</b></td><td>New universe, no entries, no proposals, nothing revealed yet</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/104">#104</a> <a href="https://github.com/fiorelorenzo/canonry/issues/108">#108</a></td><td class="gate">A2 D7</td></tr>
+
+      <tr class="grp"><td colspan="4">Canon</td></tr>
+      <tr><td><b>Entry read view</b></td><td>The most visited screen in the product</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/15">#15</a> <a href="https://github.com/fiorelorenzo/canonry/issues/17">#17</a></td><td class="gate">B1 B4</td></tr>
+      <tr><td><b>Entry editor</b></td><td>Markdown, mentions, sections, saving that triggers propagation</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/105">#105</a></td><td class="gate">B2</td></tr>
+      <tr><td><b>Entry browser</b></td><td>List and filter 214 entries by type, alias, recency</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/15">#15</a> <a href="https://github.com/fiorelorenzo/canonry/issues/104">#104</a></td><td class="gate">A2 B1</td></tr>
+      <tr><td><b>Relation editing</b></td><td>One row, two labels, cardinality, allowed types</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/16">#16</a></td><td class="gate">B3</td></tr>
+      <tr><td><b>Type and alias confirmation</b></td><td>Inferred, confirmed with one click, never a form</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/15">#15</a></td><td class="gate">B3</td></tr>
+      <tr><td><b>Facts and spans</b></td><td>The extracted layer, and how much of it the GM ever sees</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/17">#17</a></td><td class="gate">B4</td></tr>
+      <tr><td><b>Revision history</b></td><td>Human against accepted AI, per entry, forever</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/18">#18</a></td><td class="gate">B4</td></tr>
+      <tr><td><b>Derived universe precedence</b></td><td>Your canon wins, and a superseded source page disappears</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/19">#19</a></td><td class="gate">A2</td></tr>
+      <tr><td><b>Works and scenes</b></td><td>Ordered tree, scene editor, which entries a scene uses</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/20">#20</a></td><td class="gate">B5</td></tr>
+      <tr><td><b>Media on an entry</b></td><td>Portraits, generated badge, private by default</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/66">#66</a> <a href="https://github.com/fiorelorenzo/canonry/issues/71">#71</a></td><td class="gate">F1</td></tr>
+      <tr><td><b>Export</b></td><td>Markdown out, from day one, because of Realm Works</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/21">#21</a></td><td class="gate">F4</td></tr>
+
+      <tr class="grp"><td colspan="4">The copilot loop, which is the product</td></tr>
+      <tr><td><b>AI text marking</b></td><td>Distinct before accept, tracked after</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/106">#106</a></td><td class="gate">C1</td></tr>
+      <tr><td><b>Proposal routing</b></td><td>Where a background proposal shows up and how you learn it exists</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/47">#47</a> <a href="https://github.com/fiorelorenzo/canonry/issues/51">#51</a></td><td class="gate">C2</td></tr>
+      <tr><td><b>Propagation plan</b></td><td>Four entries touched, here is why, drop any before diffs are written</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/50">#50</a></td><td class="gate">C3</td></tr>
+      <tr><td><b>Per-entry diff</b></td><td>Prose diff, field diff, relation diff</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/51">#51</a> <a href="https://github.com/fiorelorenzo/canonry/issues/48">#48</a></td><td class="gate">C4</td></tr>
+      <tr><td><b>Evidence</b></td><td>Which entry, which sentence, and never a bare score</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/47">#47</a></td><td class="gate">C5</td></tr>
+      <tr><td><b>Accept and reject</b></td><td>Per entry, fast, reversible, no accept-all</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/51">#51</a></td><td class="gate">C6</td></tr>
+      <tr><td><b>Reject reason</b></td><td>One word, feeding the ranking</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/56">#56</a></td><td class="gate">C7</td></tr>
+      <tr><td><b>Ask</b></td><td>Streaming answer, listed sources, five detail levels</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/53">#53</a> <a href="https://github.com/fiorelorenzo/canonry/issues/60">#60</a></td><td class="gate">C8 A3</td></tr>
+      <tr><td><b>Complete a thin entry</b></td><td>Proposed fields on something half written</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/54">#54</a></td><td class="gate">C1 C6</td></tr>
+      <tr><td><b>Audit flags</b></td><td>Two statements that disagree, and wording that never certifies</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/55">#55</a></td><td class="gate">C9</td></tr>
+      <tr><td><b>AI off</b></td><td>The whole copilot gone, and a wiki that still earns its price</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/107">#107</a></td><td class="gate">C10</td></tr>
+
+      <tr class="grp"><td colspan="4">Import, which is where a new user starts</td></tr>
+      <tr><td><b>Source selection</b></td><td>Upload, detect, or choose one of seven playbooks</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/41">#41</a> <a href="https://github.com/fiorelorenzo/canonry/issues/43">#43</a> <a href="https://github.com/fiorelorenzo/canonry/issues/44">#44</a> <a href="https://github.com/fiorelorenzo/canonry/issues/45">#45</a></td><td class="gate">D1</td></tr>
+      <tr><td><b>Estimate and consent</b></td><td>Size, time, cost and queue position before anything runs</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/30">#30</a></td><td class="gate">D2 F2</td></tr>
+      <tr><td><b>Run, cancel, resume</b></td><td>Nine minutes of somebody's attention, or none</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/26">#26</a> <a href="https://github.com/fiorelorenzo/canonry/issues/27">#27</a></td><td class="gate">D2</td></tr>
+      <tr><td><b>Dry run plan</b></td><td>142 unchanged, 19 to update, 4 conflicts, 31 new</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/37">#37</a> <a href="https://github.com/fiorelorenzo/canonry/issues/36">#36</a></td><td class="gate">D3</td></tr>
+      <tr><td><b>Batch review</b></td><td>Two hundred proposals, guardrail 1 intact</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/42">#42</a></td><td class="gate">D4 C6</td></tr>
+      <tr><td><b>Field conflict</b></td><td>Your edit against the source's, never overwritten</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/37">#37</a></td><td class="gate">D5</td></tr>
+      <tr><td><b>The matching question</b></td><td>Same inn or new inn, asked once</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/37">#37</a></td><td class="gate">D6</td></tr>
+      <tr><td><b>Onboarding</b></td><td>Signup to first accepted proposal, measured in minutes</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/108">#108</a></td><td class="gate">D7</td></tr>
+      <tr><td><b>Import guides</b></td><td>How to export from each source, including the Mac OneNote caveat</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/110">#110</a></td><td class="gate">D1</td></tr>
+
+      <tr class="grp"><td colspan="4">Table and players</td></tr>
+      <tr><td><b>Table mode shell</b></td><td>A mode, a screen or a layer, and how context is declared</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/72">#72</a> <a href="https://github.com/fiorelorenzo/canonry/issues/73">#73</a></td><td class="gate">E1</td></tr>
+      <tr><td><b>Freshness and warming</b></td><td>Instant, fast, slow, and the budget running out mid-session</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/77">#77</a> <a href="https://github.com/fiorelorenzo/canonry/issues/78">#78</a> <a href="https://github.com/fiorelorenzo/canonry/issues/79">#79</a></td><td class="gate">E2</td></tr>
+      <tr><td><b>Quick actions</b></td><td>Create an NPC here, mark as revealed, set the mood</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/74">#74</a> <a href="https://github.com/fiorelorenzo/canonry/issues/80">#80</a></td><td class="gate">E3</td></tr>
+      <tr><td><b>Who is this</b></td><td>Instant search with a player looking at you</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/75">#75</a></td><td class="gate">A3 E1</td></tr>
+      <tr><td><b>Phone layout</b></td><td>One hand, a lit table, ten seconds</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/81">#81</a></td><td class="gate">E4</td></tr>
+      <tr><td><b>Audio controls</b></td><td>Layers, crossfade, mood chosen by the GM</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/68">#68</a> <a href="https://github.com/fiorelorenzo/canonry/issues/69">#69</a></td><td class="gate">E2 E3</td></tr>
+      <tr><td><b>Reveal</b></td><td>What the party learned, tied to the session it happened in</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/82">#82</a></td><td class="gate">E5</td></tr>
+      <tr><td><b>Secrets</b></td><td>Hidden inside public entries, and a preview of what players see</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/84">#84</a></td><td class="gate">E6</td></tr>
+      <tr><td><b>Players wiki</b></td><td>Read-only, filtered by revelation, zero configuration</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/83">#83</a> <a href="https://github.com/fiorelorenzo/canonry/issues/85">#85</a></td><td class="gate">E7</td></tr>
+
+      <tr class="grp"><td colspan="4">Media, money and the public site</td></tr>
+      <tr><td><b>Image generation</b></td><td>One image or four variants, a badge, a style</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/66">#66</a> <a href="https://github.com/fiorelorenzo/canonry/issues/65">#65</a> <a href="https://github.com/fiorelorenzo/canonry/issues/64">#64</a></td><td class="gate">F1</td></tr>
+      <tr><td><b>Quota and cost</b></td><td>Credits or currency, and the warm budget on its own line</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/88">#88</a> <a href="https://github.com/fiorelorenzo/canonry/issues/89">#89</a></td><td class="gate">F2</td></tr>
+      <tr><td><b>Subscription and checkout</b></td><td>The page where somebody pays</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/91">#91</a> <a href="https://github.com/fiorelorenzo/canonry/issues/7">#7</a></td><td class="gate">F2</td></tr>
+      <tr><td><b>BYO key and privacy</b></td><td>Which provider sees what, in plain words</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/90">#90</a> <a href="https://github.com/fiorelorenzo/canonry/issues/109">#109</a></td><td class="gate">F3</td></tr>
+      <tr><td><b>Metrics</b></td><td>Accept rate and time to first value, the two that decide this</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/100">#100</a> <a href="https://github.com/fiorelorenzo/canonry/issues/101">#101</a> <a href="https://github.com/fiorelorenzo/canonry/issues/103">#103</a> <a href="https://github.com/fiorelorenzo/canonry/issues/102">#102</a></td><td class="gate">F5</td></tr>
+      <tr><td><b>Landing and demo</b></td><td>The propagation loop shown without overpromising</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/3">#3</a> <a href="https://github.com/fiorelorenzo/canonry/issues/4">#4</a> <a href="https://github.com/fiorelorenzo/canonry/issues/5">#5</a></td><td class="gate">F6</td></tr>
+
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>The decisions</h2>
+  <div data-ux-register></div>
+</section>
+
+<section>
+  <h2>The review rubric</h2>
+  <p>Every screen in the inventory gets checked against these before its issue moves to
+  Done. They are the guardrails restated as questions somebody can answer while looking
+  at a pull request.</p>
+  <div class="grid2">
+    <div class="card">
+      <header><h4>1. Propose, never apply</h4></header>
+      <p class="small mt0">Is there any path where model output lands in canon without a
+      human pressing accept on that specific entry? Is there an accept-all anywhere it is
+      not explicitly permitted?</p>
+    </div>
+    <div class="card">
+      <header><h4>2. AI text is distinct</h4></header>
+      <p class="small mt0">Can a GM tell proposed text from their own at a glance, in both
+      palettes, without relying on colour alone? Is accepted AI text still traceable a
+      month later?</p>
+    </div>
+    <div class="card">
+      <header><h4>3. Evidence, never a score</h4></header>
+      <p class="small mt0">Does every proposal name the entry and the sentence it came
+      from? Is there a percentage anywhere pretending to be a reason?</p>
+    </div>
+    <div class="card">
+      <header><h4>4. The AI switches off</h4></header>
+      <p class="small mt0">With the copilot off, is this screen still coherent, or is it a
+      shell with a hole in it?</p>
+    </div>
+    <div class="card">
+      <header><h4>5. Data transparency</h4></header>
+      <p class="small mt0">At the moment content leaves for a provider, can the GM find
+      out which one and what happens to it, in a sentence rather than a policy?</p>
+    </div>
+    <div class="card">
+      <header><h4>6. Nothing unreviewed reaches players</h4></header>
+      <p class="small mt0">Can anything on this screen reach the players wiki without an
+      explicit reveal? Generated images included.</p>
+    </div>
+    <div class="card">
+      <header><h4>7. Never promise consistency</h4></header>
+      <p class="small mt0">Does any string here claim the canon is consistent, verified,
+      or coherent? Detection sits around F1 52%, so the honest verb is "looks".</p>
+    </div>
+    <div class="card">
+      <header><h4>The table test</h4></header>
+      <p class="small mt0">If this screen can appear during play, does anything on it wait
+      on a model? Instant means under 100 ms from the graph.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Not decided here</h2>
+  <p>Three things are open in the spec itself and no artifact in this set can close them,
+  because they are measurements or procurement rather than design: which wikis get
+  indexed first, which metered provider backs production imports, and the matching
+  thresholds of section 6.4, which come out of a benchmark. Two more are out of scope by
+  the spec's own decision: anything in section 13's exclusion list (Foundry sync, system
+  profiles, a Discord bot, player writing, native apps) and the v2 distribution stub.</p>
+  <p>What is also deliberately absent: a component library audit. shadcn-svelte decides
+  most of the small parts, and there is no point choosing a button until the screens that
+  need buttons exist.</p>
+</section>
+
+<section>
+  <h2>Export what you decided</h2>
+  <p>Markdown, ready to paste into the issues or into a commit that amends
+  <code>SPEC.md</code>.</p>
+  <p><button class="btn pri" data-ux-export>Export recorded decisions</button></p>
+  <textarea class="out" data-ux-exportout hidden readonly></textarea>
+</section>
+
+<nav class="pagenav">
+  <a href="a1-visual-language.html">Start with A1, visual language &rarr;</a>
+  <span class="sp"></span>
+  <a href="SAMPLE-WORLD.md">The sample world</a>
+</nav>
+</body>
+</html>

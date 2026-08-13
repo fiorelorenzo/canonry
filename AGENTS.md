@@ -48,6 +48,21 @@ exposes `startJob`/`cancel` and nothing outside it knows which driver runs behin
 that interface. `GatewayDriver` is the AI SDK loop; `SpoleDriver` will delegate to
 Spole. No provider or protocol type may leak past that boundary.
 
+## The UX decisions live in `docs/ux/`
+
+`SPEC.md` says a proposal shows its evidence and never where the evidence sits, and it
+is quiet about the interface on purpose. The thirty-eight questions that leaves open
+are written down as one HTML artifact each in `docs/ux/`, with the options rendered as
+working mock UI on one shared sample world (`docs/ux/SAMPLE-WORLD.md`), what each
+option costs, a recommendation and what the choice locks in. Start at
+`docs/ux/index.html`, which also carries the inventory of every surface the product
+has to grow and the review rubric the guardrails turn into.
+
+Before you build a screen, read the decision that gates it. If it is still open, take
+it deliberately and record it in the artifact and in the issue rather than settling it
+by accident in a component. If you settle one differently from the recommendation, say
+so in the issue, because the next agent will read the artifact and expect it.
+
 ## Deployment
 
 Two isolated stacks on prodbox, `preview` and `prod`: separate database, secrets,

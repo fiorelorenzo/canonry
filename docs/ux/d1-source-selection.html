@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .dropzone {
+    border: 1.5px dashed var(--line-2); border-radius: 10px;
+    padding: 30px 20px; text-align: center; background: var(--panel-2);
+  }
+  .dropzone .dz-icon { font-size: 22px; margin-bottom: 8px; color: var(--muted); }
+  .dropzone p { margin: 0 0 4px; max-width: none; }
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .tile {
+    border: 1px solid var(--line); border-radius: 8px; padding: 12px; text-align: left;
+    background: var(--panel); font: inherit; cursor: pointer; color: var(--ink);
+  }
+  .tile b { display: block; font-size: 13px; margin-bottom: 2px; }
+  .tile span { font-size: 11px; color: var(--muted); }
+  .tile.picked { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-bg); }
+  .stepcap { font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; }
+  .screen + .screen { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--line); }
+</style>
+</head>
+<body data-decision="D1">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">SPEC 6.6 names seven playbooks and a generic fallback, and says the
+  import must produce a useful proposal within minutes because the competitor is
+  Obsidian, which asks for nothing on day one. What the spec does not say is how the
+  GM tells Canonry which world they are handing over. That single screen sets the
+  tone for the whole pipeline: get it wrong and either the wrong playbook runs on a
+  vault it cannot read well, or the GM spends their first minute filling in a form
+  before anything happens at all.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 5</span> whichever option wins, a GM on a
+    free World Anvil tier has to be told plainly, before they upload anything, that
+    there is no clean door in for them. SPEC 6.8 accepts that gap rather than
+    solving it. A screen that stays silent about it turns an accepted limitation
+    into a support ticket three days later.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>One dropzone, source detected</h3></header>
+      <p class="sub">A single drop target for anything. Canonry opens the archive,
+      guesses the source from its shape, and says what it found. No source picker at
+      all, closest to what Obsidian itself asks for on day one.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding: 24px;">
+          <div class="screen">
+            <p class="stepcap">Obsidian vault, recognised</p>
+            <div class="dropzone" style="margin-bottom: 12px;">
+              <div class="dz-icon">&#8593;</div>
+              <p><b>valdoria-reach.zip</b> uploaded, 1.4 MB</p>
+            </div>
+            <div class="card">
+              <header><h4>Looks like an Obsidian vault</h4><span class="badge ok">detected</span></header>
+              <p class="small muted mt0">214 notes, 38 images. Found a <code>.obsidian</code>
+              folder, wikilinks and Dataview inline fields.</p>
+              <button class="btn pri">Import with the Obsidian playbook</button>
+              <button class="btn sm">Not this, pick manually</button>
+            </div>
+          </div>
+          <div class="screen">
+            <p class="stepcap">Unrecognised zip</p>
+            <div class="card">
+              <header><h4>Couldn't identify a known format</h4><span class="badge later">generic</span></header>
+              <p class="small muted mt0">340 files, mixed .txt and .rtf, no vault
+              structure, no known export schema.</p>
+              <p class="small">Running the generic playbook. It reads what it can
+              and proposes entities from whatever text and images it finds, slower
+              and looser than a named playbook but not blocked.</p>
+              <button class="btn pri">Import with the generic playbook</button>
+            </div>
+          </div>
+        </div>
+        <figcaption>Same dropzone, two outcomes. Nothing asked before the upload.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Zero questions before the first useful signal, matching Obsidian's own bar.</li>
+          <li>One code path decides the playbook, so there is nowhere for the GM's choice and the detector's guess to disagree.</li>
+          <li>The generic case looks like a legitimate outcome, not an error screen.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A wrong guess (a Kanka export that also happens to be a folder of JSON) runs the wrong playbook with no checkpoint to catch it.</li>
+          <li>The World Anvil free-tier gap has nowhere natural to live, since there is no moment where the GM says "World Anvil".</li>
+          <li>"Pick manually" is a rescue path bolted onto the happy path, easy to under-build.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Source chosen first</h3></header>
+      <p class="sub">Seven playbook tiles plus generic, picked before any upload. The
+      dropzone that follows is scoped to that source and its export instructions.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding: 24px;">
+          <p class="stepcap">Pick a source</p>
+          <div class="tiles">
+            <button class="tile picked"><b>Obsidian</b><span>folder or zip</span></button>
+            <button class="tile"><b>Kanka</b><span>JSON export, free tier</span></button>
+            <button class="tile"><b>World Anvil</b><span>Full World Export zip</span></button>
+            <button class="tile"><b>OneNote</b><span>PDF, DOCX or .onepkg</span></button>
+            <button class="tile"><b>PDF</b><span>file upload</span></button>
+            <button class="tile"><b>DOCX</b><span>file upload</span></button>
+            <button class="tile"><b>Something else</b><span>generic playbook</span></button>
+          </div>
+          <div class="screen">
+            <p class="stepcap">Obsidian picked</p>
+            <div class="dropzone">
+              <div class="dz-icon">&#8593;</div>
+              <p><b>Drop your vault folder or a zip of it</b></p>
+              <p class="small muted">valdoria-reach.zip found: 214 notes, 38 images</p>
+            </div>
+          </div>
+          <div class="screen">
+            <p class="stepcap">World Anvil picked, free tier</p>
+            <div class="callout guard mt24" style="padding: 14px 16px;">
+              <p class="small" style="margin:0;"><b>World Anvil needs a Guild
+              membership to export.</b> The Full World Export we read is a paid-tier
+              feature, and the API needs a Guild subscription plus an app key
+              granted by human review. On the free tier neither door is open.
+              Export what you can to PDF or DOCX instead, or continue with
+              <a href="#">Something else</a>.</p>
+            </div>
+          </div>
+        </div>
+        <figcaption>The tile grid, then a source-scoped dropzone; the free-tier
+        message sits exactly where a World Anvil user would look.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The World Anvil gap is said at the one moment it is relevant, before anyone uploads anything.</li>
+          <li>Upload instructions can be specific ("export the vault as a zip") instead of generic advice.</li>
+          <li>No detector to get wrong; the GM's word is authoritative.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>One extra click and one extra decision before the first upload, exactly the friction Obsidian does not have.</li>
+          <li>A GM who does not know their own export format (a OneNote user unsure if it is a PDF or a .onepkg) is stuck choosing blind.</li>
+          <li>Seven tiles plus generic is a wall of unfamiliar words for a first-time visitor.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Detect, then confirm</h3></header>
+      <p class="sub">One dropzone like A, but the detected playbook is a proposal
+      with an editable field, not an instruction that runs immediately.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding: 24px;">
+          <div class="screen">
+            <p class="stepcap">Obsidian vault, detected</p>
+            <div class="dropzone" style="margin-bottom: 12px;">
+              <div class="dz-icon">&#8593;</div>
+              <p><b>valdoria-reach.zip</b> uploaded, 1.4 MB</p>
+            </div>
+            <div class="card">
+              <header><h4>Detected: Obsidian vault</h4></header>
+              <p class="small muted mt0">214 notes, 38 images. Found a
+              <code>.obsidian</code> folder, wikilinks and Dataview inline fields.</p>
+              <label class="small muted" style="display:block;margin-bottom:4px;">Playbook to run</label>
+              <select class="btn" style="display:block; width: 240px; margin-bottom: 12px;">
+                <option selected>Obsidian</option>
+                <option>Kanka</option>
+                <option>World Anvil</option>
+                <option>OneNote</option>
+                <option>PDF</option>
+                <option>DOCX</option>
+                <option>Generic</option>
+              </select>
+              <button class="btn pri">Confirm and continue</button>
+            </div>
+          </div>
+          <div class="screen">
+            <p class="stepcap">Unrecognised zip</p>
+            <div class="card">
+              <header><h4>Couldn't confidently detect a format</h4></header>
+              <p class="small muted mt0">340 files, mixed .txt and .rtf, no vault
+              structure, no known export schema.</p>
+              <label class="small muted" style="display:block;margin-bottom:4px;">Playbook to run</label>
+              <select class="btn" style="display:block; width: 240px; margin-bottom: 8px;">
+                <option>Obsidian</option>
+                <option selected>Generic</option>
+              </select>
+              <p class="small">Generic is already selected. It is built for exactly this case.</p>
+              <button class="btn pri">Confirm and continue</button>
+            </div>
+          </div>
+        </div>
+        <figcaption>The dropdown is what makes detection a proposal: right by
+        default, wrong by one click if it needs to be.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The GM always sees which playbook is about to run and why, before it runs.</li>
+          <li>A wrong guess costs one click in a dropdown, not a wasted import.</li>
+          <li>The World Anvil gap can be shown the moment someone changes the dropdown to World Anvil, same message as B.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>One extra screen and one extra click versus A, on the exact metric SPEC 6.6 measures in minutes.</li>
+          <li>For the 90% case where detection is right, the confirm step is pure overhead most GMs will not read carefully.</li>
+          <li>Two things can now disagree (the detector's guess and the dropdown's value), which is one more state to test.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>A "Connect your account" button for World Anvil or Kanka</h3>
+    <p>It looks like the obvious way to remove the free-tier friction, and it is
+    exactly what SPEC 6.6 and 6.8 close the door on: "there is not a single API
+    integration in this list, and that is the point." Kanka's terms restrict
+    commercial use of their API on a customer's behalf (SPEC 6.9), and World Anvil's
+    API needs a Guild subscription and a fifteen-day human review, so a connect
+    button would still fail for exactly the GMs it is meant to help. It also
+    reintroduces an Entra-ID-style consent screen and a stored delegated token,
+    which is a second thing sitting between the GM's content and Canonry.
+    <span class="guardref">Guardrail 5</span> promises data transparency in plain
+    words; a live OAuth grant to a third party is one more provider in that
+    sentence, for a door that stays shut for the free-tier users it targets.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>C, detect then confirm</h3>
+    <p>I would take <b>C</b>. It keeps the single dropzone that competes with
+    Obsidian's zero setup, and it spends exactly one extra click to close the two
+    real risks in A: a wrong guess that runs silently, and nowhere to put the World
+    Anvil free-tier message before the job starts. B's tile grid is the right idea
+    for the World Anvil case specifically, but it makes every GM pay a decision
+    upfront for a problem only some of them have.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: ship C, then log how often the
+    dropdown gets changed away from the detected value. If it is almost never
+    touched, the confirm step is theatre and A is the better default with a manual
+    override kept for the rare miss. If it is touched often, C earned its extra
+    click.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#41</b> the Obsidian playbook has to expose enough detection signal
+      (the <code>.obsidian</code> folder, wikilink density) for the confirm card to
+      say something more specific than "zip file uploaded".</li>
+      <li><b>#43</b> the World Anvil playbook only ever sees a Full World Export
+      zip, since the free-tier message in the mocks above sends everyone else to the
+      generic path before a job is ever created.</li>
+      <li><b>#44</b> the generic playbook has to produce a genuinely useful first
+      pass, because C makes "generic" a visible, named outcome rather than a silent
+      fallback, and a bad generic result now reads as a product failure instead of
+      an edge case nobody saw.</li>
+      <li>Hard to undo: once GMs learn the dropzone always leads with detection, a
+      later switch to source-first (B) would feel like new friction, not a
+      simplification.</li>
+      <li>Deferred on purpose: the estimate and the consent to spend money and
+      quota, which is <a href="d2-estimate-and-progress.html">D2</a>; what the plan
+      looks like once the job finishes, which is <a href="d3-dry-run-plan.html">D3</a>.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  /* Each skin overrides tokens on a wrapper, so the mock markup below is
+     byte-identical across the three options and only the skin changes. */
+  .skin { font-size: 14px; }
+
+  .skin-b {
+    --bg: #f4efe4; --panel: #fffdf7; --panel-2: #f9f4ea;
+    --ink: #221d16; --ink-2: #4c4238; --muted: #857a6a;
+    --line: #e2d8c6; --line-2: #cfc2ab;
+    --accent: #7a4a1f; --accent-ink: #5c3714; --accent-bg: #f3e7d5;
+  }
+  .skin-b .entry h1.title, .skin-b .prose { font-family: var(--serif); }
+  .skin-b .prose { font-size: 16.5px; line-height: 1.8; }
+  .skin-b .prose p { max-width: 34em; }
+  .skin-b .entry { padding: 34px 40px; }
+  .skin-b nav.nav a { padding: 8px 10px; }
+  .skin-b .app { min-height: 400px; }
+
+  .skin-c {
+    --bg: #0f1114; --panel: #171a1f; --panel-2: #12151a;
+    --ink: #e9e6e0; --ink-2: #b9b4ab; --muted: #7d8794;
+    --line: #262b33; --line-2: #333a45;
+    --accent: #57c3a4; --accent-ink: #8fd9c3; --accent-bg: #14312a;
+    --ai: #a893ff; --ai-bg: #211d38; --ai-line: #3d3563;
+    --ok: #6fce9f; --ok-bg: #14301f; --danger: #ef8b74; --danger-bg: #341a16;
+    --warn: #e5b567; --warn-bg: #322612;
+  }
+  .skin-c { font-size: 15px; }
+  .skin-c .btn { background: #1e232a; color: var(--ink); }
+  .skin-c .btn.pri { background: var(--accent); color: #06231c; }
+  .skin-c nav.nav a { padding: 9px 10px; }
+  .skin-c .rows .r { padding: 13px 12px; }
+  .skin-c .men { color: var(--accent-ink); }
+  .skin-c ins.i { background: #1c4432; color: #d6f3e3; }
+  .skin-c del.d { background: #46221b; color: #f6cfc4; }
+
+  .spec { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 14px; font: 12px/1.6 var(--mono); color: var(--muted); }
+  .spec b { color: var(--ink-2); font-weight: 600; }
+  .dens { display: flex; gap: 18px; margin-top: 10px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body data-decision="A1">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">The spec fixes the stack (Tailwind 4, shadcn-svelte) and nothing about
+  the language: no type scale, no density, no default theme. That is fine until the
+  first component lands, because shadcn ships a neutral default that quietly becomes
+  the product's face by inertia. The awkward part is that Canonry has two rooms with
+  opposite requirements. Prep is an hour at a desk reading and writing prose, which
+  wants a comfortable measure and calm contrast. Table mode is ten seconds in a dim
+  room with dice in one hand, which wants large targets and contrast that survives a
+  glance. One skin has to serve both, or the switch between them has to be a
+  deliberate part of the language rather than an afterthought.</p>
+  <p>There is also a colour constraint that is not aesthetic. <b>AI text must be
+  visually distinct</b> (decision C1 works out how), so one hue is spent on
+  "proposed, not yours". If the brand accent is that same hue, the marking stops
+  reading as a warning and starts reading as decoration.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 4</span> with the AI switched off, what is left
+    must still be a good wiki. A skin that only looks intentional when it is full of
+    violet AI chrome fails that test, so each option below is worth checking twice:
+    once as drawn, once with the copilot column gone.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Quiet tool</h3></header>
+      <p class="sub">Light, sans throughout, dense rows, one accent used sparingly. The
+      register a code editor or a tracker uses: the chrome disappears and the content
+      carries the page.</p>
+
+      <figure class="mock">
+        <div class="frame skin skin-a">
+          <div class="app aside3">
+            <div class="side">
+              <div class="uni"><span class="dot"></span> Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Entries <span class="n">214</span></a>
+                <a href="#">Works <span class="n">2</span></a>
+                <a href="#">Proposals <span class="n">3</span></a>
+                <a href="#">Table</a>
+                <a href="#">Players</a>
+                <div class="grp">Recent</div>
+                <a href="#">Aldric Vane</a>
+                <a href="#">The Gilded Rat</a>
+                <a href="#">The Ashen Ledger</a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar">
+                <span class="crumb">Entries / character / <b>Aldric Vane</b></span>
+                <span class="sp"></span>
+                <button class="btn sm">Ask</button>
+                <button class="btn sm pri">Save</button>
+              </div>
+              <div class="entry">
+                <h1 class="title">Aldric Vane</h1>
+                <div class="kicker">
+                  <span class="badge">character</span>
+                  <span>also: Captain Vane, the broken captain</span>
+                  <span>&middot;</span><span>edited 4 minutes ago</span>
+                </div>
+                <div class="prose">
+                  <p>Dismissed from the watch in the thaw after <a href="#" class="men t-fact">the Sable Winter</a>,
+                  he now answers to <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at
+                  <a href="#" class="men t-place">the Gilded Rat</a>, in the corner seat nobody asks him to leave.</p>
+                  <h2>Standing in the city</h2>
+                  <p>Three hundred and forty sworn used to take his word. Forty of them still would, which is
+                  the number <a href="#" class="men t-char">Corvin Ashe</a> is paying for.</p>
+                </div>
+              </div>
+            </div>
+            <div class="aside">
+              <div class="sec">
+                <h4>Proposals</h4>
+                <div class="card">
+                  <header><h4>3 entries touched</h4></header>
+                  <p class="small muted mt0">From your last edit, 4 minutes ago.</p>
+                  <button class="btn sm pri">Review</button>
+                </div>
+              </div>
+              <div class="sec">
+                <h4>Relations</h4>
+                <div class="rel"><span class="lbl">employed by</span> <a href="#" class="men">The Ashen Ledger</a></div>
+                <div class="rel"><span class="lbl">dismissed by</span> <a href="#" class="men">Iselde Wrenn</a></div>
+                <div class="rel"><span class="lbl">drinks at</span> <a href="#" class="men">The Gilded Rat</a></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>The same entry in all three options: sidebar, entry, copilot column.</figcaption>
+      </figure>
+
+      <div class="spec">
+        <span><b>Body</b> system sans 14/1.6</span>
+        <span><b>Title</b> sans 26 semibold</span>
+        <span><b>Row height</b> 32px</span>
+        <span><b>Accent</b> deep green, links and primary only</span>
+        <span><b>Measure</b> 38em</span>
+      </div>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Reads as a tool, which is what a GM comparing against Obsidian expects.</li>
+          <li>Density fits the graph work: relations, proposals and facts all want lists.</li>
+          <li>Nearest to shadcn's defaults, so components arrive already dressed.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Nothing about it says fantasy, and the landing page has to carry all the warmth.</li>
+          <li>14px sans at 1.6 is a poor place to read six paragraphs of prose.</li>
+          <li>Generic: three tools on this board could wear the same skin.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Reading room</h3></header>
+      <p class="sub">Warm paper, serif for entry titles and body, wider leading, softer
+      density. The wiki as a book someone keeps, with the tool parts staying sans.</p>
+
+      <figure class="mock">
+        <div class="frame skin skin-b">
+          <div class="app aside3">
+            <div class="side">
+              <div class="uni"><span class="dot"></span> Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Entries <span class="n">214</span></a>
+                <a href="#">Works <span class="n">2</span></a>
+                <a href="#">Proposals <span class="n">3</span></a>
+                <a href="#">Table</a>
+                <a href="#">Players</a>
+                <div class="grp">Recent</div>
+                <a href="#">Aldric Vane</a>
+                <a href="#">The Gilded Rat</a>
+                <a href="#">The Ashen Ledger</a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar">
+                <span class="crumb">Entries / character / <b>Aldric Vane</b></span>
+                <span class="sp"></span>
+                <button class="btn sm">Ask</button>
+                <button class="btn sm pri">Save</button>
+              </div>
+              <div class="entry">
+                <h1 class="title">Aldric Vane</h1>
+                <div class="kicker">
+                  <span class="badge">character</span>
+                  <span>also: Captain Vane, the broken captain</span>
+                  <span>&middot;</span><span>edited 4 minutes ago</span>
+                </div>
+                <div class="prose">
+                  <p>Dismissed from the watch in the thaw after <a href="#" class="men t-fact">the Sable Winter</a>,
+                  he now answers to <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at
+                  <a href="#" class="men t-place">the Gilded Rat</a>, in the corner seat nobody asks him to leave.</p>
+                  <h2>Standing in the city</h2>
+                  <p>Three hundred and forty sworn used to take his word. Forty of them still would, which is
+                  the number <a href="#" class="men t-char">Corvin Ashe</a> is paying for.</p>
+                </div>
+              </div>
+            </div>
+            <div class="aside">
+              <div class="sec">
+                <h4>Proposals</h4>
+                <div class="card">
+                  <header><h4>3 entries touched</h4></header>
+                  <p class="small muted mt0">From your last edit, 4 minutes ago.</p>
+                  <button class="btn sm pri">Review</button>
+                </div>
+              </div>
+              <div class="sec">
+                <h4>Relations</h4>
+                <div class="rel"><span class="lbl">employed by</span> <a href="#" class="men">The Ashen Ledger</a></div>
+                <div class="rel"><span class="lbl">dismissed by</span> <a href="#" class="men">Iselde Wrenn</a></div>
+                <div class="rel"><span class="lbl">drinks at</span> <a href="#" class="men">The Gilded Rat</a></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Same markup, warm palette, serif prose at 16.5/1.8 and a 34em measure.</figcaption>
+      </figure>
+
+      <div class="spec">
+        <span><b>Body</b> serif 16.5/1.8</span>
+        <span><b>Title</b> serif 26</span>
+        <span><b>Row height</b> 36px</span>
+        <span><b>Accent</b> burnt umber</span>
+        <span><b>Measure</b> 34em</span>
+      </div>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Prose is genuinely pleasant to read and to write, which is most of prep.</li>
+          <li>Has a face. A screenshot is recognisable, which the landing page needs.</li>
+          <li>Warm paper makes the violet AI marking read as intrusion, which is the point of it.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Every dense surface fights the skin: diffs, proposal queues, import tables.</li>
+          <li>Serif plus warm paper is one taste away from twee, and taste is not testable.</li>
+          <li>Worst of the three at a table in a dim room.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Dark console, table first</h3></header>
+      <p class="sub">Dark by default everywhere, 15px base, taller rows, high-contrast
+      accent. Optimised for the room the product is used in during play.</p>
+
+      <figure class="mock">
+        <div class="frame skin skin-c">
+          <div class="app aside3">
+            <div class="side">
+              <div class="uni"><span class="dot"></span> Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Entries <span class="n">214</span></a>
+                <a href="#">Works <span class="n">2</span></a>
+                <a href="#">Proposals <span class="n">3</span></a>
+                <a href="#">Table</a>
+                <a href="#">Players</a>
+                <div class="grp">Recent</div>
+                <a href="#">Aldric Vane</a>
+                <a href="#">The Gilded Rat</a>
+                <a href="#">The Ashen Ledger</a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar">
+                <span class="crumb">Entries / character / <b>Aldric Vane</b></span>
+                <span class="sp"></span>
+                <button class="btn sm">Ask</button>
+                <button class="btn sm pri">Save</button>
+              </div>
+              <div class="entry">
+                <h1 class="title">Aldric Vane</h1>
+                <div class="kicker">
+                  <span class="badge">character</span>
+                  <span>also: Captain Vane, the broken captain</span>
+                  <span>&middot;</span><span>edited 4 minutes ago</span>
+                </div>
+                <div class="prose">
+                  <p>Dismissed from the watch in the thaw after <a href="#" class="men t-fact">the Sable Winter</a>,
+                  he now answers to <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at
+                  <a href="#" class="men t-place">the Gilded Rat</a>, in the corner seat nobody asks him to leave.</p>
+                  <h2>Standing in the city</h2>
+                  <p>Three hundred and forty sworn used to take his word. Forty of them still would, which is
+                  the number <a href="#" class="men t-char">Corvin Ashe</a> is paying for.</p>
+                </div>
+              </div>
+            </div>
+            <div class="aside">
+              <div class="sec">
+                <h4>Proposals</h4>
+                <div class="card">
+                  <header><h4>3 entries touched</h4></header>
+                  <p class="small muted mt0">From your last edit, 4 minutes ago.</p>
+                  <button class="btn sm pri">Review</button>
+                </div>
+              </div>
+              <div class="sec">
+                <h4>Relations</h4>
+                <div class="rel"><span class="lbl">employed by</span> <a href="#" class="men">The Ashen Ledger</a></div>
+                <div class="rel"><span class="lbl">dismissed by</span> <a href="#" class="men">Iselde Wrenn</a></div>
+                <div class="rel"><span class="lbl">drinks at</span> <a href="#" class="men">The Gilded Rat</a></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Same markup again. Note what happens to the diff colours and to the AI violet on dark.</figcaption>
+      </figure>
+
+      <div class="spec">
+        <span><b>Body</b> sans 15/1.6</span>
+        <span><b>Title</b> sans 26</span>
+        <span><b>Row height</b> 38px</span>
+        <span><b>Accent</b> mint, high contrast</span>
+        <span><b>Measure</b> 38em</span>
+      </div>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The only option that is already right for the room where table mode runs.</li>
+          <li>Taller rows are also the phone layout (E4), so one density serves both.</li>
+          <li>Generated images and portraits sit better on dark panels.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Dark by default is a minority preference for long reading and writing.</li>
+          <li>Red and green diffs need reworking on dark, and so does the violet AI tint.</li>
+          <li>Landing page and players wiki almost certainly want light anyway, so a second palette exists regardless.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>A parchment-and-woodcut fantasy skin</h3>
+    <p>Textured backgrounds, drop caps, a display face for headings. It reads well in a
+    screenshot and badly after twenty minutes, it makes a diff nearly unreadable, and it
+    puts the product in the same visual family as the tools this one is trying not to be
+    (<span class="guardref">02</span> the competitor is Obsidian, and Obsidian is plain on
+    purpose). The world's flavour belongs in the images the GM generates and in their own
+    prose, not in our chrome.</p>
+  </div>
+  <div class="callout rejected mt24">
+    <h3>Violet as the brand accent</h3>
+    <p>It is the current fashion for AI products and it is exactly the hue that has to
+    mean "not yours yet" (C1). Spending it on buttons and links leaves the marking
+    nothing to say, and repainting it later touches every surface at once.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>A as the base, with B's measure for entry prose and C promoted to a real theme</h3>
+    <p>Take <b>A</b>. It is the only option whose density is right for the surfaces that
+    carry the flagship feature, and those surfaces are lists: plans, diffs, proposals,
+    import tables. Then spend two specific concessions rather than adopting a whole
+    second skin: entry prose gets B's comfortable size and 34em measure, because reading
+    and writing entries is where the hours go; and the dark palette from C ships as a
+    first-class theme, chosen by the system preference, with table mode defaulting to it
+    regardless of the setting.</p>
+    <p>Concretely: one token file, two palettes, one type scale, sans everywhere with the
+    serif question deferred to B1 where the entry body is actually designed. The accent
+    is the deep green above, and violet stays reserved for the copilot.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: build the propagation review screen
+    (C3, C4) first in this skin. If a ten-entry plan and a prose diff look cramped or
+    shouty here, the base density is wrong and it is a token change rather than a
+    redesign. The expensive mistake would be discovering it after fifty components exist.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#104</b> ships the token file and both palettes, not just a shell. A theme
+      retrofitted after the components is how a product ends up with hardcoded greys.</li>
+      <li><b>C1</b> inherits violet as the AI hue in both palettes, and has to prove the
+      dark variant is still unmistakable rather than merely pretty.</li>
+      <li><b>E1, E4</b> inherit "table mode is dark by default" and taller rows, so the
+      table surfaces are not a separate design system, only a separate density mode.</li>
+      <li><b>#3</b> the landing page is light and can be warmer than the app, but it may
+      not show a skin the product does not have.</li>
+      <li>Deferred on purpose: whether entry prose is serif. That belongs to B1, where the
+      body is designed against real content rather than two paragraphs of fixture.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

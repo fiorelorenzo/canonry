@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .palette {
+    max-width: 560px; margin: 0 auto; border: 1px solid var(--line-2); border-radius: 12px;
+    background: var(--panel); box-shadow: 0 24px 50px -28px rgba(0,0,0,0.4); overflow: hidden;
+  }
+  .palette .pin {
+    display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--line);
+    font-size: 15px; color: var(--ink);
+  }
+  .palette .pin .cursor { width: 1px; height: 18px; background: var(--ink); animation: blink 1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .palette .grp { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: 10px 16px 4px; }
+  .palette .rows .r { padding: 9px 16px; cursor: default; }
+  .palette .rows .r .ty { width: 20px; text-align: center; font: 600 10px var(--mono); color: var(--muted); }
+  .palette .foot {
+    display: flex; gap: 14px; padding: 9px 16px; border-top: 1px solid var(--line); background: var(--panel-2);
+    font-size: 11px; color: var(--muted);
+  }
+  table.sc { width: 100%; border-collapse: collapse; font-size: 13px; max-width: 60em; }
+  table.sc th { text-align: left; font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 0 10px 8px 0; border-bottom: 1px solid var(--line-2); }
+  table.sc td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.sc td.keys { white-space: nowrap; }
+  .demo { max-width: 560px; }
+  .demo input {
+    width: 100%; box-sizing: border-box; font: 15px var(--sans); padding: 12px 14px; border-radius: 10px;
+    border: 1px solid var(--line-2); background: var(--panel);
+  }
+  .demo .rows { margin-top: 6px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+  .demo .rows .r .ty { width: 20px; text-align: center; font: 600 10px var(--mono); color: var(--muted); }
+  .demo .empty { padding: 10px 14px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body data-decision="A3">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">A GM at a desk wants to jump to Aldric Vane without touching the mouse. A GM
+  at the table wants "who is this?" in under a second, inside SPEC 8's fast lane. A GM mid
+  paragraph wants to ask a question without losing the sentence they were writing. All three
+  are keyboard-first moments, and if each invents its own trigger and its own results list, the
+  product has three things to learn instead of one. The spec does not say where Ask lives; it
+  only says Ask exists any time, streams over SSE, and returns sources rather than a bare
+  score. That leaves the palette's scope, and Ask's address, genuinely open.</p>
+  <p>The other genuinely open question is smaller but sharper: does typing a name and typing a
+  question belong in the same box? A name resolves to one row and a click. A question resolves
+  to a stream, a source list and five detail levels (§5). C8's whole page. Cramming both
+  into one input is not free.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 3</span> every proposal shows its evidence, never a
+    bare confidence score. If Ask's answer lives inside the palette, the palette has to have
+    room for the source list every time, not just when there happens to be space.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>One box, answers inline</h3></header>
+      <p class="sub">Everything: entities, actions, work nodes, and Ask itself, all resolved and
+      rendered inside the palette overlay. A question streams its answer in the same panel.</p>
+
+      <figure class="mock">
+        <div class="palette">
+          <div class="pin">what happened to the watch<span class="cursor"></span></div>
+          <div class="grp">Ask</div>
+          <div class="rows">
+            <div class="r"><span class="ty">?</span><span class="sp">Dismissed from the watch in the thaw after the Sable Winter, he now answers to the Ashen Ledger&hellip;</span><span class="muted small">2 sources</span></div>
+          </div>
+        </div>
+        <figcaption>The answer is already streaming by the third keystroke, three lines into a 320px-wide overlay.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One surface to learn, one shortcut, no branching on what you typed.</li>
+          <li>A one-line question gets an answer without ever leaving the flow you were in.</li>
+          <li>Genuinely fast for the common case: "who is Corvin Ashe again?" needs no navigation at all.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Sources, five detail levels and follow-up questions (§5) do not fit an overlay sized for a name.</li>
+          <li>A long answer either truncates the evidence or grows the palette into a second window with extra steps.</li>
+          <li>Duplicates C8 instead of using it: two places now render the same streamed answer.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Two surfaces, two shortcuts</h3></header>
+      <p class="sub">The palette finds things and runs actions. Ask is a dedicated surface with
+      its own shortcut; typing a question into the palette does nothing special.</p>
+
+      <figure class="mock">
+        <div class="palette">
+          <div class="pin">what happened<span class="cursor"></span></div>
+          <div class="grp">No matches</div>
+          <div class="rows">
+            <div class="r"><span class="ty">&middot;</span><span class="sp muted">Nothing named "what happened". Try <kbd class="k">&#8984;</kbd><kbd class="k">&#8679;</kbd><kbd class="k">A</kbd> to ask instead.</span></div>
+          </div>
+        </div>
+        <figcaption>The palette treats a question as a search that failed, and points sideways to the other shortcut.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Ask gets the whole surface it actually needs: sources, detail levels, follow-ups, exactly as C8 designs it.</li>
+          <li>The palette stays fast and simple, a pure index over names and actions.</li>
+          <li>No duplicate rendering path for a streamed answer.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A GM who types a question into the wrong box gets a dead end and has to know the second shortcut exists.</li>
+          <li>Two vocabularies for one instinct: "just ask something" now branches on which key you pressed.</li>
+          <li>The failed search is a bad first impression during onboarding, exactly when trust is being built.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>One box, routes to the surface that fits</h3></header>
+      <p class="sub">Same palette as B for names and actions, but recognising a question is not
+      a failure: it becomes one result that opens Ask in full, not an inline answer.</p>
+
+      <figure class="mock">
+        <div class="palette">
+          <div class="pin">what happened to the watch<span class="cursor"></span></div>
+          <div class="grp">Ask</div>
+          <div class="rows">
+            <div class="r on"><span class="ty">?</span><span class="sp">Ask &ldquo;what happened to the watch&rdquo;</span><span class="muted small">&crarr; opens Ask</span></div>
+          </div>
+          <div class="grp">Entities</div>
+          <div class="rows">
+            <div class="r"><span class="ty">c</span><span class="sp">The Valdoria Watch</span><span class="badge">faction</span></div>
+          </div>
+        </div>
+        <figcaption>Typing a question surfaces one routing result at the top; the matching entity still shows underneath, in case a name was meant.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One instinct, one shortcut: type anything, get somewhere useful, no second key to remember.</li>
+          <li>Ask still gets C8's full surface; the palette is a doorway to it, not a competing renderer.</li>
+          <li>A near-miss on a name and a genuine question can both show up, so a bad guess about intent costs nothing.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Needs a real question classifier, not just "did this match an entity name", which is one more thing to get right.</li>
+          <li>Enter's meaning changes depending on which row is selected, which is one more thing to teach.</li>
+          <li>The routing row has to be visually distinct from a real answer, or people expect the stream to start right there.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>A global "accept all pending" shortcut</h3>
+    <p>Once every action lives behind one keystroke, binding something like
+    <kbd class="k">&#8984;</kbd><kbd class="k">&#8679;</kbd><kbd class="k">A</kbd> to clear the
+    whole proposal queue from anywhere in the app looks like the natural power-user move. It
+    is the exact shortcut <span class="guardref">Guardrail 1</span> exists to forbid: no
+    accept-all default, ever, per entry only. A3 reserves letters for accept and reject as a
+    shared vocabulary; it does not get to decide what those keys do to more than one entry at
+    a time. That decision, and the queue itself, belongs to C6.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>C, because the register already draws the boundary</h3>
+    <p>Take <b>C</b>. C8 exists as its own decision precisely because Ask's real interface (
+    sources, five detail levels, follow-up questions, SSE streaming. Does not
+    fit inside a 560px overlay honestly. Option A would either duplicate that page or degrade
+    it. Option B is safer but asks a GM to memorise a second reflex for something that feels
+    like the same instinct as searching for a name. C keeps the palette as the one thing you
+    reach for, and lets it hand off to the surface that was actually built to answer.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: ship the question-classifier row with
+    a generous trigger (anything with a question mark, or over five words, or starting with
+    what/why/how/who) rather than a precise one, and watch the false-negative case: someone
+    typing a real question that gets treated as a name search. If that happens often, the
+    fallback in option B, a visible "press this to ask" hint on zero results, is one string
+    change away and does not require touching the routing logic.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#104</b> the app shell has to reserve a trigger for the palette regardless of
+      which shell shape A2 lands on; the icon rail, the sidebar and the palette-first option
+      all need the same <kbd class="k">&#8984;</kbd><kbd class="k">K</kbd> to work identically.</li>
+      <li><b>#75</b> the palette's entity search has to hit the instant lane at the table
+      (&lt;100ms, §8), not the AI-routed slow lane; "who is this" during play cannot wait on a
+      model just because it shares an input box with Ask.</li>
+      <li><b>#53</b> Ask mode is built against the assumption that the palette is one of its
+      entry points, not its only one; a direct <kbd class="k">&#8984;</kbd><kbd class="k">&#8679;</kbd><kbd class="k">A</kbd> shortcut and a visible Ask button both have to land on the
+      same surface C8 designs.</li>
+      <li>Deferred on purpose: the accept/reject queue interaction itself is C6's. This page
+      only reserves the vocabulary (which letters mean what) so C6 does not have to invent one.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Keyboard vocabulary</h2>
+  <p>One table, product-wide. Local overrides are allowed inside a text field (browser undo
+  still wins), everywhere else these are reserved.</p>
+  <table class="sc">
+    <thead><tr><th>Keys</th><th>Where</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td class="keys"><kbd class="k">&#8984;</kbd><kbd class="k">K</kbd></td><td>Everywhere</td><td>Open the palette: entities, actions, work nodes, or a question.</td></tr>
+      <tr><td class="keys"><kbd class="k">Esc</kbd></td><td>Palette, any overlay</td><td>Close, one level at a time.</td></tr>
+      <tr><td class="keys"><kbd class="k">&#8593;</kbd><kbd class="k">&#8595;</kbd></td><td>Palette, any list</td><td>Move the selection.</td></tr>
+      <tr><td class="keys"><kbd class="k">&#8629;</kbd></td><td>Palette</td><td>Open the selected result, or route to Ask.</td></tr>
+      <tr><td class="keys">@</td><td>Palette, editor</td><td>Prefix that narrows the palette (or a mention) to entities.</td></tr>
+      <tr><td class="keys">&gt;</td><td>Palette</td><td>Prefix that narrows to actions ("&gt;start import").</td></tr>
+      <tr><td class="keys">#</td><td>Palette</td><td>Prefix that jumps straight to a work node ("#Act 2 &gt; Scene 3").</td></tr>
+      <tr><td class="keys"><kbd class="k">&#8984;</kbd><kbd class="k">&#8679;</kbd><kbd class="k">A</kbd></td><td>Everywhere</td><td>Open Ask directly, skipping the palette.</td></tr>
+      <tr><td class="keys">A / R</td><td>Reserved vocabulary; C6 binds the queue</td><td>Accept or reject the item in focus. Never a range, never "all".</td></tr>
+      <tr><td class="keys">J / K</td><td>Any review list; C6 binds the queue</td><td>Move focus without leaving the keyboard.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Typing a question, live</h2>
+  <p>The palette from option C, filtering the fixture set as you type. Try a name
+  ("Aldric"), a partial faction ("Watch"), or a question ("what happened").</p>
+  <div class="demo">
+    <input id="a3-demo-input" type="text" placeholder="Jump to an entry, run a command, or ask a question&hellip;" autocomplete="off">
+    <div class="rows" id="a3-demo-rows"></div>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+
+<script>
+(function () {
+  var fixtures = [
+    { name: 'Aldric Vane', type: 'character' },
+    { name: 'Mother Sennah', type: 'character' },
+    { name: 'Corvin Ashe', type: 'character' },
+    { name: 'Iselde Wrenn', type: 'character' },
+    { name: 'Valdoria', type: 'place' },
+    { name: 'The Gilded Rat', type: 'place' },
+    { name: 'Cairnmouth', type: 'place' },
+    { name: 'The Sable Reach', type: 'place' },
+    { name: 'The Ashen Ledger', type: 'faction' },
+    { name: 'The Valdoria Watch', type: 'faction' },
+    { name: 'The Sable Winter', type: 'event' },
+  ];
+  function isQuestion(q) {
+    var w = q.trim().toLowerCase();
+    return /[?]$/.test(w) || /^(what|why|how|who|where|when|does|is|did)\b/.test(w);
+  }
+  function render() {
+    var input = document.getElementById('a3-demo-input');
+    var out = document.getElementById('a3-demo-rows');
+    if (!input || !out) return;
+    var q = input.value.trim();
+    if (!q) { out.innerHTML = '<div class="empty">Nothing typed yet.</div>'; return; }
+    if (isQuestion(q)) {
+      out.innerHTML = '<div class="r on"><span class="ty">?</span><span class="sp">Ask &ldquo;' + q.replace(/</g, '&lt;') + '&rdquo;</span><span class="muted small">&crarr; opens Ask</span></div>';
+      return;
+    }
+    var hits = fixtures.filter(function (f) { return f.name.toLowerCase().indexOf(q.toLowerCase()) !== -1; });
+    if (!hits.length) { out.innerHTML = '<div class="empty">No entries match &ldquo;' + q.replace(/</g, '&lt;') + '&rdquo;.</div>'; return; }
+    out.innerHTML = hits.slice(0, 6).map(function (f) {
+      return '<div class="r"><span class="ty">' + f.type[0] + '</span><span class="sp">' + f.name + '</span><span class="badge">' + f.type + '</span></div>';
+    }).join('');
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    var input = document.getElementById('a3-demo-input');
+    if (input) { input.addEventListener('input', render); render(); }
+  });
+})();
+</script>
+</body>
+</html>

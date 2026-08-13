@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .tmode {
+    --bg: #0f1114; --panel: #171a1f; --panel-2: #12151a;
+    --ink: #e9e6e0; --ink-2: #b9b4ab; --muted: #7d8794;
+    --line: #262b33; --line-2: #333a45;
+    --accent: #57c3a4; --accent-ink: #8fd9c3; --accent-bg: #14312a;
+    --ai: #a893ff; --ai-bg: #211d38; --ai-line: #3d3563;
+    --ok: #6fce9f; --ok-bg: #14301f; --danger: #ef8b74; --danger-bg: #341a16;
+    --warn: #e5b567; --warn-bg: #322612;
+    font-size: 14.5px; background: var(--bg);
+  }
+  .tmode .rows .r { padding: 13px 12px; }
+  .tscreen { padding: 18px 22px; }
+  .pins { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .pin { width: 195px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 12px; position: relative; }
+  .pin .ini { width: 26px; height: 26px; border-radius: 999px; background: var(--accent-bg); color: var(--accent-ink); font: 700 11px/26px var(--mono); text-align: center; float: left; margin-right: 8px; }
+  .pin h5 { font-size: 13px; margin: 2px 0 2px; }
+  .pin .role { font-size: 11px; color: var(--muted); clear: both; }
+  .pin .onbtn { position: absolute; top: 8px; right: 8px; font-size: 10px; padding: 3px 6px; }
+  .dock { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .dock.big .btn { padding: 11px 16px; font-size: 13.5px; }
+  .dock .more { position: relative; }
+  .overflow-pop { position: absolute; top: calc(100% + 6px); left: 0; background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 4px; min-width: 190px; box-shadow: 0 14px 30px -16px rgba(0,0,0,.5); z-index: 3; }
+  .timeline { display: flex; flex-direction: column; gap: 0; margin-top: 4px; }
+  .tstep { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .tstep:last-child { border-bottom: 0; }
+  .tstep .t { width: 56px; flex: none; font: 11px var(--mono); color: var(--muted); padding-top: 2px; }
+  .tstep .c { flex: 1; }
+  .tstep .c b { color: var(--ink); }
+  .propcard { margin-top: 4px; }
+</style>
+</head>
+<body data-decision="E3">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">§8 names four actions in one sentence: create an NPC here, create an inn, mark as
+  revealed, a themed soundscape, and stops there. It does not say whether all four earn a permanent
+  spot at the table, where they sit relative to the pinned cards, or what happens the instant one fires.
+  That last part matters most: "create an NPC here" is a <code>create</code> proposal, which means it does
+  not write anything, and it fires while the GM is mid-sentence describing a room. If the button's own
+  feedback looks like success, the GM has no reason to come back and accept it later.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 1</span> propose, never apply, per entry, no accept-all default.
+    A quick action is a shortcut to <i>starting</i> a proposal, never a shortcut past reviewing one; however
+    fast the button feels, the accept step it queues does not get to disappear.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Full bar, always visible</h3></header>
+      <p class="sub">All four actions sit in one horizontal dock under the context chip, all the time,
+      equal weight.</p>
+      <figure class="mock">
+        <div class="frame tmode">
+          <div class="tscreen">
+            <div class="pins">
+              <div class="pin"><div class="ini">AV</div><h5>Aldric Vane</h5><div class="role">answers to the Ashen Ledger now</div></div>
+              <div class="pin"><div class="ini">MS</div><h5>Mother Sennah</h5><div class="role">keeps the Gilded Rat</div></div>
+              <div class="pin"><div class="ini">CA</div><h5>Corvin Ashe</h5><div class="role">factor of the Ashen Ledger</div></div>
+            </div>
+            <div class="dock big">
+              <button class="btn pri">+ NPC here</button>
+              <button class="btn">+ Inn here</button>
+              <button class="btn">Mark as revealed</button>
+              <button class="btn">Soundscape: Lantern Quarter, dusk &#9656;</button>
+            </div>
+          </div>
+        </div>
+        <figcaption>Every session-8 action, one row, nothing hidden.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Nothing to discover: every named action in §8 is one glance and one tap away, always.</li>
+          <li>Simplest mental model: the dock is the same four buttons every session, every place.</li>
+          <li>Easiest to build and to test: no frequency judgement call baked into the layout.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Four equal-weight buttons for actions used at wildly different rates crowds the rare ones in.</li>
+          <li>On the phone (E4) this row alone is close to the full width of a one-handed screen.</li>
+          <li>"Create an inn" sits exactly as prominent as "mark as revealed", which play frequency does not support.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Contextual, per target</h3></header>
+      <p class="sub">No generic toolbar. Each action lives on the card it acts on: reveal and "create an NPC"
+      sit on Valdoria's own pin, not floating above it.</p>
+      <figure class="mock">
+        <div class="frame tmode">
+          <div class="tscreen">
+            <div class="pins">
+              <div class="pin">
+                <button class="btn sm onbtn">Reveal</button>
+                <div class="ini">AV</div><h5>Aldric Vane</h5><div class="role">answers to the Ashen Ledger now</div>
+              </div>
+              <div class="pin">
+                <button class="btn sm onbtn">Reveal</button>
+                <div class="ini">MS</div><h5>Mother Sennah</h5><div class="role">keeps the Gilded Rat</div>
+              </div>
+              <div class="pin" style="width:auto;min-width:195px;">
+                <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Valdoria &middot; place</div>
+                <div class="dock"><button class="btn sm">+ NPC here</button><button class="btn sm">+ Inn here</button></div>
+              </div>
+            </div>
+            <div class="dock"><span class="muted small">Soundscape lives with the audio module, not this row &rarr;</span></div>
+          </div>
+        </div>
+        <figcaption>"Create an NPC" reads as a property of the place; "reveal" as a property of whoever is revealed.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Discoverable exactly where its target is. No toolbar item whose object is ambiguous.</li>
+          <li>Scales naturally: a fifth action just needs a home on the right card, not a wider dock.</li>
+          <li>Nothing competes for space above the pins, which stays clean for the context chip alone.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>"Mark as revealed" applies to every card type, so the button repeats on every single one.</li>
+          <li>The GM has to remember which card, not just which button, which is a worse fit under pressure.</li>
+          <li>Harder to scan at a glance: four actions now live in four different visual locations.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Two-tier: primary dock, one tap behind "more"</h3></header>
+      <p class="sub">The two most frequent actions sit big and thumb-sized in a primary row. The rest are
+      one tap behind an overflow control.</p>
+      <figure class="mock">
+        <div class="frame tmode">
+          <div class="tscreen">
+            <div class="pins">
+              <div class="pin"><div class="ini">AV</div><h5>Aldric Vane</h5><div class="role">answers to the Ashen Ledger now</div></div>
+              <div class="pin"><div class="ini">MS</div><h5>Mother Sennah</h5><div class="role">keeps the Gilded Rat</div></div>
+              <div class="pin"><div class="ini">CA</div><h5>Corvin Ashe</h5><div class="role">factor of the Ashen Ledger</div></div>
+            </div>
+            <div class="dock big">
+              <button class="btn pri">Mark as revealed</button>
+              <button class="btn pri">+ NPC here</button>
+              <div class="more">
+                <button class="btn">More &#9662;</button>
+                <div class="overflow-pop">
+                  <button class="btn sm">+ Inn here</button>
+                  <button class="btn sm">Soundscape: Lantern Quarter, dusk</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Reveal and NPC creation happen most sessions; founding an inn does not.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Primary row stays two buttons wide, which is what actually fits a thumb on E4's phone layout.</li>
+          <li>Matches play frequency: reveals and improvised NPCs happen almost every session, inns rarely.</li>
+          <li>Room to add a fifth action later without the primary row ever growing.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>"Create an inn" and the soundscape both cost one extra tap, every time, forever.</li>
+          <li>Frequency is a guess from one campaign's shape; a dungeon-crawl table may found places constantly.</li>
+          <li>An overflow menu is one more piece of chrome to test on a dark screen in a dim room.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+    <div class="mock tight">
+      <p class="lede" style="margin-top:22px;">What "create an NPC here" actually does, regardless of which
+      dock it lives in: the tap is instant lane, no model involved. The NPC itself drafts in the slow lane,
+      3&ndash;10s, always background, always a proposal.</p>
+      <div class="frame tmode" style="max-width:640px;">
+        <div class="tscreen">
+          <div class="timeline">
+            <div class="tstep"><div class="t">t+0ms</div><div class="c"><b>GM taps "+ NPC here"</b> mid-sentence. The dock does not lock or spin; the GM keeps talking.</div></div>
+            <div class="tstep"><div class="t">t+80ms</div><div class="c">A quiet toast: <i>"Drafting an NPC for Valdoria&hellip;"</i>. Acknowledgement, not a result.</div></div>
+            <div class="tstep"><div class="t">t+~6s</div><div class="c">The draft lands in the Proposals tray. The tray's count ticks from <b>0</b> to <b>1</b>; nothing else on screen moves.
+              <div class="card propcard">
+                <header><span class="badge ai">proposal &middot; create</span><span class="sp"></span><span class="muted small">from: + NPC here</span></header>
+                <h4 style="font-size:13px;margin-bottom:4px;">A dockhand, unnamed</h4>
+                <p class="small muted mt0" style="margin-bottom:8px;">Evidence: triggered at Valdoria, Lantern Quarter context. No source sentence; this is a draft, not an extraction.</p>
+                <div class="dock"><button class="btn sm">Review now</button><button class="btn sm">Later</button></div>
+              </div>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>Insert the drafted NPC straight into the scene as if it were already canon</h3>
+    <p>The dock's whole appeal is speed, and the fastest possible version drops the accept step: the button
+    names the NPC and the GM just starts using it. <span class="guardref">Guardrail 1</span> propose, never
+    apply: a name typed into a proposal and a name spoken across the table are not the same thing
+    until a human accepts one of them, and a model-invented name can silently collide with something already
+    canon. <span class="guardref">Guardrail 2</span> follows from the same mistake: an NPC the GM is now
+    playing, that nobody has visually marked as unaccepted AI text, is indistinguishable from one that was
+    always there.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>C, two-tier</h3>
+    <p>Take <b>C</b>. "Mark as revealed" and "create an NPC here" are the actions a running campaign reaches
+    for almost every session; "create an inn" is closer to session-zero or a big worldbuilding beat. Giving
+    all four equal weight (A) optimises for a session that founds a settlement every ten minutes, which is
+    not the common case, and B's per-card placement solves discoverability at the cost of a GM having to
+    remember where each action lives under pressure, which is the one thing a table screen cannot ask for.
+    C's primary row is also the shape that survives the phone (E4) without redesign.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: log which of the four buttons actually get pressed
+    across a handful of real sessions once #74 ships. If "create an inn" turns out to fire as often as
+    "mark as revealed", the primary row picked the wrong two and the fix is a config change, not new UI.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#74</b> ships exactly this: one-click contextual actions linked to <code>session_context</code>,
+      with "create an inn" standing in for the general "create a child location" the issue actually asks for.</li>
+      <li><b>#80</b>'s quick session notes are a related but separate capture path (not one of the
+      four named actions here) and are deferred; whichever dock wins should leave room for a fifth
+      "jot a note" action in its overflow tier rather than assuming the set is closed at four.</li>
+      <li>Locks that every quick action's visible result is a toast plus a queued <code>proposal</code>,
+      never a direct write, which C6's accept flow has to be the only path canon travels through.</li>
+      <li>Deferred: the reveal interaction itself (E5) and the lane markers on the proposal card (E2).</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>
