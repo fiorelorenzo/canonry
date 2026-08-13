@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  /* Palette mock, reused from A3. */
+  .palette {
+    max-width: 480px; border: 1px solid var(--line-2); border-radius: 12px;
+    background: var(--panel); overflow: hidden;
+  }
+  .palette .pin { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: 14px; color: var(--ink); }
+  .palette .grp { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: 9px 14px 4px; }
+  .palette .rows .r { padding: 8px 14px; display: flex; align-items: center; gap: 8px; }
+  .palette .rows .r .ty { width: 18px; text-align: center; font: 600 10px var(--mono); color: var(--muted); }
+  .palette .foot {
+    display: flex; gap: 12px; padding: 8px 14px; border-top: 1px solid var(--line); background: var(--panel-2);
+    font-size: 11px; color: var(--muted); flex-wrap: wrap;
+  }
+  .qkeys { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 12px; }
+  .qkeys span { display: inline-flex; gap: 5px; align-items: center; }
+  table.sc { width: 100%; border-collapse: collapse; font-size: 13px; max-width: 66em; }
+  table.sc th { text-align: left; font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 0 10px 8px 0; border-bottom: 1px solid var(--line-2); }
+  table.sc td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.sc td.keys { white-space: nowrap; }
+  table.sc td.note { color: var(--ink-2); font-size: 12.5px; max-width: 26em; }
+</style>
+</head>
+<body data-decision="G3">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">A3 chose one palette that routes to whatever surface fits, and Lorenzo's
+  amendment pulled one thing back out of it: the shortcut vocabulary has to work the same
+  way on macOS, Windows and Linux. A3's own keyboard table is written entirely in Mac
+  notation, <kbd class="k">&#8984;</kbd><kbd class="k">K</kbd> for the palette,
+  <kbd class="k">&#8984;</kbd><kbd class="k">&#8679;</kbd><kbd class="k">A</kbd> for Ask, and
+  it already reserves bare letters, <kbd class="k">A</kbd>/<kbd class="k">R</kbd> for
+  accept/reject, <kbd class="k">J</kbd>/<kbd class="k">K</kbd> for move, for C6's queue,
+  without saying whether "bare" survives the amendment at all. That page now says so
+  directly: the actions are settled, the exact keys are not, and points here. Everything
+  below has to answer three things at once: which modifier a given action gets on which
+  platform, whether any key stays bare, and what already belongs to the browser, the screen
+  reader, or a keyboard layout that is not the one this was tested on.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 1</span> propose, never apply, no accept-all, ever.
+    A3 already reserves <kbd class="k">A</kbd>/<kbd class="k">R</kbd> for the item in focus,
+    never a range, never "all". Whatever the cross-platform map below turns out to be, no
+    single chord may read as "accept everything," and none may land on
+    <kbd class="k">Ctrl</kbd><kbd class="k">A</kbd>, which the browser already spends on
+    "select everything" and a GM's hand is one habit away from confusing with the other.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Everything modifier-based, Cmd maps to Ctrl</h3></header>
+      <p class="sub">One rule for every binding this decision introduces: always a modifier,
+      <kbd class="k">&#8984;</kbd> on macOS reduces to <kbd class="k">Ctrl</kbd> on Windows
+      and Linux for the identical combination. C6's existing bare keys are left as a
+      grandfathered exception, not reopened.</p>
+      <figure class="mock">
+        <div class="frame" style="padding:16px;">
+          <div class="qkeys">
+            <span><kbd class="k">&#8984;</kbd><kbd class="k">&#93;</kbd> next proposal</span>
+            <span><kbd class="k">&#8984;</kbd><kbd class="k">&#91;</kbd> previous proposal</span>
+            <span><kbd class="k">&#8984;</kbd><kbd class="k">&#8629;</kbd> accept</span>
+            <span><kbd class="k">&#8984;</kbd><kbd class="k">&#9003;</kbd> reject</span>
+            <span><kbd class="k">&#8984;</kbd><kbd class="k">Z</kbd> undo</span>
+          </div>
+        </div>
+        <figcaption>Windows and Linux read the same row with every <kbd class="k">&#8984;</kbd>
+        swapped for <kbd class="k">Ctrl</kbd>. C6's own screen keeps its bare
+        <kbd class="k">j</kbd>/<kbd class="k">k</kbd>/<kbd class="k">a</kbd>/<kbd class="k">r</kbd>
+        untouched underneath this, unrelated to what a new surface gets.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One predictable rule for every shortcut invented from here forward: see a modifier, know it maps.</li>
+          <li>Nothing already shipped in C6 has to be relearned or retested.</li>
+          <li>Chorded bindings are the ones a screen reader's own single-letter navigation never intercepts, unlike a bare key.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Next/previous on <kbd class="k">&#91;</kbd>/<kbd class="k">&#93;</kbd> needs AltGr on an Italian or German layout to type at all, the identical problem B2's <code>[[</code> mention trigger already has.</li>
+          <li>Leaves an unprincipled seam: C6 is bare because it shipped first, not because bare belongs there, and nothing here says which is true for the next surface.</li>
+          <li><kbd class="k">&#8984;</kbd><kbd class="k">Z</kbd>/<kbd class="k">Ctrl</kbd><kbd class="k">Z</kbd> is already the OS and browser's own text-field undo; binding it again for "undo my last review action" risks undoing the wrong thing the instant a GM is also mid-sentence somewhere else on the page.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">B</span><h3>Bare keys inside a review surface, modifiers everywhere else</h3></header>
+      <p class="sub">The split is explicit policy, not an accident of shipping order.
+      <kbd class="k">j</kbd> <kbd class="k">k</kbd> <kbd class="k">a</kbd> <kbd class="k">r</kbd>
+      <kbd class="k">u</kbd> stay bare inside a focused review surface, C6 and D4's own queue;
+      everything reachable from anywhere else in the app, the palette, Ask, save, keeps a
+      modifier.</p>
+      <figure class="mock">
+        <div class="frame" style="padding:16px; display:flex; gap:24px; flex-wrap:wrap;">
+          <div class="palette">
+            <div class="pin">ald<span class="cursor"></span></div>
+            <div class="grp">Entities</div>
+            <div class="rows"><div class="r"><span class="ty">@</span><span class="sp">Aldric Vane</span><span class="muted small">character</span></div></div>
+            <div class="foot"><span><kbd class="k">&#8593;</kbd><kbd class="k">&#8595;</kbd> move</span><span><kbd class="k">&#8629;</kbd> open</span><span><kbd class="k">Esc</kbd> close</span></div>
+          </div>
+          <div>
+            <p class="small muted mt0" style="max-width:20em;">Open from anywhere:</p>
+            <div class="qkeys" style="margin-top:0;">
+              <span><kbd class="k">&#8984;</kbd><kbd class="k">K</kbd> palette</span>
+            </div>
+            <p class="small muted" style="max-width:20em;">Inside the queue, once focused:</p>
+            <div class="qkeys" style="margin-top:0;">
+              <span><kbd class="k">j</kbd><kbd class="k">k</kbd> move</span>
+              <span><kbd class="k">a</kbd> accept</span>
+              <span><kbd class="k">r</kbd> reject</span>
+              <span><kbd class="k">u</kbd> undo</span>
+            </div>
+          </div>
+        </div>
+        <figcaption>Two vocabularies, one boundary: focus inside the queue and letters work
+        alone; focus anywhere else and a modifier is required.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Bare letters need no cross-platform map at all: <kbd class="k">a</kbd> is <kbd class="k">a</kbd> on every OS, which is most of the actual amendment solved for free.</li>
+          <li>Matches what C6 and D4 already ship and were already reasoned about; nothing built gets thrown away.</li>
+          <li><kbd class="k">u</kbd> for undo never collides with the OS or browser's own <kbd class="k">Ctrl</kbd><kbd class="k">Z</kbd>, because it only fires while the queue itself has focus.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>The boundary, what counts as "a review surface with real focus", has to be spelled out precisely: does D4's chip-filtered list count, does a palette search result list count.</li>
+          <li>Two vocabularies is one more thing to teach than a single rule, even if each half is individually simpler.</li>
+          <li>A GM who lands on the queue by a direct link, never having opened the palette, has no prior exposure to "letters work here" and needs an on-screen hint the first time.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Modifiers only, no bare keys anywhere</h3></header>
+      <p class="sub">The maximal version of A: no exception, no grandfathering. C6's own
+      <kbd class="k">j</kbd> <kbd class="k">k</kbd> <kbd class="k">a</kbd> <kbd class="k">r</kbd>
+      <kbd class="k">u</kbd> get rebound to chords too, so the product has exactly one kind
+      of shortcut, everywhere, always.</p>
+      <figure class="mock">
+        <div class="frame" style="padding:16px;">
+          <div class="qwrap" style="border:1px solid var(--line);border-radius:8px;padding:14px;">
+            <div class="qhead"><span>Proposal <b>4</b> of 7</span><span><b>3</b> accepted</span></div>
+            <div class="card">
+              <header><h4>Iselde Wrenn</h4><span class="badge">relation, appointed &rarr; dismissed</span></header>
+              <button class="btn sm pri">Accept <kbd class="k">&#8984;&#8629;</kbd></button>
+              <button class="btn sm dgr">Reject <kbd class="k">&#8984;&#9003;</kbd></button>
+            </div>
+            <div class="qkeys">
+              <span><kbd class="k">&#8984;&#8595;</kbd> next</span>
+              <span><kbd class="k">&#8984;&#8593;</kbd> previous</span>
+              <span><kbd class="k">&#8984;Z</kbd> undo</span>
+            </div>
+          </div>
+        </div>
+        <figcaption>The same queue C6 shipped, with every bare key from the worked example
+        above replaced by a chord and the hint printed on the button itself, since it is no
+        longer one keystroke to remember by feel.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The simplest possible mental model to state: a shortcut always needs a modifier, no exceptions, no "except inside this one screen."</li>
+          <li>Removes any risk of a bare letter firing while a screen reader's own quick-navigation is active, since a modifier changes the key event a browse-mode reader would otherwise intercept.</li>
+          <li>Every shortcut is legible from the palette's own reference list using one notation, nothing to footnote as "letters only, and only here."</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Rebuilds and re-tests C6, already shipped, already praised on its own page for being "the vocabulary a GM who has reviewed a pull request already has," for a purity rule with no concrete benefit to that specific screen.</li>
+          <li>Slower under a real ten-entry review: a chord takes measurably longer to execute than a bare key for the single most repeated action in the product, which is the entire reason C6 chose bare keys in the first place.</li>
+          <li>Buries the actual guardrail 1 protection, per-item only, never a range, under the same chord shape as everything else, so nothing about the keys themselves reminds anyone of the constraint the way a lone unmodified letter does.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>The vocabulary, real keys, three platforms</h2>
+  <p>Built under option B, since bare keys need no per-platform row of their own. Local
+  overrides inside a genuine text field still win, browser undo included, everywhere else
+  these are reserved.</p>
+  <table class="sc">
+    <thead><tr><th>Action</th><th>macOS</th><th>Windows</th><th>Linux</th><th>Collision to know about</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Open the palette</td>
+        <td class="keys"><kbd class="k">&#8984;</kbd><kbd class="k">K</kbd></td>
+        <td class="keys"><kbd class="k">Ctrl</kbd><kbd class="k">K</kbd></td>
+        <td class="keys"><kbd class="k">Ctrl</kbd><kbd class="k">K</kbd></td>
+        <td class="note">Chrome, Edge and Firefox already bind <kbd class="k">Ctrl</kbd>/<kbd class="k">&#8984;</kbd><kbd class="k">K</kbd> to focus the address bar in search mode, on all three platforms. It is not on any browser's hard-reserved list, so a page-level keydown handler that calls <code>preventDefault()</code> reliably wins it back, but only once the page has focus and finished loading, and only on the tab actually open.</td>
+      </tr>
+      <tr>
+        <td>Ask, directly</td>
+        <td class="keys"><kbd class="k">&#8984;</kbd><kbd class="k">&#8679;</kbd><kbd class="k">A</kbd></td>
+        <td class="keys"><kbd class="k">Ctrl</kbd><kbd class="k">Shift</kbd><kbd class="k">A</kbd></td>
+        <td class="keys"><kbd class="k">Ctrl</kbd><kbd class="k">Shift</kbd><kbd class="k">A</kbd></td>
+        <td class="note">Firefox binds this exact chord to its own Add-ons Manager on Windows and Linux. Overridable the same way as the palette, worth avoiding outright if Firefox share among GMs turns out non-trivial.</td>
+      </tr>
+      <tr>
+        <td>Save</td>
+        <td class="keys"><kbd class="k">&#8984;</kbd><kbd class="k">S</kbd></td>
+        <td class="keys"><kbd class="k">Ctrl</kbd><kbd class="k">S</kbd></td>
+        <td class="keys"><kbd class="k">Ctrl</kbd><kbd class="k">S</kbd></td>
+        <td class="note">Every browser owns this for "Save Page As&hellip;". Overridable, but every editable field in the app has to be checked, one keydown handler that misses an input still lets the native dialog through.</td>
+      </tr>
+      <tr>
+        <td>Accept (item in focus)</td>
+        <td class="keys"><kbd class="k">A</kbd></td>
+        <td class="keys"><kbd class="k">A</kbd></td>
+        <td class="keys"><kbd class="k">A</kbd></td>
+        <td class="note">Bare, active only while a review surface has real focus. No modifier means no platform mapping to get wrong.</td>
+      </tr>
+      <tr>
+        <td>Reject (item in focus)</td>
+        <td class="keys"><kbd class="k">R</kbd></td>
+        <td class="keys"><kbd class="k">R</kbd></td>
+        <td class="keys"><kbd class="k">R</kbd></td>
+        <td class="note">Same as accept. Never a range, never "all", guardrail 1.</td>
+      </tr>
+      <tr>
+        <td>Undo</td>
+        <td class="keys"><kbd class="k">U</kbd></td>
+        <td class="keys"><kbd class="k">U</kbd></td>
+        <td class="keys"><kbd class="k">U</kbd></td>
+        <td class="note">Deliberately not <kbd class="k">&#8984;</kbd>/<kbd class="k">Ctrl</kbd><kbd class="k">Z</kbd>: that combination is already spoken for twice, by OS-level text-field undo and by whatever the browser's own edit menu does, and a GM mid-sentence in an entry reaching for ordinary text undo must never instead undo a review decision three screens away.</td>
+      </tr>
+      <tr>
+        <td>Next proposal</td>
+        <td class="keys"><kbd class="k">J</kbd></td>
+        <td class="keys"><kbd class="k">J</kbd></td>
+        <td class="keys"><kbd class="k">J</kbd></td>
+        <td class="note">On an AZERTY layout the physical key in the "J" position still produces the letter <kbd class="k">j</kbd>; unlike accept/reject, this row and the next only matter if the app binds by <code>KeyboardEvent.key</code> (the character produced) rather than <code>.code</code> (the physical key), which is the version that keeps working when a French GM's fingers land on what their layout actually prints.</td>
+      </tr>
+      <tr>
+        <td>Previous proposal</td>
+        <td class="keys"><kbd class="k">K</kbd></td>
+        <td class="keys"><kbd class="k">K</kbd></td>
+        <td class="keys"><kbd class="k">K</kbd></td>
+        <td class="note">Same as next.</td>
+      </tr>
+      <tr>
+        <td>Reveal, at the table</td>
+        <td class="keys"><kbd class="k">&#8984;</kbd><kbd class="k">&#8679;</kbd><kbd class="k">R</kbd></td>
+        <td class="keys"><kbd class="k">Ctrl</kbd><kbd class="k">Shift</kbd><kbd class="k">R</kbd></td>
+        <td class="keys"><kbd class="k">Ctrl</kbd><kbd class="k">Shift</kbd><kbd class="k">R</kbd></td>
+        <td class="note">Every Chromium browser and Firefox bind this exact chord to a hard reload that bypasses cache, and on some of them it sits close to the small set of combinations a page genuinely cannot override. E3's dock keeps a visible tap target as the primary path for this reason; treat the chord as a bonus for a GM who already knows it, never the only way in.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>Reopen A3's global accept-all shortcut under a new, "safer" chord</h3>
+    <p>The amendment makes it tempting to revisit every A3 shortcut decision at once, and a
+    single chord for "clear the visible queue" resurfaces easily under the cover of
+    "modernising for three platforms." It is the same failure A3 already rejected, now with
+    a cross-platform coat of paint. <span class="guardref">Guardrail 1</span> forbids an
+    accept-all default in any form, on any platform, under any modifier. Whatever this page
+    settles for the six "everywhere" actions and the five bare ones, none of them may resolve
+    to more than one proposal at a time.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>B, bare keys inside a review surface, modifiers everywhere else</h3>
+    <p>Take <b>B</b>. It is the only option that treats the amendment as what it actually
+    is, a mapping problem for the six actions that live "everywhere" in the app, not a reason
+    to reopen C6's already-shipped, already-argued-for bare keys. A modifier genuinely needs
+    a cross-platform table, because <kbd class="k">&#8984;</kbd> and <kbd class="k">Ctrl</kbd>
+    are different keys in different places on different keyboards. A bare letter does not: it
+    is the same physical gesture everywhere, which is most of the actual cross-platform
+    problem solved by not having one. C pays real speed and real rework to remove that
+    advantage for a consistency argument that has no user standing behind it; A leaves the
+    inconsistency between "some things are chorded, some are not" unexplained instead of
+    naming it as policy the way B does.</p>
+    <p><b>How a shortcut gets discovered</b>: the palette is the front door for all of it, so
+    it is also the reference. A bare <kbd class="k">?</kbd>, outside any text field, the same
+    rule that keeps <kbd class="k">a</kbd>/<kbd class="k">r</kbd> safe, opens a full list;
+    typing "shortcuts" into the palette itself routes to the same list, since C's whole
+    premise is that the palette routes to whatever surface fits; and every result row in the
+    palette already shows its own bound key as a trailing hint, so opening the palette at all
+    is a small, constant advertisement for the vocabulary, not just a search box.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: ship the <kbd class="k">?</kbd>
+    reference first, it is one static list, and watch whether GMs on Windows and Linux ever
+    find <kbd class="k">j</kbd>/<kbd class="k">k</kbd>/<kbd class="k">a</kbd>/<kbd class="k">r</kbd>/<kbd class="k">u</kbd>
+    without opening it. If nobody finds the bare keys unaided, "no modifier needed" solved the
+    smaller problem, the map, at the cost of the bigger one, discovery, and the queue needs a
+    permanent on-screen hint rather than relying on being memorable.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#104</b> the shell renders the palette's trigger, and the <kbd class="k">?</kbd>
+      reference it opens, identically on every screen, on every platform; whichever shape A2's
+      shell takes, this is one component it hosts, not one it reinvents per surface.</li>
+      <li><b>#75</b> the palette's entity search still has to hit the instant lane,
+      &lt;100ms, on every platform's keyboard event path; a heavier cross-platform
+      modifier-detection layer in front of it must not be where that budget gets spent.</li>
+      <li><b>#51</b> the accept/reject surface, C4's in-place diff and C6's queue together,
+      ships with bare keys that are OS- and layout-proof by construction, unshifted ASCII
+      needs no per-platform code path at all, only the "everywhere" entry points around it
+      do.</li>
+      <li>Hard to undo: once a GM's hand has learned <kbd class="k">a</kbd>/<kbd class="k">r</kbd>
+      for a review surface, moving that vocabulary onto a modifier later breaks a trained
+      reflex, not a config file.</li>
+      <li>Deferred on purpose: G4's slash-menu trigger inherits the same non-US-layout
+      problem <code>[[</code> already has, since <kbd class="k">/</kbd> also is not where a
+      US layout puts it on every keyboard; that collision is G4's to resolve, not re-decided
+      here.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

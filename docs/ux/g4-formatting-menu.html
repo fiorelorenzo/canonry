@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  /* Scoped to this page only. Reuses B2's editor and mention-menu markup verbatim
+     so the four options are drawn over the same decided surface, not a redraw of it. */
+  .edbox {
+    border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel);
+    padding: 16px 18px; font-size: 15px; line-height: 1.7; color: var(--ink-2); max-width: 640px;
+  }
+  .edbox.docked { border-radius: 10px 10px 0 0; }
+  .men.new { border-bottom-style: dashed; color: var(--ai); background: var(--ai-bg); padding: 0 3px; border-radius: 3px; }
+  .amenu {
+    max-width: 640px; border: 1px solid var(--line-2); border-top: 0; border-radius: 0 0 8px 8px;
+    background: var(--panel); box-shadow: 0 14px 30px -18px rgba(0,0,0,0.4); overflow: hidden;
+  }
+  .amenu .rows .r { padding: 8px 12px; font-size: 13px; }
+  .amenu .hdr { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 8px 12px 4px; background: var(--panel-2); }
+
+  /* option A: persistent toolbar */
+  .fmtbar {
+    display: flex; align-items: center; gap: 2px; max-width: 640px; padding: 6px;
+    border: 1px solid var(--line-2); border-bottom: 0; border-radius: 10px 10px 0 0; background: var(--panel-2);
+  }
+  .fmtbar button {
+    border: 0; background: none; color: var(--ink-2); font: 600 13px/1 var(--sans);
+    padding: 7px 10px; border-radius: 6px; cursor: default; min-width: 30px;
+  }
+  .fmtbar button.on { background: var(--panel); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-2); }
+  .fmtbar .div { width: 1px; align-self: stretch; margin: 4px 4px; background: var(--line-2); }
+  .fmtbar .men { font: 600 12px/1 var(--mono); color: var(--ink-2); }
+  .edbox.toolbar { border-radius: 0 0 10px 10px; }
+
+  /* option B: slash menu */
+  .cursor-line { position: relative; }
+  .caret {
+    display: inline-block; width: 2px; height: 1em; background: var(--ink); vertical-align: -0.15em;
+    animation: caretblink 1s step-end infinite;
+  }
+  @keyframes caretblink { 50% { opacity: 0; } }
+
+  /* option C: selection bubble */
+  .selwrap { position: relative; display: inline-block; }
+  mark.seltext { background: var(--accent-bg); color: var(--ink); border-radius: 2px; padding: 0 1px; }
+  .bubble {
+    position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    margin-bottom: 9px; display: flex; gap: 1px; padding: 4px; border-radius: 8px;
+    background: var(--ink); box-shadow: 0 12px 26px -14px rgba(0,0,0,.5); z-index: 5;
+  }
+  .bubble button {
+    border: 0; background: none; color: #f1ece2; font: 600 12px/1 var(--sans);
+    padding: 6px 9px; border-radius: 5px; cursor: default; white-space: nowrap;
+  }
+  .bubble button.on { background: rgba(255,255,255,.16); }
+  .bubble::after {
+    content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: var(--ink);
+  }
+
+  .itmap { display: flex; gap: 10px; align-items: baseline; font: 13px/1.6 var(--mono); color: var(--ink-2); margin: 4px 0 0; }
+  .itmap b { color: var(--ink); font-family: var(--sans); font-weight: 600; }
+</style>
+</head>
+<body data-decision="G4">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede"><b>B2</b> settled the stored form: markdown, decorated live, so bold renders bold
+  while the asterisks stay in the source and export (F4) has a plain serialisation instead of a
+  conversion. Lorenzo amended it on the way through: that stored form is right for someone who
+  already thinks in <code>**bold**</code> and <code>[[brackets]]</code>, and wrong for the GM who
+  does not and never will. The amendment says a graphical menu has to exist. It does not say what
+  shape that menu takes, and the shape changes three things B2 never had to answer: whether the
+  menu writes the same characters a keyboard would, how a mention sits next to an ordinary format
+  like bold, and what a hand that never touches <code>[[</code> or <code>/</code> does instead.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 1</span> a mention is a canon write, proposed and accepted
+    like any other, never auto-created on resolve. B2 already rejected the shortcut where a typed
+    bracket silently writes the relation. A menu button is the same shortcut wearing an icon: press
+    "Mention" and the temptation to skip straight to a written relation is exactly as strong as
+    typing a name and hitting enter. Whatever shape wins below still opens B2's own resolve menu,
+    the one with the <span class="badge ai">new</span> row, not a faster path around it.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <p>All four are drawn over the same in-progress edit: the GM has just typed the Aldric Vane
+  paragraph from the fixture and is reaching for a way to format it without typing markdown by
+  hand. Bold, a mention and a fresh <code>[[</code> autocomplete all appear in every option, so what
+  differs is genuinely the menu, not the content underneath it.</p>
+  <div class="opts two">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Always-visible toolbar</h3></header>
+      <p class="sub">A row of buttons above the editor, present whether or not anything is selected.
+      Click Bold, the selection wraps in <code>**</code>; click Mention, B2's resolve menu opens at
+      the cursor.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding:16px">
+          <div class="fmtbar">
+            <button class="on">B</button><button>I</button><button>H1</button><button>H2</button>
+            <button>&bull;</button><button>&ldquo;</button>
+            <div class="div"></div>
+            <button class="men">@ Mention</button>
+          </div>
+          <div class="edbox toolbar"><b>Dismissed</b> from the watch in the thaw after
+          <a href="#" class="men t-fact">the Sable Winter</a>, he now answers to
+          <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at
+          <span class="caret"></span></div>
+        </div>
+        <figcaption>Bold is on because the cursor sits inside it; the source still reads
+        <code>**Dismissed**</code>, just never shown as asterisks once the word is finished.</figcaption>
+      </figure>
+      <figure class="mock mt24">
+        <div class="frame" style="padding:16px 16px 0">
+          <div class="fmtbar">
+            <button>B</button><button>I</button><button>H1</button><button>H2</button>
+            <button>&bull;</button><button>&ldquo;</button>
+            <div class="div"></div>
+            <button class="men on">@ Mention</button>
+          </div>
+          <div class="edbox toolbar docked">Dismissed from the watch in the thaw after
+          <a href="#" class="men t-fact">the Sable Winter</a>, he now answers to
+          <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at
+          <span class="men new">Il Ratto Dorato</span></div>
+          <div class="amenu">
+            <div class="hdr">No exact match</div>
+            <div class="rows">
+              <div class="r"><span class="sp">The Gilded Rat</span><span class="muted small">alias: Il Ratto Dorato</span></div>
+              <div class="r on"><span class="sp">Create &ldquo;Il Ratto Dorato&rdquo;</span><span class="badge ai">new</span></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Mention pressed with an unresolved name typed after it: the same B2 menu, not a
+        second one.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Never asks anyone to know a trigger character exists; every action is a labelled
+          button, visible before it is needed.</li>
+          <li>No reliance on <code>/</code> or <code>[</code> at all, so it costs nothing extra on
+          the Italian keyboards half the target GMs are typing on.</li>
+          <li>Discoverable the same way B2's own comparison to Google Docs argues for: the toolbar
+          is the manual.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Permanent chrome above every paragraph, competing for the same inch A1's reading-room
+          density already worries about (G2).</li>
+          <li>A GM who never leaves the keyboard still needs a chord for each button, which is
+          G3's table to fill in, not a free result of drawing the row.</li>
+          <li>Heading levels beyond two crowd a single row fast; a dropdown inside the toolbar is
+          one more menu to design.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Slash menu at the cursor</h3></header>
+      <p class="sub">Nothing on screen until <code>/</code> is typed at the start of a line; a list
+      opens where the cursor is, filtered as more is typed.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding:16px">
+          <div class="edbox">Dismissed from the watch in the thaw after
+          <a href="#" class="men t-fact">the Sable Winter</a>, he now answers to
+          <a href="#" class="men t-place">the Ashen Ledger</a>.<br>
+          <span class="cursor-line">/<span class="caret"></span></span></div>
+          <div class="amenu">
+            <div class="hdr">Format</div>
+            <div class="rows">
+              <div class="r on"><span class="sp">Heading 1</span></div>
+              <div class="r"><span class="sp">Heading 2</span></div>
+              <div class="r"><span class="sp">Bold</span></div>
+              <div class="r"><span class="sp">Bullet list</span></div>
+            </div>
+            <div class="hdr">Relation</div>
+            <div class="rows">
+              <div class="r"><span class="sp">Mention</span><span class="muted small">opens <code>[[</code></span></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Selecting Mention does not insert text of its own; it types <code>[[</code> and
+        hands off to B2's resolve menu.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Nothing to look at until it is wanted; the editor stays exactly as clean as option C's
+          markdown-source cost list complains it is not.</li>
+          <li>Matches the muscle memory GMs already bring from Notion and Linear, both named
+          alongside <code>@</code> in B2's own recommendation.</li>
+          <li>One menu covers headings and lists, which the toolbar's row has no natural room for
+          past two levels.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>The trigger itself is a modifier chord on an Italian keyboard: <code>/</code> is
+          Shift+7, not the bare key a US layout gets for free, so "cheap because it's just a
+          keystroke" is not true for the team's own likely first users.</li>
+          <li>A third way to start a mention alongside <code>[[</code> and <code>@</code>, unless it
+          strictly delegates to one of them as drawn above; a fourth, independent path would be a
+          second relation-creation flow to keep in sync with B2's.</li>
+          <li>Invisible by construction: a GM who does not already know to type <code>/</code> gets
+          no hint the menu exists at all.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Selection bubble</h3></header>
+      <p class="sub">Appears only over an existing selection: highlight a word, a small pill of
+      buttons floats above it.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding:44px 16px 16px">
+          <div class="edbox">Dismissed from the watch in the thaw after
+          <a href="#" class="men t-fact">the Sable Winter</a>, he now answers to
+          <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at the
+          <span class="selwrap"><mark class="seltext">Gilded Rat</mark>
+            <span class="bubble"><button>B</button><button>I</button><button class="on">@</button></span>
+          </span> most nights.</div>
+        </div>
+        <figcaption>Text typed as plain prose, selected after the fact; @ converts the selection
+        into a mention query instead of retyping it.</figcaption>
+      </figure>
+      <figure class="mock mt24">
+        <div class="frame" style="padding:16px">
+          <div class="amenu" style="border-top:1px solid var(--line-2); border-radius:8px">
+            <div class="hdr">Matches &ldquo;Gilded Rat&rdquo;</div>
+            <div class="rows">
+              <div class="r on"><span class="sp">The Gilded Rat</span><span class="muted small">alias: Il Ratto Dorato</span></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>The same resolve menu, prefilled from the selection instead of from typing.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The only shape here that retrofits a mention onto text already written, which
+          neither a toolbar nor a slash menu can do without deleting and retyping it.</li>
+          <li>No trigger character to remember or mistype; it appears from the same click or shift
+          selection every text editor already supports.</li>
+          <li>Nothing on screen at rest, same reading-room cleanliness as the slash menu without
+          needing a keystroke to summon it.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Useless for starting a fresh mention at an empty cursor, which is the common case in
+          B2's own mock; the bubble alone cannot be the only affordance.</li>
+          <li>A floating element above the line it belongs to needs headroom the editor's own
+          padding was not previously reserving.</li>
+          <li>Keyboard selection (shift+arrow) still needs a way into the bubble, which is either a
+          new tab-stop to build or, more simply, just the plain <kbd class="k">&#8984;</kbd><kbd class="k">B</kbd> chord that makes the bubble redundant for that user.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">D</span><h3>Toolbar plus a slash menu</h3></header>
+      <p class="sub">Both A and B at once: the row stays visible, and <code>/</code> still opens the
+      cursor menu for anyone who prefers it.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding:16px">
+          <div class="fmtbar">
+            <button>B</button><button>I</button><button>H1</button><button>H2</button>
+            <button>&bull;</button><button>&ldquo;</button>
+            <div class="div"></div>
+            <button class="men">@ Mention</button>
+          </div>
+          <div class="edbox toolbar">Dismissed from the watch in the thaw after
+          <a href="#" class="men t-fact">the Sable Winter</a>, he now answers to
+          <a href="#" class="men t-place">the Ashen Ledger</a>.<br>
+          <span class="cursor-line">/<span class="caret"></span></span></div>
+          <div class="amenu">
+            <div class="hdr">Format</div>
+            <div class="rows">
+              <div class="r on"><span class="sp">Heading 1</span></div>
+              <div class="r"><span class="sp">Bold</span></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Both surfaces read the same command list; neither invents its own.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Covers a mouse-first GM and a keyboard-first GM without asking either to learn the
+          other's habit first.</li>
+          <li>The toolbar's Mention button and the slash list's Mention row both delegate to the
+          same <code>[[</code>/<code>@</code> flow, so there is exactly one way the relation
+          actually gets created underneath two doors into it.</li>
+          <li>Nothing here is new engineering beyond A and B added together; the command list is
+          shared, not duplicated logic.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Two visible ways to do the same thing at once, including two Mention entries on
+          screen simultaneously, is one more thing to explain in onboarding (D7) than either alone.</li>
+          <li>Still pays the Italian-keyboard tax on <code>/</code> for the GMs who reach for it,
+          same as option B, just with a second way to avoid it sitting right above.</li>
+          <li>Twice the surface to keep visually consistent if either the row or the list changes
+          later; a missed update shows up as the two doors disagreeing about what is on offer.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>A, the toolbar, alone for now</h3>
+    <p>Take <b>A</b>. The amendment names the audience exactly: someone who does not want to type
+    markdown. A toolbar answers that with zero reliance on any special character, which matters
+    once <code>/</code> and <code>[[</code> both turn out to cost a modifier key on the layout this
+    team's own first users are typing on; the slash menu's headline advantage, "it's just one free
+    keystroke," is not true here. B2 already gives a keyboard-native path for anyone who wants one,
+    <code>[[</code> or <code>@</code>, so the menu's job is specifically to serve the person that
+    path does not reach, and a row of labelled buttons is the plainest way to do that.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: ship the toolbar alone and watch for support
+    requests asking how to make a heading without touching the mouse. If that request is common and
+    comes from GMs who otherwise type fast, add the slash menu as option D describes, a second door
+    onto the same command list, rather than building it up front against a need nobody has
+    demonstrated yet.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#105</b> the entry editor now ships the toolbar drawn above as part of its own
+      acceptance criteria, not a follow-on: Bold, Italic, two heading levels, a list, a quote and
+      Mention, each one a real markdown insertion decorated by B2's engine, never a hidden format.</li>
+      <li>The mention item is styled like every other button, never in the violet A1 and C1 reserve
+      for the copilot; only the resolve dropdown it opens carries the <span class="badge ai">new</span>
+      badge, because that is the one moment something AI-touched is actually on screen.</li>
+      <li>Whichever action gets a keyboard chord, the chord is G3's to assign; this page only
+      commits to every toolbar button having one, not to which keys.</li>
+      <li>Deferred on purpose: the exact icon set and whether headings collapse into one dropdown
+      button is visual design, not a product decision this set needs to record.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

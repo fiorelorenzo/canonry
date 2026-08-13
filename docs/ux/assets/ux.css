@@ -1,38 +1,80 @@
-/* Canonry UX decision artifacts — shared stylesheet.
+/* Canonry UX decision artifacts, shared stylesheet.
    Two layers live here on purpose:
    1. the artifact chrome (page head, option grid, recommendation, recorder);
    2. a small mock kit (app frame, entry, diff, chips) so every page renders the
       same fake product instead of inventing its own.
-   The mock kit is a neutral placeholder skin until decision A1 is taken. A1 owns
-   the real visual language and scopes its candidate skins to itself. */
+
+   A1 was decided on 2026-08-13: option B, the reading room. So these are no longer
+   placeholder tokens, they are the product's palette, and every mock in the set
+   inherits it. Warm paper, burnt umber accent, serif reserved for canon prose and
+   entry titles, sans for anything with a control in it. Violet stays spent on the
+   copilot and nothing else (C1).
+
+   The dark half is a warm dark version of the same palette rather than a second
+   design language, available as [data-theme="dark"] on the root or .dark on any
+   wrapper so a mock can show table mode without the whole page going dark. Whether
+   table mode actually defaults to it is decision G1. */
 
 /* ---------- tokens ---------- */
 :root {
-  --bg: #f7f6f3;
-  --panel: #ffffff;
-  --panel-2: #fbfaf8;
-  --ink: #191713;
-  --ink-2: #4a453e;
-  --muted: #7a736a;
-  --line: #e3ded6;
-  --line-2: #d3ccc1;
-  --accent: #1f5f52;
-  --accent-ink: #12433a;
-  --accent-bg: #e7f1ee;
+  --bg: #f4efe4;
+  --panel: #fffdf7;
+  --panel-2: #f9f4ea;
+  --ink: #221d16;
+  --ink-2: #4c4238;
+  --muted: #857a6a;
+  --line: #e2d8c6;
+  --line-2: #cfc2ab;
+  --accent: #7a4a1f;
+  --accent-ink: #5c3714;
+  --accent-bg: #f3e7d5;
   --ai: #6b4ee6;
-  --ai-bg: #f2eeff;
-  --ai-line: #cabdfb;
-  --danger: #a93a26;
-  --danger-bg: #fbeeea;
-  --warn: #8f6510;
-  --warn-bg: #fbf3e2;
-  --ok: #256b4b;
-  --ok-bg: #e8f2ec;
+  --ai-bg: #f1ecff;
+  --ai-line: #c8bafa;
+  --danger: #a03a22;
+  --danger-bg: #f8e7e0;
+  --warn: #8a6510;
+  --warn-bg: #f7eed8;
+  --ok: #2f6b45;
+  --ok-bg: #e6efe1;
   --radius: 10px;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
 }
+
+[data-theme="dark"], .dark {
+  --bg: #17140f;
+  --panel: #1e1a14;
+  --panel-2: #191510;
+  --ink: #f1e9db;
+  --ink-2: #cabfae;
+  --muted: #8e8474;
+  --line: #2d271e;
+  --line-2: #3d3529;
+  --accent: #d9a94a;
+  --accent-ink: #ebc884;
+  --accent-bg: #33270f;
+  --ai: #b8a2ff;
+  --ai-bg: #241f3a;
+  --ai-line: #473d6d;
+  --danger: #e88f70;
+  --danger-bg: #331a13;
+  --warn: #dcb45f;
+  --warn-bg: #312512;
+  --ok: #7cc78f;
+  --ok-bg: #16301f;
+  /* `color` has to be re-asserted here, not only on body. body resolves
+     var(--ink) once against the light scope and every element that inherits colour
+     inherits that computed value, so a nested .dark wrapper would redefine the token
+     and still paint light ink on dark paper. This one line is what makes a dark mock
+     inside a light page work at all. */
+  color: var(--ink);
+}
+.dark ins.i { background: #1e4632; color: #d8f3e4; }
+.dark del.d { background: #48231a; color: #f7d0c5; }
+.dark .btn.pri { color: #211603; }
+.dark .btn { background: var(--panel-2); color: var(--ink); }
 
 * { box-sizing: border-box; }
 
@@ -312,11 +354,14 @@ nav.nav .grp {
 }
 
 /* entry body */
-.entry { padding: 22px 26px; min-width: 0; }
-.entry h1.title { font-size: 26px; margin-bottom: 4px; }
+/* A1 = B, the reading room: canon prose and entry titles are serif at a comfortable
+   measure, everything with a control in it stays sans. Exactly where that line falls
+   on dense surfaces (diffs, review queues, import tables) is decision G2. */
+.entry { padding: 30px 34px; min-width: 0; }
+.entry h1.title { font-size: 27px; margin-bottom: 4px; font-family: var(--serif); }
 .entry .kicker { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; font-size: 12px; color: var(--muted); }
-.prose { font-size: 15px; color: var(--ink-2); }
-.prose p { margin: 0 0 12px; max-width: 38em; }
+.prose { font-size: 16px; line-height: 1.75; color: var(--ink-2); font-family: var(--serif); }
+.prose p { margin: 0 0 13px; max-width: 34em; }
 .prose h2 { font-size: 15px; margin: 22px 0 8px; color: var(--ink); }
 .prose h3 { font-size: 14px; margin: 18px 0 6px; color: var(--ink); }
 .prose ul { margin: 0 0 12px; padding-left: 20px; max-width: 38em; }

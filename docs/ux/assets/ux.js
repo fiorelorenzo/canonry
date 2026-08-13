@@ -1,96 +1,169 @@
-/* Canonry UX decision artifacts — shared runtime.
+/* Canonry UX decision artifacts, shared runtime.
    Owns three things so no page has to repeat them:
-   1. UX_REGISTER, the single list of decisions (order, titles, blocked issues);
+   1. UX_REGISTER, the single list of decisions, now carrying the decision itself;
    2. page head, breadcrumb and prev/next, injected from that list;
-   3. the recorder: which option was chosen, kept in localStorage, exported as
-      markdown from the index.
+   3. the recorder, which records a pick for a still-open decision in localStorage.
+
+   The first 38 decisions were taken on 2026-08-13 and live in the register as `d`
+   (the letter), `dn` (the option name) and, where Lorenzo amended the option rather
+   than taking it as drawn, `dnote`. That makes the register, not a browser's storage,
+   the thing a fresh reader sees. `docs/ux/DECISIONS.md` is the same record in prose.
+
    Everything degrades to plain HTML if this file fails to load: the mocks and the
    prose are markup, not JS. */
 
 const REPO = 'https://github.com/fiorelorenzo/canonry/issues/';
+const DECIDED_ON = '2026-08-13';
 
 const UX_REGISTER = [
   { s: 'Foundations', id: 'A1', f: 'a1-visual-language.html', t: 'Visual language and density',
-    q: 'Which skin does a wiki that runs at a table wear?', w: 'now', i: [104, 3] },
+    q: 'Which skin does a wiki that runs at a table wear?', w: 'now', i: [104, 3],
+    d: 'B', dn: 'Reading room',
+    dnote: 'Taken against my recommendation of A, which is why the whole set now renders in it. The two things A bundled and B does not, a dark theme and a density that suits review queues, come back as G1 and G2 rather than being assumed.' },
   { s: 'Foundations', id: 'A2', f: 'a2-information-architecture.html', t: 'Information architecture and navigation',
-    q: 'What are the top-level places in the app, and how does the GM move between them?', w: 'now', i: [104, 19] },
+    q: 'What are the top-level places in the app, and how does the GM move between them?', w: 'now', i: [104, 19],
+    d: 'A', dn: 'Fixed sidebar, universe switcher on top' },
   { s: 'Foundations', id: 'A3', f: 'a3-palette-and-keyboard.html', t: 'Command palette and keyboard vocabulary',
-    q: 'One palette for search, navigation, actions and Ask, or separate surfaces?', w: 'soon', i: [104, 75, 53] },
+    q: 'One palette for search, navigation, actions and Ask, or separate surfaces?', w: 'soon', i: [104, 75, 53],
+    d: 'C', dn: 'One box, routes to the surface that fits',
+    dnote: 'Amended: the shortcut vocabulary has to be cross platform, so the modifier map and the bare-key question are pulled out into G3 instead of being settled per component.' },
 
   { s: 'Canon', id: 'B1', f: 'b1-entry-anatomy.html', t: 'Entry page anatomy',
-    q: 'Is an entry a document, a record, or a document with a spine of fields?', w: 'now', i: [15, 105] },
+    q: 'Is an entry a document, a record, or a document with a spine of fields?', w: 'now', i: [15, 105],
+    d: 'C', dn: 'Document plus a switching right column' },
   { s: 'Canon', id: 'B2', f: 'b2-editor-and-mentions.html', t: 'Editor model and typed mentions',
-    q: 'What does writing feel like, and how does a mention become a relation?', w: 'now', i: [105, 15, 21] },
+    q: 'What does writing feel like, and how does a mention become a relation?', w: 'now', i: [105, 15, 21],
+    d: 'C', dn: 'Markdown with live decorations',
+    dnote: 'Amended: markdown stays the stored form, and a graphical menu covers everyone who does not want to type it. Which shape that menu takes is G4.' },
   { s: 'Canon', id: 'B3', f: 'b3-relations-and-inference.html', t: 'Relations, inverse labels and one-click typing',
-    q: 'How is a typed relation created and confirmed without becoming a form to fill in?', w: 'now', i: [16, 15] },
+    q: 'How is a typed relation created and confirmed without becoming a form to fill in?', w: 'now', i: [16, 15],
+    d: 'A', dn: 'In the margin' },
   { s: 'Canon', id: 'B4', f: 'b4-provenance-and-history.html', t: 'Facts, spans and revision provenance',
-    q: 'How much of the extracted layer does the GM see, and how is authorship shown after accept?', w: 'now', i: [17, 18] },
+    q: 'How much of the extracted layer does the GM see, and how is authorship shown after accept?', w: 'now', i: [17, 18],
+    d: 'B', dn: 'On demand' },
   { s: 'Canon', id: 'B5', f: 'b5-works-and-scenes.html', t: 'Works, nodes and affected scenes',
-    q: 'How is a campaign edited next to the canon it draws on?', w: 'soon', i: [20] },
+    q: 'How is a campaign edited next to the canon it draws on?', w: 'soon', i: [20],
+    d: 'A', dn: 'Tree beside a scene editor' },
 
   { s: 'The copilot loop', id: 'C1', f: 'c1-ai-text-marking.html', t: 'How unaccepted AI text looks',
-    q: 'What makes AI text unmistakable without making the entry unreadable?', w: 'now', i: [106, 66] },
+    q: 'What makes AI text unmistakable without making the entry unreadable?', w: 'now', i: [106, 66],
+    d: 'B', dn: 'Underline and margin marker' },
   { s: 'The copilot loop', id: 'C2', f: 'c2-proposal-routing.html', t: 'Where proposals live',
-    q: 'Inline in the entry, a side drawer, or a queue the GM visits?', w: 'now', i: [47, 51] },
+    q: 'Inline in the entry, a side drawer, or a queue the GM visits?', w: 'now', i: [47, 51],
+    d: 'A', dn: 'Inbox' },
   { s: 'The copilot loop', id: 'C3', f: 'c3-propagation-plan.html', t: 'The plan before any diff',
-    q: 'How is "this change touches four entries, here is why" shown and edited?', w: 'now', i: [50, 49] },
+    q: 'How is "this change touches four entries, here is why" shown and edited?', w: 'now', i: [50, 49],
+    d: 'A', dn: 'Flat checklist' },
   { s: 'The copilot loop', id: 'C4', f: 'c4-diff-presentation.html', t: 'Per-entry diff layout',
-    q: 'Split, unified, or prose with the change marked in place?', w: 'now', i: [51, 48] },
+    q: 'Split, unified, or prose with the change marked in place?', w: 'now', i: [51, 48],
+    d: 'C', dn: 'In place, with a toggle' },
   { s: 'The copilot loop', id: 'C5', f: 'c5-evidence-display.html', t: 'Evidence on every proposal',
-    q: 'Where does the source sentence sit, and what replaces a confidence score?', w: 'now', i: [47, 51] },
+    q: 'Where does the source sentence sit, and what replaces a confidence score?', w: 'now', i: [47, 51],
+    d: 'B', dn: 'Popover on the changed text' },
   { s: 'The copilot loop', id: 'C6', f: 'c6-accept-and-reject.html', t: 'The accept interaction, and where bulk is allowed',
-    q: 'How does a careful review of ten entries stay fast without an accept-all?', w: 'now', i: [51, 42] },
+    q: 'How does a careful review of ten entries stay fast without an accept-all?', w: 'now', i: [51, 42],
+    d: 'B', dn: 'Keyboard queue' },
   { s: 'The copilot loop', id: 'C7', f: 'c7-reject-reasons.html', t: 'Capturing a reject reason',
-    q: 'One word, and how is it asked for without becoming a survey?', w: 'soon', i: [56] },
+    q: 'One word, and how is it asked for without becoming a survey?', w: 'soon', i: [56],
+    d: 'A', dn: 'Chips with a free text escape' },
   { s: 'The copilot loop', id: 'C8', f: 'c8-ask-mode.html', t: 'Ask mode, sources and detail levels',
-    q: 'Where does Ask live, and how are its sources and five detail levels presented?', w: 'soon', i: [53, 60] },
+    q: 'Where does Ask live, and how are its sources and five detail levels presented?', w: 'soon', i: [53, 60],
+    d: 'B', dn: 'Command palette',
+    dnote: 'Amended: the palette launches the flow, the answer can be moved into a dedicated page, and clicking a source goes to that entry. What the page is for and what a source click does to the answer you are reading is G5.' },
   { s: 'The copilot loop', id: 'C9', f: 'c9-audit-flags.html', t: 'Audit flags and their exact words',
-    q: 'Where do flags surface, and what copy stays inside guardrail 7?', w: 'soon', i: [55] },
+    q: 'Where do flags surface, and what copy stays inside guardrail 7?', w: 'soon', i: [55],
+    d: 'B', dn: 'A badge on the entry' },
   { s: 'The copilot loop', id: 'C10', f: 'c10-ai-off.html', t: 'The product with the AI off',
-    q: 'What disappears, what stays, and at which scope is the switch?', w: 'now', i: [107] },
+    q: 'What disappears, what stays, and at which scope is the switch?', w: 'now', i: [107],
+    d: 'B', dn: 'Per-universe switch' },
 
   { s: 'Import and onboarding', id: 'D1', f: 'd1-source-selection.html', t: 'How an import starts',
-    q: 'One dropzone that detects the source, or a source chosen first?', w: 'now', i: [41, 43, 44] },
+    q: 'One dropzone that detects the source, or a source chosen first?', w: 'now', i: [41, 43, 44],
+    d: 'C', dn: 'Detect, then confirm' },
   { s: 'Import and onboarding', id: 'D2', f: 'd2-estimate-and-progress.html', t: 'Estimate, queue and run',
-    q: 'What does the GM watch for nine minutes, and how is consent to spend taken?', w: 'now', i: [26, 30, 27] },
+    q: 'What does the GM watch for nine minutes, and how is consent to spend taken?', w: 'now', i: [26, 30, 27],
+    d: 'B', dn: 'Live feed of proposals' },
   { s: 'Import and onboarding', id: 'D3', f: 'd3-dry-run-plan.html', t: 'The dry run',
-    q: 'How is "142 unchanged, 19 to update, 4 conflicts, 31 new" made walkable?', w: 'now', i: [37, 36] },
+    q: 'How is "142 unchanged, 19 to update, 4 conflicts, 31 new" made walkable?', w: 'now', i: [37, 36],
+    d: 'A', dn: 'Four buckets, one card each' },
   { s: 'Import and onboarding', id: 'D4', f: 'd4-import-review.html', t: 'Reviewing a batch of import proposals',
-    q: 'Two hundred proposals, guardrail 1 intact, and a GM who will not spend an evening', w: 'now', i: [42] },
+    q: 'Two hundred proposals, guardrail 1 intact, and a GM who will not spend an evening', w: 'now', i: [42],
+    d: 'B', dn: 'One queue, C6 vocabulary, filtered' },
   { s: 'Import and onboarding', id: 'D5', f: 'd5-field-conflicts.html', t: 'Field conflicts on re-import',
-    q: 'Both versions side by side: which one, and what are the third and fourth choices?', w: 'now', i: [37] },
+    q: 'Both versions side by side: which one, and what are the third and fourth choices?', w: 'now', i: [37],
+    d: 'A', dn: 'Two columns' },
   { s: 'Import and onboarding', id: 'D6', f: 'd6-ambiguous-match.html', t: 'The one matching question',
-    q: 'Same inn or new inn, asked once, with what shown?', w: 'now', i: [37] },
+    q: 'Same inn or new inn, asked once, with what shown?', w: 'now', i: [37],
+    d: 'B', dn: 'Collected, answered before the dry run' },
   { s: 'Import and onboarding', id: 'D7', f: 'd7-onboarding.html', t: 'Signup to first accepted proposal',
-    q: 'What is the shortest honest path to the moment the product proves itself?', w: 'now', i: [108, 5] },
+    q: 'What is the shortest honest path to the moment the product proves itself?', w: 'now', i: [108, 5],
+    d: 'A', dn: 'Import first' },
 
   { s: 'Table and players', id: 'E1', f: 'e1-table-layout.html', t: 'Table mode and declaring context',
-    q: 'A mode, a screen, or a layer over the wiki, and how is "they entered Valdoria" said?', w: 'soon', i: [72, 73] },
+    q: 'A mode, a screen, or a layer over the wiki, and how is "they entered Valdoria" said?', w: 'soon', i: [72, 73],
+    d: 'B', dn: 'A mode the whole app switches into' },
   { s: 'Table and players', id: 'E2', f: 'e2-lane-latency.html', t: 'Communicating instant, fast and slow',
-    q: 'What replaces a spinner when nothing at the table may wait on a model?', w: 'soon', i: [73, 77, 79] },
+    q: 'What replaces a spinner when nothing at the table may wait on a model?', w: 'soon', i: [73, 77, 79],
+    d: 'A', dn: 'Progressive arrival, quiet marker' },
   { s: 'Table and players', id: 'E3', f: 'e3-quick-actions.html', t: 'Quick actions at the table',
-    q: 'Which actions earn a place, and where do they sit?', w: 'soon', i: [74, 80] },
+    q: 'Which actions earn a place, and where do they sit?', w: 'soon', i: [74, 80],
+    d: 'C', dn: 'Two-tier dock' },
   { s: 'Table and players', id: 'E4', f: 'e4-table-on-phone.html', t: 'Table mode on a phone',
-    q: 'One hand, a lit table, and a GM who cannot look down for long', w: 'soon', i: [81] },
+    q: 'One hand, a lit table, and a GM who cannot look down for long', w: 'soon', i: [81],
+    d: 'A', dn: 'Bottom tabs' },
   { s: 'Table and players', id: 'E5', f: 'e5-reveal-interaction.html', t: 'Marking something revealed',
-    q: 'Per entry, per fact, or per session log, and how much work is it during play?', w: 'soon', i: [82] },
+    q: 'Per entry, per fact, or per session log, and how much work is it during play?', w: 'soon', i: [82],
+    d: 'C', dn: 'Session log, confirmed afterwards' },
   { s: 'Table and players', id: 'E6', f: 'e6-secrets-authoring.html', t: 'Writing secrets and previewing them',
-    q: 'How does the GM see what the party sees without a second copy of the entry?', w: 'soon', i: [84, 85] },
+    q: 'How does the GM see what the party sees without a second copy of the entry?', w: 'soon', i: [84, 85],
+    d: 'A', dn: 'Inline block, typed in place' },
   { s: 'Table and players', id: 'E7', f: 'e7-players-wiki.html', t: 'The players wiki',
-    q: 'Same skin or its own, and how is the undiscovered presented?', w: 'soon', i: [83, 85] },
+    q: 'Same skin or its own, and how is the undiscovered presented?', w: 'soon', i: [83, 85],
+    d: 'C', dn: 'Shown as a gap' },
 
   { s: 'Media, money and meta', id: 'F1', f: 'f1-image-generation.html', t: 'Asking for an image, choosing one, marking it',
-    q: 'Where does generation start, how many variants, and what does the badge say?', w: 'soon', i: [66, 71, 65] },
+    q: 'Where does generation start, how many variants, and what does the badge say?', w: 'soon', i: [66, 71, 65],
+    d: 'C', dn: 'One action, always confirm the spend' },
   { s: 'Media, money and meta', id: 'F2', f: 'f2-quota-and-cost.html', t: 'Quota, cost and the warm budget',
-    q: 'How is spend shown so it is honest without being a dashboard nobody wants?', w: 'soon', i: [88, 89, 78] },
+    q: 'How is spend shown so it is honest without being a dashboard nobody wants?', w: 'soon', i: [88, 89, 78],
+    d: 'A', dn: 'A meter in the shell' },
   { s: 'Media, money and meta', id: 'F3', f: 'f3-privacy-and-keys.html', t: 'Provider transparency and BYO key',
-    q: 'How is guardrail 5 said in plain words, and where does a key go?', w: 'soon', i: [90, 109] },
+    q: 'How is guardrail 5 said in plain words, and where does a key go?', w: 'soon', i: [90, 109],
+    d: 'C', dn: 'Contextual, at the moment content leaves' },
   { s: 'Media, money and meta', id: 'F4', f: 'f4-export-and-lock-in.html', t: 'Export and the lock-in answer',
-    q: 'What does markdown export look like, and where is it advertised?', w: 'later', i: [21] },
+    q: 'What does markdown export look like, and where is it advertised?', w: 'later', i: [21],
+    d: 'A', dn: 'Flat zip, in Settings, unadvertised',
+    dnote: 'Taken against my recommendation of C. It settles the shape of export and leaves the marketing half open, because SPEC 13 ships export on day one precisely to answer the Realm Works objection, and an unadvertised feature answers nobody. That is G10.' },
   { s: 'Media, money and meta', id: 'F5', f: 'f5-metrics-dashboard.html', t: 'The metrics surface',
-    q: 'Accept rate and time to first value: internal only, or shown to the GM?', w: 'later', i: [100, 101, 103] },
+    q: 'Accept rate and time to first value: internal only, or shown to the GM?', w: 'later', i: [100, 101, 103],
+    d: 'B', dn: 'An admin surface inside the product' },
   { s: 'Media, money and meta', id: 'F6', f: 'f6-landing-and-demo.html', t: 'Landing page and the propagation demo',
-    q: 'How is the loop shown on a page that must never overpromise?', w: 'now', i: [3, 4] },
+    q: 'How is the loop shown on a page that must never overpromise?', w: 'now', i: [3, 4],
+    d: 'C', dn: 'The demo as the hero, no copy above it' },
+
+  /* Round two: what the first 38 answers opened. Nothing here is decided. */
+  { s: 'Round two', id: 'G1', f: 'g1-dark-half.html', t: 'The dark half of the reading room',
+    q: 'Does table mode get a warm dark palette, or does the reading room stay light everywhere?', w: 'now', i: [104, 72, 81] },
+  { s: 'Round two', id: 'G2', f: 'g2-where-serif-stops.html', t: 'Where serif stops',
+    q: 'Which surfaces keep the serif measure, and which go back to sans because they are dense?', w: 'now', i: [104, 105, 51] },
+  { s: 'Round two', id: 'G3', f: 'g3-shortcuts-cross-platform.html', t: 'One shortcut map on three platforms',
+    q: 'Which modifiers, which bare keys, and what happens where the browser already owns the combination?', w: 'now', i: [104, 75, 51] },
+  { s: 'Round two', id: 'G4', f: 'g4-formatting-menu.html', t: 'The formatting menu for people who do not type markdown',
+    q: 'Toolbar, slash menu, selection bubble, or more than one of them?', w: 'now', i: [105] },
+  { s: 'Round two', id: 'G5', f: 'g5-ask-page-and-sources.html', t: 'The Ask page, and what clicking a source does',
+    q: 'What is the dedicated page for, and does following a source leave the answer behind?', w: 'now', i: [53, 60] },
+  { s: 'Round two', id: 'G6', f: 'g6-silent-merge-bucket.html', t: 'Whether the update bucket needs an accept at all',
+    q: 'Nineteen fields the GM never touched: informational, bulk acceptable, or one accept each?', w: 'now', i: [37, 42, 36] },
+  { s: 'Round two', id: 'G7', f: 'g7-reveal-lag.html', t: 'The players wiki between the session and the confirmation',
+    q: 'Reveals are confirmed after the table breaks, so what do players see in the meantime?', w: 'now', i: [82, 83, 85] },
+  { s: 'Round two', id: 'G8', f: 'g8-proposals-during-play.html', t: 'Proposals arriving during play',
+    q: 'Does the inbox exist in table mode, and does propagation keep running while a session is open?', w: 'soon', i: [47, 72, 79] },
+  { s: 'Round two', id: 'G9', f: 'g9-meter-with-ai-off.html', t: 'What the meter shows when the AI is off',
+    q: 'Per-universe off plus a shell meter: what does the meter say, and does retrieval count as AI?', w: 'soon', i: [107, 88, 19] },
+  { s: 'Round two', id: 'G10', f: 'g10-lock-in-answer.html', t: 'Where the lock-in answer is said out loud',
+    q: 'Export sits unadvertised in Settings, so who ever hears that it exists?', w: 'soon', i: [21, 3, 109] },
+  { s: 'Round two', id: 'G11', f: 'g11-when-to-ask-before-spending.html', t: 'How often the product asks before it spends',
+    q: 'Every paid action, above a threshold, or once and then a meter?', w: 'now', i: [66, 88, 30] },
 ];
 
 const KEY = (id) => `canonry.ux.${id}`;
@@ -103,6 +176,13 @@ function writeChoice(id, value) {
     if (value === null) localStorage.removeItem(KEY(id));
     else localStorage.setItem(KEY(id), JSON.stringify(value));
   } catch { /* file:// with storage disabled: the page still works, it just cannot remember */ }
+}
+/* One accessor for both kinds of answer: a decision recorded in the register wins over
+   anything a browser remembers, because the register is what a fresh reader sees. */
+function decisionOf(d) {
+  if (d.d) return { pick: d.d, name: d.dn, note: d.dnote || '', at: DECIDED_ON, firm: true };
+  const c = readChoice(d.id);
+  return c ? { pick: c.pick, name: c.name, note: c.note || '', at: new Date(c.at).toISOString().slice(0, 10), firm: false } : null;
 }
 
 /* ---- page head, breadcrumb, prev/next ---- */
@@ -123,13 +203,16 @@ function injectHead() {
   const head = document.querySelector('[data-ux-head]');
   if (head) {
     const issues = d.i.map((n) => `<a href="${REPO}${n}">#${n}</a>`).join(', ');
+    const state = d.d
+      ? `<span class="badge done">decided ${d.d}: ${d.dn}</span>`
+      : `<span class="badge ${d.w}">decide ${d.w}</span>`;
     head.innerHTML = `
-      <div class="eyebrow"><span>${d.id}</span><span>·</span><span>${d.s}</span>
-        <span class="badge ${d.w}">decide ${d.w}</span></div>
+      <div class="eyebrow"><span>${d.id}</span><span>·</span><span>${d.s}</span>${state}</div>
       <h1>${d.t}</h1>
       <p class="q">${d.q}</p>
       <div class="facts"><span><b>Blocks</b> ${issues}</span>
-        <span><b>Sample world</b> <a href="SAMPLE-WORLD.md">Valdoria Reach</a></span></div>`;
+        <span><b>Sample world</b> <a href="SAMPLE-WORLD.md">Valdoria Reach</a></span>
+        ${d.d ? `<span><b>Decided</b> ${DECIDED_ON}, see <a href="DECISIONS.md">DECISIONS.md</a></span>` : ''}</div>`;
   }
 
   const nav = document.querySelector('[data-ux-nav]');
@@ -145,11 +228,24 @@ function injectHead() {
   }
 }
 
-/* ---- the recorder ---- */
+/* ---- the recorder, or the record ---- */
 function injectRecorder() {
   const box = document.querySelector('[data-ux-record]');
   const id = document.body.dataset.decision;
   if (!box || !id) return;
+  const entry = UX_REGISTER.find((x) => x.id === id);
+  if (!entry) return;
+
+  if (entry.d) {
+    box.innerHTML = `
+      <div class="row"><span class="badge done">${entry.d}</span>
+        <b>${entry.dn}</b><span class="muted">decided ${DECIDED_ON}</span></div>
+      ${entry.dnote ? `<p class="small" style="margin:12px 0 0;max-width:56em;">${entry.dnote}</p>` : ''}
+      <div class="state">This is the record, not a browser's memory. To change it, edit
+        <code>DECISIONS.md</code> and the register in <code>assets/ux.js</code>, and say so
+        on the issues this blocks.</div>`;
+    return;
+  }
 
   const labels = [...document.querySelectorAll('.opt > header')].map((h) => ({
     letter: (h.querySelector('.ltr')?.textContent || '?').trim(),
@@ -200,31 +296,36 @@ function injectRecorder() {
 function injectRegister() {
   const host = document.querySelector('[data-ux-register]');
   if (!host) return;
-  let html = `<table class="reg"><thead><tr><th>Id</th><th>Decision</th><th>The question</th><th>When</th><th>Blocks</th><th>Recorded</th></tr></thead><tbody>`;
+  let html = `<table class="reg"><thead><tr><th>Id</th><th>Decision</th><th>The question</th><th>When</th><th>Blocks</th><th>Decided</th></tr></thead><tbody>`;
   let section = null;
   for (const d of UX_REGISTER) {
     if (d.s !== section) {
       section = d.s;
       html += `<tr class="sect"><td colspan="6">${section}</td></tr>`;
     }
-    const c = readChoice(d.id);
+    const c = decisionOf(d);
+    const cell = c
+      ? `<span class="badge ${c.firm ? 'done' : 'ok'}">${c.pick}</span> ${c.name}${c.firm ? '' : ' <span class="muted">(local)</span>'}`
+      : '<span class="muted">open</span>';
     html += `<tr>
       <td class="id"><a href="${d.f}">${d.id}</a></td>
       <td><a href="${d.f}">${d.t}</a></td>
       <td class="q">${d.q}</td>
-      <td><span class="badge ${d.w}">${d.w}</span></td>
-      <td class="small muted nowrap">${d.i.map((n) => `<a href="${REPO}${n}">#${n}</a>`).join(' ')}</td>
-      <td class="small">${c ? `<span class="badge done">${c.pick}</span>` : '<span class="muted">—</span>'}</td>
+      <td>${d.d ? '<span class="muted small">done</span>' : `<span class="badge ${d.w}">${d.w}</span>`}</td>
+      <td class="iss small muted nowrap">${d.i.map((n) => `<a href="${REPO}${n}">#${n}</a>`).join(' ')}</td>
+      <td class="small">${cell}</td>
     </tr>`;
   }
   host.innerHTML = html + '</tbody></table>';
 
-  const counts = { now: 0, soon: 0, later: 0, done: 0 };
-  UX_REGISTER.forEach((d) => { counts[d.w]++; if (readChoice(d.id)) counts.done++; });
+  const open = UX_REGISTER.filter((d) => !d.d);
+  const openNow = open.filter((d) => d.w === 'now').length;
+  const localPicks = open.filter((d) => readChoice(d.id)).length;
   const tally = document.querySelector('[data-ux-tally]');
   if (tally) {
-    tally.innerHTML = `<b>${UX_REGISTER.length}</b> decisions: ${counts.now} to take now,
-      ${counts.soon} soon, ${counts.later} later. <b>${counts.done}</b> recorded.`;
+    tally.innerHTML = `<b>${UX_REGISTER.length - open.length} of ${UX_REGISTER.length}</b> decided on
+      ${DECIDED_ON}. <b>${open.length}</b> still open, ${openNow} of them to take now, and
+      ${localPicks} picked in this browser but not yet written into the record.`;
   }
 }
 
@@ -236,13 +337,13 @@ function injectExport() {
     const lines = ['# Canonry UX decisions', ''];
     let section = null;
     for (const d of UX_REGISTER) {
-      const c = readChoice(d.id);
-      if (!c) continue;
+      const c = decisionOf(d);
+      if (!c || c.firm) continue;
       if (d.s !== section) { section = d.s; lines.push(`## ${section}`, ''); }
       lines.push(`- **${d.id} ${d.t}** — chose ${c.pick} (${c.name}).${c.note ? ` ${c.note}` : ''}`);
       lines.push(`  Blocks ${d.i.map((n) => `#${n}`).join(', ')}.`);
     }
-    if (lines.length === 2) lines.push('_Nothing recorded yet._');
+    if (lines.length === 2) lines.push('_Nothing new recorded in this browser. The decisions already taken are in DECISIONS.md._');
     out.value = lines.join('\n');
     out.hidden = false;
     out.select();

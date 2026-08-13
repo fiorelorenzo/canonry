@@ -797,6 +797,14 @@ Most of the list was closed on 2026-08-07. What survives, and why:
 | 2 | **Which commercial provider and plan back production imports** | open, but no longer risky: §6.7 rules out building on a consumer subscription, so this is a procurement question — which metered API agreement, at what rate — with a known end state where the GM's own agent does the work through Spole |
 | 3 | **Matching thresholds** (§6.4) | open until the benchmark exists, which is the point: they are measured, not chosen |
 
+**The interface is decided elsewhere on purpose.** This file says what the product
+guarantees, not what it looks like: that a proposal shows its evidence, not where the
+evidence sits. The thirty-eight questions that leaves open were answered on
+2026-08-13 and are recorded in `docs/ux/DECISIONS.md`, with one artifact each in
+`docs/ux/` carrying the options that were rejected and why. Eleven follow-on
+questions are still open there. A decision that tightens a guarantee rather than
+dressing it moves into this file; the rest stays in that record.
+
 Closed the same day, recorded here so nobody reopens them by accident: the product
 is called **Canonry** (`canonry.io`); OCR needs no provider because the agent reads
 a rendered page itself; Kanka and OneNote both go through their exports, so the

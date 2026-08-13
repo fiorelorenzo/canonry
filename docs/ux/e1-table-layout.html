@@ -6,17 +6,19 @@
 <link rel="stylesheet" href="assets/ux.css">
 <script defer src="assets/ux.js"></script>
 <style>
-  /* Table mock kit, shared in spirit across E1-E4: A1 decided table mode is dark
-     by default with taller rows. These tokens are copied from a1's skin-c so the
-     four table decisions read as one surface rather than four separate ones. */
+  /* Table mock kit, shared in spirit across E1-E4: A1 chose the reading room, which shipped no dark
+     theme, so whether table mode repaints at all is decision G1. These tokens are the
+     warm dark candidate G1 puts forward, kept identical across E1 to E4 so the four
+     table decisions read as one surface rather than four separate ones. */
   .tmode {
-    --bg: #0f1114; --panel: #171a1f; --panel-2: #12151a;
-    --ink: #e9e6e0; --ink-2: #b9b4ab; --muted: #7d8794;
-    --line: #262b33; --line-2: #333a45;
-    --accent: #57c3a4; --accent-ink: #8fd9c3; --accent-bg: #14312a;
-    --ai: #a893ff; --ai-bg: #211d38; --ai-line: #3d3563;
-    --ok: #6fce9f; --ok-bg: #14301f; --danger: #ef8b74; --danger-bg: #341a16;
-    --warn: #e5b567; --warn-bg: #322612;
+    --bg: #17140f; --panel: #1e1a14; --panel-2: #191510;
+    --ink: #f1e9db; --ink-2: #cabfae; --muted: #8e8474;
+    --line: #2d271e; --line-2: #3d3529;
+    --accent: #d9a94a; --accent-ink: #ebc884; --accent-bg: #33270f;
+    --ai: #b8a2ff; --ai-bg: #241f3a; --ai-line: #473d6d;
+    --ok: #7cc78f; --ok-bg: #16301f; --danger: #e88f70; --danger-bg: #331a13;
+    --warn: #dcb45f; --warn-bg: #312512;
+    color: var(--ink);
     font-size: 14.5px; background: var(--bg);
   }
   .tmode .rows .r { padding: 13px 12px; }
@@ -66,8 +68,10 @@
   disagree about what a "place" is or how context change propagates to the rest of the screen.</p>
   <div class="callout guard">
     <p><span class="guardref">Guardrail 1</span> propose, never apply. Whatever declares context, the GM
-    says it. Nothing infers it from what was said aloud and switches state on its own. A1 already settled
-    that table mode is dark by default with taller rows; that is inherited below, not re-argued.</p>
+    says it. Nothing infers it from what was said aloud and switches state on its own. The mocks below
+    are drawn on the warm dark palette because that is the candidate <a href="g1-dark-half.html">G1</a>
+    puts forward for table mode, and taller rows come with it. A1 chose the reading room, which shipped
+    no dark theme at all, so the repaint is a real open question and not something this page settled.</p>
   </div>
 </section>
 

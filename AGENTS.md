@@ -51,17 +51,25 @@ Spole. No provider or protocol type may leak past that boundary.
 ## The UX decisions live in `docs/ux/`
 
 `SPEC.md` says a proposal shows its evidence and never where the evidence sits, and it
-is quiet about the interface on purpose. The thirty-eight questions that leaves open
-are written down as one HTML artifact each in `docs/ux/`, with the options rendered as
-working mock UI on one shared sample world (`docs/ux/SAMPLE-WORLD.md`), what each
-option costs, a recommendation and what the choice locks in. Start at
-`docs/ux/index.html`, which also carries the inventory of every surface the product
-has to grow and the review rubric the guardrails turn into.
+is quiet about the interface on purpose. The questions that leaves open are written
+down as one HTML artifact each in `docs/ux/`, with the options rendered as working mock
+UI on one shared sample world (`docs/ux/SAMPLE-WORLD.md`), what each option costs, a
+recommendation and what the choice locks in. Start at `docs/ux/index.html`, which also
+carries the inventory of every surface the product has to grow and the review rubric
+the guardrails turn into.
 
-Before you build a screen, read the decision that gates it. If it is still open, take
-it deliberately and record it in the artifact and in the issue rather than settling it
-by accident in a component. If you settle one differently from the recommendation, say
-so in the issue, because the next agent will read the artifact and expect it.
+**`docs/ux/DECISIONS.md` is the answer set.** The first thirty-eight were decided on
+2026-08-13, including the visual language (the reading room: warm paper, serif for
+canon prose, violet spent only on the copilot), and eleven follow-on questions, ids G1
+to G11, are still open. The register in `docs/ux/assets/ux.js` carries the same answers
+so an artifact shows its decision at the top.
+
+Before you build a screen, read the decision that gates it, and build what was decided
+rather than what the artifact recommended, since those differ in three places. If the
+gate is one of the open G questions, say so on the issue instead of settling it by
+accident inside a component: that is the whole reason this set exists. Changing a
+decision means editing `DECISIONS.md` and the register together, and saying so on the
+issues it blocks.
 
 ## Deployment
 

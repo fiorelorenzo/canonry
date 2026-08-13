@@ -7,8 +7,26 @@
 <script defer src="assets/ux.js"></script>
 <style>
   /* Each skin overrides tokens on a wrapper, so the mock markup below is
-     byte-identical across the three options and only the skin changes. */
+     byte-identical across the three options and only the skin changes.
+
+     B was chosen on 2026-08-13, so B's tokens are now the stylesheet's own and the
+     other two have to carry theirs locally to keep the comparison honest: A defines
+     the quiet-tool palette it used to inherit from the root, and B's block below is
+     kept verbatim rather than deleted so this page still shows three real options
+     instead of one option and two ghosts. */
   .skin { font-size: 14px; }
+
+  .skin-a {
+    --bg: #f7f6f3; --panel: #ffffff; --panel-2: #fbfaf8;
+    --ink: #191713; --ink-2: #4a453e; --muted: #7a736a;
+    --line: #e3ded6; --line-2: #d3ccc1;
+    --accent: #1f5f52; --accent-ink: #12433a; --accent-bg: #e7f1ee;
+    --ok: #256b4b; --ok-bg: #e8f2ec; --danger: #a93a26; --danger-bg: #fbeeea;
+  }
+  .skin-a .entry { padding: 22px 26px; }
+  .skin-a .entry h1.title { font-family: var(--sans); font-size: 26px; }
+  .skin-a .prose { font-family: var(--sans); font-size: 15px; line-height: 1.6; }
+  .skin-a .prose p { max-width: 38em; }
 
   .skin-b {
     --bg: #f4efe4; --panel: #fffdf7; --panel-2: #f9f4ea;
@@ -71,6 +89,30 @@
     must still be a good wiki. A skin that only looks intentional when it is full of
     violet AI chrome fails that test, so each option below is worth checking twice:
     once as drawn, once with the copilot column gone.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Decided</h2>
+  <div class="callout rec">
+    <h3>B, the reading room, taken on 2026-08-13</h3>
+    <p>Decided B rather than the A recommended below, so the reading room is now the
+    product's palette and not a candidate: warm paper, serif for canon prose and entry
+    titles, burnt umber accent, violet still spent only on the copilot. The shared
+    stylesheet has been cascaded to match, which is why every mock in this set, on every
+    page, is already wearing it.</p>
+    <p>B was the option that shipped the least, and that is the part worth being
+    explicit about rather than quietly assuming: it came with no dark theme and with a
+    density tuned for reading prose, while the copilot's surfaces are all lists, diffs
+    and queues. Both halves are now their own decisions instead of being settled inside
+    the first component that trips over them, which is exactly the failure this whole
+    set exists to prevent: <a href="g1-dark-half.html">G1</a> asks whether table mode
+    gets a warm dark version of this palette, and
+    <a href="g2-where-serif-stops.html">G2</a> asks where serif stops once a surface has
+    a control in it.</p>
+    <p>The three options below stay as drawn, with A and C carrying their palettes
+    locally, because a decision keeps its value only while the alternatives it beat are
+    still legible.</p>
   </div>
 </section>
 
