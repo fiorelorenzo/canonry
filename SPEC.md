@@ -57,11 +57,17 @@ one.
 These are product constraints, not communication guidelines. An implementation that
 violates one of them is wrong even if it passes its tests.
 
-1. **Propose, never apply.** Every AI change goes through an explicit accept, **per
-   entry**. There is no "accept all" default. The failure mode to avoid is
-   documented in coding copilots: the agent that edits without asking is the single
-   most hated behaviour, and in a campaign's canon there is no `git diff` to save
-   you (`07`).
+1. **Propose, never apply.** Every AI-authored change to canon content goes through
+   an explicit accept, **per entry**, with one named exception: a field a re-import
+   writes because the source changed and the user never touched it (§6.4) carries no
+   proposal and needs none, because the **merge engine, not a model**, made that
+   write, and the plan the GM already started is its consent. Everything else a model
+   produces, however it is grouped or counted on screen, waits for a human to look at
+   it first, and there is **no "accept all" default beyond that one exception**: not
+   behind a confirmation dialog, and never for content the GM has not read. The
+   failure mode to avoid is documented in coding copilots: the agent that edits
+   without asking is the single most hated behaviour, and in a campaign's canon there
+   is no `git diff` to save you (`07`).
 2. **AI text is visually distinct** until accepted, and stays tracked afterwards:
    revisions record whether a change was human or an accepted AI proposal.
 3. **Every proposal shows its evidence** — which entry, which sentence. Never an

@@ -19,8 +19,12 @@ These are product constraints, not guidelines. An implementation that violates o
 is wrong even if its tests pass, and a PR that erodes one gets rejected on that
 basis alone. They are stated in full in `SPEC.md` §3.
 
-1. **Propose, never apply.** Every AI change goes through an explicit accept, per
-   entry. No "accept all" default.
+1. **Propose, never apply.** Every AI-authored change to canon content goes through an
+   explicit accept, per entry. One named exception, and no other: a field a re-import
+   writes because the source changed and the user never touched it (`SPEC.md` §6.4)
+   carries no proposal, because the merge engine and not a model made that write. No
+   "accept all" default beyond that, not behind a dialog, never for content the GM has
+   not read.
 2. **AI text is visually distinct** until accepted, and stays tracked afterwards
    (`revision.author_kind`).
 3. **Every proposal shows its evidence**: which entry, which sentence. Never a bare

@@ -4,6 +4,9 @@ build/
 .svelte-kit/
 .env
 .env.*
-__omp_shell(".env.example")
+!.env.example
 *.log
 .DS_Store
+coverage/
+.turbo/
+*.tsbuildinfo

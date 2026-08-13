@@ -5,6 +5,17 @@ depend on it. `docs/ux/index.html` is the audit and the register, one artifact p
 question with the options drawn; this file is the answer set in prose, so it can be
 read in a diff and quoted in an issue.
 
+## Decisions that changed the spec
+
+**Guardrail 1's wording, tightened 2026-08-13.** G6 found that SPEC 3 could be read
+as permitting a bulk accept, and D3's own mock had read it that way and grown an
+"Accept all 19" button. Section 3 now names exactly one exception, a field a re-import
+writes because the source changed and the user never touched it, on the grounds that
+the merge engine and not a model made that write. Everything else a model produces
+waits for a human, however it is grouped on screen. `AGENTS.md` carries the same
+wording in short form. G6 itself, whether that bucket is informational or reviewable,
+is still open.
+
 **Round one: all 38 decided on 2026-08-13.** Round two, the eleven questions those
 answers opened, is open and tracked on issue
 [#112](https://github.com/fiorelorenzo/canonry/issues/112).
