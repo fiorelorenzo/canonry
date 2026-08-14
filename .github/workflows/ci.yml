@@ -110,12 +110,21 @@ jobs:
       # publish to the runner's own loopback interface, not a shared docker
       # network. QDRANT_URL is left pointing nowhere on purpose: /healthz must
       # degrade rather than fail when only Qdrant is unreachable.
+      # BETTER_AUTH_SECRET is required because the app refuses to boot without one rather
+      # than falling back to Better Auth's insecure default (issue #86). The value here is
+      # throwaway and signs nothing that outlives this job: the point of this step is that
+      # the image starts and serves the version it was built with, not that anybody can sign
+      # in. ORIGIN matters for the same reason it matters in production: adapter-node only
+      # ever sees plain HTTP from a proxy, so a missing ORIGIN answers 403 to every form POST
+      # while the build stays green.
       - name: Boot the image against Postgres
         run: |
           docker run -d --name canonry-web-ci \
             --network host \
             -e DATABASE_URL=postgres://canonry:canonry@127.0.0.1:5432/canonry \
             -e QDRANT_URL=http://127.0.0.1:1 \
+            -e ORIGIN=http://127.0.0.1:5196 \
+            -e BETTER_AUTH_SECRET=ci-boot-check-secret-not-used-for-anything \
             canonry-web:ci
 
       # SPEC.md #12: a green curl has served a stale build on this box
