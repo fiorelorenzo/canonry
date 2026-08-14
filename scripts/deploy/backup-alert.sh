@@ -7,11 +7,19 @@
 # optional webhook POST if ALERT_WEBHOOK_URL is set in the environment. The
 # webhook URL itself is read from the environment and never echoed.
 #
+# Deliberately self-contained (no `. ./lib.sh`): every other script under
+# scripts/deploy/ ships and runs from inside a stack's release directory,
+# alongside lib.sh, but this one is installed once, globally, to
+# /usr/local/bin (docs/deploy.md) precisely so one alert path survives any
+# single stack's release lifecycle -- sourcing a sibling lib.sh it is never
+# actually deployed with was a bug, not a convenience.
+#
 # Usage: backup-alert.sh UNIT_NAME
 set -euo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")"
-# shellcheck source=./lib.sh
-. ./lib.sh
+
+log() {
+	printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2
+}
 
 unit="${1:-unknown-unit}"
 message="canonry backup unit failed: $unit (host $(hostname -f 2>/dev/null || hostname))"

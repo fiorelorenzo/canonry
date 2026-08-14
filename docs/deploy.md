@@ -24,7 +24,7 @@ the 5 most recent releases (plus whatever `current` points at, even if
 older).
 
 Two independent stacks live on prodbox, `prod` and `preview`, each its own
-directory under `/opt/canonry/<stack>`, its own Postgres, its own Qdrant, its
+directory under `/opt/apps/canonry/<stack>`, its own Postgres, its own Qdrant, its
 own secrets, never sharing a compose project.
 
 ## One-time setup on prodbox
@@ -37,26 +37,30 @@ Everything below happens once per stack. Run as a user with docker access.
    `runs-on: [self-hosted, prodbox]`; without a runner carrying that label the
    job queues forever.
 
-2. **Create the deploy user** the systemd units run as:
-
-   ```
-   sudo useradd --system --create-home --groups docker canonry-deploy
-   ```
+2. **The deploy account already exists on this box**: `prod`, a member of
+   the `docker` group with passwordless sudo. Every release, rollback and
+   backup unit runs as `prod`, the same account this whole setup runs as --
+   not a separate `canonry-deploy` service account, so there is only one
+   account's permissions to reason about, not two that can drift apart.
 
 3. **Create the stack directories** (repeat for `preview` with its own
-   port block). `/opt` is root-owned, so the top level needs `sudo` once:
+   port block). `/opt/apps` is root-owned, so the top level needs `sudo`
+   once; `backups/` is deliberately *not* created here -- the first backup
+   run (by hand or by the timer) creates it itself with `UMask=0077`
+   (owner-only), so a plain `mkdir` here would leave it world-readable
+   until that first run instead of before it:
 
    ```
-   sudo mkdir -p /opt/canonry && sudo chown canonry-deploy:canonry-deploy /opt/canonry
-   sudo -u canonry-deploy mkdir -p /opt/canonry/prod/shared /opt/canonry/prod/backups
+   sudo mkdir -p /opt/apps/canonry && sudo chown prod:prod /opt/apps/canonry
+   mkdir -p /opt/apps/canonry/prod/shared
    ```
 
 4. **Write the shared secrets file** from the template committed at
    `docker/deploy/secrets.env.example`:
 
    ```
-   sudo -u canonry-deploy cp docker/deploy/secrets.env.example /opt/canonry/prod/shared/secrets.env
-   sudo -u canonry-deploy chmod 600 /opt/canonry/prod/shared/secrets.env
+   cp docker/deploy/secrets.env.example /opt/apps/canonry/prod/shared/secrets.env
+   chmod 600 /opt/apps/canonry/prod/shared/secrets.env
    # edit it: real POSTGRES_PASSWORD, DATABASE_URL, BETTER_AUTH_SECRET, social
    # provider credentials, STAFF_EMAILS, AI Gateway and Replicate credentials,
    # ORIGIN, and for preview a distinct port block (WEB_PORT=5296 per
@@ -69,19 +73,32 @@ Everything below happens once per stack. Run as a user with docker access.
 5. **Point Caddy** at the stack's `WEB_PORT` (`docker/Caddyfile.example` has
    both stacks' blocks).
 
-6. **Install the backup units** (repeat `postgres` and `qdrant`, and the
-   alert handler once, not per stack):
+6. **Install the backup units** (once, not per stack: `canonry-backup-postgres@.service`
+   and `canonry-backup-qdrant@.service` are templates parameterized by stack
+   via systemd's `%i`, and the `OnFailure=` alert handler is one global unit):
 
    ```
    sudo cp docker/deploy/systemd/canonry-backup-*.service docker/deploy/systemd/canonry-backup-*.timer /etc/systemd/system/
    sudo cp scripts/deploy/backup-alert.sh /usr/local/bin/canonry-backup-alert.sh
    sudo chmod +x /usr/local/bin/canonry-backup-alert.sh
    sudo systemctl daemon-reload
-   sudo systemctl enable --now canonry-backup-postgres@prod.timer canonry-backup-qdrant@prod.timer
+   sudo systemctl enable --now \
+     canonry-backup-postgres@prod.timer canonry-backup-qdrant@prod.timer \
+     canonry-backup-postgres@preview.timer canonry-backup-qdrant@preview.timer
    ```
 
-   Optional alert webhook: `sudo mkdir -p /etc/canonry && echo
+   `backup-alert.sh` is deliberately self-contained (no shared `lib.sh`
+   dependency): it is the one script here installed standalone, outside any
+   stack's release directory, and it used to fail with "No such file or
+   directory" the moment a real failure tried to trigger it, which is the
+   worst possible time to discover a missing dependency.
+
+   Optional alert webhook, the one piece of this that has no destination
+   configured yet on prodbox: `sudo mkdir -p /etc/canonry && echo
    'ALERT_WEBHOOK_URL=https://...' | sudo tee /etc/canonry/backup-alert.env`.
+   Without it, a failed backup still lands as an `err`-priority journal
+   entry (`journalctl -p err`) and in `systemctl --failed`, but nothing
+   pushes it anywhere a person is already looking.
 
 7. **First deploy has nowhere to fall back to.** `release.sh`'s automatic
    rollback only works once a previous release exists. The very first tag for
@@ -104,7 +121,7 @@ input and, optionally, a `ref` other than the run's own trigger.
 ## Manual rollback
 
 ```
-scripts/deploy/rollback.sh --stack prod --base /opt/canonry/prod
+scripts/deploy/rollback.sh --stack prod --base /opt/apps/canonry/prod
 ```
 
 Without `--to`, this reads `previous_release` out of `DEPLOYED.json` and
@@ -114,8 +131,8 @@ the rollback. To roll back further than one step, list what is on disk and
 name the target:
 
 ```
-ls /opt/canonry/prod/releases
-scripts/deploy/rollback.sh --stack prod --base /opt/canonry/prod --to <sha>
+ls /opt/apps/canonry/prod/releases
+scripts/deploy/rollback.sh --stack prod --base /opt/apps/canonry/prod --to <sha>
 ```
 
 Rollback is a symlink flip plus a container recreate, nothing else: it never
@@ -128,15 +145,42 @@ alone fixes.
 `canonry-backup-postgres@<stack>.timer` and `canonry-backup-qdrant@<stack>.timer`
 run once a day (03:15 and 03:45 UTC respectively, `RandomizedDelaySec=10m`),
 `Persistent=true` so a run prodbox missed while down still happens on next
-boot. Each backup writes into `/opt/canonry/<stack>/backups/{postgres,qdrant}`
+boot. Both are installed once and cover both stacks via systemd's `%i`
+(`canonry-backup-postgres@prod.timer`, `canonry-backup-postgres@preview.timer`,
+and the same pair for qdrant).
+
+**Taking a backup by hand** is the same command the timer runs, so there is
+nothing special to remember at three in the morning:
+
+```
+/opt/apps/canonry/prod/current/scripts/deploy/backup-postgres.sh \
+  --container canonry-prod-postgres-1 \
+  --out-dir /opt/apps/canonry/prod/backups/postgres \
+  --status-dir /opt/apps/canonry/prod/backups/status
+
+/opt/apps/canonry/prod/current/scripts/deploy/backup-qdrant.sh \
+  --container canonry-prod-qdrant-1 \
+  --out-dir /opt/apps/canonry/prod/backups/qdrant \
+  --status-dir /opt/apps/canonry/prod/backups/status
+```
+
+Run it as `prod`, without `sudo`: `prod` already owns
+`/opt/apps/canonry/<stack>` and is in the `docker` group, so nothing here
+needs root. Running it as root instead still works but leaves root-owned
+files behind that a later `prod`-owned run cannot prune; if triggering
+through systemd instead of the script directly, `sudo systemctl start
+canonry-backup-postgres@prod.service` still lands owned by `prod`, because
+the unit itself sets `User=prod`.
+
+Each backup writes into `/opt/apps/canonry/<stack>/backups/{postgres,qdrant}`
 and, on every run whether it succeeds or fails, a status file under
-`/opt/canonry/<stack>/backups/status/{postgres,qdrant}-last-run.json`. That
-status file is the first thing to check, since a missing or stale one is
+`/opt/apps/canonry/<stack>/backups/status/{postgres,qdrant}-last-run.json`.
+That status file is the first thing to check, since a missing or stale one is
 itself a signal something stopped running:
 
 ```
-cat /opt/canonry/prod/backups/status/postgres-last-run.json
-cat /opt/canonry/prod/backups/status/qdrant-last-run.json
+cat /opt/apps/canonry/prod/backups/status/postgres-last-run.json
+cat /opt/apps/canonry/prod/backups/status/qdrant-last-run.json
 systemctl status canonry-backup-postgres@prod.service canonry-backup-qdrant@prod.service
 journalctl -u canonry-backup-postgres@prod.service -u canonry-backup-qdrant@prod.service --since -2d
 ```
@@ -145,22 +189,66 @@ A failed run also triggers `canonry-backup-alert@.service` (systemd's
 `OnFailure=`), which writes an `err`-priority journal entry
 (`journalctl -p err`) and, if `/etc/canonry/backup-alert.env` sets
 `ALERT_WEBHOOK_URL`, posts to it. `systemctl --failed` shows any backup unit
-stuck in a failed state.
+stuck in a failed state. **As of this writing `/etc/canonry/backup-alert.env`
+does not exist on prodbox**, so a failure is recorded (journal, status file,
+`systemctl --failed`) but nothing pushes it to a person yet. The same gap
+exists for every other app's backup job on this box already: loombox's
+`relay-backup.service` points its own `OnFailure=` at
+`status-email-admin@%n.service`, and that unit is not installed either.
+Closing it needs one destination for `ALERT_WEBHOOK_URL` (a Slack/Discord/
+Matrix incoming webhook, or a healthchecks.io dead-man's-switch URL both
+work with the plain `curl -X POST` this script already does): that is the one
+thing still missing for a failure to actually reach a person.
 
-Postgres backups are `pg_dump -Fc` (custom format, already compressed),
-14-day retention. Qdrant backups are one directory per run holding one
-snapshot file per collection plus a `manifest.json` recording each
-collection's `points_count` at backup time, same 14-day retention.
+Every file and directory a backup run creates is owned by `prod` and mode
+700/600 (`UMask=0077` on the systemd units; `backup-postgres.sh` additionally
+`chmod`s the dump right after `docker cp`, since `docker cp` copies the
+source file's mode from inside the container rather than respecting the
+caller's umask, and would otherwise leave a full plaintext copy of the
+database world-readable). `backups/` is a plain top-level directory next to
+`releases/` and `current/`, not inside either, the same shape this box's
+other apps already exclude by name from their own rsync-based deploys
+(`--exclude '/backups'` in loombox's and mastro's `scripts/deploy-prod.sh`),
+so it stays out of any release artifact and out of anything that syncs one.
+
+**Retention: 14 daily copies per store per stack, pruned by the script
+itself** (`find ... -mtime +14` inside `backup-postgres.sh`/`backup-qdrant.sh`,
+no separate cron job, no manual cleanup needed or expected). That is 4
+independently-retained streams: prod Postgres, prod Qdrant, preview Postgres,
+preview Qdrant. The worst case is written down here rather than discovered
+later: prodbox has a 251 GB disk and, as of 2026-08-14, 63 GB free across
+every app on the box, not just Canonry. At today's real sizes (about 105 KB
+per Postgres dump, empty Qdrant since no collection has been created yet) 14
+days of all 4 streams costs under 2 MB total, irrelevant. The number that
+matters is the threshold where it stops being irrelevant: 63 GB free / 14
+days / 4 streams is about 1.1 GB. If any single stream's daily backup ever
+regularly exceeds roughly a gigabyte, Canonry's backups alone could exhaust
+today's free space before the 14-day window finishes filling, on a box with
+no spare headroom for one app to claim. Watch `du -sh
+/opt/apps/canonry/*/backups` in the same breath as the status files, and
+lower `--retain-days` (an argument on the systemd unit's `ExecStart=`) well
+before that line, not after.
+
+Postgres backups are `pg_dump -Fc` (custom format, already compressed).
+Qdrant backups are one directory per run holding one snapshot file per
+collection plus a `manifest.json` recording each collection's `points_count`
+at backup time.
 
 ## Restoring, at three in the morning
 
-Real disaster recovery, in order:
+Real disaster recovery, in order. **Measured cost of this whole procedure:
+about 12 seconds of web downtime** (`docker stop` to a passing `/healthz`
+again), timed for real on preview during the issue #98 rehearsal below
+against a roughly 105 KB Postgres dump. Downtime scales with dump/snapshot
+size, so treat 12 seconds as a floor once real data is involved, not a
+promise.
 
 1. **Confirm what is actually broken** before touching anything: is the web
    container down (that is a rollback, not a restore, see above), or is data
    gone or corrupted in Postgres or Qdrant?
 
-2. **Stop the web container** so nothing writes against a database mid-restore:
+2. **Stop the web container** so nothing writes against a database
+   mid-restore, and so `dropdb` below has no active connections to fight:
 
    ```
    docker stop canonry-prod-web-1
@@ -169,24 +257,33 @@ Real disaster recovery, in order:
 3. **Find the backup to restore.** Postgres:
 
    ```
-   ls -t /opt/canonry/prod/backups/postgres | head -5
+   ls -t /opt/apps/canonry/prod/backups/postgres | head -5
    ```
 
    Qdrant:
 
    ```
-   ls -t /opt/canonry/prod/backups/qdrant | head -5   # one run directory per backup
+   ls -t /opt/apps/canonry/prod/backups/qdrant | head -5   # one run directory per backup
    ```
 
-4. **Restore Postgres** into the running `postgres` container (this drops
-   nothing automatically; if the target database already has bad data in it,
-   drop and recreate it first with `dropdb`/`createdb` as the `canonry` user):
+4. **Restore Postgres.** `restore-postgres.sh` never drops anything on its
+   own; if the target database already has bad data in it (the usual case:
+   this is disaster recovery, not a fresh box), drop and recreate it first so
+   `pg_restore` writes into something empty rather than fighting existing
+   rows. Read the container's own credentials rather than typing them, the
+   same way the backup and restore scripts do, so nothing here echoes a
+   secret:
 
    ```
+   PGUSER=$(docker exec canonry-prod-postgres-1 printenv POSTGRES_USER)
+   PGDB=$(docker exec canonry-prod-postgres-1 printenv POSTGRES_DB)
+   PGPW=$(docker exec canonry-prod-postgres-1 printenv POSTGRES_PASSWORD)
+   docker exec -e PGPASSWORD="$PGPW" canonry-prod-postgres-1 dropdb -U "$PGUSER" "$PGDB"
+   docker exec -e PGPASSWORD="$PGPW" canonry-prod-postgres-1 createdb -U "$PGUSER" "$PGDB"
    scripts/deploy/restore-postgres.sh \
      --container canonry-prod-postgres-1 \
-     --dump /opt/canonry/prod/backups/postgres/canonry-<timestamp>.dump \
-     --target-db canonry
+     --dump /opt/apps/canonry/prod/backups/postgres/canonry-<timestamp>.dump \
+     --target-db "$PGDB"
    ```
 
 5. **Restore Qdrant** from the chosen run directory into the live instance:
@@ -194,7 +291,7 @@ Real disaster recovery, in order:
    ```
    scripts/deploy/restore-qdrant.sh \
      --url http://127.0.0.1:<QDRANT_PORT> \
-     --backup-dir /opt/canonry/prod/backups/qdrant/<run-timestamp>
+     --backup-dir /opt/apps/canonry/prod/backups/qdrant/<run-timestamp>
    ```
 
    This restores every collection in the manifest and compares each one's
@@ -221,7 +318,7 @@ drops the scratch database:
 ```
 scripts/deploy/restore-postgres.sh --rehearse \
   --container canonry-prod-postgres-1 \
-  --dump /opt/canonry/prod/backups/postgres/<latest>.dump \
+  --dump /opt/apps/canonry/prod/backups/postgres/<latest>.dump \
   --source-db canonry
 ```
 
@@ -233,12 +330,132 @@ comparison do the checking:
 docker run -d --name qdrant-rehearsal -p 127.0.0.1:57999:6333 qdrant/qdrant:v1.12.4
 scripts/deploy/restore-qdrant.sh \
   --url http://127.0.0.1:57999 \
-  --backup-dir /opt/canonry/prod/backups/qdrant/<latest-run>
+  --backup-dir /opt/apps/canonry/prod/backups/qdrant/<latest-run>
 docker rm -f qdrant-rehearsal
 ```
 
 Both exit non-zero and print exactly which table or collection did not match
 if the rehearsal fails.
+
+## The restore rehearsal, run for real on prodbox (issue #98)
+
+I ran the two non-destructive rehearsals above against real prodbox data,
+then went further, on preview only, never on prod: a real drop and restore
+with a marker row, because a script exiting zero is not the same claim as a
+person's data actually coming back.
+
+**Postgres.** I backed up preview's real database, inserted a `universe` row
+with an obvious marker name, took a second backup (the one carrying the
+marker), then for real: stopped preview's web container, dropped the live
+`canonry` database, recreated it empty, and restored the marker-bearing dump
+into it.
+
+```
+$ backup-postgres.sh --container canonry-preview-postgres-1 ...
+backup complete: .../canonry-20260814T211142Z.dump (108252 bytes, 0s)
+
+$ psql ... -c "insert into universe (...) values (..., 'CANONRY BACKUP
+  REHEARSAL MARKER 2026-08-14T21:11:42Z', 'backup-rehearsal-20260814211142',
+  'homebrew', '', true) returning id, name, slug, kind;"
+                  id                  |                    name                    |              slug
+ 4749579c-41b9-4459-adf0-d30bbe374481 | CANONRY BACKUP REHEARSAL MARKER ...        | backup-rehearsal-20260814211142
+INSERT 0 1
+
+$ backup-postgres.sh --container canonry-preview-postgres-1 ...   # backup #2, carries the marker
+backup complete: .../canonry-20260814T211143Z.dump (108430 bytes, 0s)
+
+$ docker stop canonry-preview-web-1
+canonry-preview-web-1
+
+$ docker exec canonry-preview-postgres-1 dropdb -U canonry canonry
+$ docker exec canonry-preview-postgres-1 psql -U canonry -l | grep canonry
+(not listed -- confirmed gone)
+$ docker exec canonry-preview-postgres-1 createdb -U canonry canonry
+
+$ restore-postgres.sh --container canonry-preview-postgres-1 \
+    --dump .../canonry-20260814T211143Z.dump --target-db canonry
+restore complete: canonry
+
+$ docker start canonry-preview-web-1
+$ curl -s http://127.0.0.1:5296/healthz
+{"status":"ok","version":"v0.1.1","commit":"81ffefcd...","db":true,"qdrant":true}
+downtime: 12 seconds
+
+$ psql ... -c "select id, name, slug, kind, created_at from universe
+  where slug = 'backup-rehearsal-20260814211142';"
+ 4749579c-41b9-4459-adf0-d30bbe374481 | CANONRY BACKUP REHEARSAL MARKER ... | backup-rehearsal-20260814211142
+(1 row)
+
+$ diff tables_before.txt tables_after.txt && echo "table list IDENTICAL before/after restore"
+table list IDENTICAL before/after restore   # 35 tables, same set before and after
+```
+
+The marker survived a real drop and restore, all 35 tables came back
+identical, and the whole procedure (stop, drop, recreate, restore, start,
+wait for a green `/healthz`) took 12 seconds. I deleted the marker row
+afterward so preview's data is clean again.
+
+**Qdrant.** Same shape, against a dedicated collection created only for this
+rehearsal, so nothing the app itself uses was touched and no web downtime
+was needed:
+
+```
+$ curl -X PUT http://127.0.0.1:6337/collections/backup_rehearsal_marker \
+    -d '{"vectors":{"size":4,"distance":"Cosine"}}'
+{"result":true,"status":"ok"}
+
+$ curl -X PUT '.../collections/backup_rehearsal_marker/points?wait=true' \
+    -d '{"points":[{"id":1,"vector":[0.1,0.2,0.3,0.4],"payload":{"marker":"CANONRY-BACKUP-REHEARSAL-MARKER"}}]}'
+{"result":{"operation_id":0,"status":"completed"},"status":"ok"}
+
+$ backup-qdrant.sh --container canonry-preview-qdrant-1 ...
+backup complete: .../20260814T211227Z (1 collection(s), 0s)
+  manifest: backup_rehearsal_marker points_count=1, size_bytes=242176
+
+$ curl -X DELETE http://127.0.0.1:6337/collections/backup_rehearsal_marker
+{"result":true}
+$ curl http://127.0.0.1:6337/collections
+{"result":{"collections":[]}}   # confirmed gone
+
+$ restore-qdrant.sh --url http://127.0.0.1:6337 --backup-dir .../20260814T211227Z
+OK    backup_rehearsal_marker: points_count=1 matches manifest
+restore verification PASSED for 1 collection(s)
+
+$ curl http://127.0.0.1:6337/collections/backup_rehearsal_marker/points/1
+{"result":{"id":1,"payload":{"marker":"CANONRY-BACKUP-REHEARSAL-MARKER"},"vector":[0.1,0.2,0.3,0.4]}}
+```
+
+The point came back with the same id, payload and vector. I deleted the
+rehearsal collection afterward.
+
+**A bug the rehearsal caught before it shipped further.**
+`backup-postgres.sh`'s `docker cp` left the dump at mode 644 (world-readable)
+regardless of the systemd unit's `UMask=0077`, because `docker cp` copies the
+source file's mode from inside the container rather than respecting the
+caller's umask. Fixed with an explicit `chmod 600` right after the copy.
+Separately, `backup-alert.sh` sourced a sibling `lib.sh` by relative path,
+but the documented install step copies only `backup-alert.sh` itself to
+`/usr/local/bin`, standalone: the first time `OnFailure=` actually tried to
+run it, it failed with "No such file or directory" instead of alerting.
+Fixed by making `backup-alert.sh` self-contained, since it only ever used
+one three-line `log()` helper out of all of `lib.sh`. A third: running
+either backup script by hand (which "taking a backup by hand" above
+recommends) inherited whatever ambient umask the caller's shell had --
+`002` for an interactive `ssh prod@prodbox` session on this box -- instead
+of the systemd unit's `UMask=0077`, and left a Qdrant run directory and its
+`manifest.json` group- and world-readable (775/664) the first time this was
+actually tried by hand rather than through the timer. Fixed with an
+explicit `umask 077` at the top of both `backup-postgres.sh` and
+`backup-qdrant.sh`, so the safe permissions no longer depend on who calls
+them or how. Proved the `OnFailure=` fix by deliberately failing a backup
+unit and watching the alert fire for real:
+
+```
+$ sudo systemctl start canonry-backup-postgres@doesnotexist.service
+Job for canonry-backup-postgres@doesnotexist.service failed [...]
+$ sudo journalctl -p err -t canonry-backup-alert --since "-2 min"
+canonry backup unit failed: canonry-backup-postgres@doesnotexist.service (host prodbox)
+```
 
 ## What was verified here, and what needs prodbox
 
@@ -283,7 +500,16 @@ actually run, with real tools, not a dry run standing in for one:
   collection, restored into a disposable scratch instance, point count
   verified. Both restore scripts' failure-detection paths were also
   exercised directly (a corrupted expected count, an aged-out backup file)
-  and correctly reported failure rather than passing silently.
+  and correctly reported failure rather than passing silently. **Issue #98,
+  on prodbox itself:** all four timers (`canonry-backup-{postgres,qdrant}@
+  {prod,preview}.timer`) installed, enabled and confirmed armed in
+  `systemctl list-timers`; a real backup taken for every stack/store pair,
+  landing owned by `prod`, mode 700/600, with a `*-last-run.json` status
+  file recording success; `OnFailure=` proved to actually alert by
+  deliberately failing a unit and watching the journal entry land; and a
+  full destructive restore rehearsal run for real on preview (see "The
+  restore rehearsal, run for real on prodbox" above) rather than only the
+  non-destructive scratch mode.
 - **`verify-ci.sh`**: run against the real repository's GitHub API, both a
   commit with a real completed successful `CI` run (passed) and a
   commit that never had one (correctly refused), plus offline fixture
@@ -303,7 +529,7 @@ What genuinely cannot be proven from here, and what would prove it:
   `docker login` credential for the runner. Proof: `docker pull
   ghcr.io/fiorelorenzo/canonry-web@<digest>` succeeding on prodbox itself.
 - **The shared secrets file existing and being correct.** Missing:
-  `/opt/canonry/prod/shared/secrets.env` has to be created by hand from
+  `/opt/apps/canonry/prod/shared/secrets.env` has to be created by hand from
   `docker/deploy/secrets.env.example` (step 4 above); nothing in this repo
   can create it, since it is precisely the thing that must never be
   committed. Proof: `release.sh` refusing loudly ("secrets file not found")
@@ -318,10 +544,14 @@ What genuinely cannot be proven from here, and what would prove it:
   connect to prodbox's public IP on the Postgres and Qdrant ports and get a
   connection timeout, the same as any closed port, not a Postgres or Qdrant
   handshake.
-- **A real restore under real incident pressure.** The rehearsal above is
-  the mechanical proof that the backup files restore correctly; it is not
-  the same as doing it once for real against a genuinely broken prodbox
-  stack. Proof: run the restore rehearsal on a schedule (it costs one
-  scratch Qdrant container and one scratch Postgres database, both
-  disposable) rather than only once, so the first time it runs for real is
-  not the first time it runs at all.
+- **A restore rehearsal on a schedule, not just once.** Issue #98 ran the
+  destructive rehearsal for real, once, on preview (see above): a marker
+  row and a marker Qdrant collection both survived a real drop-and-restore.
+  What is not yet true is that this repeats itself: nothing re-runs the
+  rehearsal periodically, so proving it works today says nothing about
+  whether it still works after the schema, the Qdrant version or the backup
+  scripts themselves change. Missing: a periodic job (a monthly systemd
+  timer calling `restore-postgres.sh --rehearse` and the disposable-Qdrant
+  sequence in "Restore rehearsal" above, on preview only) so the first time
+  it runs after some future change is not the first time it has run since
+  this one.

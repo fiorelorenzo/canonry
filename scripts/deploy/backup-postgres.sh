@@ -15,6 +15,13 @@
 # timer running this shows up in `systemctl --failed` rather than silently
 # skipping a night.
 set -euo pipefail
+# Every file and directory this script creates must be prod-only
+# regardless of who invokes it and with what ambient umask: the systemd
+# unit also sets UMask=0077, but "take a backup by hand" (docs/deploy.md)
+# is a documented, encouraged path too, and relying solely on the caller's
+# shell umask left the qdrant sibling script's output at 664/775 on this
+# box's default interactive umask (002) the first time it was run by hand.
+umask 077
 cd "$(dirname "${BASH_SOURCE[0]}")"
 # shellcheck source=./lib.sh
 . ./lib.sh
@@ -85,6 +92,12 @@ if ! docker cp "$container:$container_tmp" "$out_dir/$filename"; then
 	fail "docker cp of the dump out of $container failed"
 fi
 docker exec "$container" rm -f "$container_tmp" >/dev/null 2>&1 || true
+# `docker cp` preserves the source file's mode from inside the container
+# (pg_dump's own umask there, typically 644) rather than respecting this
+# process's UMask=, so the dump -- a full plaintext copy of the database --
+# would otherwise land world-readable regardless of the systemd unit's own
+# UMask=0077.
+chmod 600 "$out_dir/$filename"
 
 size=$(stat -c%s "$out_dir/$filename" 2>/dev/null || echo 0)
 if [ "$size" -lt 1 ]; then

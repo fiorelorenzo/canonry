@@ -15,6 +15,12 @@
 # --container resolves the published port itself via `docker port`, so the
 # systemd unit needs no secrets file at all to find this stack's Qdrant.
 set -euo pipefail
+# See backup-postgres.sh's identical umask for why: this must not depend on
+# the caller's ambient umask. Found on prodbox by running this by hand as
+# `prod` over ssh, which defaults to umask 002 -- the run directory and
+# manifest.json came out 775/664 (group- and world-readable) instead of the
+# 700/600 the systemd unit's own UMask=0077 gives it.
+umask 077
 cd "$(dirname "${BASH_SOURCE[0]}")"
 # shellcheck source=./lib.sh
 . ./lib.sh
