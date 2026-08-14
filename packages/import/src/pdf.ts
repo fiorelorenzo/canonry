@@ -9,7 +9,13 @@
  * (`ArchiveSourceReader`), not this file's - this module only has to be correct on its
  * own, and cheap to call from there.
  */
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+// `pdfjs-dist` is imported lazily, inside `openDocument`, and this is load-bearing rather
+// than tidiness. Its module top level touches browser globals (`DOMMatrix`) and probes for
+// its optional `@napi-rs/canvas` peer, so merely importing this file crashes a Node server
+// that has neither: every SvelteKit route whose server module transitively reached
+// `@canonry/import` answered 500 in production while /healthz stayed green, because health
+// never imports the import engine. Nothing outside a running import job needs pdfjs, so
+// nothing outside one should pay to load it.
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type {
 	RenderParameters,
@@ -82,6 +88,7 @@ interface OpenedPdfDocument {
 }
 
 async function openDocument(bytes: Uint8Array): Promise<OpenedPdfDocument> {
+	const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
 	const loadingTask = pdfjsLib.getDocument({
 		// `getDocument`'s own docs: a `Uint8Array` passed as `data` "will generally be
 		// transferred to the worker-thread", detaching the caller's buffer. Copying here

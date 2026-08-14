@@ -175,6 +175,35 @@ jobs:
             exit 1
           fi
 
+      # /healthz alone proves the process booted, not that the app can render anything: it
+      # touches no route module, so a page whose server module crashes on import stays
+      # invisible. That is not hypothetical. `pdfjs-dist` loads browser globals at module
+      # top level, so every route that transitively imported the import engine answered 500
+      # in production while this job stayed green. One request per surface closes that hole
+      # for a couple of seconds of CI.
+      - name: Every real surface renders, none of them 500
+        run: |
+          fail=0
+          for path in / /auth/sign-in /auth/sign-up /privacy /docs /docs/import /u/new /u/valdoria-reach; do
+            code=$(curl -s -o /tmp/body.html -w '%{http_code}' "http://127.0.0.1:5196$path")
+            printf '%-26s %s\n' "$path" "$code"
+            # 2xx, a redirect to sign-in, or an honest 404 for a universe this empty
+            # database does not have are all fine. A 5xx never is.
+            case "$code" in
+              5*) echo "::error::$path answered $code"; head -c 400 /tmp/body.html; fail=1 ;;
+            esac
+          done
+          [ "$fail" -eq 0 ]
+
+      - name: No unhandled exception reached the log
+        run: |
+          # A route can answer 500 from a caught error, and it can also log an uncaught
+          # rejection while answering 200 from a fallback. Both matter, so the log is
+          # checked separately from the status codes above.
+          if docker logs canonry-web-ci 2>&1 | grep -nE 'ReferenceError|TypeError: Cannot|UnhandledPromiseRejection|Cannot find module'; then
+            echo "::error::the container logged an unhandled error while serving those routes"
+            exit 1
+          fi
       - name: Container logs
         if: always()
         run: docker logs canonry-web-ci || true

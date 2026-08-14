@@ -6,13 +6,19 @@ OnFailure=canonry-backup-alert@%n.service
 
 [Service]
 Type=oneshot
+# Same reasoning as the postgres unit: snapshots hold full vector payloads,
+# so every run directory and file this creates must be prod-only, mode
+# 700/600, regardless of the parent directory's own mode.
+UMask=0077
 # Optional: ALERT_WEBHOOK_URL only. No app secrets needed here -- the
 # script resolves its own target port via `docker port`.
-EnvironmentFile=-/opt/canonry/%i/shared/backup.env
-ExecStart=/opt/canonry/%i/current/scripts/deploy/backup-qdrant.sh \
+EnvironmentFile=-/opt/apps/canonry/%i/shared/backup.env
+ExecStart=/opt/apps/canonry/%i/current/scripts/deploy/backup-qdrant.sh \
 	--container canonry-%i-qdrant-1 \
-	--out-dir /opt/canonry/%i/backups/qdrant \
-	--status-dir /opt/canonry/%i/backups/status
+	--out-dir /opt/apps/canonry/%i/backups/qdrant \
+	--status-dir /opt/apps/canonry/%i/backups/status
 
-User=canonry-deploy
-Group=canonry-deploy
+# Same account as the postgres backup unit: `prod` already owns
+# /opt/apps/canonry/%i and is in the `docker` group.
+User=prod
+Group=prod
