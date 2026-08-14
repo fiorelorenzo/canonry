@@ -4,7 +4,7 @@
 	 * Relations, Facts, Images and History.
 	 */
 	import { resolve } from '$app/paths';
-	import EntryProse from '$lib/components/entry/EntryProse.svelte';
+	import EntryProseWithSecrets from '$lib/components/players/EntryProseWithSecrets.svelte';
 	import EntryTabs from '$lib/components/entry/EntryTabs.svelte';
 	import type { FactRow } from '$lib/components/entry/FactsPanel.svelte';
 	import type { FactSpan } from '$lib/markdown';
@@ -53,7 +53,7 @@
 			</a>
 		</div>
 
-		<EntryProse
+		<EntryProseWithSecrets
 			body={data.entity.body}
 			universeSlug={data.universe.slug}
 			mentionTargets={data.mentionTargets}
@@ -68,5 +68,19 @@
 		history={data.history}
 		activeFactId={activeFact?.id ?? null}
 		onFactToggle={toggleFact}
+		media={{
+			entitySlug: data.entity.slug,
+			entityName: data.entity.name,
+			entityType: data.entity.type,
+			aiEnabled: data.universe.aiEnabled,
+			canWrite: data.media.canWrite,
+			assets: data.media.assets,
+			styleModifier: data.media.style.modifier,
+			entityImagePromptModifier: data.entity.imagePromptModifier,
+			portraitPrice: data.media.generate.portrait.price,
+			variantsPrice: data.media.generate.variants.price,
+			portraitModel: data.media.generate.portrait.model,
+			variantsModel: data.media.generate.variants.model
+		}}
 	/>
 </div>

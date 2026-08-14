@@ -29,8 +29,9 @@
 import type { Db } from '@canonry/db';
 import { type GatewayCredentials, replicateGatewayBaseUrl } from './gateway.js';
 import type { ResolvedModel } from './models.js';
-import { withUsage, type ModelCallAgent } from './usage.js';
+import { withQuota } from './quota.js';
 import type { Logger } from './logger.js';
+import type { ModelCallAgent } from './usage.js';
 
 export class MissingReplicateEnvError extends Error {
 	constructor() {
@@ -77,6 +78,9 @@ export interface GenerateImageInput {
 	universeId: string | null;
 	agent: ModelCallAgent;
 	operation: string;
+	/** Retry safety (issue #88): a request retried with the same key charges once.
+	 * Threaded straight through to withQuota/recordAndCharge. */
+	idempotencyKey?: string;
 	logger?: Logger;
 }
 
@@ -89,21 +93,23 @@ function isReplicatePrediction(value: unknown): value is ReplicatePrediction {
 /**
  * Submits one Replicate prediction through the gateway's Replicate proxy and
  * waits for the result (Replicate's `Prefer: wait` header), recording exactly
- * one `model_call` row - success or failure - via `withUsage`. Pricing is
- * per-image (`params.eurPerImage`), not per-token: a prediction has no token
- * usage to extract.
+ * one `model_call` row - success or failure - and charging the user's balance
+ * on success via `withQuota` (issue #88). Pricing is per-image
+ * (`params.eurPerImage`), not per-token: a prediction has no token usage to
+ * extract.
  */
 export async function generateImage(params: GenerateImageInput): Promise<ReplicatePrediction> {
 	const endpoint = `${replicateGatewayBaseUrl(params.credentials)}/v1/models/${params.model.modelId}/predictions`;
 
-	return withUsage(
+	return withQuota(
 		params.db,
 		params.model,
 		{
 			userId: params.userId,
 			universeId: params.universeId,
 			agent: params.agent,
-			operation: params.operation
+			operation: params.operation,
+			...(params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : {})
 		},
 		async () => {
 			const response = await fetch(endpoint, {

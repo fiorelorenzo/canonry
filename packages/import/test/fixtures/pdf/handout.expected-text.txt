@@ -1,0 +1,8 @@
+--- page 1 ---
+The Sunken Archive
+The Sunken Archive is a flooded lower level of the old library in Duskwood Vale,
+accessible only at low tide. Its stacks have been picked clean by everyone except
+whoever still holds a key.
+
+--- page 2 ---
+

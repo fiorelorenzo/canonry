@@ -20,9 +20,10 @@
 #
 # WEB_IMAGE, APP_VERSION and APP_COMMIT are written into each release's own
 # .env by release.sh, never edited by hand. Everything else (POSTGRES_*,
-# QDRANT ports, ORIGIN, the AI Gateway and Replicate credentials, ADMIN_TOKEN)
-# comes from the stack's shared secrets file (shared/secrets.env), managed on
-# prodbox out of band and never generated or printed by any script here.
+# QDRANT ports, ORIGIN, the AI Gateway and Replicate credentials, Better Auth's
+# secret, social provider credentials, STAFF_EMAILS) comes from the stack's
+# shared secrets file (shared/secrets.env), managed on prodbox out of band and
+# never generated or printed by any script here.
 #
 # No top-level `name:` here on purpose: every invocation of this file MUST
 # pass --project-name canonry-<stack> (scripts/deploy/lib.sh's compose_cmd
@@ -44,7 +45,12 @@ services:
       AI_GATEWAY_NAME: ${AI_GATEWAY_NAME}
       AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
       REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN}
-      ADMIN_TOKEN: ${ADMIN_TOKEN}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      STAFF_EMAILS: ${STAFF_EMAILS}
     depends_on:
       postgres:
         condition: service_healthy

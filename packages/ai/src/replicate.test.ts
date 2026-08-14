@@ -1,8 +1,8 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { closeDb, type Db } from '@canonry/db';
-import { modelCall, operationPrice, operationPriceChange } from '@canonry/db/schema';
-import { like } from 'drizzle-orm';
+import { modelCall, operationPrice, operationPriceChange, user } from '@canonry/db/schema';
+import { inArray, like } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { GatewayCredentials } from './gateway.js';
 import type { ResolvedModel } from './models.js';
@@ -10,11 +10,13 @@ import { generateImage, ReplicateRequestError } from './replicate.js';
 import { openTestDb } from './test-db.js';
 
 const TEST_OPERATION_PREFIX = 'canonry-ai-test-replicate-';
-// withUsage now prices every call from operation_price (issue #113); 3 credits matches
-// image.portrait's real seeded price, so the success test's credits assertion below still
-// reads as a realistic number rather than an arbitrary fixture.
+// withQuota now prices every call from operation_price (issue #113) and charges the
+// user's balance on success (issue #88); 3 credits matches image.portrait's real
+// seeded price, so the success test's credits assertion below still reads as a
+// realistic number rather than an arbitrary fixture.
 const SUCCESS_PRICE_CREDITS = 3;
 const FAILURE_PRICE_CREDITS = 3;
+const TEST_USER_IDS = ['test-user-replicate-1', 'test-user-replicate-2'];
 
 const IMAGE_MODEL: ResolvedModel = {
 	purpose: 'image',
@@ -36,6 +38,17 @@ describe('generateImage', () => {
 
 	beforeAll(async () => {
 		db = openTestDb();
+		await db
+			.insert(user)
+			.values(
+				TEST_USER_IDS.map((id) => ({
+					id,
+					name: 'Test User',
+					email: `${id}@canonry.invalid`,
+					emailVerified: true
+				}))
+			)
+			.onConflictDoNothing();
 		await db.insert(operationPrice).values([
 			{
 				operation: `${TEST_OPERATION_PREFIX}success`,
@@ -60,6 +73,7 @@ describe('generateImage', () => {
 		await db
 			.delete(operationPrice)
 			.where(like(operationPrice.operation, `${TEST_OPERATION_PREFIX}%`));
+		await db.delete(user).where(inArray(user.id, TEST_USER_IDS));
 		await closeDb(db);
 	});
 
@@ -101,7 +115,7 @@ describe('generateImage', () => {
 			credentials: credentials(),
 			replicateApiToken: 'replicate-secret',
 			input: { prompt: 'a lighthouse at dusk' },
-			userId: 'test-user-1',
+			userId: 'test-user-replicate-1',
 			universeId: null,
 			agent: 'warm',
 			operation
@@ -139,7 +153,7 @@ describe('generateImage', () => {
 				credentials: credentials(),
 				replicateApiToken: 'replicate-secret',
 				input: { prompt: 'a lighthouse at dusk' },
-				userId: 'test-user-2',
+				userId: 'test-user-replicate-2',
 				universeId: null,
 				agent: 'warm',
 				operation

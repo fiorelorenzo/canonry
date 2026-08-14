@@ -110,9 +110,7 @@
 								<td class="px-3 py-3 text-xs text-ink-2">
 									{#if change}
 										{formatCredits(change.oldCredits)} &rarr; {formatCredits(change.newCredits)} credits,
-										{change.changedBy ?? 'no admin identity yet (#86)'}, {dateFormat.format(
-											change.changedAt
-										)}
+										{change.changedBy ?? 'unattributed'}, {dateFormat.format(change.changedAt)}
 									{:else}
 										No changes since it was seeded.
 									{/if}

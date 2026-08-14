@@ -50,6 +50,12 @@ export interface LoadedPlaybook {
 	modelPurpose: ImportModelPurpose;
 	/** Per-document step ceiling (SPEC.md §6.1): "each document gets a step ceiling." */
 	stepBudget: number;
+	/** issue #24: "premium only where a playbook marks a document hard." A playbook
+	 * declares the criterion rather than the model deciding it mid-run - a document
+	 * whose source size is at or above this many bytes runs on the premium purpose
+	 * instead of `modelPurpose`, even when the playbook's own default is cheap.
+	 * `undefined` means no playbook document is ever escalated this way. */
+	hardBytesThreshold?: number;
 	tools: ImportToolName[];
 	/** The whole markdown body after frontmatter, handed to the model as its system prompt. */
 	systemPrompt: string;
@@ -85,7 +91,12 @@ const FRONTMATTER_SCHEMA = z.object({
 		.transform(Number)
 		.pipe(
 			z.number().int().positive().max(200, 'stepBudget above 200 is not a ceiling, SPEC.md §6.1')
-		)
+		),
+	hardBytesThreshold: z
+		.string()
+		.regex(/^[1-9][0-9]*$/, 'hardBytesThreshold must be a positive integer')
+		.transform(Number)
+		.optional()
 });
 
 function splitFrontmatter(source: string): { frontmatter: string; body: string } {
@@ -230,6 +241,9 @@ export function loadPlaybook(source: string, options: LoadPlaybookOptions = {}):
 		description: parsed.data.description,
 		modelPurpose: parsed.data.modelPurpose ?? 'cheap',
 		stepBudget: parsed.data.stepBudget,
+		...(parsed.data.hardBytesThreshold === undefined
+			? {}
+			: { hardBytesThreshold: parsed.data.hardBytesThreshold }),
 		tools,
 		systemPrompt: body.trim(),
 		raw: source

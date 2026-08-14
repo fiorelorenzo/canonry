@@ -36,10 +36,7 @@
 		<MarkdownEditor bind:value={body} targets={data.mentionTargets} />
 		<input type="hidden" name="body" value={body} />
 
-		<div class="mt-4 flex items-center justify-between gap-4">
-			<p class="text-xs text-muted">
-				There is no sign-in yet (#86) - this saves as {data.universe.name}'s recorded owner.
-			</p>
+		<div class="mt-4 flex justify-end">
 			<button
 				type="submit"
 				class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-panel hover:opacity-90"

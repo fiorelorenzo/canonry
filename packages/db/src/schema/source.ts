@@ -111,7 +111,10 @@ export const dataSource = pgTable(
 		name: text('name').notNull(),
 		url: text('url'),
 		config: jsonb('config').notNull().default({}),
-		status: dataSourceStatusEnum('status').notNull().default('pending'),
+		// Starts unreviewed, which is the point: SPEC.md §7 wants the licence review to
+		// happen before indexing, so the default state has to be the one that refuses to be
+		// indexed. Defaulting to 'pending' here would have made the guard opt-in.
+		status: dataSourceStatusEnum('status').notNull().default('licence_review_pending'),
 		// Issue #61 and SPEC.md §7: the licence, who reviewed it and when. An unreviewed
 		// source must not be indexed, and this is where that is auditable rather than
 		// remembered.
@@ -125,6 +128,10 @@ export const dataSource = pgTable(
 		// Attribution shown on every answer that used this source (SPEC.md §7, issue #60).
 		attribution: text('attribution').notNull().default(''),
 		lastIndexedAt: timestamp('last_indexed_at', { withTimezone: true }),
+		// A status of 'failed' with nothing saying why is a status nobody can act on, and
+		// issue #59 asks for the error itself. Cleared back to null on a successful index so
+		// a stale message never outlives the failure it described.
+		lastError: text('last_error'),
 		chunkCount: integer('chunk_count').notNull().default(0),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},

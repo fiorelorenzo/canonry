@@ -11,6 +11,7 @@ import {
 	uniqueIndex,
 	uuid
 } from 'drizzle-orm/pg-core';
+import { user } from './auth.js';
 import { modelCallAgentEnum, modelPurposeEnum } from './enums.js';
 import { universe } from './universe.js';
 
@@ -44,8 +45,13 @@ export const modelCall = pgTable(
 	'model_call',
 	{
 		id: uuid('id').primaryKey().defaultRandom(),
-		// Better Auth owns the user table (#86); no fk here.
-		userId: text('user_id').notNull(),
+		// The fk exists now that Better Auth's user table does (#86), and it sets null rather
+		// than cascading, which is deliberate: deleting an account must not delete the cost
+		// history, because that is how the margin question of SPEC.md §11.5 stays answerable,
+		// and a deletion request wants the person unlinked rather than the arithmetic
+		// rewritten. Nullable for the same reason, plus the calls that have no user at all:
+		// nightly warming and indexing run for a universe, not for somebody.
+		userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
 		// Nullable, set null on delete: cost history must survive a universe being deleted,
 		// unlike canon content which cascades away with it.
 		universeId: uuid('universe_id').references(() => universe.id, { onDelete: 'set null' }),

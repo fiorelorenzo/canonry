@@ -50,6 +50,62 @@
       "when": 1786709455312,
       "tag": "0006_deferred_foreign_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786712025882,
+      "tag": "0007_licence_gate_default",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786712026882,
+      "tag": "0008_seed_indexing_prices",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786712512556,
+      "tag": "0009_import_quota_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786712553314,
+      "tag": "0010_media_agent_value",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786712554314,
+      "tag": "0011_seed_image_models",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786712592108,
+      "tag": "0012_data_source_last_error",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786712593108,
+      "tag": "0013_seed_media_similarity_price",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1786714129297,
+      "tag": "0014_model_call_user_fk",
+      "breakpoints": true
     }
   ]
 }

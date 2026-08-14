@@ -53,7 +53,8 @@ const ENTITY_PROPOSE_INPUT = z
 		aliases: z.array(z.string().min(1).max(200)).max(20).default([]),
 		summary: z.string().min(1).max(4000),
 		sourceRef: SOURCE_REF_SCHEMA,
-		evidenceSpan: SPAN_SCHEMA
+		evidenceSpan: SPAN_SCHEMA,
+		images: z.array(z.string().min(1).max(200)).max(20).default([])
 	})
 	.strict();
 const RELATION_PROPOSE_INPUT = z
@@ -259,7 +260,8 @@ function proposeEntity(ctx: DocumentRunContext, input: z.infer<typeof ENTITY_PRO
 		aliases: input.aliases,
 		summary: input.summary,
 		sourceRef: input.sourceRef,
-		evidenceSpan: input.evidenceSpan
+		evidenceSpan: input.evidenceSpan,
+		images: input.images
 	};
 	ctx.pending.push({
 		type: 'proposal',

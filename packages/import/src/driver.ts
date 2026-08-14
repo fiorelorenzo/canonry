@@ -27,6 +27,10 @@ export interface JobDocument {
 	id: string;
 	/** Path into this job's `SourceReader` where the document starts. */
 	sourcePath: string;
+	/** issue #24: this document runs on the premium purpose instead of the playbook's
+	 * default, because the playbook's own `hardBytesThreshold` (playbook.ts) marked it
+	 * hard. Set by whoever enumerates a job's documents, never by the model. */
+	hard?: boolean;
 }
 
 /** Credit ceiling for the whole job (SPEC.md §6.7, §15: "a per-job ceiling... a clean
@@ -44,6 +48,9 @@ export interface EntityProposalPayload {
 	summary: string;
 	sourceRef: { documentId: string; path: string };
 	evidenceSpan: { start: number; end: number };
+	/** Asset ids returned by `image_store` (issue #40) that belong to this entity. Empty
+	 * for the common case of a document with no images. */
+	images: string[];
 }
 
 export interface RelationProposalPayload {

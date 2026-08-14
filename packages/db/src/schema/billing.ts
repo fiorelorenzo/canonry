@@ -6,6 +6,7 @@ import { sql } from 'drizzle-orm';
 import {
 	boolean,
 	index,
+	integer,
 	numeric,
 	pgTable,
 	text,
@@ -44,6 +45,14 @@ export const userBilling = pgTable('user_billing', {
 	warmBudgetSpent: numeric('warm_budget_spent', { precision: 12, scale: 4, mode: 'number' })
 		.notNull()
 		.default(0),
+	// SPEC.md §6.7 wants a per-user import quota "in jobs and documents as well as in
+	// currency", because one enormous world can consume a month without exceeding any
+	// euro ceiling. Null means no cap of this kind, which is not the same as unlimited:
+	// the currency ceiling and the queue still apply, and §15 forbids ever saying
+	// unlimited to a user. Usage is counted from import_job rows over the period rather
+	// than kept as a running total, so a cancelled job cannot leak quota.
+	importJobsQuota: integer('import_jobs_quota'),
+	importDocumentsQuota: integer('import_documents_quota'),
 	periodStart: timestamp('period_start', { withTimezone: true }).notNull().defaultNow(),
 	periodEnd: timestamp('period_end', { withTimezone: true }),
 	plan: text('plan').notNull().default('free'),

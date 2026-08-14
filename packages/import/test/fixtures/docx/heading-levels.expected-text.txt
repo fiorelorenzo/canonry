@@ -1,0 +1,17 @@
+# Camp Ashgrove
+
+A waystation on the old caravan road, run by a retired quartermaster who still keeps its books to the day.
+
+## Personnel
+
+- Quartermaster Beren Voss keeps the ledgers
+- Two hired scouts watch the northern approach
+- A cook who trades gossip more freely than meals
+
+## Supplies
+
+| Item | Quantity |
+| Dried ration | 40 |
+| Lamp oil | 12 |
+
+Beren Voss trusts the scouts with the gate key but never with the ledgers.

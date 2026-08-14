@@ -40,3 +40,16 @@ export {
 	type GenerateImageInput,
 	type ReplicatePrediction
 } from './replicate.js';
+export {
+	withQuota,
+	warmTierOf,
+	warmSpendAllowed,
+	WARM_TIER_RESERVE_FRACTION,
+	getBalance,
+	InsufficientCreditsError,
+	WarmBudgetExhaustedError,
+	type Balance,
+	type WarmTier,
+	type WarmSpendCheck,
+	type WithQuotaMeta
+} from './quota.js';

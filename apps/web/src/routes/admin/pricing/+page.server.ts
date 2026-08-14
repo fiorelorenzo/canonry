@@ -8,8 +8,8 @@
  * 30 second TTL - the ai-game behaviour issue #113 exists to avoid.
  */
 import { fail } from '@sveltejs/kit';
-import { desc, listPrices, OperationNotPricedError, setPrice } from '@canonry/db';
-import { operationPriceChange } from '@canonry/db/schema';
+import { desc, inArray, listPrices, OperationNotPricedError, setPrice } from '@canonry/db';
+import { operationPriceChange, user } from '@canonry/db/schema';
 import { clearPriceCache } from '@canonry/ai';
 import { db } from '$lib/server/db';
 import { requireAdmin } from '$lib/server/admin';
@@ -27,13 +27,27 @@ export const load: PageServerLoad = async () => {
 		.from(operationPriceChange)
 		.orderBy(operationPriceChange.operation, desc(operationPriceChange.changedAt));
 
+	// changedBy is a Better Auth user id (issue #86); resolve to an email for the
+	// panel rather than showing the raw id, which means nothing to a reader.
+	const changedByIds = changes
+		.map((change) => change.changedBy)
+		.filter((id): id is string => id !== null);
+	const emailById = new Map<string, string>();
+	if (changedByIds.length > 0) {
+		const staffUsers = await database
+			.select({ id: user.id, email: user.email })
+			.from(user)
+			.where(inArray(user.id, changedByIds));
+		for (const row of staffUsers) emailById.set(row.id, row.email);
+	}
+
 	const lastChangeByOperation = new Map(
 		changes.map((change) => [
 			change.operation,
 			{
 				oldCredits: change.oldCredits,
 				newCredits: change.newCredits,
-				changedBy: change.changedBy,
+				changedBy: change.changedBy ? (emailById.get(change.changedBy) ?? change.changedBy) : null,
 				changedAt: change.changedAt
 			}
 		])
@@ -85,9 +99,9 @@ export const actions: Actions = {
 		}
 
 		try {
-			// changedBy stays null until #86 gives the admin panel a real staff identity to
-			// record - the shared-secret gate this issue ships with has nobody to name yet.
-			await setPrice(db(), { operation, credits, changedBy: null });
+			// requireAdmin above guarantees a signed-in, staff-listed user, so this is a
+			// real identity (issue #86), not the null the shared-secret gate left behind.
+			await setPrice(db(), { operation, credits, changedBy: event.locals.user!.id });
 		} catch (err) {
 			if (err instanceof OperationNotPricedError) {
 				return fail(400, {

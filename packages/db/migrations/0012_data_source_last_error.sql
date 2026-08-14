@@ -1,0 +1,1 @@
+ALTER TABLE "data_source" ADD COLUMN "last_error" text;

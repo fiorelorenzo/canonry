@@ -47,12 +47,17 @@ export const modelPurposeEnum = pgEnum('model_purpose', [
 ]);
 export type ModelPurpose = (typeof modelPurposeEnum.enumValues)[number];
 
-// SPEC.md §11.5: "agent (loremaster, propagate, warm, indexing)".
+// SPEC.md §11.5 lists loremaster, propagate, warm and indexing. 'media' is the fifth and
+// it is not in that list because §11.5 was written about text: a GM pressing Generate is
+// none of the other four, and attributing an image to 'warm' would corrupt the warm hit
+// rate of §14 with calls nobody pre-computed. 'import' is deliberately absent: an import's
+// model calls are attributed to the job, which carries its own tokens and credits (§4.6).
 export const modelCallAgentEnum = pgEnum('model_call_agent', [
 	'loremaster',
 	'propagate',
 	'warm',
-	'indexing'
+	'indexing',
+	'media'
 ]);
 export type ModelCallAgent = (typeof modelCallAgentEnum.enumValues)[number];
 

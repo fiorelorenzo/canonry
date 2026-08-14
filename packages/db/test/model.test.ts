@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, type Db } from '../src/index.js';
 import { modelCall, modelConfig } from '../src/schema/model.js';
-import { expectConstraintViolation, testDb, unique } from './helpers.js';
+import { expectConstraintViolation, testDb, unique, insertUser } from './helpers.js';
 
 describe('model_config', () => {
 	let db: Db;
@@ -70,7 +70,7 @@ describe('model_call', () => {
 		const [row] = await db
 			.insert(modelCall)
 			.values({
-				userId: unique('user'),
+				userId: (await insertUser(db)).id,
 				agent: 'loremaster',
 				operation: 'query_lore',
 				provider: 'openai',

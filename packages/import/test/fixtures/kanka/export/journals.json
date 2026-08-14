@@ -1,0 +1,14 @@
+[
+	{
+		"id": 401,
+		"entity_id": 5401,
+		"entity_type": "journal",
+		"name": "Session 3: Ambush at the Vale",
+		"entry": "<p>The party was ambushed on the trail into Duskwood Vale and traced the attackers back to the Ashen Compact.</p>",
+		"image": null,
+		"image_full": null,
+		"tags": [],
+		"is_private": false,
+		"relations": []
+	}
+]

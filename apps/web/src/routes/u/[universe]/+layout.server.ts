@@ -1,31 +1,35 @@
 /**
  * Loads everything the fixed sidebar (A2 = A) needs for every route nested under a
  * universe, Entry's entry and editor routes included: the current universe, every
- * universe for the switcher (with entity counts and, for a derived universe, what it
- * reads from per SPEC.md 4.1), and a short Recent list.
+ * universe for the switcher, and a short Recent list.
+ *
+ * Issue #86: real ownership and membership gate this now. `universeAccessBySlug`
+ * returns null both for a slug that does not exist and for one that exists but this
+ * account cannot see - the same 404 either way, so a probe cannot learn which case it
+ * hit (the pattern requireAdmin already uses for /admin, for the same reason).
  */
 import { error } from '@sveltejs/kit';
+import { universeAccessBySlug, universesForUser } from '@canonry/db';
 import { db } from '$lib/server/db';
 import type { UniverseSummary } from '$lib/components/shell/types';
 import type { LayoutServerLoad } from './$types';
 
 const SIDEBAR_RECENT_LIMIT = 5;
 
-export const load: LayoutServerLoad = async ({ params }) => {
+export const load: LayoutServerLoad = async ({ params, locals }) => {
+	if (!locals.user) error(404, `no universe called "${params.universe}"`);
+
 	const database = db();
 
-	const currentRow = await database.query.universe.findFirst({
-		where: (universe, { eq }) => eq(universe.slug, params.universe)
-	});
-	if (!currentRow) error(404, `no universe called "${params.universe}"`);
+	const access = await universeAccessBySlug(database, params.universe, locals.user.id);
+	if (!access) error(404, `no universe called "${params.universe}"`);
+	const currentRow = access.universe;
 
-	const allRows = await database.query.universe.findMany({
-		orderBy: (universe, { asc }) => asc(universe.name)
-	});
-	const nameById = new Map(allRows.map((row) => [row.id, row.name]));
+	const memberRows = await universesForUser(database, locals.user.id);
+	const nameById = new Map(memberRows.map((row) => [row.id, row.name]));
 
 	const universes: UniverseSummary[] = await Promise.all(
-		allRows.map(async (row) => {
+		memberRows.map(async (row) => {
 			const entities = await database.query.entity.findMany({
 				where: (entity, { eq }) => eq(entity.universeId, row.id),
 				columns: { id: true }
@@ -56,6 +60,10 @@ export const load: LayoutServerLoad = async ({ params }) => {
 		current,
 		universes,
 		recent,
-		navCounts: { entries: current.entityCount }
+		navCounts: { entries: current.entityCount },
+		// Threaded to the edit action below and to any future write surface under this
+		// subtree, so "may this account save here" is answered once per request rather
+		// than re-derived per page.
+		membershipRole: access.role
 	};
 };

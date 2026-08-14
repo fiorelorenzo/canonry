@@ -190,7 +190,9 @@ async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent>
 
 		const purpose: ImportModelPurpose = nextPurposeIsMultimodal
 			? 'multimodal'
-			: playbook.modelPurpose;
+			: document.hard
+				? 'premium'
+				: playbook.modelPurpose;
 		const resolved = await params.models.resolve(purpose);
 		const languageModel = params.gateway(resolved.languageModel);
 

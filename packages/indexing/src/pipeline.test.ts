@@ -1,0 +1,284 @@
+/**
+ * The full pipeline against real Qdrant and real Postgres (issue #58 acceptance): licence
+ * gate refusal, incremental idempotent indexing, and (through `retrieveForUniverse`)
+ * issue #62's exclusion list honoured at retrieval.
+ */
+import { randomUUID } from 'node:crypto';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+	closeDb,
+	createDataSource,
+	recordLicenceReview,
+	type Db,
+	LicenceNotReviewedError,
+	addExclusion
+} from '@canonry/db';
+import { user, universe } from '@canonry/db/schema';
+import { createVectorClient, dropCollection, type QdrantClient } from '@canonry/vector';
+import { heuristicExtractor } from './extraction.js';
+import { hashingEmbedder, type Embedder } from './embedding.js';
+import { indexDataSource } from './pipeline.js';
+import { retrieveForUniverse, scoreLoreHits } from './retriever.js';
+import { MediaWikiClient } from './wiki-client.js';
+import {
+	startFixtureWikiServer,
+	type FixtureWikiServer
+} from './test-support/fixture-wiki-server.js';
+import { openTestDb } from './test-db.js';
+
+const HASH_VECTOR_SIZE = 256;
+
+async function insertUniverseWithOwner(db: Db) {
+	const [owner] = await db
+		.insert(user)
+		.values({
+			id: randomUUID(),
+			name: 'Test Owner',
+			email: `${randomUUID()}@canonry.invalid`,
+			emailVerified: true
+		})
+		.returning();
+	const [row] = await db
+		.insert(universe)
+		.values({ ownerUserId: owner!.id, name: 'Test Universe', slug: randomUUID(), kind: 'homebrew' })
+		.returning();
+	return { owner: owner!, universe: row! };
+}
+
+let db: Db;
+let vectorClient: QdrantClient;
+let fixture: FixtureWikiServer | undefined;
+const createdCollections: string[] = [];
+
+beforeAll(() => {
+	db = openTestDb();
+	vectorClient = createVectorClient();
+});
+
+afterAll(async () => {
+	await closeDb(db);
+});
+
+afterEach(async () => {
+	await fixture?.close();
+	fixture = undefined;
+	while (createdCollections.length > 0) {
+		await dropCollection(vectorClient, createdCollections.pop()!).catch(() => undefined);
+	}
+});
+
+function scratchCollection(): string {
+	const name = `pipeline-test-${randomUUID()}`;
+	createdCollections.push(name);
+	return name;
+}
+
+describe('indexDataSource: licence gate (issue #61)', () => {
+	it('refuses to index a data source whose licence has never been reviewed', async () => {
+		const { universe: u } = await insertUniverseWithOwner(db);
+		const source = await createDataSource(db, {
+			universeId: u.id,
+			type: 'wiki',
+			name: 'Unreviewed Wiki'
+		});
+		fixture = await startFixtureWikiServer([
+			{ title: 'Page', wikitext: 'text', updatedAt: '2026-01-01T00:00:00.000Z' }
+		]);
+		const collectionName = scratchCollection();
+
+		await expect(
+			indexDataSource(
+				{
+					db,
+					vectorClient,
+					wikiClient: {
+						listPageTitles: async () => ['Page'],
+						getPage: async () => ({
+							title: 'Page',
+							url: 'https://wiki.example.com/Page',
+							wikitext: 'text',
+							updatedAt: new Date()
+						})
+					},
+					extractor: heuristicExtractor,
+					embedder: hashingEmbedder
+				},
+				{
+					dataSourceId: source.id,
+					universeId: u.id,
+					collectionName,
+					vectorSize: HASH_VECTOR_SIZE
+				}
+			)
+		).rejects.toBeInstanceOf(LicenceNotReviewedError);
+	});
+});
+
+describe('indexDataSource: crawl, chunk, extract, embed, upsert (issue #58)', () => {
+	it('indexes a small fixture wiki end to end and is a no-op on an unchanged re-run', async () => {
+		const { owner, universe: u } = await insertUniverseWithOwner(db);
+		const source = await createDataSource(db, {
+			universeId: u.id,
+			type: 'wiki',
+			name: 'Valdoria Wiki'
+		});
+		await recordLicenceReview(db, {
+			dataSourceId: source.id,
+			licence: 'CC BY-SA 3.0',
+			reviewedBy: owner.id
+		});
+
+		fixture = await startFixtureWikiServer([
+			{
+				title: 'Valdoria Reach',
+				wikitext:
+					"'''Valdoria Reach''' is a coastal trading city.\n\n== History ==\nFounded centuries ago.",
+				updatedAt: '2026-01-01T00:00:00.000Z'
+			},
+			{
+				title: 'Cairnmouth',
+				wikitext: "'''Cairnmouth''' is a northern port town.",
+				updatedAt: '2026-01-01T00:00:00.000Z'
+			}
+		]);
+		const wikiClient = new MediaWikiClient({
+			baseUrl: `${fixture.baseUrl}/api.php`,
+			requestsPerSecond: 1000
+		});
+		const collectionName = scratchCollection();
+
+		let extractCalls = 0;
+		let embedCalls = 0;
+		const countingExtractor: typeof heuristicExtractor = async (input) => {
+			extractCalls += 1;
+			return heuristicExtractor(input);
+		};
+		const countingEmbedder: Embedder = async (texts) => {
+			embedCalls += 1;
+			return hashingEmbedder(texts);
+		};
+
+		const deps = {
+			db,
+			vectorClient,
+			wikiClient,
+			extractor: countingExtractor,
+			embedder: countingEmbedder
+		};
+		const options = {
+			dataSourceId: source.id,
+			universeId: u.id,
+			collectionName,
+			vectorSize: HASH_VECTOR_SIZE
+		};
+
+		const first = await indexDataSource(deps, options);
+		expect(first.pagesIndexed).toBe(2);
+		expect(first.pagesSkipped).toBe(0);
+		expect(first.totalChunkCount).toBeGreaterThan(0);
+		expect(extractCalls).toBeGreaterThan(0);
+		expect(embedCalls).toBeGreaterThan(0);
+
+		// Re-index with nothing changed: both pages must be a no-op - no extraction, no
+		// embedding, no chunking, no upsert calls.
+		extractCalls = 0;
+		embedCalls = 0;
+		const second = await indexDataSource(deps, options);
+		expect(second.pagesIndexed).toBe(0);
+		expect(second.pagesSkipped).toBe(2);
+		expect(second.totalChunkCount).toBe(first.totalChunkCount);
+		expect(extractCalls).toBe(0);
+		expect(embedCalls).toBe(0);
+
+		// Editing one page re-indexes only that page.
+		fixture.setPage({
+			title: 'Cairnmouth',
+			wikitext: "'''Cairnmouth''' is a northern port town, rebuilt after the storm.",
+			updatedAt: '2026-06-01T00:00:00.000Z'
+		});
+		const third = await indexDataSource(deps, options);
+		expect(third.pagesIndexed).toBe(1);
+		expect(third.pagesSkipped).toBe(1);
+	});
+});
+
+describe('retrieveForUniverse: exclusion list honoured at retrieval (issue #62)', () => {
+	it('never returns a chunk from an excluded url', async () => {
+		const { owner, universe: u } = await insertUniverseWithOwner(db);
+		const source = await createDataSource(db, {
+			universeId: u.id,
+			type: 'wiki',
+			name: 'Excludable Wiki'
+		});
+		await recordLicenceReview(db, {
+			dataSourceId: source.id,
+			licence: 'CC BY-SA 3.0',
+			reviewedBy: owner.id
+		});
+
+		fixture = await startFixtureWikiServer([
+			{
+				title: 'Kept Page',
+				wikitext: 'Valdoria Reach is a coastal trading city with a busy harbour.',
+				updatedAt: '2026-01-01T00:00:00.000Z'
+			},
+			{
+				title: 'Excluded Page',
+				wikitext: 'Valdoria Reach is a coastal trading city with a busy harbour, spoiler edition.',
+				updatedAt: '2026-01-01T00:00:00.000Z'
+			}
+		]);
+		const wikiClient = new MediaWikiClient({
+			baseUrl: `${fixture.baseUrl}/api.php`,
+			requestsPerSecond: 1000
+		});
+		const collectionName = scratchCollection();
+
+		const result = await indexDataSource(
+			{ db, vectorClient, wikiClient, extractor: heuristicExtractor, embedder: hashingEmbedder },
+			{ dataSourceId: source.id, universeId: u.id, collectionName, vectorSize: HASH_VECTOR_SIZE }
+		);
+		expect(result.pagesIndexed).toBe(2);
+
+		const excludedPageUrl = (await wikiClient.getPage('Excluded Page')).url;
+		const [queryVector] = await hashingEmbedder(['coastal trading city harbour']);
+
+		const beforeExclusion = await retrieveForUniverse({
+			db,
+			vectorClient,
+			collectionName,
+			universeId: u.id,
+			queryVector: queryVector!,
+			queryText: 'coastal trading city harbour',
+			topK: 10,
+			threshold: -1
+		});
+		expect(beforeExclusion.some((hit) => hit.payload.url === excludedPageUrl)).toBe(true);
+
+		await addExclusion(db, { dataSourceId: source.id, urlPattern: excludedPageUrl });
+
+		const afterExclusion = await retrieveForUniverse({
+			db,
+			vectorClient,
+			collectionName,
+			universeId: u.id,
+			queryVector: queryVector!,
+			queryText: 'coastal trading city harbour',
+			topK: 10,
+			threshold: -1
+		});
+		expect(afterExclusion.some((hit) => hit.payload.url === excludedPageUrl)).toBe(false);
+		expect(afterExclusion.length).toBeGreaterThan(0);
+
+		// A global (no data source) pattern also excludes, everywhere.
+		const scored = await scoreLoreHits({
+			db,
+			vectorClient,
+			collectionName,
+			universeId: u.id,
+			queryVector: queryVector!,
+			queryText: 'coastal trading city harbour'
+		});
+		expect(scored.every((hit) => hit.payload.url !== excludedPageUrl)).toBe(true);
+	});
+});

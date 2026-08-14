@@ -10,6 +10,7 @@
  */
 import { inArray } from 'drizzle-orm';
 import { closeDb, createDb, type Db } from './client.js';
+import { revealEntityLive, revealFactLive, revealRelationLive } from './queries/players.js';
 import { entity } from './schema/entity.js';
 import { fact } from './schema/fact.js';
 import { relation, relationType } from './schema/relation.js';
@@ -34,6 +35,9 @@ interface SeedEntity {
 	slug: string;
 	aliases?: string[];
 	body: string;
+	/** Defaults to 'revealable'. Issues #82-85: one gm_only entry in the fixture world so
+	 * the players' wiki has something real to demonstrate excluding, not just an empty set. */
+	visibility?: 'gm_only' | 'revealable';
 }
 
 const ENTITIES: SeedEntity[] = [
@@ -86,7 +90,7 @@ const ENTITIES: SeedEntity[] = [
 		type: 'faction',
 		name: 'The Ashen Ledger',
 		slug: 'the-ashen-ledger',
-		body: 'A merchant bank that lends at knife point and keeps better records than the magistrate.'
+		body: 'A merchant bank that lends at knife point and keeps better records than the magistrate.\n\n:::secret\nAldric Vane, the dismissed captain of the Valdoria Watch, is now on its payroll.\n:::\n\n:::gmnote\nIselde Wrenn appointed Aldric, then broke him. Play this reveal as her fault circling back, not his.\n:::'
 	},
 	{
 		type: 'faction',
@@ -99,6 +103,19 @@ const ENTITIES: SeedEntity[] = [
 		name: 'The Sable Winter',
 		slug: 'the-sable-winter',
 		body: 'The year 1247, when the strait froze and [[Cairnmouth]] starved.'
+	},
+	{
+		type: 'session',
+		name: 'Session 1',
+		slug: 'session-1',
+		body: 'The party arrived in the Lantern Quarter and started asking questions about Aldric Vane.'
+	},
+	{
+		type: 'faction',
+		name: 'The Drowned Concord',
+		slug: 'the-drowned-concord',
+		visibility: 'gm_only',
+		body: 'A smuggling ring nobody at the table has heard of yet. Not for players (#82-85 fixture).'
 	}
 ];
 
@@ -182,7 +199,8 @@ export async function seedFixture(db: Db): Promise<{ universeId: string; entitie
 				name: e.name,
 				slug: e.slug,
 				aliases: e.aliases ?? [],
-				body: e.body
+				body: e.body,
+				visibility: e.visibility ?? 'revealable'
 			}))
 		)
 		.returning({ id: entity.id, slug: entity.slug });
@@ -193,19 +211,25 @@ export async function seedFixture(db: Db): Promise<{ universeId: string; entitie
 		.from(relationType);
 	const typeByLabel = new Map(catalogue.map((row) => [row.label, row.id]));
 
+	const relationIdByKey = new Map<string, string>();
 	for (const [from, label, to] of RELATIONS) {
 		const typeId = typeByLabel.get(label);
 		const fromId = bySlug.get(from);
 		const toId = bySlug.get(to);
 		if (!typeId || !fromId || !toId)
 			throw new Error(`fixture relation ${from} ${label} ${to} does not resolve`);
-		await db.insert(relation).values({
-			universeId: world.id,
-			relationTypeId: typeId,
-			fromEntityId: fromId,
-			toEntityId: toId,
-			authorKind: 'human'
-		});
+		const [row] = await db
+			.insert(relation)
+			.values({
+				universeId: world.id,
+				relationTypeId: typeId,
+				fromEntityId: fromId,
+				toEntityId: toId,
+				authorKind: 'human'
+			})
+			.returning({ id: relation.id });
+		if (!row) throw new Error(`fixture relation ${from} ${label} ${to} insert returned no row`);
+		relationIdByKey.set(`${from}|${label}|${to}`, row.id);
 	}
 
 	// Two revisions on Aldric Vane: the human edit that triggers propagation in every
@@ -244,14 +268,58 @@ export async function seedFixture(db: Db): Promise<{ universeId: string; entitie
 
 	const spanStart = ALDRIC_BODY.indexOf(ALDRIC_EVIDENCE);
 	if (spanStart < 0) throw new Error('fixture evidence sentence is not in the body');
-	await db.insert(fact).values({
+	const [dismissedFact] = await db
+		.insert(fact)
+		.values({
+			universeId: world.id,
+			entityId: aldricId,
+			statement: 'Aldric Vane was dismissed from the Valdoria Watch after the Sable Winter.',
+			sourceRevisionId: humanRevision.id,
+			spanStart,
+			spanEnd: spanStart + ALDRIC_EVIDENCE.length,
+			authorKind: 'human'
+		})
+		.returning({ id: fact.id });
+	if (!dismissedFact) throw new Error('fact insert returned no row');
+
+	// Issues #82-85: reveal a representative slice of Valdoria so the public players' wiki
+	// (/p/valdoria-reach) has real content to show rather than an empty index - an entity,
+	// the fact that drives every propagation artifact, and one relation. Idempotent along
+	// with the rest of this function, thanks to revelation's own unique index per session.
+	const sessionId = bySlug.get('session-1');
+	const gildedRatId = bySlug.get('the-gilded-rat');
+	const ashenLedgerId = bySlug.get('the-ashen-ledger');
+	const memberRelationId = relationIdByKey.get('aldric-vane|member of|the-valdoria-watch');
+	if (!sessionId || !gildedRatId || !ashenLedgerId || !memberRelationId) {
+		throw new Error('fixture players-wiki seed data does not resolve');
+	}
+	await revealEntityLive(db, {
 		universeId: world.id,
 		entityId: aldricId,
-		statement: 'Aldric Vane was dismissed from the Valdoria Watch after the Sable Winter.',
-		sourceRevisionId: humanRevision.id,
-		spanStart,
-		spanEnd: spanStart + ALDRIC_EVIDENCE.length,
-		authorKind: 'human'
+		sessionEntityId: sessionId
+	});
+	await revealEntityLive(db, {
+		universeId: world.id,
+		entityId: gildedRatId,
+		sessionEntityId: sessionId
+	});
+	// The Ashen Ledger carries the secret and gmnote blocks (#84's own worked example) -
+	// revealing the entity itself, not just the fact, is what shows a secret staying hidden
+	// even inside a fully public entry.
+	await revealEntityLive(db, {
+		universeId: world.id,
+		entityId: ashenLedgerId,
+		sessionEntityId: sessionId
+	});
+	await revealFactLive(db, {
+		universeId: world.id,
+		factId: dismissedFact.id,
+		sessionEntityId: sessionId
+	});
+	await revealRelationLive(db, {
+		universeId: world.id,
+		relationId: memberRelationId,
+		sessionEntityId: sessionId
 	});
 
 	// The derived case from SAMPLE-WORLD.md, so the universe switcher can show precedence

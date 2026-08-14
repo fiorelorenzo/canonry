@@ -1,6 +1,6 @@
 import { closeDb, type Db } from '@canonry/db';
-import { modelCall, operationPrice, operationPriceChange } from '@canonry/db/schema';
-import { eq, like } from 'drizzle-orm';
+import { modelCall, operationPrice, operationPriceChange, user } from '@canonry/db/schema';
+import { inArray, like } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createLogger, type CallLogFields } from './logger.js';
 import type { ResolvedModel } from './models.js';
@@ -20,6 +20,15 @@ const FREE_OPERATION = `${TEST_OPERATION_PREFIX}free`;
 const SUCCESS_PRICE_CREDITS = 3.5;
 const FAILURE_PRICE_CREDITS = 1.25;
 const LOGGING_PRICE_CREDITS = 2;
+// model_call.user_id gained a real FK to user.id in migration 0014, so every userId
+// this file uses needs a real row behind it.
+const TEST_USER_IDS = [
+	'test-user-usage-1',
+	'test-user-usage-2',
+	'test-user-usage-3',
+	'test-user-usage-4',
+	'test-user-usage-free'
+];
 
 const RESOLVED_MODEL: ResolvedModel = {
 	purpose: 'cheap',
@@ -62,6 +71,17 @@ describe('recordCall and withUsage against real Postgres', () => {
 	beforeAll(async () => {
 		db = openTestDb();
 		clearPriceCache();
+		await db
+			.insert(user)
+			.values(
+				TEST_USER_IDS.map((id) => ({
+					id,
+					name: 'Test User',
+					email: `${id}@canonry.invalid`,
+					emailVerified: true
+				}))
+			)
+			.onConflictDoNothing();
 		await db.insert(operationPrice).values([
 			{
 				operation: SUCCESS_OPERATION,
@@ -98,13 +118,14 @@ describe('recordCall and withUsage against real Postgres', () => {
 		await db
 			.delete(operationPrice)
 			.where(like(operationPrice.operation, `${TEST_OPERATION_PREFIX}%`));
+		await db.delete(user).where(inArray(user.id, TEST_USER_IDS));
 		await closeDb(db);
 	});
 
 	it('recordCall writes tokens, credits, euro cost and latency', async () => {
 		const operation = `${TEST_OPERATION_PREFIX}record`;
 		await recordCall(db, {
-			userId: 'test-user-1',
+			userId: 'test-user-usage-1',
 			universeId: null,
 			agent: 'loremaster',
 			operation,
@@ -127,7 +148,7 @@ describe('recordCall and withUsage against real Postgres', () => {
 		expect(row?.credits).toBeCloseTo(1.23, 4);
 		expect(row?.costEur).toBeCloseTo(0.0123, 6);
 		expect(row?.latencyMs).toBe(250);
-		expect(row?.userId).toBe('test-user-1');
+		expect(row?.userId).toBe('test-user-usage-1');
 		expect(row?.agent).toBe('loremaster');
 	});
 
@@ -138,7 +159,7 @@ describe('recordCall and withUsage against real Postgres', () => {
 		const result = await withUsage(
 			db,
 			RESOLVED_MODEL,
-			{ userId: 'test-user-2', universeId: null, agent: 'propagate', operation },
+			{ userId: 'test-user-usage-2', universeId: null, agent: 'propagate', operation },
 			async () => fakeResult,
 			{
 				extractUsage: (r) => ({
@@ -175,7 +196,7 @@ describe('recordCall and withUsage against real Postgres', () => {
 		await withUsage(
 			db,
 			RESOLVED_MODEL,
-			{ userId: 'test-user-free', universeId: null, agent: 'indexing', operation },
+			{ userId: 'test-user-usage-free', universeId: null, agent: 'indexing', operation },
 			async () => fakeResult,
 			{
 				extractUsage: (r) => ({
@@ -203,7 +224,7 @@ describe('recordCall and withUsage against real Postgres', () => {
 			withUsage(
 				db,
 				RESOLVED_MODEL,
-				{ userId: 'test-user-3', universeId: null, agent: 'warm', operation },
+				{ userId: 'test-user-usage-3', universeId: null, agent: 'warm', operation },
 				async () => {
 					throw failure;
 				},
@@ -232,7 +253,7 @@ describe('recordCall and withUsage against real Postgres', () => {
 		await withUsage(
 			db,
 			RESOLVED_MODEL,
-			{ userId: 'test-user-4', universeId: null, agent: 'indexing', operation },
+			{ userId: 'test-user-usage-4', universeId: null, agent: 'indexing', operation },
 			// The prompt lives only in this closure - withUsage never receives it.
 			async () => ({ text: `response to: ${prompt}`, usage: { inputTokens: 20, outputTokens: 8 } }),
 			{

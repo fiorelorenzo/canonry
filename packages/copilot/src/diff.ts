@@ -1,0 +1,181 @@
+/**
+ * Semantic diff of an edit (issue #48, SPEC.md §5.1 step 1): "which facts were added,
+ * removed, changed."
+ *
+ * Deterministic, sentence-level text diff - no model call. Nothing in `operation_price`
+ * prices this step (only `propagate.plan` and `propagate.diff` do, per issue #52's model
+ * routing), and SPEC.md §15 makes an unpriced chargeable call a defect, so this stays a
+ * plain algorithm rather than an embedding or generation call. "Semantic" describes the
+ * output granularity (one row per fact-sized sentence, not a line-level text diff), not
+ * the technique: an LCS match at sentence level finds what is genuinely new or gone, and
+ * a word-overlap heuristic turns a coincidental add+remove pair into a single "changed"
+ * entry when they are clearly the same fact reworded.
+ */
+
+export type FactChangeKind = 'added' | 'removed' | 'changed';
+
+export interface FactChange {
+	kind: FactChangeKind;
+	/** The current text: the new sentence for 'added'/'changed', the removed sentence for
+	 * 'removed'. This is what candidate-finding (issue #49) scans for mentions and what a
+	 * diff's evidence (issue #51) quotes as the source sentence. */
+	statement: string;
+	/** Only set for 'changed': the sentence this replaced. */
+	previousStatement?: string;
+}
+
+const HEADING_RE = /^#{1,6}\s+/;
+// Splits a paragraph after sentence-ending punctuation, but only where the next sentence
+// plausibly starts (capital letter, digit, or a `[[wikilink]]`) - keeps "Mr. Smith" and
+// similar abbreviations from being split mid-name in the fixture-sized bodies this reads.
+const SENTENCE_SPLIT_RE = /(?<=[.!?])\s+(?=[A-Z0-9[])/;
+
+function splitParagraphIntoSentences(paragraph: string): string[] {
+	return paragraph
+		.split(SENTENCE_SPLIT_RE)
+		.map((part) => part.trim())
+		.filter((part) => part.length > 0);
+}
+
+/** Splits a markdown body into fact-sized units: one per heading line, one per sentence
+ * inside every other paragraph. Blank lines separate paragraphs; a heading is never
+ * merged with the paragraph around it, since it is a structural marker, not a fact. */
+export function splitIntoSentences(body: string): string[] {
+	const units: string[] = [];
+	let paragraph: string[] = [];
+
+	const flush = (): void => {
+		if (paragraph.length === 0) return;
+		const text = paragraph.join(' ').trim();
+		if (text) units.push(...splitParagraphIntoSentences(text));
+		paragraph = [];
+	};
+
+	for (const rawLine of body.split(/\r?\n/)) {
+		const line = rawLine.trim();
+		if (line === '') {
+			flush();
+			continue;
+		}
+		if (HEADING_RE.test(line)) {
+			flush();
+			units.push(line);
+			continue;
+		}
+		paragraph.push(line);
+	}
+	flush();
+	return units;
+}
+
+function tokenize(sentence: string): Set<string> {
+	const words = sentence.toLowerCase().match(/[a-z0-9']+/g) ?? [];
+	return new Set(words);
+}
+
+function jaccard(a: Set<string>, b: Set<string>): number {
+	if (a.size === 0 && b.size === 0) return 1;
+	let intersection = 0;
+	for (const word of a) if (b.has(word)) intersection++;
+	const union = a.size + b.size - intersection;
+	return union === 0 ? 0 : intersection / union;
+}
+
+/** Below this word-overlap ratio, a removed and an added sentence are treated as an
+ * unrelated deletion plus an unrelated addition rather than one edited fact. */
+const CHANGE_SIMILARITY_THRESHOLD = 0.4;
+
+interface LcsResult {
+	keptOld: Set<number>;
+	keptNew: Set<number>;
+}
+
+/** Longest common subsequence over sentence arrays (exact text match per sentence), so
+ * everything genuinely unchanged - including a sentence that also happens to occur
+ * elsewhere in the body - never shows up as a fact change. */
+function lcs(oldSentences: string[], newSentences: string[]): LcsResult {
+	const n = oldSentences.length;
+	const m = newSentences.length;
+	const table: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+	for (let i = n - 1; i >= 0; i--) {
+		for (let j = m - 1; j >= 0; j--) {
+			table[i]![j] =
+				oldSentences[i] === newSentences[j]
+					? table[i + 1]![j + 1]! + 1
+					: Math.max(table[i + 1]![j]!, table[i]![j + 1]!);
+		}
+	}
+
+	const keptOld = new Set<number>();
+	const keptNew = new Set<number>();
+	let i = 0;
+	let j = 0;
+	while (i < n && j < m) {
+		if (oldSentences[i] === newSentences[j]) {
+			keptOld.add(i);
+			keptNew.add(j);
+			i++;
+			j++;
+		} else if (table[i + 1]![j]! >= table[i]![j + 1]!) {
+			i++;
+		} else {
+			j++;
+		}
+	}
+	return { keptOld, keptNew };
+}
+
+/** Which facts an edit added, removed and changed (issue #48). Sentence order in the
+ * output follows the new body's reading order for added/changed entries, with pure
+ * removals appended at the end in their original order. */
+export function semanticDiff(oldBody: string, newBody: string): FactChange[] {
+	const oldSentences = splitIntoSentences(oldBody);
+	const newSentences = splitIntoSentences(newBody);
+	const { keptOld, keptNew } = lcs(oldSentences, newSentences);
+
+	const removedIndices = oldSentences.map((_, i) => i).filter((i) => !keptOld.has(i));
+	const addedIndices = newSentences.map((_, j) => j).filter((j) => !keptNew.has(j));
+
+	// Greedily pair the best-matching removed/added sentences above the similarity floor,
+	// highest similarity first, so a clean rewrite pairs before a coincidental partial
+	// overlap steals its match.
+	const candidates: Array<{ oldIdx: number; newIdx: number; score: number }> = [];
+	for (const oldIdx of removedIndices) {
+		const oldTokens = tokenize(oldSentences[oldIdx]!);
+		for (const newIdx of addedIndices) {
+			const score = jaccard(oldTokens, tokenize(newSentences[newIdx]!));
+			if (score >= CHANGE_SIMILARITY_THRESHOLD) candidates.push({ oldIdx, newIdx, score });
+		}
+	}
+	candidates.sort((a, b) => b.score - a.score);
+
+	const pairedOld = new Map<number, number>(); // oldIdx -> newIdx
+	const pairedNew = new Set<number>();
+	for (const candidate of candidates) {
+		if (pairedOld.has(candidate.oldIdx) || pairedNew.has(candidate.newIdx)) continue;
+		pairedOld.set(candidate.oldIdx, candidate.newIdx);
+		pairedNew.add(candidate.newIdx);
+	}
+
+	const changes: FactChange[] = [];
+	const newIdxToOldIdx = new Map<number, number>();
+	for (const [oldIdx, newIdx] of pairedOld) newIdxToOldIdx.set(newIdx, oldIdx);
+
+	for (const newIdx of addedIndices) {
+		const oldIdx = newIdxToOldIdx.get(newIdx);
+		if (oldIdx !== undefined) {
+			changes.push({
+				kind: 'changed',
+				statement: newSentences[newIdx]!,
+				previousStatement: oldSentences[oldIdx]!
+			});
+		} else {
+			changes.push({ kind: 'added', statement: newSentences[newIdx]! });
+		}
+	}
+	for (const oldIdx of removedIndices) {
+		if (!pairedOld.has(oldIdx)) changes.push({ kind: 'removed', statement: oldSentences[oldIdx]! });
+	}
+
+	return changes;
+}

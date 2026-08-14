@@ -65,3 +65,67 @@ export {
 	type LoopLogStatus,
 	type LoopLogSink
 } from './logging.js';
+
+export {
+	ArchiveSourceReader,
+	DEFAULT_ARCHIVE_LIMITS,
+	ArchiveTooLargeError,
+	TooManyEntriesError,
+	PathTraversalError,
+	ZipBombError,
+	UnsupportedCompressionError,
+	ArchiveParseError,
+	ArchiveEntryExtractionError,
+	type ArchiveLimits
+} from './archive.js';
+
+export {
+	DbModelSelector,
+	type PurposeResolution,
+	type ResolvePurpose,
+	type LanguageModelFactory,
+	type DbModelSelectorDeps
+} from './model-selector.js';
+
+export {
+	resolveMatch,
+	normalizeForMatching,
+	nameOverlapScore,
+	preFilterCandidates,
+	type MatchCandidate,
+	type MatchSubject,
+	type MatchDecision,
+	type MatchThresholds,
+	type SimilarityFn,
+	type ResolveMatchInput
+} from './matching.js';
+
+export {
+	runMatchingBenchmark,
+	type MatchingPairExample,
+	type MatchingCorpus,
+	type ThresholdScore,
+	type MatchingBenchmarkReport,
+	type RunMatchingBenchmarkOptions
+} from './matching-benchmark.js';
+
+export { SAMPLE_WORLD_MATCHING_CORPUS } from './matching-benchmark-corpus.js';
+
+export { lexicalTrigramSimilarity } from './lexical-similarity.js';
+
+export {
+	ImportJobRunner,
+	estimateImportJob,
+	admitAndCreateImportJob,
+	acceptImportProposal,
+	ImportQuotaExceededError,
+	type ImportEstimate,
+	type EstimateImportJobInput,
+	type AdmitAndCreateImportJobInput,
+	type AdmitAndCreateImportJobResult,
+	type ImportQuotaRefusalReason,
+	type RunImportJobParams,
+	type RunImportJobResult,
+	type DocumentOutcome,
+	type AcceptImportProposalInput
+} from './job-runner.js';

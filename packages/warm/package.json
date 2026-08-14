@@ -1,0 +1,28 @@
+{
+	"name": "@canonry/warm",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"check": "tsc -p tsconfig.json --noEmit",
+		"lint": "prettier --check .",
+		"format": "prettier --write .",
+		"test": "TEST_DB_SUFFIX=$$ vitest run"
+	},
+	"dependencies": {
+		"@canonry/ai": "workspace:*",
+		"@canonry/db": "workspace:*",
+		"drizzle-orm": "^0.45.2"
+	},
+	"devDependencies": {
+		"@types/node": "^22",
+		"postgres": "^3.4.9",
+		"prettier": "^3.8.3",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.10"
+	}
+}

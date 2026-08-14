@@ -1,0 +1,1 @@
+ALTER TABLE "data_source" ALTER COLUMN "status" SET DEFAULT 'licence_review_pending';

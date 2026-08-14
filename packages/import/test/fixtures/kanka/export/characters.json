@@ -1,0 +1,46 @@
+[
+	{
+		"id": 101,
+		"entity_id": 5101,
+		"entity_type": "character",
+		"name": "Elenya Duskwalker",
+		"entry": "<p>A ranger who has patrolled Duskwood Vale for a decade and knows every trail in it.</p>",
+		"image": "images/elenya.png",
+		"image_full": "images/elenya.png",
+		"tags": [],
+		"is_private": false,
+		"relations": [
+			{
+				"owner_id": 5101,
+				"target_id": 5201,
+				"relation": "Protects",
+				"attitude": 60
+			}
+		]
+	},
+	{
+		"id": 102,
+		"entity_id": 5102,
+		"entity_type": "character",
+		"name": "Baron Corvain",
+		"entry": "<p>A corrupt noble who secretly bankrolls a smuggling ring out of the vale's old watchtower.</p>",
+		"image": null,
+		"image_full": null,
+		"tags": [],
+		"is_private": false,
+		"relations": [
+			{
+				"owner_id": 5102,
+				"target_id": 5301,
+				"relation": "Leads",
+				"attitude": 10
+			},
+			{
+				"owner_id": 5102,
+				"target_id": 5101,
+				"relation": "Rival",
+				"attitude": -40
+			}
+		]
+	}
+]

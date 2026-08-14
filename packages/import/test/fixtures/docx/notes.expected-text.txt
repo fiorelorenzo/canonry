@@ -1,0 +1,17 @@
+# Warden Iset Nour
+
+Keeper of the eastern gate. Answers only to the Council, not to the garrison commander.
+
+## Duties
+
+-   Holds the only working key to the Sunken Archive
+-   Reports directly to the Council, never the garrison
+
+## Chain of command
+
+| Name                   | Reports to  |
+|------------------------|-------------|
+| Warden Iset Nour       | The Council |
+| Garrison Commander Vey | The Council |
+
+Warden Iset Nour and Garrison Commander Vey do not get along; the Council keeps them separate on purpose.

@@ -1,0 +1,14 @@
+[
+	{
+		"id": 301,
+		"entity_id": 5301,
+		"entity_type": "organisation",
+		"name": "The Ashen Compact",
+		"entry": "<p>A smuggling ring operating out of the vale's old watchtower, fronted by respectable names.</p>",
+		"image": null,
+		"image_full": null,
+		"tags": [],
+		"is_private": false,
+		"relations": []
+	}
+]

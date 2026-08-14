@@ -1,0 +1,14 @@
+[
+	{
+		"id": 201,
+		"entity_id": 5201,
+		"entity_type": "location",
+		"name": "Duskwood Vale",
+		"entry": "<p>A forested vale on the western border, prone to fog and old smuggling trails.</p>",
+		"image": null,
+		"image_full": null,
+		"tags": [],
+		"is_private": false,
+		"relations": []
+	}
+]

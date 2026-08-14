@@ -25,7 +25,12 @@ import { logger as defaultLogger, type Logger } from './logger.js';
 export type { ModelCallAgent };
 
 export interface ModelCallInput {
-	userId: string;
+	// Nullable since migration 0014: system-attributed calls (nightly warming,
+	// universe-scoped indexing) run for a universe rather than for somebody, and
+	// model_call.user_id is `on delete set null` so a deleted account's own history
+	// unlinks rather than vanishing (SPEC.md §11.5's margin question stays
+	// answerable either way).
+	userId: string | null;
 	universeId: string | null;
 	agent: ModelCallAgent;
 	operation: string;
@@ -67,7 +72,7 @@ export interface UsageCounts {
 	images: number;
 }
 
-function normalizeUsage(partial: Partial<UsageCounts>): UsageCounts {
+export function normalizeUsage(partial: Partial<UsageCounts>): UsageCounts {
 	return {
 		inputTokens: partial.inputTokens ?? 0,
 		outputTokens: partial.outputTokens ?? 0,
@@ -93,7 +98,7 @@ export function computeCost(
 }
 
 export interface WithUsageMeta {
-	userId: string;
+	userId: string | null;
 	universeId: string | null;
 	agent: ModelCallAgent;
 	operation: string;
@@ -118,7 +123,7 @@ export interface WithUsageOptions<T> {
 	extractUsageOnError?: (error: unknown) => Partial<UsageCounts>;
 }
 
-function errorName(error: unknown): string {
+export function errorName(error: unknown): string {
 	return error instanceof Error ? error.name : 'UnknownError';
 }
 

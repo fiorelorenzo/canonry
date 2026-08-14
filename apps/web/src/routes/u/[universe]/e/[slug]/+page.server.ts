@@ -1,16 +1,36 @@
 import { error } from '@sveltejs/kit';
-import { historyFor, relationsFor } from '@canonry/db';
+import {
+	historyFor,
+	mediaAssetsForEntity,
+	priceOf,
+	relationsFor,
+	universeAccessBySlug,
+	type Db
+} from '@canonry/db';
+import { ImageModelNotConfiguredError, resolveImageModel, resolveStyle } from '@canonry/media';
 import { db } from '$lib/server/db';
 import { stripMentionSyntax } from '$lib/markdown';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params }) => {
-	const conn = db();
+/** Null when the feature has no active image_model_config row yet - the dialog then says
+ * so instead of crashing the whole entry page over a missing admin setup step (#64). */
+async function modelSummary(conn: Db, feature: 'portrait' | 'variants') {
+	try {
+		const model = await resolveImageModel(conn, feature);
+		return { provider: model.provider, modelId: model.modelId };
+	} catch (err) {
+		if (err instanceof ImageModelNotConfiguredError) return null;
+		throw err;
+	}
+}
 
-	const world = await conn.query.universe.findFirst({
-		where: (universe, { eq }) => eq(universe.slug, params.universe)
-	});
-	if (!world) error(404, `No universe named "${params.universe}"`);
+export const load: PageServerLoad = async ({ params, locals }) => {
+	if (!locals.user) error(404, `No universe named "${params.universe}"`);
+
+	const conn = db();
+	const access = await universeAccessBySlug(conn, params.universe, locals.user.id);
+	if (!access) error(404, `No universe named "${params.universe}"`);
+	const world = access.universe;
 
 	const current = await conn.query.entity.findFirst({
 		where: (entity, { and, eq }) =>
@@ -55,13 +75,33 @@ export const load: PageServerLoad = async ({ params }) => {
 		)
 	}));
 
-	const [relations, history] = await Promise.all([
+	const [
+		relations,
+		history,
+		mediaAssets,
+		style,
+		portraitPrice,
+		variantsPrice,
+		portraitModel,
+		variantsModel
+	] = await Promise.all([
 		relationsFor(conn, current.id),
-		historyFor(conn, current.id)
+		historyFor(conn, current.id),
+		mediaAssetsForEntity(conn, current.id),
+		resolveStyle(conn, current.id),
+		priceOf(conn, 'image.portrait'),
+		priceOf(conn, 'image.variants'),
+		modelSummary(conn, 'portrait'),
+		modelSummary(conn, 'variants')
 	]);
 
 	return {
-		universe: { slug: world.slug, name: world.name },
+		universe: {
+			slug: world.slug,
+			name: world.name,
+			id: world.id,
+			aiEnabled: world.aiEnabled
+		},
 		entity: {
 			id: current.id,
 			type: current.type,
@@ -69,11 +109,28 @@ export const load: PageServerLoad = async ({ params }) => {
 			slug: current.slug,
 			aliases: current.aliases,
 			body: current.body,
+			imagePromptModifier: current.imagePromptModifier,
 			updatedAt: current.updatedAt
 		},
 		mentionTargets: universeEntities,
 		relations,
 		history,
-		facts
+		facts,
+		media: {
+			assets: mediaAssets.map((asset) => ({
+				id: asset.id,
+				mimeType: asset.mimeType,
+				generated: asset.generated,
+				publishedToPlayers: asset.publishedToPlayers,
+				credits: asset.credits,
+				createdAt: asset.createdAt
+			})),
+			style,
+			canWrite: access.role !== 'viewer',
+			generate: {
+				portrait: { price: portraitPrice.credits, model: portraitModel },
+				variants: { price: variantsPrice.credits, model: variantsModel }
+			}
+		}
 	};
 };

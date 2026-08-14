@@ -11,13 +11,15 @@
 
 <main id="main" class="mx-auto max-w-2xl px-8 py-12">
 	<h1 class="text-2xl font-semibold text-ink">Canonry</h1>
-	<p class="mt-2 max-w-measure text-sm text-ink-2">
-		Every universe on this server, not just yours: sign-in is not built yet (#86), so there is no
-		owner check here.
-	</p>
 
-	{#if data.universes.length === 0}
-		<p class="mt-8 text-sm text-ink-2">No universes yet.</p>
+	{#if !data.user}
+		<p class="mt-2 max-w-measure text-sm text-ink-2">
+			<a href={resolve('/auth/sign-in')} class="text-accent hover:underline">Sign in</a> to see your universes.
+		</p>
+	{:else if data.universes.length === 0}
+		<p class="mt-2 max-w-measure text-sm text-ink-2">
+			No universes yet - yours, or one you were added to, will show up here.
+		</p>
 	{:else}
 		<ul class="mt-8 flex flex-col gap-3">
 			{#each data.universes as universe (universe.id)}

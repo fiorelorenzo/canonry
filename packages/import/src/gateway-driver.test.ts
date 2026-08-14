@@ -8,7 +8,12 @@ import {
 	type ModelSelector
 } from './gateway-driver.js';
 import type { ImportJob, JobBudget, JobDocument, JobEvent } from './driver.js';
-import { loadBuiltinPlaybook, loadPlaybook, type LoadedPlaybook } from './playbook.js';
+import {
+	loadBuiltinPlaybook,
+	loadPlaybook,
+	type LoadedPlaybook,
+	type ImportModelPurpose
+} from './playbook.js';
 import { InMemorySourceReader } from './sources.js';
 import { InMemoryImageStore } from './images.js';
 import { createLoopLogger, type LoopLogFields } from './logging.js';
@@ -570,5 +575,176 @@ describe('GatewayDriver - metadata-only logging under a real run (issue #31)', (
 		expect(logged.length).toBeGreaterThan(0);
 		const serialized = JSON.stringify(logged);
 		expect(serialized).not.toContain(secret);
+	});
+});
+
+describe('GatewayDriver - per-document model purpose routing (issue #24)', () => {
+	it('escalates a document the playbook marks hard to premium, even though the playbook default is cheap', async () => {
+		const playbook = await loadBuiltinPlaybook('generic');
+		expect(playbook.modelPurpose).toBe('cheap');
+		const sources = new InMemorySourceReader({
+			files: { 'notes.md': 'Aldric Voss commands the harbour watch.' }
+		});
+		const model = scriptedModel([
+			toolCallStep([{ id: 't1', name: 'source_read', input: { path: 'notes.md' } }]),
+			toolCallStep([
+				{ id: 't2', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
+			])
+		]);
+		const purposes: ImportModelPurpose[] = [];
+		const resolved: ImportModel = {
+			languageModel: model,
+			provider: 'test',
+			modelId: 'test-cheap',
+			params: TEST_PARAMS
+		};
+		const selector: ModelSelector = {
+			resolve: async (purpose) => {
+				purposes.push(purpose);
+				return resolved;
+			}
+		};
+		const driver = new GatewayDriver({ gateway: IDENTITY_GATEWAY, models: selector });
+		const job = buildJob({
+			id: 'job-hard',
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes.md', hard: true }],
+			sources
+		});
+
+		await collect(job, driver);
+
+		expect(purposes).toEqual(['premium', 'premium']);
+	});
+
+	it('uses the playbook default purpose for a document not marked hard', async () => {
+		const playbook = await loadBuiltinPlaybook('generic');
+		const sources = new InMemorySourceReader({
+			files: { 'notes.md': 'Aldric Voss commands the harbour watch.' }
+		});
+		const model = scriptedModel([
+			toolCallStep([{ id: 't1', name: 'source_read', input: { path: 'notes.md' } }]),
+			toolCallStep([
+				{ id: 't2', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
+			])
+		]);
+		const purposes: ImportModelPurpose[] = [];
+		const resolved: ImportModel = {
+			languageModel: model,
+			provider: 'test',
+			modelId: 'test-cheap',
+			params: TEST_PARAMS
+		};
+		const selector: ModelSelector = {
+			resolve: async (purpose) => {
+				purposes.push(purpose);
+				return resolved;
+			}
+		};
+		const driver = new GatewayDriver({ gateway: IDENTITY_GATEWAY, models: selector });
+		const job = buildJob({
+			id: 'job-not-hard',
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes.md' }],
+			sources
+		});
+
+		await collect(job, driver);
+
+		expect(purposes).toEqual(['cheap', 'cheap']);
+	});
+});
+
+describe('GatewayDriver - schema validation rejects a malformed proposal (issue #29)', () => {
+	it('produces no proposal event when entity_propose omits its required sourceRef', async () => {
+		const playbook = await loadBuiltinPlaybook('generic');
+		const sources = new InMemorySourceReader({
+			files: { 'notes.md': 'Aldric Voss commands the harbour watch.' }
+		});
+		const model = scriptedModel([
+			toolCallStep([{ id: 'm1', name: 'source_read', input: { path: 'notes.md' } }]),
+			toolCallStep([
+				{
+					id: 'm2',
+					name: 'entity_propose',
+					input: {
+						localId: 'e1',
+						type: 'character',
+						name: 'Aldric Voss',
+						aliases: [],
+						summary: 'Commands the harbour watch.',
+						// sourceRef intentionally omitted - a required field, not an extra one.
+						evidenceSpan: { start: 0, end: 24 }
+					}
+				}
+			]),
+			toolCallStep([
+				{ id: 'm3', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
+			])
+		]);
+		const logged: LoopLogFields[] = [];
+		const logger = createLoopLogger((fields) => logged.push(fields));
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model),
+			logger
+		});
+		const job = buildJob({
+			id: 'job-missing-ref',
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes.md' }],
+			sources
+		});
+
+		const { events } = await collect(job, driver);
+
+		expect(events.some((e) => e.type === 'proposal')).toBe(false);
+		expect(logged.some((f) => f.toolName === 'entity_propose' && f.status === 'error')).toBe(true);
+	});
+
+	it('produces no proposal event when entity_propose omits its required evidenceSpan', async () => {
+		const playbook = await loadBuiltinPlaybook('generic');
+		const sources = new InMemorySourceReader({
+			files: { 'notes.md': 'Aldric Voss commands the harbour watch.' }
+		});
+		const model = scriptedModel([
+			toolCallStep([{ id: 'n1', name: 'source_read', input: { path: 'notes.md' } }]),
+			toolCallStep([
+				{
+					id: 'n2',
+					name: 'entity_propose',
+					input: {
+						localId: 'e1',
+						type: 'character',
+						name: 'Aldric Voss',
+						aliases: [],
+						summary: 'Commands the harbour watch.',
+						sourceRef: { documentId: 'doc-1', path: 'notes.md' }
+						// evidenceSpan intentionally omitted.
+					}
+				}
+			]),
+			toolCallStep([
+				{ id: 'n3', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
+			])
+		]);
+		const logged: LoopLogFields[] = [];
+		const logger = createLoopLogger((fields) => logged.push(fields));
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model),
+			logger
+		});
+		const job = buildJob({
+			id: 'job-missing-span',
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes.md' }],
+			sources
+		});
+
+		const { events } = await collect(job, driver);
+
+		expect(events.some((e) => e.type === 'proposal')).toBe(false);
+		expect(logged.some((f) => f.toolName === 'entity_propose' && f.status === 'error')).toBe(true);
 	});
 });

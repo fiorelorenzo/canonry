@@ -1,0 +1,8 @@
+{
+	"id": "a-duskwood-vale",
+	"title": "Duskwood Vale",
+	"slug": "duskwood-vale",
+	"template": "Settlement",
+	"tags": ["region", "border"],
+	"state": "public"
+}

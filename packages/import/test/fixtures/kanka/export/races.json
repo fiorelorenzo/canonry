@@ -1,0 +1,14 @@
+[
+	{
+		"id": 501,
+		"entity_id": 5501,
+		"entity_type": "race",
+		"name": "Vale-born",
+		"entry": "<p>Humans native to Duskwood Vale, said to have unusually good night vision.</p>",
+		"image": null,
+		"image_full": null,
+		"tags": [],
+		"is_private": false,
+		"relations": []
+	}
+]

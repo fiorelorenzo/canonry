@@ -1,0 +1,8 @@
+{
+	"id": "a-baron-corvain",
+	"title": "Baron Corvain",
+	"slug": "baron-corvain",
+	"template": "Person",
+	"tags": ["noble", "antagonist"],
+	"state": "public"
+}
