@@ -53,7 +53,9 @@ import { load as loadIndex } from './[universe]/+page.server.js';
 import { load as loadEntity } from './[universe]/[slug]/+page.server.js';
 
 const DATABASE_URL =
-	process.env.DATABASE_URL ?? 'postgres://canonry:canonry@127.0.0.1:55432/canonry';
+	process.env.TEST_DATABASE_URL ??
+	process.env.DATABASE_URL ??
+	'postgres://canonry:canonry@127.0.0.1:55432/canonry';
 // `$lib/server/db.ts`'s `db()` singleton, which every `+page.server.ts`/`+layout.server.ts`
 // under test here calls, reads `env.DATABASE_URL` (SvelteKit's `$env/dynamic/private`, a
 // live view over `process.env`) with no fallback of its own - unlike this file's own

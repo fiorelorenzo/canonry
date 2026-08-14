@@ -11,7 +11,10 @@ import { sveltekit } from '@sveltejs/kit/vite';
 // is even passed to Vite, is what makes those tests pass under a plain `pnpm test` with no
 // environment configured, matching every other integration test in this repo, which
 // already assumes a local Postgres at 127.0.0.1:55432.
-process.env.DATABASE_URL ??= 'postgres://canonry:canonry@127.0.0.1:55432/canonry';
+// TEST_DATABASE_URL comes first because that is the variable CI sets and the one every
+// package's own test harness already reads, and CI's Postgres is not on this box's dev port.
+process.env.DATABASE_URL ??=
+	process.env.TEST_DATABASE_URL ?? 'postgres://canonry:canonry@127.0.0.1:55432/canonry';
 
 export default defineConfig({
 	plugins: [
@@ -27,6 +30,10 @@ export default defineConfig({
 	],
 	test: {
 		expect: { requireAssertions: true },
+		// The server-side tests call real route loaders against a real database, so the
+		// database has to exist and be migrated before any of them run, whatever order the
+		// packages happen to execute in.
+		globalSetup: ['src/test-global-setup.ts'],
 		projects: [
 			{
 				extends: './vite.config.ts',

@@ -20,7 +20,9 @@ import {
 } from './export.js';
 
 const DATABASE_URL =
-	process.env.DATABASE_URL ?? 'postgres://canonry:canonry@127.0.0.1:55432/canonry';
+	process.env.TEST_DATABASE_URL ??
+	process.env.DATABASE_URL ??
+	'postgres://canonry:canonry@127.0.0.1:55432/canonry';
 
 function unique(prefix: string): string {
 	return `${prefix}-${randomUUID().slice(0, 8)}`;
