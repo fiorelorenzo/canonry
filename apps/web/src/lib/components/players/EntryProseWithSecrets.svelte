@@ -96,7 +96,7 @@
 
 <div class="mb-4 flex items-center justify-between gap-2 border-b border-line pb-2">
 	<span class="text-xs font-semibold tracking-wide text-muted uppercase">
-		{playerPreview ? 'Player preview \u2014 what the party sees' : 'GM view'}
+		{playerPreview ? 'Player preview, what the party sees' : 'GM view'}
 	</span>
 	<button
 		type="button"

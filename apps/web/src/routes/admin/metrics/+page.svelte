@@ -5,7 +5,7 @@
 	let { data }: { data: PageData } = $props();
 
 	function formatPercent(rate: number | null): string {
-		if (rate === null) return '\u2014';
+		if (rate === null) return '-';
 		return `${Math.round(rate * 100)}%`;
 	}
 
