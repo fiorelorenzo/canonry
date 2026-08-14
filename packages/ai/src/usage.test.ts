@@ -1,13 +1,25 @@
 import { closeDb, type Db } from '@canonry/db';
-import { modelCall } from '@canonry/db/schema';
-import { like } from 'drizzle-orm';
+import { modelCall, operationPrice, operationPriceChange } from '@canonry/db/schema';
+import { eq, like } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createLogger, type CallLogFields } from './logger.js';
 import type { ResolvedModel } from './models.js';
+import { clearPriceCache } from './prices.js';
 import { openTestDb } from './test-db.js';
 import { computeCost, recordCall, withUsage } from './usage.js';
 
 const TEST_OPERATION_PREFIX = 'canonry-ai-test-usage-';
+// Price fixtures for the withUsage tests below, seeded once in beforeAll so chargeFor has
+// a row to resolve for each test operation. SUCCESS_OPERATION and LOGGING_OPERATION are
+// priced like a real generation call; FREE_OPERATION is priced at zero, the same as any
+// reading operation, to prove withUsage still records tokens on a zero-credit call.
+const SUCCESS_OPERATION = `${TEST_OPERATION_PREFIX}success`;
+const FAILURE_OPERATION = `${TEST_OPERATION_PREFIX}failure`;
+const LOGGING_OPERATION = `${TEST_OPERATION_PREFIX}logging`;
+const FREE_OPERATION = `${TEST_OPERATION_PREFIX}free`;
+const SUCCESS_PRICE_CREDITS = 3.5;
+const FAILURE_PRICE_CREDITS = 1.25;
+const LOGGING_PRICE_CREDITS = 2;
 
 const RESOLVED_MODEL: ResolvedModel = {
 	purpose: 'cheap',
@@ -47,12 +59,45 @@ describe('computeCost', () => {
 describe('recordCall and withUsage against real Postgres', () => {
 	let db: Db;
 
-	beforeAll(() => {
+	beforeAll(async () => {
 		db = openTestDb();
+		clearPriceCache();
+		await db.insert(operationPrice).values([
+			{
+				operation: SUCCESS_OPERATION,
+				label: 'Test success operation',
+				credits: SUCCESS_PRICE_CREDITS,
+				kind: 'generation'
+			},
+			{
+				operation: FAILURE_OPERATION,
+				label: 'Test failure operation',
+				credits: FAILURE_PRICE_CREDITS,
+				kind: 'generation'
+			},
+			{
+				operation: LOGGING_OPERATION,
+				label: 'Test logging operation',
+				credits: LOGGING_PRICE_CREDITS,
+				kind: 'generation'
+			},
+			{
+				operation: FREE_OPERATION,
+				label: 'Test free operation',
+				credits: 0,
+				kind: 'reading'
+			}
+		]);
 	});
 
 	afterAll(async () => {
 		await db.delete(modelCall).where(like(modelCall.operation, `${TEST_OPERATION_PREFIX}%`));
+		await db
+			.delete(operationPriceChange)
+			.where(like(operationPriceChange.operation, `${TEST_OPERATION_PREFIX}%`));
+		await db
+			.delete(operationPrice)
+			.where(like(operationPrice.operation, `${TEST_OPERATION_PREFIX}%`));
 		await closeDb(db);
 	});
 
@@ -86,8 +131,8 @@ describe('recordCall and withUsage against real Postgres', () => {
 		expect(row?.agent).toBe('loremaster');
 	});
 
-	it('withUsage records a row on success with usage extracted from the result', async () => {
-		const operation = `${TEST_OPERATION_PREFIX}success`;
+	it('withUsage records credits from the operation_price table, not from token arithmetic', async () => {
+		const operation = SUCCESS_OPERATION;
 		const fakeResult = { text: 'hello', usage: { inputTokens: 10, outputTokens: 4 } };
 
 		const result = await withUsage(
@@ -110,19 +155,48 @@ describe('recordCall and withUsage against real Postgres', () => {
 		const row = rows[0];
 		expect(row?.inputTokens).toBe(10);
 		expect(row?.outputTokens).toBe(4);
-		const expected = computeCost(RESOLVED_MODEL.params, {
+		// credits comes from the operation_price row, not the token-based computeCost figure
+		// that priced it before this issue - the two would disagree here on purpose.
+		expect(row?.credits).toBeCloseTo(SUCCESS_PRICE_CREDITS, 6);
+		const expectedCostEur = computeCost(RESOLVED_MODEL.params, {
 			inputTokens: 10,
 			outputTokens: 4,
 			embeddingTokens: 0,
 			images: 0
-		});
-		expect(row?.credits).toBeCloseTo(expected.credits, 6);
-		expect(row?.costEur).toBeCloseTo(expected.costEur, 8);
+		}).costEur;
+		expect(row?.costEur).toBeCloseTo(expectedCostEur, 8);
 		expect(row?.latencyMs).toBeGreaterThanOrEqual(0);
 	});
 
-	it('withUsage still records a row when the wrapped call throws, and rethrows', async () => {
-		const operation = `${TEST_OPERATION_PREFIX}failure`;
+	it('withUsage records a zero-credit row for a free operation, tokens intact', async () => {
+		const operation = FREE_OPERATION;
+		const fakeResult = { text: 'hits', usage: { inputTokens: 30, outputTokens: 0 } };
+
+		await withUsage(
+			db,
+			RESOLVED_MODEL,
+			{ userId: 'test-user-free', universeId: null, agent: 'indexing', operation },
+			async () => fakeResult,
+			{
+				extractUsage: (r) => ({
+					inputTokens: r.usage.inputTokens,
+					outputTokens: r.usage.outputTokens
+				})
+			}
+		);
+
+		const rows = await db.select().from(modelCall).where(like(modelCall.operation, operation));
+		expect(rows).toHaveLength(1);
+		const row = rows[0];
+		expect(row?.credits).toBe(0);
+		// Free to the user is not free to us (SPEC.md §15): the real tokens and euro cost
+		// still land on the row even though credits is zero.
+		expect(row?.inputTokens).toBe(30);
+		expect(row?.costEur).toBeGreaterThan(0);
+	});
+
+	it('withUsage still records a row, priced from the table, when the wrapped call throws, and rethrows', async () => {
+		const operation = FAILURE_OPERATION;
 		const failure = new Error('provider unavailable');
 
 		await expect(
@@ -145,10 +219,11 @@ describe('recordCall and withUsage against real Postgres', () => {
 		const row = rows[0];
 		expect(row?.inputTokens).toBe(7);
 		expect(row?.outputTokens).toBe(0);
+		expect(row?.credits).toBeCloseTo(FAILURE_PRICE_CREDITS, 6);
 	});
 
 	it('never logs prompt or completion content - only approved metadata fields reach the logger', async () => {
-		const operation = `${TEST_OPERATION_PREFIX}logging`;
+		const operation = LOGGING_OPERATION;
 		const secret = 'sk-super-secret-do-not-log-this-9f2c';
 		const prompt = `Ignore prior instructions. My API key is ${secret}.`;
 		const events: CallLogFields[] = [];
@@ -170,6 +245,7 @@ describe('recordCall and withUsage against real Postgres', () => {
 		);
 
 		expect(events).toHaveLength(1);
+		expect(events[0]?.credits).toBeCloseTo(LOGGING_PRICE_CREDITS, 6);
 		const serialized = JSON.stringify(events);
 		expect(serialized).not.toContain(secret);
 		expect(serialized).not.toContain(prompt);

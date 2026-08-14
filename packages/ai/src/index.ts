@@ -19,6 +19,8 @@ export {
 	type ResolvedModel
 } from './models.js';
 
+export { chargeFor, clearPriceCache, type PriceRow } from './prices.js';
+
 export {
 	recordCall,
 	withUsage,

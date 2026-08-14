@@ -181,9 +181,12 @@ const UX_REGISTER = [
     q: 'Every paid action, above a threshold, or once and then a meter?', w: 'now', i: [66, 88, 30],
     d: 'A', dn: 'Confirm every paid action' },
 
-  /* Round three: one question, and only because G9 made it structural. */
+  /* Round three: one question, opened by G9 and answered with a mechanism none of its
+     options had. */
   { s: 'Round three', id: 'H1', f: 'h1-what-off-is-called.html', t: 'What the switch is called when off still spends',
-    q: 'G9 keeps retrieval running with the AI off, so what is that switch named, what does the sentence beside it promise, and does reading count against the quota?', w: 'now', i: [107, 88, 109] },
+    q: 'G9 keeps retrieval running with the AI off, so what is that switch named, what does the sentence beside it promise, and does reading count against the quota?', w: 'now', i: [107, 88, 109, 113],
+    d: 'B', dn: 'Reading is free, and every price lives in a table',
+    dnote: 'Answered by removing the problem rather than by wording around it. Reading is free: embeddings, semantic search, mention suggestions and the retrieval behind an Ask never draw on the quota, so the meter no longer moves for a universe whose switch is off and B\'s half of the question is settled. The switch is named for what it stops, writing, which was A\'s half. The mechanism is neither option\'s: the credit price of every operation lives in an `operation_price` row an admin edits, a price of zero is how something becomes free, and an unpriced operation fails loudly. Free to the user is still recorded at full cost to us, because the margin question is answered from those rows. In SPEC 15 and guardrail 4, and built in #113.' },
 ];
 
 const KEY = (id) => `canonry.ux.${id}`;

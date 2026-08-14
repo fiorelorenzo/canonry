@@ -1,15 +1,25 @@
 /**
- * Cost accounting (SPEC 11.5): every model call is attributed - user,
- * universe, agent, operation, input/output/embedding tokens, credits. This is
- * the only place `model_call` rows are written, and `withUsage` is the only
- * place a caller should reach for: it wraps the actual AI SDK call, measures
- * latency, extracts usage from the result, prices it against the resolved
- * model's params, and records the row even when the call throws - the
+ * Cost accounting (SPEC.md §11.5, §15, issue #113): every model call is attributed -
+ * user, universe, agent, operation, input/output/embedding tokens, credits, euro cost.
+ * This is the only place `model_call` rows are written, and `withUsage` is the only
+ * place a caller should reach for: it wraps the actual AI SDK call, measures latency,
+ * extracts usage from the result, and records the row even when the call throws - the
  * provider already spent tokens processing the request before it failed.
+ *
+ * `credits` and `cost_eur` answer different questions and are priced two different ways.
+ * `credits` is what the user's quota is charged, resolved through `chargeFor` from
+ * `operation_price` - a flat, admin-editable price per operation, never derived from
+ * token counts, so reading operations charge exactly zero and a price change takes
+ * effect without a deploy. `cost_eur` is what the call actually cost us against the
+ * resolved model's real per-token/per-image rates (`computeCost`) - the margin question
+ * in SPEC.md §15 ("free to the user is not free to us") is answered by comparing the two
+ * columns on the same row, which is why both are always recorded, even for a zero-credit
+ * call.
  */
 import type { Db } from '@canonry/db';
 import { modelCall, type ModelCallAgent } from '@canonry/db/schema';
 import type { ModelParams, ResolvedModel } from './models.js';
+import { chargeFor } from './prices.js';
 import { logger as defaultLogger, type Logger } from './logger.js';
 
 export type { ModelCallAgent };
@@ -122,12 +132,16 @@ export async function withUsage<T>(
 	const log = options.logger ?? defaultLogger;
 	const requestId = meta.requestId ?? null;
 	const startedAt = performance.now();
+	// Resolved once, ahead of the call: the price is the same regardless of how fn()
+	// turns out, and an unpriced operation should fail before we spend the model call at
+	// all rather than after (SPEC.md §15 - nothing chargeable ships unpriced).
+	const { credits } = await chargeFor(db, meta.operation);
 
 	try {
 		const result = await fn();
 		const latencyMs = Math.round(performance.now() - startedAt);
 		const usage = normalizeUsage(options.extractUsage(result));
-		const { credits, costEur } = computeCost(model.params, usage);
+		const { costEur } = computeCost(model.params, usage);
 
 		await recordCall(db, {
 			userId: meta.userId,
@@ -164,7 +178,7 @@ export async function withUsage<T>(
 	} catch (error) {
 		const latencyMs = Math.round(performance.now() - startedAt);
 		const usage = normalizeUsage(options.extractUsageOnError?.(error) ?? {});
-		const { credits, costEur } = computeCost(model.params, usage);
+		const { costEur } = computeCost(model.params, usage);
 
 		await recordCall(db, {
 			userId: meta.userId,

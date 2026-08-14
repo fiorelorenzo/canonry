@@ -72,8 +72,12 @@ violates one of them is wrong even if it passes its tests.
    revisions record whether a change was human or an accepted AI proposal.
 3. **Every proposal shows its evidence** — which entry, which sentence. Never an
    arbitrary confidence score (`07`).
-4. **The AI switches off completely**, and what remains is a good wiki. Someone who
-   turns everything off must still get their money's worth.
+4. **The AI switches off completely.** The switch stops **generation**: text, images,
+   proposals, warming, anything a model writes. What keeps running is what only
+   reads, since it costs the user nothing (§15): search over their own canon, mention
+   suggestions, and a derived universe's read of its base corpus. Someone who turns
+   generation off must still get their money's worth, and a wiki that cannot search
+   itself is not a good wiki.
 5. **Data transparency**: which provider sees campaign content, what retention,
    no training on customer data, stated in plain words (`06`).
 6. **Nothing unreviewed is ever published to players.**
@@ -792,6 +796,24 @@ visible budget line, because it spends the model when nobody is watching and an
 invisible spend is how a quota loses its meaning. **Imports** carry both a currency
 ceiling and a fair-use quota in jobs and documents (§6.7), and when the import runs
 on the user's own agent through Spole they draw on neither.
+
+**What costs credits, and what does not.** Reading is free. Embeddings, semantic
+search and the retrieval behind an Ask never draw on the user's quota, and that is a
+product decision rather than an accounting oversight: retrieval is what makes this a
+wiki rather than a folder, it is cheap per call, and charging for it would make the
+honest thing (searching your own canon) feel expensive. What costs credits is
+**generation**: a drafted entry, a propagation diff, an Ask's answer, an image, an
+ambient layer, an import's extraction. Free to the user is not free to us, so a
+zero-credit call is still recorded in full with its tokens and its euro cost (§11.5),
+because the margin question is answered from those rows and nowhere else.
+
+**The price of every chargeable operation lives in the database, not in the code.** A
+single table maps an operation to its credit price, an admin surface edits it, and a
+change takes effect without a deploy, which is the same shape ai-game already uses for
+its model configuration (§9, §11.1). Two consequences worth stating: a price of zero
+is a legitimate value and is how an operation becomes free without a code change, and
+the quota meter of decision F2 counts what the table says, so an operation nobody has
+priced must fail loudly rather than silently charge nothing.
 
 ## 16. Open decisions
 

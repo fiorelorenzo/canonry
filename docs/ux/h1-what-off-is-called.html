@@ -24,6 +24,13 @@
   .banner.warn b { color: var(--warn); }
   .banner.ok { border-color: var(--ok-bg); background: var(--ok-bg); }
   .banner.ok b { color: var(--ok); }
+  .pricetbl { width: 100%; border-collapse: collapse; font-size: 12.5px; max-width: 620px; }
+  .pricetbl th { text-align: left; font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line-2); }
+  .pricetbl td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .pricetbl tr:last-child td { border-bottom: 0; }
+  .pricetbl td.op { font: 600 12px var(--mono); white-space: nowrap; }
+  .pricetbl td.cr { font: 600 12px var(--mono); text-align: right; }
+  .pricetbl tr.sect td { font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--ink); background: var(--panel-2); padding: 10px 10px 10px 0; }
 </style>
 </head>
 <body data-decision="H1">
@@ -58,6 +65,73 @@
     <tr><td class="yes">"Retrieval for this universe doesn't draw on your included quota."</td><td class="no">"No cost while this is off." (true only if reading is actually free; false for options where it still spends)</td></tr>
     <tr><td class="yes">"Reading (on): search still spends from Included quota."</td><td class="no">"Everything is off." (true only once the reading line is also off)</td></tr>
   </table>
+</section>
+
+<section>
+  <h2>Decided</h2>
+  <div class="callout rec">
+    <h3>Reading free, generation charged, price per operation lives in a table, taken on 2026-08-14</h3>
+    <p>None of the three options as drawn. The switch is renamed the way <b>A</b> argued, because a label
+    has to say what it does: <b>Stop writing</b>, not <b>AI off</b>. But the spend rule underneath is
+    <b>B</b>'s, not A's: reading never draws on the included quota, for every universe, switch on or off,
+    not only as an exception carved out for the switched-off case. Embeddings, semantic search, mention
+    suggestions and the retrieval behind an Ask answer are free because they only read; drafted entries,
+    propagation diffs, Ask's own answer, images, ambient layers and import extraction are charged because
+    they write or call a model to produce something new. That is guardrail 4's "still a good wiki" made
+    literal: the wiki half of the product costs nothing, the copilot half does.</p>
+    <p>The mechanism is the part no option drew. The price of every one of those operations lives in one
+    database table, <code>operation_price</code>, that an admin edits from the panel <a
+    href="f5-metrics-dashboard.html">F5</a> already put inside the product. An edit there takes effect
+    without a deploy, the same request a minute later resolves the new number, and every change writes an
+    audit row naming who changed it and what it was before. A missing price is not a silent zero: the
+    operation fails loudly and names itself, so nothing ships chargeable and unpriced by accident. That is
+    also what makes B's cost, tying "free" to a hardcoded exception nobody can retune, not a real cost
+    here: reading is free because its row in the table says 0, the same mechanism that prices everything
+    else, not a special case bolted onto the meter.</p>
+    <p>The switch's copy, settled: the label reads <b>Stop writing</b>, not <b>AI off</b>, because the
+    thing it stops is generation, not the AI as a category. The sentence beside it: "Search and mention
+    suggestions keep reading this universe, and cost nothing." Two claims, both literally true under this
+    table: what keeps working (reading), and that it costs nothing (its price is zero, not merely
+    unmetered or hidden).</p>
+    <p>The three options below stay as drawn, including the two this decision borrows from and the C it
+    passed over, because the priced-table mechanism only makes sense against what it replaced.</p>
+  </div>
+  <figure class="mock mt24">
+    <div class="frame" style="padding:16px;max-width:640px">
+      <div class="tbar" style="margin-bottom:10px"><span class="crumb">Admin / <b>Pricing</b></span>
+        <span class="sp"></span><span class="badge">staff only</span></div>
+      <table class="pricetbl">
+        <thead><tr><th>Operation</th><th>Label</th><th>Credits</th></tr></thead>
+        <tbody>
+          <tr class="sect"><td colspan="3">Reading &middot; free</td></tr>
+          <tr><td class="op">index.embed</td><td>Embedding a saved entry</td><td class="cr">0.0000</td></tr>
+          <tr><td class="op">search.semantic</td><td>Semantic search query</td><td class="cr">0.0000</td></tr>
+          <tr><td class="op">mention.suggest</td><td>Mention / relation-type suggestion</td><td class="cr">0.0000</td></tr>
+          <tr><td class="op">ask.retrieval</td><td>Retrieval behind an Ask answer</td><td class="cr">0.0000</td></tr>
+          <tr class="sect"><td colspan="3">Generation</td></tr>
+          <tr><td class="op">ask.answer</td><td>Ask's generated answer</td><td class="cr">2.0000</td></tr>
+          <tr><td class="op">propagate.plan</td><td>Propagation plan</td><td class="cr">1.0000</td></tr>
+          <tr><td class="op">propagate.diff</td><td>Propagation diff, per entry</td><td class="cr">1.0000</td></tr>
+          <tr><td class="op">entry.complete</td><td>Drafted entry</td><td class="cr">2.0000</td></tr>
+          <tr><td class="op">audit.flag</td><td>Audit flag draft</td><td class="cr">1.0000</td></tr>
+          <tr><td class="op">image.portrait</td><td>Portrait image</td><td class="cr">3.0000</td></tr>
+          <tr><td class="op">image.variants</td><td>Extra portrait variant set</td><td class="cr">4.0000</td></tr>
+          <tr><td class="op">audio.layer</td><td>Ambient audio layer, per layer</td><td class="cr">3.0000</td></tr>
+          <tr><td class="op">warm.brief</td><td>Warm scene brief</td><td class="cr">1.0000</td></tr>
+          <tr><td class="op">warm.npc_draft</td><td>Warm NPC draft</td><td class="cr">1.0000</td></tr>
+          <tr class="sect"><td colspan="3">Import</td></tr>
+          <tr><td class="op">import.document</td><td>Import extraction, per document</td><td class="cr">0.1916</td></tr>
+        </tbody>
+      </table>
+      <p class="small muted" style="margin-top:10px">Edited here, in effect without a deploy: a save
+      writes the new price and clears the cache that <code>@canonry/ai</code> reads it through, and an
+      audit row records the old number, the new one and who made the change.</p>
+    </div>
+    <figcaption>The admin surface <a href="f5-metrics-dashboard.html">F5</a> already decided, its first
+    room: reading priced at zero, generation and import priced per operation, all of it one edit away
+    from changing. Propagation's 1 + 10 &times; 1 is the fixture's 11 credit plan; two ambient layers at
+    3 each is the fixture's 6; 214 imported documents at 0.1916 each is the fixture's 41.</figcaption>
+  </figure>
 </section>
 
 <section>

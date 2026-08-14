@@ -1,7 +1,7 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { closeDb, type Db } from '@canonry/db';
-import { modelCall } from '@canonry/db/schema';
+import { modelCall, operationPrice, operationPriceChange } from '@canonry/db/schema';
 import { like } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { GatewayCredentials } from './gateway.js';
@@ -10,6 +10,11 @@ import { generateImage, ReplicateRequestError } from './replicate.js';
 import { openTestDb } from './test-db.js';
 
 const TEST_OPERATION_PREFIX = 'canonry-ai-test-replicate-';
+// withUsage now prices every call from operation_price (issue #113); 3 credits matches
+// image.portrait's real seeded price, so the success test's credits assertion below still
+// reads as a realistic number rather than an arbitrary fixture.
+const SUCCESS_PRICE_CREDITS = 3;
+const FAILURE_PRICE_CREDITS = 3;
 
 const IMAGE_MODEL: ResolvedModel = {
 	purpose: 'image',
@@ -29,12 +34,32 @@ describe('generateImage', () => {
 	}>;
 	let respond: (req: http.IncomingMessage, res: http.ServerResponse) => void;
 
-	beforeAll(() => {
+	beforeAll(async () => {
 		db = openTestDb();
+		await db.insert(operationPrice).values([
+			{
+				operation: `${TEST_OPERATION_PREFIX}success`,
+				label: 'Test replicate success',
+				credits: SUCCESS_PRICE_CREDITS,
+				kind: 'generation'
+			},
+			{
+				operation: `${TEST_OPERATION_PREFIX}failure`,
+				label: 'Test replicate failure',
+				credits: FAILURE_PRICE_CREDITS,
+				kind: 'generation'
+			}
+		]);
 	});
 
 	afterAll(async () => {
 		await db.delete(modelCall).where(like(modelCall.operation, `${TEST_OPERATION_PREFIX}%`));
+		await db
+			.delete(operationPriceChange)
+			.where(like(operationPriceChange.operation, `${TEST_OPERATION_PREFIX}%`));
+		await db
+			.delete(operationPrice)
+			.where(like(operationPrice.operation, `${TEST_OPERATION_PREFIX}%`));
 		await closeDb(db);
 	});
 

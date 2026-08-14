@@ -72,18 +72,22 @@
   which is the set working rather than failing: A1 took the reading room and repainted
   everything here, G2 took serif all the way down to the number columns, and G9 kept
   retrieval running with the AI off.</p>
-  <p><b>One question is open.</b> H1, in round three, exists only because G9 made it
-  structural: if a universe with the AI switched off still spends the quota through
-  search and still sends content to an embedding provider, then the name of that switch
-  and the sentence beside it are load-bearing rather than cosmetic. It is the last thing
-  in the way of #107's wording, and nothing else in the UI is waiting on a decision.</p>
+  <p><b>Nothing is open.</b> H1, the last one, was answered on 2026-08-14 by removing the
+  problem rather than wording around it: reading is free, so the meter no longer moves for
+  a universe whose switch is off, the switch is named for what it stops (writing), and the
+  credit price of every operation lives in a table an admin edits. That is larger than the
+  question asked, which is what a good answer to a decision like this looks like. It is in
+  <a href="https://github.com/fiorelorenzo/canonry/blob/main/SPEC.md">SPEC.md</a> at
+  guardrail 4 and section 15, and built as
+  <a href="https://github.com/fiorelorenzo/canonry/issues/113">#113</a>.</p>
   <ol class="steps">
-    <li>Open <a href="h1-what-off-is-called.html">H1</a>, which is the only page still
-    carrying Choose buttons.</li>
-    <li>Press the button for the option you want and write one line saying why. It is
-    stored in this browser, nowhere else.</li>
-    <li>Come back here and press <b>Export</b>, then paste the markdown back to me and I
-    fold it into <code>DECISIONS.md</code>, the register and the issues.</li>
+    <li>Every page in the register shows what was chosen at the top, and keeps its options
+    and its rejected section underneath, because the reasoning behind an option that lost
+    is what stops it being reopened.</li>
+    <li>To change a decision, edit <code>DECISIONS.md</code> and the register in
+    <code>assets/ux.js</code> together, and say so on the issues it blocks.</li>
+    <li>A new question goes in as its own artifact, in the same shape, rather than as a
+    paragraph in an issue nobody reads twice.</li>
   </ol>
   <div class="callout guard">
     <p><span class="guardref">Guardrails 1 to 7</span> are constraints on all of this,

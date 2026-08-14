@@ -5,3 +5,4 @@ export * from './relation.js';
 export * from './revision.js';
 export * from './fact.js';
 export * from './model.js';
+export * from './prices.js';

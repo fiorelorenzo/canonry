@@ -55,3 +55,13 @@ export const modelCallAgentEnum = pgEnum('model_call_agent', [
 	'indexing'
 ]);
 export type ModelCallAgent = (typeof modelCallAgentEnum.enumValues)[number];
+
+// SPEC.md §15, issue #113: what a priced operation is, for the admin panel's grouping
+// and for the seeded catalogue - reading stays at zero, generation and import are what
+// actually gets priced.
+export const operationPriceKindEnum = pgEnum('operation_price_kind', [
+	'generation',
+	'reading',
+	'import'
+]);
+export type OperationPriceKind = (typeof operationPriceKindEnum.enumValues)[number];

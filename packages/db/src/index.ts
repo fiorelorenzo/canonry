@@ -3,6 +3,14 @@ export { runMigrations } from './migrate.js';
 export { factWithSource, type FactWithSource } from './queries/facts.js';
 export { relationsFor, type RelationView } from './queries/relations.js';
 export { historyFor } from './queries/revisions.js';
+export {
+	priceOf,
+	setPrice,
+	listPrices,
+	OperationNotPricedError,
+	type PriceRow,
+	type SetPriceInput
+} from './queries/prices.js';
 
 /**
  * The query operators, re-exported from the one drizzle this workspace installs.

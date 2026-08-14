@@ -173,17 +173,43 @@ named: the meter keeps moving for a universe whose badge says off, and that univ
 content still leaves for an embedding provider. That makes the switch's name and the
 sentence beside it load-bearing, which is the whole of round three.
 
-## Round three
+## Round three, decided 2026-08-14
 
-| Id | Question | State |
+| Id | Question | Chosen |
 | --- | --- | --- |
-| H1 | What the switch is called when off still spends, what the sentence beside it promises, and whether reading counts against the quota | open, blocks #107, #88, #109 |
+| H1 | What the switch is called when off still spends, and whether reading counts against the quota | **B's half, with a mechanism neither option had: reading is free, and every price lives in a table an admin edits** |
+
+H1 was answered by removing the problem rather than by wording around it, and the
+answer is larger than the question:
+
+- **Reading is free.** Embeddings, semantic search, mention suggestions and the
+  retrieval behind an Ask never draw on the user's quota. Charging for retrieval would
+  make searching your own canon feel expensive, and retrieval is what makes this a wiki
+  rather than a folder. G9's one real cost, a meter that kept moving for a universe
+  whose badge said off, is therefore gone rather than accepted.
+- **Generation is charged**: drafted entries, propagation plans and diffs, Ask answers,
+  images, ambient layers, warm drafts, and an import's extraction per document.
+- **The switch is named for what it stops.** Writing, not "AI", because with reading
+  still running the word "off" was overclaiming. Guardrail 4 in `SPEC.md` now says this
+  in the spec rather than only in a settings string.
+- **Every price lives in `operation_price`**, one row per operation, editable from an
+  admin panel, in effect without a deploy. A price of zero is how an operation becomes
+  free, and an operation nobody has priced fails loudly rather than silently charging
+  nothing. The pattern is ai-game's `credit_costs`, minus four of its choices: integer
+  prices, a missing price returning null, no audit trail on a change, and a cache long
+  enough that an admin edit looks broken.
+- **Free to the user is not free to us.** A zero-credit call still records its tokens
+  and its euro cost, because the margin question is answered from those rows and
+  nowhere else.
+
+In the spec at guardrail 4 and section 15, and built as issue #113.
 
 ## What these answers unblock
 
-Every surface in the inventory now has its gate answered. Nothing in the UI is waiting
-on a decision except the copy of one settings row, which H1 owns and which blocks the
-wording of #107 and the meter's behaviour in #88, not their construction.
+Every surface in the inventory has its gate answered, and no decision is open. #107's
+switch has both its scope (per universe) and its meaning (stops generation), #88's
+meter counts what the price table says, and the admin surface F5 chose now has its
+first room.
 
 Ready to start, with the decisions that govern them: #104 app shell (A1, A2, G1, G2,
 G3), #105 entry and editor (B1, B2, G4), #106 AI marking (C1, in both palettes now),

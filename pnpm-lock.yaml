@@ -14,6 +14,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@canonry/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@canonry/db':
         specifier: workspace:*
         version: link:../../packages/db
