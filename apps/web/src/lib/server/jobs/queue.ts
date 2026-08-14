@@ -1,64 +1,43 @@
 /**
- * A generic in-process, debounced, concurrency-limited job queue keyed by an arbitrary
- * string. `canon-save.ts` is the one instantiation this app needs right now (SPEC.md
- * §5.1/§5.2: propagation and audit run "on save, debounced, in the background"), but the
- * debounce/dedupe/concurrency-limiting logic has nothing to do with canon, so it lives
- * here on its own rather than tangled into the copilot wiring - a second background
- * trigger this product grows later has somewhere to plug in without re-deriving this.
+ * Generic poll/claim/lease loop (issue #115). This is the durable replacement for the
+ * `DebouncedJobQueue` that used to live here: a per-key debounce timer and an in-flight
+ * set held in one process's memory, correct for a single container but silently losing a
+ * run on restart and unable to coalesce across two instances behind a proxy.
  *
- * Shape mirrors `table-stream.ts`'s own in-process state (a module-level Map, one
- * process, no cross-instance fan-out) rather than inventing a new convention for holding
- * server-side state that has to survive one request but not the process: `TableEventBus`
- * keeps one bus per universe in memory because SPEC.md §12 runs one web container per
- * stack today; this keeps one debounce/run state per job key for the same reason, and for
- * the same reason it is not durable across a restart.
- *
- * That is a real limit, not a decision this file hides: a horizontally-scaled deployment
- * (more than one web replica) needs a durable, shared queue - a Postgres-backed job table
- * a worker polls, or a real broker - so that debounce coalescing and the concurrency cap
- * apply across the whole fleet instead of once per replica, each blind to what the others
- * are doing. Until this product runs more than one web container, this is the honest,
- * unglamorous version of "on save, debounced, in the background."
+ * The debounce window, the coalescing and the lease are not this file's job any more -
+ * they live in Postgres (`canon-save.ts`'s `store.ts`: `run_after`, the partial unique
+ * index on a pending row's key, `lease_holder`/`lease_expires_at`), because that is what
+ * makes them authoritative across every instance instead of per-process. What is left
+ * here is domain-agnostic on purpose, same as the file it replaces: ask a store for the
+ * next due row, run it, repeat, never more than `maxConcurrent` at once. A second durable
+ * trigger this product grows later has somewhere to plug in without re-deriving that loop
+ * - it only has to bring its own `DurableQueueHandlers`.
  */
+import { randomUUID } from 'node:crypto';
 
-export interface JobQueueOptions {
-	/** Quiet period after the last `schedule()` call for a key before its job runs. A few
-	 * seconds is long enough to coalesce a burst of saves from one person typing and short
-	 * enough that "in the background" still feels prompt (SPEC.md §5.1/§5.2 says only
-	 * "debounced", not a number). */
-	debounceMs: number;
-	/** Hard cap on how many jobs run at once across every key in this queue - the explicit
-	 * concurrency limit a background runner needs so a burst of saves across many entities
-	 * cannot fan out into an unbounded number of simultaneous premium-model calls. */
+export interface DurableQueueOptions {
+	/** How often an idle worker polls for the next due row, once nothing is claimable
+	 * right now. Independent of the debounce window a store enforces - this only affects
+	 * how promptly a job is picked up after it actually becomes due. */
+	pollIntervalMs: number;
+	/** Hard cap on simultaneous runs in this process - the same concurrency limit the
+	 * in-memory queue enforced, now per-instance rather than global (each instance polls
+	 * for its own share of whatever is due). */
 	maxConcurrent: number;
 }
 
-export interface JobQueueHandlers<TInput> {
-	/** Runs one job. Must never let a rejection escape - this is a fire-and-forget
-	 * background caller with nobody to hand a rejection to, so a caller that lets one
-	 * through gets it swallowed by `runWithSlot`'s defensive catch, silently, which is
-	 * worse than handling it. `canon-save.ts`'s executor catches each engine call itself
-	 * and records the outcome instead of relying on that fallback. */
-	execute(input: TInput): Promise<void>;
-	/** Combines a newer call's input into whatever is still accumulating for a burst still
-	 * inside its debounce window, or still running. Lets each instantiation decide what
-	 * "the latest state" means for its own input shape - `canon-save.ts` keeps the burst's
-	 * original `oldBody` and only ever advances `newBody`, so five saves in a row diff the
-	 * body from before the first one against the body after the last one, not five
-	 * one-save-each diffs. */
-	merge(accumulated: TInput, next: TInput): TInput;
-	/** Called the moment a run actually starts, to reset the baseline anything arriving
-	 * *during* that run should build on. Without this, a save landing while a run is in
-	 * flight would merge onto the pre-run baseline, and the follow-up run would re-diff
-	 * territory the running job already covered. */
-	settle(ranInput: TInput): TInput;
-}
-
-interface KeyState<TInput> {
-	timer: NodeJS.Timeout | undefined;
-	input: TInput;
-	running: boolean;
-	rerunPending: boolean;
+export interface DurableQueueHandlers<TRow> {
+	/** Atomically claims and leases the next due row, or `null` when nothing is claimable
+	 * right now. Also responsible for dead-lettering a row whose attempt cap is already
+	 * exhausted instead of ever handing it out again - see `store.ts`'s
+	 * `claimNextCanonSaveJob` for what "due" and "exhausted" mean for this app's one
+	 * durable queue. */
+	claimNext(leaseHolder: string): Promise<TRow | null>;
+	/** Runs one claimed row to completion, including recording its own outcome. Must
+	 * never let a rejection escape - this is a fire-and-forget background loop with
+	 * nobody to hand a rejection to, same contract the old in-memory queue's `execute`
+	 * had. */
+	run(row: TRow): Promise<void>;
 }
 
 async function delay(ms: number): Promise<void> {
@@ -67,123 +46,58 @@ async function delay(ms: number): Promise<void> {
 	return promise;
 }
 
-export class DebouncedJobQueue<TInput> {
-	private readonly keys = new Map<string, KeyState<TInput>>();
-	private readonly waiters: Array<() => void> = [];
+/** One instance polls with one lease identity (`id`) - the value a reclaimed row's
+ * previous `lease_holder` names in `psql`, and the value this instance's own claims carry
+ * while they are running. */
+export class DurableJobPoller<TRow> {
+	private readonly leaseHolder = randomUUID();
 	private activeCount = 0;
+	private stopping = false;
+	private loop: Promise<void> | undefined;
 
 	constructor(
-		private readonly options: JobQueueOptions,
-		private readonly handlers: JobQueueHandlers<TInput>
+		private readonly options: DurableQueueOptions,
+		private readonly handlers: DurableQueueHandlers<TRow>
 	) {}
 
-	/** Coalesces on `key`: every call inside the debounce window collapses into one job
-	 * covering the whole burst. A call that lands while a job for this key is already
-	 * running (or already queued for a concurrency slot) never starts a second one for
-	 * that key - it marks exactly one follow-up, however many calls arrive before the
-	 * running job finishes. */
-	schedule(key: string, input: TInput): void {
-		const existing = this.keys.get(key);
-		if (!existing) {
-			const state: KeyState<TInput> = {
-				timer: undefined,
-				input,
-				running: false,
-				rerunPending: false
-			};
-			state.timer = setTimeout(() => this.onDebounceElapsed(key), this.options.debounceMs);
-			this.keys.set(key, state);
-			return;
-		}
-		existing.input = this.handlers.merge(existing.input, input);
-		clearTimeout(existing.timer);
-		existing.timer = setTimeout(() => this.onDebounceElapsed(key), this.options.debounceMs);
+	get id(): string {
+		return this.leaseHolder;
 	}
 
-	private onDebounceElapsed(key: string): void {
-		const state = this.keys.get(key);
-		if (!state) return;
-		state.timer = undefined;
-		if (state.running) {
-			// A job for this key is already running (or already committed to a concurrency
-			// slot) - do not start a second one. One follow-up, regardless of how many times
-			// this branch is hit before that job finishes.
-			state.rerunPending = true;
-			return;
-		}
-		this.startRun(key, state);
+	/** Idempotent: a second call while already running is a no-op. */
+	start(): void {
+		if (this.loop) return;
+		this.stopping = false;
+		this.loop = this.runLoop();
 	}
 
-	private startRun(key: string, state: KeyState<TInput>): void {
-		state.running = true;
-		const input = state.input;
-		// Reset the baseline now, not when the run finishes: anything scheduled while this
-		// run is executing should build on what this run is *about* to account for, not on
-		// the whole history back to the start of the previous burst.
-		state.input = this.handlers.settle(input);
+	/** Graceful shutdown: stops claiming new rows and waits for whatever this instance
+	 * already has in flight to actually finish. Standing in for a real process exit
+	 * (which the "kill your dev server mid-run" verification instead does for real) - a
+	 * genuine crash never gets to run this, which is exactly the case the lease exists
+	 * for. */
+	async stop(): Promise<void> {
+		this.stopping = true;
+		await this.loop;
+		this.loop = undefined;
+		while (this.activeCount > 0) await delay(10);
+	}
 
-		void this.runWithSlot(input).finally(() => {
-			state.running = false;
-			if (state.rerunPending) {
-				state.rerunPending = false;
-				this.startRun(key, state);
-				return;
+	private async runLoop(): Promise<void> {
+		while (!this.stopping) {
+			if (this.activeCount >= this.options.maxConcurrent) {
+				await delay(this.options.pollIntervalMs);
+				continue;
 			}
-			// Fully settled: drop the key rather than let the map grow with every entity
-			// ever saved once. The next save for this entity starts a clean burst from its
-			// own oldBody, exactly like the very first save for it would.
-			if (this.keys.get(key) === state) this.keys.delete(key);
-		});
-	}
-
-	private async runWithSlot(input: TInput): Promise<void> {
-		await this.acquireSlot();
-		try {
-			await this.handlers.execute(input);
-		} catch {
-			// Defensive only - `execute` is documented to catch its own errors. A throw here
-			// would be an unhandled rejection with nobody left to catch it.
-		} finally {
-			this.releaseSlot();
-		}
-	}
-
-	private acquireSlot(): Promise<void> {
-		if (this.activeCount < this.options.maxConcurrent) {
-			this.activeCount++;
-			return Promise.resolve();
-		}
-		const { promise, resolve } = Promise.withResolvers<void>();
-		this.waiters.push(() => {
-			this.activeCount++;
-			resolve();
-		});
-		return promise;
-	}
-
-	private releaseSlot(): void {
-		this.activeCount--;
-		const next = this.waiters.shift();
-		if (next) next();
-	}
-
-	/** True once every key has settled: no pending debounce timers, no runs in flight, no
-	 * queued follow-up, nobody waiting on a concurrency slot. Production code never calls
-	 * this - the whole point of the queue is that nobody waits on it - but a test that
-	 * schedules a burst needs a way to know the burst is fully done. */
-	isIdle(): boolean {
-		return this.keys.size === 0 && this.activeCount === 0 && this.waiters.length === 0;
-	}
-
-	/** Test-only: polls `isIdle()` rather than wiring a bespoke completion event onto a
-	 * queue whose entire production contract is fire-and-forget. */
-	async waitForIdle(timeoutMs = 5000): Promise<void> {
-		const start = Date.now();
-		while (!this.isIdle()) {
-			if (Date.now() - start > timeoutMs) {
-				throw new Error(`DebouncedJobQueue.waitForIdle: still not idle after ${timeoutMs}ms`);
+			const row = await this.handlers.claimNext(this.leaseHolder);
+			if (!row) {
+				await delay(this.options.pollIntervalMs);
+				continue;
 			}
-			await delay(10);
+			this.activeCount++;
+			void this.handlers.run(row).finally(() => {
+				this.activeCount--;
+			});
 		}
 	}
 }

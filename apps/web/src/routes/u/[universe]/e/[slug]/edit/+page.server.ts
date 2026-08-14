@@ -2,7 +2,6 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { type Db, eq, historyFor, universeAccessBySlug } from '@canonry/db';
 import { entity, revision } from '@canonry/db/schema';
 import { db } from '$lib/server/db';
-import { identityGateway, modelFactory } from '$lib/server/copilot';
 import { scheduleCanonSaveJob } from '$lib/server/jobs';
 import { normalizeMentions } from '$lib/markdown';
 import type { Actions, PageServerLoad } from './$types';
@@ -120,16 +119,13 @@ export const actions: Actions = {
 		// Fire and forget: the redirect below does not wait on it (`$lib/server/jobs`'s own
 		// header comment is the design note for why there is nothing to await here).
 		scheduleCanonSaveJob({
-			db: conn,
 			universeId: world.id,
 			entityId: current.id,
 			entityName: current.name,
 			userId,
 			oldBody: current.body,
 			newBody: body,
-			triggerRevisionId: insertedRevisionId,
-			modelFactory,
-			gateway: identityGateway
+			triggerRevisionId: insertedRevisionId
 		});
 
 		redirect(303, `/u/${params.universe}/e/${params.slug}`);

@@ -10,7 +10,7 @@
 </script>
 
 <svelte:head>
-	<title>Billing — Canonry</title>
+	<title>Billing: Canonry</title>
 </svelte:head>
 
 <main id="main" class="mx-auto max-w-measure px-8 py-10">

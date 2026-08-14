@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>Export — Canonry</title>
+	<title>Export: Canonry</title>
 </svelte:head>
 
 <main id="main" class="mx-auto max-w-measure px-8 py-10">

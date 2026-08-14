@@ -9,7 +9,7 @@
 </script>
 
 <svelte:head>
-	<title>Import guides — Canonry</title>
+	<title>Import guides: Canonry</title>
 </svelte:head>
 
 <DocPage title="Import guides" eyebrow="Docs" backHref={resolve('/docs')} backLabel="Docs">

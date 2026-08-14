@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.current.name} — Canonry</title>
+	<title>{data.current.name}: Canonry</title>
 </svelte:head>
 
 <div class="mx-auto max-w-3xl px-8 py-10">

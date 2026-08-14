@@ -141,7 +141,7 @@
 </script>
 
 <svelte:head>
-	<title>Ask — {data.current.name} — Canonry</title>
+	<title>Ask: {data.current.name}, Canonry</title>
 </svelte:head>
 
 <div class="flex h-screen">

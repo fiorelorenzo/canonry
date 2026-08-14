@@ -16,7 +16,7 @@
 	let activeNodeId = $derived(page.params.node ?? null);
 </script>
 
-<svelte:head><title>{data.work.name} — {data.current.name}</title></svelte:head>
+<svelte:head><title>{data.work.name}: {data.current.name}</title></svelte:head>
 
 <div class="flex min-h-full">
 	<aside

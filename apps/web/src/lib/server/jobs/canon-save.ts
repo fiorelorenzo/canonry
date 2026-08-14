@@ -3,8 +3,24 @@
  * This is the ignition the rest of `packages/copilot` never got wired to: every route
  * that writes a human-authored `revision` calls `scheduleCanonSaveJob` after its own
  * transaction commits, and this file is what actually runs `planPropagation` and
- * `runAudit` against that save, off the request/response cycle, through the debounce and
- * concurrency machinery in `queue.ts`.
+ * `runAudit` against that save, off the request/response cycle, through the durable
+ * poll/claim/lease machinery in `queue.ts` and the Postgres access in `store.ts`.
+ *
+ * Issue #115: the first version of this trigger kept its debounce window and in-flight
+ * set in one process's memory (`queue.ts`'s old `DebouncedJobQueue`), correct for a
+ * single container and silently wrong the moment a second one exists, or the one
+ * container restarts mid-run. `store.ts`'s `canon_save_job` table is what fixes both: a
+ * row per pending job, `run_after` for the (now cross-instance) debounce, and a lease so
+ * a crashed worker's job comes back instead of evaporating.
+ *
+ * `db`/`modelFactory`/`gateway` used to travel inside every scheduled job's own input,
+ * because the in-memory queue ran a job in the same process that scheduled it. Neither a
+ * live database handle nor an injected model factory can survive a restart or cross a
+ * process boundary through a Postgres row, so they moved to `createCanonSaveJobQueue`'s
+ * construction instead - supplied once, by whichever process is actually running the
+ * worker, the same way `$lib/server/db.ts`'s `db()` and `$lib/server/copilot.ts`'s
+ * `modelFactory` are process-level singletons already. `CanonSaveJobInput` (`store.ts`)
+ * keeps only what a Postgres row can actually hold.
  *
  * Two engines, two independent outcomes per job - a failure in one never blocks the
  * other, and both check guardrail 4 and spend independently before either runs
@@ -37,10 +53,25 @@
 import { AiDisabledError, planPropagation, runAudit } from '@canonry/copilot';
 import type { GatewayWrapper, ModelFactory } from '@canonry/copilot';
 import type { Db } from '@canonry/db';
-import { DebouncedJobQueue, type JobQueueOptions } from './queue.js';
+import { db } from '$lib/server/db';
+import { identityGateway, modelFactory } from '$lib/server/copilot';
+import { DurableJobPoller, type DurableQueueHandlers } from './queue.js';
+import {
+	claimNextCanonSaveJob,
+	completeCanonSaveJob,
+	recentCanonSaveJobRows,
+	scheduleCanonSaveJobRow,
+	statusesFor,
+	type CanonSaveJobRow
+} from './store.js';
+import type { CanonSaveJobInput, CanonSaveJobResult, EngineOutcome } from './store.js';
 
-export interface CanonSaveJobInput {
+export type { CanonSaveJobInput, CanonSaveJobResult, EngineOutcome } from './store.js';
+
+interface EngineRunInput {
 	db: Db;
+	modelFactory: ModelFactory;
+	gateway: GatewayWrapper;
 	universeId: string;
 	entityId: string;
 	entityName: string;
@@ -48,24 +79,6 @@ export interface CanonSaveJobInput {
 	oldBody: string;
 	newBody: string;
 	triggerRevisionId: string | null;
-	modelFactory: ModelFactory;
-	gateway: GatewayWrapper;
-}
-
-export type EngineOutcome =
-	| { status: 'ok'; planId: string }
-	| { status: 'no-change' }
-	| { status: 'ai-disabled' }
-	| { status: 'error'; errorName: string; message: string };
-
-export interface CanonSaveJobResult {
-	universeId: string;
-	entityId: string;
-	entityName: string;
-	startedAt: Date;
-	finishedAt: Date;
-	propagation: EngineOutcome;
-	audit: EngineOutcome;
 }
 
 /** Every failure that happens *inside* an actual model call already logs through
@@ -101,7 +114,7 @@ function describeEngineFailure(
 	return { status: 'error', errorName, message };
 }
 
-async function runPropagationEngine(input: CanonSaveJobInput): Promise<EngineOutcome> {
+async function runPropagationEngine(input: EngineRunInput): Promise<EngineOutcome> {
 	try {
 		const result = await planPropagation({
 			db: input.db,
@@ -121,7 +134,7 @@ async function runPropagationEngine(input: CanonSaveJobInput): Promise<EngineOut
 	}
 }
 
-async function runAuditEngine(input: CanonSaveJobInput): Promise<EngineOutcome> {
+async function runAuditEngine(input: EngineRunInput): Promise<EngineOutcome> {
 	try {
 		const result = await runAudit({
 			db: input.db,
@@ -139,84 +152,221 @@ async function runAuditEngine(input: CanonSaveJobInput): Promise<EngineOutcome> 
 	}
 }
 
-/** A burst still inside its debounce window (or a save landing while a run is in flight)
- * keeps the earliest `oldBody` and always advances to the newest `newBody` - five saves in
- * a row diff "before the first" against "after the last", one run, not five. Everything
- * else (actor, entity name, the revision to attribute the plan to) takes the latest save's
- * value, since that is genuinely what is true by the time the job runs. */
-function mergeCanonSaveInput(
-	accumulated: CanonSaveJobInput,
-	next: CanonSaveJobInput
-): CanonSaveJobInput {
-	return { ...next, oldBody: accumulated.oldBody };
-}
-
-/** Once a run starts, its own `newBody` becomes the baseline for anything that arrives
- * while it is executing, so a follow-up run diffs "since this run" rather than re-covering
- * territory the running job already accounted for. */
-function settleCanonSaveInput(ranInput: CanonSaveJobInput): CanonSaveJobInput {
-	return { ...ranInput, oldBody: ranInput.newBody };
-}
-
 const RECENT_JOBS_LIMIT = 200;
+// SPEC.md §5.1/§5.2's "a few seconds" debounce, unchanged from the in-memory version.
+const DEFAULT_DEBOUNCE_MS = 4000;
+const DEFAULT_MAX_CONCURRENT = 3;
+// Long enough that a real, slow multi-step model call never outlives its own lease and
+// gets reclaimed out from under a worker that is still legitimately running it - the
+// manual verification forces a lease to expire early with a direct `UPDATE` instead of
+// waiting this out in real time.
+const DEFAULT_LEASE_MS = 10 * 60_000;
+const DEFAULT_POLL_INTERVAL_MS = 500;
+const DEFAULT_MAX_ATTEMPTS = 5;
 
-/** One `DebouncedJobQueue` instance's whole public surface: schedule a save, and (test-
- * only) find out what it did. Exists as a factory rather than a single module-level
- * singleton so tests can build an isolated queue with a short debounce instead of sharing
- * timing with (or polluting the history of) the production one. */
+export interface JobQueueOptions {
+	/** Quiet period after the last `schedule()` call for a key before its job becomes due
+	 * - SPEC.md §5.1/§5.2 says only "debounced", not a number. Authoritative in Postgres
+	 * (`run_after`), not a per-process timer, which is the whole point of issue #115: two
+	 * instances scheduling the same key still produce one due job, not two. */
+	debounceMs: number;
+	/** Hard cap on how many jobs this instance runs at once. */
+	maxConcurrent: number;
+}
+
+export interface CanonSaveJobQueueOptions extends JobQueueOptions {
+	db: Db;
+	modelFactory: ModelFactory;
+	gateway: GatewayWrapper;
+	/** How long a claim's lease lasts before another worker may reclaim it. */
+	leaseMs?: number;
+	/** How often an idle worker polls Postgres for the next due job. */
+	pollIntervalMs?: number;
+	/** Reclaim attempts before a job dead-letters to `failed` instead of being retried
+	 * forever. */
+	maxAttempts?: number;
+}
+
+/** One durable queue's whole public surface: schedule a save, start/stop its worker, and
+ * (test/introspection only) wait for everything it scheduled to settle or read what it
+ * did. A factory rather than a single module-level singleton so tests can build an
+ * isolated queue with a short debounce and lease instead of sharing timing with (or
+ * polluting the history of) the production one - both now read the same shared table, so
+ * "isolated" means "tracks only the rows this instance's own `schedule()` calls touched",
+ * not a private in-memory copy. */
 export interface CanonSaveJobQueue {
 	schedule(input: CanonSaveJobInput): void;
+	/** Starts this instance's worker loop. Idempotent. */
+	start(): void;
+	/** Graceful shutdown: stops claiming new rows, waits for whatever is in flight to
+	 * finish. */
+	stop(): Promise<void>;
 	waitForIdle(timeoutMs?: number): Promise<void>;
-	recentJobs(limit?: number): CanonSaveJobResult[];
+	recentJobs(limit?: number): Promise<CanonSaveJobResult[]>;
 }
 
-export function createCanonSaveJobQueue(options: JobQueueOptions): CanonSaveJobQueue {
-	const recent: CanonSaveJobResult[] = [];
-	const queue = new DebouncedJobQueue<CanonSaveJobInput>(options, {
-		merge: mergeCanonSaveInput,
-		settle: settleCanonSaveInput,
-		async execute(input) {
-			const startedAt = new Date();
-			const [propagation, audit] = await Promise.all([
-				runPropagationEngine(input),
-				runAuditEngine(input)
-			]);
-			recent.push({
-				universeId: input.universeId,
-				entityId: input.entityId,
-				entityName: input.entityName,
-				startedAt,
-				finishedAt: new Date(),
-				propagation,
-				audit
-			});
-			if (recent.length > RECENT_JOBS_LIMIT) recent.shift();
-		}
-	});
+async function delay(ms: number): Promise<void> {
+	const { promise, resolve } = Promise.withResolvers<void>();
+	setTimeout(resolve, ms);
+	return promise;
+}
+
+export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): CanonSaveJobQueue {
+	const { db: conn, modelFactory: factory, gateway, debounceMs } = options;
+	const leaseMs = options.leaseMs ?? DEFAULT_LEASE_MS;
+	const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+	const tracked = new Set<string>();
+	// `schedule()` fires the insert/upsert and returns immediately (fire-and-forget, same
+	// contract the in-memory queue had) - a `waitForIdle()` called right after `schedule()`
+	// would otherwise see an empty `tracked` and return before the row even exists. This is
+	// what `waitForIdle` drains first, so it always observes the row `schedule()` is still
+	// in the middle of writing.
+	const pendingSchedules = new Set<Promise<void>>();
+
+	async function runClaimedJob(row: CanonSaveJobRow): Promise<void> {
+		const input: EngineRunInput = {
+			db: conn,
+			modelFactory: factory,
+			gateway,
+			universeId: row.universeId,
+			entityId: row.entityId,
+			entityName: row.entityName,
+			userId: row.userId,
+			oldBody: row.oldBody,
+			newBody: row.newBody,
+			triggerRevisionId: row.triggerRevisionId
+		};
+		const [propagation, audit] = await Promise.all([
+			runPropagationEngine(input),
+			runAuditEngine(input)
+		]);
+		await completeCanonSaveJob(conn, row.id, { propagation, audit });
+	}
+
+	const handlers: DurableQueueHandlers<CanonSaveJobRow> = {
+		claimNext: (leaseHolder) => claimNextCanonSaveJob(conn, { leaseHolder, leaseMs, maxAttempts }),
+		run: (row) =>
+			runClaimedJob(row).catch((err) => {
+				// Defensive only, mirroring the old in-memory queue's own `runWithSlot` catch:
+				// both engine calls already catch their own errors into an `EngineOutcome`, so
+				// reaching here means `completeCanonSaveJob` itself failed (a DB error mid-write).
+				// The row is left `claimed` - the lease reclaims and retries it exactly like a
+				// crashed worker, which is the honest thing to do with a failure this file
+				// cannot itself resolve.
+				console.error(
+					JSON.stringify({
+						event: 'canon_save_job_run_failed',
+						jobId: row.id,
+						universeId: row.universeId,
+						entityId: row.entityId,
+						message: err instanceof Error ? err.message : String(err)
+					})
+				);
+			})
+	};
+
+	const poller = new DurableJobPoller<CanonSaveJobRow>(
+		{
+			pollIntervalMs: options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS,
+			maxConcurrent: options.maxConcurrent
+		},
+		handlers
+	);
+	poller.start();
+
 	return {
-		schedule: (input) => queue.schedule(`${input.universeId}:${input.entityId}`, input),
-		waitForIdle: (timeoutMs) => queue.waitForIdle(timeoutMs),
-		recentJobs: (limit) => (limit === undefined ? recent.slice() : recent.slice(-limit))
+		start: () => poller.start(),
+		stop: () => poller.stop(),
+		schedule(input) {
+			const settled = scheduleCanonSaveJobRow(conn, input, debounceMs)
+				.then((id) => {
+					tracked.add(id);
+				})
+				.catch((err) => {
+					console.error(
+						JSON.stringify({
+							event: 'canon_save_job_schedule_failed',
+							universeId: input.universeId,
+							entityId: input.entityId,
+							message: err instanceof Error ? err.message : String(err)
+						})
+					);
+				});
+			pendingSchedules.add(settled);
+			void settled.finally(() => {
+				pendingSchedules.delete(settled);
+			});
+		},
+		async waitForIdle(timeoutMs = 5000) {
+			const start = Date.now();
+			for (;;) {
+				await Promise.all(pendingSchedules);
+				if (tracked.size > 0) {
+					const statuses = await statusesFor(conn, [...tracked]);
+					for (const id of [...tracked]) {
+						const status = statuses.get(id);
+						if (!status || status === 'done' || status === 'failed') tracked.delete(id);
+					}
+				}
+				if (pendingSchedules.size === 0 && tracked.size === 0) return;
+				if (Date.now() - start > timeoutMs) {
+					throw new Error(`CanonSaveJobQueue.waitForIdle: still not idle after ${timeoutMs}ms`);
+				}
+				await delay(10);
+			}
+		},
+		recentJobs: (limit) => recentCanonSaveJobRows(conn, limit ?? RECENT_JOBS_LIMIT)
 	};
 }
 
-// SPEC.md §5.1/§5.2's "a few seconds" debounce and an explicit concurrency cap (this
-// file's own header comment on why both are needed). One instance for the whole process,
-// mirroring `$lib/server/db.ts`'s single connection handle.
-const productionQueue = createCanonSaveJobQueue({ debounceMs: 4000, maxConcurrent: 3 });
+// One instance for the whole process, mirroring `$lib/server/db.ts`'s single connection
+// handle - constructed lazily rather than at module load, so importing this module (this
+// file's own test suite included, which builds its own isolated instances via
+// `createCanonSaveJobQueue`) never starts a worker against whatever database happens to be
+// configured. `startCanonSaveJobWorker` is what actually starts polling, called once from
+// `hooks.server.ts` at process boot (guarded by `building`, same as `$lib/server/auth.ts`'s
+// own eager-init pattern) - every replica runs a worker from boot, not only the replica
+// that happens to receive a save, which matters because reclaiming a lease another
+// replica abandoned cannot depend on this one ever being asked to schedule something
+// itself. `scheduleCanonSaveJob` also starts it lazily as a fallback, so a route is never
+// wrong to call it even before boot wiring exists.
+let productionQueue: CanonSaveJobQueue | undefined;
+
+function getProductionQueue(): CanonSaveJobQueue {
+	if (!productionQueue) {
+		productionQueue = createCanonSaveJobQueue({
+			debounceMs: DEFAULT_DEBOUNCE_MS,
+			maxConcurrent: DEFAULT_MAX_CONCURRENT,
+			db: db(),
+			modelFactory,
+			gateway: identityGateway
+		});
+		productionQueue.start();
+	}
+	return productionQueue;
+}
+
+/** Starts this process's canon-save worker. Idempotent - safe to call every request if a
+ * caller ever needed to, though `hooks.server.ts` only needs it once, at boot. */
+export function startCanonSaveJobWorker(): void {
+	getProductionQueue();
+}
 
 /** Every human-authored canon write calls this after its own transaction commits - never
  * before, since the debounce window should measure from "the save is durable", not from
  * when the request started. Fire and forget: the caller's response is never held up on
- * this, which is the whole point of SPEC.md §5.1/§5.2's "in the background". */
+ * this, which is the whole point of SPEC.md §5.1/§5.2's "in the background". Starts this
+ * process's worker on the first call, so a route never has to know that durability exists. */
 export function scheduleCanonSaveJob(input: CanonSaveJobInput): void {
-	productionQueue.schedule(input);
+	getProductionQueue().schedule(input);
 }
 
-/** Every completed job for the production queue, newest last - bounded like
- * `table-stream.ts`'s own backlog. The "a failed run must leave a record a human can find"
- * requirement's introspection half: not a UI (none was asked for), but a stable place to
- * look, and what a future admin surface (`docs/ux` F5) would read. */
-export function recentCanonSaveJobs(limit?: number): CanonSaveJobResult[] {
-	return productionQueue.recentJobs(limit);
+/** Every completed (or dead-lettered) job for the production queue, newest last - a
+ * direct read against `canon_save_job`, independent of whether this process's own worker
+ * is running, since another instance may have claimed and finished a row this one merely
+ * scheduled. The "a failed run must leave a record a human can find" requirement's
+ * introspection half: not a UI (none was asked for), but a stable place to look, and what
+ * a future admin surface (`docs/ux` F5) would read. */
+export function recentCanonSaveJobs(limit?: number): Promise<CanonSaveJobResult[]> {
+	return recentCanonSaveJobRows(db(), limit ?? RECENT_JOBS_LIMIT);
 }

@@ -14,12 +14,25 @@
  * cookie via `auth.api.getSession`, so both are already on `locals` by the time either
  * branch runs - a route loader, a form action and the auth handler itself all see the
  * same thing.
+ *
+ * Issue #115: `startCanonSaveJobWorker()` is called once here, at module load, the same
+ * `building`-guarded eager-init pattern `$lib/server/auth.ts` already uses (see that
+ * file's own doc comment for why `building` is the right guard: SvelteKit's postbuild
+ * route analysis imports every server module with no environment behind it, and a
+ * module-level throw or a worker starting against a database that is not there would fail
+ * `vite build`/CI for no reason). Every replica's own worker has to start from its own
+ * boot, not only from whichever replica happens to receive a save - reclaiming a lease a
+ * *different* replica abandoned cannot depend on this one ever being asked to schedule
+ * something itself.
  */
 import { building } from '$app/environment';
 import { auth } from '$lib/server/auth';
+import { startCanonSaveJobWorker } from '$lib/server/jobs';
 import { parseThemePreference, THEME_COOKIE, themeAttribute } from '$lib/theme';
 import type { Handle } from '@sveltejs/kit';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
+
+if (!building) startCanonSaveJobWorker();
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const session = building ? null : await auth.api.getSession({ headers: event.request.headers });

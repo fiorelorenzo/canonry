@@ -48,7 +48,7 @@
 </script>
 
 <svelte:head>
-	<title>Sign in — Canonry</title>
+	<title>Sign in: Canonry</title>
 </svelte:head>
 
 <main id="main" class="mx-auto flex max-w-measure flex-col gap-6 px-8 py-16">

@@ -14,7 +14,7 @@
 </script>
 
 <svelte:head>
-	<title>Appearance — Canonry</title>
+	<title>Appearance: Canonry</title>
 </svelte:head>
 
 <main id="main" class="mx-auto max-w-measure px-8 py-10">

@@ -11,7 +11,7 @@
 </script>
 
 <svelte:head>
-	<title>Where your campaign's words go — Canonry</title>
+	<title>Where your campaign's words go: Canonry</title>
 </svelte:head>
 
 <DocPage title="Where your campaign's words go" backHref={resolve('/')} backLabel="Universes">

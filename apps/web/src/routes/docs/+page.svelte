@@ -7,7 +7,7 @@
 </script>
 
 <svelte:head>
-	<title>Docs — Canonry</title>
+	<title>Docs: Canonry</title>
 </svelte:head>
 
 <DocPage title="Guides" backHref={resolve('/')} backLabel="Universes">

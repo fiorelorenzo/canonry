@@ -8,7 +8,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.guide.label} import guide — Canonry</title>
+	<title>{data.guide.label} import guide: Canonry</title>
 </svelte:head>
 
 <DocPage

@@ -14,3 +14,4 @@ export * from './table.js';
 export * from './media.js';
 export * from './source.js';
 export * from './billing.js';
+export * from './queue.js';

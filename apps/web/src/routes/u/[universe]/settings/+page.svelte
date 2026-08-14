@@ -13,7 +13,7 @@
 	let aiEnabled = $derived(form?.aiEnabled ?? data.aiEnabled);
 </script>
 
-<svelte:head><title>Settings — {data.current.name}</title></svelte:head>
+<svelte:head><title>Settings: {data.current.name}</title></svelte:head>
 
 <div class="mx-auto max-w-2xl px-8 py-10">
 	<h1 class="text-2xl font-semibold text-ink">Settings</h1>

@@ -17,7 +17,7 @@
 </script>
 
 <svelte:head>
-	<title>Signing out — Canonry</title>
+	<title>Signing out: Canonry</title>
 </svelte:head>
 
 <main id="main" class="mx-auto max-w-measure px-8 py-16">
