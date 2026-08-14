@@ -13,7 +13,10 @@
    prose are markup, not JS. */
 
 const REPO = 'https://github.com/fiorelorenzo/canonry/issues/';
+/* Rounds one and two were taken in one sitting; H1 came a day later and carries its own
+   `dt`, so nothing here claims a single date for the whole set. */
 const DECIDED_ON = '2026-08-13';
+const decidedOn = (d) => d.dt || DECIDED_ON;
 
 const UX_REGISTER = [
   { s: 'Foundations', id: 'A1', f: 'a1-visual-language.html', t: 'Visual language and density',
@@ -185,7 +188,7 @@ const UX_REGISTER = [
      options had. */
   { s: 'Round three', id: 'H1', f: 'h1-what-off-is-called.html', t: 'What the switch is called when off still spends',
     q: 'G9 keeps retrieval running with the AI off, so what is that switch named, what does the sentence beside it promise, and does reading count against the quota?', w: 'now', i: [107, 88, 109, 113],
-    d: 'B', dn: 'Reading is free, and every price lives in a table',
+    d: 'B', dn: 'Reading is free, and every price lives in a table', dt: '2026-08-14',
     dnote: 'Answered by removing the problem rather than by wording around it. Reading is free: embeddings, semantic search, mention suggestions and the retrieval behind an Ask never draw on the quota, so the meter no longer moves for a universe whose switch is off and B\'s half of the question is settled. The switch is named for what it stops, writing, which was A\'s half. The mechanism is neither option\'s: the credit price of every operation lives in an `operation_price` row an admin edits, a price of zero is how something becomes free, and an unpriced operation fails loudly. Free to the user is still recorded at full cost to us, because the margin question is answered from those rows. In SPEC 15 and guardrail 4, and built in #113.' },
 ];
 
@@ -203,7 +206,7 @@ function writeChoice(id, value) {
 /* One accessor for both kinds of answer: a decision recorded in the register wins over
    anything a browser remembers, because the register is what a fresh reader sees. */
 function decisionOf(d) {
-  if (d.d) return { pick: d.d, name: d.dn, note: d.dnote || '', at: DECIDED_ON, firm: true };
+  if (d.d) return { pick: d.d, name: d.dn, note: d.dnote || '', at: decidedOn(d), firm: true };
   const c = readChoice(d.id);
   return c ? { pick: c.pick, name: c.name, note: c.note || '', at: new Date(c.at).toISOString().slice(0, 10), firm: false } : null;
 }
@@ -235,7 +238,7 @@ function injectHead() {
       <p class="q">${d.q}</p>
       <div class="facts"><span><b>Blocks</b> ${issues}</span>
         <span><b>Sample world</b> <a href="SAMPLE-WORLD.md">Valdoria Reach</a></span>
-        ${d.d ? `<span><b>Decided</b> ${DECIDED_ON}, see <a href="DECISIONS.md">DECISIONS.md</a></span>` : ''}</div>`;
+        ${d.d ? `<span><b>Decided</b> ${decidedOn(d)}, see <a href="DECISIONS.md">DECISIONS.md</a></span>` : ''}</div>`;
   }
 
   const nav = document.querySelector('[data-ux-nav]');
@@ -262,7 +265,7 @@ function injectRecorder() {
   if (entry.d) {
     box.innerHTML = `
       <div class="row"><span class="badge done">${entry.d}</span>
-        <b>${entry.dn}</b><span class="muted">decided ${DECIDED_ON}</span></div>
+        <b>${entry.dn}</b><span class="muted">decided ${decidedOn(entry)}</span></div>
       ${entry.dnote ? `<p class="small" style="margin:12px 0 0;max-width:56em;">${entry.dnote}</p>` : ''}
       <div class="state">This is the record, not a browser's memory. To change it, edit
         <code>DECISIONS.md</code> and the register in <code>assets/ux.js</code>, and say so
@@ -346,9 +349,12 @@ function injectRegister() {
   const localPicks = open.filter((d) => readChoice(d.id)).length;
   const tally = document.querySelector('[data-ux-tally]');
   if (tally) {
-    tally.innerHTML = `<b>${UX_REGISTER.length - open.length} of ${UX_REGISTER.length}</b> decided on
-      ${DECIDED_ON}. <b>${open.length}</b> still open, ${openNow} of them to take now, and
-      ${localPicks} picked in this browser but not yet written into the record.`;
+    const parts = [`<b>${UX_REGISTER.length - open.length} of ${UX_REGISTER.length}</b> decided`];
+    if (open.length) parts.push(`<b>${open.length}</b> still open, ${openNow} of them to take now`);
+    else parts.push('nothing open');
+    if (localPicks) parts.push(`${localPicks} picked in this browser but not yet written into the record`);
+    parts.push('dates per decision in <a href="DECISIONS.md">DECISIONS.md</a>');
+    tally.innerHTML = parts.join('. ') + '.';
   }
 }
 
