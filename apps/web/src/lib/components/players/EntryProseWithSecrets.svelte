@@ -21,17 +21,25 @@
 		stripSecretsForPlayers,
 		type SecretBlockKind
 	} from '$lib/markdown-secrets';
+	import { renderAiMarkedParagraph } from '$lib/components/ai/aiMarking';
+	import { splitBodyIntoBlocks, markedSegmentsFor } from '$lib/components/ai/entryMarking';
 
 	let {
 		body,
 		universeSlug,
 		mentionTargets,
-		highlightSpan = null
+		highlightSpan = null,
+		markedSentences = new Set<string>()
 	}: {
 		body: string;
 		universeSlug: string;
 		mentionTargets: MentionTarget[];
 		highlightSpan?: FactSpan | null;
+		/** C1 = B, #106: sentences (exact strings, `packages/copilot`'s `semanticDiff`
+		 * normalisation) a pending `update` proposal targets on this entity. Empty by
+		 * default - an entity with nothing pending renders exactly as before. GM view
+		 * only: the marking is "not yet yours", which has no meaning in a player preview. */
+		markedSentences?: ReadonlySet<string>;
 	} = $props();
 
 	let playerPreview = $state(false);
@@ -46,6 +54,11 @@
 	// stripped for players. `highlightSpan` is an offset into the *original* `body`, so it
 	// only applies to the one segment whose own [start, end) range contains it - every
 	// other segment renders plain, exactly like it would with no highlight at all.
+	//
+	// A segment under an active fact highlight never also carries the marking: a GM who
+	// just clicked a fact is reading that specific span, and layering "also a pending
+	// proposal touches part of this" on top of it is a second signal competing for the
+	// same few words. The marking is still there the moment the highlight is cleared.
 	let gmHtml = $derived(
 		splitSecretBlocks(body)
 			.map((segment) => {
@@ -53,9 +66,23 @@
 					highlightSpan && highlightSpan.start >= segment.start && highlightSpan.end <= segment.end
 						? { start: highlightSpan.start - segment.start, end: highlightSpan.end - segment.start }
 						: null;
-				const html = local
-					? renderMarkdownWithHighlight(segment.text, universeSlug, mentionTargets, local)
-					: renderMarkdown(segment.text, universeSlug, mentionTargets);
+
+				let html: string;
+				if (!local && segment.kind === 'body' && markedSentences.size > 0) {
+					html = splitBodyIntoBlocks(segment.text)
+						.map((block) => {
+							const marked = markedSegmentsFor(block, markedSentences);
+							return marked
+								? `<div class="ai-marked-block">${renderAiMarkedParagraph(marked)}</div>`
+								: renderMarkdown(block.raw, universeSlug, mentionTargets);
+						})
+						.join('\n');
+				} else {
+					html = local
+						? renderMarkdownWithHighlight(segment.text, universeSlug, mentionTargets, local)
+						: renderMarkdown(segment.text, universeSlug, mentionTargets);
+				}
+
 				if (segment.kind === 'body') return html;
 				return `<div class="${segment.kind}-block"><span class="block-tag">${BLOCK_LABEL[segment.kind]}</span>${html}</div>`;
 			})
@@ -132,5 +159,34 @@
 	}
 	.entry-prose-secrets :global(.gmnote-block .block-tag) {
 		color: var(--color-danger);
+	}
+	.entry-prose-secrets :global(.ai-marked-block) {
+		position: relative;
+		padding-left: 1.5rem;
+	}
+	.entry-prose-secrets :global(.ai-marker) {
+		position: absolute;
+		left: 0;
+		top: 0.2em;
+		width: 0.95rem;
+		height: 0.95rem;
+		border-radius: 0.25rem;
+		background: var(--color-ai);
+		color: #fff;
+		font-family: var(--font-mono);
+		font-size: 9px;
+		font-weight: 700;
+		line-height: 0.95rem;
+		text-align: center;
+	}
+	.entry-prose-secrets :global(.ai-paragraph) {
+		margin: 0;
+	}
+	.entry-prose-secrets :global(.ai-marked-text) {
+		text-decoration: underline;
+		text-decoration-style: dashed;
+		text-decoration-thickness: 2px;
+		text-underline-offset: 4px;
+		text-decoration-color: var(--color-ai);
 	}
 </style>

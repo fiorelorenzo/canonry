@@ -272,10 +272,12 @@ export class ImportJobRunner {
 
 		const outcomes: DocumentOutcome[] = [];
 		const documentsToRun: JobDocument[] = [];
+		const contentHashByDocument = new Map<string, string>();
 		for (const doc of params.documents) {
 			if (checkpoint.documents[doc.id]?.status === 'finished') continue;
 
 			const contentHash = await hashOf(params.sources, doc.sourcePath);
+			contentHashByDocument.set(doc.id, contentHash);
 			const existing = await findEntityBySourceRef(
 				db,
 				params.universeId,
@@ -344,6 +346,7 @@ export class ImportJobRunner {
 					checkpoint,
 					buffers,
 					documentPriceCredits: documentPrice.credits,
+					contentHashByDocument,
 					onDocumentSettled: (outcome) => {
 						outcomes.push(outcome);
 						proposalsEmitted += outcome.proposalsCreated;
@@ -387,6 +390,12 @@ interface HandleEventContext {
 	checkpoint: CheckpointShape;
 	buffers: Map<string, DocumentBuffer>;
 	documentPriceCredits: number;
+	/** Populated once per document in `run()`, from the same `hashOf` call that already
+	 * decides whether to skip it. Threaded down to `matchEvidence` so a later accept
+	 * (`acceptImportProposal`, called from the review UI, not from this file) can record
+	 * `entity_source_ref.content_hash` without re-reading the source document - the review
+	 * screen has no `SourceReader` and should not need one just to accept a proposal. */
+	contentHashByDocument: Map<string, string>;
 	onDocumentSettled: (outcome: DocumentOutcome) => void;
 }
 
@@ -423,7 +432,12 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 	let proposalsCreated = 0;
 	const buffer = ctx.buffers.get(event.documentId);
 	if (buffer && (event.status === 'finished' || event.status === 'stopped_at_ceiling')) {
-		proposalsCreated = await materializeDocumentProposals(ctx.params, event.documentId, buffer);
+		proposalsCreated = await materializeDocumentProposals(
+			ctx.params,
+			event.documentId,
+			buffer,
+			ctx.contentHashByDocument.get(event.documentId) ?? ''
+		);
 		if (proposalsCreated > 0 && ctx.params.userId) {
 			await spendCredits(ctx.params.db, {
 				userId: ctx.params.userId,
@@ -478,7 +492,8 @@ interface ResolvedEntityCandidate {
 async function materializeDocumentProposals(
 	params: RunImportJobParams,
 	documentId: string,
-	buffer: DocumentBuffer
+	buffer: DocumentBuffer,
+	contentHash: string
 ): Promise<number> {
 	const { db } = params;
 	const localIdToEntityId = new Map<string, string>();
@@ -519,7 +534,8 @@ async function materializeDocumentProposals(
 						documentId,
 						payload,
 						decision.outcome === 'match' ? decision.similarity : null,
-						[]
+						[],
+						contentHash
 					),
 					rank: resolved.length
 				},
@@ -540,7 +556,8 @@ async function materializeDocumentProposals(
 						documentId,
 						payload,
 						decision.outcome === 'ask' ? decision.similarity : null,
-						ambiguousCandidateIds
+						ambiguousCandidateIds,
+						contentHash
 					),
 					rank: resolved.length
 				},
@@ -600,6 +617,7 @@ async function materializeDocumentProposals(
 	const { proposals } = await createProposalPlan(db, {
 		universeId: params.universeId,
 		trigger: 'import',
+		importJobId: params.dbJobId,
 		summary: `Import: ${resolved.length} entit${resolved.length === 1 ? 'y' : 'ies'}, ${relationCandidates.length} relation(s) from document "${documentId}".`,
 		candidateCap: allCandidates.length,
 		estimatedCredits: 0,
@@ -628,18 +646,26 @@ function isEmptyPatchTarget(patch: unknown): boolean {
 	return typeof patch === 'object' && patch !== null && Object.keys(patch).length === 0;
 }
 
+/** `contentHash` is the hash of the raw source document `run()` already computed to
+ * decide whether to skip this document - carried into the evidence blob (rather than,
+ * say, a new proposal_plan column) because it is per-*entity-proposal* provenance, the
+ * same shape `sourceRef`/`evidenceSpan` already are, and the review UI's accept action
+ * (`acceptImportProposal`) needs it to record `entity_source_ref` without a `SourceReader`
+ * of its own. */
 function matchEvidence(
 	documentId: string,
 	payload: EntityProposalPayload,
 	similarity: number | null,
-	ambiguousCandidateIds: string[]
+	ambiguousCandidateIds: string[],
+	contentHash: string
 ): unknown {
 	return {
 		documentId,
 		sourceRef: payload.sourceRef,
 		evidenceSpan: payload.evidenceSpan,
 		similarity,
-		ambiguousCandidateIds
+		ambiguousCandidateIds,
+		contentHash
 	};
 }
 

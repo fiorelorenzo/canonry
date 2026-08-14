@@ -53,6 +53,24 @@ export class ProposalHasDiffError extends Error {
 	}
 }
 
+/** Guardrail 7 (SPEC.md §5.2) and issue #55: an audit flag reports that two statements
+ * disagree, it is a question addressed to the GM and never a change waiting to be
+ * applied. `kind: 'flag'` therefore carries no patch and has no accept path at all -
+ * refusing it here, rather than leaving the generic "unhandled kind" error to catch it
+ * by accident, is what keeps a flag from ever picking up an "accepted" outcome the §14
+ * accept-rate query would otherwise have to filter out by trigger to stay honest. The
+ * only decision a flag can register is `rejectProposal` ("Dismiss"), which writes no
+ * revision and touches no entity. */
+export class ProposalCannotBeAcceptedError extends Error {
+	constructor(proposalId: string, kind: ProposalKind) {
+		super(
+			`proposal "${proposalId}" is kind '${kind}' and carries no patch to apply; ` +
+				`an audit flag is a question, not a change - dismiss it with rejectProposal instead`
+		);
+		this.name = 'ProposalCannotBeAcceptedError';
+	}
+}
+
 function isEmptyPatch(patch: unknown): boolean {
 	return (
 		typeof patch === 'object' &&
@@ -79,6 +97,9 @@ export interface CreateProposalPlanInput {
 	trigger: ProposalTrigger;
 	triggerEntityId?: string | null;
 	triggerRevisionId?: string | null;
+	/** The import run this plan came from, for trigger = 'import'. Omit or pass null for
+	 * any other trigger. */
+	importJobId?: string | null;
 	summary: string;
 	candidateCap: number;
 	estimatedCredits: number;
@@ -106,6 +127,7 @@ export async function createProposalPlan(
 				trigger: input.trigger,
 				triggerEntityId: input.triggerEntityId ?? null,
 				triggerRevisionId: input.triggerRevisionId ?? null,
+				importJobId: input.importJobId ?? null,
 				summary: input.summary,
 				status: 'ready',
 				estimatedCredits: input.estimatedCredits,
@@ -455,6 +477,8 @@ export async function acceptProposal(db: Db, input: AcceptProposalInput): Promis
 			});
 			// A relation carries its own author_kind and has no entity body to snapshot into a
 			// revision, so appliedRevisionId stays null for this kind.
+		} else if (existing.kind === 'flag') {
+			throw new ProposalCannotBeAcceptedError(existing.id, existing.kind);
 		} else {
 			throw new Error(`acceptProposal: unhandled proposal kind "${existing.kind}"`);
 		}
@@ -510,6 +534,145 @@ export async function rejectProposal(db: Db, input: RejectProposalInput): Promis
 			.where(eq(proposal.id, existing.id))
 			.returning();
 		if (!updated) throw new Error('rejectProposal: update returned no row');
+		return updated;
+	});
+}
+
+/** C7's "right after the reject" chip picker: the reject itself already happened (via
+ * `rejectProposal`, reason `null`) the instant the GM pressed reject, so the queue never
+ * waits on a reason. Picking a chip a moment later attaches it here - a metadata-only
+ * update (`reject_reason` is training signal for the ranker, not canon), guarded to apply
+ * only to a proposal that is already rejected so this can never be used to sneak a reason
+ * onto a pending or accepted row. A no-op (returns null) if the proposal is not rejected,
+ * matching `rejectProposal`'s own "never re-ask" idempotency rather than throwing over a
+ * stale toast the GM is slow to click. */
+export async function setRejectReason(
+	db: Db,
+	proposalId: string,
+	reason: string
+): Promise<ProposalRow | null> {
+	const [updated] = await db
+		.update(proposal)
+		.set({ rejectReason: reason })
+		.where(and(eq(proposal.id, proposalId), eq(proposal.outcome, 'rejected')))
+		.returning();
+	return updated ?? null;
+}
+
+export class ProposalNotAcceptedError extends Error {
+	constructor(proposalId: string, outcome: ProposalOutcome) {
+		super(`proposal "${proposalId}" is not accepted (outcome: ${outcome}), nothing to undo`);
+		this.name = 'ProposalNotAcceptedError';
+	}
+}
+
+/** Thrown only for an 'update' accept whose target entity had no revision history before
+ * this one - the seed fixture's shortcut (entities inserted without a founding revision),
+ * never a real production entity, which always has at least the revision its own creation
+ * wrote. There is nothing recorded to restore the entity to, so undo refuses rather than
+ * guessing or leaving the proposal 'pending' over already-changed content. */
+export class UndoNotPossibleError extends Error {
+	constructor(proposalId: string) {
+		super(
+			`proposal "${proposalId}" has no revision recorded before its accept, so undo has nothing to restore to`
+		);
+		this.name = 'UndoNotPossibleError';
+	}
+}
+
+export interface UndoAcceptedProposalInput {
+	proposalId: string;
+}
+
+/** C6's few-seconds "fat-finger" undo toast, distinct from the general revision-history
+ * revert the decision's own "days later" case still needs - that capability is not built
+ * anywhere in this codebase yet and is out of scope here. Valid only while the proposal is
+ * still 'accepted': for `update`, restores the entity to the revision immediately before
+ * the `ai_accepted` one (found via `historyFor`'s ordering - the accepted revision itself
+ * carries no `parentRevisionId` to read that from directly) and deletes that revision; for
+ * `create`/`draft_entity`, deletes the entity the accept created outright, cascading its
+ * one revision; for `relation`, deletes the relation row. Always flips the proposal back to
+ * `pending` with its decision cleared, so it re-enters the queue exactly where it left it. */
+export async function undoAcceptedProposal(
+	db: Db,
+	input: UndoAcceptedProposalInput
+): Promise<ProposalRow> {
+	return db.transaction(async (tx) => {
+		const [existing] = await tx
+			.select()
+			.from(proposal)
+			.where(eq(proposal.id, input.proposalId))
+			.for('update')
+			.limit(1);
+		if (!existing) throw new ProposalNotFoundError(input.proposalId);
+		if (existing.outcome !== 'accepted') {
+			throw new ProposalNotAcceptedError(input.proposalId, existing.outcome);
+		}
+
+		if (existing.kind === 'update') {
+			if (!existing.targetEntityId || !existing.appliedRevisionId) {
+				throw new Error(
+					`accepted 'update' proposal "${existing.id}" is missing its target entity or applied revision`
+				);
+			}
+			const history = await tx
+				.select()
+				.from(revision)
+				.where(eq(revision.entityId, existing.targetEntityId))
+				.orderBy(desc(revision.createdAt));
+			const acceptedIndex = history.findIndex((row) => row.id === existing.appliedRevisionId);
+			const restoreTo = acceptedIndex >= 0 ? history[acceptedIndex + 1] : undefined;
+			if (!restoreTo) throw new UndoNotPossibleError(existing.id);
+
+			await tx
+				.update(entity)
+				.set({
+					name: restoreTo.name,
+					aliases: restoreTo.aliases,
+					body: restoreTo.body,
+					updatedAt: new Date()
+				})
+				.where(eq(entity.id, existing.targetEntityId));
+			await tx.delete(revision).where(eq(revision.id, existing.appliedRevisionId));
+		} else if (existing.kind === 'create' || existing.kind === 'draft_entity') {
+			if (!existing.appliedRevisionId) {
+				throw new Error(
+					`accepted '${existing.kind}' proposal "${existing.id}" has no applied revision`
+				);
+			}
+			const [createdRevision] = await tx
+				.select({ entityId: revision.entityId })
+				.from(revision)
+				.where(eq(revision.id, existing.appliedRevisionId))
+				.limit(1);
+			if (createdRevision) {
+				await tx.delete(entity).where(eq(entity.id, createdRevision.entityId));
+			}
+		} else if (existing.kind === 'relation') {
+			if (!existing.relationTypeId || !existing.targetEntityId || !existing.relatedEntityId) {
+				throw new Error(
+					`accepted 'relation' proposal "${existing.id}" is missing relationTypeId, targetEntityId or relatedEntityId`
+				);
+			}
+			await tx
+				.delete(relation)
+				.where(
+					and(
+						eq(relation.relationTypeId, existing.relationTypeId),
+						eq(relation.fromEntityId, existing.targetEntityId),
+						eq(relation.toEntityId, existing.relatedEntityId)
+					)
+				);
+		} else {
+			throw new Error(`undoAcceptedProposal: unhandled proposal kind "${existing.kind}"`);
+		}
+
+		const [updated] = await tx
+			.update(proposal)
+			.set({ outcome: 'pending', decidedAt: null, decidedBy: null, appliedRevisionId: null })
+			.where(eq(proposal.id, existing.id))
+			.returning();
+		if (!updated) throw new Error('undoAcceptedProposal: update returned no row');
 		return updated;
 	});
 }

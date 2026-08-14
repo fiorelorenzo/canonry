@@ -39,6 +39,7 @@ export {
 	warmOnTableOpen,
 	warmOnConsumption,
 	warmNightly,
+	AiDisabledError,
 	type WriteDebounceOptions,
 	type WriteWarmInput,
 	type PrepWarmInput,
@@ -46,3 +47,11 @@ export {
 	type ConsumptionWarmInput,
 	type NightlyWarmInput
 } from './triggers.js';
+
+export {
+	warmRadiusFor,
+	currentWarmRadius,
+	WARM_RADIUS_HIT_RATE_THRESHOLD,
+	type WarmRadius,
+	type WarmRadiusDecision
+} from './radius.js';

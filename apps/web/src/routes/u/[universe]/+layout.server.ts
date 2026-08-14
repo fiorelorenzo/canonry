@@ -11,6 +11,7 @@
 import { error } from '@sveltejs/kit';
 import { universeAccessBySlug, universesForUser } from '@canonry/db';
 import { db } from '$lib/server/db';
+import { pendingProposalCount } from '$lib/server/proposals';
 import type { UniverseSummary } from '$lib/components/shell/types';
 import type { LayoutServerLoad } from './$types';
 
@@ -48,19 +49,22 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 	const current = universes.find((universe) => universe.id === currentRow.id);
 	if (!current) error(404, `no universe called "${params.universe}"`);
 
-	const recent = await database.query.entity.findMany({
-		where: (entity, { eq }) => eq(entity.universeId, currentRow.id),
-		orderBy: (entity, { desc }) => desc(entity.updatedAt),
-		limit: SIDEBAR_RECENT_LIMIT,
-		columns: { id: true, name: true, slug: true, type: true }
-	});
+	const [recent, proposalsPending] = await Promise.all([
+		database.query.entity.findMany({
+			where: (entity, { eq }) => eq(entity.universeId, currentRow.id),
+			orderBy: (entity, { desc }) => desc(entity.updatedAt),
+			limit: SIDEBAR_RECENT_LIMIT,
+			columns: { id: true, name: true, slug: true, type: true }
+		}),
+		pendingProposalCount(database, currentRow.id)
+	]);
 
 	return {
 		universeSlug: current.slug,
 		current,
 		universes,
 		recent,
-		navCounts: { entries: current.entityCount },
+		navCounts: { entries: current.entityCount, proposals: proposalsPending },
 		// Threaded to the edit action below and to any future write surface under this
 		// subtree, so "may this account save here" is answered once per request rather
 		// than re-derived per page.

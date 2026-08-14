@@ -29,10 +29,15 @@ export {
 	rejectedProposalsFor,
 	acceptProposal,
 	rejectProposal,
+	setRejectReason,
+	undoAcceptedProposal,
 	ProposalNotFoundError,
 	ProposalPlanNotFoundError,
 	ProposalAlreadyDecidedError,
 	ProposalHasDiffError,
+	ProposalCannotBeAcceptedError,
+	ProposalNotAcceptedError,
+	UndoNotPossibleError,
 	type ProposalRow,
 	type ProposalPlanRow,
 	type CreateProposalPlanCandidate,
@@ -42,7 +47,8 @@ export {
 	type RecordProposalDiffInput,
 	type RejectedProposalRecord,
 	type AcceptProposalInput,
-	type RejectProposalInput
+	type RejectProposalInput,
+	type UndoAcceptedProposalInput
 } from './queries/proposals.js';
 export {
 	FREE_PLAN_SUBSCRIPTION_CREDITS,
@@ -53,15 +59,32 @@ export {
 	recordAndCharge,
 	spendCredits,
 	spendWarmBudget,
+	toBalance,
+	listByoKeys,
+	upsertByoKey,
+	activeByoKeySecret,
+	touchByoKeyUsage,
+	setByoKeyActive,
+	deleteByoKey,
 	InsufficientCreditsError,
 	WarmBudgetExhaustedError,
 	type Balance,
+	type ByoKeyRow,
 	type ChargeInput,
 	type ChargeResult,
 	type SpendCreditsInput,
 	type SpendCreditsResult,
 	type WarmSpendInput
 } from './queries/billing.js';
+export {
+	SUBSCRIPTION_PLANS,
+	getSubscriptionPlan,
+	applySubscriptionWebhookEvent,
+	UnknownSubscriptionPlanError,
+	type SubscriptionPlan,
+	type SubscriptionWebhookEvent,
+	type ApplyWebhookEventResult
+} from './queries/subscriptions.js';
 export { universeAccessBySlug, universesForUser, type UniverseAccess } from './queries/access.js';
 export {
 	latestRevisionIds,
@@ -144,6 +167,12 @@ export {
 	type CreateMediaAssetInput
 } from './queries/media.js';
 export {
+	listActiveTextModels,
+	upsertTextModel,
+	type ModelConfigRow,
+	type UpsertTextModelInput
+} from './queries/models.js';
+export {
 	createImportJob,
 	getImportJob,
 	countRunningImportJobs,
@@ -177,6 +206,57 @@ export {
 	type FindOrCreateRelationTypeInput,
 	type AcceptImportProposalInput
 } from './queries/import.js';
+export {
+	proposalOutcomesForMetrics,
+	importsToFirstAcceptedProposal,
+	warmHitRate,
+	sessionEntropyMetrics,
+	ACCEPT_RATE_DEFAULT_WINDOW_DAYS,
+	DEBRIEF_WINDOW_HOURS,
+	type ProposalOutcomeMetricRow,
+	type ImportFirstAcceptRow,
+	type WarmHitRateRow,
+	type SessionEntropyRow
+} from './queries/metrics.js';
+export {
+	listWorksForUniverse,
+	createWork,
+	workBySlug,
+	workById,
+	workNodeTree,
+	createWorkNode,
+	workNodeById,
+	ancestorsOf,
+	updateWorkNode,
+	setWorkNodeEntities,
+	usesForNode,
+	scenesUsingEntity,
+	moveWorkNode,
+	type WorkRow,
+	type WorkNodeRow,
+	type WorkNodeTreeItem,
+	type CreateWorkInput,
+	type CreateWorkNodeInput,
+	type UpdateWorkNodeInput,
+	type WorkNodeUse,
+	type SceneUsingEntity,
+	type MoveWorkNodeDirection,
+	type MoveWorkNodeResult
+} from './queries/works.js';
+export {
+	listSupersedesForUniverse,
+	supersededUrlsForUniverse,
+	createSupersede,
+	removeSupersede,
+	SupersedeAlreadyExistsError,
+	type SupersedeRow,
+	type CreateSupersedeInput
+} from './queries/supersede.js';
+export {
+	searchEntitiesByNameOrAlias,
+	type EntitySearchHit,
+	type SearchEntitiesOptions
+} from './queries/table-search.js';
 
 /**
  * The query operators, re-exported from the one drizzle this workspace installs.

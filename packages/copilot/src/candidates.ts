@@ -99,8 +99,10 @@ function buildAdjacency(
 
 /** BFS to `maxHops`, shortest path only: the first time a node is reached fixes its hop
  * count and the label path travelled, exactly as SPEC.md §5.1's "2 hops" is meant to be
- * read (fewest relations away, not every walk of length 2). */
-function graphNeighbors(
+ * read (fewest relations away, not every walk of length 2). Exported for `audit.ts`:
+ * SPEC.md §5.2's "sub-graph touched by recent edits" is propagation's own impact radius,
+ * not a second one audit should compute differently. */
+export function graphNeighbors(
 	graph: CandidateGraph,
 	startId: string,
 	maxHops: number
@@ -127,7 +129,9 @@ function graphNeighbors(
 	return visited;
 }
 
-function namesFor(entity: GraphEntity): string[] {
+/** Exported for `ask.ts` and `audit.ts`: any entity's searchable names are its canonical
+ * name plus its aliases, not something either file should reimplement. */
+export function namesFor(entity: GraphEntity): string[] {
 	return [entity.name, ...entity.aliases].filter((name) => name.trim().length > 0);
 }
 
@@ -135,14 +139,18 @@ function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+export interface MentionHit {
+	entity: GraphEntity;
+	matchedText: string;
+}
+
 /** Every entity from `pool` that `sentence` names, as a `[[wikilink]]` or as a bare
  * case-insensitive whole-phrase match. One hit per entity per sentence is enough evidence,
- * even if both its name and an alias happen to match. */
-function mentionsIn(
-	sentence: string,
-	pool: GraphEntity[]
-): Array<{ entity: GraphEntity; matchedText: string }> {
-	const results: Array<{ entity: GraphEntity; matchedText: string }> = [];
+ * even if both its name and an alias happen to match. Exported for `audit.ts`: a flag's
+ * candidate pairs are found the same way a propagation candidate is (SPEC.md §5.2's
+ * "sub-graph touched by recent edits" is propagation's own impact radius). */
+export function mentionsIn(sentence: string, pool: GraphEntity[]): MentionHit[] {
+	const results: MentionHit[] = [];
 	for (const entity of pool) {
 		for (const name of namesFor(entity)) {
 			const escaped = escapeRegExp(name);

@@ -2,6 +2,8 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { type Db, eq, historyFor, universeAccessBySlug } from '@canonry/db';
 import { entity, revision } from '@canonry/db/schema';
 import { db } from '$lib/server/db';
+import { identityGateway, modelFactory } from '$lib/server/copilot';
+import { scheduleCanonSaveJob } from '$lib/server/jobs';
 import { normalizeMentions } from '$lib/markdown';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -93,18 +95,41 @@ export const actions: Actions = {
 		// Issue #86: attributed to the real signed-in account, not the universe's
 		// recorded owner - a member editing someone else's universe now shows up as
 		// themselves in history, not as the owner they are not.
+		let insertedRevisionId: string | null = null;
 		await conn.transaction(async (tx) => {
-			await tx.insert(revision).values({
-				universeId: world.id,
-				entityId: current.id,
-				parentRevisionId,
-				authorKind: 'human',
-				authorUserId: userId,
-				name: current.name,
-				aliases: current.aliases,
-				body
-			});
+			const [rev] = await tx
+				.insert(revision)
+				.values({
+					universeId: world.id,
+					entityId: current.id,
+					parentRevisionId,
+					authorKind: 'human',
+					authorUserId: userId,
+					name: current.name,
+					aliases: current.aliases,
+					body
+				})
+				.returning({ id: revision.id });
+			insertedRevisionId = rev?.id ?? null;
 			await tx.update(entity).set({ body, updatedAt: new Date() }).where(eq(entity.id, current.id));
+		});
+
+		// SPEC.md §5.1/§5.2: propagation and audit run "on save, debounced, in the
+		// background" - scheduled here, after the transaction above has committed, so the
+		// background job only ever reads a body Postgres has already durably written.
+		// Fire and forget: the redirect below does not wait on it (`$lib/server/jobs`'s own
+		// header comment is the design note for why there is nothing to await here).
+		scheduleCanonSaveJob({
+			db: conn,
+			universeId: world.id,
+			entityId: current.id,
+			entityName: current.name,
+			userId,
+			oldBody: current.body,
+			newBody: body,
+			triggerRevisionId: insertedRevisionId,
+			modelFactory,
+			gateway: identityGateway
 		});
 
 		redirect(303, `/u/${params.universe}/e/${params.slug}`);

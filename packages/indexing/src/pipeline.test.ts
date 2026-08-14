@@ -8,12 +8,13 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
 	closeDb,
 	createDataSource,
+	createSupersede,
 	recordLicenceReview,
 	type Db,
 	LicenceNotReviewedError,
 	addExclusion
 } from '@canonry/db';
-import { user, universe } from '@canonry/db/schema';
+import { entity, user, universe } from '@canonry/db/schema';
 import { createVectorClient, dropCollection, type QdrantClient } from '@canonry/vector';
 import { heuristicExtractor } from './extraction.js';
 import { hashingEmbedder, type Embedder } from './embedding.js';
@@ -280,5 +281,109 @@ describe('retrieveForUniverse: exclusion list honoured at retrieval (issue #62)'
 			queryText: 'coastal trading city harbour'
 		});
 		expect(scored.every((hit) => hit.payload.url !== excludedPageUrl)).toBe(true);
+	});
+});
+
+describe('retrieveForUniverse: supersede honoured at retrieval (issue #19)', () => {
+	it('never returns a chunk from a page a universe has declared it supersedes', async () => {
+		const { owner, universe: u } = await insertUniverseWithOwner(db);
+		const source = await createDataSource(db, {
+			universeId: u.id,
+			type: 'wiki',
+			name: 'Forgotten Realms'
+		});
+		await recordLicenceReview(db, {
+			dataSourceId: source.id,
+			licence: 'CC BY-SA 3.0',
+			reviewedBy: owner.id
+		});
+
+		fixture = await startFixtureWikiServer([
+			{
+				title: 'Waterdeep',
+				wikitext: 'Waterdeep is ruled by the Masked Lords, a council kept anonymous.',
+				updatedAt: '2026-01-01T00:00:00.000Z'
+			},
+			{
+				title: 'Skullport',
+				wikitext: 'Skullport is a lawless port city beneath Waterdeep, ruled by no one.',
+				updatedAt: '2026-01-01T00:00:00.000Z'
+			}
+		]);
+		const wikiClient = new MediaWikiClient({
+			baseUrl: `${fixture.baseUrl}/api.php`,
+			requestsPerSecond: 1000
+		});
+		const collectionName = scratchCollection();
+
+		await indexDataSource(
+			{ db, vectorClient, wikiClient, extractor: heuristicExtractor, embedder: hashingEmbedder },
+			{ dataSourceId: source.id, universeId: u.id, collectionName, vectorSize: HASH_VECTOR_SIZE }
+		);
+
+		const waterdeepUrl = (await wikiClient.getPage('Waterdeep')).url;
+		const [queryVector] = await hashingEmbedder(['Masked Lords council anonymous ruled']);
+
+		const beforeSupersede = await retrieveForUniverse({
+			db,
+			vectorClient,
+			collectionName,
+			universeId: u.id,
+			queryVector: queryVector!,
+			queryText: 'Masked Lords council anonymous ruled',
+			topK: 10,
+			threshold: -1
+		});
+		expect(beforeSupersede.some((hit) => hit.payload.url === waterdeepUrl)).toBe(true);
+
+		// The GM diverges from the published setting: their own Waterdeep entry
+		// supersedes the official page, so it must stop coming back from retrieval.
+		const [ourEntity] = await db
+			.insert(entity)
+			.values({
+				universeId: u.id,
+				type: 'place',
+				name: 'Waterdeep',
+				slug: 'waterdeep',
+				body: 'Ours diverges: the Masked Lords are a fiction the guilds maintain.'
+			})
+			.returning();
+		await createSupersede(db, {
+			universeId: u.id,
+			entityId: ourEntity!.id,
+			dataSourceId: source.id,
+			sourceUrl: waterdeepUrl
+		});
+
+		const afterSupersede = await retrieveForUniverse({
+			db,
+			vectorClient,
+			collectionName,
+			universeId: u.id,
+			queryVector: queryVector!,
+			queryText: 'Masked Lords council anonymous ruled',
+			topK: 10,
+			threshold: -1
+		});
+		expect(afterSupersede.some((hit) => hit.payload.url === waterdeepUrl)).toBe(false);
+
+		// A different universe reading the same collection (the derived-universe shape:
+		// `universeId` matches where the chunks live, `policyUniverseId` is whichever
+		// universe's own declarations should apply) still gets the page back when *that*
+		// universe never declared the supersede - the user's canon always wins for the
+		// universe that diverged, not for retrieval globally.
+		const { universe: otherUniverse } = await insertUniverseWithOwner(db);
+		const stillSees = await retrieveForUniverse({
+			db,
+			vectorClient,
+			collectionName,
+			universeId: u.id,
+			policyUniverseId: otherUniverse.id,
+			queryVector: queryVector!,
+			queryText: 'Masked Lords council anonymous ruled',
+			topK: 10,
+			threshold: -1
+		});
+		expect(stillSees.some((hit) => hit.payload.url === waterdeepUrl)).toBe(true);
 	});
 });

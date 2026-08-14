@@ -19,6 +19,7 @@
 		universes={data.universes}
 		recent={data.recent}
 		entryCount={data.navCounts.entries}
+		proposalsPending={data.navCounts.proposals}
 	/>
 	<main id="main" class="min-w-0 flex-1 overflow-y-auto">
 		{@render children()}

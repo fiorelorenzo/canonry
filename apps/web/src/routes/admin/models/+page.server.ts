@@ -1,20 +1,58 @@
 /**
- * /admin/models (#64): the active image model per feature, switchable without a deploy -
- * the same pattern /admin/pricing already established for operation_price, applied to
- * image_model_config instead. A save calls @canonry/db's upsertImageModel, then clears
- * @canonry/media's resolveImageModel cache so the next "Generate image" dialog sees the
- * new model immediately rather than after its 30 second TTL.
+ * /admin/models: two panels behind the same admin gate. Text models render above image
+ * models, since text is what every flow (loremaster, propagate, warm, indexing,
+ * embedding) reads through `model_config`'s `cheap`/`premium`/`multimodal`/`embedding`/
+ * `image` purposes (SPEC.md §11.1) - `image_model_config` gates only "Generate image"
+ * and previously had this page to itself (#64).
+ *
+ * Before this, `model_config` had no admin surface at all: the only way to change the
+ * active text model was psql directly against the database. Filed as a gap found while
+ * building #64's sibling panel; report it to Lorenzo to open the tracking issue.
+ *
+ * Both saves follow /admin/pricing's fail()/no-redirect validation pattern: a bad
+ * submission re-renders the page with `form.error` next to the field that failed, never
+ * a redirect and never a 500. The text save additionally constrains `provider` to
+ * `KNOWN_PROVIDERS` (`@canonry/ai`) with a `<select>`, not free text - a provider
+ * `createLanguageModel` cannot construct is not a valid configuration, and letting one
+ * through here would turn a loud startup error into a silent failure on the next Ask.
  */
 import { fail } from '@sveltejs/kit';
-import { listImageModels, upsertImageModel } from '@canonry/db';
+import {
+	listImageModels,
+	listActiveTextModels,
+	upsertImageModel,
+	upsertTextModel,
+	type ModelConfigRow
+} from '@canonry/db';
+import { modelPurposeEnum, type ModelPurpose } from '@canonry/db/schema';
 import { clearImageModelCache } from '@canonry/media';
+import { KNOWN_PROVIDERS, clearModelCache } from '@canonry/ai';
 import { db } from '$lib/server/db';
 import { requireAdmin } from '$lib/server/admin';
 import type { Actions, PageServerLoad } from './$types';
 
+export interface TextModelPurposeRow {
+	purpose: ModelPurpose;
+	active: ModelConfigRow | null;
+}
+
 export const load: PageServerLoad = async () => {
-	const models = await listImageModels(db());
-	return { models };
+	const database = db();
+	const [images, activeTextModels] = await Promise.all([
+		listImageModels(database),
+		listActiveTextModels(database)
+	]);
+
+	// One row per purpose the enum holds, not per row the table happens to have -
+	// upsertTextModel keeps deactivated rows as history, and a purpose nobody has
+	// configured yet still needs a visible "not configured" row rather than vanishing.
+	const activeByPurpose = new Map(activeTextModels.map((row) => [row.purpose, row]));
+	const textModels: TextModelPurposeRow[] = modelPurposeEnum.enumValues.map((purpose) => ({
+		purpose,
+		active: activeByPurpose.get(purpose) ?? null
+	}));
+
+	return { images, textModels, knownProviders: KNOWN_PROVIDERS };
 };
 
 const EUR_PATTERN = /^\d+(\.\d{1,6})?$/;
@@ -27,8 +65,67 @@ function parseEurPerImage(raw: FormDataEntryValue | null): number | null {
 	return Number.isFinite(value) ? value : null;
 }
 
+function isModelPurpose(value: string): value is ModelPurpose {
+	return (modelPurposeEnum.enumValues as readonly string[]).includes(value);
+}
+
 export const actions: Actions = {
-	default: async (event) => {
+	// SvelteKit refuses a `default` action alongside named ones, so image's save (below)
+	// moved from `default` to `image` in the same edit that added this action.
+	text: async (event) => {
+		// The layout's load already gates page views; a POST runs before any layout load
+		// (see src/lib/server/admin.ts), so the action needs its own check.
+		requireAdmin(event);
+
+		const formData = await event.request.formData();
+		const rawPurpose = formData.get('purpose');
+		const rawProvider = formData.get('provider');
+		const rawModelId = formData.get('modelId');
+
+		const purposeOut = typeof rawPurpose === 'string' ? rawPurpose : '';
+		const providerOut = typeof rawProvider === 'string' ? rawProvider : '';
+		const modelId = typeof rawModelId === 'string' ? rawModelId.trim() : '';
+
+		if (typeof rawPurpose !== 'string' || !isModelPurpose(rawPurpose)) {
+			return fail(400, {
+				purpose: purposeOut,
+				provider: providerOut,
+				modelId,
+				saved: false,
+				error: `"${purposeOut}" is not a known model purpose.`
+			});
+		}
+
+		if (typeof rawProvider !== 'string' || !KNOWN_PROVIDERS.includes(rawProvider)) {
+			return fail(400, {
+				purpose: rawPurpose,
+				provider: providerOut,
+				modelId,
+				saved: false,
+				error: `"${providerOut}" is not a known provider. Choose one of: ${KNOWN_PROVIDERS.join(', ')}.`
+			});
+		}
+
+		if (modelId.length === 0) {
+			return fail(400, {
+				purpose: rawPurpose,
+				provider: rawProvider,
+				modelId,
+				saved: false,
+				error: 'Model id is required.'
+			});
+		}
+
+		await upsertTextModel(db(), { purpose: rawPurpose, provider: rawProvider, modelId });
+		// SPEC.md §11.1: switchable without a deploy. resolveModel's cache (packages/ai's
+		// models.ts) has a short TTL, but "short" still reads as "broken" to an admin who
+		// just saved and expects the very next AI call to use it - clear it immediately.
+		clearModelCache();
+
+		return { purpose: rawPurpose, provider: rawProvider, modelId, saved: true };
+	},
+
+	image: async (event) => {
 		// The layout's load already gates page views; a POST runs before any layout load
 		// (see src/lib/server/admin.ts), so the action needs its own check.
 		requireAdmin(event);

@@ -12,14 +12,53 @@ import {
 	type Db,
 	type WarmArtifactRow
 } from '@canonry/db';
+import { universe } from '@canonry/db/schema';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { WarmBudgetPort } from './budget.js';
 import { sortByDegradationOrder } from './budget.js';
+import { currentWarmRadius } from './radius.js';
 import {
 	regenerate,
 	type RegenerateResult,
 	type WarmCandidate,
 	type WarmGenerator
 } from './store.js';
+
+/** SPEC.md guardrail 4 / issue #107: "the switch stops generation... anything a model
+ * writes" - warming is exactly that, and the artifact's own rejected section is explicit
+ * that a background job filling the cache while the switch reads "off" is the same trust
+ * break as a silent accept-all. Every trigger below checks this first, before building a
+ * single candidate, so a switched-off universe never reaches `regenerate` at all. */
+export class AiDisabledError extends Error {
+	constructor(universeId: string) {
+		super(
+			`universe "${universeId}" has generation switched off (guardrail 4); warming does not run`
+		);
+		this.name = 'AiDisabledError';
+	}
+}
+
+async function requireAiEnabled(db: Db, universeId: string): Promise<void> {
+	const [row] = await db
+		.select({ aiEnabled: universe.aiEnabled })
+		.from(universe)
+		.where(eq(universe.id, universeId))
+		.limit(1);
+	if (!row) throw new Error(`no universe row for id "${universeId}"`);
+	if (!row.aiEnabled) throw new AiDisabledError(universeId);
+}
+
+/** `warmNightly` spans every active universe in one call, so one switched-off universe
+ * has to drop out of that run rather than fail the whole nightly sweep - the other four
+ * triggers each belong to a single universe's own request and throw instead. */
+async function aiEnabledUniverseIds(db: Db, universeIds: string[]): Promise<string[]> {
+	if (universeIds.length === 0) return [];
+	const rows = await db
+		.select({ id: universe.id })
+		.from(universe)
+		.where(and(inArray(universe.id, universeIds), eq(universe.aiEnabled, true)));
+	return rows.map((row) => row.id);
+}
 
 async function runBatch(
 	db: Db,
@@ -95,6 +134,7 @@ export async function warmOnWrite(
 	generator: WarmGenerator,
 	budget: WarmBudgetPort
 ): Promise<RegenerateResult[]> {
+	await requireAiEnabled(db, input.universeId);
 	const candidates: WarmCandidate[] = [
 		{
 			universeId: input.universeId,
@@ -151,6 +191,7 @@ export async function warmOnPrep(
 	generator: WarmGenerator,
 	budget: WarmBudgetPort
 ): Promise<RegenerateResult[]> {
+	await requireAiEnabled(db, input.universeId);
 	const slots = input.npcDraftsPerPlace ?? DEFAULT_NPC_DRAFTS_PER_PLACE;
 	const candidates: WarmCandidate[] = [];
 
@@ -217,6 +258,7 @@ export async function warmOnTableOpen(
 	generator: WarmGenerator,
 	budget: WarmBudgetPort
 ): Promise<RegenerateResult[]> {
+	await requireAiEnabled(db, input.universeId);
 	const ring1 = await pinnedNeighbors(db, input.placeEntityId, { hops: 1 });
 	const ring1Ids = ring1.map((neighbor) => neighbor.entity.id);
 
@@ -258,17 +300,22 @@ export interface ConsumptionWarmInput {
 }
 
 /** "You only pay where the party is actually going": brief-only (cheap) candidates for
- * exactly the ring *beyond* what trigger 3 already covers - entities at hop distance 2 from
- * the newly entered place (adjacent places, present factions, linked NPCs), never hop 1
- * again and never the expensive kinds trigger 2 reserves for declared prep. */
+ * exactly the ring *beyond* what trigger 3 already covers. The ring itself is not fixed at
+ * hop 2 - issue #102's governor (radius.ts) picks 1 or 2 from this universe's current warm
+ * hit rate, so a universe whose warmed material keeps going unconsumed pulls back to the
+ * safety net's own ring 1 instead of continuing to speculate two hops out. Never hop 1
+ * *again* when the radius is 2, and never the expensive kinds trigger 2 reserves for
+ * declared prep, either way. */
 export async function warmOnConsumption(
 	db: Db,
 	input: ConsumptionWarmInput,
 	generator: WarmGenerator,
 	budget: WarmBudgetPort
 ): Promise<RegenerateResult[]> {
-	const ring = await pinnedNeighbors(db, input.enteredPlaceEntityId, { hops: 2 });
-	const nextRing = ring.filter((neighbor) => neighbor.hopDistance === 2);
+	await requireAiEnabled(db, input.universeId);
+	const { radius } = await currentWarmRadius(db, input.universeId);
+	const ring = await pinnedNeighbors(db, input.enteredPlaceEntityId, { hops: radius });
+	const nextRing = ring.filter((neighbor) => neighbor.hopDistance === radius);
 
 	const candidates: WarmCandidate[] = nextRing.map((neighbor) => ({
 		universeId: input.universeId,
@@ -327,7 +374,8 @@ export async function warmNightly(
 	generator: WarmGenerator,
 	budget: WarmBudgetPort
 ): Promise<Map<string, RegenerateResult[]>> {
-	const universeIds = await activeUniverseIds(db, input.sinceDays);
+	const activeIds = await activeUniverseIds(db, input.sinceDays);
+	const universeIds = await aiEnabledUniverseIds(db, activeIds);
 	const results = new Map<string, RegenerateResult[]>();
 
 	for (const universeId of universeIds) {

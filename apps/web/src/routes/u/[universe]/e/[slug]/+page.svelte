@@ -1,11 +1,13 @@
 <script lang="ts">
 	/**
 	 * The entry read view, B1 = C: a document plus a right column that switches between
-	 * Relations, Facts, Images and History.
+	 * Relations, Facts, Images, History and Audit (C9 = B, #55).
 	 */
 	import { resolve } from '$app/paths';
 	import EntryProseWithSecrets from '$lib/components/players/EntryProseWithSecrets.svelte';
 	import EntryTabs from '$lib/components/entry/EntryTabs.svelte';
+	import CompleteEntryControl from '$lib/components/entry/CompleteEntryControl.svelte';
+	import AuditFlagBadge from '$lib/components/audit/AuditFlagBadge.svelte';
 	import type { FactRow } from '$lib/components/entry/FactsPanel.svelte';
 	import type { FactSpan } from '$lib/markdown';
 	import type { PageProps } from './$types';
@@ -13,6 +15,7 @@
 	let { data }: PageProps = $props();
 
 	let activeFact = $state<FactRow | null>(null);
+	let activeDetailTab = $state<'relations' | 'facts' | 'images' | 'history' | 'audit'>('relations');
 
 	function toggleFact(fact: FactRow): void {
 		activeFact = activeFact?.id === fact.id ? null : fact;
@@ -21,6 +24,13 @@
 	let highlightSpan = $derived<FactSpan | null>(
 		activeFact ? { start: activeFact.spanStart, end: activeFact.spanEnd } : null
 	);
+
+	// C9 = B: the title badge is a pointer into the aside's own Audit tab, not a second
+	// copy of the flag list - clicking it switches the tab and scrolls it into view.
+	function openAuditTab(): void {
+		activeDetailTab = 'audit';
+		document.getElementById('entry-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
 </script>
 
 <svelte:head><title>{data.entity.name} &middot; {data.universe.name}</title></svelte:head>
@@ -35,7 +45,10 @@
 
 		<div class="mb-6 flex items-start justify-between gap-4">
 			<div>
-				<h1 class="mb-1 text-3xl font-semibold text-ink">{data.entity.name}</h1>
+				<div class="mb-1 flex flex-wrap items-center gap-2">
+					<h1 class="text-3xl font-semibold text-ink">{data.entity.name}</h1>
+					<AuditFlagBadge count={data.audit.flags.length} onOpen={openAuditTab} />
+				</div>
 				<p class="flex flex-wrap items-center gap-2 text-sm text-muted">
 					<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
 						{data.entity.type}
@@ -45,19 +58,40 @@
 					{/if}
 				</p>
 			</div>
-			<a
-				href={resolve(`/u/${data.universe.slug}/e/${data.entity.slug}/edit`)}
-				class="flex-none rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
-			>
-				Edit
-			</a>
+			<div class="flex flex-none items-start gap-2">
+				<CompleteEntryControl aiEnabled={data.universe.aiEnabled} />
+				<a
+					href={resolve(`/u/${data.universe.slug}/e/${data.entity.slug}/edit`)}
+					class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
+				>
+					Edit
+				</a>
+			</div>
 		</div>
+
+		{#if data.proposals.count > 0}
+			<!-- C1 = B: the marking below is the "unmistakable" cue on the sentences
+			     themselves; this line is the discoverable path from noticing a marker to
+			     actually reading the diff (#51), not a second marking treatment. -->
+			<a
+				href={data.proposals.planId
+					? resolve(`/u/${data.universe.slug}/proposals/${data.proposals.planId}`)
+					: resolve(`/u/${data.universe.slug}/proposals`)}
+				class="mb-6 flex items-center gap-2 rounded-md border border-ai-line bg-ai-bg px-3 py-2 text-sm text-ink-2 hover:brightness-95"
+			>
+				<span class="font-mono text-xs font-bold text-ai">{data.proposals.count}</span>
+				<span>
+					pending proposal{data.proposals.count === 1 ? '' : 's'} on this entry &middot; review
+				</span>
+			</a>
+		{/if}
 
 		<EntryProseWithSecrets
 			body={data.entity.body}
 			universeSlug={data.universe.slug}
 			mentionTargets={data.mentionTargets}
 			{highlightSpan}
+			markedSentences={new Set(data.proposals.markedSentences)}
 		/>
 	</article>
 
@@ -66,6 +100,8 @@
 		relations={data.relations}
 		facts={data.facts}
 		history={data.history}
+		audit={data.audit.flags}
+		bind:active={activeDetailTab}
 		activeFactId={activeFact?.id ?? null}
 		onFactToggle={toggleFact}
 		media={{

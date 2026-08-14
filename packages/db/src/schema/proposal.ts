@@ -30,6 +30,7 @@ import {
 } from './enums.js';
 import { relationType } from './relation.js';
 import { revision } from './revision.js';
+import { importJob } from './source.js';
 import { universe } from './universe.js';
 
 // SPEC.md §5.1 step 3: "a readable, editable plan: this change touches 4 entries, here is
@@ -51,6 +52,11 @@ export const proposalPlan = pgTable(
 		triggerRevisionId: uuid('trigger_revision_id').references((): AnyPgColumn => revision.id, {
 			onDelete: 'set null'
 		}),
+		// The import run that produced this plan, for trigger = 'import'. Null otherwise.
+		// Lets a review screen join straight to the job instead of matching on
+		// evidence->>'documentId' against import_job.checkpoint, which is only an
+		// approximate join since two different jobs can reuse the same document id.
+		importJobId: uuid('import_job_id').references(() => importJob.id, { onDelete: 'set null' }),
 		summary: text('summary').notNull().default(''),
 		status: proposalPlanStatusEnum('status').notNull().default('planning'),
 		// What generating the surviving diffs is expected to cost, shown before it is spent.

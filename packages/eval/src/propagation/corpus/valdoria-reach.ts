@@ -61,7 +61,7 @@ export const valdoriaReach: PropagationWorld = {
 			type: 'place',
 			slug: 'cairnmouth',
 			name: 'Cairnmouth',
-			body: 'A fishing town two days up the coast. A third of it starved in [[The Sable Winter]] when [[The Sable Reach]] froze, and the rest remember exactly who did not come.'
+			body: 'A fishing town two days up the coast. A third of it starved in [[The Sable Winter]] when [[The Sable Reach]] froze, and the rest remember exactly who did not come. Captain Vane led the watch through the second freeze, the winter after the thaw.'
 		},
 		{
 			type: 'faction',

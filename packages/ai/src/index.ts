@@ -53,3 +53,16 @@ export {
 	type WarmSpendCheck,
 	type WithQuotaMeta
 } from './quota.js';
+export { createLanguageModel, UnknownProviderError, KNOWN_PROVIDERS } from './composition.js';
+export {
+	encryptApiKey,
+	decryptApiKey,
+	storeByoKey,
+	resolveByoKey,
+	lastFourOf,
+	InvalidByoKeyEncryptionKeyError,
+	InvalidByoKeyCiphertextError,
+	type ByoKeyRow,
+	type ByoKeyCredential,
+	type EncryptedApiKey
+} from './byo-key.js';

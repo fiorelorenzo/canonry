@@ -1,9 +1,11 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { closeDb, declareSessionContext, latestArtifact } from '@canonry/db';
+import { closeDb, declareSessionContext, eq, latestArtifact } from '@canonry/db';
+import { universe } from '@canonry/db/schema';
 import { openTestDb } from './test-db.js';
 import { createInMemoryWarmBudgetPort, type WarmBudgetPort } from './budget.js';
 import { checkFreshness, regenerate, type WarmGenerator } from './store.js';
 import {
+	AiDisabledError,
 	WriteDebounce,
 	warmOnConsumption,
 	warmOnPrep,
@@ -353,5 +355,135 @@ describe('budget degradation across a trigger batch', () => {
 		const statusesByKind = new Map(results.map((r, i) => [i, r.status]));
 		expect([...statusesByKind.values()].some((s) => s === 'degraded')).toBe(true);
 		expect(budget.spent).toBeLessThanOrEqual(10);
+	});
+});
+
+describe('AI switched off (guardrail 4, issue #107): warm triggers do not fire', () => {
+	async function seedDisabledUniverse(): Promise<{ userId: string; universeId: string }> {
+		const { userId, universeId } = await seedUniverse();
+		await db.update(universe).set({ aiEnabled: false }).where(eq(universe.id, universeId));
+		return { userId, universeId };
+	}
+
+	it('warmOnWrite refuses before building a single candidate', async () => {
+		const { universeId } = await seedDisabledUniverse();
+		const placeId = await createTestEntity(db, { universeId, type: 'place' });
+		await createTestRevision(db, { universeId, entityId: placeId });
+		const { generator, kinds } = recordingGenerator();
+
+		await expect(
+			warmOnWrite(
+				db,
+				{
+					universeId,
+					entityId: placeId,
+					promptVersion: 'v1',
+					modelId: 'm1',
+					briefCredits: 1,
+					contextPackCredits: 1
+				},
+				generator,
+				bigBudget()
+			)
+		).rejects.toBeInstanceOf(AiDisabledError);
+		expect(kinds).toHaveLength(0);
+	});
+
+	it('warmOnPrep refuses before building a single candidate', async () => {
+		const { universeId } = await seedDisabledUniverse();
+		const place = await createTestEntity(db, { universeId, type: 'place' });
+		const { generator, kinds } = recordingGenerator();
+
+		await expect(
+			warmOnPrep(
+				db,
+				{
+					universeId,
+					expectedPlaceEntityIds: [place],
+					pinnedNpcEntityIds: [],
+					promptVersion: 'v1',
+					modelId: 'm1',
+					npcDraftCredits: 1,
+					ambientPackCredits: 1,
+					portraitCredits: 1
+				},
+				generator,
+				bigBudget()
+			)
+		).rejects.toBeInstanceOf(AiDisabledError);
+		expect(kinds).toHaveLength(0);
+	});
+
+	it('warmOnTableOpen refuses before building a single candidate', async () => {
+		const { universeId } = await seedDisabledUniverse();
+		const place = await createTestEntity(db, { universeId, type: 'place' });
+		const { generator, kinds } = recordingGenerator();
+
+		await expect(
+			warmOnTableOpen(
+				db,
+				{
+					universeId,
+					placeEntityId: place,
+					promptVersion: 'v1',
+					modelId: 'm1',
+					briefCredits: 1,
+					contextPackCredits: 1
+				},
+				generator,
+				bigBudget()
+			)
+		).rejects.toBeInstanceOf(AiDisabledError);
+		expect(kinds).toHaveLength(0);
+	});
+
+	it('warmOnConsumption refuses before building a single candidate', async () => {
+		const { universeId } = await seedDisabledUniverse();
+		const place = await createTestEntity(db, { universeId, type: 'place' });
+		const { generator, kinds } = recordingGenerator();
+
+		await expect(
+			warmOnConsumption(
+				db,
+				{
+					universeId,
+					enteredPlaceEntityId: place,
+					promptVersion: 'v1',
+					modelId: 'm1',
+					briefCredits: 1
+				},
+				generator,
+				bigBudget()
+			)
+		).rejects.toBeInstanceOf(AiDisabledError);
+		expect(kinds).toHaveLength(0);
+	});
+
+	it('warmNightly drops a switched-off universe from the sweep and keeps an enabled one', async () => {
+		const disabled = await seedDisabledUniverse();
+		const enabled = await seedUniverse();
+		const disabledPlace = await createTestEntity(db, {
+			universeId: disabled.universeId,
+			type: 'place'
+		});
+		const enabledPlace = await createTestEntity(db, {
+			universeId: enabled.universeId,
+			type: 'place'
+		});
+		await createTestRevision(db, { universeId: disabled.universeId, entityId: disabledPlace });
+		await createTestRevision(db, { universeId: enabled.universeId, entityId: enabledPlace });
+
+		const { generator } = recordingGenerator();
+		const results = await warmNightly(
+			db,
+			{ sinceDays: 30, promptVersion: 'v2', modelId: 'm2', creditsFor: () => 1 },
+			generator,
+			bigBudget()
+		);
+
+		// The disabled universe never appears in the result map at all - not attempted,
+		// not degraded, simply not run - while an equally "active" enabled universe does.
+		expect(results.has(disabled.universeId)).toBe(false);
+		expect(results.has(enabled.universeId)).toBe(true);
 	});
 });

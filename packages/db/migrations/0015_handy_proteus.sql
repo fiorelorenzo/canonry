@@ -1,0 +1,2 @@
+ALTER TABLE "proposal_plan" ADD COLUMN "import_job_id" uuid;--> statement-breakpoint
+ALTER TABLE "proposal_plan" ADD CONSTRAINT "proposal_plan_import_job_id_import_job_id_fk" FOREIGN KEY ("import_job_id") REFERENCES "public"."import_job"("id") ON DELETE set null ON UPDATE no action;

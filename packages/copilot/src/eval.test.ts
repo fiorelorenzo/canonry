@@ -35,9 +35,14 @@ describe('propagation eval harness against the real candidate selector', () => {
 		expect(report.meanRecallAtCap).toBeGreaterThanOrEqual(0.75);
 
 		// Precision: real but bounded false positives, concentrated in the cases the corpus
-		// built specifically to expose graph-only reasoning (brackwater-mire's doc comment).
+		// built specifically to expose graph-only reasoning (brackwater-mire's doc comment),
+		// plus one more since docs/ux/c9-audit-flags.html's own worked example: Cairnmouth's
+		// body names "Captain Vane" (an alias) for audit's benefit (issue #55), which makes
+		// Cairnmouth a mechanical reverse-mention false positive whenever Aldric Vane is
+		// edited for an unrelated reason, exactly the "shares a mention without being
+		// narratively relevant" gap this harness exists to measure honestly.
 		expect(report.meanFalsePositiveRate).toBeLessThanOrEqual(0.2);
-		expect(report.totalFalsePositives).toBe(6);
+		expect(report.totalFalsePositives).toBe(7);
 
 		// The two cases with zero relation, mention or embedding evidence at all score zero
 		// recall - a selector with no signal cannot invent one, and pretending otherwise
@@ -55,8 +60,15 @@ describe('propagation eval harness against the real candidate selector', () => {
 		const report = await runPropagationEval(propagationWorlds, realCandidateSelector(), {
 			cap: 10
 		});
+		// 'aldric-appointment-review' is excluded alongside 'gilded-rat-turns-away-collectors'
+		// now too: Cairnmouth's own body names an Aldric Vane alias (issue #55's fixture
+		// contradiction), so editing Aldric Vane mechanically turns up Cairnmouth as a
+		// reverse-mention candidate even though this specific edit has nothing to do with it.
 		const clean = report.cases.filter(
-			(c) => c.worldId === 'valdoria-reach' && c.caseId !== 'gilded-rat-turns-away-collectors'
+			(c) =>
+				c.worldId === 'valdoria-reach' &&
+				c.caseId !== 'gilded-rat-turns-away-collectors' &&
+				c.caseId !== 'aldric-appointment-review'
 		);
 		for (const caseScore of clean) {
 			expect(caseScore.recall).toBe(1);

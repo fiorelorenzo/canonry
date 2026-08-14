@@ -14,21 +14,24 @@
 		current,
 		universes,
 		recent,
-		entryCount
+		entryCount,
+		proposalsPending
 	}: {
 		universeSlug: string;
 		current: UniverseSummary;
 		universes: UniverseSummary[];
 		recent: RecentEntity[];
 		entryCount: number;
+		proposalsPending: number;
 	} = $props();
 
-	// Only Entries carries a real, database-backed count this wave. Proposals would be
-	// the other one A2's artifact draws a badge for, but there is no `proposal` table
-	// yet (SPEC.md 4.4 lands it in #47), so showing a number there would be a constant
-	// wearing a database's clothes. Left off rather than faked.
+	// C2 = A: a quiet, persistent nav badge. Entries carries the same real count it always
+	// has; Proposals now reads a real pending-proposal count too (#47/#51 land the table
+	// and the review surface), zero when the inbox is empty rather than hidden - a settled
+	// day should visibly say so, not just omit the number.
 	const counts: Partial<Record<(typeof NAV_ITEMS)[number]['id'], number>> = $derived({
-		entries: entryCount
+		entries: entryCount,
+		proposals: proposalsPending
 	});
 </script>
 
@@ -38,6 +41,14 @@
 >
 	<div class="border-b border-line p-3">
 		<UniverseSwitcher {current} {universes} />
+		<a
+			href={resolve(`/u/${universeSlug}/ask`)}
+			class="mt-2 flex items-center gap-2 rounded-md border border-ai-line bg-ai-bg px-2.5 py-1.5 text-sm text-ai hover:opacity-90"
+		>
+			<span aria-hidden="true">✦</span>
+			<span>Ask the Loremaster</span>
+			<span class="ml-auto font-mono text-[10px] text-muted">⌘⇧A</span>
+		</a>
 	</div>
 
 	<nav class="flex-1 p-2" aria-label="Primary">

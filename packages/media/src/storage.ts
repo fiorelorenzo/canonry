@@ -31,7 +31,12 @@ export interface MediaStorage {
 const EXTENSION_BY_MIME: Record<string, string> = {
 	'image/png': 'png',
 	'image/jpeg': 'jpg',
-	'image/webp': 'webp'
+	'image/webp': 'webp',
+	// #68: ElevenLabs' sound-generation endpoint returns mp3 by default; FakeAudioProvider
+	// returns a real wav tone (../audio/provider.ts's tinyWavBytes) so tests never touch
+	// the network.
+	'audio/mpeg': 'mp3',
+	'audio/wav': 'wav'
 };
 
 function extensionFor(mimeType: string): string {

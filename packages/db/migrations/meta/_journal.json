@@ -106,6 +106,27 @@
       "when": 1786714129297,
       "tag": "0014_model_call_user_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1786719455920,
+      "tag": "0015_handy_proteus",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1786719694644,
+      "tag": "0016_proposal_flag_kind",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786719695644,
+      "tag": "0017_seed_audio_layers_parse_price",
+      "breakpoints": true
     }
   ]
 }

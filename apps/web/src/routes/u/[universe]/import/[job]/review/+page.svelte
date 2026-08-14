@@ -1,0 +1,128 @@
+<script lang="ts">
+	/**
+	 * #42, D4 = B: the import review screen. C6's queue, unchanged, with a type filter
+	 * chip bar on top - D4's only addition to C6's own screen. Import proposals arrive
+	 * already diffed by job-runner.ts's `materializeDocumentProposals`, so unlike a
+	 * propagation plan (proposals/[plan]) there is no C3 checklist phase here: straight to
+	 * the queue.
+	 *
+	 * `ProposalQueue` reads its `candidates` prop exactly once, at mount (it is its own
+	 * self-contained, already-verified C6 implementation, not owned by this route, and its
+	 * own doc comment says writes patch local state "instead of the default full-page
+	 * invalidate" on purpose) - so a filter switch or a bulk reject has to force a remount
+	 * to show fresh state, via the `{#key}` block below. Switching filters first awaits a
+	 * fresh load (`selectFilter`), so the newly-mounted queue always starts from real,
+	 * current database state rather than whatever was true when this page first loaded -
+	 * the D4 mock's own promise that switching chips "never loses 40 accepted so far".
+	 */
+	import { invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import ProposalQueue from '$lib/components/proposals/ProposalQueue.svelte';
+	import TypeFilterChips from '$lib/components/proposals/TypeFilterChips.svelte';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
+
+	const RUNNING_STATUSES = new Set(['queued', 'running']);
+	const ISSUE_STATUSES = new Set(['failed', 'cancelled', 'stopped_at_ceiling']);
+
+	let selectedType = $state<string | null>(null);
+	let remountNonce = $state(0);
+	let switchingFilter = $state(false);
+
+	let isRunning = $derived(RUNNING_STATUSES.has(data.job.status));
+	let filteredCandidates = $derived(
+		selectedType === null
+			? data.candidates
+			: data.candidates.filter((c) => data.filterTypeById[c.id] === selectedType)
+	);
+	let activeLabel = $derived(data.buckets.find((b) => b.type === selectedType)?.label ?? null);
+
+	// D4's cost, accepted rather than worked around by reaching into ProposalQueue's own
+	// state: switching chips remounts the queue, so it has to start from a fresh load or
+	// it would show outcomes as they were when this page first opened.
+	async function selectFilter(type: string | null): Promise<void> {
+		switchingFilter = true;
+		await invalidateAll();
+		selectedType = type;
+		switchingFilter = false;
+	}
+
+	function onRejectedFiltered(): void {
+		remountNonce += 1;
+	}
+
+	function refreshNow(): void {
+		void invalidateAll();
+	}
+
+	// D2 = B: "live feed of proposals, so review starts before the import ends" - while
+	// the job is still running, this page's own data (job status, proposal counts, the
+	// candidate list a filter switch reads) is kept current without the GM reaching for
+	// the browser's reload button.
+	$effect(() => {
+		if (!isRunning) return;
+		const interval = setInterval(() => void invalidateAll(), 4000);
+		return () => clearInterval(interval);
+	});
+</script>
+
+<svelte:head><title>Import review &middot; {data.universe.name}</title></svelte:head>
+
+<div class="mx-auto max-w-3xl px-6 py-8">
+	<p class="mb-2 text-xs text-muted">
+		<a class="hover:underline" href={resolve(`/u/${data.universe.slug}/proposals`)}>Proposals</a>
+		/ <span class="text-ink-2">Import review</span>
+	</p>
+	<h1 class="mb-4 text-2xl font-semibold text-ink">Import review &middot; {data.job.playbook}</h1>
+
+	{#if isRunning}
+		<div
+			class="mb-4 flex items-center justify-between gap-3 rounded-md border border-ai-line bg-ai-bg px-4 py-3 text-sm text-ink"
+		>
+			<span>
+				Still importing &mdash; {data.job.proposalsEmitted} proposal{data.job.proposalsEmitted === 1
+					? ''
+					: 's'} so far.
+			</span>
+			<button type="button" class="text-xs font-medium text-ai underline" onclick={refreshNow}>
+				Refresh
+			</button>
+		</div>
+	{:else if ISSUE_STATUSES.has(data.job.status)}
+		<p class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-muted">
+			Import {data.job.status.replaceAll('_', ' ')}{data.job.outcomeNote
+				? `: ${data.job.outcomeNote}`
+				: '.'}
+		</p>
+	{/if}
+
+	{#if data.candidates.length === 0}
+		<p class="text-sm text-muted">
+			{isRunning
+				? 'Nothing to review yet.'
+				: 'Nothing to review - this import produced no proposals.'}
+		</p>
+	{:else}
+		<div class="mb-4">
+			<TypeFilterChips
+				buckets={data.buckets}
+				selected={selectedType}
+				onSelect={selectFilter}
+				{onRejectedFiltered}
+			/>
+		</div>
+
+		{#if switchingFilter}
+			<p class="text-sm text-muted">Filtering&hellip;</p>
+		{:else}
+			{#key `${selectedType}:${remountNonce}`}
+				<ProposalQueue
+					candidates={filteredCandidates}
+					universeSlug={data.universe.slug}
+					filterType={activeLabel}
+				/>
+			{/key}
+		{/if}
+	{/if}
+</div>

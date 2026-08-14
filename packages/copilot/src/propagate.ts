@@ -33,16 +33,21 @@ import { routeModel } from './models.js';
 import { writePlanRationale } from './ranking.js';
 import { effectiveCap, scoreCandidates, type RejectionRecord } from './reject-signal.js';
 
+/** One switch, shared by every Loremaster mode that generates - propagate, ask, complete,
+ * audit - not a separate error per mode (mirrors `packages/media`'s own `AiDisabledError`,
+ * which every media kind in that package reuses the same way). */
 export class AiDisabledError extends Error {
 	constructor(universeId: string) {
-		super(
-			`universe "${universeId}" has generation switched off (guardrail 4); propagation does not run`
-		);
+		super(`universe "${universeId}" has generation switched off (guardrail 4)`);
 		this.name = 'AiDisabledError';
 	}
 }
 
-async function requireAiEnabled(db: Db, universeId: string): Promise<void> {
+/** Guardrail 4: the switch stops generation completely. Checked first, before any model
+ * resolution or spend, by every function in this package that generates - reading
+ * (retrieval, search, mention suggestions) never calls this, since guardrail 4 keeps
+ * those alive on purpose (docs/ux/DECISIONS.md, H1). */
+export async function requireAiEnabled(db: Db, universeId: string): Promise<void> {
 	const [row] = await db
 		.select({ aiEnabled: universe.aiEnabled })
 		.from(universe)

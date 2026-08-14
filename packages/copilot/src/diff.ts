@@ -68,12 +68,15 @@ export function splitIntoSentences(body: string): string[] {
 	return units;
 }
 
-function tokenize(sentence: string): Set<string> {
+/** Exported for `ask.ts` (own-canon relevance scoring) and `audit.ts` (picking the most
+ * topically similar sentence in a candidate entity's body): a small, deterministic
+ * word-overlap measure, not a private implementation detail of the semantic diff alone. */
+export function tokenize(sentence: string): Set<string> {
 	const words = sentence.toLowerCase().match(/[a-z0-9']+/g) ?? [];
 	return new Set(words);
 }
 
-function jaccard(a: Set<string>, b: Set<string>): number {
+export function jaccard(a: Set<string>, b: Set<string>): number {
 	if (a.size === 0 && b.size === 0) return 1;
 	let intersection = 0;
 	for (const word of a) if (b.has(word)) intersection++;

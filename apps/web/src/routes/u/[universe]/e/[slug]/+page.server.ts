@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import {
 	historyFor,
 	mediaAssetsForEntity,
@@ -8,9 +8,21 @@ import {
 	type Db
 } from '@canonry/db';
 import { ImageModelNotConfiguredError, resolveImageModel, resolveStyle } from '@canonry/media';
+import { AiDisabledError, completeEntry, semanticDiff } from '@canonry/copilot';
+import { UnknownProviderError } from '@canonry/ai';
 import { db } from '$lib/server/db';
+import { identityGateway, modelFactory } from '$lib/server/copilot';
 import { stripMentionSyntax } from '$lib/markdown';
-import type { PageServerLoad } from './$types';
+import {
+	changedSentencesForEntity,
+	pendingUpdateProposalsForEntity,
+	ProposalAlreadyDecidedError,
+	ProposalNotFoundError,
+	rejectProposal
+} from '$lib/server/proposals';
+import { openAuditFlagsForEntity } from '$lib/server/auditFlags';
+import type { AuditFlagView } from '$lib/components/audit/AuditFlagsPanel.svelte';
+import type { Actions, PageServerLoad } from './$types';
 
 /** Null when the feature has no active image_model_config row yet - the dialog then says
  * so instead of crashing the whole entry page over a missing admin setup step (#64). */
@@ -83,7 +95,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		portraitPrice,
 		variantsPrice,
 		portraitModel,
-		variantsModel
+		variantsModel,
+		pendingProposals,
+		openFlags
 	] = await Promise.all([
 		relationsFor(conn, current.id),
 		historyFor(conn, current.id),
@@ -92,8 +106,43 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		priceOf(conn, 'image.portrait'),
 		priceOf(conn, 'image.variants'),
 		modelSummary(conn, 'portrait'),
-		modelSummary(conn, 'variants')
+		modelSummary(conn, 'variants'),
+		pendingUpdateProposalsForEntity(conn, world.id, current.id),
+		openAuditFlagsForEntity(conn, world.id, current.id)
 	]);
+
+	// C1 = B, #106: which of the entry's own sentences a pending proposal would replace or
+	// remove, re-diffed live against `current.body` rather than a stored snapshot - see
+	// `changedSentencesForEntity`'s own comment for why. An array over the wire (not a
+	// `Set`) so the page component owns reconstructing it, matching every other derived
+	// prop this load already returns as plain JSON.
+	const markedSentences = [...changedSentencesForEntity(current.body, pendingProposals)];
+	const pendingProposalPlanId = pendingProposals[0]?.planId ?? null;
+
+	// C9 = B, #55: the badge's count and the aside's list read the same resolved flags -
+	// mapped to a plain view here (statement text and current entity slugs only) so the
+	// component never has to know a flag's evidence column is shaped like
+	// `packages/copilot`'s `AuditFlagStatement`. `stripMentionSyntax` on the quoted text,
+	// same treatment `facts.sourceExcerpt` gets above: a quote is read as prose, and the
+	// stored span (untouched here) is what the guardrail-3 evidence actually anchors to.
+	const auditFlags: AuditFlagView[] = openFlags.map((flag) => ({
+		id: flag.proposal.id,
+		rationale: flag.proposal.rationale,
+		statements: [
+			{
+				entityId: flag.statements[0].entityId,
+				entityName: flag.entities[0].name,
+				entitySlug: flag.entities[0].slug,
+				statement: stripMentionSyntax(flag.statements[0].statement)
+			},
+			{
+				entityId: flag.statements[1].entityId,
+				entityName: flag.entities[1].name,
+				entitySlug: flag.entities[1].slug,
+				statement: stripMentionSyntax(flag.statements[1].statement)
+			}
+		]
+	}));
 
 	return {
 		universe: {
@@ -113,6 +162,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			updatedAt: current.updatedAt
 		},
 		mentionTargets: universeEntities,
+		proposals: {
+			markedSentences,
+			count: pendingProposals.length,
+			planId: pendingProposalPlanId
+		},
+		audit: {
+			flags: auditFlags
+		},
 		relations,
 		history,
 		facts,
@@ -133,4 +190,78 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			}
 		}
 	};
+};
+
+/**
+ * `dismissFlag`: the flag's only decision, per guardrail 7/`ProposalCannotBeAcceptedError`
+ * - `rejectProposal`, never `acceptProposal`, since a flag carries no patch. `complete`:
+ * issue #54, runs `completeEntry` and lands its output as a normal pending `update`
+ * proposal (guardrail 1), then immediately dismisses it again if the draft turned out to
+ * change nothing - a proposal whose `after` is semantically identical to `before` is not
+ * "something to review", it is the model declining to add anything (`completeEntry`'s own
+ * system prompt allows this explicitly), so leaving it pending would show a false pending
+ * count for zero real content.
+ */
+async function requireAccess(locals: App.Locals, universeSlug: string) {
+	if (!locals.user) error(404, `No universe named "${universeSlug}"`);
+	const conn = db();
+	const access = await universeAccessBySlug(conn, universeSlug, locals.user.id);
+	if (!access) error(404, `No universe named "${universeSlug}"`);
+	return { conn, world: access.universe, userId: locals.user.id };
+}
+
+export const actions: Actions = {
+	dismissFlag: async ({ request, params, locals }) => {
+		const { conn, userId } = await requireAccess(locals, params.universe);
+		const data = await request.formData();
+		const proposalId = data.get('proposalId');
+		if (typeof proposalId !== 'string') return fail(400, { error: 'Missing proposalId' });
+		try {
+			const rejected = await rejectProposal(conn, { proposalId, reason: null, decidedBy: userId });
+			return { id: rejected.id };
+		} catch (err) {
+			if (err instanceof ProposalNotFoundError || err instanceof ProposalAlreadyDecidedError) {
+				return fail(409, { error: err.message });
+			}
+			throw err;
+		}
+	},
+
+	complete: async ({ params, locals }) => {
+		const { conn, world, userId } = await requireAccess(locals, params.universe);
+		const current = await conn.query.entity.findFirst({
+			where: (entity, { and, eq }) =>
+				and(eq(entity.universeId, world.id), eq(entity.slug, params.slug))
+		});
+		if (!current) error(404, `No entry named "${params.slug}" in ${world.name}`);
+
+		try {
+			const result = await completeEntry({
+				db: conn,
+				userId,
+				universeId: world.id,
+				entityId: current.id,
+				modelFactory,
+				gateway: identityGateway
+			});
+			const patch = result.proposal.patch as { before: string; after: string };
+			if (semanticDiff(patch.before, patch.after).length === 0) {
+				await rejectProposal(conn, {
+					proposalId: result.proposal.id,
+					reason: null,
+					decidedBy: userId
+				});
+				return { completeEmpty: true };
+			}
+			return { completed: true };
+		} catch (err) {
+			if (err instanceof AiDisabledError) {
+				return fail(403, { completeError: 'Writing is switched off for this universe.' });
+			}
+			if (err instanceof UnknownProviderError) {
+				return fail(503, { completeError: `Complete cannot run: ${err.message}` });
+			}
+			throw err;
+		}
+	}
 };

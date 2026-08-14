@@ -9,11 +9,16 @@ import {
 	getProposal,
 	listProposalsForPlan,
 	ProposalAlreadyDecidedError,
+	ProposalCannotBeAcceptedError,
 	ProposalHasDiffError,
+	ProposalNotAcceptedError,
 	ProposalNotFoundError,
 	recordProposalDiff,
 	rejectedProposalsFor,
 	rejectProposal,
+	setRejectReason,
+	undoAcceptedProposal,
+	UndoNotPossibleError,
 	type Db
 } from '../src/index.js';
 import { entity } from '../src/schema/entity.js';
@@ -349,6 +354,223 @@ describe('proposals', () => {
 			expect(rows).toHaveLength(1);
 			expect(rows[0]?.authorKind).toBe('ai_accepted');
 		});
+
+		it('refuses to accept a flag-kind proposal: an audit flag is a question, not a change (guardrail 7)', async () => {
+			const { u, target } = await fixture();
+			const [other] = await db
+				.insert(entity)
+				.values({
+					universeId: u.id,
+					type: 'place',
+					name: 'Cairnmouth',
+					slug: unique('cairnmouth')
+				})
+				.returning();
+			if (!other) throw new Error('fixture setup failed');
+
+			const { proposals } = await createProposalPlan(db, {
+				universeId: u.id,
+				trigger: 'audit',
+				summary:
+					'The Ashen Ledger and Cairnmouth do not agree on who led the watch through the second freeze.',
+				candidateCap: 10,
+				estimatedCredits: 1,
+				candidates: [
+					{
+						kind: 'flag',
+						targetEntityId: target.id,
+						relatedEntityId: other.id,
+						rationale: 'Worth checking, not necessarily wrong.',
+						evidence: [],
+						rank: 0
+					}
+				]
+			});
+			const proposal = proposals[0]!;
+			expect(proposal.kind).toBe('flag');
+
+			await expect(acceptProposal(db, { proposalId: proposal.id })).rejects.toBeInstanceOf(
+				ProposalCannotBeAcceptedError
+			);
+
+			// Dismiss is the only decision a flag can register, and it needs no revision.
+			const rejected = await rejectProposal(db, {
+				proposalId: proposal.id,
+				reason: 'not-a-contradiction'
+			});
+			expect(rejected.outcome).toBe('rejected');
+			expect(rejected.rejectReason).toBe('not-a-contradiction');
+
+			const revisionsForTarget = await db
+				.select()
+				.from(revision)
+				.where(eq(revision.entityId, target.id));
+			expect(revisionsForTarget).toHaveLength(0);
+		});
+	});
+
+	describe('undoAcceptedProposal', () => {
+		it('restores the entity to its prior revision and deletes the ai_accepted one', async () => {
+			const { u, target } = await fixture();
+			// A real production entity always has at least the revision its own creation
+			// wrote - this fixture's raw entity insert skips that, so give it one by hand.
+			const [priorRevision] = await db
+				.insert(revision)
+				.values({
+					universeId: u.id,
+					entityId: target.id,
+					authorKind: 'human',
+					name: target.name,
+					aliases: target.aliases,
+					body: target.body
+				})
+				.returning();
+			if (!priorRevision) throw new Error('fixture setup failed');
+
+			const { proposals } = await createProposalPlan(db, {
+				universeId: u.id,
+				trigger: 'save',
+				summary: 'x',
+				candidateCap: 10,
+				estimatedCredits: 1,
+				candidates: [
+					{ kind: 'update', targetEntityId: target.id, rationale: 'x', evidence: [], rank: 0 }
+				]
+			});
+			const proposal = proposals[0]!;
+			await recordProposalDiff(db, {
+				proposalId: proposal.id,
+				patch: { summary: 's', before: target.body, after: `${target.body} changed.` },
+				provider: 'test',
+				modelId: 'test',
+				credits: 1
+			});
+			const accepted = await acceptProposal(db, { proposalId: proposal.id });
+			expect(accepted.appliedRevisionId).not.toBeNull();
+
+			const undone = await undoAcceptedProposal(db, { proposalId: proposal.id });
+
+			expect(undone.outcome).toBe('pending');
+			expect(undone.decidedAt).toBeNull();
+			expect(undone.appliedRevisionId).toBeNull();
+
+			const [restoredEntity] = await db.select().from(entity).where(eq(entity.id, target.id));
+			expect(restoredEntity?.body).toBe(target.body);
+
+			const revisions = await db.select().from(revision).where(eq(revision.entityId, target.id));
+			expect(revisions).toHaveLength(1);
+			expect(revisions[0]?.id).toBe(priorRevision.id);
+		});
+
+		it('undoing a create-kind accept deletes the entity it created, cascading its revision', async () => {
+			const { u } = await fixture();
+			const { proposals } = await createProposalPlan(db, {
+				universeId: u.id,
+				trigger: 'save',
+				summary: 'x',
+				candidateCap: 10,
+				estimatedCredits: 1,
+				candidates: [
+					{ kind: 'create', targetEntityId: null, rationale: 'x', evidence: [], rank: 0 }
+				]
+			});
+			const proposal = proposals[0]!;
+			const newSlug = unique('corvin-ashe');
+			await recordProposalDiff(db, {
+				proposalId: proposal.id,
+				patch: { type: 'character', name: 'Corvin Ashe', slug: newSlug, aliases: [], body: 'x' },
+				provider: 'test',
+				modelId: 'test',
+				credits: 1
+			});
+			await acceptProposal(db, { proposalId: proposal.id });
+			expect((await db.select().from(entity).where(eq(entity.slug, newSlug))).length).toBe(1);
+
+			const undone = await undoAcceptedProposal(db, { proposalId: proposal.id });
+			expect(undone.outcome).toBe('pending');
+			expect(await db.select().from(entity).where(eq(entity.slug, newSlug))).toEqual([]);
+		});
+
+		it('undoing a relation-kind accept deletes the relation row', async () => {
+			const { u, target } = await fixture();
+			const [other] = await db
+				.insert(entity)
+				.values({
+					universeId: u.id,
+					type: 'character',
+					name: 'Corvin Ashe',
+					slug: unique('corvin')
+				})
+				.returning();
+			const [rt] = await db
+				.insert(relationType)
+				.values({
+					universeId: u.id,
+					label: 'employs',
+					inverseLabel: 'employed by',
+					cardinality: 'one_to_many',
+					allowedFrom: ['faction'],
+					allowedTo: ['character']
+				})
+				.returning();
+			if (!other || !rt) throw new Error('fixture setup failed');
+
+			const { proposals } = await createProposalPlan(db, {
+				universeId: u.id,
+				trigger: 'save',
+				summary: 'x',
+				candidateCap: 10,
+				estimatedCredits: 1,
+				candidates: [
+					{
+						kind: 'relation',
+						targetEntityId: target.id,
+						relationTypeId: rt.id,
+						relatedEntityId: other.id,
+						rationale: 'x',
+						evidence: [],
+						rank: 0
+					}
+				]
+			});
+			const proposal = proposals[0]!;
+			await acceptProposal(db, { proposalId: proposal.id });
+
+			await undoAcceptedProposal(db, { proposalId: proposal.id });
+
+			const rows = await db
+				.select()
+				.from(relation)
+				.where(and(eq(relation.fromEntityId, target.id), eq(relation.toEntityId, other.id)));
+			expect(rows).toHaveLength(0);
+		});
+
+		it('refuses to undo a proposal that is not accepted', async () => {
+			const { proposal } = await planWithOneUpdateCandidate();
+			await expect(undoAcceptedProposal(db, { proposalId: proposal.id })).rejects.toBeInstanceOf(
+				ProposalNotAcceptedError
+			);
+			await rejectProposal(db, { proposalId: proposal.id, reason: 'wrong' });
+			await expect(undoAcceptedProposal(db, { proposalId: proposal.id })).rejects.toBeInstanceOf(
+				ProposalNotAcceptedError
+			);
+		});
+
+		it('refuses to undo when the accepted entity has no prior revision to restore', async () => {
+			// The fixture entity's raw insert (no founding revision) is exactly this case.
+			const { target, proposal } = await planWithOneUpdateCandidate();
+			await recordProposalDiff(db, {
+				proposalId: proposal.id,
+				patch: { summary: 's', before: target.body, after: `${target.body} changed.` },
+				provider: 'test',
+				modelId: 'test',
+				credits: 1
+			});
+			await acceptProposal(db, { proposalId: proposal.id });
+			await expect(undoAcceptedProposal(db, { proposalId: proposal.id })).rejects.toBeInstanceOf(
+				UndoNotPossibleError
+			);
+		});
 	});
 
 	describe('rejectProposal', () => {
@@ -387,6 +609,23 @@ describe('proposals', () => {
 			await expect(
 				rejectProposal(db, { proposalId: proposal.id, reason: 'wrong' })
 			).rejects.toBeInstanceOf(ProposalAlreadyDecidedError);
+		});
+	});
+
+	describe('setRejectReason', () => {
+		it('attaches a reason chosen after the reject already happened', async () => {
+			const { proposal } = await planWithOneUpdateCandidate();
+			await rejectProposal(db, { proposalId: proposal.id });
+			const updated = await setRejectReason(db, proposal.id, 'already true');
+			expect(updated?.rejectReason).toBe('already true');
+			expect(updated?.outcome).toBe('rejected');
+		});
+
+		it('is a no-op for a proposal that was never rejected', async () => {
+			const { proposal } = await planWithOneUpdateCandidate();
+			const updated = await setRejectReason(db, proposal.id, 'wrong');
+			expect(updated).toBeNull();
+			expect((await getProposal(db, proposal.id))?.rejectReason).toBeNull();
 		});
 	});
 

@@ -6,7 +6,7 @@
  * ("disappears from retrieval within one deploy").
  */
 import type { Db } from '@canonry/db';
-import { listExclusionPatternsForUniverse } from '@canonry/db';
+import { listExclusionPatternsForUniverse, supersededUrlsForUniverse } from '@canonry/db';
 import { queryLore, type LoreChunkPayload, type QdrantClient } from '@canonry/vector';
 
 /** SPEC.md §11.4: measured against a 2044-chunk gold corpus, MRR 0.775 - not guesses,
@@ -51,6 +51,16 @@ export interface ScoreLoreHitsOptions {
 	 * than `topK` because the keyword boost can promote a hit past the cosine-only
 	 * ranking's cutoff. */
 	candidateLimit?: number;
+	/**
+	 * SPEC.md §4.1, issue #19: whose exclusion and supersede rules govern this read.
+	 * Defaults to `universeId`, which is right for a universe reading its own indexed
+	 * corpus. A derived universe reading its *base* universe's collection instead passes
+	 * `universeId: baseUniverseId` (so the Qdrant filter matches where those chunks were
+	 * indexed) and `policyUniverseId: derivedUniverseId` (so the declarations the GM
+	 * actually made - "this page is superseded" - are the ones that apply, even though
+	 * they live under a different universe id than the collection being read).
+	 */
+	policyUniverseId?: string;
 }
 
 /**
@@ -59,10 +69,15 @@ export interface ScoreLoreHitsOptions {
  * retriever below, or an eval harness sweeping those two knobs) applies its own cutoff.
  */
 export async function scoreLoreHits(options: ScoreLoreHitsOptions): Promise<RetrievalHit[]> {
-	const excludedUrlPatterns = await listExclusionPatternsForUniverse(
-		options.db,
-		options.universeId
-	);
+	const policyUniverseId = options.policyUniverseId ?? options.universeId;
+	const [exclusionPatterns, supersededUrls] = await Promise.all([
+		listExclusionPatternsForUniverse(options.db, policyUniverseId),
+		supersededUrlsForUniverse(options.db, policyUniverseId)
+	]);
+	// Exact urls match `urlMatchesPattern` as a literal (no `*` to expand), so a
+	// superseded page rides the same filter an exclusion pattern already uses - no second
+	// filtering mechanism to build or keep in sync with the first.
+	const excludedUrlPatterns = [...exclusionPatterns, ...supersededUrls];
 	const hits = await queryLore(options.vectorClient, options.collectionName, {
 		vector: options.queryVector,
 		universeId: options.universeId,

@@ -83,12 +83,18 @@ export const proposalTriggerEnum = pgEnum('proposal_trigger', [
 ]);
 export type ProposalTrigger = (typeof proposalTriggerEnum.enumValues)[number];
 
-// SPEC.md §4.4: "kind (create | update | relation | draft_entity)".
+// SPEC.md §4.4 lists create, update, relation and draft_entity. 'flag' is the fifth and it
+// is the odd one out on purpose: an audit flag (§5.2) is not a change waiting to be applied,
+// it is a question about two statements that disagree, so it has no patch and there is
+// nothing to write to canon. Giving it its own kind rather than storing it as an 'update'
+// with an empty patch means the accept path can refuse it outright, and means the accept
+// rate of §14 does not have to remember to filter by trigger to stay honest.
 export const proposalKindEnum = pgEnum('proposal_kind', [
 	'create',
 	'update',
 	'relation',
-	'draft_entity'
+	'draft_entity',
+	'flag'
 ]);
 export type ProposalKind = (typeof proposalKindEnum.enumValues)[number];
 

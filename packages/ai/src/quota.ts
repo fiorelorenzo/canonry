@@ -95,6 +95,13 @@ export interface WithQuotaMeta extends WithUsageMeta {
 	 * once. Threaded straight through to `recordAndCharge` - see its doc comment for
 	 * what happens on a retry and on a race with a concurrent call. */
 	idempotencyKey?: string;
+	/** Issue #90: set when this call is routed through the caller's own provider key
+	 * (see byo-key.ts's `resolveByoKey`) rather than the platform's. The call still gets
+	 * its full model_call row - real tokens, real euro cost, SPEC.md §15's margin
+	 * question still answered - but is charged 0 credits: the user already paid the
+	 * provider directly, so `previewCharge` is skipped too, since a BYO-key call has no
+	 * balance to check against and none to spend. */
+	byoKey?: boolean;
 }
 
 /** The quota-enforced counterpart to `withUsage`: resolves the operation's price, refuses
@@ -112,8 +119,9 @@ export async function withQuota<T>(
 ): Promise<T> {
 	const log = options.logger ?? defaultLogger;
 	const requestId = meta.requestId ?? null;
-	const { credits } = await chargeFor(db, meta.operation);
-	await previewCharge(db, meta.userId, credits);
+	const { credits: priceCredits } = await chargeFor(db, meta.operation);
+	const credits = meta.byoKey ? 0 : priceCredits;
+	if (!meta.byoKey) await previewCharge(db, meta.userId, credits);
 
 	const startedAt = performance.now();
 	try {

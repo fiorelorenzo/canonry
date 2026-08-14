@@ -109,6 +109,16 @@
 		font-size: 0.9em;
 	}
 
+	/* Native controls draw themselves in the browser's own blue unless told otherwise,
+	 * which reads as a foreign element in a warm palette and, worse, looks identical in
+	 * both themes. One property puts sliders, checkboxes and radios on the palette. */
+	input[type='range'],
+	input[type='checkbox'],
+	input[type='radio'],
+	progress {
+		accent-color: var(--color-accent);
+	}
+
 	:focus-visible {
 		outline: 2px solid var(--color-accent);
 		outline-offset: 2px;

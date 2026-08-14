@@ -87,12 +87,14 @@ describe('withQuota against real Postgres', () => {
 	const CHARGED_OPERATION = `${TEST_OPERATION_PREFIX}charged`;
 	const FREE_OPERATION = `${TEST_OPERATION_PREFIX}free`;
 	const FAILING_OPERATION = `${TEST_OPERATION_PREFIX}failing`;
+	const BYO_OPERATION = `${TEST_OPERATION_PREFIX}byo`;
 	const CHARGED_PRICE_CREDITS = 10;
 	const TEST_USER_IDS = [
 		'quota-test-user-1',
 		'quota-test-user-2',
 		'quota-test-user-3',
-		'quota-test-user-poor'
+		'quota-test-user-poor',
+		'quota-test-user-byo'
 	];
 
 	beforeAll(async () => {
@@ -119,6 +121,12 @@ describe('withQuota against real Postgres', () => {
 			{
 				operation: FAILING_OPERATION,
 				label: 'Test failing op',
+				credits: CHARGED_PRICE_CREDITS,
+				kind: 'generation'
+			},
+			{
+				operation: BYO_OPERATION,
+				label: 'Test byo-key op',
 				credits: CHARGED_PRICE_CREDITS,
 				kind: 'generation'
 			}
@@ -237,5 +245,43 @@ describe('withQuota against real Postgres', () => {
 			.where(like(modelCall.operation, FAILING_OPERATION));
 		expect(row?.inputTokens).toBe(20);
 		expect(row?.credits).toBe(0);
+	});
+
+	it('a BYO-key call (issue #90) charges 0 credits but still records real usage', async () => {
+		const userId = 'quota-test-user-byo';
+		const before = await getBalance(db, userId);
+
+		const result = await withQuota(
+			db,
+			RESOLVED_MODEL,
+			{
+				userId,
+				universeId: null,
+				agent: 'propagate',
+				operation: BYO_OPERATION,
+				byoKey: true
+			},
+			async () => ({ text: 'paid for directly', usage: { inputTokens: 200, outputTokens: 80 } }),
+			{
+				extractUsage: (r) => ({
+					inputTokens: r.usage.inputTokens,
+					outputTokens: r.usage.outputTokens
+				})
+			}
+		);
+
+		expect(result.text).toBe('paid for directly');
+		// The operation is priced at CHARGED_PRICE_CREDITS, but the user's own key paid
+		// the provider directly - the balance must not move at all.
+		const after = await getBalance(db, userId);
+		expect(after.subscriptionCredits).toBe(before.subscriptionCredits);
+
+		const [row] = await db.select().from(modelCall).where(like(modelCall.operation, BYO_OPERATION));
+		expect(row?.credits).toBe(0);
+		expect(row?.inputTokens).toBe(200);
+		expect(row?.outputTokens).toBe(80);
+		// Real cost is still on record (SPEC.md §15's margin question - "free to the user
+		// is not free to us") even though nothing was charged.
+		expect(row ? Number(row.costEur) > 0 : false).toBe(true);
 	});
 });

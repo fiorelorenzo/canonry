@@ -17,11 +17,19 @@
 	},
 	"dependencies": {
 		"@canonry/ai": "workspace:*",
+		"@canonry/copilot": "workspace:*",
 		"@canonry/db": "workspace:*",
+		"@canonry/eval": "workspace:*",
+		"@canonry/import": "workspace:*",
+		"@canonry/indexing": "workspace:*",
 		"@canonry/media": "workspace:*",
+		"@canonry/vector": "workspace:*",
+		"@canonry/warm": "workspace:*",
+		"ai": "^7.0.65",
 		"better-auth": "^1.6.27",
 		"fflate": "^0.8.3",
-		"markdown-it": "^15.0.0"
+		"markdown-it": "^15.0.0",
+		"zod": "^4.1.13"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

@@ -4,7 +4,7 @@
 // `usage.ts` in @canonry/ai is the only place that writes `model_call`.
 import { and, eq, sql } from 'drizzle-orm';
 import type { Db } from '../client.js';
-import { creditTransaction, userBilling } from '../schema/billing.js';
+import { byoKey, creditTransaction, userBilling } from '../schema/billing.js';
 import { modelCall } from '../schema/model.js';
 import type { ModelCallAgent, WarmArtifactKind } from '../schema/enums.js';
 
@@ -30,7 +30,7 @@ export interface Balance {
 	periodEnd: Date | null;
 }
 
-function toBalance(row: typeof userBilling.$inferSelect): Balance {
+export function toBalance(row: typeof userBilling.$inferSelect): Balance {
 	return {
 		userId: row.userId,
 		subscriptionCredits: row.subscriptionCredits,
@@ -416,4 +416,118 @@ export async function spendWarmBudget(db: Db, input: WarmSpendInput): Promise<Ba
 
 		return toBalance(updated);
 	});
+}
+
+// SPEC.md §15, issue #90: bring-your-own-key rows. This file never sees a plaintext key -
+// packages/ai's byo-key.ts encrypts before calling upsertByoKey and decrypts only what
+// activeByoKeySecret returns, so a settings-page listing (listByoKeys) can never leak a
+// decryptable value even by accident, because it never selects the ciphertext column.
+export interface ByoKeyRow {
+	id: string;
+	provider: string;
+	lastFour: string;
+	active: boolean;
+	createdAt: Date;
+	lastUsedAt: Date | null;
+}
+
+function toByoKeyRow(row: ByoKeyRow & { userId?: string; ciphertext?: string }): ByoKeyRow {
+	return {
+		id: row.id,
+		provider: row.provider,
+		lastFour: row.lastFour,
+		active: row.active,
+		createdAt: row.createdAt,
+		lastUsedAt: row.lastUsedAt
+	};
+}
+
+/** Every provider a user has ever configured, active or not - the settings page (#90)
+ * lists both so turning a key back off and on again is visible history, not a silent
+ * toggle. Never selects `ciphertext`. */
+export async function listByoKeys(db: Db, userId: string): Promise<ByoKeyRow[]> {
+	const rows = await db
+		.select({
+			id: byoKey.id,
+			provider: byoKey.provider,
+			lastFour: byoKey.lastFour,
+			active: byoKey.active,
+			createdAt: byoKey.createdAt,
+			lastUsedAt: byoKey.lastUsedAt
+		})
+		.from(byoKey)
+		.where(eq(byoKey.userId, userId))
+		.orderBy(byoKey.provider);
+	return rows.map(toByoKeyRow);
+}
+
+/** Stores a new key or replaces the existing one for this user+provider (the table's own
+ * unique index). Always reactivates: pasting a fresh key is how a user turns BYO key back
+ * on for a provider they had previously switched off, without a separate control for it.
+ * Takes `ciphertext`/`lastFour` already computed - the plaintext itself never reaches
+ * @canonry/db, only @canonry/ai's byo-key.ts ever sees it. */
+export async function upsertByoKey(
+	db: Db,
+	input: { userId: string; provider: string; ciphertext: string; lastFour: string }
+): Promise<ByoKeyRow> {
+	const [row] = await db
+		.insert(byoKey)
+		.values({
+			userId: input.userId,
+			provider: input.provider,
+			ciphertext: input.ciphertext,
+			lastFour: input.lastFour,
+			active: true
+		})
+		.onConflictDoUpdate({
+			target: [byoKey.userId, byoKey.provider],
+			set: { ciphertext: input.ciphertext, lastFour: input.lastFour, active: true }
+		})
+		.returning();
+	if (!row) throw new Error('upsertByoKey: insert did not return a row');
+	return toByoKeyRow(row);
+}
+
+/** The one function allowed to read `ciphertext` back out of the table - internal to the
+ * decrypt path (@canonry/ai's `resolveByoKey`), never called from a settings-page loader.
+ * Null means no active key for this user+provider, which a caller treats exactly like
+ * "never configured": fall back to platform routing and full pricing. */
+export async function activeByoKeySecret(
+	db: Db,
+	userId: string,
+	provider: string
+): Promise<{ id: string; ciphertext: string } | null> {
+	const [row] = await db
+		.select({ id: byoKey.id, ciphertext: byoKey.ciphertext })
+		.from(byoKey)
+		.where(and(eq(byoKey.userId, userId), eq(byoKey.provider, provider), eq(byoKey.active, true)))
+		.limit(1);
+	return row ?? null;
+}
+
+/** Records that a key was actually used for a call - the settings page's "last used"
+ * column (#90). Fire-and-forget from the caller's point of view: a failure to record
+ * this is never a reason to fail the call that already went out on the user's key. */
+export async function touchByoKeyUsage(db: Db, id: string): Promise<void> {
+	await db.update(byoKey).set({ lastUsedAt: new Date() }).where(eq(byoKey.id, id));
+}
+
+/** The settings page's on/off toggle (#90), kept separate from delete: a user switching
+ * a key off keeps the stored ciphertext so switching back on needs no re-entry. */
+export async function setByoKeyActive(
+	db: Db,
+	userId: string,
+	provider: string,
+	active: boolean
+): Promise<void> {
+	await db
+		.update(byoKey)
+		.set({ active })
+		.where(and(eq(byoKey.userId, userId), eq(byoKey.provider, provider)));
+}
+
+/** The settings page's "forget this key" control (#90) - unlike setByoKeyActive(false),
+ * this removes the ciphertext entirely rather than just switching routing off. */
+export async function deleteByoKey(db: Db, userId: string, provider: string): Promise<void> {
+	await db.delete(byoKey).where(and(eq(byoKey.userId, userId), eq(byoKey.provider, provider)));
 }

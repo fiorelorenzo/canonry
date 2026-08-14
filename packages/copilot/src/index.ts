@@ -1,10 +1,20 @@
 // Public surface of @canonry/copilot: propagation end to end (SPEC.md §5.1, issues #47-52
 // and #56). Nothing outside this list should be imported from a sibling package's src/.
 
-export { semanticDiff, splitIntoSentences, type FactChange, type FactChangeKind } from './diff.js';
+export {
+	semanticDiff,
+	splitIntoSentences,
+	tokenize,
+	jaccard,
+	type FactChange,
+	type FactChangeKind
+} from './diff.js';
 
 export {
 	buildCandidatePool,
+	graphNeighbors,
+	namesFor,
+	mentionsIn,
 	type BuildCandidatePoolOptions,
 	type CandidateEntry,
 	type CandidateEvidence,
@@ -14,6 +24,7 @@ export {
 	type GraphEntity,
 	type GraphRelationEdge,
 	type MentionEvidence,
+	type MentionHit,
 	type RelationEvidence
 } from './candidates.js';
 
@@ -58,6 +69,7 @@ export {
 	planPropagation,
 	generatePlanDiffs,
 	AiDisabledError,
+	requireAiEnabled,
 	type GeneratePlanDiffsInput,
 	type GeneratePlanDiffsResult,
 	type PlanPropagationInput,
@@ -65,3 +77,26 @@ export {
 } from './propagate.js';
 
 export { realCandidateSelector } from './eval-adapter.js';
+
+export {
+	runAudit,
+	isGuardrailSafeTopic,
+	buildFlagRationale,
+	type AuditFlagStatement,
+	type RunAuditInput,
+	type RunAuditResult,
+	type WrittenAuditFlag
+} from './audit.js';
+
+export {
+	runAsk,
+	type AskDetailLevel,
+	type AskInput,
+	type AskResult,
+	type AskSource,
+	type IndexedSource,
+	type OwnCanonSource,
+	type QueryEmbedder
+} from './ask.js';
+
+export { completeEntry, type CompleteEntryInput, type CompleteEntryResult } from './complete.js';
