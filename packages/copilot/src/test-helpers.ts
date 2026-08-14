@@ -1,7 +1,7 @@
 /** Shared fixture builders for this package's integration tests. Not a *.test.ts file on
  * purpose, so vitest never treats it as a suite of its own. */
 import { randomUUID } from 'node:crypto';
-import type { Db } from '@canonry/db';
+import { sql, type Db } from '@canonry/db';
 import { entity, modelConfig, relation, relationType, universe, user } from '@canonry/db/schema';
 import type { EntityType, ModelPurpose, RelationCardinality } from '@canonry/db/schema';
 
@@ -109,6 +109,14 @@ export async function insertRelation(
 	return row;
 }
 
+/** Ensures exactly one active `model_config` row for a purpose, and returns it.
+ *
+ * `model_config_active_purpose_key` is a unique index on `purpose` where `active`, so two
+ * test files that each insert their own active row for `cheap` collide, which is what broke
+ * CI: vitest runs this package's files in parallel against one database. Upserting on that
+ * index makes the second one adopt the row instead of failing, and the model id is
+ * deterministic (`test-cheap`, `test-premium`) rather than randomised so a test that asserts
+ * which model was called does not have to guess which file won the race. */
 export async function insertModelConfig(
 	db: Db,
 	purpose: ModelPurpose,
@@ -119,12 +127,22 @@ export async function insertModelConfig(
 		.values({
 			purpose,
 			provider: 'test-provider',
-			modelId: unique(`test-${purpose}`),
+			modelId: `test-${purpose}`,
 			active: true,
 			params: {},
 			...overrides
 		})
+		.onConflictDoUpdate({
+			target: modelConfig.purpose,
+			targetWhere: sql`${modelConfig.active} = true`,
+			set: {
+				provider: overrides.provider ?? 'test-provider',
+				modelId: overrides.modelId ?? `test-${purpose}`,
+				params: overrides.params ?? {},
+				updatedAt: new Date()
+			}
+		})
 		.returning();
-	if (!row) throw new Error('insertModelConfig: insert returned no row');
+	if (!row) throw new Error('insertModelConfig: upsert returned no row');
 	return row;
 }

@@ -6,7 +6,7 @@
  * nothing left to prove here beyond what @canonry/ai's own test suite already covers.
  */
 import { randomUUID } from 'node:crypto';
-import { closeDb, eq, type Db } from '@canonry/db';
+import { closeDb, eq, sql, type Db } from '@canonry/db';
 import { modelCall, modelConfig, universe, user } from '@canonry/db/schema';
 import { MockLanguageModelV4 } from 'ai/test';
 import type { LanguageModel } from 'ai';
@@ -62,14 +62,25 @@ describe('parseAmbientLayers (#68, SPEC.md §8.2)', () => {
 	});
 
 	beforeEach(async () => {
-		await db.delete(modelConfig);
-		await db.insert(modelConfig).values({
-			purpose: 'cheap',
-			provider: 'test-provider',
-			modelId: 'test-cheap',
-			active: true,
-			params: {}
-		});
+		// One active row per purpose is a unique index, and vitest runs this package's files in
+		// parallel against one database, so this used to `delete(modelConfig)` wholesale and
+		// insert. That deleted a sibling file's row mid-test: this file and layers.test.ts both
+		// want an active `cheap` row, and embedding.test.ts wants an `embedding` one. Upserting
+		// the single row this file needs leaves every other purpose alone.
+		await db
+			.insert(modelConfig)
+			.values({
+				purpose: 'cheap',
+				provider: 'test-provider',
+				modelId: 'test-cheap',
+				active: true,
+				params: {}
+			})
+			.onConflictDoUpdate({
+				target: modelConfig.purpose,
+				targetWhere: sql`${modelConfig.active} = true`,
+				set: { provider: 'test-provider', modelId: 'test-cheap', params: {} }
+			});
 
 		const [world] = await db
 			.insert(universe)

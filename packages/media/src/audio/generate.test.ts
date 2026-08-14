@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { closeDb, eq, mediaAssetById, type Db } from '@canonry/db';
+import { closeDb, eq, mediaAssetById, sql, type Db } from '@canonry/db';
 import { modelCall, modelConfig, universe, user } from '@canonry/db/schema';
 import { createVectorClient } from '@canonry/vector';
 import { MockLanguageModelV4 } from 'ai/test';
@@ -101,17 +101,25 @@ describe('generateAmbientPack (#68)', () => {
 	});
 
 	beforeEach(async () => {
-		// Isolated test database (test-global-setup.ts) migrated fresh, cleared the same
-		// way ../generate.test.ts clears image_model_config so each test controls its own
-		// 'cheap' purpose row without fighting the active-per-purpose unique index.
-		await db.delete(modelConfig);
-		await db.insert(modelConfig).values({
-			purpose: 'cheap',
-			provider: 'test-provider',
-			modelId: 'test-cheap',
-			active: true,
-			params: {}
-		});
+		// One active row per purpose is a unique index, and vitest runs this package's files in
+		// parallel against one database, so this used to `delete(modelConfig)` wholesale and
+		// insert. That deleted a sibling file's row mid-test: this file and layers.test.ts both
+		// want an active `cheap` row, and embedding.test.ts wants an `embedding` one. Upserting
+		// the single row this file needs leaves every other purpose alone.
+		await db
+			.insert(modelConfig)
+			.values({
+				purpose: 'cheap',
+				provider: 'test-provider',
+				modelId: 'test-cheap',
+				active: true,
+				params: {}
+			})
+			.onConflictDoUpdate({
+				target: modelConfig.purpose,
+				targetWhere: sql`${modelConfig.active} = true`,
+				set: { provider: 'test-provider', modelId: 'test-cheap', params: {} }
+			});
 
 		const [world] = await db
 			.insert(universe)
