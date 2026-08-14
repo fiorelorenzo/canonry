@@ -3,14 +3,18 @@
  * a given test needs rather than depending on the full Valdoria Reach world - that fixture
  * is reserved for context.test.ts, which specifically has to prove the instant lane against
  * it. */
+import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import type { Db } from '@canonry/db';
 import { entity, relation, relationType, revision, universe, user } from '@canonry/db/schema';
 
-let counter = 0;
+/** Ids carry a random suffix rather than a timestamp and a counter, matching every other
+ * package's helper. The counter version collided in CI: vitest gives each test file its own
+ * module instance, so two files starting inside the same millisecond both produced
+ * `user-<same ms>-1` and the second insert died on `user_pkey`. A flake in a shared fixture
+ * builder costs far more to diagnose than it ever saves. */
 function unique(prefix: string): string {
-	counter += 1;
-	return `${prefix}-${Date.now()}-${counter}`;
+	return `${prefix}-${randomUUID().slice(0, 8)}`;
 }
 
 export async function createTestUser(db: Db): Promise<string> {
