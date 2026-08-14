@@ -5,8 +5,15 @@ import * as schema from './schema/index.js';
 
 export type Db = PostgresJsDatabase<typeof schema> & { $client: postgres.Sql };
 
-export function createDb(connectionString: string, opts?: { max?: number }): Db {
-	const client = postgres(connectionString, { max: opts?.max ?? 10 });
+export function createDb(connectionString: string, opts?: { max?: number; quiet?: boolean }): Db {
+	const client = postgres(connectionString, {
+		max: opts?.max ?? 10,
+		// `quiet` drops Postgres NOTICEs, and only the migrator asks for it: re-running
+		// migrations legitimately emits "schema drizzle already exists, skipping" plus one
+		// notice per bookkeeping object, and a deploy log full of those reads as breakage to
+		// whoever is watching a release go out. Real failures still throw.
+		...(opts?.quiet ? { onnotice: () => {} } : {})
+	});
 	return drizzle(client, { schema });
 }
 

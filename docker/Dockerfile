@@ -43,6 +43,12 @@ ENV APP_VERSION=${APP_VERSION} \
 
 RUN pnpm --filter web build
 
+# Compiled here, in the stage that still has devDependencies, because the `deploy`
+# stage below runs `pnpm deploy --prod`, which prunes them: by then tsc is gone and
+# `pnpm --filter @canonry/db build` fails with "tsc: not found". The output is what
+# the runtime image's migrate entrypoint runs.
+RUN pnpm --filter @canonry/db build
+
 # ---- deploy: prune apps/web to its production dependency graph only. The
 # workspace has no inject-workspace-packages config, so --legacy is required
 # for `pnpm deploy` to physically copy workspace dependencies (@canonry/db)
@@ -58,12 +64,21 @@ RUN pnpm --filter web deploy --prod --legacy /deploy
 # executable code (drizzle's migrator reads .sql files off disk and runs
 # them through a live postgres-js connection, so it cannot be a bundled
 # Vite chunk). Deploying @canonry/db as its own target, separately, gives a
-# self-contained dist/migrate.js (this package's own `build` runs as part of
-# `pnpm deploy`) plus a real node_modules carrying exactly drizzle-orm and
-# postgres alongside it -- copied into the runtime image below as ./migrate,
-# entirely separate from ./node_modules so it never perturbs web's own
-# dependency resolution.
-RUN pnpm --filter @canonry/db deploy --prod --legacy /deploy-db
+# self-contained dist/migrate.js plus a real node_modules carrying exactly
+# drizzle-orm and postgres alongside it -- copied into the runtime image below
+# as ./migrate, entirely separate from ./node_modules so it never perturbs
+# web's own dependency resolution.
+#
+# `dist/` comes from the explicit build in the stage above: `pnpm deploy` copies a
+# package, it never runs its lifecycle scripts, so relying on it to compile shipped
+# whatever `dist/` the build context happened to carry. That passed locally on a stale
+# local `dist/` and failed in CI, where the context is clean, with
+# "/deploy-db/dist: not found".
+#
+# CI=true is required, not decoration: `deploy --prod` re-runs `install --production`,
+# which wants to purge the modules directory and refuses to without a TTY
+# (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY). A docker build has no TTY.
+RUN CI=true pnpm --filter @canonry/db deploy --prod --legacy /deploy-db
 
 # ---- runtime: the shipped image -------------------------------------------
 FROM node:${NODE_VERSION}-alpine AS runtime

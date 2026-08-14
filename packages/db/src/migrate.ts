@@ -20,7 +20,7 @@ async function main(): Promise<void> {
 	if (!connectionString) {
 		throw new Error('DATABASE_URL is not set');
 	}
-	const db = createDb(connectionString, { max: 1 });
+	const db = createDb(connectionString, { max: 1, quiet: true });
 	try {
 		await runMigrations(db);
 	} finally {
