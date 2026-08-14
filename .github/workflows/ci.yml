@@ -29,7 +29,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U canonry"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -84,7 +84,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U canonry"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -97,6 +97,24 @@ jobs:
         run: |
           echo "version=0.0.0-ci.${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
           echo "commit=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      # The image boots a canon-save worker (issue #115), which queries `canon_save_job` on
+      # its first poll, so this check needs a migrated database rather than an empty one. That
+      # is also what a real deployment does: migrations run explicitly, before the new release
+      # serves traffic, never implicitly from inside the app.
+      #
+      # Applied with psql rather than `pnpm --filter @canonry/db migrate` because this job has
+      # no node toolchain and does not need one: what the boot check wants is the schema, and
+      # drizzle's own runner is already exercised by every integration test in the job above.
+      # ON_ERROR_STOP is what makes a broken migration fail here instead of surfacing as a
+      # confusing 500 from the container three steps later.
+      - name: Apply migrations to the boot-check database
+        run: |
+          for f in $(ls packages/db/migrations/*.sql | sort); do
+            echo "applying $f"
+            docker run --rm --network host -v "$PWD:/repo" -e PGPASSWORD=canonry postgres:16 \
+              psql -h 127.0.0.1 -U canonry -d canonry -v ON_ERROR_STOP=1 -q -f "/repo/$f"
+          done
 
       - name: Build runtime image
         run: |
