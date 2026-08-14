@@ -25,12 +25,36 @@
 # shared secrets file (shared/secrets.env), managed on prodbox out of band and
 # never generated or printed by any script here.
 #
+# MIGRATIONS ARE FORWARD-ONLY. `migrate` below runs once per `docker compose
+# up`, from the same image `web` is about to serve, before `web` is created --
+# so the schema a release expects and the schema on disk can never drift, and
+# a broken migration fails loudly here (compose up itself fails, release.sh's
+# health gate never even starts polling) instead of surfacing 90s later as an
+# unexplained health-gate timeout. It is idempotent (drizzle tracks what it
+# already applied in its own `drizzle.__drizzle_migrations` table), so a
+# redeploy of the same or a later release is always safe to run again. But
+# `scripts/deploy/rollback.sh` only flips `current` and recreates `web` -- it
+# never touches `migrate`, so rolling back the code never rolls back a
+# migration or the data it changed. A release whose migration should not have
+# shipped needs a new forward migration, the same as any other Postgres
+# deployment; a symlink flip cannot undo one.
+
 # No top-level `name:` here on purpose: every invocation of this file MUST
 # pass --project-name canonry-<stack> (scripts/deploy/lib.sh's compose_cmd
 # does this always). Without it, prod and preview would default to the same
 # project name and collide on the same box.
 
 services:
+  migrate:
+    image: ${WEB_IMAGE}
+    restart: 'no'
+    command: ['node', 'migrate/dist/migrate.js']
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   web:
     image: ${WEB_IMAGE}
     restart: unless-stopped
@@ -56,6 +80,8 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_started
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ['CMD', 'node', '-e', 'fetch("http://127.0.0.1:5196/healthz").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
       interval: 10s

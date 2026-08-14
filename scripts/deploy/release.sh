@@ -76,13 +76,14 @@ while [ $# -gt 0 ]; do
 done
 
 require_env stack base sha version image
-require_cmd docker jq curl find
+require_cmd docker jq curl find python3
 
 compose_src="${compose_src:-$script_dir/../../docker/deploy/compose.deploy.yml}"
 secrets_file="${secrets_file:-$base/shared/secrets.env}"
 
 [ -f "$compose_src" ] || die "compose source not found: $compose_src"
 [ -f "$secrets_file" ] || die "secrets file not found: $secrets_file -- create it on prodbox out of band, this script never writes it"
+validate_database_url "$secrets_file"
 
 deployed_json="$base/DEPLOYED.json"
 

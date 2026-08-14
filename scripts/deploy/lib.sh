@@ -32,6 +32,32 @@ require_env() {
 	done
 }
 
+# validate_database_url SECRETS_FILE - refuses loudly, naming the variable, if that
+# file's DATABASE_URL does not parse as an unambiguous postgres:// DSN (scheme, host,
+# port and database all present). Exists because `openssl rand -base64 32` -- the
+# obvious way to generate POSTGRES_PASSWORD -- can produce `+`, `/` or `=`, none of
+# which are valid unescaped inside a URL's userinfo; a password like `ab/cd` silently
+# shifts everything after that `/` out of the host:port and into the path, so the
+# container connects to the wrong place (or nothing) instead of failing to parse. Left
+# unchecked, that surfaces 90 seconds later as an unexplained health-gate timeout,
+# not as a five-second, readable error naming the actual variable at fault. See
+# docker/deploy/secrets.env.example for how to generate a URL-safe secret instead.
+validate_database_url() {
+	secrets_file="$1"
+	url=$(grep -m1 '^DATABASE_URL=' "$secrets_file" | cut -d= -f2-)
+	[ -n "$url" ] || die "DATABASE_URL is not set in $secrets_file"
+	python3 - "$url" <<-'PY' || die "DATABASE_URL in $secrets_file does not parse as a valid postgres:// URL (bad scheme, host, port or database) -- if the password came from base64, regenerate it URL-safe, see docker/deploy/secrets.env.example"
+	import sys
+	from urllib.parse import urlsplit
+	try:
+	    u = urlsplit(sys.argv[1])
+	    ok = u.scheme in ("postgres", "postgresql") and bool(u.hostname) and u.port is not None and bool((u.path or "").lstrip("/"))
+	except ValueError:
+	    ok = False
+	sys.exit(0 if ok else 1)
+	PY
+}
+
 # --- atomic symlink flip ------------------------------------------------
 # `ln -sfn` alone is not atomic: with an existing destination GNU coreutils
 # unlinks it and then creates the new link as two separate syscalls, leaving
