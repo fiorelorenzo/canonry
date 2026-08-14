@@ -1,0 +1,51 @@
+<script lang="ts">
+	/**
+	 * The editor page, B2 = C and G4 = A. No autosave: saving is an explicit action,
+	 * because propagation triggers on save (#5.1) and a debounced write would fire that
+	 * loop on half a sentence.
+	 */
+	import { resolve } from '$app/paths';
+	import MarkdownEditor from '$lib/components/entry/MarkdownEditor.svelte';
+	import type { PageProps } from './$types';
+
+	let { data, form }: PageProps = $props();
+
+	// `body` seeds once from the loaded entity and then owns its own edits; the route's
+	// dynamic `[slug]` param means a different entry remounts this component rather than
+	// re-running this initialiser with stale data underneath an in-progress edit.
+	// svelte-ignore state_referenced_locally
+	let body = $state(data.entity.body);
+</script>
+
+<svelte:head><title>Edit {data.entity.name} &middot; {data.universe.name}</title></svelte:head>
+
+<div class="mx-auto max-w-3xl px-6 py-8">
+	<p class="mb-3 text-xs text-muted">
+		<a class="hover:underline" href={resolve(`/u/${data.universe.slug}/e/${data.entity.slug}`)}
+			>{data.entity.name}</a
+		>
+		/ Edit
+	</p>
+	<h1 class="mb-6 text-2xl font-semibold text-ink">Edit {data.entity.name}</h1>
+
+	{#if form?.message}
+		<p class="mb-4 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.message}</p>
+	{/if}
+
+	<form method="POST">
+		<MarkdownEditor bind:value={body} targets={data.mentionTargets} />
+		<input type="hidden" name="body" value={body} />
+
+		<div class="mt-4 flex items-center justify-between gap-4">
+			<p class="text-xs text-muted">
+				There is no sign-in yet (#86) - this saves as {data.universe.name}'s recorded owner.
+			</p>
+			<button
+				type="submit"
+				class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-panel hover:opacity-90"
+			>
+				Save
+			</button>
+		</div>
+	</form>
+</div>

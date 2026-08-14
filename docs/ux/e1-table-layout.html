@@ -7,8 +7,8 @@
 <script defer src="assets/ux.js"></script>
 <style>
   /* Table mock kit, shared in spirit across E1-E4: A1 chose the reading room, which shipped no dark
-     theme, so whether table mode repaints at all is decision G1. These tokens are the
-     warm dark candidate G1 puts forward, kept identical across E1 to E4 so the four
+     theme, and G1 decided dark is a whole-app preference that table mode inherits rather than
+     forces. These tokens are that dark preference, kept identical across E1 to E4 so the four
      table decisions read as one surface rather than four separate ones. */
   .tmode {
     --bg: #17140f; --panel: #1e1a14; --panel-2: #191510;
@@ -69,9 +69,10 @@
   <div class="callout guard">
     <p><span class="guardref">Guardrail 1</span> propose, never apply. Whatever declares context, the GM
     says it. Nothing infers it from what was said aloud and switches state on its own. The mocks below
-    are drawn on the warm dark palette because that is the candidate <a href="g1-dark-half.html">G1</a>
-    puts forward for table mode, and taller rows come with it. A1 chose the reading room, which shipped
-    no dark theme at all, so the repaint is a real open question and not something this page settled.</p>
+    show the preference set to dark: <a href="g1-dark-half.html">G1</a> decided dark is a whole-app
+    setting rather than a table-mode skin, and a GM sitting at a table with dice in hand is the common
+    case for having it on. Table mode itself no longer implies a repaint, only the taller rows below are
+    actually table mode's own; a GM who preps in light stays in light when this mode switches on.</p>
   </div>
 </section>
 

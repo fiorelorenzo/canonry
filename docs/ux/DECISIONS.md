@@ -131,35 +131,67 @@ to answer the lock-in objection Realm Works burned into this community, and a fe
 nobody is told about answers nobody. G10 asks where, if anywhere, that gets said out
 loud.
 
-## Round two: what the answers opened
+## Round two, decided 2026-08-13
 
-| Id | Question | Opened by |
+| Id | Question | Chosen |
 | --- | --- | --- |
-| G1 | Does table mode get a warm dark palette, or does the reading room stay light everywhere? | A1, E1, E4 |
-| G2 | Which surfaces keep the serif measure, and which go back to sans because they are dense? | A1, C4, C6 |
-| G3 | Which modifiers, which bare keys, and what breaks on a non-US layout? | A3 amendment, C6 |
-| G4 | Toolbar, slash menu, selection bubble, or more than one? | B2 amendment |
-| G5 | What is the Ask page for, and does following a source leave the answer behind? | C8 amendment |
-| G6 | Do the 19 unchanged-field updates need an accept at all? | D3 against guardrail 1 |
-| G7 | What do players see between the session and the confirmation? | E5 with E7 and guardrail 6 |
-| G8 | Does the inbox exist in table mode, and does propagation keep running during a session? | C2 with E1 |
-| G9 | What does the meter show with the AI off, and what does off cover? | C10 with F2 and guardrail 4 |
-| G10 | Where is the lock-in answer said out loud? | F4 |
-| G11 | How often does the product ask before it spends? | F1 with F2 and D2 |
+| G1 | Does table mode go dark, or does the reading room stay light? | **B, dark as a whole-app preference.** A setting for the entire product, prep included, and table mode inherits whatever the preference already is |
+| G2 | Where does serif stop? | **C, serif everywhere**, down to the number columns, with no boundary rule to argue about |
+| G3 | Which keys, on three platforms? | **B, bare keys inside a focused review surface** (`j k a r u`), modifiers everywhere else |
+| G4 | Which shape does the formatting menu take? | **A, an always-visible toolbar**, which depends on no trigger character |
+| G5 | What is the Ask page, and what does a source click do? | **A, expand in place, amended**: a source click opens a side panel holding that entry, no preview and no navigation |
+| G6 | Do the 19 unchanged-field updates need an accept? | **A, informational, no accept.** Already in the spec: guardrail 1 names this as its one exception |
+| G7 | What do players see before the log is confirmed? | **C, live for what the GM taps**, the log for everything else |
+| G8 | Do proposals arrive during play? | **B, propagation keeps running**, the inbox stays silent in table mode, the count rides on the way out |
+| G9 | What does off cover? | **A, generation stops, retrieval keeps reading.** Semantic search, mention suggestions and a derived universe's base-corpus read all continue |
+| G10 | Where is the lock-in answer said? | **A, one sentence below the landing demo**, plus a docs page |
+| G11 | How often does the product ask before spending? | **A, confirm every paid action** |
+
+### The amendment
+
+**G5.** Expand in place stands: "expand this answer" grows the streamed answer onto its
+own route and nothing is saved. What changed is the source click. No popover preview,
+no navigation away: it opens a side panel holding that entry with the answer still
+readable beside it, which is A for the page and C for the click. #53 therefore needs a
+two-pane answer route, and #60's source card needs a panel target rather than a link.
+
+### Where round two went against the recommendation
+
+**G1: B rather than A.** Dark is not a table-mode skin, it is half the design system.
+Every surface now has to be checked in both palettes rather than only the ones a GM
+sees at a table, C1's marking and C4's diff colours included, and the preference needs
+a home in Settings. Table mode stops implying a repaint at all.
+
+**G2: C rather than A.** No boundary rule survives, which removes a whole class of
+per-component argument and buys one real obligation: serif figures are proportional, so
+numeric columns need tabular figures or they will not align, and identifiers, hashes
+and code keep the mono face. Both belong to #104's token work.
+
+**G9: A rather than B.** Reading is most of what makes this a good wiki, so keeping
+retrieval alive with the AI off is defensible. It carries two costs the artifact itself
+named: the meter keeps moving for a universe whose badge says off, and that universe's
+content still leaves for an embedding provider. That makes the switch's name and the
+sentence beside it load-bearing, which is the whole of round three.
+
+## Round three
+
+| Id | Question | State |
+| --- | --- | --- |
+| H1 | What the switch is called when off still spends, what the sentence beside it promises, and whether reading counts against the quota | open, blocks #107, #88, #109 |
 
 ## What these answers unblock
 
-Every P0 issue with a screen behind it now has its gate answered, except where a
-round-two question is genuinely in the way:
+Every surface in the inventory now has its gate answered. Nothing in the UI is waiting
+on a decision except the copy of one settings row, which H1 owns and which blocks the
+wording of #107 and the meter's behaviour in #88, not their construction.
 
-- **Ready to start:** #104 app shell (A1, A2; the dark palette is G1 but the light
-  one is settled), #15 and #105 entry and editor (B1, B2, with G4 for the menu),
-  #16 relations (B3), #17 and #18 facts and revisions (B4), #106 AI marking (C1),
-  #47, #50, #51 the proposal model, the plan and the diff (C2, C3, C4, C5, C6),
-  #107 the AI switch (C10, with G9 for what off covers), #41 to #44 the playbooks
-  and #26, #27, #30, #36, #37 the import surfaces (D1, D2, D3, D5, D6), #42 the
-  review screen (D4), #108 onboarding (D7), #3 and #4 the landing page (F6).
-- **Blocked on a round-two answer:** #75 the palette shortcuts (G3), #21 how export
-  is presented (G10), #82 and #83 the reveal timing and the players wiki (G7),
-  #88 the quota meter's behaviour with the AI off (G9), #66 how often generation
-  confirms (G11).
+Ready to start, with the decisions that govern them: #104 app shell (A1, A2, G1, G2,
+G3), #105 entry and editor (B1, B2, G4), #106 AI marking (C1, in both palettes now),
+#16 relations (B3), #17 and #18 facts and revisions (B4), #47, #50, #51 the proposal
+model, plan and diff (C2, C3, C4, C5, C6, G3), #53 and #60 Ask (C8, G5), #55 audit
+flags (C9), #107 the switch (C10, G9, wording from H1), the import surfaces #26, #27,
+#30, #36, #37, #41 to #44 (D1, D2, D3, D5, D6, G6), #42 review (D4, C6), #108
+onboarding (D7), #72 to #81 table mode (E1 to E4, G1, G8), #82 to #85 reveals, secrets
+and the players wiki (E5, E6, E7, G7), #66, #71, #65 media (F1, G11), #88, #89 quota
+(F2, G11), #90, #109 privacy (F3), #21 export (F4, G10), #100 to #103 metrics (F5),
+and #3, #4 the landing page (F6, G10).

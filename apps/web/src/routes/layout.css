@@ -1,2 +1,116 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
+
+/* Canonry's design system, as decided in docs/ux (see docs/ux/DECISIONS.md).
+ *
+ * A1 = B, the reading room: warm paper, burnt umber accent, serif for prose.
+ * G2 = C, serif everywhere, with no boundary rule and no exception, which is why
+ *          --font-sans below is a serif stack and not a mistake. Mono stays for
+ *          identifiers, hashes and code, because those are not prose and a
+ *          proportional face makes them harder to compare.
+ * G1 = B, dark is a whole-app preference rather than a table-mode skin, so both
+ *          palettes are first class and every surface has to hold up in both.
+ * C1 = B, unaccepted AI text is an underline plus a margin marker, and violet is
+ *          reserved for the copilot. Nothing else in the product may spend it.
+ */
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme {
+	/* G2: this is the body face for everything, prose and chrome alike. Tailwind's
+	 * default sans is replaced rather than supplemented so a component that forgets
+	 * to pick a font still lands on the decided one. */
+	--font-sans: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+	--font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+	--font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+	/* Reading room, light. Named by role rather than by hue: a token called
+	 * --color-paper survives a repaint, a token called --color-cream does not. */
+	--color-paper: #f4efe4;
+	--color-panel: #fffdf7;
+	--color-panel-2: #f9f4ea;
+	--color-ink: #221d16;
+	--color-ink-2: #4c4238;
+	--color-muted: #857a6a;
+	--color-line: #e2d8c6;
+	--color-line-2: #cfc2ab;
+	--color-accent: #7a4a1f;
+	--color-accent-ink: #5c3714;
+	--color-accent-bg: #f3e7d5;
+
+	/* The copilot's hue, and only the copilot's. */
+	--color-ai: #6b4ee6;
+	--color-ai-bg: #f1ecff;
+	--color-ai-line: #c8bafa;
+
+	--color-ok: #2f6b45;
+	--color-ok-bg: #e6efe1;
+	--color-warn: #8a6510;
+	--color-warn-bg: #f7eed8;
+	--color-danger: #a03a22;
+	--color-danger-bg: #f8e7e0;
+
+	/* Prose measure. Long enough to read, short enough to scan back to the start of
+	 * the next line, which is what the reading room is for. */
+	--container-measure: 34rem;
+}
+
+/* Dark is the same palette after dark, not a second design language. Applied by an
+ * explicit [data-theme] on <html> so the preference is a setting (G1), with the
+ * system preference deciding only when nobody has chosen. */
+@layer theme {
+	[data-theme='dark'] {
+		--color-paper: #17140f;
+		--color-panel: #1e1a14;
+		--color-panel-2: #191510;
+		--color-ink: #f1e9db;
+		--color-ink-2: #cabfae;
+		--color-muted: #8e8474;
+		--color-line: #2d271e;
+		--color-line-2: #3d3529;
+		--color-accent: #d9a94a;
+		--color-accent-ink: #ebc884;
+		--color-accent-bg: #33270f;
+		--color-ai: #b8a2ff;
+		--color-ai-bg: #241f3a;
+		--color-ai-line: #473d6d;
+		--color-ok: #7cc78f;
+		--color-ok-bg: #16301f;
+		--color-warn: #dcb45f;
+		--color-warn-bg: #312512;
+		--color-danger: #e88f70;
+		--color-danger-bg: #331a13;
+	}
+}
+
+@layer base {
+	html {
+		background-color: var(--color-paper);
+		color: var(--color-ink);
+		/* G2's one obligation: serif figures are proportional by default, so any
+		 * column of numbers would fail to align. Tabular figures everywhere is
+		 * cheaper and more consistent than remembering to ask for them per table. */
+		font-variant-numeric: tabular-nums;
+		-webkit-text-size-adjust: 100%;
+	}
+
+	body {
+		background-color: var(--color-paper);
+		color: var(--color-ink);
+	}
+
+	/* Identifiers, hashes, spans and code are compared character by character, which
+	 * is the one thing a proportional face is bad at. */
+	code,
+	kbd,
+	samp,
+	pre {
+		font-family: var(--font-mono);
+		font-size: 0.9em;
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+}
