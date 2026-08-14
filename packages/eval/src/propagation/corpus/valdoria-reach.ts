@@ -1,0 +1,144 @@
+/**
+ * Mirrors `packages/db/src/seed-fixture.ts` (the Valdoria Reach fixture every UX artifact
+ * and `pnpm --filter @canonry/db seed` uses), so the propagation corpus and the seeded
+ * database agree on the same world. Duplicated rather than imported: this package has no
+ * dependency on @canonry/db, and `seed-fixture.ts` does not export its entity/relation
+ * arrays. If that fixture changes, this file has to change with it - the two are meant to
+ * describe the same ten entities and seven relations.
+ */
+import type { PropagationWorld } from '../types.js';
+
+const ALDRIC_BODY = `Dismissed from the watch in the thaw after [[The Sable Winter]], he now answers to [[The Ashen Ledger]]. He still drinks at [[The Gilded Rat]], in the corner seat nobody asks him to leave.
+
+## Standing in the city
+
+Three hundred and forty sworn used to take his word. Forty of them still would, which is the number [[Corvin Ashe]] is paying for.`;
+
+export const valdoriaReach: PropagationWorld = {
+	id: 'valdoria-reach',
+	name: 'Valdoria Reach',
+	entities: [
+		{
+			type: 'character',
+			slug: 'aldric-vane',
+			name: 'Aldric Vane',
+			aliases: ['Captain Vane', 'the broken captain'],
+			body: ALDRIC_BODY
+		},
+		{
+			type: 'character',
+			slug: 'mother-sennah',
+			name: 'Mother Sennah',
+			aliases: ['the Winter Surgeon'],
+			body: 'Keeps [[The Gilded Rat]]. She was a field surgeon through [[The Sable Winter]] and does not talk about it, which is its own kind of talking about it.'
+		},
+		{
+			type: 'character',
+			slug: 'corvin-ashe',
+			name: 'Corvin Ashe',
+			body: "Factor of [[The Ashen Ledger]]. He holds most of the Lantern Quarter's debt and none of its affection."
+		},
+		{
+			type: 'character',
+			slug: 'iselde-wrenn',
+			name: 'Iselde Wrenn',
+			body: 'Harbour magistrate. She appointed [[Aldric Vane]], and then broke him, and has never explained which of the two she regrets.'
+		},
+		{
+			type: 'place',
+			slug: 'valdoria',
+			name: 'Valdoria',
+			body: 'A free port of six quarters. The Lantern Quarter is the poorest and the loudest.\n\n## The Watch\n\nThree hundred and forty sworn, badly paid, and currently without a captain.'
+		},
+		{
+			type: 'place',
+			slug: 'the-gilded-rat',
+			name: 'The Gilded Rat',
+			aliases: ['Gilded Rat Tavern', 'Il Ratto Dorato'],
+			body: 'An inn in the Lantern Quarter. [[Mother Sennah]] keeps it, and the corner seat by the stair is understood to belong to somebody.'
+		},
+		{
+			type: 'place',
+			slug: 'cairnmouth',
+			name: 'Cairnmouth',
+			body: 'A fishing town two days up the coast. A third of it starved in [[The Sable Winter]] when [[The Sable Reach]] froze, and the rest remember exactly who did not come.'
+		},
+		{
+			type: 'faction',
+			slug: 'the-ashen-ledger',
+			name: 'The Ashen Ledger',
+			body: 'A merchant bank that lends at knife point and keeps better records than the magistrate.'
+		},
+		{
+			type: 'faction',
+			slug: 'the-valdoria-watch',
+			name: 'The Valdoria Watch',
+			body: 'Three hundred and forty sworn, paid badly and proud of it anyway.'
+		},
+		{
+			type: 'event',
+			slug: 'the-sable-winter',
+			name: 'The Sable Winter',
+			body: 'The year 1247, when the strait froze and [[Cairnmouth]] starved.'
+		}
+	],
+	relations: [
+		{ from: 'the-ashen-ledger', label: 'employs', to: 'aldric-vane' },
+		{ from: 'iselde-wrenn', label: 'appointed', to: 'aldric-vane' },
+		{ from: 'aldric-vane', label: 'member of', to: 'the-valdoria-watch' },
+		{ from: 'the-valdoria-watch', label: 'located in', to: 'valdoria' },
+		{ from: 'the-gilded-rat', label: 'located in', to: 'valdoria' },
+		{ from: 'mother-sennah', label: 'owns', to: 'the-gilded-rat' },
+		{ from: 'the-ashen-ledger', label: 'employs', to: 'corvin-ashe' }
+	],
+	cases: [
+		{
+			id: 'aldric-appointment-review',
+			editSummary:
+				'Aldric Vane: added that Iselde Wrenn is reviewing every appointment she made before the freeze.',
+			editedEntitySlug: 'aldric-vane',
+			editedBody: `${ALDRIC_BODY}\n\nWord reached him that [[Iselde Wrenn]] is reviewing every appointment she made before the freeze, including his.`,
+			expected: ['iselde-wrenn', 'the-ashen-ledger', 'the-valdoria-watch'],
+			mustNotPropose: ['cairnmouth', 'the-sable-winter', 'mother-sennah', 'the-gilded-rat'],
+			rationale:
+				'Iselde Wrenn is named directly and is the causal subject of the review, so she ranks first. The Ashen Ledger has a financial stake in whether its employee keeps his standing. The Watch is the institution his standing is measured against. Cairnmouth and the Sable Winter are historical background the edit does not touch; Mother Sennah and the Gilded Rat are where Aldric drinks, not his employment status.'
+		},
+		{
+			id: 'gilded-rat-turns-away-collectors',
+			editSummary:
+				'The Gilded Rat: Mother Sennah started turning away Ashen Ledger collectors at the door.',
+			editedEntitySlug: 'the-gilded-rat',
+			editedBody:
+				'An inn in the Lantern Quarter. [[Mother Sennah]] keeps it, and the corner seat by the stair is understood to belong to somebody.\n\nSennah has started turning away [[The Ashen Ledger]] collectors at the door.',
+			expected: ['mother-sennah', 'the-ashen-ledger', 'aldric-vane'],
+			mustNotPropose: [
+				'the-sable-winter',
+				'cairnmouth',
+				'iselde-wrenn',
+				'the-valdoria-watch',
+				'corvin-ashe'
+			],
+			rationale:
+				'Mother Sennah is the owner and the direct actor. The Ashen Ledger is the named, affected party. Aldric Vane is caught between his employer and the tavern he drinks in, which a competent GM flags even though he is not named in this sentence. Corvin Ashe is a factor of the Ledger but not a collector, and nothing here implicates the harbour magistrate, the Watch, or events from 1247.'
+		},
+		{
+			id: 'sable-winter-timeline-revision',
+			editSummary:
+				'The Sable Winter: historians now date the worst of the freeze to one week in Deepwinter.',
+			editedEntitySlug: 'the-sable-winter',
+			editedBody:
+				'The year 1247, when the strait froze and [[Cairnmouth]] starved. Historians now date the worst of the freeze to a single week in Deepwinter, not the whole season.',
+			expected: ['cairnmouth', 'mother-sennah', 'aldric-vane'],
+			mustNotPropose: [
+				'the-gilded-rat',
+				'the-ashen-ledger',
+				'iselde-wrenn',
+				'corvin-ashe',
+				'the-valdoria-watch',
+				'valdoria'
+			],
+			rationale:
+				'Cairnmouth starved because of this event, so a narrower dating changes its own account directly. Mother Sennah and Aldric Vane both anchor their backstory to this event ("through the Sable Winter", "in the thaw after"), so a timeline revision is worth flagging to them even though neither mentions the new detail. None of the Ledger, the magistrate, the tavern building or the Watch reference the timeline at all.'
+		}
+	]
+};

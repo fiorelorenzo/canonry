@@ -1,0 +1,14 @@
+[Unit]
+Description=Daily Canonry Postgres backup timer for stack %i
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+# Spread prod and preview's runs out a little so they are not always
+# contending for disk and CPU at the exact same second.
+RandomizedDelaySec=10m
+# If prodbox was down at 03:15 (reboot, maintenance), run as soon as it is
+# back rather than silently waiting a full day for the next slot.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { pgTable, text, timestamp, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { authorKindEnum } from './enums.js';
 import { entity } from './entity.js';
+import { proposal } from './proposal.js';
 import { universe } from './universe.js';
 
 // SPEC.md §4.4: per-entry history, `author_kind` = `human` | `ai_accepted`. This is
@@ -20,7 +21,12 @@ export const revision = pgTable('revision', {
 	// author, only a human acceptor recorded by the (later) proposal outcome.
 	authorUserId: text('author_user_id'),
 	// No fk yet: proposals land in #47.
-	proposalId: uuid('proposal_id'),
+	// Set once a revision came from an accepted proposal, which is the other half of
+	// guardrail 2: the text stays traceable to the proposal that offered it, not only to
+	// its author kind. Set null on delete so pruning proposals never rewrites history.
+	proposalId: uuid('proposal_id').references((): AnyPgColumn => proposal.id, {
+		onDelete: 'set null'
+	}),
 	// Snapshot the history view needs, so historyFor never has to replay a diff chain.
 	name: text('name').notNull(),
 	aliases: text('aliases')

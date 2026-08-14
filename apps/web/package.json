@@ -18,6 +18,8 @@
 	"dependencies": {
 		"@canonry/ai": "workspace:*",
 		"@canonry/db": "workspace:*",
+		"better-auth": "^1.6.27",
+		"fflate": "^0.8.3",
 		"markdown-it": "^15.0.0"
 	},
 	"devDependencies": {

@@ -1,0 +1,28 @@
+[Unit]
+Description=Canonry Postgres backup for stack %i
+# The stack has to actually be up for `docker exec` into its postgres
+# container to work.
+After=docker.service
+Requires=docker.service
+OnFailure=canonry-backup-alert@%n.service
+
+[Service]
+Type=oneshot
+# Optional: ALERT_WEBHOOK_URL, for canonry-backup-alert@.service. Absent by
+# default (the leading `-` makes a missing file not an error), created once
+# per stack alongside shared/secrets.env if wanted.
+EnvironmentFile=-/opt/canonry/%i/shared/backup.env
+# Points at BASE/current, not a fixed version, so a rollback to an older
+# release also rolls the backup script back to what shipped with it.
+# --retain-days is left at the script's own default (14); adjust here per
+# stack if that ever needs to differ.
+ExecStart=/opt/canonry/%i/current/scripts/deploy/backup-postgres.sh \
+	--container canonry-%i-postgres-1 \
+	--out-dir /opt/canonry/%i/backups/postgres \
+	--status-dir /opt/canonry/%i/backups/status
+
+# Least privilege: this unit only needs docker socket access, not root.
+# Create the `canonry-deploy` user and add it to the `docker` group on
+# prodbox as part of runner setup (docs/deploy.md).
+User=canonry-deploy
+Group=canonry-deploy

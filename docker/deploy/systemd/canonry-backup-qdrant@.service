@@ -1,0 +1,18 @@
+[Unit]
+Description=Canonry Qdrant backup for stack %i
+After=docker.service
+Requires=docker.service
+OnFailure=canonry-backup-alert@%n.service
+
+[Service]
+Type=oneshot
+# Optional: ALERT_WEBHOOK_URL only. No app secrets needed here -- the
+# script resolves its own target port via `docker port`.
+EnvironmentFile=-/opt/canonry/%i/shared/backup.env
+ExecStart=/opt/canonry/%i/current/scripts/deploy/backup-qdrant.sh \
+	--container canonry-%i-qdrant-1 \
+	--out-dir /opt/canonry/%i/backups/qdrant \
+	--status-dir /opt/canonry/%i/backups/status
+
+User=canonry-deploy
+Group=canonry-deploy

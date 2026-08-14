@@ -65,3 +65,129 @@ export const operationPriceKindEnum = pgEnum('operation_price_kind', [
 	'import'
 ]);
 export type OperationPriceKind = (typeof operationPriceKindEnum.enumValues)[number];
+
+// SPEC.md §5: the four modes of the Loremaster all produce a proposal, so the trigger says
+// which mode produced this one. 'import' is the fifth producer (SPEC.md §6), and it lands
+// in the same accept flow on purpose: one shape, one instrumentation.
+export const proposalTriggerEnum = pgEnum('proposal_trigger', [
+	'save',
+	'complete',
+	'audit',
+	'import',
+	'table'
+]);
+export type ProposalTrigger = (typeof proposalTriggerEnum.enumValues)[number];
+
+// SPEC.md §4.4: "kind (create | update | relation | draft_entity)".
+export const proposalKindEnum = pgEnum('proposal_kind', [
+	'create',
+	'update',
+	'relation',
+	'draft_entity'
+]);
+export type ProposalKind = (typeof proposalKindEnum.enumValues)[number];
+
+// 'superseded' is for a proposal whose target changed underneath it before anyone decided:
+// it is neither accepted nor rejected, and counting it as a rejection would poison the
+// accept rate that SPEC.md §14 makes the deciding metric.
+export const proposalOutcomeEnum = pgEnum('proposal_outcome', [
+	'pending',
+	'accepted',
+	'rejected',
+	'superseded'
+]);
+export type ProposalOutcome = (typeof proposalOutcomeEnum.enumValues)[number];
+
+// A plan is planned, then ready for review, then spent once its diffs exist, or dismissed
+// if the GM dropped everything in it.
+export const proposalPlanStatusEnum = pgEnum('proposal_plan_status', [
+	'planning',
+	'ready',
+	'spent',
+	'dismissed'
+]);
+export type ProposalPlanStatus = (typeof proposalPlanStatusEnum.enumValues)[number];
+
+// SPEC.md §4.3: "a oneshot, a campaign module, a long campaign, a short story or a novel".
+export const workTypeEnum = pgEnum('work_type', [
+	'oneshot',
+	'module',
+	'campaign',
+	'story',
+	'novel'
+]);
+export type WorkType = (typeof workTypeEnum.enumValues)[number];
+
+export const workStatusEnum = pgEnum('work_status', [
+	'planning',
+	'running',
+	'finished',
+	'abandoned'
+]);
+export type WorkStatus = (typeof workStatusEnum.enumValues)[number];
+
+// SPEC.md §4.3: "an ordered tree of work_node (act / chapter / scene / encounter)".
+export const workNodeKindEnum = pgEnum('work_node_kind', ['act', 'chapter', 'scene', 'encounter']);
+export type WorkNodeKind = (typeof workNodeKindEnum.enumValues)[number];
+
+// What was revealed. A fact or a relation is finer than an entry, which decision E5 needs:
+// a party can learn that Aldric was dismissed without learning everything about him.
+export const revelationKindEnum = pgEnum('revelation_kind', ['entity', 'fact', 'relation']);
+export type RevelationKind = (typeof revelationKindEnum.enumValues)[number];
+
+// SPEC.md §4.5: "warm_artifact holds pre-computed material: brief, npc_draft,
+// ambient_pack, portrait, context_pack".
+export const warmArtifactKindEnum = pgEnum('warm_artifact_kind', [
+	'brief',
+	'npc_draft',
+	'ambient_pack',
+	'portrait',
+	'context_pack'
+]);
+export type WarmArtifactKind = (typeof warmArtifactKindEnum.enumValues)[number];
+
+// SPEC.md §9: one active image model per feature. 'variants' is the batch case, which is
+// the only place the four-image model is used.
+export const imageFeatureEnum = pgEnum('image_feature', ['portrait', 'variants', 'scene']);
+export type ImageFeature = (typeof imageFeatureEnum.enumValues)[number];
+
+export const mediaKindEnum = pgEnum('media_kind', ['image', 'audio']);
+export type MediaKind = (typeof mediaKindEnum.enumValues)[number];
+
+// SPEC.md §6.7 and §6.1: a job waits in the queue, runs, and then either finishes, stops
+// at its ceiling with its proposals intact, is cancelled, or fails. 'stopped_at_ceiling' is
+// its own state because it is resumable and a failure is not.
+export const importJobStatusEnum = pgEnum('import_job_status', [
+	'queued',
+	'running',
+	'finished',
+	'stopped_at_ceiling',
+	'cancelled',
+	'failed'
+]);
+export type ImportJobStatus = (typeof importJobStatusEnum.enumValues)[number];
+
+// SPEC.md §7: "data_source rows track type (wiki | pdf | text)".
+export const dataSourceTypeEnum = pgEnum('data_source_type', ['wiki', 'pdf', 'text']);
+export type DataSourceType = (typeof dataSourceTypeEnum.enumValues)[number];
+
+// 'licence_review_pending' is deliberately a status rather than a boolean: SPEC.md §7 wants
+// the review to happen before indexing, so an unreviewed source has to be unindexable by
+// state rather than by convention.
+export const dataSourceStatusEnum = pgEnum('data_source_status', [
+	'licence_review_pending',
+	'pending',
+	'indexing',
+	'indexed',
+	'failed',
+	'excluded'
+]);
+export type DataSourceStatus = (typeof dataSourceStatusEnum.enumValues)[number];
+
+export const creditTransactionKindEnum = pgEnum('credit_transaction_kind', [
+	'grant',
+	'spend',
+	'refund',
+	'expiry'
+]);
+export type CreditTransactionKind = (typeof creditTransactionKindEnum.enumValues)[number];

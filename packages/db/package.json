@@ -12,7 +12,7 @@
 		"check": "tsc -p tsconfig.json --noEmit",
 		"lint": "prettier --check .",
 		"format": "prettier --write .",
-		"test": "vitest run",
+		"test": "TEST_DB_SUFFIX=$$ vitest run",
 		"migrate": "tsx src/migrate.ts",
 		"generate": "drizzle-kit generate",
 		"seed": "tsx src/seed-fixture.ts"

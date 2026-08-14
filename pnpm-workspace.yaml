@@ -3,7 +3,14 @@ packages:
   - packages/*
 # esbuild ships a platform binary from its install script, and tsx, vitest and
 # drizzle-kit all sit on top of it, so this one has to be allowed to build.
+#
+# Better Auth lists adapters for Prisma and better-sqlite3 among its optional
+# dependencies. Canonry uses neither (drizzle on Postgres, see packages/db), so their
+# install scripts are refused rather than left unanswered: an unanswered entry here fails
+# every `pnpm install` with ERR_PNPM_IGNORED_BUILDS, which then fails the Docker build too.
 allowBuilds:
+  '@prisma/client': false
+  better-sqlite3: false
   esbuild: true
 minimumReleaseAgeExclude:
   - '@ai-sdk/gateway@4.0.52'

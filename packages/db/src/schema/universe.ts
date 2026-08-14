@@ -10,7 +10,9 @@ import {
 	uuid,
 	type AnyPgColumn
 } from 'drizzle-orm/pg-core';
+import { user } from './auth.js';
 import { universeKindEnum, universeMemberRoleEnum } from './enums.js';
+import { imageStyle } from './media.js';
 
 // SPEC.md §4.1: the container of canon. A `derived` universe reads from its own canon plus
 // an official pre-indexed universe underneath it; `homebrew` stands alone.
@@ -18,15 +20,21 @@ export const universe = pgTable(
 	'universe',
 	{
 		id: uuid('id').primaryKey().defaultRandom(),
-		// Better Auth owns the user table (#86); no fk here, just the id it hands us.
-		// Slugs are namespaced under this so two owners can each have a "waterdeep".
-		ownerUserId: text('owner_user_id').notNull(),
+		// Slugs are namespaced under the owner so two people can each have a "waterdeep".
+		// The fk exists now that Better Auth's user table does (#86): deleting an account
+		// takes its worlds with it, which is what a deletion request has to mean.
+		ownerUserId: text('owner_user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
 		name: text('name').notNull(),
 		slug: text('slug').notNull(),
 		kind: universeKindEnum('kind').notNull(),
 		baseUniverseId: uuid('base_universe_id').references((): AnyPgColumn => universe.id),
-		// No fk yet: the image style catalogue lands in #65.
-		imageStyleId: uuid('image_style_id'),
+		// The style every image in this universe is generated with (SPEC.md §9, #65).
+		// Set null rather than cascade: losing a style must not delete a world.
+		imageStyleId: uuid('image_style_id').references((): AnyPgColumn => imageStyle.id, {
+			onDelete: 'set null'
+		}),
 		loremasterDescription: text('loremaster_description').notNull().default(''),
 		// Decision C10 (docs/ux/DECISIONS.md): the per-universe AI on/off switch. Guardrail 4
 		// requires that turning this off still leaves a good wiki.
@@ -52,7 +60,9 @@ export const universeMember = pgTable(
 			.notNull()
 			.references(() => universe.id, { onDelete: 'cascade' }),
 		// Better Auth owns the user table (#86); no fk here.
-		userId: text('user_id').notNull(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
 		role: universeMemberRoleEnum('role').notNull(),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},

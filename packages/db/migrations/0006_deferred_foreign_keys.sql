@@ -1,0 +1,5 @@
+ALTER TABLE "entity" ADD COLUMN "image_prompt_modifier" text;--> statement-breakpoint
+ALTER TABLE "universe" ADD CONSTRAINT "universe_owner_user_id_user_id_fk" FOREIGN KEY ("owner_user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "universe" ADD CONSTRAINT "universe_image_style_id_image_style_id_fk" FOREIGN KEY ("image_style_id") REFERENCES "public"."image_style"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "universe_member" ADD CONSTRAINT "universe_member_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "revision" ADD CONSTRAINT "revision_proposal_id_proposal_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposal"("id") ON DELETE set null ON UPDATE no action;

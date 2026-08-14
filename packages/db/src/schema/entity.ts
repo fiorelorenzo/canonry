@@ -20,6 +20,9 @@ export const entity = pgTable(
 			.notNull()
 			.default(sql`'{}'::text[]`),
 		body: text('body').notNull().default(''),
+		// SPEC.md §9: style is shared at universe level and overridable per entry. Null
+		// means "use the universe's style", which is the case for almost every entry.
+		imagePromptModifier: text('image_prompt_modifier'),
 		// Guardrail 6: `revealable` still needs a `revelation` row (players' wiki, a later
 		// wave) to actually reach players. `gm_only` can never be revealed.
 		visibility: entityVisibilityEnum('visibility').notNull().default('revealable'),

@@ -1,0 +1,12 @@
+[Unit]
+Description=Alert for failed unit %i
+
+[Service]
+Type=oneshot
+# One global, non-stack-specific alert channel. Optional: only
+# ALERT_WEBHOOK_URL is read from it (docs/deploy.md covers setup).
+EnvironmentFile=-/etc/canonry/backup-alert.env
+# %i is the failed unit's own name (systemd substitutes %n from the
+# OnFailure= line that referenced this template into our %i). Passed
+# straight through to the script, which only uses it in a log line.
+ExecStart=/usr/local/bin/canonry-backup-alert.sh %i

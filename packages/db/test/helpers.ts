@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createDb, type Db } from '../src/index.js';
+import { user } from '../src/schema/auth.js';
 import { universe } from '../src/schema/universe.js';
 import { TEST_DATABASE_URL } from './env.js';
 
@@ -13,14 +14,36 @@ export function unique(prefix: string): string {
 	return `${prefix}-${randomUUID().slice(0, 8)}`;
 }
 
+/** `universe.owner_user_id` and `universe_member.user_id` point at Better Auth's user
+ * table, so a test that wants a universe needs a real account behind it. Cheaper to make
+ * that automatic here than to remember it in thirty places. */
+export async function insertUser(db: Db, overrides: Partial<typeof user.$inferInsert> = {}) {
+	const id = overrides.id ?? unique('user');
+	const [row] = await db
+		.insert(user)
+		.values({
+			id,
+			name: 'Test Owner',
+			email: `${id}@canonry.invalid`,
+			emailVerified: true,
+			...overrides
+		})
+		.returning();
+	if (!row) throw new Error('insert did not return a row');
+	return row;
+}
+
 export async function insertHomebrewUniverse(
 	db: Db,
 	overrides: Partial<typeof universe.$inferInsert> = {}
 ) {
+	// An explicit owner in the overrides is trusted to exist already, which is what a test
+	// about two universes sharing an owner needs.
+	const ownerUserId = overrides.ownerUserId ?? (await insertUser(db)).id;
 	const [row] = await db
 		.insert(universe)
 		.values({
-			ownerUserId: unique('owner'),
+			ownerUserId,
 			name: 'Test Universe',
 			slug: unique('universe'),
 			kind: 'homebrew',

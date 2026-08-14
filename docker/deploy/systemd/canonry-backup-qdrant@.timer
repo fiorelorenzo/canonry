@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily Canonry Qdrant backup timer for stack %i
+
+[Timer]
+# Offset from the Postgres timer so the two backups do not compete for disk
+# and CPU on the same box at the same moment.
+OnCalendar=*-*-* 03:45:00
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

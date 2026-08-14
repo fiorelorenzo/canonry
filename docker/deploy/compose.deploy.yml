@@ -1,0 +1,98 @@
+# Deployed-stack compose file for prodbox (issues #94, #95; SPEC.md #12). This
+# is the deploy-time counterpart to docker/compose.yml: same three services
+# (web, Postgres, Qdrant), but web references a pre-built, already-pushed
+# image instead of `build:`, because the build happens once on a
+# GitHub-hosted runner and this file only ever runs on the self-hosted runner
+# that deploys it -- shipping the monorepo source, devDependencies and the
+# pnpm store to prodbox just to rebuild there would defeat that split.
+#
+# One immutable copy of this file lives in every releases/<sha> directory
+# (scripts/deploy/release.sh copies it in verbatim at deploy time), so a
+# release's compose definition can never drift after the fact. Every
+# invocation passes the same --project-name (canonry-<stack>) regardless of
+# which release directory is current, so postgres and qdrant's named volumes
+# persist across releases -- only web's image tag differs release to
+# release, so `docker compose up -d` recreates web alone and leaves
+# postgres/qdrant containers and data untouched. That one recreate is the
+# other half of "rollback is a symlink flip plus a container recreate"
+# (SPEC.md #12): flipping `current` to a different releases/<sha> and
+# re-running this same command is the whole operation, forward or back.
+#
+# WEB_IMAGE, APP_VERSION and APP_COMMIT are written into each release's own
+# .env by release.sh, never edited by hand. Everything else (POSTGRES_*,
+# QDRANT ports, ORIGIN, the AI Gateway and Replicate credentials, ADMIN_TOKEN)
+# comes from the stack's shared secrets file (shared/secrets.env), managed on
+# prodbox out of band and never generated or printed by any script here.
+#
+# No top-level `name:` here on purpose: every invocation of this file MUST
+# pass --project-name canonry-<stack> (scripts/deploy/lib.sh's compose_cmd
+# does this always). Without it, prod and preview would default to the same
+# project name and collide on the same box.
+
+services:
+  web:
+    image: ${WEB_IMAGE}
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${WEB_PORT:-5196}:5196'
+    environment:
+      PORT: '5196'
+      DATABASE_URL: ${DATABASE_URL}
+      QDRANT_URL: ${QDRANT_URL}
+      ORIGIN: ${ORIGIN}
+      AI_GATEWAY_ACCOUNT_ID: ${AI_GATEWAY_ACCOUNT_ID}
+      AI_GATEWAY_NAME: ${AI_GATEWAY_NAME}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test: ['CMD', 'node', '-e', 'fetch("http://127.0.0.1:5196/healthz").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${QDRANT_PORT:-6333}:6333'
+    volumes:
+      - qdrantdata:/qdrant/storage
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'bash',
+          '-c',
+          'exec 3<>/dev/tcp/127.0.0.1/6333 && printf "GET /healthz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 && grep -q "200 OK" <&3'
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
+  qdrantdata:

@@ -1,0 +1,23 @@
+{
+	"name": "@canonry/eval",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"check": "tsc -p tsconfig.json --noEmit",
+		"lint": "prettier --check .",
+		"format": "prettier --write .",
+		"test": "vitest run"
+	},
+	"dependencies": {},
+	"devDependencies": {
+		"@types/node": "^22",
+		"prettier": "^3.8.3",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.10"
+	}
+}

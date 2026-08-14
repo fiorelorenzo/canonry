@@ -6,7 +6,13 @@ import { fact } from '../src/schema/fact.js';
 import { relation, relationType } from '../src/schema/relation.js';
 import { revision } from '../src/schema/revision.js';
 import { universe } from '../src/schema/universe.js';
-import { expectConstraintViolation, insertHomebrewUniverse, testDb, unique } from './helpers.js';
+import {
+	expectConstraintViolation,
+	insertHomebrewUniverse,
+	insertUser,
+	testDb,
+	unique
+} from './helpers.js';
 
 describe('universe', () => {
 	let db: Db;
@@ -53,10 +59,11 @@ describe('universe', () => {
 
 	it('accepts a derived universe that names a base', async () => {
 		const base = await insertHomebrewUniverse(db);
+		const owner = await insertUser(db);
 		const [derived] = await db
 			.insert(universe)
 			.values({
-				ownerUserId: unique('owner'),
+				ownerUserId: owner.id,
 				name: 'Good derived',
 				slug: unique('universe'),
 				kind: 'derived',
@@ -68,8 +75,8 @@ describe('universe', () => {
 
 	it('scopes slug uniqueness to the owner, not globally', async () => {
 		const slug = unique('shared-slug');
-		const ownerA = unique('owner');
-		const ownerB = unique('owner');
+		const ownerA = (await insertUser(db)).id;
+		const ownerB = (await insertUser(db)).id;
 
 		await db.insert(universe).values({ ownerUserId: ownerA, name: 'A', slug, kind: 'homebrew' });
 		// Same slug, different owner: allowed.

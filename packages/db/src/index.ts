@@ -4,6 +4,13 @@ export { factWithSource, type FactWithSource } from './queries/facts.js';
 export { relationsFor, type RelationView } from './queries/relations.js';
 export { historyFor } from './queries/revisions.js';
 export {
+	universeForExport,
+	streamEntitiesForExport,
+	countEntitiesForExport,
+	type UniverseExportMeta,
+	type ExportEntityRow
+} from './queries/export.js';
+export {
 	priceOf,
 	setPrice,
 	listPrices,

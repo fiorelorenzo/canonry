@@ -14,6 +14,7 @@ import { entity } from './schema/entity.js';
 import { fact } from './schema/fact.js';
 import { relation, relationType } from './schema/relation.js';
 import { revision } from './schema/revision.js';
+import { user } from './schema/auth.js';
 import { universe, universeMember } from './schema/universe.js';
 
 const OWNER = 'fixture-owner';
@@ -123,6 +124,19 @@ function assertLocal(url: string): void {
 }
 
 export async function seedFixture(db: Db): Promise<{ universeId: string; entities: number }> {
+	// universe.owner_user_id points at Better Auth's user table now, so the fixture owner
+	// has to be a real row. Inserted rather than assumed, and left alone if it already
+	// exists, because a developer may have signed in as it.
+	await db
+		.insert(user)
+		.values({
+			id: OWNER,
+			name: 'Fixture Owner',
+			email: 'fixture@canonry.invalid',
+			emailVerified: true
+		})
+		.onConflictDoNothing();
+
 	// Order matters: a derived universe holds a foreign key to its base with no cascade,
 	// which is deliberate (deleting a base out from under a derived world should hurt), so
 	// the derived rows go first or the delete below is refused.

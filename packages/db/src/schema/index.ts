@@ -1,4 +1,5 @@
 export * from './enums.js';
+export * from './auth.js';
 export * from './universe.js';
 export * from './entity.js';
 export * from './relation.js';
@@ -6,3 +7,10 @@ export * from './revision.js';
 export * from './fact.js';
 export * from './model.js';
 export * from './prices.js';
+export * from './proposal.js';
+export * from './work.js';
+export * from './players.js';
+export * from './table.js';
+export * from './media.js';
+export * from './source.js';
+export * from './billing.js';
