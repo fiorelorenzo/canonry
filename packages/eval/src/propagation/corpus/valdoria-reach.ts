@@ -107,7 +107,7 @@ export const valdoriaReach: PropagationWorld = {
 		{ from: 'iselde-wrenn', label: 'appointed', to: 'aldric-vane' },
 		{ from: 'aldric-vane', label: 'member of', to: 'the-valdoria-watch' },
 		{ from: 'the-valdoria-watch', label: 'located in', to: 'valdoria' },
-		{ from: 'the-gilded-rat', label: 'located in', to: 'valdoria' },
+		{ from: 'the-gilded-rat', label: 'part of', to: 'valdoria' },
 		{ from: 'mother-sennah', label: 'owns', to: 'the-gilded-rat' },
 		{ from: 'the-ashen-ledger', label: 'employs', to: 'corvin-ashe' },
 		{ from: 'la-casa-dei-mercanti', label: 'located in', to: 'valdoria' },
@@ -179,7 +179,7 @@ export const valdoriaReach: PropagationWorld = {
 			expected: ['the-ashen-ledger'],
 			mustNotPropose: ['valdoria', 'the-gilded-rat', 'the-sable-winter', 'cairnmouth'],
 			rationale:
-				'The new paragraph names [[The Ashen Ledger]] directly and describes a competitive move against its own business - a rival buying up debt it can no longer collect is exactly the kind of change SPEC.md §5.1 expects to propagate, and it crosses from an Italian entry to an English one without anybody translating anything: the wikilink names the English entity by its own untranslated name, same as any other mention. Valdoria and the Gilded Rat are only reachable through the shared "located in" hub and have no stake in a lending dispute; the Sable Winter and Cairnmouth are unrelated history the edit never touches.'
+				'The new paragraph names [[The Ashen Ledger]] directly and describes a competitive move against its own business - a rival buying up debt it can no longer collect is exactly the kind of change SPEC.md §5.1 expects to propagate, and it crosses from an Italian entry to an English one without anybody translating anything: the wikilink names the English entity by its own untranslated name, same as any other mention. Valdoria and the Gilded Rat are only reachable through the shared Valdoria hub (`located in`, `part of`) and have no stake in a lending dispute; the Sable Winter and Cairnmouth are unrelated history the edit never touches.'
 		},
 		{
 			// Issue #130: the reverse direction - an English entry edited, an Italian entry
