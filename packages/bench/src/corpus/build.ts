@@ -29,8 +29,7 @@ import { worldV1, worldV2 } from './valdoria-reach.js';
 import type { DocumentExpectation, Renderer, World } from './types.js';
 
 /** Keyed by the directory the export lands in, which is also how every downstream runner
- * names it. `onenote` renders with the `generic` playbook (SPEC.md §6.6 routes OneNote
- * through the generic path), so the key and the playbook deliberately differ for it. */
+ * names it. */
 export const RENDERERS: Record<string, Renderer> = {
 	obsidian: renderObsidian,
 	kanka: renderKanka,

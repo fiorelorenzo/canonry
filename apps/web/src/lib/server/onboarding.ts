@@ -216,6 +216,7 @@ export const KNOWN_PLAYBOOK_IDS = [
 	'obsidian',
 	'kanka',
 	'world-anvil',
+	'onenote',
 	'pdf',
 	'docx',
 	'generic'
@@ -226,6 +227,7 @@ export const PLAYBOOK_LABELS: Record<KnownPlaybookId, string> = {
 	obsidian: 'Obsidian',
 	kanka: 'Kanka',
 	'world-anvil': 'World Anvil',
+	onenote: 'OneNote',
 	pdf: 'PDF',
 	docx: 'DOCX',
 	generic: 'Something else'
@@ -233,7 +235,7 @@ export const PLAYBOOK_LABELS: Record<KnownPlaybookId, string> = {
 
 /** Which playbooks DeterministicExtractionDriver can actually run without a live model -
  * see that class's own doc comment. Gates the "start import" action so a GM who picks
- * World Anvil, PDF or DOCX on this deployment sees why, rather than a run that silently
+ * World Anvil, OneNote, PDF or DOCX on this deployment sees why, rather than a run that silently
  * produces zero proposals. */
 export const FAKE_DRIVER_SUPPORTED_PLAYBOOKS: ReadonlySet<KnownPlaybookId> = new Set([
 	'obsidian',
@@ -312,6 +314,26 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 		};
 	}
 
+	const htmlPaths = paths.filter((p) => /\.html?$/i.test(p));
+	if (htmlPaths.length > 0) {
+		// onenote.md: an embedded attachment lives beside its page in a folder named after
+		// the page with "_files" appended (notebook/section/page_files/image.png) - the
+		// shape OneNote's own GetHierarchy/Publish export produces and no other source
+		// mimics, so it is a stronger signal than a bare ".htm" file would be.
+		const htmlStems = new Set(htmlPaths.map((p) => p.replace(/\.html?$/i, '')));
+		const hasAttachmentFolder = paths.some((p) => {
+			const match = /^(.*)_files\//.exec(p);
+			return match !== null && htmlStems.has(match[1] ?? '');
+		});
+		if (hasAttachmentFolder) {
+			return {
+				playbookId: 'onenote',
+				confident: true,
+				detail: `${htmlPaths.length} exported page(s), sibling _files/ folder(s) found`
+			};
+		}
+	}
+
 	const mdPaths = paths.filter((p) => p.toLowerCase().endsWith('.md'));
 	if (paths.length > 0 && mdPaths.length === paths.length) {
 		return {
@@ -380,6 +402,18 @@ export async function documentsForPlaybook(
 		return jsonPaths.map((p, i) => ({ id: `doc-${i + 1}`, sourcePath: p }));
 	}
 
+	if (playbookId === 'onenote') {
+		// Each exported page is its own document (onenote.md's Inputs section: "you are
+		// bound to exactly one page"). A "<page>_files" folder holds only that page's own
+		// embedded attachments, never another page, so filtering to .htm/.html already
+		// excludes it - the extra segment check is belt and suspenders, the same
+		// distinction onenote.md itself draws for the model.
+		return paths
+			.filter((p) => /\.html?$/i.test(p))
+			.filter((p) => !p.split('/').some((segment) => segment.endsWith('_files')))
+			.map((p, i) => ({ id: `doc-${i + 1}`, sourcePath: p }));
+	}
+
 	// pdf / docx: one document per matching file. ArchiveSourceReader.read() already runs
 	// the real, deterministic text extraction (pdfjs-dist / mammoth) for these - the model
 	// only enters the picture for a *scanned* page (SPEC.md §6.6's page_image path), which
@@ -403,6 +437,7 @@ const COLD_START_ESTIMATE: Record<
 > = {
 	kanka: { avgCreditsPerDocument: 0.2, avgSecondsPerDocument: 8 },
 	obsidian: { avgCreditsPerDocument: 0.25, avgSecondsPerDocument: 12 },
+	onenote: { avgCreditsPerDocument: 0.25, avgSecondsPerDocument: 12 },
 	'world-anvil': { avgCreditsPerDocument: 0.3, avgSecondsPerDocument: 15 },
 	pdf: { avgCreditsPerDocument: 0.5, avgSecondsPerDocument: 25 },
 	docx: { avgCreditsPerDocument: 0.4, avgSecondsPerDocument: 20 },

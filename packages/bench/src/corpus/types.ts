@@ -100,7 +100,7 @@ export interface RenderedFile {
 
 export interface RenderedCorpus {
 	/** The playbook this export is meant to be imported with. */
-	playbook: 'obsidian' | 'kanka' | 'world-anvil' | 'pdf' | 'docx' | 'generic';
+	playbook: 'obsidian' | 'kanka' | 'world-anvil' | 'onenote' | 'pdf' | 'docx' | 'generic';
 	files: RenderedFile[];
 	documents: DocumentExpectation[];
 }

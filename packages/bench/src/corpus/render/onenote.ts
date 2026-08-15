@@ -1,21 +1,20 @@
 /**
  * Renders a World into a folder tree of exported OneNote pages (SPEC.md §6.6, §6.10,
- * playbooks/import/playbooks/onenote.md): `notebook/section/page.htm`, a subpage living in
+ * packages/import/playbooks/onenote.md): `notebook/section/page.htm`, a subpage living in
  * a directory named after its parent page, and an embedded attachment living in a sibling
  * `<page>_files/` directory - the shape `meichthys/onenote-html-export` produces, mirrored
  * from `packages/import/test/fixtures/onenote/export/`.
  *
- * There is no `onenote` entry in `apps/web/src/lib/server/onboarding.ts`'s
- * `KNOWN_PLAYBOOK_IDS`, so `RenderedCorpus.playbook` (and its type) has nowhere to put
- * "onenote" even though `packages/import/playbooks/onenote.md` is a fully written
- * playbook - SPEC.md §6.6 routes this shape through the generic path instead. This
- * renderer plays that routing straight: `playbook: 'generic'`, and `documents: []`,
- * because `documentsForPlaybook('generic', reader)` only matches `/\.(md|txt)$/i` and a
- * OneNote export is entirely `.htm` - see this package's own bench report for why that is
- * a real gap rather than an oversight in this renderer.
+ * Renders with its own `onenote` playbook id (issue #162): `apps/web/src/lib/server/
+ * onboarding.ts`'s `detectSource` recognises this shape from the `.htm` tree plus its
+ * sibling `_files/` folders, and `documentsForPlaybook` enumerates one document per page.
+ * `documents` below lists exactly those pages, each with the entity `onenote.md` proposes
+ * for it and, where the page is a subpage, the "subpage of" relation the folder nesting
+ * implies - the one relation this renderer can promise without guessing at a verb an
+ * in-body link's bare "See X." sentence never states.
  */
 import type { DocumentExpectation, Renderer, RenderedFile, World, WorldEntity } from '../types.js';
-import { markdownBody, relationsWithin } from '../types.js';
+import { markdownBody, relationKey, relationsWithin } from '../types.js';
 import { deflateSync } from 'node:zlib';
 
 function textFile(path: string, content: string): RenderedFile {
@@ -243,6 +242,7 @@ export const renderOneNote: Renderer = async (world) => {
 		});
 	}
 
+	const documents: DocumentExpectation[] = [];
 	for (const entity of pageEntities) {
 		const location = locations.get(entity.slug)!;
 		const dir = location.parentFileBase
@@ -266,24 +266,33 @@ export const renderOneNote: Renderer = async (world) => {
 
 		const imageFile = entity.image?.file;
 		const html = pageHtml(location, relatedLinks, imageFile);
-		files.push(textFile(`${dir}/${location.fileBase}.htm`, html));
+		const sourcePath = `${dir}/${location.fileBase}.htm`;
+		files.push(textFile(sourcePath, html));
 		if (imageFile && entity.image) {
 			files.push({
 				path: `${dir}/${location.fileBase}_files/${imageFile}`,
 				bytes: placeholderPortrait(entity.slug)
 			});
 		}
+
+		// onenote.md step 3: only the subpage proposes "subpage of" - a page never proposes
+		// a relation to its own children, so this is the one relation a competent read of
+		// this page alone can promise without guessing at the verb an in-body link's bare
+		// "See X." sentence never states (onenote.md's own fallback for that case is
+		// "mentions" / "mentioned by", deliberately left out of expectRelations here since
+		// no bench task scores a OneNote document yet).
+		const pair = subpagePairs.find((p) => p.child.slug === entity.slug);
+		documents.push({
+			sourcePath,
+			expectEntities: [entity.slug],
+			expectRelations: pair
+				? [relationKey({ from: entity.slug, label: 'subpage of', to: pair.parent.slug })]
+				: []
+		});
 	}
 
 	files.sort((a, b) => a.path.localeCompare(b.path));
+	documents.sort((a, b) => a.sourcePath.localeCompare(b.sourcePath));
 
-	// documentsForPlaybook('generic', reader) only enumerates `/\.(md|txt)$/i` paths - a
-	// OneNote export is entirely `.htm`, so under the current onboarding.ts routing it
-	// enumerates zero documents for this shape. Reflecting that truthfully here, rather
-	// than listing expectations onboarding.ts cannot currently reach, is this renderer's
-	// whole point: see the bench report for what a fixed `onenote` KnownPlaybookId should
-	// enumerate instead.
-	const documents: DocumentExpectation[] = [];
-
-	return { playbook: 'generic', files, documents };
+	return { playbook: 'onenote', files, documents };
 };
