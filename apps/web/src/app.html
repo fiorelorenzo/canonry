@@ -6,7 +6,11 @@
 		<meta name="text-scale" content="scale" />
 
 		<link rel="icon" type="image/svg+xml" href="%sveltekit.assets%/favicon.svg" />
-		<link rel="alternate icon" type="image/x-icon" href="%sveltekit.assets%/favicon.ico" />
+		<!-- The alternate is the PNG rather than the ICO on purpose: adapter-node's mime table has
+				no entry for .ico, so it serves with an empty content-type, which browsers sniff but
+				crawlers and link unfurlers need not. The .ico file still ships at the root, because
+				browsers ask for /favicon.ico by themselves without reading any of this. -->
+		<link rel="alternate icon" type="image/png" href="%sveltekit.assets%/favicon-32.png" />
 		<link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
 		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
 		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4efe4" />
