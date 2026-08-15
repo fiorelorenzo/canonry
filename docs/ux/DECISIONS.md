@@ -363,3 +363,32 @@ palette has never had an issue at all.** A3 and G3 answered it, `lib/keys.ts` ca
 whole cross-platform shortcut vocabulary including mod+K, nothing listens for it, and #75,
 which this file's own register names against A3, closed having shipped table mode's instant
 search instead.
+
+### Built, 2026-08-15
+
+All fifteen landed the same day the answers were taken, in `1e7b2d8`, and are closed. The
+shell is the change everything else hangs off: `AppShell.svelte` is mounted by the root
+layout and switches `Sidebar.svelte` between a universe mode and an account mode on whether
+`page.data.current` is present, so nothing in the product renders without a frame any more
+and `AuthStatus.svelte` is gone.
+
+Four things surfaced while building and were filed rather than folded in, because each is a
+decision rather than a task:
+
+- **[#151](https://github.com/fiorelorenzo/canonry/issues/151), password recovery.** There is
+  no mail transport anywhere in the app, so I2 shipped without the "Forgotten password?" link
+  the artifact drew rather than with a link that goes nowhere. The transport wants choosing
+  for email verification and universe invitations at the same time.
+- **[#154](https://github.com/fiorelorenzo/canonry/issues/154), account deletion.** I6's
+  Account pane ships name, email, password and sign out everywhere; deletion is a sentence
+  saying it is not enabled. `universe.owner_user_id` cascades, so deleting an account destroys
+  every universe under it, and doing that irreversibly with no confirmation channel is not a
+  thing to enable quietly.
+- **[#155](https://github.com/fiorelorenzo/canonry/issues/155), the control layer's gaps.** No
+  select, and three badge meanings the variant set does not carry, so a handful of call sites
+  stayed hand-written after I9's migration.
+- **[#153](https://github.com/fiorelorenzo/canonry/issues/153), `/u/<slug>` is ambiguous.** Not
+  a round four surface at all: slug uniqueness is per owner by schema, and
+  `universeAccessBySlug` resolves a slug with no owner filter and no ordering, so the same URL
+  can resolve to a different universe between two requests. It cost an hour of phantom 404s
+  during this work before anybody realised the bug was not in the new code.
