@@ -77,6 +77,15 @@ describe.skipIf(!built)('the built corpus', () => {
 					// documents on purpose (one per language), so only the extension is asserted.
 					expect(paths.every((p) => p.toLowerCase().endsWith(`.${source}`))).toBe(true);
 				}
+				if (source === 'onenote') {
+					// onboarding.ts's onenote branch in detectSource: a tree of .htm/.html pages,
+					// at least one with a sibling "<page>_files/" folder for its own embedded
+					// attachments - OneNote's own GetHierarchy/Publish export shape, and no other
+					// shipped source mimics it.
+					const htmlPaths = paths.filter((p) => /\.html?$/i.test(p));
+					expect(htmlPaths.length).toBeGreaterThan(0);
+					expect(paths.some((p) => p.includes('_files/'))).toBe(true);
+				}
 
 				// documentsForPlaybook, onboarding.ts:332. Every document the manifest promises
 				// has to exist in the archive under exactly that path, or the end-to-end run
@@ -90,13 +99,16 @@ describe.skipIf(!built)('the built corpus', () => {
 		}
 	}
 
-	it('onenote yields no documents, which is the finding rather than the fixture', async () => {
-		// SPEC.md §6.6 routes OneNote through the generic path, and `KNOWN_PLAYBOOK_IDS`
-		// carries no `onenote` entry. But `documentsForPlaybook('generic', ...)` enumerates
-		// only `.md` and `.txt` (onboarding.ts:358), and a OneNote export is `.htm`. So the
-		// export below is real, well-formed, and imports nothing at all. This asserts the
-		// broken behaviour on purpose: when somebody fixes it, this test fails and points at
-		// the issue.
+	it('onenote is detected as its own playbook and enumerates every page (issue #162)', async () => {
+		// Fixed: KNOWN_PLAYBOOK_IDS carried no `onenote` entry, so an uploaded export fell
+		// through detectSource to `generic`, and documentsForPlaybook('generic', ...)
+		// enumerates only .md/.txt - a well-formed export imported nothing, silently.
+		// detectSource now recognises the .htm/_files tree shape and documentsForPlaybook
+		// enumerates one document per page (apps/web/src/lib/server/onboarding.test.ts
+		// exercises those two functions directly; this only checks that the renderer's own
+		// manifest, built independently, promises exactly the real pages in the archive -
+		// neither more, which would mean a phantom document, nor fewer, which is this
+		// issue's own bug).
 		const manifest = JSON.parse(
 			readFileSync(manifestPath('onenote', 'v1'), 'utf8')
 		) as CorpusManifest;
@@ -105,8 +117,10 @@ describe.skipIf(!built)('the built corpus', () => {
 			DEFAULT_ARCHIVE_LIMITS
 		);
 		const paths = await walk(reader);
-		expect(paths.some((p) => p.toLowerCase().endsWith('.htm'))).toBe(true);
-		expect(paths.filter((p) => /\.(md|txt)$/i.test(p))).toHaveLength(0);
-		expect(manifest.documents).toHaveLength(0);
+		const htmlPaths = paths.filter((p) => /\.html?$/i.test(p));
+
+		expect(manifest.playbook).toBe('onenote');
+		expect(manifest.documents.length).toBeGreaterThan(0);
+		expect(manifest.documents.map((d) => d.sourcePath).sort()).toEqual([...htmlPaths].sort());
 	});
 });
