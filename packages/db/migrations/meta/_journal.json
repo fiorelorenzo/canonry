@@ -169,6 +169,13 @@
       "when": 1786797445058,
       "tag": "0023_gateway_model_slugs",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786799494789,
+      "tag": "0024_seed_text_models",
+      "breakpoints": true
     }
   ]
 }
