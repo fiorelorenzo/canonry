@@ -74,6 +74,15 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       STAFF_EMAILS: ${STAFF_EMAILS}
+      # Both default to `.data/` under the working directory, which in this image is `/app` and
+      # is not writable under `USER canonry`: an import upload answered 500 with EACCES on
+      # /app/.data, so imports could not run in production at all. They also have to persist,
+      # since `import_job.artefact_path` is read again on a later request and a generated image
+      # is a paid artefact that must survive a release.
+      IMPORT_ROOT: /data/imports
+      MEDIA_ROOT: /data/media
+    volumes:
+      - appdata:/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -136,3 +145,7 @@ services:
 volumes:
   pgdata:
   qdrantdata:
+  # Uploaded import artefacts and generated media. Named rather than bound to the release
+  # directory on purpose: a release is immutable and gets replaced, and neither of these is
+  # rebuildable from the repository.
+  appdata:

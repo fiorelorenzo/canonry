@@ -114,6 +114,14 @@ COPY --from=deploy --chown=canonry:canonry /deploy-db/dist ./migrate/dist
 COPY --from=deploy --chown=canonry:canonry /deploy-db/migrations ./migrate/migrations
 COPY --from=deploy --chown=canonry:canonry /deploy-db/node_modules ./migrate/node_modules
 
+# The two directories the app writes to at runtime: uploaded import artefacts and generated
+# media. Created here, owned by the runtime user, so that a named volume mounted over either
+# path inherits that ownership - Docker copies the image directory's owner into a fresh
+# volume, and without this the volume would arrive owned by root and every write would fail
+# with EACCES under `USER canonry`. `IMPORT_ROOT` and `MEDIA_ROOT` point at these in
+# compose.deploy.yml; without those vars the app falls back to `.data/` under the working
+# directory, which is not writable in this image and never persists.
+RUN mkdir -p /data/imports /data/media && chown -R canonry:canonry /data
 USER canonry
 EXPOSE 5196
 CMD ["node", "build/index.js"]
