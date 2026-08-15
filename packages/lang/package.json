@@ -1,5 +1,5 @@
 {
-	"name": "@canonry/copilot",
+	"name": "@canonry/lang",
 	"private": true,
 	"version": "0.0.0",
 	"type": "module",
@@ -11,21 +11,11 @@
 		"check": "tsc -p tsconfig.json --noEmit",
 		"lint": "prettier --check .",
 		"format": "prettier --write .",
-		"test": "TEST_DB_SUFFIX=$$ vitest run"
+		"test": "vitest run"
 	},
-	"dependencies": {
-		"@canonry/ai": "workspace:*",
-		"@canonry/db": "workspace:*",
-		"@canonry/indexing": "workspace:*",
-		"@canonry/lang": "workspace:*",
-		"@canonry/vector": "workspace:*",
-		"ai": "^7.0.65",
-		"zod": "^4.1.13"
-	},
+	"dependencies": {},
 	"devDependencies": {
-		"@canonry/eval": "workspace:*",
 		"@types/node": "^22",
-		"postgres": "^3.4.9",
 		"prettier": "^3.8.3",
 		"typescript": "^6.0.3",
 		"vitest": "^4.1.10"

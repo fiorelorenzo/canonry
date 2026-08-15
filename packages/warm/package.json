@@ -16,6 +16,7 @@
 	"dependencies": {
 		"@canonry/ai": "workspace:*",
 		"@canonry/db": "workspace:*",
+		"@canonry/lang": "workspace:*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {

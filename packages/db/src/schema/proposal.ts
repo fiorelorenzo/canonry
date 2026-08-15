@@ -93,6 +93,13 @@ export const proposal = pgTable(
 		// The unapplied change. Shape is the app's, and the database does not interpret it.
 		patch: jsonb('patch').notNull(),
 		rationale: text('rationale').notNull().default(''),
+		// SPEC.md §17: the locale the speech in `rationale` (and the plan it belongs to) was
+		// produced in, which is the user's interface language and not the language of the canon
+		// this proposal edits. Recorded because accept rate per locale is the only way to notice
+		// that Italian proposals are being accepted at half the English rate: the aggregate would
+		// stay healthy while half the users quietly stopped accepting anything. Null for rows
+		// written before the language work, which the dashboard reads as no data rather than zero.
+		locale: text('locale'),
 		// Guardrail 3: every proposal shows its evidence, which entry and which sentence,
 		// and never a bare confidence score. This column is that evidence: the source
 		// entity, the source revision, the span, and the path it travelled (a relation and

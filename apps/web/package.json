@@ -22,6 +22,7 @@
 		"@canonry/eval": "workspace:*",
 		"@canonry/import": "workspace:*",
 		"@canonry/indexing": "workspace:*",
+		"@canonry/lang": "workspace:*",
 		"@canonry/media": "workspace:*",
 		"@canonry/vector": "workspace:*",
 		"@canonry/warm": "workspace:*",

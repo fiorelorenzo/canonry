@@ -20,6 +20,15 @@ export const entity = pgTable(
 			.notNull()
 			.default(sql`'{}'::text[]`),
 		body: text('body').notNull().default(''),
+		// SPEC.md §17: canon keeps its own language, per entry, because mixed-language worlds are
+		// the normal case in this hobby. This is what the copilot reads before it drafts anything
+		// that will land *inside* an entry: an Italian interface must never start writing Italian
+		// paragraphs into an English entry. A BCP-47 primary subtag ('en', 'it'), detected from
+		// the body at write time by a free heuristic and never by a model call, overridable by the
+		// GM, and null when it is unknown or the body is genuinely mixed. Null is a real answer
+		// here, not a missing one: guessing from three words is how an entry gets mislabelled and
+		// then written into in the wrong language.
+		language: text('language'),
 		// SPEC.md §9: style is shared at universe level and overridable per entry. Null
 		// means "use the universe's style", which is the case for almost every entry.
 		imagePromptModifier: text('image_prompt_modifier'),

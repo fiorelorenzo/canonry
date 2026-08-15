@@ -32,6 +32,9 @@ importers:
       '@canonry/indexing':
         specifier: workspace:*
         version: link:../../packages/indexing
+      '@canonry/lang':
+        specifier: workspace:*
+        version: link:../../packages/lang
       '@canonry/media':
         specifier: workspace:*
         version: link:../../packages/media
@@ -169,6 +172,9 @@ importers:
       '@canonry/indexing':
         specifier: workspace:*
         version: link:../indexing
+      '@canonry/lang':
+        specifier: workspace:*
+        version: link:../lang
       '@canonry/vector':
         specifier: workspace:*
         version: link:../vector
@@ -249,6 +255,9 @@ importers:
       '@canonry/db':
         specifier: workspace:*
         version: link:../db
+      '@canonry/lang':
+        specifier: workspace:*
+        version: link:../lang
       ai:
         specifier: ^7.0.65
         version: 7.0.65(zod@4.4.3)
@@ -298,6 +307,9 @@ importers:
       '@canonry/db':
         specifier: workspace:*
         version: link:../db
+      '@canonry/lang':
+        specifier: workspace:*
+        version: link:../lang
       '@canonry/vector':
         specifier: workspace:*
         version: link:../vector
@@ -323,6 +335,21 @@ importers:
       tsx:
         specifier: ^4.23.12
         version: 4.23.12
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@22.20.1)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.12))
+
+  packages/lang:
+    devDependencies:
+      '@types/node':
+        specifier: ^22
+        version: 22.20.1
+      prettier:
+        specifier: ^3.8.3
+        version: 3.9.6
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -406,6 +433,9 @@ importers:
       '@canonry/db':
         specifier: workspace:*
         version: link:../db
+      '@canonry/lang':
+        specifier: workspace:*
+        version: link:../lang
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@prisma/client@5.22.0)(@types/pg@8.21.0)(better-sqlite3@12.11.1)(kysely@0.29.5)(pg@8.23.0)(postgres@3.4.9)

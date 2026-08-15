@@ -16,6 +16,7 @@
 	"dependencies": {
 		"@canonry/ai": "workspace:*",
 		"@canonry/db": "workspace:*",
+		"@canonry/lang": "workspace:*",
 		"@canonry/vector": "workspace:*",
 		"ai": "^7.0.65",
 		"zod": "^4.1.13"

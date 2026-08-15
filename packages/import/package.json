@@ -16,6 +16,7 @@
 	"dependencies": {
 		"@canonry/ai": "workspace:*",
 		"@canonry/db": "workspace:*",
+		"@canonry/lang": "workspace:*",
 		"ai": "^7.0.65",
 		"fflate": "^0.8.3",
 		"mammoth": "^1.12.1",

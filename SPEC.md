@@ -840,3 +840,59 @@ ingestion has no API integrations at all; imported images are stored rather than
 referenced; the free-tier World Anvil capture is rejected on commercial grounds;
 the consumer subscription is a development convenience and never the production
 credential.
+
+## 17. Languages
+
+English and Italian at launch, and the reason this is a section of its own rather than a
+translation task is that three different things are being asked at once and conflating them
+is how every competitor gets it wrong.
+
+**One: the interface speaks the user's language.** Chrome, buttons, empty states, error
+messages, dates and numbers. A preference on the account, so it follows the GM to the phone
+at the table, negotiated from `Accept-Language` the first time and never guessed again after
+that. Italian decimal commas in the credits panel are part of this, not a detail: a quota
+that reads `2.400` to an Italian eye and `2,400` to an English one is the same number and
+the formatter has to know which.
+
+**Two: the copilot always speaks the interface language.** Every sentence the product
+addresses to the user is in that language, whatever language the canon is in: an Ask answer,
+a propagation plan's reason, an audit flag's rationale, a rejected import's explanation. A GM
+working in Italian on a world half-copied from English sourcebooks is the normal case in this
+hobby, not an edge case, and being answered in English about their own Italian notes is the
+experience every other tool delivers today.
+
+**Three: canon keeps its own language, per entry.** This is the part that has to be right, and
+it is the opposite of the rule above. When the copilot drafts text that will land *inside* an
+entry, it writes in that entry's language, not the user's. An Italian interface must not
+start writing Italian paragraphs into an English entry: that is vandalism with good
+intentions, and no accept button makes it acceptable. So `entity.language` is detected at
+write time from the body, overridable by the GM, and null means unknown or genuinely mixed. A
+propagation proposal therefore has two languages at once, and both are correct: the drafted
+paragraph is in the target entry's language, while the reason it exists is in the user's.
+
+**Evidence is never silently translated.** Guardrail 3 requires a proposal to quote the
+sentence it came from, and a translated quotation is not that sentence any more: it cannot be
+found in the entry, and the GM cannot check it. Quotations are shown verbatim in their own
+language. A translation may be offered beside one, marked as ours, never in place of it.
+
+**Retrieval has to cross the boundary or none of this works.** An Italian question against an
+English canon must find the English chunk, which makes the embedding model a multilingual
+choice rather than a free one, and makes cross-lingual retrieval a test rather than a hope.
+The same applies to the matching in section 6.4, whose own example is already bilingual: "the
+Gilded Rat", "Gilded Rat Tavern" and "Il Ratto Dorato" are one inn. Aliases are the cheap
+half of that, embeddings the general half.
+
+**Names are not translated, ever.** Not by an import playbook, not by a propagation diff.
+"The Gilded Rat" stays "The Gilded Rat" in an Italian sentence, the way a person's name would.
+
+**What this does not include**, stated so it is a decision: machine-translating a world that
+already exists (the GM's prose is theirs, and a bulk translation is exactly the unaccepted
+writing guardrail 1 exists to prevent), a per-universe forced language, right-to-left layout
+(no launch locale needs it, and pretending otherwise would be untested code), and more than
+two locales at launch. The seam has to make a third locale cheap; shipping it is a different
+decision.
+
+**Instrumented per locale.** Accept rate is the metric that decides whether the copilot is
+worth anything (section 14), so it is measured per interface language too. If Italian
+proposals are accepted at half the English rate, the prompts are wrong in a way nobody would
+otherwise see.

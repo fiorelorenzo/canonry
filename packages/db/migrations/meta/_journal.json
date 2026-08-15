@@ -134,6 +134,13 @@
       "when": 1786728953931,
       "tag": "0018_canon_save_job",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786778856346,
+      "tag": "0019_languages",
+      "breakpoints": true
     }
   ]
 }

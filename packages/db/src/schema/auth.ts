@@ -15,6 +15,12 @@ export const user = pgTable('user', {
 	email: text('email').notNull().unique(),
 	emailVerified: boolean('email_verified').notNull().default(false),
 	image: text('image'),
+	// SPEC.md §17: the interface language is a preference on the account rather than a cookie,
+	// so it follows the GM to the phone at the table, which is where half of table mode is
+	// used. Null means nobody has chosen yet and the request's Accept-Language decides; an
+	// explicit choice beats that header forever after. A Better Auth additional field, which
+	// is why it lives on this table rather than in a settings table of our own.
+	locale: text('locale'),
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 });
