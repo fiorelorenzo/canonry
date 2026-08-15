@@ -1,3 +1,4 @@
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, relationsFor, type Db } from '../src/index.js';
 import { entity } from '../src/schema/entity.js';
@@ -172,5 +173,82 @@ describe('relation', () => {
 				allowedTo: ['character']
 			})
 		).resolves.not.toThrow();
+	});
+});
+
+describe('shipped relation_type catalogue (issue #165)', () => {
+	let db: Db;
+
+	beforeAll(() => {
+		db = testDb();
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	it('ships `part of` and `protects` alongside the original eight labels', async () => {
+		const rows = await db
+			.select({
+				label: relationType.label,
+				inverseLabel: relationType.inverseLabel,
+				cardinality: relationType.cardinality,
+				allowedFrom: relationType.allowedFrom,
+				allowedTo: relationType.allowedTo
+			})
+			.from(relationType)
+			.where(
+				and(isNull(relationType.universeId), inArray(relationType.label, ['part of', 'protects']))
+			);
+		const byLabel = new Map(rows.map((r) => [r.label, r]));
+
+		expect(byLabel.get('part of')).toEqual({
+			label: 'part of',
+			inverseLabel: 'contains',
+			cardinality: 'many_to_one',
+			allowedFrom: ['place', 'faction'],
+			allowedTo: ['place', 'faction']
+		});
+		expect(byLabel.get('protects')).toEqual({
+			label: 'protects',
+			inverseLabel: 'protected by',
+			cardinality: 'many_to_many',
+			allowedFrom: ['character', 'faction'],
+			allowedTo: ['character', 'faction']
+		});
+	});
+
+	it('lets a place be part of a place, which `located in` cannot express', async () => {
+		const u = await insertHomebrewUniverse(db);
+		const [partOf] = await db
+			.select()
+			.from(relationType)
+			.where(and(isNull(relationType.universeId), eq(relationType.label, 'part of')));
+		if (!partOf) throw new Error('migration 0029 did not seed the "part of" relation type');
+
+		const [quarter] = await db
+			.insert(entity)
+			.values({ universeId: u.id, type: 'place', name: 'Quarter', slug: unique('quarter') })
+			.returning();
+		const [city] = await db
+			.insert(entity)
+			.values({ universeId: u.id, type: 'place', name: 'City', slug: unique('city') })
+			.returning();
+		if (!quarter || !city) throw new Error('fixture setup failed');
+
+		await expect(
+			db.insert(relation).values({
+				universeId: u.id,
+				relationTypeId: partOf.id,
+				fromEntityId: quarter.id,
+				toEntityId: city.id,
+				authorKind: 'human'
+			})
+		).resolves.not.toThrow();
+
+		const views = await relationsFor(db, quarter.id);
+		expect(views).toContainEqual(
+			expect.objectContaining({ label: 'part of', other: expect.objectContaining({ id: city.id }) })
+		);
 	});
 });

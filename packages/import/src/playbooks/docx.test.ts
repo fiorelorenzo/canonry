@@ -136,12 +136,10 @@ describe('docx playbook (issue #39, SPEC.md §6.6)', () => {
 					{
 						id: 't8',
 						name: 'checkpoint',
-						input: { documentId: 'doc-1', note: 'table and prose done' }
+						input: { note: 'table and prose done' }
 					}
 				]),
-				toolCallStep([
-					{ id: 't9', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-				])
+				toolCallStep([{ id: 't9', name: 'job_finish', input: { outcome: 'completed' } }])
 			]
 		});
 

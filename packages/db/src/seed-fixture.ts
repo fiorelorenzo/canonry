@@ -146,7 +146,7 @@ const RELATIONS: Array<[from: string, label: string, to: string]> = [
 	['iselde-wrenn', 'appointed', 'aldric-vane'],
 	['aldric-vane', 'member of', 'the-valdoria-watch'],
 	['the-valdoria-watch', 'located in', 'valdoria'],
-	['the-gilded-rat', 'located in', 'valdoria'],
+	['the-gilded-rat', 'part of', 'valdoria'],
 	['mother-sennah', 'owns', 'the-gilded-rat'],
 	['the-ashen-ledger', 'employs', 'corvin-ashe'],
 	['la-casa-dei-mercanti', 'located in', 'valdoria'],

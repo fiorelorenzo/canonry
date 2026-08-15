@@ -147,12 +147,10 @@ describe('kanka playbook (issue #38, SPEC.md §6.9)', () => {
 					{
 						id: 't13',
 						name: 'checkpoint',
-						input: { documentId: 'doc-1', note: 'both characters and their relations done' }
+						input: { note: 'both characters and their relations done' }
 					}
 				]),
-				toolCallStep([
-					{ id: 't14', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-				])
+				toolCallStep([{ id: 't14', name: 'job_finish', input: { outcome: 'completed' } }])
 			]
 		});
 
