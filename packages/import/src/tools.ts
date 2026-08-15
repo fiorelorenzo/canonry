@@ -72,12 +72,9 @@ const RELATION_PROPOSE_INPUT = z
 	.refine((r) => r.fromLocalId !== r.toLocalId, {
 		message: 'a relation cannot join an entity to itself'
 	});
-const CHECKPOINT_INPUT = z
-	.object({ documentId: z.string().min(1), note: z.string().max(500).optional() })
-	.strict();
+const CHECKPOINT_INPUT = z.object({ note: z.string().max(500).optional() }).strict();
 const JOB_FINISH_INPUT = z
 	.object({
-		documentId: z.string().min(1),
 		outcome: z.enum(['completed', 'skipped']),
 		summary: z.string().max(1000).optional()
 	})
@@ -326,12 +323,6 @@ function proposeRelation(ctx: DocumentRunContext, input: z.infer<typeof RELATION
 }
 
 function checkpointDocument(ctx: DocumentRunContext, input: z.infer<typeof CHECKPOINT_INPUT>) {
-	if (input.documentId !== ctx.documentId) {
-		return {
-			ok: false as const,
-			error: `checkpoint targets "${input.documentId}", not this run's document "${ctx.documentId}"`
-		};
-	}
 	ctx.pending.push({
 		type: 'progress',
 		jobId: ctx.jobId,
@@ -346,12 +337,6 @@ function checkpointDocument(ctx: DocumentRunContext, input: z.infer<typeof CHECK
 }
 
 function finishDocument(ctx: DocumentRunContext, input: z.infer<typeof JOB_FINISH_INPUT>) {
-	if (input.documentId !== ctx.documentId) {
-		return {
-			ok: false as const,
-			error: `job_finish targets "${input.documentId}", not this run's document "${ctx.documentId}"`
-		};
-	}
 	ctx.finished = true;
 	ctx.finishOutcome = input.outcome;
 	ctx.pending.push({

@@ -154,12 +154,10 @@ describe('obsidian playbook (issue #41, SPEC.md §6.6)', () => {
 					{
 						id: 't13',
 						name: 'checkpoint',
-						input: { documentId: 'doc-1', note: 'linked notes done' }
+						input: { note: 'linked notes done' }
 					}
 				]),
-				toolCallStep([
-					{ id: 't14', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-				])
+				toolCallStep([{ id: 't14', name: 'job_finish', input: { outcome: 'completed' } }])
 			]
 		});
 

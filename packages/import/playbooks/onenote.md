@@ -1,6 +1,6 @@
 ---
 id: onenote
-version: 2
+version: 3
 name: OneNote page export
 description: Imports one page from a folder tree of exported OneNote pages, trusting the folder hierarchy for parent/subpage relations.
 modelPurpose: cheap
@@ -200,9 +200,9 @@ its own children.
    proposing the target as described above, then call `relation_propose` for each one.
 
 5. **Checkpoint as you go.** After a meaningful chunk of proposals, call `checkpoint`
-   with this document's id and a short note of where you are.
+   with a short note of where you are.
 
-6. **Finish the page.** Call `job_finish` with this document's id and an outcome of
+6. **Finish the page.** Call `job_finish` with an outcome of
    `completed`, or `skipped` if the page turned out to be empty (no canvas text, a
    stub) or if what you were actually handed is a `.onepkg`/`.one` file rather than an
    exported page - say so in the summary rather than guessing at its binary layout.
