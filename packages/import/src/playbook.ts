@@ -22,7 +22,7 @@
  * so `version` here is a positive integer, not a semver string.
  */
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { BUILTIN_PLAYBOOK_IDS, BUILTIN_PLAYBOOK_SOURCES } from './playbooks.generated.js';
 import { z } from 'zod';
 import { IMPORT_TOOL_NAMES, type ImportToolName } from './tool-names.js';
 
@@ -250,10 +250,6 @@ export function loadPlaybook(source: string, options: LoadPlaybookOptions = {}):
 	};
 }
 
-function playbooksDir(): URL {
-	return new URL('../playbooks/', import.meta.url);
-}
-
 export async function loadPlaybookFile(path: string): Promise<LoadedPlaybook> {
 	const source = await readFile(path, 'utf8');
 	const fileName = path.split('/').at(-1) ?? path;
@@ -261,10 +257,30 @@ export async function loadPlaybookFile(path: string): Promise<LoadedPlaybook> {
 	return loadPlaybook(source, { expectedId });
 }
 
-/** Loads one of the playbooks shipped under `packages/import/playbooks/` by id, e.g.
- * `loadBuiltinPlaybook('generic')`. Resolves relative to this module's own location so
- * it works identically from `src/` (vitest/tsx) and from a built `dist/` (tsc). */
+export class UnknownPlaybookError extends Error {
+	constructor(id: string) {
+		super(
+			`no built-in playbook called "${id}". Known playbooks: ${BUILTIN_PLAYBOOK_IDS.join(', ')}.`
+		);
+		this.name = 'UnknownPlaybookError';
+	}
+}
+
+/**
+ * Loads one of the playbooks shipped in `packages/import/playbooks/` by id, e.g.
+ * `loadBuiltinPlaybook('generic')`.
+ *
+ * Reads from `playbooks.generated.ts`, not from disk. It used to resolve
+ * `new URL('../playbooks/', import.meta.url)`, which is right from `src/` and from `dist/` and
+ * wrong under a bundler: SvelteKit moves this module into `build/server/chunks/`, so production
+ * looked for `build/server/chunks/playbooks/obsidian.md` and every import failed with ENOENT
+ * before reading a single document. A string in the bundle cannot be left behind by a build.
+ *
+ * Still `async`, because every caller awaits it and the id is validated here rather than at the
+ * callsite; making it synchronous would be a churn of no benefit.
+ */
 export async function loadBuiltinPlaybook(id: string): Promise<LoadedPlaybook> {
-	const fileUrl = new URL(`${id}.md`, playbooksDir());
-	return loadPlaybookFile(fileURLToPath(fileUrl));
+	const source = BUILTIN_PLAYBOOK_SOURCES[id];
+	if (source === undefined) throw new UnknownPlaybookError(id);
+	return loadPlaybook(source, { expectedId: id });
 }

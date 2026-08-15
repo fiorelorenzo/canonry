@@ -55,6 +55,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generated playbooks are current
+        # `src/playbooks.generated.ts` is committed so that every build path has it, including the
+        # Docker image (which builds apps/web directly and never runs this package's own build) and
+        # a bare `pnpm dev`. Committed codegen can go stale, so this is the guard: regenerate and
+        # fail if anything moved. The alternative, generating it everywhere, is how production
+        # ended up shipping without the playbooks at all.
+        run: |
+          pnpm --filter @canonry/import playbooks
+          git diff --exit-code -- packages/import/src/playbooks.generated.ts
+
       - name: Lint
         run: pnpm lint
 

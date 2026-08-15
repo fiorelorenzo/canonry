@@ -2,3 +2,7 @@ node_modules/
 dist/
 coverage/
 migrations/
+
+# Generated from playbooks/*.md by scripts/generate-playbooks.mjs on every build, check and
+# test, so it is never reviewed or formatted by hand.
+src/playbooks.generated.ts

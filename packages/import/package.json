@@ -7,11 +7,12 @@
 		".": "./src/index.ts"
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.json",
-		"check": "tsc -p tsconfig.json --noEmit",
+		"build": "node scripts/generate-playbooks.mjs && tsc -p tsconfig.json",
+		"check": "node scripts/generate-playbooks.mjs && tsc -p tsconfig.json --noEmit",
 		"lint": "prettier --check .",
 		"format": "prettier --write .",
-		"test": "TEST_DB_SUFFIX=$$ vitest run"
+		"test": "node scripts/generate-playbooks.mjs && TEST_DB_SUFFIX=$$ vitest run",
+		"playbooks": "node scripts/generate-playbooks.mjs"
 	},
 	"dependencies": {
 		"@canonry/ai": "workspace:*",
