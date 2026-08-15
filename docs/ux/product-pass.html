@@ -71,6 +71,286 @@
   }
   .toc a:hover { border-color: var(--accent); color: var(--ink); }
   .toc a b { font: 600 11px var(--mono); color: var(--accent-ink); margin-right: 6px; }
+
+  /* ---- from i1-i2.html ---- */
+/* I1 and I2 only. Everything here is prefixed. */
+  .i1-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 14px; border-bottom: 1px solid var(--line);
+    background: var(--panel); font-size: 13px; color: var(--ink-2);
+  }
+  .i1-bar .sp { flex: 1; }
+  .i1-bar a { color: var(--accent-ink); text-decoration: none; }
+  .i1-page { padding: 34px 30px 56px; min-height: 250px; background: var(--bg); }
+  .i1-col { max-width: 34rem; }
+  .i1-wordmark { display: flex; align-items: center; gap: 8px; font-size: 24px; font-weight: 620; }
+  .i1-mark { width: 22px; height: 22px; flex: none; }
+  .i1-dead { color: var(--danger); }
+
+  .i1-demo {
+    display: grid; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr);
+    gap: 0; align-items: stretch; border: 1px solid var(--line);
+    border-radius: 10px; overflow: hidden; background: var(--panel);
+  }
+  .i1-demo .pane { padding: 14px 16px; min-width: 0; }
+  .i1-demo .arrow {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--panel-2); border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+    color: var(--muted); font: 600 13px var(--mono);
+  }
+  .i1-hero { padding: 26px 30px 34px; background: var(--bg); }
+  .i1-hero .under { margin-top: 16px; font-size: 14px; color: var(--ink-2); max-width: 44em; }
+
+  .i2-title { padding: 44px 30px; background: var(--bg); text-align: center; }
+  .i2-card {
+    width: 22rem; margin: 0 auto; text-align: left;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 20px;
+  }
+  .i2-card.plain { border: 0; background: transparent; padding: 0; }
+  .i2-field { margin-bottom: 10px; }
+  .i2-field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .i2-field .box {
+    border: 1px solid var(--line-2); border-radius: 7px; background: var(--panel);
+    padding: 8px 10px; font-size: 13px; color: var(--ink-2);
+  }
+  .i2-field .box.filled { color: var(--ink); }
+  .i2-wide { display: block; width: 100%; text-align: center; margin-top: 6px; }
+  .i2-foot {
+    margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; align-items: center; font-size: 12px; color: var(--muted);
+  }
+  .i2-foot .sp { flex: 1; }
+  .i2-foot a { color: var(--muted); }
+  .i2-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 330px; }
+  .i2-split > .form { padding: 34px 30px; background: var(--bg); display: flex; align-items: center; }
+  .i2-split > .say { padding: 26px 26px; background: var(--panel-2); border-left: 1px solid var(--line); min-width: 0; }
+  .i2-pill {
+    display: inline-block; border: 1px solid var(--line-2); border-radius: 999px;
+    padding: 3px 9px; font: 600 10px/1.6 var(--mono); letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--ink-2); background: var(--panel);
+  }
+  .i2-pill.on { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-bg); }
+  .i2-violet { background: #6b4ee6; color: #fff; padding: 24px; border-radius: 10px; }
+
+  /* ---- from i3-i4.html ---- */
+/* I3: Today: the bare chrome-less page Lorenzo hit. */
+  .i3-bare { background: var(--bg); }
+  .i3-authbar { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); background: var(--panel); padding: 8px 16px; font-size: 13px; color: var(--ink-2); }
+  .i3-authbar a { margin-left: auto; color: var(--accent-ink); text-decoration: none; }
+  .i3-authbar a:hover { text-decoration: underline; }
+  .i3-main { max-width: 30em; margin: 0 auto; padding: 48px 32px 56px; }
+  .i3-h1 { display: flex; align-items: center; gap: 8px; font: 620 22px var(--sans); color: var(--ink); margin: 0; }
+  .i3-h1 svg { color: var(--accent); }
+  .i3-empty { margin-top: 8px; font-size: 14px; color: var(--ink-2); }
+  .i3-applink { display: inline-block; margin-top: 40px; font-size: 13px; color: var(--accent-ink); text-decoration: none; }
+  .i3-applink:hover { text-decoration: underline; }
+
+  /* I3: option A: the bare page, fixed. */
+  .i3a-page { background: var(--bg); }
+  .i3a-bar { display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--line); background: var(--panel); padding: 8px 16px; font-size: 13px; color: var(--ink-2); }
+  .i3a-bar .sp { flex: 1; }
+  .i3a-bar a { color: var(--accent-ink); text-decoration: none; }
+  .i3a-bar a:hover { text-decoration: underline; }
+  .i3a-main { padding: 26px 30px 30px; }
+  .i3a-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .i3a-head h2 { font-size: 18px; flex: 1; }
+
+  /* I3: option B: sidebar footer, account mode. */
+  .i3b-side { display: flex; flex-direction: column; height: 100%; }
+  .i3b-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; }
+  .i3b-quota { display: flex; flex-direction: column; gap: 4px; }
+  .i3b-user { display: flex; align-items: center; gap: 8px; }
+  .i3b-user .sp { flex: 1; }
+  .i3b-lang a { color: var(--accent-ink); text-decoration: none; }
+
+  /* I3: option C: the small chooser. */
+  .i3c-page { display: flex; align-items: center; justify-content: center; min-height: 320px; background: var(--bg); }
+  .i3c-box { width: 280px; }
+  .i3c-h { font-size: 16px; margin-bottom: 14px; }
+
+  /* I4: shared two-pane comparison. */
+  .i4-split { display: flex; }
+  .i4-pane { flex: 1; min-width: 0; padding: 20px 22px; background: var(--bg); }
+  .i4-pane + .i4-pane { border-left: 1px solid var(--line-2); }
+  .i4-panehead { font: 600 11px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 12px; }
+  .i4-h2 { font-size: 17px; margin: 0 0 10px; }
+  .i4-label { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; }
+  .i4-input { height: 32px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); margin-bottom: 4px; }
+
+  /* I4: option A: link row. */
+  .i4-linkrow { display: flex; align-items: center; gap: 18px; padding: 26px 30px; background: var(--bg); }
+  .i4-linksrc { flex: none; }
+  .i4-arrows { color: var(--muted); font-size: 20px; flex: none; }
+  .i4-linkdest { display: flex; flex-direction: column; gap: 8px; }
+  .i4-desttag { font-size: 13px; color: var(--ink-2); border-left: 2px solid var(--accent); padding: 3px 0 3px 10px; }
+
+  /* I4: option B: merged onboarding. */
+  .i4b-page { padding: 26px 30px 30px; background: var(--bg); }
+
+  /* ---- from i5.html ---- */
+/* I5 only. */
+  .i5-flag {
+    display: inline-block; width: 20px; height: 14px; border-radius: 2px;
+    border: 1px solid var(--line-2); overflow: hidden; vertical-align: -2px;
+  }
+  .i5-flag i { display: block; float: left; width: 33.34%; height: 100%; }
+  .i5-menu {
+    width: 232px; border: 1px solid var(--line-2); border-radius: 9px;
+    background: var(--panel); box-shadow: 0 14px 34px -18px rgba(0,0,0,0.45);
+    padding: 5px; font-size: 13px;
+  }
+  .i5-menu a {
+    display: flex; align-items: center; gap: 8px; padding: 7px 9px;
+    border-radius: 6px; text-decoration: none; color: var(--ink-2);
+  }
+  .i5-menu a:hover { background: var(--panel-2); color: var(--ink); }
+  .i5-menu a .val { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .i5-menu .rule { border-top: 1px solid var(--line); margin: 5px 0; }
+  .i5-menu .who { padding: 8px 9px 6px; }
+  .i5-menu .who b { display: block; font-size: 13px; color: var(--ink); }
+  .i5-menu .who span { font-size: 12px; color: var(--muted); }
+  .i5-foot {
+    border-top: 1px solid var(--line); padding: 8px 10px;
+    display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted);
+  }
+  .i5-foot .sp { flex: 1; }
+  .i5-seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 6px; overflow: hidden; }
+  .i5-seg span { padding: 2px 7px; font: 600 11px var(--mono); color: var(--muted); }
+  .i5-seg span.on { background: var(--accent-bg); color: var(--accent-ink); }
+
+  /* ---- from i6-i8.html ---- */
+/* Scoped to this fragment. Prefixed i6-/i8- per section; never touches ux.css classes. */
+  .i6-bar { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--panel); font-size: 12px; color: var(--ink-2); }
+  .i6-bar .sp { flex: 1; }
+  .i6-island { flex: 1; min-width: 0; border: 1px dashed var(--line-2); border-radius: 8px; padding: 16px; }
+  .i6-island h1 { font-size: 18px; font-weight: 620; margin: 14px 0 4px; }
+  .i6-side { position: relative; display: flex; flex-direction: column; height: 100%; }
+  .i6-foot { margin-top: auto; display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; }
+  .i6-foot .av { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-bg); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; font: 700 10px var(--mono); flex: none; }
+  .i6-foot .nm { font-size: 12px; font-weight: 600; color: var(--ink); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .i6-foot .car { color: var(--muted); font-size: 10px; }
+  .i6-menu { position: absolute; left: 0; bottom: 46px; width: 176px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 9px; box-shadow: 0 16px 34px -16px rgba(0,0,0,0.4); padding: 5px; z-index: 5; }
+  .i6-menu a, .i6-menu .mi { display: block; padding: 6px 8px; border-radius: 6px; font-size: 12px; color: var(--ink-2); text-decoration: none; }
+  .i6-menu a:hover, .i6-menu .mi:hover { background: var(--panel-2); color: var(--ink); }
+  .i6-menu .mi.dgr { color: var(--danger); }
+  .i6-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+  .i6-navlite { display: flex; flex-direction: column; gap: 1px; margin-bottom: 10px; }
+  .i6-navlite a { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; text-decoration: none; color: var(--ink-2); font-size: 13px; }
+  .i6-navlite a.on { background: var(--panel); color: var(--ink); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
+  .i6-navlite a:hover { background: var(--panel); }
+  .i6-panes { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 24px; padding: 22px; }
+  .i6-subnav { display: flex; flex-direction: column; gap: 1px; }
+  .i6-subnav a { padding: 6px 8px; border-radius: 6px; font-size: 13px; color: var(--ink-2); text-decoration: none; }
+  .i6-subnav a.on { background: var(--panel-2); color: var(--ink); font-weight: 600; }
+  .i6-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; max-width: 300px; }
+  .i6-field label { font: 600 10px/1 var(--sans); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .i6-field input { border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 8px; font-size: 13px; background: var(--panel); color: var(--ink); font-family: var(--sans); }
+  .i8-empty { border: 1px solid var(--line); border-radius: 8px; padding: 16px; background: var(--panel); }
+  .i8-kind { font: 700 10px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 10px; }
+  .i8-crumb { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+  .i8-sentence { font-size: 14px; color: var(--ink-2); margin: 0 0 12px; }
+  .i8-explain { font-size: 12px; color: var(--muted); margin: 10px 0 0; }
+  .i8-explain a { color: var(--accent-ink); }
+  .i8-check { display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--ink-2); }
+  .i8-check .c { display: flex; gap: 8px; align-items: flex-start; }
+  .i8-check .box { width: 13px; height: 13px; border: 1.5px solid var(--line-2); border-radius: 3px; flex: none; margin-top: 2px; }
+  .i8-doodle { display: flex; align-items: center; justify-content: center; padding: 26px 0 10px; }
+  .i8-doodlecap { text-align: center; font-size: 14px; color: var(--ink-2); margin: 0; }
+
+  /* ---- from i7-i10.html ---- */
+/* i7, universe home and entry browser */
+  .i7-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .i7-sub { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 8px; }
+  .i7-filters { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 0 12px; }
+  .i7-chip { font: 12px var(--mono); padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--ink-2); background: var(--panel-2); }
+  .i7-chip b { color: var(--ink); font-weight: 700; margin-left: 4px; }
+  .i7-chip.i7-on { background: var(--accent-bg); border-color: var(--accent); color: var(--accent-ink); }
+  .i7-search { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line-2); border-radius: 8px; padding: 9px 12px; margin-bottom: 14px; color: var(--muted); font-size: 13px; background: var(--panel); }
+  .i7-strip { display: flex; align-items: center; gap: 22px; padding: 10px 14px; margin-bottom: 14px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 8px; flex-wrap: wrap; }
+  .i7-stripitem { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+  .i7-stripitem b { font-size: 13px; color: var(--ink); font-family: var(--serif); }
+
+  /* i10, the phone */
+  .i10-squeeze { display: flex; padding: 0; height: 100%; }
+  .i10-sidebar { width: 66%; flex: none; background: var(--panel-2); border-right: 1px solid var(--line); padding: 10px 8px; overflow: hidden; }
+  .i10-unirow { font-size: 11px; color: var(--ink-2); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .i10-sidebar nav.nav a { font-size: 11px; padding: 5px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .i10-sliver { flex: 1; min-width: 0; padding: 14px 3px; font: 700 22px/1.05 var(--serif); overflow: hidden; word-break: break-all; color: var(--ink); }
+  .i10-pctx { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--panel-2); border-bottom: 1px solid var(--line); font-size: 12px; color: var(--ink-2); }
+  .i10-pctx b { color: var(--ink); }
+  .i10-top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--panel); font-size: 12px; color: var(--ink-2); }
+  .i10-menu { font-size: 15px; color: var(--muted); }
+  .i10-ic { width: 24px; height: 24px; border-radius: 999px; display: flex; align-items: center; justify-content: center; background: var(--panel-2); color: var(--ink-2); font-size: 12px; flex: none; }
+  .i10-ic.i10-av { background: var(--accent-bg); color: var(--accent-ink); font: 700 10px var(--mono); }
+  .i10-qcard { border: 1px solid var(--accent); background: var(--accent-bg); border-radius: 8px; padding: 10px; margin: 8px 0; }
+  .i10-two { display: flex; gap: 20px; flex-wrap: wrap; }
+  .i10-blocked { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 0 18px; }
+
+  /* ---- from i9.html ---- */
+/* Scoped to #i9. ux.css's own kit is deliberately consistent (one .btn, one .badge,
+     one .card), which is the point this section makes, so anywhere this fragment needs
+     to show the app's ACTUAL divergence it has to draw that divergence itself rather
+     than borrow a shared class that was built to hide it. */
+  .i9-pad { padding: 20px; }
+  .i9-lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .i9-quote { display: block; margin-top: 6px; font: 11px/1.5 var(--mono); color: var(--muted); word-break: break-all; }
+
+  /* three primary-button treatments that really exist, redrawn at their real Tailwind
+     pixel values (rounded-md = 6px; spacing scale = 4px per step) since Tailwind itself
+     is not loaded in this artifact. */
+  .i9-btn { display: inline-flex; align-items: center; border: none; cursor: pointer; font-family: var(--sans); font-weight: 500; color: var(--panel); background: var(--accent); border-radius: 6px; }
+  .i9-btn-a { padding: 6px 12px; font-size: 14px; }
+  .i9-btn-a:hover { background: var(--accent-ink); }
+  .i9-btn-b { padding: 8px 16px; font-size: 14px; }
+  .i9-btn-b:hover { opacity: 0.9; }
+
+  /* two input treatments that really exist: border-line vs border-line-2, py-2 vs py-1.5 */
+  .i9-in { display: block; width: 100%; font-family: var(--sans); font-size: 14px; color: var(--ink); background: var(--panel); border-radius: 6px; }
+  .i9-in-a { border: 1px solid var(--line); padding: 8px 12px; }
+  .i9-in-b { border: 1px solid var(--line-2); padding: 6px 12px; }
+
+  /* the specimen sheet: two self-contained panels, one per palette */
+  .i9-spec { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; background: var(--panel); }
+  .i9-spec h5 { font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 20px 0 10px; }
+  .i9-spec h5:first-child { margin-top: 0; }
+  .i9-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .i9-row + .i9-row { margin-top: 8px; }
+
+  .i9-field { display: flex; flex-direction: column; gap: 4px; max-width: 220px; }
+  .i9-field label { font-size: 12px; color: var(--muted); }
+  .i9-field input { font-family: var(--sans); font-size: 14px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--line-2); background: var(--panel); color: var(--ink); }
+  .i9-field.i9-err input { border-color: var(--danger); }
+  .i9-field .i9-msg { font-size: 11px; color: var(--danger); }
+
+  .i9-pghead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); }
+  .i9-pghead h3 { font-family: var(--serif); font-size: 19px; }
+  .i9-pghead .i9-meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+  .i9-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 22px 16px; border: 1px dashed var(--line-2); border-radius: var(--radius); color: var(--muted); }
+  .i9-empty .i9-glyph { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line-2); display: flex; align-items: center; justify-content: center; font: 600 13px var(--mono); color: var(--muted); }
+  .i9-empty p { margin: 0; font-size: 13px; max-width: none; }
+
+  /* shadcn's own defaults, drawn as themselves on purpose: Radix slate, sans at 13px,
+     a blue selection colour, a tighter radius. Nothing here reads from --tokens because
+     that is exactly the point being drawn. */
+  .i9-shadcn { font-family: ui-sans-serif, system-ui, sans-serif; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; box-shadow: 0 8px 24px rgba(15,23,42,0.16); padding: 5px; width: 200px; }
+  .i9-shadcn .i9-item { padding: 7px 9px; border-radius: 4px; font-size: 13px; color: #0f172a; }
+  .i9-shadcn .i9-item.i9-sel { background: #eff6ff; color: #2563eb; }
+  .i9-shadcn .i9-item.i9-danger { color: #dc2626; }
+  .i9-arrow { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 20px; }
+
+  /* the shell mock: sidebar meter footer plus a palette open on top of a dimmed main */
+  .i9-shellwrap { position: relative; }
+  .i9-scrim { position: absolute; inset: 0; background: rgba(23, 20, 15, 0.42); display: flex; justify-content: center; padding-top: 46px; }
+  .i9-palette { width: 380px; max-width: calc(100% - 32px); background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: 0 24px 50px -20px rgba(0,0,0,0.5); overflow: hidden; height: fit-content; }
+  .i9-meterfoot { border-top: 1px solid var(--line); margin-top: 10px; padding: 10px 2px 2px; }
+  .i9-meterrow { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .i9-meterrow + .meter { margin-bottom: 12px; }
+  .i9-fill-quota { width: 48%; }
+  .i9-fill-warm { width: 30%; }
+  .i9-cmdbar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line-2); color: var(--muted); font-size: 13px; }
+  .i9-cmdbar .i9-kwrap { margin-left: auto; display: flex; gap: 4px; }
 </style>
 </head>
 <body>
@@ -219,11 +499,12 @@
       </tr>
       <tr>
         <td class="n">3</td>
-        <td><b>There is no landing page.</b> A signed-out visitor to the public domain gets the
-        application's empty home. F6 decided the demo is the hero and G10 put the lock-in sentence
-        under it; neither exists.</td>
-        <td class="small muted">issues #3, #4, #5</td>
-        <td class="sev"><span class="badge now">decided, unbuilt</span></td>
+        <td><b>The app's signed-out root is a page with no job.</b> The landing page itself is fine
+        and lives elsewhere: <code>canonry-landing</code> serves F6's demo and G10's sentence at
+        <code>canonry.io</code>, in English and Italian. What the application serves at
+        <code>/</code> when nobody is signed in is the empty universe list.</td>
+        <td class="small muted">verified against the live site, issue #129</td>
+        <td class="sev"><span class="badge soon">no purpose</span></td>
         <td class="go"><a href="#i1">I1</a></td>
       </tr>
       <tr>
@@ -267,8 +548,9 @@
         <td class="n">8</td>
         <td><b>Nobody owns the controls.</b> No Button, no Field, no Badge, no PageHeader
         component exists; every route spells its own, and the spellings differ in padding, size
-        and hover treatment. The tokens are excellent and are being spent forty ways.</td>
-        <td class="small muted"><code>lib/components/**</code>, measured in I9</td>
+        and hover treatment. 73 distinct button-shaped class strings across 51 files, 92 once
+        inputs and textareas are counted. The tokens are excellent and are being spent 92 ways.</td>
+        <td class="small muted">measured in <a href="#i9">I9</a></td>
         <td class="sev"><span class="badge soon">consistency</span></td>
         <td class="go"><a href="#i9">I9</a></td>
       </tr>
@@ -306,7 +588,2398 @@
   they get no surface below. They get a commit.</p>
 </section>
 
-<!-- SURFACES -->
+<section class="surf" id="i1">
+  <h2>I1 &middot; the door</h2>
+  <h3 class="stitle">The app's own front door, now that the landing page lives somewhere else</h3>
+  <p class="lede">I started this section believing the landing page had never been built, and that
+  is wrong: it ships from <code>canonry-landing</code>, a separate SvelteKit app on prodbox, and
+  <code>canonry.io</code> serves F6's demo as the hero with G10's export sentence underneath it, in
+  English at <code>/</code> and Italian at <code>/it</code> per issue #129. So the pitch is handled.
+  What is not handled is what the application itself serves at <code>/</code> to somebody who is not
+  signed in, which today is the empty universe list with a broken sentence in it.</p>
+
+  <h4 class="shead">Today</h4>
+  <figure class="mock">
+    <div class="frame">
+      <div class="i1-bar">
+        <span>Not signed in</span><span class="sp"></span>
+        <a href="#i1">Sign in</a><a href="#i1">Sign up</a>
+      </div>
+      <div class="i1-page">
+        <div class="i1-col">
+          <div class="i1-wordmark">
+            <svg class="i1-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+            Canonry
+          </div>
+          <p class="small mt0" style="margin-top: 8px;">
+            <a href="#i1">Sign in</a> <span class="i1-dead">Sign in to see your universes.</span>
+          </p>
+          <p class="small" style="margin-top: 30px;"><a href="#i1">Appearance settings</a></p>
+        </div>
+      </div>
+    </div>
+    <figcaption>The whole page. A link whose label is "Sign in", then a sentence starting with
+    "Sign in", then the one settings page that happens to be linked.</figcaption>
+  </figure>
+  <ul class="flaws">
+    <li><b>The sentence is doubled.</b> The link renders <code>t.shell.signIn</code> and the
+    sentence after it is <code>t.universe.list.signInPrompt</code>, which already opens with the
+    same two words, so the page reads "Sign in Sign in to see your universes."
+    <code>apps/web/src/routes/+page.svelte:23-26</code> against <code>i18n/en.ts:955</code>.</li>
+    <li><b>It is a page with no purpose.</b> It is not the landing page, because that is a different
+    deployment on a different domain, and it is not the sign-in page, because that is one link away.
+    It exists only because <code>/</code> had to render something.</li>
+    <li><b>Appearance settings is the only outbound link.</b> Not docs, not privacy, not pricing.
+    Guardrail 5 lives on <code>/privacy</code> and nothing in the interface points at it.</li>
+    <li><b>The mark is not a link and there is no header.</b> Landing, home and error state are all
+    the same route with three branches inside one <code>&lt;main&gt;</code>.</li>
+  </ul>
+
+  <h4 class="shead">Options</h4>
+  <div class="opts one">
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">A</span><h3>Redirect: the app has no signed-out home</h3></header>
+      <p class="sub">Signed out at <code>/</code> is a redirect to <code>/auth/sign-in</code>, and
+      the sign-in page carries one link back to <code>canonry.io</code> for anybody who arrived
+      wanting to know what this is. The application never renders a pitch, so there is exactly one
+      copy of the pitch and it lives in the repository whose job that is.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="i1-bar"><span class="mono small">canonry.io</span><span class="sp"></span><span class="badge ok">shipped, own repo, EN and /it</span></div>
+          <div class="i1-page" style="min-height: 76px;"><div class="i1-col"><p class="small mt0">The
+          propagation demo as the hero, the export sentence under it, the waiting list. Guardrail 7
+          reviewed once, in one place.</p></div></div>
+          <div class="i1-bar"><span class="mono small">app.canonry.io/</span><span class="sp"></span><span class="badge now">302 &rarr; /auth/sign-in</span></div>
+          <div class="i2-title" style="padding: 26px;">
+            <div class="i2-card" style="width: 20rem;">
+              <div class="i1-wordmark" style="font-size: 16px; justify-content: center; margin-bottom: 14px;">
+                <svg class="i1-mark" style="width: 15px; height: 15px;" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+                Canonry
+              </div>
+              <div class="i2-field"><label>Email</label><div class="box">you@example.com</div></div>
+              <div class="i2-field"><label>Password</label><div class="box">••••••••</div></div>
+              <button class="btn pri i2-wide">Sign in</button>
+              <div class="i2-foot"><a href="#i1">What Canonry is</a><span class="sp"></span><a href="#i1">Docs</a><a href="#i1">Privacy</a></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Two properties, one job each. "What Canonry is" is the only link from the app
+        back to the marketing site, and it is in the footer rule where it belongs.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One line in the home loader, and the broken screen stops existing rather than being
+          redesigned.</li>
+          <li>The pitch stays in one repository, so there is no second version of the guardrail 7
+          copy to keep in sync as the product changes.</li>
+          <li>Removes the only reason <code>/</code> has a signed-out branch at all, which also
+          removes the doubled sentence with it.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Somebody who bookmarked the app and forgot what it was gets a password box with no
+          explanation beyond one footer link.</li>
+          <li>A redirect is invisible in analytics as an intention: you cannot tell a curious visitor
+          from a returning user, if that ever matters.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>A door page: a sentence, two actions, the links that must exist</h3></header>
+      <p class="sub">Keep the signed-out branch and make it a door rather than an empty room. The
+      spec's own TL;DR sentence, which the layout already ships as its meta description and which has
+      already been through guardrail 7, then sign in and create an account, then the links the
+      product owes a visitor.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="i1-bar">
+            <span class="sp"></span>
+            <a href="#i1">What Canonry is</a><a href="#i1">Docs</a><a href="#i1">Privacy</a>
+            <button class="btn sm">Sign in</button>
+            <button class="btn sm pri">Create an account</button>
+          </div>
+          <div class="i1-page">
+            <div class="i1-col">
+              <div class="i1-wordmark">
+                <svg class="i1-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+                Canonry
+              </div>
+              <p class="prose" style="font-size: 17px; margin-top: 12px;">A wiki for your game
+              world where an AI copilot works in every flow, and never writes anything you did not
+              accept.</p>
+              <p style="margin-top: 18px;">
+                <button class="btn pri">Create an account</button>
+                <button class="btn">Sign in</button>
+              </p>
+              <p class="small muted" style="margin-top: 22px;">Markdown in, markdown out. Your canon
+              exports as plain files on any plan. <a href="#i1">How export works</a></p>
+            </div>
+          </div>
+        </div>
+        <figcaption>No demo, because the demo has a home. One sentence, two actions, and the
+        privacy link guardrail 5 needs somewhere reachable.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>A bookmarked app domain still explains itself, and docs and privacy get their link
+          without waiting for the shell work in I3.</li>
+          <li>Costs an afternoon and reuses copy that already exists.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Two copies of the pitch in two repositories, and the shorter one will be the one nobody
+          remembers to update.</li>
+          <li>It is a page that exists to be passed through. Every visitor takes one more click than
+          A gives them.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Sign-in <em>is</em> the root</h3></header>
+      <p class="sub">Move the form itself to <code>/</code> for a signed-out visitor and keep
+      <code>/auth/sign-in</code> as an alias. No redirect, no extra page, one address that renders
+      the form when you are out and the universe list when you are in.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="i1-bar"><span class="mono small">app.canonry.io/</span><span class="sp"></span><span class="badge later">no redirect, one route, two branches</span></div>
+          <div class="i2-title" style="padding: 34px 26px;">
+            <svg style="width: 34px; height: 34px;" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+            <div style="font: 620 24px/1.2 var(--serif); margin-top: 8px;">Canonry</div>
+            <p class="small muted" style="margin: 4px auto 20px;">Your universes, your account, nobody else's.</p>
+            <div class="i2-card plain" style="width: 20rem;">
+              <div class="i2-field"><label>Email</label><div class="box">you@example.com</div></div>
+              <div class="i2-field"><label>Password</label><div class="box">••••••••</div></div>
+              <button class="btn pri i2-wide">Sign in</button>
+              <p class="small mt0" style="margin-top: 12px; text-align: center;">No account yet? <a href="#i1">Sign up</a></p>
+            </div>
+          </div>
+        </div>
+        <figcaption>I2's title page, served at the root. The same component, one fewer
+        navigation.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Fastest path to the only action a signed-out visitor can take, with no redirect hop.</li>
+          <li>One route to maintain instead of two, and the sign-in page is already the nicest screen
+          in the product once I2 lands.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Two very different pages on one address, which is the shape that produced the current
+          three-branch <code>+page.svelte</code> in the first place.</li>
+          <li>Deep links to <code>/auth/sign-in</code> exist in emails and in the codebase, so the
+          alias is permanent rather than temporary.</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout locks">
+    <p><b>One thing this surface does not fix.</b> <code>canonry.io</code> currently offers a waiting
+    list and no way into the app, which is right for a product that is not launched and wrong the
+    morning it is. Whichever option wins here, launch day needs a Sign in link in the landing page's
+    header, and that is a change in <code>canonry-landing</code>, not in this repository.</p>
+  </div>
+
+  <div class="callout rec">
+    <p><b>I would take A.</b> The landing page exists, it is good, and it is already bilingual: the
+    application has no business carrying a second, worse copy of the same argument, which is what B
+    becomes within a month. C is tempting and I would rather not have two things at one address
+    again, since that is exactly how today's page ended up with three branches and a duplicated
+    sentence in one of them. A is one line in <code>routes/+page.server.ts</code> and it deletes a
+    screen rather than designing one.</p>
+  </div>
+</section>
+
+<section class="surf" id="i2">
+  <h2>I2 &middot; auth</h2>
+  <h3 class="stitle">Sign in and sign up, the first screen anybody actually sees</h3>
+  <p class="lede">Both pages are a left-aligned column stuck to the top of an empty page, with the
+  language toggle as the second most prominent thing on the screen and the submit button smaller
+  than the fields above it. Everything on them works. Nothing on them says a person designed
+  them.</p>
+
+  <h4 class="shead">Today</h4>
+  <figure class="mock">
+    <div class="frame">
+      <div class="i1-bar"><span>Not signed in</span><span class="sp"></span><a href="#i2">Sign in</a><a href="#i2">Sign up</a></div>
+      <div class="i1-page">
+        <div class="i1-col">
+          <div class="rowflex" style="justify-content: space-between; align-items: flex-start;">
+            <div>
+              <div class="small" style="display: flex; align-items: center; gap: 6px; color: var(--ink-2); font-weight: 600;">
+                <svg class="i1-mark" style="width: 15px; height: 15px;" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+                Canonry
+              </div>
+              <h4 style="font-size: 22px; margin: 14px 0 4px;">Sign in</h4>
+              <p class="small mt0">Your universes, your account, nobody else's.</p>
+            </div>
+            <div class="rowflex" style="gap: 6px;">
+              <span class="i2-pill on">English</span><span class="i2-pill">Italiano</span>
+            </div>
+          </div>
+          <div style="margin-top: 20px;">
+            <div class="i2-field"><label>Email</label><div class="box filled">fiorelorenzo.fl@gmail.com</div></div>
+            <div class="i2-field"><label>Password</label><div class="box filled">••••••••••••••</div></div>
+            <button class="btn pri" style="margin-top: 8px;">Sign in</button>
+            <p class="small" style="margin-top: 18px;">No account yet? <a href="#i2">Sign up</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>Reproduced from <code>routes/auth/sign-in/+page.svelte:61-134</code>. Sign-up is the
+    same page with a name field added.</figcaption>
+  </figure>
+  <ul class="flaws">
+    <li><b>The language toggle is the loudest control on the page.</b> Two pills at the top right,
+    at the same level as the wordmark, on a screen whose only job is a password.
+    <code>routes/auth/sign-in/+page.svelte:71</code>. See I5 for where it belongs.</li>
+    <li><b>The submit is <code>w-fit</code>.</b> Two full-width fields and then a small button, so
+    the primary action is the least prominent thing in the form.
+    <code>routes/auth/sign-in/+page.svelte:117-123</code>.</li>
+    <li><b>Nothing is centred and nothing is bounded.</b> A 34rem column pinned to the top left of a
+    1440px page, which is why the screenshot has a third of a screen of empty paper under it.</li>
+    <li><b>There is no password recovery anywhere in the product.</b> Not a link, not a route. A
+    forgotten password is currently a database query.</li>
+    <li><b>The error is a paragraph.</b> Rendered into the flow with no <code>role="alert"</code> and
+    no <code>aria-live</code>, so a screen reader is never told the sign-in failed.
+    <code>routes/auth/sign-in/+page.svelte:125-127</code>.</li>
+    <li><b>The mark goes nowhere.</b> On the one page where a visitor may want to find out what this
+    product is before typing an email into it, the wordmark is not a link.</li>
+  </ul>
+
+  <h4 class="shead">Options</h4>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>The same column, done properly</h3></header>
+      <p class="sub">One card, centred in the viewport, mark above the title and linking home,
+      full-width primary, recovery link in the form, language demoted to a quiet footer row with
+      docs and privacy. Nothing structural, one file each.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="i2-title">
+            <div class="i2-card">
+              <div class="i1-wordmark" style="font-size: 17px; justify-content: center; margin-bottom: 16px;">
+                <svg class="i1-mark" style="width: 16px; height: 16px;" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+                Canonry
+              </div>
+              <h4 style="font-size: 20px; margin-bottom: 4px;">Sign in</h4>
+              <p class="small muted mt0" style="margin-bottom: 16px;">Your universes, your account, nobody else's.</p>
+              <div class="i2-field"><label>Email</label><div class="box filled">fiorelorenzo.fl@gmail.com</div></div>
+              <div class="i2-field">
+                <label>Password <a href="#i2" style="float: right; font-weight: 400;">Forgotten?</a></label>
+                <div class="box filled">••••••••••••••</div>
+              </div>
+              <button class="btn pri i2-wide">Sign in</button>
+              <p class="small mt0" style="margin-top: 14px; text-align: center;">No account yet? <a href="#i2">Sign up</a></p>
+              <div class="i2-foot">
+                <a href="#i2">English</a><span>&middot;</span><a href="#i2">Italiano</a>
+                <span class="sp"></span><a href="#i2">Docs</a><a href="#i2">Privacy</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Same content, ranked. The language control is still on the page, because there is
+        no account yet to hold the preference, and it is no longer competing with the wordmark.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Cheapest thing on this page that fixes the actual complaint.</li>
+          <li>Recovery, docs and privacy all get their link, and the error can get its
+          <code>role="alert"</code> in the same edit.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A centred card is the most generic screen in software. It is correct and it says
+          nothing about this product.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Split: the form, and the reason to fill it in</h3></header>
+      <p class="sub">The card on the left, and on the right the product doing its one trick on the
+      sample world: a sentence changed, a proposal drafted, marked as unaccepted and waiting. Static,
+      no model, no network. Below 900px the right pane drops and this becomes A.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="i2-split">
+            <div class="form">
+              <div class="i2-card plain">
+                <div class="i1-wordmark" style="font-size: 17px; margin-bottom: 18px;">
+                  <svg class="i1-mark" style="width: 16px; height: 16px;" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+                  Canonry
+                </div>
+                <h4 style="font-size: 20px; margin-bottom: 4px;">Create your account</h4>
+                <p class="small muted mt0" style="margin-bottom: 16px;">One account, your own universes.</p>
+                <div class="i2-field"><label>Name</label><div class="box">Lorenzo Fiore</div></div>
+                <div class="i2-field"><label>Email</label><div class="box">you@example.com</div></div>
+                <div class="i2-field"><label>Password</label><div class="box">at least 12 characters</div></div>
+                <button class="btn pri i2-wide">Create account</button>
+                <p class="small mt0" style="margin-top: 14px;">Already have one? <a href="#i2">Sign in</a></p>
+              </div>
+            </div>
+            <div class="say">
+              <p class="small muted mt0" style="margin-bottom: 14px;">Change one entry and Canonry
+              says which others that touches, drafts each update, and waits.</p>
+              <div class="card">
+                <header><h4>Aldric Vane</h4><span class="badge">character</span></header>
+                <p class="prose small mt0">Dismissed from the watch in the thaw after the Sable
+                Winter, he now answers to <a class="men t-fact" href="#i2">the Ashen Ledger</a>.</p>
+              </div>
+              <div class="card">
+                <header><h4>The Valdoria Watch</h4><span class="badge ai">waiting for you</span></header>
+                <p class="prose small mt0">The Watch is led by <del class="d">Captain Aldric
+                Vane</del> <ins class="i">an acting captain, unnamed since the thaw</ins>.</p>
+                <p class="ai-note mt0">Evidence: Aldric Vane, paragraph 1.</p>
+              </div>
+              <p class="small muted">Nothing above was applied. Every line a model writes waits for
+              you to accept it, one entry at a time.</p>
+            </div>
+          </div>
+        </div>
+        <figcaption>Sign-up, where the argument is worth making. The right pane never shows an
+        accept control, so nobody reads it as a product that applies things for you.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The one screen where a stranger decides whether to bother now carries the reason.</li>
+          <li>It is honest about the guarantee at the exact moment the guarantee matters, which is
+          the argument guardrail 1 exists to win.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A second layout to maintain, and a right pane that is marketing copy inside the app,
+          so it needs the same guardrail 7 review the landing page gets.</li>
+          <li>On sign-in, where the visitor is already sold, the pane is noise.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">C</span><h3>The title page</h3></header>
+      <p class="sub">Full paper, the mark set large and centred, the form at 22rem under it and
+      nothing else above the fold. The reading room applied to the one screen that currently looks
+      like every other login form on the internet.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="i2-title" style="padding: 54px 30px 40px;">
+            <svg style="width: 44px; height: 44px;" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+            <div style="font: 620 30px/1.2 var(--serif); margin-top: 10px;">Canonry</div>
+            <p class="small muted" style="margin: 6px auto 26px; max-width: 26em;">Your universes, your account, nobody else's.</p>
+            <div class="i2-card plain" style="width: 21rem;">
+              <div class="i2-field"><label>Email</label><div class="box filled">fiorelorenzo.fl@gmail.com</div></div>
+              <div class="i2-field">
+                <label>Password <a href="#i2" style="float: right; font-weight: 400;">Forgotten?</a></label>
+                <div class="box filled">••••••••••••••</div>
+              </div>
+              <button class="btn pri i2-wide">Sign in</button>
+              <p class="small mt0" style="margin-top: 14px; text-align: center;">No account yet? <a href="#i2">Sign up</a></p>
+            </div>
+          </div>
+          <div class="i1-bar" style="border-bottom: 0; border-top: 1px solid var(--line); background: var(--panel-2); font-size: 12px;">
+            <a href="#i2">English</a><span class="muted">&middot;</span><a href="#i2">Italiano</a>
+            <span class="sp"></span>
+            <a href="#i2">What Canonry is</a><a href="#i2">Docs</a><a href="#i2">Privacy</a>
+          </div>
+        </div>
+        <figcaption>The mark at 44px is the one place in the product where the brand gets to be
+        large, and H2 drew it for exactly this. Everything secondary is in the footer rule.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>It looks like this product and not like a template, using only what H2 already
+          decided.</li>
+          <li>One layout serves sign-in, sign-up, recovery and any future verification screen.</li>
+          <li>Nothing on it needs a guardrail 7 review, because it makes no claim.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Makes no argument, so it leans on the landing page having done that work. Somebody who
+          arrives directly at sign-up from a friend's link learns nothing.</li>
+          <li>Vertical centring on a short laptop viewport needs care or the footer rule pushes the
+          form up awkwardly.</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout rejected">
+    <p><span class="guardref">Guardrail 2</span> <b>Rejected outright: an auth screen painted in the
+    copilot's violet.</b> It is the most tempting thing on the palette and the one colour these
+    pages may not spend. C1 reserves violet for unaccepted AI text, and a product whose sign-in page
+    is violet teaches every user that violet means Canonry rather than "a model wrote this and you
+    have not accepted it". The mark itself follows the same rule and stays burnt umber, per H2.</p>
+  </div>
+
+  <div class="callout rec">
+    <p><b>I would take C for sign-in and B for sign-up.</b> The door is quiet and the decision to
+    sign up gets the argument, which is the same split F6 already made between the demo and the
+    app. They share one layout: B is C with a right pane, so this is one component with a slot, not
+    two designs. Whichever wins, the four defects in the flaw list are fixed in the same commit,
+    since the recovery link and the <code>role="alert"</code> are not design questions. The board has
+    the auth surface as Done, in #86, so this is a new issue rather than a reopened one.</p>
+  </div>
+</section>
+
+<section class="surf" id="i3">
+  <h2>I3 &middot; home</h2>
+  <h3 class="stitle">The home page, signed in</h3>
+  <p class="lede">This is the first screen anyone with an account actually lands on, and it has to say where the product is: your universes, and one way into a new one. Today it says one sentence and offers a settings link.</p>
+
+  <h4 class="shead">Today</h4>
+  <figure class="mock"><div class="frame">
+    <div class="i3-bare">
+      <div class="i3-authbar"><span>Signed in as Lorenzo Fiore</span><a href="#">Sign out</a></div>
+      <div class="i3-main">
+        <h1 class="i3-h1">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="6" cy="10" r="4" stroke="currentColor" stroke-width="2"/><circle cx="14" cy="10" r="4" stroke="currentColor" stroke-width="2"/><line x1="9.5" y1="10" x2="10.5" y2="10" stroke="currentColor" stroke-width="2"/></svg>
+          Canonry
+        </h1>
+        <p class="i3-empty">No universes yet &ndash; yours, or one you were added to, will show up here.</p>
+        <a class="i3-applink" href="#">Appearance settings</a>
+      </div>
+    </div>
+  </div>
+  <figcaption>preview.canonry.io/ &middot; signed in, zero universes. One sentence and a settings link, which is what Lorenzo sent.</figcaption></figure>
+  <ul class="flaws">
+    <li><b>No CTA, zero universes.</b> The empty state is a single sentence with nothing to press. <code>apps/web/src/routes/+page.svelte:27-30</code>, string at <code>apps/web/src/lib/i18n/en.ts:956</code>.</li>
+    <li><b>Doubled sentence, signed out.</b> The unauthenticated state renders "Sign in" immediately followed by "Sign in to see your universes." <code>apps/web/src/routes/+page.svelte:22-26</code>.</li>
+    <li><b>No account chrome.</b> The only link on the page is "Appearance settings"; no name, no email, no sign-out here, no Docs. <code>apps/web/src/routes/+page.svelte:59-64</code>; the only other chrome on the page is <code>apps/web/src/lib/components/shell/AuthStatus.svelte:36-51</code>, a name and a sign-out button.</li>
+    <li><b>Cards aren't cards, and there's no "New universe" even when they exist.</b> The populated state is an unstyled <code>&lt;ul&gt;</code> of links with no create action anywhere on the page. <code>apps/web/src/routes/+page.svelte:32-56</code>.</li>
+  </ul>
+
+  <h4 class="shead">Options</h4>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Fix the page</h3></header>
+      <p class="sub">Same standalone page, still outside the shell, but a real one: a page header, universe cards that look like cards, a permanent primary "New universe" and a secondary "Import a world," and account chrome instead of a lone settings link.</p>
+      <figure class="mock"><div class="frame">
+        <div class="i3a-page">
+          <div class="i3a-bar"><span><b>Lorenzo Fiore</b></span><span class="sp"></span><a href="#">Settings</a><a href="#">Docs</a><a href="#">Sign out</a></div>
+          <div class="i3a-main">
+            <div class="i3a-head"><h2>Your universes</h2><div class="rowflex"><button class="btn pri sm">New universe</button><button class="btn sm">Import a world</button></div></div>
+            <div class="grid2">
+              <div class="card"><header><h4>Valdoria Reach</h4><span class="sp"></span><span class="badge">homebrew</span></header><p class="small muted mt0">214 entries</p></div>
+              <div class="card"><header><h4>Sword Coast (ours)</h4><span class="sp"></span><span class="badge">derived</span></header><p class="small muted mt0">from Forgotten Realms &middot; 61 entries</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption>Same route, dressed. Cards, a permanent create action, a real account bar.</figcaption></figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Cheapest of the three: no shell rearchitecture, ships against the page that exists today.</li>
+          <li>"/" stays a simple, predictable route with no dependency on whether a universe is selected.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Invents a second chrome system: this page's header bar is not A2's sidebar, so Settings and Docs get built twice.</li>
+          <li>The account bar drawn here (name, Settings, Docs, sign out) has nowhere else to live; it doesn't carry theme, language, or the F2 quota meter, so those still need a home.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>The shell reaches outside a universe</h3></header>
+      <p class="sub">A2's sidebar becomes the frame for the whole product. With no universe selected, the switcher offers "All universes" and "New universe," the nav below it becomes the account's own places, and the same footer carries the user, theme, language and quota everywhere.</p>
+      <figure class="mock"><div class="frame">
+        <div class="app">
+          <div class="side i3b-side">
+            <div class="uni">All universes <span class="caret">&#9662;</span></div>
+            <nav class="nav">
+              <a href="#" class="on">Universes</a>
+              <a href="#">Settings</a>
+              <a href="#">Docs</a>
+            </nav>
+            <div class="i3b-foot">
+              <div class="i3b-quota"><span class="small muted">2,400 / 5,000 cr</span><div class="meter"><i style="width:48%"></i></div></div>
+              <div class="i3b-user"><span class="small">Lorenzo Fiore</span><span class="sp"></span><button class="btn sm">Dark</button></div>
+              <div class="i3b-lang small muted">EN &middot; <a href="#">Sign out</a></div>
+            </div>
+          </div>
+          <div class="main">
+            <div class="tbar"><span class="crumb"><b>Your universes</b></span><span class="sp"></span><button class="btn pri sm">New universe</button></div>
+            <div class="entry" style="padding:24px 30px">
+              <div class="grid2">
+                <div class="card"><header><h4>Valdoria Reach</h4><span class="sp"></span><span class="badge">homebrew</span></header><p class="small muted mt0">214 entries</p></div>
+                <div class="card"><header><h4>Sword Coast (ours)</h4><span class="sp"></span><span class="badge">derived</span></header><p class="small muted mt0">from Forgotten Realms &middot; 61 entries</p></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption>Same sidebar component, universe-less mode: three account places instead of the seven universe places, footer carrying user, theme, language and the F2 meter.</figcaption></figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One frame for the whole product: signing in never drops anyone onto a chrome-less page again.</li>
+          <li>Theme, language and the quota meter get a permanent home instead of each needing its own answer per orphan route.</li>
+          <li>Reuses A2's component rather than adding a second nav pattern.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>The sidebar now has two shapes (universe nav, account nav) instead of one, so it has to branch on whether a universe is selected.</li>
+          <li>More surface to build before this page ships: the footer (user, theme, language, meter) doesn't exist anywhere yet, in or out of a universe.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>No home page at all</h3></header>
+      <p class="sub">"/" redirects instead of rendering: zero universes goes to /onboarding, one universe goes straight into it, two or more shows a small chooser rather than a dashboard.</p>
+      <figure class="mock"><div class="frame">
+        <div class="i3c-page">
+          <div class="i3c-box">
+            <h2 class="i3c-h">Choose a universe</h2>
+            <div class="rows">
+              <div class="r"><span class="sp"><b>Valdoria Reach</b><br><span class="muted small">homebrew &middot; 214 entries</span></span></div>
+              <div class="r"><span class="sp"><b>Sword Coast (ours)</b><br><span class="muted small">derived &middot; 61 entries</span></span></div>
+            </div>
+            <button class="btn sm mt24">New universe</button>
+          </div>
+        </div>
+      </div>
+      <figcaption>Two or more universes: a chooser, not a dashboard. Zero goes straight to /onboarding; one skips this entirely.</figcaption></figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Kills the dead corner outright: nobody with zero or one universe ever sees an empty list or a picker they don't need.</li>
+          <li>Routes D7's decision to the exact moment a fresh account needs it, instead of leaving /onboarding for nobody to find.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A returning multi-universe user gets an extra screen between sign-in and their last universe, where a dashboard could remember and skip it.</li>
+          <li>Redirect logic now lives in <code>+page.server.ts</code> rather than being visible as a page, which is one more place a future universe-count edge case can go unnoticed.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout rec"><p><b>I would take B, with C's redirect as the zero-universe behaviour.</b> They compose rather than compete: B says what the page looks like when it exists, an account frame with no universe selected; C says when it shouldn't exist at all, so a fresh sign-in with nothing yet never renders that frame around an empty list, it goes straight to /onboarding. Locks in a universe-less mode for A2's sidebar (#104, the app shell) and gives Settings and Docs an actual place in the nav instead of a lone link in prose.</p></div>
+</section>
+
+<section class="surf" id="i4">
+  <h2>I4 &middot; onboarding</h2>
+  <h3 class="stitle">Creating a universe</h3>
+  <p class="lede">D7 decided the onboarding path: name a universe, then import first with a pre-indexed fallback. What shipped is that screen plus a second, undecided one, and neither is reachable from anywhere in the product.</p>
+
+  <h4 class="shead">Today</h4>
+  <figure class="mock"><div class="frame">
+    <div class="i4-split">
+      <div class="i4-pane">
+        <div class="i4-panehead">/u/new &middot; linked from nowhere</div>
+        <h2 class="i4-h2">New universe</h2>
+        <label class="i4-label">Universe name</label>
+        <div class="i4-input"></div>
+        <button class="btn pri sm mt24">Create</button>
+      </div>
+      <div class="i4-pane">
+        <div class="i4-panehead">/onboarding &middot; linked from nowhere</div>
+        <h2 class="i4-h2">Name your universe</h2>
+        <p class="small muted mt0">Everything in Canonry lives inside one.</p>
+        <label class="i4-label">Universe name</label>
+        <div class="i4-input"></div>
+        <div class="card mt24"><header><h4>Have notes, a wiki export, or a PDF already?</h4></header><p class="small muted mt0">Import it. You'll confirm what Canonry detected before anything runs.</p><button class="btn pri sm">Import my world</button></div>
+        <div class="card"><header><h4>Nothing to import yet?</h4></header><p class="small muted mt0">Start from Forgotten Realms, a pre-indexed universe.</p><button class="btn sm">Start from Forgotten Realms</button></div>
+      </div>
+    </div>
+  </div>
+  <figcaption>Two rival creation screens, both real, both orphaned. Nothing in the product links to either one.</figcaption></figure>
+  <ul class="flaws">
+    <li><b>Two paths, one decision.</b> D7 chose import-first; <code>apps/web/src/routes/onboarding/+page.svelte:1-81</code> builds it, but <code>apps/web/src/routes/u/new/+page.svelte:22-38</code> ships a rival empty-universe form that never asks.</li>
+    <li><b>Neither is reachable.</b> No route or button in the app links to <code>/u/new</code> or <code>/onboarding</code>, and nothing redirects a fresh account to either. <code>apps/web/src/routes/+page.svelte:16-65</code> is the entire home page and contains no such link.</li>
+  </ul>
+
+  <h4 class="shead">Options</h4>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Keep both and link them</h3></header>
+      <p class="sub">/u/new stays the two-second empty universe, /onboarding stays the guided import path, and I3's home page links to both directly. No new screens, just two doors that finally open.</p>
+      <figure class="mock"><div class="frame">
+        <div class="i4-linkrow">
+          <div class="i4-linksrc">
+            <div class="i4-panehead">/ &middot; home</div>
+            <div class="rowflex"><button class="btn pri sm">New universe</button><button class="btn sm">Import a world</button></div>
+          </div>
+          <div class="i4-arrows">&rarr;</div>
+          <div class="i4-linkdest">
+            <div class="i4-desttag">New universe <span class="muted small">&rarr; /u/new</span></div>
+            <div class="i4-desttag">Import a world <span class="muted small">&rarr; /onboarding</span></div>
+          </div>
+        </div>
+      </div>
+      <figcaption>Same two forms as Today, now reachable from I3's home. No new screen, just two working links.</figcaption></figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Smallest possible change: the two screens already exist and already work.</li>
+          <li>Ships this sprint, no new copy or layout to design.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Two entry points that diverge immediately, one asks for import, one doesn't, with nothing on the home page saying which is "the right one."</li>
+          <li>Every future third or fourth start (a template, a different pre-indexed base) needs its own new route rather than a card on an existing one.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>One creation surface</h3></header>
+      <p class="sub">/onboarding absorbs /u/new: name, then three starts drawn as cards, import a world, start empty, derive from a pre-indexed universe. /u/new redirects into it.</p>
+      <figure class="mock"><div class="frame">
+        <div class="i4b-page">
+          <h2 class="i4-h2">Name your universe</h2>
+          <p class="small muted mt0">Everything in Canonry lives inside one.</p>
+          <label class="i4-label">Universe name</label>
+          <div class="i4-input" style="max-width:320px"></div>
+          <div class="grid3 mt24">
+            <div class="card">
+              <header><h4>Import a world</h4><span class="sp"></span><span class="badge">default</span></header>
+              <p class="small muted mt0">Notes, a wiki export, or a PDF. Confirm what Canonry detected before anything runs.</p>
+              <button class="btn pri sm">Import my world</button>
+            </div>
+            <div class="card">
+              <header><h4>Start empty</h4></header>
+              <p class="small muted mt0">Nothing to bring in yet. Add entries by hand from the switcher.</p>
+              <button class="btn sm">Create empty</button>
+            </div>
+            <div class="card">
+              <header><h4>Start from Forgotten Realms</h4></header>
+              <p class="small muted mt0">Pre-indexed. Your canon always wins over it, diverge entry by entry.</p>
+              <button class="btn sm">Start from Forgotten Realms</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption>One route, three starts. Import carries a "default" badge; the empty start is a card, not a secretly different page.</figcaption></figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One place to build a fourth start into later, instead of a new route every time.</li>
+          <li>"Start empty" becomes an equal, visible option instead of the only thing /u/new does under a different name.</li>
+          <li>D7's import stays the loud default, badge and position both, without hiding the other two paths.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>The page now holds three cards' worth of copy before anyone types a name, busier than either of today's two screens alone.</li>
+          <li>The onboarding route grows to own routing that used to be split between it and <code>/u/new</code>.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Create inline, choose the start afterward</h3></header>
+      <p class="sub">A universe is created from the home page with a name and nothing else. The empty universe itself carries the three starts as its first screen, so the choice is made with the shell already around you.</p>
+      <figure class="mock"><div class="frame">
+        <div class="i4-split">
+          <div class="i4-pane">
+            <div class="i4-panehead">/ &middot; home</div>
+            <label class="i4-label">Name a universe</label>
+            <div class="rowflex"><div class="i4-input" style="flex:1;margin-bottom:0"></div><button class="btn pri sm">Create</button></div>
+          </div>
+          <div class="i4-pane">
+            <div class="i4-panehead">/u/valdoria-reach &middot; first screen</div>
+            <h2 class="i4-h2">Valdoria Reach is empty</h2>
+            <div class="stack">
+              <div class="card"><header><h4>Import a world</h4></header></div>
+              <div class="card"><header><h4>Start from Forgotten Realms</h4></header></div>
+              <div class="card"><header><h4>I'll write it myself</h4></header></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption>The name is all home asks for. The universe itself, sidebar and all, carries the three starts as its own empty state.</figcaption></figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The choice happens inside the product, with B's shell already around the user, instead of before it exists.</li>
+          <li>A name is genuinely all creation needs; nothing else is decided yet.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A universe now exists, uncounted and sourceless, before its content is decided, so "0 entries, no source chosen" becomes a state the data model and the sidebar's counts both have to represent.</li>
+          <li>Splits D7's decision across two routes again, just a different two than today's.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout rec"><p><b>I would take B.</b> One route absorbs the other, D7's import path is the loud default instead of the hidden one, and "start empty" stops being a secretly different flow living at its own URL. It locks in #108 as the only place a new start gets added, so a later fourth card doesn't need a fourth route, and it folds #26's job into onboarding's own import card rather than leaving two forms answering the same question.</p></div>
+</section>
+
+<section class="surf" id="i5">
+  <h2>I5 &middot; language</h2>
+  <h3 class="stitle">Where the language switch lives, and why it is not a flag</h3>
+  <p class="lede">Today the switcher exists on exactly the two pages where there is no account to
+  save it to, and vanishes on the third. Sign in and the control is gone: the page that writes a
+  real preference, <code>/settings/language</code>, is not linked from anywhere in the interface.
+  So a GM who lands in English and wants Italian has to know the URL.</p>
+
+  <h4 class="shead">Today</h4>
+  <figure class="mock">
+    <div class="frame">
+      <div class="grid2" style="padding: 16px; gap: 14px;">
+        <div>
+          <p class="small muted mt0"><code>/auth/sign-in</code> and <code>/auth/sign-up</code>, the
+          only two</p>
+          <div class="card">
+            <header><h4>Sign in</h4><span class="sp"></span>
+              <span class="i5-seg"><span class="on">ENGLISH</span><span>ITALIANO</span></span>
+            </header>
+            <p class="small muted mt0">Writes the <code>canonry_locale</code> cookie, because there
+            is no account yet.</p>
+          </div>
+        </div>
+        <div>
+          <p class="small muted mt0">Every screen after that</p>
+          <div class="card">
+            <header><h4>Signed in as Lorenzo Fiore</h4><span class="sp"></span><a class="small" href="#i5">Sign out</a></header>
+            <p class="small muted mt0">No language control. No settings link. No menu. The account
+            preference at <code>/settings/language</code> is reachable only by typing it.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>The control is available exactly while it cannot be saved, and unavailable as soon
+    as it can.</figcaption>
+  </figure>
+  <ul class="flaws">
+    <li><b>The switcher is mounted on two routes.</b>
+    <code>components/auth/LocaleSwitcher.svelte</code> appears in
+    <code>routes/auth/sign-in/+page.svelte:71</code> and the sign-up page, and nowhere else in the
+    application.</li>
+    <li><b>The page that saves the preference is unreachable.</b>
+    <code>routes/settings/language</code> writes a per-account preference, which SPEC 17 wants
+    because it has to follow the GM to the phone at the table, and nothing links to it.</li>
+    <li><b>Two different mechanisms, no shared control.</b> The auth pages write a cookie, the
+    settings page writes the account, and a user who switches at sign-in has no way to see which of
+    the two is in force.</li>
+    <li><b>On the auth pages it outranks the product.</b> Sitting top right at the same weight as
+    the wordmark, it is the second thing the eye lands on, for a control most accounts touch
+    once.</li>
+  </ul>
+
+  <div class="callout guard">
+    <p><b>The thing this control must not imply.</b> Canonry has two language concepts and SPEC 17
+    keeps them apart on purpose: the <b>interface and copilot language</b>, which follows the
+    person, and the <b>canon language</b>, which belongs to each entry and stays whatever it was
+    written in. <code>components/entry/LanguageControl.svelte</code> already ships the second one,
+    next to the entry's type. There is no bulk translation and there never will be, because
+    <span class="guardref">guardrail 1</span> means no model rewrites 214 entries into another
+    language without 214 accepts. A prominent global language control that looks like a document
+    toggle is therefore a promise the product deliberately does not make, and that is the real
+    constraint on this decision, more than where the pixels go.</p>
+  </div>
+
+  <h4 class="shead">Options</h4>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Flags in the top bar</h3></header>
+      <p class="sub">A permanent pair in the shell's top right, one tap to switch, visible from
+      every screen.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side">
+              <div class="uni"><span class="dot"></span>Valdoria Reach<span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#i5" class="on">Entries <span class="n">214</span></a>
+                <a href="#i5">Works <span class="n">2</span></a>
+                <a href="#i5">Proposals <span class="n">3</span></a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar">
+                <span class="crumb">Valdoria Reach / character / <b>Aldric Vane</b></span>
+                <span class="sp"></span>
+                <span class="i5-flag" title="English" aria-label="English"><i style="background:#012169"></i><i style="background:#fff"></i><i style="background:#c8102e"></i></span>
+                <span class="i5-flag" title="Italiano" aria-label="Italiano"><i style="background:#008c45"></i><i style="background:#f4f5f0"></i><i style="background:#cd212a"></i></span>
+              </div>
+              <div class="entry">
+                <h1 class="title">Aldric Vane</h1>
+                <div class="kicker"><span class="badge">character</span><span>Entry language: Italiano</span></div>
+                <p class="prose mt0">Congedato dalla guardia nel disgelo dopo l'Inverno Sabbia, ora
+                risponde al Libro Mastro di Cenere.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Drawn as asked. Note what happens next to it: this entry's own language is
+        Italian while the interface is English, which is the normal case SPEC 17 designs for, and
+        the two controls now sit ten centimetres apart meaning different things.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One tap from anywhere, no menu to discover, and it is immediately legible to somebody
+          who does not read the current interface language.</li>
+          <li>Bilingual users switching often, which is Lorenzo's own case, get the fastest possible
+          control.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A flag is a country, not a language. Italian is also Swiss and Argentinian, and English
+          forces a choice between two flags that has annoyed somebody in every product that ever
+          made it. The app's own switcher already avoids this: its comment says endonyms are "the one
+          label a language switcher must never need translating to be understood".</li>
+          <li>It sits in the top bar next to an entry whose own language is a separate, per-entry
+          claim, so it reads as "translate this page", which is the one thing guardrail 1 forbids.</li>
+          <li>It spends permanent shell space on a control most accounts use once, and the top bar is
+          where the palette, the quota meter and the account all want to be.</li>
+          <li>There is no top bar outside a universe today, so this option only exists if I3's
+          option B ships first.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">B</span><h3>In the account menu, with Settings behind it</h3></header>
+      <p class="sub">The shell footer carries the user. Clicking it opens the account menu, where
+      Language is a row showing the current value as an endonym, and choosing it switches in place.
+      The canonical control, with the sentence explaining what it does and does not do, stays on the
+      settings page the menu also links to.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side">
+              <div class="uni"><span class="dot"></span>Valdoria Reach<span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#i5" class="on">Entries <span class="n">214</span></a>
+                <a href="#i5">Works <span class="n">2</span></a>
+                <a href="#i5">Proposals <span class="n">3</span></a>
+                <a href="#i5">Table</a>
+              </nav>
+              <div style="margin-top: 14px;">
+                <div class="i5-menu">
+                  <div class="who"><b>Lorenzo Fiore</b><span>fiorelorenzo.fl@gmail.com</span></div>
+                  <div class="rule"></div>
+                  <a href="#i5">Account</a>
+                  <a href="#i5">Language <span class="val">Italiano &#9662;</span></a>
+                  <a href="#i5">Appearance <span class="val">Match system</span></a>
+                  <a href="#i5">Model keys</a>
+                  <a href="#i5">Plan and credits <span class="val">2,400 / 5,000</span></a>
+                  <a href="#i5">Export</a>
+                  <div class="rule"></div>
+                  <a href="#i5">Docs</a>
+                  <a href="#i5">Privacy</a>
+                  <div class="rule"></div>
+                  <a href="#i5">Sign out</a>
+                </div>
+              </div>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb">Valdoria Reach / <b>214 entries</b></span><span class="sp"></span><kbd class="k">⌘K</kbd></div>
+              <div class="entry" style="padding: 20px 24px;">
+                <p class="small muted mt0">The menu opens from the account row pinned at the bottom
+                of the sidebar, which is also where the quota meter F2 asked for goes.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Endonyms, current value shown on the row, and every account-level destination in
+        one place. This is the same menu I6 needs for its own reasons.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Solves I5 and I6 with one component, and gives the four unreachable settings pages and
+          the privacy page an address in the interface.</li>
+          <li>Endonyms, so nobody has to argue about which flag stands for English.</li>
+          <li>Language sits among the other account preferences, which is what it is, rather than
+          next to canon content, which it is not.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Two clicks instead of one for the bilingual user who switches daily.</li>
+          <li>Needs a real dropdown with focus management and an escape key, which is one of the
+          three components I9 argues we should not hand-roll.</li>
+          <li>Depends on the shell existing outside a universe, or the menu is missing on exactly
+          the pages where a new user is most lost.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>A permanent pair in the sidebar footer</h3></header>
+      <p class="sub">No menu. Two endonym-labelled buttons pinned under the nav, always visible,
+      the way the current auth pages do it. The middle answer between a flag in the top bar and a
+      row inside a menu.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side" style="display: flex; flex-direction: column;">
+              <div class="uni"><span class="dot"></span>Valdoria Reach<span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#i5" class="on">Entries <span class="n">214</span></a>
+                <a href="#i5">Works <span class="n">2</span></a>
+                <a href="#i5">Proposals <span class="n">3</span></a>
+                <a href="#i5">Table</a>
+                <a href="#i5">Settings</a>
+              </nav>
+              <div style="flex: 1;"></div>
+              <div class="i5-foot">
+                <span class="i5-seg"><span class="on">EN</span><span>IT</span></span>
+                <span class="sp"></span>
+                <a href="#i5">Lorenzo</a>
+              </div>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb">Valdoria Reach / <b>214 entries</b></span><span class="sp"></span><kbd class="k">⌘K</kbd></div>
+              <div class="entry" style="padding: 20px 24px;"><p class="small muted mt0">Always
+              visible, one click, no dropdown to build.</p></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Cheapest of the three, and it reuses the component that already exists.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One click, no new component, and <code>LocaleSwitcher.svelte</code> is reused rather
+          than replaced.</li>
+          <li>Nothing depends on a dropdown, so it ships before I6 does.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Permanent sidebar weight for a rarely used control, in the footer where the account and
+          the meter also belong. Three things in a strip that fits two.</li>
+          <li>Two-letter codes are worse than endonyms for the exact user this control serves,
+          somebody who cannot read the current interface.</li>
+          <li>Leaves the other four settings pages exactly as unreachable as they are today.</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout rec">
+    <p><b>I would take B, and the flags are the one part of the request I would push back on.</b>
+    The placement instinct is right, the control belongs in the shell and not on a settings page
+    nobody can find, but the flag is the wrong glyph for a language and this codebase already argued
+    itself out of it once, in <code>LocaleSwitcher.svelte</code>'s own comment. If the top bar
+    really is the right place, the honest version of A is the endonym as text, "Italiano" with a
+    caret, which keeps the placement and drops the problem. The auth pages keep their compact
+    switcher either way, because there is genuinely no account there yet, and they move it out of
+    the top right per I2. It lands in the same shell issue I6's menu needs, since it is one row in
+    that menu.</p>
+  </div>
+</section>
+
+<section class="surf" id="i6">
+  <h2>I6 &middot; the account and the settings that have no home</h2>
+  <h3 class="stitle">Settings, and the account page that does not exist</h3>
+  <p class="lede">Five leaf pages hold every account-level control the product has, and a sixth
+  control, the account itself, has no page at all. <code>apps/web/src/routes/settings/*</code>
+  is five unconnected screens, reachable only if you already know the URL, and none of them let
+  you change the name or the email the product prints on every page you visit.</p>
+
+  <h4 class="shead">Today</h4>
+  <figure class="mock">
+    <div class="frame">
+      <div class="i6-bar">Signed in as Lorenzo Fiore<span class="sp"></span>Sign out</div>
+      <div class="rowflex" style="padding:18px; align-items:stretch;">
+        <div class="i6-island">
+          <a href="#" class="small" style="color:var(--accent-ink); text-decoration:none;">&larr; Universes</a>
+          <h1>API keys</h1>
+          <p class="small muted mt0">Bring your own key to use your own provider account instead
+          of ours.</p>
+          <div class="rows mt24">
+            <div class="r"><span class="sp">Anthropic</span><span class="badge ok">on</span></div>
+            <div class="r"><span class="sp">OpenAI</span><span class="badge later">off</span></div>
+          </div>
+        </div>
+        <div class="i6-island">
+          <a href="#" class="small" style="color:var(--accent-ink); text-decoration:none;">&larr; Universes</a>
+          <h1>Billing</h1>
+          <p class="small muted mt0">Included quota with routing between cheap and premium
+          models.</p>
+          <div class="rows mt24">
+            <div class="r"><span class="sp">Included this period</span><span class="nowrap mono small">2,400 / 5,000 cr</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="small muted" style="padding:0 18px 16px;">No nav between them, and nothing links
+      to either from inside the product. Each is its own <code>+page.svelte</code> with the same
+      one back-link at the top.</p>
+    </div>
+    <figcaption>What preview.canonry.io serves at <code>/settings/keys</code> and
+    <code>/settings/billing</code>. Language and appearance are the same shape.</figcaption>
+  </figure>
+
+  <ul class="flaws">
+    <li><b>No account page.</b> The product prints the user's name and knows their email
+    (<code>apps/web/src/lib/components/shell/AuthStatus.svelte:21,38</code>), and nowhere under
+    <code>apps/web/src/routes/settings/</code> can either be changed. There is no password
+    change and no delete account.</li>
+    <li><b>Five islands, no index.</b> <code>routes/settings/keys/+page.svelte:49</code>,
+    <code>export/+page.svelte:15</code>, <code>language/+page.svelte:27</code>,
+    <code>billing/+page.svelte:26</code> and <code>appearance/+page.svelte:24</code> each open
+    with the identical "&larr; Universes" link and nothing else in common; there is no
+    <code>routes/settings/+page.svelte</code> to list them.</li>
+    <li><b>Two of five are reachable at all, and only from one place each.</b> Home links only
+    to appearance (<code>routes/+page.svelte:59-64</code>); the per-universe settings page links
+    to appearance and export (<code>routes/u/[universe]/settings/+page.svelte:26,29</code>).
+    Keys, billing and language have no inbound link anywhere in the app - not even from
+    <code>Sidebar.svelte:69-95</code>, the one nav a signed-in GM actually uses.</li>
+    <li><b>The sign-in bar is chrome that never leaves, and duplicates itself.</b>
+    <code>routes/+layout.svelte:50</code> mounts <code>AuthStatus</code> on every route,
+    including inside a universe, where <code>routes/u/[universe]/+layout.svelte:16</code> then
+    stacks the 256px <code>Sidebar</code> underneath it - so a signed-in GM carries "Signed in
+    as Lorenzo Fiore &middot; Sign out" as a second header row above a sidebar
+    (<code>Sidebar.svelte:49-117</code>) that has no footer of its own to hold it instead.</li>
+    <li><b>Sign out exists in exactly one place.</b> <code>AuthStatus.svelte:39-46</code> is the
+    only sign-out control in the product; lose that 40px strip and there is no other way out of
+    a session.</li>
+  </ul>
+
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 5</span> the keys page is where the product says which
+    provider sees your campaign content, and <code>/privacy</code> says the rest (F3, the
+    contextual sentence on <code>keys/+page.svelte:55-69</code> already links there). Whatever
+    holds Settings after this decision has to be reachable in one move from anywhere in the
+    product, or "stated plainly" is only true for a GM who already knows the URL by heart.</p>
+  </div>
+
+  <h4 class="shead">Options</h4>
+  <p class="small muted" style="max-width:60em;">Out of scope here on purpose: the per-universe
+  settings page at <code>/u/[universe]/settings</code>, the writing switch and the precedence
+  panel. A2 already gave that nav item to the universe; this decision is only about the account
+  that sits above every universe.</p>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>A settings index</h3></header>
+      <p class="sub"><code>/settings</code> lists the five leaves as rows, each with the
+      sentence its own page already opens with. No shell, no menu, one new route.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="i6-bar">Signed in as Lorenzo Fiore<span class="sp"></span>Sign out</div>
+          <div style="padding:20px;">
+            <a href="#" class="small" style="color:var(--accent-ink); text-decoration:none;">&larr; Universes</a>
+            <h1 class="mt24" style="font-size:19px; font-weight:620;">Settings</h1>
+            <div class="card mt24">
+              <div class="rows">
+                <div class="r"><span class="sp"><b>Appearance</b><br><span class="muted small">Light or dark for the whole product.</span></span><span class="muted">&rsaquo;</span></div>
+                <div class="r"><span class="sp"><b>Language</b><br><span class="muted small">The interface and the Loremaster's language.</span></span><span class="muted">&rsaquo;</span></div>
+                <div class="r"><span class="sp"><b>API keys</b><br><span class="muted small">Bring your own provider key.</span></span><span class="muted">&rsaquo;</span></div>
+                <div class="r"><span class="sp"><b>Billing</b><br><span class="muted small">2,400 / 5,000 credits included this period.</span></span><span class="muted">&rsaquo;</span></div>
+                <div class="r"><span class="sp"><b>Export</b><br><span class="muted small">Flat markdown zip, per universe.</span></span><span class="muted">&rsaquo;</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>One route, five rows, still no account row - nothing in this option adds a
+        name/email/password pane.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Cheapest of the three: one route, no shell change, no new component.</li>
+          <li>Findable once, then bookmarkable - a GM who visits twice never has to search
+          again.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Leaves the account gap open: still no name, email, password or delete control
+          anywhere.</li>
+          <li>Still zero-click reachable from nowhere; a GM two levels into an entry still has
+          to know <code>/settings</code> exists.</li>
+          <li>The guardrail 5 problem stays unsolved - keys is still a URL, not a move from
+          anywhere.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">B</span><h3>Account menu in the shell, two-pane settings</h3></header>
+      <p class="sub">The shell's own footer carries the signed-in user. Clicking it opens a
+      menu: Account, Language, Appearance, Keys, Billing, Export, Sign out. The five pages
+      become one route with a left sub-nav and the leaves as panes, and Account is a new pane:
+      name, email, password, sign out everywhere, delete account.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side i6-side">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:14px; color:var(--accent);">
+                <span style="font:700 13px var(--mono);">C</span>
+                <span style="font-size:12px; font-weight:600; color:var(--ink-2);">Canonry</span>
+              </div>
+              <div class="i6-navlite">
+                <a href="#">Valdoria Reach</a>
+                <a href="#">Sword Coast (ours)</a>
+              </div>
+              <div class="i6-menu">
+                <a href="#">Account</a>
+                <a href="#">Language</a>
+                <a href="#">Appearance</a>
+                <a href="#">Keys</a>
+                <a href="#">Billing</a>
+                <a href="#">Export</a>
+                <hr>
+                <div class="mi dgr">Sign out</div>
+              </div>
+              <div class="i6-foot">
+                <span class="av">LF</span>
+                <span class="nm">Lorenzo Fiore</span>
+                <span class="car">&#9650;</span>
+              </div>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb"><b>Settings</b> / Account</span></div>
+              <div class="i6-panes">
+                <div class="i6-subnav">
+                  <a href="#" class="on">Account</a>
+                  <a href="#">Language</a>
+                  <a href="#">Appearance</a>
+                  <a href="#">Keys</a>
+                  <a href="#">Billing</a>
+                  <a href="#">Export</a>
+                </div>
+                <div>
+                  <div class="i6-field">
+                    <label>Name</label>
+                    <input value="Lorenzo Fiore" readonly>
+                  </div>
+                  <div class="i6-field">
+                    <label>Email</label>
+                    <input value="lorenzo@canonry.io" readonly>
+                  </div>
+                  <button class="btn sm mt0">Change password</button>
+                  <div class="rowflex mt24">
+                    <button class="btn sm">Sign out everywhere</button>
+                    <button class="btn sm dgr">Delete account</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Footer menu open above the avatar; Account is the active pane. Keys, Billing
+        and Export are one click from the same footer on any screen the shell wraps.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The five islands stop being islands: one route, one sub-nav, matching the
+          pattern the per-universe settings page already ships (issue #107).</li>
+          <li>Account exists for the first time - name, email, password and delete account get
+          a home, closing the gap <code>AuthStatus.svelte:38</code> has printed since issue #86.</li>
+          <li>Sign out and Keys are reachable from the footer on every screen the shell renders,
+          which is what guardrail 5 needs.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Depends on the app shell existing outside a universe at all, which nothing ships
+          today - <code>Sidebar.svelte</code> only mounts inside
+          <code>routes/u/[universe]/+layout.svelte</code>. This option is the settings half of
+          that fix, not the whole of it.</li>
+          <li>One more overlay pattern (the footer menu) that A3's palette does not route
+          through yet.</li>
+          <li>"LF" in a circle is a placeholder mark; the product has no avatar or photo concept
+          to draw on, so the footer invents the smallest possible one.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Settings inside the shell's own sidebar</h3></header>
+      <p class="sub">No menu, no separate page: choosing Settings in the account-level nav
+      replaces the main pane with the sub-nav and its panes directly, the way the universe's own
+      settings page already works today.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side i6-side">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:14px; color:var(--accent);">
+                <span style="font:700 13px var(--mono);">C</span>
+                <span style="font-size:12px; font-weight:600; color:var(--ink-2);">Canonry</span>
+              </div>
+              <div class="i6-navlite">
+                <a href="#">Valdoria Reach</a>
+                <a href="#">Sword Coast (ours)</a>
+                <a href="#" class="on">Settings</a>
+              </div>
+              <div class="i6-foot" style="cursor:default;">
+                <span class="av">LF</span>
+                <span class="nm">Lorenzo Fiore</span>
+              </div>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb"><b>Settings</b> / Keys</span></div>
+              <div class="i6-panes">
+                <div class="i6-subnav">
+                  <a href="#">Account</a>
+                  <a href="#">Language</a>
+                  <a href="#">Appearance</a>
+                  <a href="#" class="on">Keys</a>
+                  <a href="#">Billing</a>
+                  <a href="#">Export</a>
+                </div>
+                <div>
+                  <div class="rows">
+                    <div class="r"><span class="sp">Anthropic</span><span class="badge ok">on</span></div>
+                    <div class="r"><span class="sp">OpenAI</span><span class="badge later">off</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Settings is a nav row, not a menu; the footer only shows who is signed in,
+        it does not open anything.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>No popover state to design or build - one interaction pattern, reused from the
+          universe settings page that already ships.</li>
+          <li>Settings is always visible as a row, not discovered by clicking an avatar first.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Puts a "Settings" row in an account-level nav next to the universe list; if that
+          list ever grows past a couple of entries the row competes with A2's own seven-item
+          cap for the same kind of space, even though it is a different list. Worth naming
+          before it is built, not after.</li>
+          <li>Sign out has no dedicated place to live - it is now a click into Settings, then
+          into Account, for something that used to be one button away.</li>
+          <li>The account identity (name) sits in a static footer with nothing to click; the
+          product still has no one place that says "this is you" and lets you act on it.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout rec">
+    <p><b>I would take B.</b> It is the only one of the three that gives the account a page,
+    not just a route, and it collapses five orphaned leaves plus a bar that never leaves into
+    one pattern the per-universe settings page has already proven (issue #107). It costs the
+    most because it is the one that actually needs the app shell to wrap every route, not only
+    universe routes - name that dependency up front rather than discover it mid-build. Once
+    paid, it is what makes guardrail 5 true instead of aspirational: Keys and the link to
+    <code>/privacy</code> are a footer click away from an entry, a proposal queue, or the home
+    page, not a URL someone has to already know.</p>
+  </div>
+</section>
+
+<section class="surf" id="i7">
+  <h2>I7 &middot; universe home</h2>
+  <h3 class="stitle">The entry browser that isn't</h3>
+  <p class="lede">The sidebar's "Entries" item is the only door into a universe's canon, and it opens onto
+  three sentences. With 214 entries behind that door there is no list, no type filter, no alias search, no
+  sort and no pagination, and (verified by grep) no "New entry" control anywhere in the product either.
+  <code>docs/ux/index.html</code> promised an entry browser and shipped a Recent list instead.</p>
+
+  <h4 class="shead">Today</h4>
+  <figure class="mock">
+    <div class="frame">
+      <div class="app">
+        <div class="side">
+          <div class="uni">Valdoria Reach <span class="caret">&#9662;</span></div>
+          <nav class="nav">
+            <a href="#" class="on">Entries <span class="n">214</span></a>
+            <a href="#">Works <span class="n">1</span></a>
+            <a href="#">Proposals <span class="n">4</span></a>
+            <a href="#">Table</a>
+            <a href="#">Players</a>
+            <a href="#">Import</a>
+            <a href="#">Settings</a>
+            <div class="grp">Recent</div>
+            <a href="#">Aldric Vane</a>
+            <a href="#">The Gilded Rat</a>
+          </nav>
+        </div>
+        <div class="main">
+          <div class="tbar"><span class="crumb"><b>Valdoria Reach</b></span></div>
+          <div class="entry">
+            <div class="i7-head">
+              <h1 class="title" style="font-size:22px;margin:0">Valdoria Reach</h1>
+              <span class="badge">homebrew</span>
+            </div>
+            <h2 class="i7-sub">Recent entries</h2>
+            <div class="rows">
+              <div class="r"><span class="sp"><b>Aldric Vane</b> <span class="muted small">character</span><br><span class="muted small">Dismissed from the watch in the thaw after the Sable Winter, he now answers to the Ashen Ledger.</span></span></div>
+              <div class="r"><span class="sp"><b>The Gilded Rat</b> <span class="muted small">place</span></span></div>
+              <div class="r"><span class="sp"><b>The Ashen Ledger</b> <span class="muted small">faction</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>The whole component: a name, a badge, and however many entries fit before the list truncates.</figcaption>
+  </figure>
+  <ul class="flaws">
+    <li><b>No way to see the 214.</b> The Recent list is the entire surface; there is no browser behind it, list, filter, alias search, sort or pagination, in <code>apps/web/src/routes/u/[universe]/+page.svelte:33-57</code>.</li>
+    <li><b>No "New entry" anywhere.</b> Grepping the app for the string turns up exactly one hit, and it is a diff-card label for an AI-drafted entry, not a create action: <code>apps/web/src/lib/i18n/en.ts:449</code>.</li>
+    <li><b>The inventory promised this and it wasn't built.</b> "Entry browser: list and filter 214 entries by type, alias, recency" has sat unbuilt against issues #15 and #104 since the audit: <code>docs/ux/index.html:144</code>.</li>
+  </ul>
+
+  <h4 class="shead">Options</h4>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>The browser is the home</h3></header>
+      <p class="sub"><code>/u/{slug}</code> becomes the list itself: a type filter row, a search field that
+      also matches aliases, and rows carrying name, type, an excerpt and when each entry last changed.
+      Recent moves into the sidebar, where a version of it already lives.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side">
+              <div class="uni">Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Entries <span class="n">214</span></a>
+                <a href="#">Works <span class="n">1</span></a>
+                <a href="#">Proposals <span class="n">4</span></a>
+                <a href="#">Table</a>
+                <a href="#">Players</a>
+                <a href="#">Import</a>
+                <a href="#">Settings</a>
+                <div class="grp">Recent</div>
+                <a href="#">Aldric Vane</a>
+                <a href="#">The Gilded Rat</a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb"><b>Valdoria Reach</b></span><span class="sp"></span><span class="muted small">214 entries</span></div>
+              <div class="entry" style="padding:20px 26px">
+                <div class="i7-filters">
+                  <span class="i7-chip i7-on">All <b>214</b></span>
+                  <span class="i7-chip">Character <b>41</b></span>
+                  <span class="i7-chip">Place <b>38</b></span>
+                  <span class="i7-chip">Faction <b>12</b></span>
+                  <span class="i7-chip">Event <b>9</b></span>
+                  <span class="i7-chip">Item <b>6</b></span>
+                </div>
+                <div class="i7-search">Search by name or alias&hellip; <span class="muted small">&mdash; matches "Il Ratto Dorato" too</span></div>
+                <div class="rows">
+                  <div class="r"><span class="sp"><b>Aldric Vane</b> <span class="badge" style="margin-left:6px">character</span><br><span class="muted small">Dismissed from the watch in the thaw after the Sable Winter.</span></span><span class="muted small nowrap">changed 2d ago</span></div>
+                  <div class="r"><span class="sp"><b>The Gilded Rat</b> <span class="badge" style="margin-left:6px">place</span><br><span class="muted small">Inn in the Lantern Quarter, aliases Gilded Rat Tavern, Il Ratto Dorato.</span></span><span class="muted small nowrap">changed 1w ago</span></div>
+                  <div class="r"><span class="sp"><b>The Ashen Ledger</b> <span class="badge" style="margin-left:6px">faction</span><br><span class="muted small">Merchant bank that lends at knife point.</span></span><span class="muted small nowrap">changed 3w ago</span></div>
+                  <div class="r"><span class="sp"><b>Iselde Wrenn</b> <span class="badge" style="margin-left:6px">character</span><br><span class="muted small">Harbour magistrate, appointed Aldric and then broke him.</span></span><span class="muted small nowrap">changed 1mo ago</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Recent keeps its sidebar slot; the home now shows the other 210.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Ships the inventory's own promise at the exact address a GM already clicks, no new nav item.</li>
+          <li>One list to build, not a dashboard plus a list, so it lands before the palette does.</li>
+          <li>Search-by-alias here is the only search this product has until the palette (A3) exists.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Loses the one thing a dashboard would have shown: what changed, what's waiting, the quota.</li>
+          <li>A returning GM lands on a list, not a "here's where you left off" summary.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Overview, browser one click away</h3></header>
+      <p class="sub">Home stays a dashboard: what changed, what's waiting for review, the quota, the current
+      work. The browser gets its own address, <code>/u/{slug}/entries</code>. A2 caps the nav at seven and
+      all seven are spent, so the "Entries" nav item repoints to the browser and the dashboard drops off
+      the nav entirely, reachable only from the universe switcher, which A2 already exempts from the cap.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side">
+              <div class="uni">Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#">Entries <span class="n">214</span></a>
+                <a href="#">Works <span class="n">1</span></a>
+                <a href="#">Proposals <span class="n">4</span></a>
+                <a href="#">Table</a>
+                <a href="#">Players</a>
+                <a href="#">Import</a>
+                <a href="#">Settings</a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb"><b>Valdoria Reach</b></span></div>
+              <div class="entry" style="padding:20px 26px">
+                <div class="grid2">
+                  <div class="card"><header><h4>What changed</h4></header>
+                    <div class="rows"><div class="r"><span class="sp">Aldric Vane's watch relation <span class="muted small">accepted 2d ago</span></span></div></div>
+                  </div>
+                  <div class="card"><header><h4>Waiting for review</h4><span class="sp"></span><span class="badge now">4</span></header>
+                    <p class="small muted mt0">The Valdoria Watch, The Ashen Ledger, The Gilded Rat, Iselde Wrenn.</p>
+                    <button class="btn sm pri">Open queue</button>
+                  </div>
+                  <div class="card"><header><h4>Quota</h4></header>
+                    <div class="meter"><i style="width:48%"></i></div>
+                    <p class="small muted mt0">2,400 of 5,000 credits &middot; warm budget 180 of 600</p>
+                  </div>
+                  <div class="card"><header><h4>Current work</h4></header>
+                    <p class="small mt0"><b>Debts of Valdoria</b> &middot; Act 2 &middot; Scene 3<br><span class="muted small">"A drink with the ex-captain"</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>None of the seven nav rows is "on" here; the dashboard is reached by the switcher, not by a row.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Keeps the "what's waiting, what changed" summary a returning GM actually wants first.</li>
+          <li>The quota meter (F2) and the current work get a real home instead of nowhere.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>The dashboard is invisible in the nav; nothing tells a new GM it exists except trying the switcher.</li>
+          <li>Two surfaces to build and keep in sync instead of one.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">C</span><h3>One page, two modes</h3></header>
+      <p class="sub">The home is the browser, exactly as in A, with a collapsible overview strip pinned above
+      it carrying B's four signals: what changed, waiting for review, quota, current work. Collapsing it
+      hands the full height back to the list; nothing needs a second address.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side">
+              <div class="uni">Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Entries <span class="n">214</span></a>
+                <a href="#">Works <span class="n">1</span></a>
+                <a href="#">Proposals <span class="n">4</span></a>
+                <a href="#">Table</a>
+                <a href="#">Players</a>
+                <a href="#">Import</a>
+                <a href="#">Settings</a>
+                <div class="grp">Recent</div>
+                <a href="#">Aldric Vane</a>
+                <a href="#">The Gilded Rat</a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb"><b>Valdoria Reach</b></span></div>
+              <div class="entry" style="padding:16px 26px 22px">
+                <div class="i7-strip">
+                  <div class="i7-stripitem"><span class="muted small">Waiting for review</span><b>4</b></div>
+                  <div class="i7-stripitem"><span class="muted small">Quota</span><b>2,400 / 5,000</b></div>
+                  <div class="i7-stripitem"><span class="muted small">Current work</span><b>Debts of Valdoria &middot; Sc. 3</b></div>
+                  <span class="sp"></span>
+                  <button class="btn sm">Collapse &#9650;</button>
+                </div>
+                <div class="i7-filters">
+                  <span class="i7-chip i7-on">All <b>214</b></span>
+                  <span class="i7-chip">Character <b>41</b></span>
+                  <span class="i7-chip">Place <b>38</b></span>
+                  <span class="i7-chip">Faction <b>12</b></span>
+                </div>
+                <div class="i7-search">Search by name or alias&hellip;</div>
+                <div class="rows">
+                  <div class="r"><span class="sp"><b>Aldric Vane</b> <span class="badge" style="margin-left:6px">character</span></span><span class="muted small nowrap">changed 2d ago</span></div>
+                  <div class="r"><span class="sp"><b>The Gilded Rat</b> <span class="badge" style="margin-left:6px">place</span></span><span class="muted small nowrap">changed 1w ago</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Collapsed by default after the first visit; the strip's state persists per user.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Both jobs at one address: no eighth nav item, no dashboard hidden behind the switcher.</li>
+          <li>The quota and review-queue signal, currently visible nowhere in the product, gets a home.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Denser on first load than A alone; the strip has to earn its 60px before a GM collapses it.</li>
+          <li>Collapse state needs to persist per user or every visit re-teaches the same click.</li>
+          <li>Still doesn't ship search itself, since A3's palette owns that box; the field here has nothing to defer to until it exists.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout rejected">
+    <p><b>Rejected: rank the list by an AI-guessed staleness score.</b> 214 rows invite a "show me what's
+    probably wrong first" sort, and that is a model's judgment steering what a GM reads before they've read
+    anything. Guardrail 2 keeps violet, and everything it implies, for the copilot's own surfaces; a ranking
+    signal baked into the browser's default sort would spend it on navigation instead.</p>
+  </div>
+
+  <div class="callout rec">
+    <p><b>I would take C.</b> A gives up the one summary a returning GM wants and B hides the dashboard
+    behind a switcher click nobody is told about; C buys both without touching A2's seven-item cap. It also
+    keeps the honest caveat visible: the palette (A3) is the other half of finding an entry, it isn't
+    built, and it has no issue on the board either, since #75 closed having shipped table mode's
+    instant search instead. Until it ships, this list's search field is the only search Canonry has,
+    in any form.</p>
+  </div>
+</section>
+
+<section class="surf" id="i8">
+  <h2>I8 &middot; empty states</h2>
+  <h3 class="stitle">Ten sentences, one shape, and it is the wrong shape for most of them</h3>
+  <p class="lede">Every empty list in Canonry renders the same way: one grey sentence, and
+  nothing else. That is correct for some of these and wrong for most, because "nothing pending"
+  and "no universes yet" are not the same kind of empty, and treating all ten identically means
+  the one place a button belongs never gets one.</p>
+
+  <h4 class="shead">Today</h4>
+  <figure class="mock">
+    <div class="frame">
+      <div class="app">
+        <div class="side">
+          <div class="uni">Valdoria Reach<span class="dot"></span><span class="caret">&#9662;</span></div>
+          <nav class="nav">
+            <a href="#" class="on">Entries <span class="n">214</span></a>
+            <a href="#">Works</a>
+            <a href="#">Proposals <span class="n">0</span></a>
+            <a href="#">Table</a>
+            <a href="#">Players</a>
+            <a href="#">Import</a>
+            <a href="#">Settings</a>
+          </nav>
+        </div>
+        <div class="main">
+          <div class="tbar"><span class="crumb"><b>Valdoria Reach</b></span></div>
+          <div class="entry">
+            <h1 class="title" style="font-size:20px;">Recent entries</h1>
+            <p class="muted mt0">Nothing here yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><code>/u/valdoria-reach</code>: 214 entries already imported, and the one thing
+    this page shows is a sentence saying there is nothing to see
+    (<code>apps/web/src/routes/u/[universe]/+page.svelte</code>, string at
+    <code>lib/i18n/en.ts:949</code>).</figcaption>
+  </figure>
+
+  <ul class="flaws">
+    <li><b>Home, cold start.</b> "No universes yet - yours, or one you were added to, will show
+    up here." (<code>en.ts:956</code>) - the one screen a brand-new account actually needs a
+    button on has none.</li>
+    <li><b>Universe home, cold start.</b> "Nothing here yet." (<code>en.ts:949</code>) - shown
+    above.</li>
+    <li><b>Works, cold start, with a half-measure.</b> "No works yet." (<code>en.ts:886</code>)
+    - unlike the two above, this page does carry a create form
+    (<code>routes/u/[universe]/works/+page.svelte:47-53</code>), but it sits below the fold as a
+    full form, not as the one button a cold start wants next to the sentence that names it.</li>
+    <li><b>Proposals inbox, settled.</b> "Nothing pending. Edit an entry to start a propagation
+    run." (<code>en.ts:386</code>) - correct today: no button, no nag.</li>
+    <li><b>Review queue, settled.</b> "Nothing left to review." (<code>en.ts:434</code>) -
+    correct today, same reason.</li>
+    <li><b>Audit, settled.</b> "No flags on this entry right now." (<code>en.ts:277</code>) -
+    correct today, same reason.</li>
+    <li><b>Relations, derived.</b> "No relations recorded yet." (<code>en.ts:263</code>) - names
+    no dependency; a GM cannot tell whether relations run automatically or need an edit first.</li>
+    <li><b>Facts, derived.</b> "No facts extracted yet." (<code>en.ts:267</code>) - same gap,
+    and B4 already decided facts are on-demand, so the trigger exists and just is not named
+    here.</li>
+    <li><b>History, derived.</b> "No revisions yet." (<code>en.ts:271</code>) - same gap.</li>
+    <li><b>Images, the one accidental exception.</b> "No images yet." (<code>en.ts:288</code>)
+    already sits above a working Generate button
+    (<code>lib/components/media/EntryMediaPanel.svelte:223,242-250</code>) - not because anyone
+    decided cold starts need a primary action, but because F1's always-visible generate control
+    happens to render there regardless. One surface got the right shape by accident; the other
+    two cold starts did not get it at all.</li>
+  </ul>
+
+  <h4 class="shead">Options</h4>
+  <div class="opts one">
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">A</span><h3>One component, three variants</h3></header>
+      <p class="sub">An <code>EmptyState</code> component with three shapes: <b>cold</b> takes a
+      sentence and one primary action, <b>settled</b> takes a sentence and nothing else,
+      <b>derived</b> takes a sentence and an explanation that links to the thing it depends on.
+      Every string still comes from the i18n catalogue - the component takes props, it owns no
+      copy.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding:20px;">
+          <div class="grid3">
+            <div class="i8-empty">
+              <div class="i8-crumb">Sword Coast (ours) / Works</div>
+              <div class="i8-kind">Cold start</div>
+              <p class="i8-sentence">No works yet.</p>
+              <button class="btn pri sm">New work</button>
+            </div>
+            <div class="i8-empty">
+              <div class="i8-crumb">Valdoria Reach / Proposals</div>
+              <div class="i8-kind">Settled</div>
+              <p class="i8-sentence" style="margin-bottom:0;">Nothing pending. Edit an entry to
+              start a propagation run.</p>
+            </div>
+            <div class="i8-empty">
+              <div class="i8-crumb">Valdoria Reach / Cairnmouth / Facts</div>
+              <div class="i8-kind">Derived absence</div>
+              <p class="i8-sentence" style="margin-bottom:0;">No facts extracted yet.</p>
+              <p class="i8-explain">Facts come from an entry's own prose. <a href="#">Open
+              Cairnmouth's editor</a> to run extraction.</p>
+            </div>
+          </div>
+        </div>
+        <figcaption>Same component, three real surfaces: a button where there is a first action
+        to take, a bare sentence where there genuinely is none, an explanation with a link where
+        the empty depends on something else happening first.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Works and home's cold starts finally get the primary button they are missing;
+          relations, facts and history's derived absences finally say what they are waiting on.</li>
+          <li>One place to fix the shape everywhere at once rather than nine call sites drifting
+          further apart, which is what already happened to works and images.</li>
+          <li>Copy stays in <code>messages(locale)</code> exactly like every other string in the
+          product - the component takes <code>sentence</code>, an optional
+          <code>action: {'{'} label, href {'}'}</code>, and an optional
+          <code>explain: {'{'} text, linkLabel, href {'}'}</code>, never English literals.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Three call shapes to learn instead of one paragraph tag; a surface with a real
+          fourth shape (there is not one in the inventory today) has nowhere to go without
+          extending the component.</li>
+          <li>Someone has to decide, once, which of the three each of the ten existing empties
+          is - the audit above does that work, but the next new surface has to do it again.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Per-surface, hand-written, kept deliberately</h3></header>
+      <p class="sub">What ships today, kept on purpose rather than by default: no component, a
+      checklist in the review rubric instead.</p>
+
+      <figure class="mock">
+        <div class="frame" style="padding:18px;">
+          <div class="card">
+            <header><h4>Review rubric &middot; empty states</h4></header>
+            <div class="i8-check">
+              <div class="c"><span class="box"></span> Names which of the three kinds this is in
+              the PR description.</div>
+              <div class="c"><span class="box"></span> Cold start: exactly one primary action,
+              not a form below the fold.</div>
+              <div class="c"><span class="box"></span> Settled: sentence only. No button, no
+              exclamation mark, nothing that reads as praise.</div>
+              <div class="c"><span class="box"></span> Derived: names the dependency and links to
+              it.</div>
+            </div>
+          </div>
+        </div>
+        <figcaption>A checklist item, not a shared component - works' half-built create form and
+        images' accidental button are what happens when this is the only enforcement.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Zero component to design, build or maintain; each page keeps full control of its
+          own layout.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A checklist is read at review time, not enforced at build time - it is exactly
+          what let works' create form and images' accidental button drift into two different
+          shapes already, with nobody deciding either on purpose.</li>
+          <li>Fixing the three real gaps (home, universe home, works' missing button; relations,
+          facts, history's missing explanation) still means editing six files by hand today, and
+          six more the next time a seventh empty state ships.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Illustrated empties</h3></header>
+      <p class="sub">Drawn to reject it. A small line illustration above the sentence, warmer
+      copy underneath.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="i8-doodle">
+            <svg width="110" height="80" viewBox="0 0 110 80" fill="none" aria-hidden="true">
+              <path d="M8 64 Q55 36 102 64" stroke="var(--line-2)" stroke-width="2" fill="none"/>
+              <path d="M55 64 L55 18" stroke="var(--line-2)" stroke-width="2"/>
+              <path d="M36 30 Q55 8 74 30" stroke="var(--accent)" stroke-width="2" fill="none"/>
+              <circle cx="55" cy="18" r="3" fill="var(--accent)"/>
+            </svg>
+          </div>
+          <p class="i8-doodlecap">Nothing here yet, but it won't stay that way!</p>
+        </div>
+        <figcaption>Drawn once, to show why it does not survive the reading room or the
+        guardrail below.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Warmest tone of the three; might read as friendlier on a first-run empty
+          universe.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>No illustration budget and no icon set exist - H2 spent the product's only drawn
+          asset on the mark itself, on the grounds that a raster gets redrawn from exactly one
+          SVG. An empty-state illustration is a second art direction the product has not
+          budgeted for and A1's reading room, paper and serif, was chosen precisely to not need
+          one.</li>
+          <li>A decorative empty state ages the moment anything nearby changes; a doodle is
+          harder to keep current than a sentence.</li>
+        </ul></div>
+      </div>
+
+      <div class="callout rejected">
+        <p><span class="guardref">Guardrail 7</span> "won't stay that way" promises a populated,
+        coherent future the product cannot certify. Canonry's whole stance is "here is what does
+        not add up," never a promise that it will resolve itself - encouraging copy on an empty
+        state is exactly where that promise starts leaking in.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout rec">
+    <p><b>I would take A.</b> The audit above already sorts all ten existing empties into the
+    three shapes with no leftover case, so the component costs nothing in new taxonomy, only in
+    build. It fixes the two genuine cold-start gaps (home, universe home) and the one half-built
+    one (works) with a real primary action, gives the three derived absences (relations, facts,
+    history) the explanation they are missing, and leaves the three settled states exactly as
+    quiet as they are today. It also folds images' accidental button into the same deliberate
+    shape instead of leaving it as the one page that happens to be right. This locks in the
+    contract for #16 relations, #17/#18 facts and history, #47 the proposal inbox, #55 audit and
+    #20 works, so the next surface to ship an empty list, the players' wiki gap page (E7, #82-85)
+    among them, reuses a decided shape instead of inventing a fourth kind.</p>
+  </div>
+</section>
+
+<section class="surf" id="i9">
+  <h2>I9 &middot; the control layer</h2>
+  <h3 class="stitle">The controls nobody owns</h3>
+  <p class="lede">This is not one screen, it is the reason every other screen in this pass
+  reads slightly wrong without a reader being able to say why. <code>apps/web/src/lib/components</code>
+  has fourteen feature folders and not one named Button, Input, Field, Badge, PageHeader or
+  EmptyState, so every route hand-writes its own Tailwind for the same four controls. The
+  tokens those controls should be built from are fine: <code>routes/layout.css</code> is a
+  complete, careful system, both palettes, serif everywhere per G2, tabular figures, a real
+  reading measure. This section counts how many different ways that system gets spent.</p>
+
+  <h4 class="shead">Today</h4>
+  <figure class="mock">
+    <div class="frame">
+      <div class="i9-pad">
+        <div class="grid2">
+          <div class="card">
+            <header><h4>Sign in</h4><span class="sp"></span><span class="small muted mono">auth/sign-in</span></header>
+            <label class="i9-lbl">Email</label>
+            <input class="i9-in i9-in-a" value="lorenzo@canonry.dev" />
+            <span class="i9-quote">border-line &middot; px-3 py-2</span>
+            <div class="mt24"><button class="i9-btn i9-btn-a">Sign in</button></div>
+            <span class="i9-quote">hover:bg-accent-ink &middot; px-4 py-2</span>
+          </div>
+          <div class="card">
+            <header><h4>New work node</h4><span class="sp"></span><span class="small muted mono">u/[universe]/works</span></header>
+            <label class="i9-lbl">Title</label>
+            <input class="i9-in i9-in-b" value="A drink with the ex-captain" />
+            <span class="i9-quote">border-line-2 &middot; px-3 py-1.5</span>
+            <div class="mt24"><button class="i9-btn i9-btn-b">Save</button></div>
+            <span class="i9-quote">hover:opacity-90 &middot; px-4 py-2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>Both live today. Same product, same "save a piece of text" action, two
+    borders, two paddings, two hovers, because two different people wrote two different
+    forms in two different weeks.</figcaption>
+  </figure>
+
+  <ul class="flaws">
+    <li><b>No component layer.</b> The same "primary submit" role is spelled two ways with
+    nothing between them: <code>apps/web/src/routes/settings/language/+page.svelte:77</code>
+    hovers <code>hover:bg-accent-ink</code>, <code>apps/web/src/routes/onboarding/+page.svelte:55</code>
+    hovers <code>hover:opacity-90</code>. <code>apps/web/src/lib/components/</code> has folders for
+    players, proposals, media, entry, audit, table, audio, onboarding, works, shell, auth,
+    brand, ai and docs, and none of the fourteen is a shared control.</li>
+    <li><b>73 distinct button-shaped class strings, not "roughly 40."</b> I matched every
+    <code>class="..."</code> on a <code>&lt;button&gt;</code> and every button-styled
+    <code>&lt;a&gt;</code> (rounded, padded) across the app's 84 Svelte files: 90
+    <code>&lt;button&gt;</code> elements plus 11 button-styled links, 73 distinct strings,
+    in 51 of the 84 files. Read them by role and the count does not fall: 18 read as
+    primary (filled, <code>bg-accent</code>), 22 as secondary (bordered), 12 as plain text
+    buttons, and 21 more are one-off shapes (pills, phone tabs, list rows) that fit none of
+    the three. Padding alone splits the 18 primary strings six ways:
+    <code>apps/web/src/lib/components/table/QuickActionDock.svelte:56</code> is
+    <code>px-4 py-2.5</code>, <code>apps/web/src/routes/auth/sign-in/+page.svelte:120</code>
+    is <code>px-4 py-2</code>.</li>
+    <li><b>Font size drifts on the same button.</b> <code>apps/web/src/routes/admin/models/+page.svelte:127</code>'s
+    Save is <code>text-xs</code>; <code>apps/web/src/routes/settings/appearance/+page.svelte:52</code>'s
+    Save, doing the same job one click away in the product, is <code>text-sm</code>.</li>
+    <li><b>Inputs disagree on the same form field.</b> Sign in's email field is
+    <code>border-line</code>, <code>px-3 py-2</code>, at
+    <code>apps/web/src/routes/auth/sign-in/+page.svelte:102</code>; the works form's title
+    field is <code>border-line-2</code>, <code>px-3 py-1.5</code>, at
+    <code>apps/web/src/routes/u/[universe]/works/+page.svelte:60</code>. 16 distinct input
+    strings and 4 distinct textarea strings exist across 21 and 4 files respectively.</li>
+    <li><b>A hardcoded glyph nobody can press.</b> <code>apps/web/src/lib/components/shell/Sidebar.svelte:65</code>
+    prints the literal string <code>&#8984;&#8679;A</code> next to Ask the Loremaster, on
+    every platform, for a shortcut with no listener:
+    <code>apps/web/src/lib/keys.ts:7-10</code> says outright "the shell only actively
+    listens for <code>isDismissKey</code> today." Nineteen files away,
+    <code>apps/web/src/routes/u/[universe]/table/+page.svelte:317-318</code> calls
+    <code>formatShortcut()</code> and renders <code>Ctrl+K</code> off macOS correctly. The
+    cross-platform vocabulary A3/G3 asked for exists once, in <code>keys.ts</code>; one
+    caller out of the app uses it.</li>
+    <li><b>Two disclosures, two implementations, both partial.</b>
+    <code>apps/web/src/lib/components/shell/UniverseSwitcher.svelte:31-45</code> writes its
+    own open state, its own outside-pointerdown listener and its own Escape handler for a
+    menu. <code>apps/web/src/lib/components/proposals/EvidencePopover.svelte:47-56</code>
+    writes a second, unrelated one for a popover, with no outside-click and no Escape at
+    all. Neither can be reused by the other, and the account menu I6 needs has nothing to
+    start from.</li>
+    <li><b>The quota already has a home, just not the shell's.</b>
+    <code>apps/web/src/routes/settings/billing/+page.svelte:59-79</code> already renders the
+    real balance: included credits, purchased credits, warm budget remaining over warm
+    budget total, tabular figures, correctly formatted per locale. It sits on a settings
+    leaf nothing links to. F2 asked for a meter in the shell; the numbers landed with quota
+    enforcement (#88) and the warm budget (#89), both closed, and the shell shows nothing.</li>
+  </ul>
+
+  <h4 class="shead">Options</h4>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Leave it</h3></header>
+      <p class="sub">Ad-hoc Tailwind everywhere stays the policy. A component wrapper is
+      indirection over a language every contributor already reads, and Tailwind's own
+      utility classes are, in this argument, already the design system.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="i9-pad">
+            <div class="grid2">
+              <div class="card">
+                <header><h4>Quick note</h4></header>
+                <p class="small muted mt0">Attach to Aldric Vane</p>
+                <textarea class="i9-in i9-in-a" rows="2" style="resize:none">Owes the Ledger for the thaw.</textarea>
+                <div class="mt24"><button class="i9-btn i9-btn-a">Save as proposal</button></div>
+                <span class="i9-quote">table/QuickNoteForm.svelte:81</span>
+              </div>
+              <div class="card">
+                <header><h4>Quick note</h4></header>
+                <p class="small muted mt0">Attach to Aldric Vane</p>
+                <textarea class="i9-in i9-in-b" rows="2" style="resize:none">Owes the Ledger for the thaw.</textarea>
+                <div class="mt24"><button class="i9-btn i9-btn-b">Save as proposal</button></div>
+                <span class="i9-quote">onboarding/+page.svelte:55's button, same label</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>The same dialog, drawn twice, with the two button treatments that
+        actually exist in the codebase today. Nothing here is invented for the argument.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Zero migration. No dependency, no wrapper API to design badly, no version to
+          track against Tailwind 4 upgrades.</li>
+          <li>Every contributor already reads plain Tailwind; nothing new to learn to ship a
+          screen.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>The drift compounds. Every new screen adds a 74th spelling instead of reusing
+          one of the 73 that already exist, because nothing forces a lookup.</li>
+          <li>G1's dark-mode review means checking 73 hand-written combinations against two
+          palettes by eye, in 51 files, instead of one specimen sheet.</li>
+          <li>The mock above is the whole argument: a user feels this without being able to
+          name it, and "the tokens are fine" stops being true in practice the moment nobody
+          is made to spend them the same way twice.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">B</span><h3>Extract the six that earn it</h3></header>
+      <p class="sub"><code>Button</code>, <code>Field</code>, <code>Badge</code>,
+      <code>PageHeader</code>, <code>EmptyState</code>, <code>Panel</code>, chosen by
+      call-site count rather than taste, with variants that match what the 73 strings
+      already do rather than a new vocabulary invented on top of them.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="i9-pad">
+            <div class="grid2">
+              <div class="i9-spec">
+                <h5>Light</h5>
+                <div class="i9-row">
+                  <button class="btn">Cancel</button>
+                  <button class="btn pri">Save</button>
+                  <button class="btn ai">Ask</button>
+                  <button class="btn dgr">Delete</button>
+                  <button class="btn sm pri">Confirm</button>
+                  <button class="btn" disabled>Import</button>
+                </div>
+                <h5>Field</h5>
+                <div class="i9-row">
+                  <div class="i9-field"><label>Universe name</label><input value="Valdoria Reach" /></div>
+                  <div class="i9-field i9-err"><label>Email</label><input value="lorenzo@" /><span class="i9-msg">Enter a valid email.</span></div>
+                </div>
+                <h5>Badge</h5>
+                <div class="i9-row">
+                  <span class="badge">character</span>
+                  <span class="badge now">urgent</span>
+                  <span class="badge soon">soon</span>
+                  <span class="badge later">later</span>
+                  <span class="badge ai">ai</span>
+                  <span class="badge ok">ok</span>
+                  <span class="badge done">done</span>
+                </div>
+                <h5>PageHeader</h5>
+                <div class="i9-pghead">
+                  <div><h3>Debts of Valdoria</h3><div class="i9-meta">campaign &middot; running &middot; session 7</div></div>
+                  <button class="btn pri sm">New scene</button>
+                </div>
+                <h5>EmptyState</h5>
+                <div class="i9-empty">
+                  <span class="i9-glyph">&#8709;</span>
+                  <p>Nothing here yet.</p>
+                  <button class="btn pri sm">Import your first entries</button>
+                </div>
+                <h5>Panel</h5>
+                <div class="card">
+                  <header><h4>The Ashen Ledger</h4><span class="sp"></span><span class="badge">faction</span></header>
+                  <p class="small muted mt0">Merchant bank that lends at knife point.</p>
+                </div>
+              </div>
+              <div class="i9-spec" data-theme="dark">
+                <h5>Dark</h5>
+                <div class="i9-row">
+                  <button class="btn">Cancel</button>
+                  <button class="btn pri">Save</button>
+                  <button class="btn ai">Ask</button>
+                  <button class="btn dgr">Delete</button>
+                  <button class="btn sm pri">Confirm</button>
+                  <button class="btn" disabled>Import</button>
+                </div>
+                <h5>Field</h5>
+                <div class="i9-row">
+                  <div class="i9-field"><label>Universe name</label><input value="Valdoria Reach" /></div>
+                  <div class="i9-field i9-err"><label>Email</label><input value="lorenzo@" /><span class="i9-msg">Enter a valid email.</span></div>
+                </div>
+                <h5>Badge</h5>
+                <div class="i9-row">
+                  <span class="badge">character</span>
+                  <span class="badge now">urgent</span>
+                  <span class="badge soon">soon</span>
+                  <span class="badge later">later</span>
+                  <span class="badge ai">ai</span>
+                  <span class="badge ok">ok</span>
+                  <span class="badge done">done</span>
+                </div>
+                <h5>PageHeader</h5>
+                <div class="i9-pghead">
+                  <div><h3>Debts of Valdoria</h3><div class="i9-meta">campaign &middot; running &middot; session 7</div></div>
+                  <button class="btn pri sm">New scene</button>
+                </div>
+                <h5>EmptyState</h5>
+                <div class="i9-empty">
+                  <span class="i9-glyph">&#8709;</span>
+                  <p>Nothing here yet.</p>
+                  <button class="btn pri sm">Import your first entries</button>
+                </div>
+                <h5>Panel</h5>
+                <div class="card">
+                  <header><h4>The Ashen Ledger</h4><span class="sp"></span><span class="badge">faction</span></header>
+                  <p class="small muted mt0">Merchant bank that lends at knife point.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Every variant of all six, both palettes, one page. Three of the six
+        (Button, Badge, Panel) are already exactly <code>.btn</code>, <code>.badge</code>
+        and <code>.card</code> in this stylesheet, because a shared mock kit forces the
+        discipline the app itself does not have yet.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One spelling of Save, one of Cancel, everywhere, chosen by counting call
+          sites rather than by whoever wrote the newest screen.</li>
+          <li>This specimen sheet is the artifact a dark-mode review needs and does not
+          have today: every variant, both palettes, one glance instead of 51 files.</li>
+          <li>EmptyState retires the copy-pasted "Nothing here yet." sentence (home, the
+          entry list, the players' wiki gap page) into one component with a real call to
+          action slot, instead of a sentence and nothing else.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>53 files are behind the new six and need a real migration pass, not a
+          parallel option nobody adopts.</li>
+          <li>Call-site count is a blunt instrument: Panel is already just <code>.card</code>
+          again, so the list is really five new components and one that already existed
+          in every mock in this set.</li>
+          <li>Solves the styled-div problem and nothing else. The account menu, the
+          universe switcher's disclosure and the evidence popover still need real focus
+          management this does not provide.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Adopt shadcn-svelte properly</h3></header>
+      <p class="sub"><code>SPEC.md</code> &sect;11 already names shadcn-svelte in the
+      <code>apps/web</code> stack; nothing in the app imports it. Draw what it buys where
+      it is actually hard, not as a wholesale replacement for the six above.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="i9-pad">
+            <div class="grid3">
+              <div>
+                <p class="small muted mt0">shadcn's own default</p>
+                <div class="i9-shadcn">
+                  <div class="i9-item">Rename universe</div>
+                  <div class="i9-item i9-sel">Switch to Sword Coast (ours)</div>
+                  <div class="i9-item">Precedence settings</div>
+                  <div class="i9-item i9-danger">Leave universe</div>
+                </div>
+              </div>
+              <div class="i9-arrow">&rarr;</div>
+              <div>
+                <p class="small muted mt0">restyled into the reading room</p>
+                <div class="card" style="width:200px">
+                  <div class="rows">
+                    <div class="r"><span class="sp">Rename universe</span></div>
+                    <div class="r on"><span class="sp">Switch to Sword Coast (ours)</span></div>
+                    <div class="r"><span class="sp">Precedence settings</span></div>
+                    <div class="r"><span class="sp" style="color:var(--danger)">Leave universe</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>What lands is Radix slate, a 13px sans and a blue selection state;
+        what ships has to be this instead, every time, on arrival.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>A real dialog, dropdown and popover with focus trapping, arrow-key
+          navigation and Escape-to-close, written once by people whose job is exactly
+          that, instead of a third hand-rolled disclosure after
+          <code>UniverseSwitcher.svelte</code> and <code>EvidencePopover.svelte</code>.</li>
+          <li>Finishes a decision already on record (<code>SPEC.md</code> &sect;11) rather
+          than opening a new one.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Its defaults are a different design language. Every component that lands
+          gets restyled into the reading room before it ships; that is real work per
+          component, not a free extraction.</li>
+          <li>Its own focus ring and accent are close enough to violet that a component
+          landing unretokenised next to an AI surface risks <span class="guardref">Guardrail 2</span>
+          before anyone notices, since violet is the copilot's colour and nothing else may
+          spend it.</li>
+          <li>Adopting it for everything B already lists is a bigger lift than B is; most
+          of B's list is a styled <code>&lt;div&gt;</code>, not a focus-management
+          problem, and shadcn does not make a styled div cheaper to write.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout rec">
+    <p><b>I would take B, with C for the three parts that are genuinely hard to write
+    well and are missing today: a dialog, a dropdown menu and a popover with focus
+    management.</b> Dropdown, for the account menu I6 needs from nothing and for
+    <code>UniverseSwitcher.svelte</code>'s hand-rolled disclosure. Popover, for
+    <code>EvidencePopover.svelte</code> (C5), which today has a click toggle and no
+    Escape. The fourth named spot, the image generation confirm (F1, G11), turns out to
+    be the one place that already reaches for the platform:
+    <code>apps/web/src/lib/components/media/GenerateDialog.svelte:67-73</code> uses a
+    native <code>&lt;dialog&gt;</code> and <code>showModal()</code>, so F1 already gets a
+    focus trap and Escape for free without shadcn at all. That is the outlier, not the
+    pattern, and it is worth keeping as proof the browser can carry the hard part when
+    nobody has to reinvent it. Six components ship in days on call-site count; three real
+    primitives, built once, close the account menu, the switcher and evidence review
+    without a second bespoke disclosure ever getting written again.</p>
+  </div>
+
+  <h4 class="shead">Also decided, never built</h4>
+  <p class="lede">Two shell parts are controls in the same sense as the six above:
+  answered questions with no component behind them. The command palette (A3, G3) has its full
+  cross-platform shortcut vocabulary already sitting in
+  <code>apps/web/src/lib/keys.ts</code>, unread by anything except a test file and one
+  static string, and it has no issue on the board: #75, which the register names against A3,
+  closed having shipped table mode's instant search instead. The quota meter (F2) has its
+  numbers already computed and rendered, just not in the shell. Drawn together, because they
+  occupy the same sidebar and the same decision to finish rather than reopen.</p>
+
+  <figure class="mock">
+    <div class="frame">
+      <div class="i9-shellwrap">
+        <div class="app aside3">
+          <div class="side">
+            <div class="uni">Valdoria Reach <span class="caret">&#9662;</span></div>
+            <nav class="nav">
+              <a href="#" class="on">Entries <span class="n">214</span></a>
+              <a href="#">Works <span class="n">1</span></a>
+              <a href="#">Proposals <span class="n">3</span></a>
+              <a href="#">Table</a>
+              <a href="#">Players</a>
+              <a href="#">Import</a>
+              <a href="#">Settings</a>
+              <div class="grp">Recent</div>
+              <a href="#">Aldric Vane</a>
+              <a href="#">The Gilded Rat</a>
+            </nav>
+            <div class="i9-meterfoot">
+              <div class="i9-meterrow"><span>Included this month</span><span>2,400 / 5,000</span></div>
+              <div class="meter"><i class="i9-fill-quota"></i></div>
+              <div class="i9-meterrow"><span>Warm budget</span><span>180 / 600</span></div>
+              <div class="meter"><i class="i9-fill-warm warn"></i></div>
+            </div>
+          </div>
+          <div class="main">
+            <div class="tbar"><span class="crumb">Valdoria Reach / character / <b>Aldric Vane</b></span></div>
+            <div class="entry">
+              <h1 class="title">Aldric Vane</h1>
+              <div class="kicker"><span class="badge">character</span></div>
+            </div>
+          </div>
+          <div class="aside">
+            <div class="sec"><h4>Proposals</h4><p class="small muted mt0">3 pending review.</p></div>
+          </div>
+        </div>
+        <div class="i9-scrim">
+          <div class="i9-palette">
+            <div class="i9-cmdbar">Jump to an entry, run a command, or ask a question&hellip;<span class="i9-kwrap"><kbd class="k">Ctrl</kbd><kbd class="k">K</kbd></span></div>
+            <div class="rows">
+              <div class="r"><span class="sp">Aldric Vane</span><span class="badge">character</span></div>
+              <div class="r"><span class="sp">The Gilded Rat</span><span class="badge">place</span></div>
+              <div class="r"><span class="sp">Go to <b>Table</b></span></div>
+              <div class="r"><span class="sp">Ask: why is Aldric on the Ledger's payroll?</span><span class="badge ai">ask</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>Mod+K over the shell, keys.ts's vocabulary finally read by something;
+    two meters in the sidebar footer, quota and warm budget counted separately per F2,
+    both real numbers from SAMPLE-WORLD.md.</figcaption>
+  </figure>
+
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 7</span> the meter's copy states a real ceiling,
+    "2,400 / 5,000," and never the word unlimited, even on a plan where the number is
+    large. A meter that cannot be read as a promise is the only kind this product is
+    allowed to ship.</p>
+  </div>
+
+</section>
+
+<section class="surf" id="i10">
+  <h2>I10 &middot; the phone</h2>
+  <h3 class="stitle">A wiki you can only read at a table</h3>
+  <p class="lede">Seventeen responsive utilities exist in the whole app, spread over eight files, six of
+  them inside table mode. Everywhere else the shell assumes a desktop: the sidebar is a fixed 256px column
+  with no breakpoint, so on a 390px phone it eats two thirds of the screen. E4 and G1 were both decided with
+  a GM at a lit table in mind; prep on a sofa, or reading on a train, was never drawn.</p>
+
+  <h4 class="shead">Today</h4>
+  <figure class="mock">
+    <div class="frame" style="display:flex;justify-content:center;padding:20px;background:var(--panel-2)">
+      <div class="phone">
+        <div class="scr">
+          <div class="body i10-squeeze">
+            <div class="i10-sidebar">
+              <div class="i10-unirow">Valdoria Reach &#9662;</div>
+              <nav class="nav">
+                <a href="#" class="on">Entries</a>
+                <a href="#">Works</a>
+                <a href="#">Proposals</a>
+                <a href="#">Table</a>
+                <a href="#">Players</a>
+                <a href="#">Import</a>
+                <a href="#">Settings</a>
+              </nav>
+            </div>
+            <div class="i10-sliver">Ald&shy;ric&hellip;</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>256px of fixed sidebar in a 390px viewport leaves 134px for the entry itself.</figcaption>
+  </figure>
+  <ul class="flaws">
+    <li><b>No breakpoint on the shell.</b> The universe sidebar is <code>w-64 flex-none</code> with nothing
+    conditional on it: <code>apps/web/src/lib/components/shell/Sidebar.svelte:50</code>.</li>
+    <li><b>Phone-aware, but only inside table mode.</b> The one component with a real phone state is scoped
+    <code>md:hidden</code> to that surface alone: <code>apps/web/src/lib/components/table/PhoneTabBar.svelte:35</code>.</li>
+    <li><b>Prep on a sofa was never drawn.</b> Of the eight files carrying any
+    <code>md:</code>/<code>lg:</code> class, six are table mode's own; the entry reader and everything else
+    ship the same fixed shell as the desktop.</li>
+  </ul>
+
+  <h4 class="shead">Options</h4>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Table mode only</h3></header>
+      <p class="sub">Leave the phone as a table-mode surface, E4's four tabs, and let the rest of the app
+      stay desktop. Cheapest option on the table: it costs a route audit, not a redesign.</p>
+      <figure class="mock">
+        <div class="frame" style="display:flex;justify-content:center;padding:20px;background:var(--panel-2)">
+          <div class="phone tmode">
+            <div class="scr">
+              <div class="i10-pctx"><b>Valdoria</b><span class="muted">&middot;</span>session 7</div>
+              <div class="body">
+                <div class="rows">
+                  <div class="r"><span class="sp"><b>Aldric Vane</b><br><span class="muted small">answers to the Ashen Ledger now</span></span></div>
+                  <div class="r"><span class="sp"><b>Mother Sennah</b><br><span class="muted small">keeps the Gilded Rat</span></span></div>
+                </div>
+              </div>
+              <div class="tabs"><a class="on">Here</a><a>Actions</a><a>Ask</a><a>Queue <span class="badge ai" style="font-size:9px;padding:0 4px">4</span></a></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Exactly what E4 already ships. Close this app and open Aldric Vane cold and it's the squeeze from Today.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Zero new surface area; E4 already shipped this and it works.</li>
+          <li>No risk to the one phone surface that's actually good today.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A GM cannot read their own wiki on the train, or check a name on the sofa before a session.</li>
+          <li>Leaves the Today squeeze exactly as broken as it is now for every non-table route.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">B</span><h3>One responsive shell</h3></header>
+      <p class="sub">The sidebar collapses to a drawer behind the universe switcher; the top bar gains the
+      palette and the account; E4's bottom tabs generalise from table mode to the whole app. Drawn at the
+      two screens that have to survive: the entry, because it's the most visited, and the proposal queue,
+      because it's the product.</p>
+      <div class="i10-two">
+        <figure class="mock">
+          <div class="frame" style="display:flex;justify-content:center;padding:20px;background:var(--panel-2)">
+            <div class="phone">
+              <div class="scr">
+                <div class="i10-top">
+                  <span class="i10-menu">&#9776;</span>
+                  <span>Valdoria Reach <span class="caret">&#9662;</span></span>
+                  <span class="sp"></span>
+                  <span class="i10-ic" title="Palette">&#8981;</span>
+                  <span class="i10-ic i10-av">LF</span>
+                </div>
+                <div class="body">
+                  <div class="entry" style="padding:0">
+                    <h1 class="title" style="font-size:19px;margin-bottom:2px">Aldric Vane</h1>
+                    <div class="kicker" style="margin-bottom:10px"><span class="badge">character</span></div>
+                    <div class="prose" style="font-size:13.5px">
+                      <p>Dismissed from the watch in the thaw after the Sable Winter, he now
+                      <span class="men t-fact">answers to the Ashen Ledger</span>.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="tabs">
+                  <a class="on">Entries</a><a>Proposals <span class="badge ai" style="font-size:9px;padding:0 4px">4</span></a><a>Ask</a><a>More</a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>The reading surface, drawer and palette one tap away, tabs generalised from E4's own shape.</figcaption>
+        </figure>
+        <figure class="mock">
+          <div class="frame" style="display:flex;justify-content:center;padding:20px;background:var(--panel-2)">
+            <div class="phone">
+              <div class="scr">
+                <div class="i10-top">
+                  <span class="i10-menu">&#9776;</span>
+                  <span>Proposals <span class="badge now" style="margin-left:4px">4</span></span>
+                  <span class="sp"></span>
+                  <span class="i10-ic">&#8981;</span>
+                  <span class="i10-ic i10-av">LF</span>
+                </div>
+                <div class="body">
+                  <div class="rows">
+                    <div class="r"><span class="sp"><b>The Valdoria Watch</b><br><span class="why">still names him captain</span></span></div>
+                  </div>
+                  <div class="i10-qcard">
+                    <p class="small mt0" style="margin-bottom:8px"><b>The Ashen Ledger</b> <span class="muted small">roster missing Aldric</span></p>
+                    <div class="rowflex" style="gap:8px">
+                      <button class="btn sm pri" style="flex:1">Accept</button>
+                      <button class="btn sm dgr" style="flex:1">Reject</button>
+                    </div>
+                  </div>
+                  <div class="rows">
+                    <div class="r"><span class="sp"><b>The Gilded Rat</b><br><span class="why">"unbothered" mention now stale</span></span></div>
+                    <div class="r"><span class="sp"><b>Iselde Wrenn</b><br><span class="why">appointed &rarr; dismissed</span></span></div>
+                  </div>
+                </div>
+                <div class="tabs">
+                  <a>Entries</a><a class="on">Proposals</a><a>Ask</a><a>More</a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>One card focused with Accept/Reject as separate taps, the rest queued below.</figcaption>
+        </figure>
+      </div>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The two screens that matter most, the entry and the queue, work one-handed on any device.</li>
+          <li>One tab shape, generalised from E4, instead of a second navigation pattern to learn.</li>
+          <li>The account and the palette, once it exists, both get a reachable home on phone too.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A pass over every route rather than a new screen: every surface's spacing, tap targets and
+          overflow need checking, not just these two.</li>
+          <li>C6's keyboard queue (<kbd class="k">j</kbd> <kbd class="k">k</kbd> <kbd class="k">a</kbd>
+          <kbd class="k">r</kbd>) doesn't reach a phone; the queue reverts to a per-card button pair there,
+          a second interaction shape for the same surface.</li>
+          <li>The editor, import and table's authoring paths are not drawn here and still need their own answer.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Phone for reading, desktop for writing</h3></header>
+      <p class="sub">Reading, Ask and table mode go to the phone. The editor, import and settings stay
+      explicitly desktop: opening one on a phone gets a plain sentence, not a broken layout.</p>
+      <figure class="mock">
+        <div class="frame" style="display:flex;justify-content:center;padding:20px;background:var(--panel-2)">
+          <div class="phone">
+            <div class="scr">
+              <div class="i10-top">
+                <span class="i10-menu">&#9776;</span>
+                <span>Aldric Vane <span class="muted small">/ edit</span></span>
+              </div>
+              <div class="body i10-blocked">
+                <p class="small muted">The editor isn't built for a phone screen.<br>Open Aldric Vane on a
+                laptop to edit it.</p>
+                <button class="btn sm" style="margin-top:14px">Back to reading</button>
+              </div>
+              <div class="tabs"><a class="on">Entries</a><a>Proposals</a><a>Ask</a><a>More</a></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>The reading screen is B's; tapping edit here gets a sentence instead of a squeezed toolbar.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Never ships a broken editor: B2's toolbar and mention menu stay untested on touch entirely.</li>
+          <li>Honest about scope: a phone-shaped import review or settings panel was never asked for here.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A GM who drafts a quick note from a phone, mid-session, is told no rather than helped.</li>
+          <li>Still needs almost all of B's shell pass (drawer, top bar, tabs) to draw the reading half at all.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout rejected">
+    <p><b>Rejected: swipe left or right to decide, on the queue.</b> It reads fast on a phone, which is
+    exactly the problem: guardrail 1 rules out anything that lets review collapse into one repeated gesture
+    across many entries, and a swipe deck is that gesture wearing a nicer animation. B keeps one proposal
+    focused with Accept and Reject as two separate taps, never a single motion that clears several at once.</p>
+  </div>
+
+  <div class="callout rec">
+    <p><b>I would take B</b>, and price it honestly: it is a pass over every route's spacing and overflow,
+    not a new screen, so it belongs to one shell pass rather than a ticket per surface. It also forces
+    the one translation C6's desktop design never had to make: bare keys don't exist on a phone, so the
+    review queue needs its button-per-card shape drawn for touch from day one, not bolted on after.</p>
+  </div>
+</section>
 
 <section>
   <h2>What I would do first</h2>
@@ -327,7 +3000,7 @@
     it is the largest single piece of work here, and every screen outside a universe stops being
     a floating column the day it lands.</li>
     <li><b>Then the two surfaces that are missing rather than wrong</b>: the entry browser (I7) and
-    the landing page (I1, which is issues #3 and #4 and was always going to be its own piece).</li>
+    the palette (A3, which has no issue and is the other half of I7).</li>
     <li><b>Then the pass work</b>: the six components (I9), the empty-state pattern (I8), and the
     responsive pass (I10). None of them is a screen, all of them are the difference between this
     reading as a product and reading as a scaffold.</li>
@@ -341,16 +3014,26 @@
 </section>
 
 <section>
-  <h2>The decisions this opens</h2>
+  <h2>The decisions this opens, and the empty board underneath them</h2>
   <p>Ten, ids I1 to I10, and none of them is taken. When they are, they go into
   <a href="DECISIONS.md">DECISIONS.md</a> as round four and into the register in
   <code>assets/ux.js</code>, with the issues each one blocks named on the issue itself. Two of them
   amend an answer that already exists rather than opening new ground, and those are the two worth
   reading twice: I3's option B changes what A2's sidebar is for, and I10's option B extends E4's
   bottom tabs past table mode.</p>
-  <p class="small muted">The set's own index still says "there is no UI yet", which was true when it
-  was written and has not been true for a while. That sentence gets fixed in the same commit that
-  records these answers.</p>
+  <p><b>None of this has a ticket, because the board has nothing left on it.</b> Every issue that
+  built a surface named on this page is closed: #104 the app shell, #86 auth, #108 onboarding, #107
+  the writing switch, #88 and #89 the quota. The five that are still open are import cost bugs, a
+  billing currency bug, a backup alert and the v2 Spole driver. So the board says the shell is Done
+  while the shell does not exist outside a universe, and it says onboarding is Done while nothing
+  links to it. That is the honest reading of a board built issue by issue: each ticket did what it
+  said, and nobody filed the one that says these screens have to add up to a product.</p>
+  <p>Two of the eleven findings need no answer and can be committed today, the doubled sign-in
+  sentence and the <code>prefers-color-scheme</code> gap. The rest wait on the picks above, and then
+  become the next wave: one issue per surface, each hanging off the epic that owns it, with the
+  decision id in the body so the reason survives the ticket.</p>
+  <p class="small muted">The set's own index said "there is no UI yet", which was true when it was
+  written. It now points here instead.</p>
 </section>
 
 <nav class="pagenav">

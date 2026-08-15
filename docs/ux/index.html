@@ -44,6 +44,8 @@
   <span class="sp"></span>
   <span>issue <a href="https://github.com/fiorelorenzo/canonry/issues/111">#111</a></span>
   <span>·</span>
+  <a href="product-pass.html">product pass</a>
+  <span>·</span>
   <a href="SAMPLE-WORLD.md">sample world</a>
   <span>·</span>
   <a href="https://github.com/orgs/fiorelorenzo/projects/9">board</a>
@@ -51,9 +53,10 @@
 
 <header class="hero">
   <h1>Every screen Canonry has to grow, and every decision that has to be taken before it does</h1>
-  <p class="sub">There is no UI yet. That is the good news: the decisions below are all
-  still free, and each one of them is about to be taken by accident by whoever
-  implements the first issue that needs it.</p>
+  <p class="sub">Written before there was any UI, which is what made the decisions below
+  free: each one was about to be taken by accident by whoever implemented the first issue
+  that needed it. The UI exists now, so read
+  <a href="product-pass.html">the product pass</a> next for what actually shipped.</p>
   <p class="tally" data-ux-tally></p>
 </header>
 
@@ -100,8 +103,16 @@
 
 <section>
   <h2>The state of the UI today</h2>
-  <p>Two commits, no application code, 110 issues on the board and none of them
-  started. <code>SPEC.md</code> fixes the stack (SvelteKit 2, Svelte 5 runes, Tailwind 4,
+  <p><b>The paragraph below was true when it was written and is not true now.</b> The
+  application shipped: forty-seven routes, the entry and its editor, the whole propagation
+  loop, the import surfaces, Ask, table mode, the players' wiki, the admin panels and both
+  palettes. What the decisions did not produce is the ring around those screens, which is
+  why signing into the preview still feels like an internal tool.
+  <a href="product-pass.html"><b>The product pass</b></a> audits what the deployment actually
+  serves, surface by surface, and puts two or three drawn options on each of the ten places
+  it falls down. This page says what was decided; that one says what was built.</p>
+  <p>Written on 2026-08-13: two commits, no application code, 110 issues on the board and none
+  of them started. <code>SPEC.md</code> fixes the stack (SvelteKit 2, Svelte 5 runes, Tailwind 4,
   shadcn-svelte) and the domain model, and it is deliberately quiet about the interface:
   it says a proposal shows its evidence, not where the evidence sits; it says AI text is
   visually distinct, not what distinct looks like; it says nothing at the table waits on
