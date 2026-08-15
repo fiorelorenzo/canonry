@@ -25,6 +25,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ResolvedModel } from '@canonry/ai';
 import { resolveModel } from '@canonry/ai';
 import { runAsk } from './ask.js';
+import type { AskDetailLevel } from './ask.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
 import {
 	insertEntity,
@@ -387,5 +388,48 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 
 		const calls = await db.select().from(modelCall).where(eq(modelCall.operation, 'ask.answer'));
 		expect(calls.filter((c) => c.userId === owner.id)).toHaveLength(0);
+	});
+
+	it('SPEC.md §5 / issue #167: the five detail-level instructions form one length scale, with "full" naming "detailed" as included', async () => {
+		const { owner, universe } = await fixture();
+		const levels: AskDetailLevel[] = ['1_line', 'short', 'normal', 'detailed', 'full'];
+		const systemPrompts: string[] = [];
+
+		for (const detailLevel of levels) {
+			let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+			await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'Why was Aldric Vane dismissed?',
+				detailLevel,
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				modelFactory: modelFactoryFor(
+					capturingStreamingModel('placeholder answer', (options) => {
+						captured = options;
+					})
+				),
+				gateway: IDENTITY_GATEWAY
+			});
+			systemPrompts.push(systemPromptOf(captured!));
+		}
+
+		// The bug (#167) was "detailed" and "full" reading as two different shapes rather
+		// than two points on one scale, so nothing enforced that any two levels even asked
+		// for something different. A mock model cannot measure a real answer's length, so
+		// this pins the instruction text the levels compile to instead: it catches the
+		// instructions collapsing or reordering, not a regression in what a real model does
+		// with them - that needs the bench e2e run, not a unit test.
+		expect(new Set(systemPrompts).size).toBe(levels.length);
+
+		// "full" has to name "detailed"'s scope as included, or a model has no textual
+		// reason to treat "full" as the longer of the two - which is exactly how the bug
+		// happened (full measured 29% shorter than detailed on a real model, issue #167).
+		const fullPrompt = systemPrompts[levels.indexOf('full')]!;
+		const detailedPrompt = systemPrompts[levels.indexOf('detailed')]!;
+		expect(fullPrompt).toContain('a "detailed" answer');
+		expect(fullPrompt).not.toBe(detailedPrompt);
 	});
 });

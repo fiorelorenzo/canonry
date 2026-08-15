@@ -214,12 +214,19 @@ function deriveFollowUps(locale: Locale, sources: AskSource[]): string[] {
 	return names.slice(0, 2).map((name) => TELL_ME_MORE[locale](name));
 }
 
+/** SPEC.md §5 fixes five detail levels but not what distinguishes them, and no
+ * `docs/ux/DECISIONS.md` entry (checked C8, G5, the C8 artifact itself) settles it either -
+ * C8 decided where Ask lives, not what its levels mean. Read as one length scale, since
+ * that is the only reading `1_line` through `detailed` already support and it is the
+ * smaller of the two honest fixes in issue #167: each level asks for strictly more than
+ * the last, and `full` names `detailed`'s scope explicitly so a model treats it as a
+ * superset rather than a differently-shaped answer. */
 const DETAIL_LEVEL_INSTRUCTION: Record<AskDetailLevel, string> = {
 	'1_line': 'Answer in exactly one short sentence.',
 	short: 'Answer in two to three short sentences.',
 	normal: 'Answer in one short paragraph.',
 	detailed: 'Answer in two or three paragraphs with concrete detail.',
-	full: 'Answer as fully as the sources support, organised into short paragraphs.'
+	full: 'Answer in at least four paragraphs: cover everything a "detailed" answer would, then go further with every other relevant detail, caveat and connection the sources support.'
 };
 
 function renderSourcesForPrompt(sources: AskSource[]): string {
