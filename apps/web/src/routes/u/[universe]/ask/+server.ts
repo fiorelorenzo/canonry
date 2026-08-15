@@ -13,7 +13,7 @@ import { universeAccessBySlug } from '@canonry/db';
 import { runAsk, type AskDetailLevel } from '@canonry/copilot';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
-import { identityGateway, modelFactory, queryEmbedder, vectorClient } from '$lib/server/copilot';
+import { identityGateway, modelFactory, queryEmbedderFor, vectorClient } from '$lib/server/copilot';
 import type { RequestHandler } from './$types';
 
 const DETAIL_LEVELS: readonly AskDetailLevel[] = ['1_line', 'short', 'normal', 'detailed', 'full'];
@@ -61,7 +61,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 					question,
 					detailLevel,
 					vectorClient: vectorClient(),
-					embedder: queryEmbedder,
+					embedder: queryEmbedderFor(locals.user!.id, access.universe.id),
 					modelFactory,
 					gateway: identityGateway,
 					onSources: (sources, followUps) => {

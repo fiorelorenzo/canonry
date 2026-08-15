@@ -3,13 +3,12 @@
  * Qdrant client, a real query embedder, and the real `createLanguageModel` factory from
  * `@canonry/ai`'s composition root. One instance per process, mirroring `$lib/server/db`.
  *
- * The embedder uses `hashingEmbedder` from `@canonry/indexing` rather than a real
- * gateway-backed embedding model: this deploys without `AI_GATEWAY_*` credentials
- * configured (dev boxes, this one included), and `hashingEmbedder` is exactly what
- * packages/indexing's own retrieval-eval test uses for the same reason - a real,
- * deterministic bag-of-words vectoriser, not a stub standing in for missing behaviour.
- * Swapping to `createGatewayEmbedder` once real credentials exist changes nothing else,
- * since both satisfy the same `Embedder` seam.
+ * The embedder resolves `model_config`'s `'embedding'` row and calls it through the gateway
+ * (issue #125), so an Italian question reaches an English chunk - the §17 promise that a
+ * bag-of-words vectoriser structurally cannot keep. It falls back to `hashingEmbedder` only
+ * when there is no gateway credential at all, and says so on every call rather than degrading
+ * quietly: a silent fallback here looks exactly like working retrieval while answering from
+ * token overlap, which is the failure mode that hid this gap for a month.
  *
  * `modelFactory` has a second, dev-only branch for the same reason: this box (and every
  * dev box like it) has no `AI_GATEWAY_*` credentials, so the real branch always throws
@@ -36,11 +35,19 @@
  * the real, credentialed branch). A production build can never reach the mock branch even
  * if `COPILOT_DEV_MOCK_MODEL` leaks into its environment.
  */
-import { createLanguageModel } from '@canonry/ai';
+import {
+	createEmbeddingModel,
+	createLanguageModel,
+	MissingGatewayEnvError,
+	readGatewayCredentials,
+	resolveModel,
+	type GatewayCredentials
+} from '@canonry/ai';
 import { createVectorClient, type QdrantClient } from '@canonry/vector';
-import { hashingEmbedder } from '@canonry/indexing';
+import { createGatewayEmbedder, hashingEmbedder } from '@canonry/indexing';
 import type { GatewayWrapper, ModelFactory, QueryEmbedder } from '@canonry/copilot';
 import { env } from '$env/dynamic/private';
+import { db } from '$lib/server/db';
 import { MockLanguageModelV4 } from 'ai/test';
 import type { LanguageModel } from 'ai';
 
@@ -133,4 +140,43 @@ export const modelFactory: ModelFactory = useDevMockModel ? devMockModelFactory 
 
 export const identityGateway: GatewayWrapper = (model) => model;
 
-export const queryEmbedder: QueryEmbedder = hashingEmbedder;
+/**
+ * Ask's retrieval embedder, per request rather than per process: `createGatewayEmbedder` records
+ * every call against the asking user through `withUsage`, so a memoised instance would attribute
+ * one user's embeddings to whoever happened to boot the singleton (the same reason
+ * `embeddingProviderFor` in `$lib/server/media` is built per request).
+ *
+ * The fallback is deliberately noisy and deliberately not silent-by-default. A dev box with no
+ * `AI_GATEWAY_API_KEY` still gets working retrieval, which is why `hashingEmbedder` exists at
+ * all, but it answers from token overlap: an Italian question will not find an English chunk,
+ * and every §17 claim is false while it is in play. Saying so per call is the point.
+ */
+export function queryEmbedderFor(userId: string, universeId: string | null): QueryEmbedder {
+	let credentials: GatewayCredentials;
+	try {
+		credentials = readGatewayCredentials(env);
+	} catch (error) {
+		if (!(error instanceof MissingGatewayEnvError)) throw error;
+		return async (texts) => {
+			console.warn(
+				`*** no ${error.varName}: Ask retrieval is falling back to hashingEmbedder, a bag-of-words ` +
+					`vectoriser. Cross-language retrieval (SPEC.md §17) does not work in this process. ***`
+			);
+			return hashingEmbedder(texts);
+		};
+	}
+
+	return async (texts) => {
+		const resolved = await resolveModel(db(), 'embedding');
+		const embedder = createGatewayEmbedder({
+			db: db(),
+			model: {
+				...resolved,
+				model: createEmbeddingModel(resolved.provider, resolved.modelId, credentials)
+			},
+			userId,
+			universeId
+		});
+		return embedder(texts);
+	};
+}

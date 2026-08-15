@@ -1,23 +1,23 @@
 /**
  * Audio providers, behind an interface (#68, mirroring ../provider.ts's ImageProvider
  * seam for #66/#70). Two implementations: ElevenLabs for the real generation, and a fake
- * for tests - this sandbox has no ELEVENLABS_API_KEY, so nothing here fabricates a
- * generated layer into the database; the fake returns a small real WAV tone instead of
- * pretending to be ElevenLabs' output. See this package's report for exactly what only a
- * live key would prove beyond what provider.test.ts covers here.
+ * for tests - the fake returns a small real WAV tone instead of pretending to be
+ * ElevenLabs' output, so the decompose/cache/generate/store pipeline is provable without
+ * spending a real credit on every test run.
  *
  * ElevenLabs' actual product for this feature is its sound-generation endpoint
  * (`/v1/sound-generation`, model `eleven_text_to_sound_v2`) - a text-to-SFX call, not
- * text-to-speech. `@ai-sdk/elevenlabs` (what ai-gateway-provider's `elevenlabs` provider
- * subpath wraps) only exposes `speech` and `transcription` models, so this cannot go
- * through @canonry/ai's createLanguageModel or the AI SDK at all. It goes through
- * Cloudflare AI Gateway's documented provider-specific REST proxy instead, the exact
- * pattern ../../ai/src/replicate.ts already uses for Replicate and for the same reason:
- * a REST passthrough provider has no AI SDK model shape to wrap, but the gateway still
- * proxies it (https://developers.cloudflare.com/ai-gateway/usage/providers/elevenlabs/,
- * `/v1/{account}/{gateway}/elevenlabs/...`, `xi-api-key` header carried straight through).
+ * text-to-speech. `@ai-sdk/elevenlabs` only exposes `speech` and `transcription` models,
+ * so this cannot go through @canonry/ai's createLanguageModel or the AI SDK at all, and
+ * Vercel AI Gateway (this codebase's gateway for text and embeddings) has no
+ * sound-generation coverage regardless. This provider goes straight to
+ * `https://api.elevenlabs.io/v1/sound-generation` with the `xi-api-key` header
+ * (https://elevenlabs.io/docs/api-reference/text-to-sound-effects/convert) - a
+ * deliberate, narrow exception to routing every model call through one gateway, the same
+ * carve-out made for Replicate images. Verified live 2026-08-15 against the real API -
+ * see this package's report for the exact request/response.
  */
-import { chargeFor, type GatewayCredentials, type ModelCallAgent } from '@canonry/ai';
+import { chargeFor, type ModelCallAgent } from '@canonry/ai';
 import { previewCharge, recordAndCharge, type Db } from '@canonry/db';
 import { ProviderLimiter } from '../concurrency.js';
 
@@ -52,8 +52,8 @@ export interface AudioProvider {
 export class MissingElevenLabsEnvError extends Error {
 	constructor() {
 		super(
-			'missing required env var ELEVENLABS_API_KEY: ambient layer generation is BYOK on the ' +
-				'gateway (SPEC.md §8.2) and cannot authenticate to ElevenLabs without it.'
+			'missing required env var ELEVENLABS_API_KEY: ambient layer generation calls ' +
+				'ElevenLabs directly (SPEC.md §8.2) and cannot authenticate without it.'
 		);
 		this.name = 'MissingElevenLabsEnvError';
 	}
@@ -75,16 +75,13 @@ export class ElevenLabsRequestError extends Error {
 	}
 }
 
-/** Mirrors replicateGatewayBaseUrl in ../../ai/src/gateway.ts, which does not export its
- * CLOUDFLARE_GATEWAY_HOST constant on @canonry/ai's public surface - the same reason
- * ../embedding.ts's GatewayEmbeddingProvider restates the host itself rather than
- * reaching into that package's internals. `credentials.baseUrl` is the same test-only
- * override replicate.ts's own path already threads through GatewayCredentials. */
-const CLOUDFLARE_GATEWAY_HOST = 'https://gateway.ai.cloudflare.com';
+/** Real ElevenLabs host by default; overridable via ElevenLabsAudioProviderDeps.baseUrl
+ * so tests can point this at a local HTTP stub instead of the network - the same
+ * test-only override replicate.ts's own path threads through. */
+const ELEVENLABS_API_BASE_URL = 'https://api.elevenlabs.io';
 
-function elevenLabsGatewayUrl(credentials: GatewayCredentials): string {
-	const host = credentials.baseUrl ?? CLOUDFLARE_GATEWAY_HOST;
-	return `${host}/v1/${credentials.accountId}/${credentials.gateway}/elevenlabs/v1/sound-generation?output_format=mp3_44100_128`;
+function elevenLabsSoundGenerationUrl(baseUrl: string): string {
+	return `${baseUrl}/v1/sound-generation?output_format=mp3_44100_128`;
 }
 
 export const ELEVENLABS_PROVIDER = 'elevenlabs';
@@ -100,9 +97,10 @@ export const ELEVENLABS_MODEL_ID = 'eleven_text_to_sound_v2';
  * @canonry/db's previewCharge/recordAndCharge - so the guarantee is identical (refuse
  * before spending, one model_call row either way, never charged on failure) without
  * inventing a purpose that does not exist. costEur is always recorded as 0: ModelParams
- * has eurPerImage but no per-character or per-second field for ElevenLabs' own pricing,
- * and there is no live credential on this box to measure a real number against - see this
- * package's report.
+ * has eurPerImage but no field for ElevenLabs' own per-request pricing, and even a live
+ * call's real `character-cost` response header is denominated in ElevenLabs credits, not
+ * EUR - converting it needs the account's plan rate, which nothing here has, so this
+ * stays 0 rather than guessing an exchange rate. Tracked by issue #116, not fixed here.
  */
 async function chargeAndRecordLayer<T>(params: {
 	db: Db;
@@ -155,25 +153,25 @@ async function chargeAndRecordLayer<T>(params: {
 
 export interface ElevenLabsAudioProviderDeps {
 	db: Db;
-	credentials: GatewayCredentials;
 	elevenLabsApiToken: string;
+	/** Test-only override for ELEVENLABS_API_BASE_URL - points the request at a local
+	 * HTTP stub instead of the real network (provider.test.ts). */
+	baseUrl?: string;
 	limiter: ProviderLimiter;
 	agent: ModelCallAgent;
 }
 
 /**
  * The real path (#68, #70). Charges and previews the spend up front (one credited call
- * per layer, SPEC.md §8.1's "3 credits per generated layer" anchor), submits through the
- * gateway's ElevenLabs proxy gated by the 'elevenlabs' concurrency slot (SPEC.md §8.1's
- * "3 concurrent requests" fixture, reusing ../concurrency.ts's ProviderLimiter rather than
- * a second one), and records the model_call row on success or failure.
+ * per layer, SPEC.md §8.1's "3 credits per generated layer" anchor), calls ElevenLabs
+ * directly gated by the 'elevenlabs' concurrency slot (SPEC.md §8.1's "3 concurrent
+ * requests" fixture, reusing ../concurrency.ts's ProviderLimiter rather than a second
+ * one), and records the model_call row on success or failure.
  *
- * UNVERIFIED against the real ElevenLabs API in this sandbox: there is no
- * ELEVENLABS_API_KEY here. What only a live key would prove beyond provider.test.ts's
- * coverage (the request shape, the gateway URL, the concurrency gating, the charge/record
- * sequencing) is that a real `eleven_text_to_sound_v2` call actually returns decodable
- * audio for a given prompt within ElevenLabs' own 0.5-22s duration window - see this
- * package's report.
+ * Verified live against the real ElevenLabs API (2026-08-15) - see this package's report
+ * for the exact request/response: a real `eleven_text_to_sound_v2` call returns
+ * decodable `audio/mpeg` for a given prompt within ElevenLabs' own 0.5-30s duration
+ * window.
  */
 export class ElevenLabsAudioProvider implements AudioProvider {
 	constructor(private readonly deps: ElevenLabsAudioProviderDeps) {}
@@ -189,12 +187,12 @@ export class ElevenLabsAudioProvider implements AudioProvider {
 			modelId: ELEVENLABS_MODEL_ID,
 			fn: () =>
 				this.deps.limiter.run('elevenlabs', async () => {
-					const response = await fetch(elevenLabsGatewayUrl(this.deps.credentials), {
+					const baseUrl = this.deps.baseUrl ?? ELEVENLABS_API_BASE_URL;
+					const response = await fetch(elevenLabsSoundGenerationUrl(baseUrl), {
 						method: 'POST',
 						headers: {
 							'content-type': 'application/json',
-							'xi-api-key': this.deps.elevenLabsApiToken,
-							'cf-aig-authorization': `Bearer ${this.deps.credentials.apiKey}`
+							'xi-api-key': this.deps.elevenLabsApiToken
 						},
 						body: JSON.stringify({
 							text: input.prompt,
@@ -209,6 +207,8 @@ export class ElevenLabsAudioProvider implements AudioProvider {
 						const bodyText = await response.text();
 						throw new ElevenLabsRequestError(response.status, `${bodyText.length} byte body`);
 					}
+					// ElevenLabs' sound-generation endpoint returns mp3 by default (audio/mpeg) -
+					// never assume wav; ../storage.ts's EXTENSION_BY_MIME keys off this exact string.
 					const mimeType = response.headers.get('content-type') ?? 'audio/mpeg';
 					const bytes = new Uint8Array(await response.arrayBuffer());
 					return { bytes, mimeType };

@@ -38,31 +38,69 @@ export type ResolvedEmbeddingModel = ResolvedModel & { model: EmbeddingModel };
  * its own real MIRACL number, unlike `mistral-embed`, which has none because the
  * capability does not exist.
  *
- * **What this table does not answer, and why that is stated rather than hidden:**
- * MIRACL and MTEB Multilingual are aggregate scores over many languages; neither
- * publishes an isolated English<->Italian pair, and en/it is exactly the pair this
- * product ships. Two things follow, and both are open gaps rather than settled
- * questions:
+ * **What the leaderboards do not answer, and what has now been measured instead.**
+ * MIRACL and MTEB Multilingual are aggregates over many languages; neither publishes an
+ * isolated English<->Italian pair, and en/it is exactly the pair this product ships. That gap
+ * was open until a live gateway credential existed. It is now partly closed by measurement
+ * rather than inference, through the real model over the real gateway:
  *
- *  1. No live embedding credential exists on this build (`packages/ai`'s
- *     `createLanguageModel` has no embedding-model counterpart yet either - see this
- *     file's own header comment on the provider-mapping boundary - so even a configured
- *     `model_config` row could not be exercised end to end today). Everything this
- *     package proves about cross-lingual retrieval (`cross-lingual-retrieval.test.ts`)
- *     is proven against `hashingEmbedder`, a literal bag-of-words vectoriser, which is
- *     the honest mechanism check ("does the pipeline route a chunk's language through,
- *     does nothing filter on it"), never a claim about `gemini-embedding-001`'s own
- *     recall.
- *  2. The one number SPEC.md §11.4 actually anchors this product to - MRR 0.775 on a
- *     2044-chunk gold corpus - was measured on English content with English questions.
- *     Re-running `packages/indexing`'s retrieval eval (`retrieval-eval.test.ts`) and
- *     `packages/eval`'s harness against a *bilingual* gold corpus, through a real
- *     `gemini-embedding-001` call, is the live benchmark this choice still needs before
- *     anyone treats "en<->it MRR" as measured rather than inferred from a general
- *     leaderboard. That benchmark is the gap; this comment is not a substitute for it.
+ * | What was measured | Result |
+ * | --- | --- |
+ * | The same fact in Italian and English (`La Casa dei Mercanti...` / `The Ashen Ledger...`) | cosine 0.8093 |
+ * | An Italian question against the English fact that answers it | cosine 0.7972 |
+ * | An Italian fact against unrelated English prose | cosine 0.5571 |
+ * | 8 questions (4 Italian) against the 5-chunk fixture world, English prose | the right chunk ranked first 8/8, MRR 1.000 |
+ *
+ * So §17's promise - "an Italian question against an English canon must find the English
+ * chunk" - is now demonstrated rather than assumed, and the margin between signal and noise is
+ * about 0.25 of cosine. Two things that measurement also exposed, both acted on:
+ *
+ *  1. this model's cosine floor is high (unrelated prose sits near 0.55, not near 0), so the
+ *     0.5 threshold §11.4 quotes was very nearly a no-op. See `retriever.ts`, where the
+ *     threshold is now a noise floor with the numbers behind it written down.
+ *  2. it is a 5-chunk smoke calibration on the fixture world, **not** the 2044-chunk gold
+ *     corpus §11.4 anchors MRR 0.775 to. That number was measured with `hashingEmbedder` and
+ *     is stale for this model in both directions; re-running `packages/eval`'s retrieval
+ *     harness against a bilingual gold corpus through this model is still the real benchmark,
+ *     and this comment is not a substitute for it.
  */
 export const RECOMMENDED_EMBEDDING_MODEL = {
 	purpose: 'embedding',
 	provider: 'google',
 	modelId: 'gemini-embedding-001'
 } as const;
+
+/**
+ * Output width per embedding model, because Qdrant needs the number before the first vector
+ * exists and a wrong one corrupts a collection silently (see `ensureCollection`'s
+ * `onDimensionMismatch`). Deliberately a lookup that throws on an unknown model rather than a
+ * configurable default: an env var like `EMBEDDING_VECTOR_SIZE` cannot be kept in step with a
+ * model that admins change from the database, and the two disagreeing is exactly the failure
+ * this table prevents. Every number here is the provider's documented default output size,
+ * with no `outputDimensionality` truncation requested anywhere in this codebase.
+ */
+const EMBEDDING_DIMENSIONS: Readonly<Record<string, number>> = {
+	'google/gemini-embedding-001': 3072,
+	'google/text-multilingual-embedding-002': 768,
+	'openai/text-embedding-3-large': 3072,
+	'openai/text-embedding-3-small': 1536
+};
+
+export class UnknownEmbeddingDimensionsError extends Error {
+	constructor(provider: string, modelId: string) {
+		super(
+			`no known output dimensionality for embedding model ${provider}/${modelId}. ` +
+				`Add it to EMBEDDING_DIMENSIONS in packages/indexing/src/models.ts: a collection created ` +
+				`at the wrong width accepts no vectors from this model.`
+		);
+		this.name = 'UnknownEmbeddingDimensionsError';
+	}
+}
+
+/** The vector width `model_config`'s current 'embedding' row implies. Throws rather than
+ * guessing, so an unrecognised model fails at wiring time instead of at first upsert. */
+export function embeddingDimensionsFor(provider: string, modelId: string): number {
+	const dimensions = EMBEDDING_DIMENSIONS[`${provider}/${modelId}`];
+	if (dimensions === undefined) throw new UnknownEmbeddingDimensionsError(provider, modelId);
+	return dimensions;
+}

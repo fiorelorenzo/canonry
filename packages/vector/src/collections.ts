@@ -28,19 +28,76 @@ export interface EnsureCollectionOptions {
 	/** SPEC.md §11.3: "cosine distance". Overridable for a non-lore collection (a sibling
 	 * package's own similarity cache, for instance) that wants a different metric. */
 	distance?: VectorDistance;
+	/**
+	 * What to do when the collection already exists with a **different** vector size, which
+	 * happens whenever the configured embedding model changes (issue #125 swapped a 256-dim
+	 * bag-of-words hash for a 3072-dim multilingual model, and every collection written by the
+	 * old one is now unreadable by the new one).
+	 *
+	 * There is deliberately no default. The right answer depends on what the collection holds,
+	 * the caller is the only one who knows, and getting it wrong silently is the failure this
+	 * option exists to prevent: Qdrant accepts the mismatched collection and then rejects every
+	 * upsert with a shape error far from the cause.
+	 *
+	 * - `'throw'` for anything whose contents are the product of real work (indexed lore). A
+	 *   dimension change there means someone has to re-index, and a re-index is a decision.
+	 * - `'recreate'` for a cache, where the entries are re-derivable by definition and dropping
+	 *   them costs one re-embed.
+	 */
+	onDimensionMismatch: 'throw' | 'recreate';
+}
+
+/** Thrown rather than swallowed: a collection whose vectors are a different width than the
+ * current model produces cannot be queried or appended to, so continuing would mean writing
+ * into something unreadable. Names both numbers, because the fix depends on which is which. */
+export class VectorDimensionMismatchError extends Error {
+	constructor(
+		public readonly collection: string,
+		public readonly existing: number,
+		public readonly wanted: number
+	) {
+		super(
+			`collection ${collection} holds ${existing}-dimension vectors but the configured model produces ${wanted}. ` +
+				`Re-index this collection against the current model, or point model_config back at the model that wrote it.`
+		);
+		this.name = 'VectorDimensionMismatchError';
+	}
+}
+
+async function existingVectorSize(client: QdrantClient, name: string): Promise<number | null> {
+	const info = await client.getCollection(name);
+	const vectors = info.config?.params?.vectors;
+	// Narrowed rather than asserted: Qdrant's own type here is a union covering named and
+	// unnamed vector configs, and the single-vector case is the only one this helper writes.
+	if (vectors && typeof vectors === 'object' && 'size' in vectors) {
+		const size: unknown = vectors.size;
+		return typeof size === 'number' ? size : null;
+	}
+	return null;
 }
 
 /**
  * Idempotent create: Qdrant has no "create if not exists", and issue #57's acceptance
  * ("collections are created and queried") means a second call - a re-run, a second
  * universe reusing the same model - must not fail on an existing collection.
+ *
+ * An existing collection is also checked for width, per `onDimensionMismatch`.
  */
 export async function ensureCollection(
 	client: QdrantClient,
 	options: EnsureCollectionOptions
 ): Promise<void> {
 	const exists = await client.collectionExists(options.name);
-	if (exists.exists) return;
+	if (exists.exists) {
+		const existing = await existingVectorSize(client, options.name);
+		// A null size means an unnamed-vector or multi-vector config this helper never writes;
+		// leave it alone rather than guessing which vector the caller meant.
+		if (existing === null || existing === options.vectorSize) return;
+		if (options.onDimensionMismatch === 'throw') {
+			throw new VectorDimensionMismatchError(options.name, existing, options.vectorSize);
+		}
+		await client.deleteCollection(options.name);
+	}
 	await client.createCollection(options.name, {
 		vectors: { size: options.vectorSize, distance: options.distance ?? 'Cosine' }
 	});

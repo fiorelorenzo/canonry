@@ -446,7 +446,10 @@ export async function estimateAveragesFor(
 // ---------------------------------------------------------------------------------------
 
 export function hasLiveGatewayCredentials(): boolean {
-	return Boolean(env.AI_GATEWAY_ACCOUNT_ID && env.AI_GATEWAY_NAME && env.AI_GATEWAY_API_KEY);
+	// One key since the Vercel gateway switch (issue #97): the account/gateway pair was
+	// Cloudflare's routing shape and no longer exists. Checking the dead vars here would have
+	// reported 'no credentials' on a correctly configured box.
+	return Boolean(env.AI_GATEWAY_API_KEY);
 }
 
 export function resolveImportDriver(database: Db): { driver: ImportDriver; isFake: boolean } {

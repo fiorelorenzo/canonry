@@ -155,6 +155,20 @@
       "when": 1786781328588,
       "tag": "0021_canon_save_job_locale",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1786797175815,
+      "tag": "0022_seed_embedding_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1786797445058,
+      "tag": "0023_gateway_model_slugs",
+      "breakpoints": true
     }
   ]
 }

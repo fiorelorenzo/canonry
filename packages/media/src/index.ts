@@ -47,9 +47,6 @@ export {
 	FakeEmbeddingProvider,
 	GatewayEmbeddingProvider,
 	trigramEmbedding,
-	readEmbeddingApiToken,
-	MissingEmbeddingApiTokenError,
-	EmbeddingRequestError,
 	type EmbeddingProvider,
 	type GatewayEmbeddingProviderDeps
 } from './embedding.js';
@@ -59,7 +56,7 @@ export {
 	recordMediaVector,
 	createVectorClient,
 	SIMILARITY_THRESHOLD,
-	MEDIA_SIMILARITY_COLLECTION,
+	mediaSimilarityCollectionName,
 	type SimilarityCacheDeps,
 	type SimilarityHit,
 	type FindSimilarInput,
@@ -102,7 +99,7 @@ export {
 	tinyWavBytes,
 	findSimilarAudioLayer,
 	recordAudioLayerVector,
-	AUDIO_LAYER_SIMILARITY_COLLECTION,
+	audioLayerSimilarityCollectionName,
 	AUDIO_SIMILARITY_THRESHOLD,
 	contentJaccard,
 	type ActiveAmbientPack,

@@ -156,7 +156,11 @@ describe("cross-lingual retrieval (SPEC.md §17, issue #125): today's hashing em
 	beforeAll(async () => {
 		client = vectorClient;
 		collectionName = scratchCollection();
-		await ensureCollection(client, { name: collectionName, vectorSize: HASH_VECTOR_SIZE });
+		await ensureCollection(client, {
+			name: collectionName,
+			vectorSize: HASH_VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 
 		const chunks = valdoriaReachRetrieval.chunks;
 		const vectors = await hashingEmbedder(chunks.map((chunk) => chunk.text));
@@ -250,7 +254,11 @@ describe('chunk language is metadata, never a retrieval filter (SPEC.md §17, is
 	it('scoreLoreHits (the production retrieval entry point) returns chunks of every language present, for a query in either language', async () => {
 		const { universe: u } = await insertUniverseWithOwner(db);
 		const collectionName = scratchCollection();
-		await ensureCollection(vectorClient, { name: collectionName, vectorSize: HASH_VECTOR_SIZE });
+		await ensureCollection(vectorClient, {
+			name: collectionName,
+			vectorSize: HASH_VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 
 		// Deliberately near-identical vectors (both derived from the word "harbor" and
 		// nothing else that would separate them) so nothing but a language filter could

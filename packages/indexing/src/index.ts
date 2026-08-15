@@ -25,7 +25,11 @@ export {
 export { chunkPointId } from './point-id.js';
 
 export type { ResolvedExtractionModel, ResolvedEmbeddingModel } from './models.js';
-export { RECOMMENDED_EMBEDDING_MODEL } from './models.js';
+export {
+	RECOMMENDED_EMBEDDING_MODEL,
+	embeddingDimensionsFor,
+	UnknownEmbeddingDimensionsError
+} from './models.js';
 
 export {
 	createGatewayExtractor,

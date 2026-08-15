@@ -87,7 +87,11 @@ describe('loreCollectionName', () => {
 describe('ensureCollection against real Qdrant', () => {
 	it('creates a collection with cosine distance and the requested vector size', async () => {
 		const name = scratchCollectionName();
-		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE });
+		await ensureCollection(client, {
+			name,
+			vectorSize: VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 
 		expect(await collectionExists(client, name)).toBe(true);
 		const info = await client.getCollection(name);
@@ -98,9 +102,13 @@ describe('ensureCollection against real Qdrant', () => {
 
 	it('is idempotent: creating the same collection twice does not throw', async () => {
 		const name = scratchCollectionName();
-		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE });
+		await ensureCollection(client, {
+			name,
+			vectorSize: VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 		await expect(
-			ensureCollection(client, { name, vectorSize: VECTOR_SIZE })
+			ensureCollection(client, { name, vectorSize: VECTOR_SIZE, onDimensionMismatch: 'recreate' })
 		).resolves.toBeUndefined();
 	});
 });
@@ -108,7 +116,11 @@ describe('ensureCollection against real Qdrant', () => {
 describe('queryLore: cross-universe isolation', () => {
 	it("never returns another universe's points even when they sit in the same collection with near-identical vectors", async () => {
 		const name = scratchCollectionName();
-		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE });
+		await ensureCollection(client, {
+			name,
+			vectorSize: VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 
 		const chunks: LoreChunk[] = [
 			{
@@ -153,7 +165,11 @@ describe('queryLore: cross-universe isolation', () => {
 
 	it("a universe with no points never gets another universe's results back", async () => {
 		const name = scratchCollectionName();
-		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE });
+		await ensureCollection(client, {
+			name,
+			vectorSize: VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 		await upsertLoreChunks(client, name, [
 			{ id: randomUUID(), vector: unitVector(1), payload: payload({ universeId: 'universe-a' }) }
 		]);
@@ -170,7 +186,11 @@ describe('queryLore: cross-universe isolation', () => {
 describe('queryLore: exclusion patterns (issue #62)', () => {
 	it('drops a hit whose url matches an excluded pattern', async () => {
 		const name = scratchCollectionName();
-		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE });
+		await ensureCollection(client, {
+			name,
+			vectorSize: VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 		await upsertLoreChunks(client, name, [
 			{
 				id: randomUUID(),
@@ -218,7 +238,11 @@ describe('urlMatchesPattern', () => {
 describe('deleteLorePage', () => {
 	it("removes only the targeted page's points, scoped by universe, data source and url", async () => {
 		const name = scratchCollectionName();
-		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE });
+		await ensureCollection(client, {
+			name,
+			vectorSize: VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 		await upsertLoreChunks(client, name, [
 			{
 				id: randomUUID(),
@@ -258,7 +282,11 @@ describe('deleteLorePage', () => {
 describe('findPageUpdatedAt', () => {
 	it('returns null for a page that has never been indexed', async () => {
 		const name = scratchCollectionName();
-		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE });
+		await ensureCollection(client, {
+			name,
+			vectorSize: VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 		const result = await findPageUpdatedAt(client, name, {
 			universeId: 'universe-a',
 			dataSourceId: 'source-1',
@@ -269,7 +297,11 @@ describe('findPageUpdatedAt', () => {
 
 	it("returns the stored page's own updatedAt once it has been indexed", async () => {
 		const name = scratchCollectionName();
-		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE });
+		await ensureCollection(client, {
+			name,
+			vectorSize: VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 		await upsertLoreChunks(client, name, [
 			{
 				id: randomUUID(),
@@ -295,7 +327,11 @@ describe('findPageUpdatedAt', () => {
 describe('countPoints', () => {
 	it('counts only points matching the filter', async () => {
 		const name = scratchCollectionName();
-		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE });
+		await ensureCollection(client, {
+			name,
+			vectorSize: VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 		await upsertLoreChunks(client, name, [
 			{ id: randomUUID(), vector: unitVector(5), payload: payload({ universeId: 'universe-a' }) },
 			{ id: randomUUID(), vector: unitVector(6), payload: payload({ universeId: 'universe-a' }) },
@@ -314,7 +350,11 @@ describe('countPoints', () => {
 describe('LoreChunkPayload.language (SPEC.md §17, issue #125)', () => {
 	it('round-trips a known language and a null (unknown) one through Qdrant unchanged', async () => {
 		const name = scratchCollectionName();
-		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE });
+		await ensureCollection(client, {
+			name,
+			vectorSize: VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 		await upsertLoreChunks(client, name, [
 			{
 				id: randomUUID(),
@@ -346,7 +386,11 @@ describe('LoreChunkPayload.language (SPEC.md §17, issue #125)', () => {
 
 	it('is never a retrieval filter: a query returns chunks of every language present, not just one', async () => {
 		const name = scratchCollectionName();
-		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE });
+		await ensureCollection(client, {
+			name,
+			vectorSize: VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 		await upsertLoreChunks(client, name, [
 			{
 				id: randomUUID(),

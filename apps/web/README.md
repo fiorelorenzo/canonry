@@ -68,14 +68,16 @@ Read at runtime, never at build time except `APP_VERSION`/`APP_COMMIT`. See
 the root `.env.example` for the full list with fake values; the ones this
 package reads directly:
 
-| Variable                                                         | Used for                                                                                                                                                                                         |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL`                                                   | Postgres connection string (`@canonry/db`)                                                                                                                                                       |
-| `QDRANT_URL`                                                     | Qdrant base URL, also probed by `/healthz`                                                                                                                                                       |
-| `ORIGIN`                                                         | the public URL this deployment is served at; SvelteKit checks form POSTs' `Origin` header against it, so behind a reverse proxy this must be the public URL or every form submission answers 403 |
-| `PORT`                                                           | port the server binds to                                                                                                                                                                         |
-| `AI_GATEWAY_ACCOUNT_ID`, `AI_GATEWAY_NAME`, `AI_GATEWAY_API_KEY` | Cloudflare AI Gateway (`@canonry/ai`)                                                                                                                                                            |
-| `AI_GATEWAY_BASE_URL`                                            | optional override, for pointing tests at a local fake gateway                                                                                                                                    |
+| Variable              | Used for                                                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`        | Postgres connection string (`@canonry/db`)                                                                                                                                                       |
+| `QDRANT_URL`          | Qdrant base URL, also probed by `/healthz`                                                                                                                                                       |
+| `ORIGIN`              | the public URL this deployment is served at; SvelteKit checks form POSTs' `Origin` header against it, so behind a reverse proxy this must be the public URL or every form submission answers 403 |
+| `PORT`                | port the server binds to                                                                                                                                                                         |
+| `AI_GATEWAY_API_KEY`  | Vercel AI Gateway, text and embeddings (`@canonry/ai`)                                                                                                                                           |
+| `REPLICATE_API_TOKEN` | Replicate, called directly for images (the gateway routes no image models we use)                                                                                                                |
+| `ELEVENLABS_API_KEY`  | ElevenLabs, called directly for sound generation                                                                                                                                                 |
+| `AI_GATEWAY_BASE_URL` | optional override, for pointing tests at a local fake gateway                                                                                                                                    |
 
 ## Deploying
 

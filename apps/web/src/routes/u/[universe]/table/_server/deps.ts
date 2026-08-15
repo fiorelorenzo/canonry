@@ -5,15 +5,10 @@
  */
 import { env } from '$env/dynamic/private';
 import { readGatewayCredentials, type GatewayCredentials } from '@canonry/ai';
-import { readEmbeddingApiToken } from '@canonry/media';
 import { createVectorClient, readVectorClientConfig, type QdrantClient } from '@canonry/vector';
 
 export function tableGatewayCredentials(): GatewayCredentials {
 	return readGatewayCredentials(env);
-}
-
-export function tableEmbeddingApiToken(): string {
-	return readEmbeddingApiToken(env);
 }
 
 let qdrant: QdrantClient | undefined;

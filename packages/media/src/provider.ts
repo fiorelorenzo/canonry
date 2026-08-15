@@ -4,12 +4,7 @@
  * nothing here fabricates a generated image into the database; the fake returns a small
  * real PNG instead of pretending to be Replicate's output.
  */
-import {
-	generateImage,
-	type GatewayCredentials,
-	type ModelCallAgent,
-	type ResolvedModel
-} from '@canonry/ai';
+import { generateImage, type ModelCallAgent, type ResolvedModel } from '@canonry/ai';
 import type { Db } from '@canonry/db';
 import { ProviderLimiter } from './concurrency.js';
 
@@ -59,7 +54,6 @@ async function downloadImage(url: string): Promise<GeneratedImage> {
 
 export interface ReplicateImageProviderDeps {
 	db: Db;
-	credentials: GatewayCredentials;
 	replicateApiToken: string;
 	limiter: ProviderLimiter;
 	agent: ModelCallAgent;
@@ -67,22 +61,14 @@ export interface ReplicateImageProviderDeps {
 
 /**
  * The real path (#66, #70). Submits the prediction through @canonry/ai's generateImage
- * (gateway call, quota check and charging, model_call recording - all unchanged from that
- * package's own tests), gated by the 'replicate' concurrency slot from ProviderLimiter,
- * then downloads the resulting image bytes.
+ * (direct Replicate call, quota check and charging, model_call recording - all unchanged
+ * from that package's own tests), gated by the 'replicate' concurrency slot from
+ * ProviderLimiter, then downloads the resulting image bytes.
  *
  * The download happens *outside* the semaphore's slot on purpose: the prediction has
  * already finished (generateImage sends `Prefer: wait`), so fetching the resulting file
  * from Replicate's CDN is a second, unrelated network call that should not hold a
  * prediction slot hostage while a CDN serves bytes.
- *
- * UNVERIFIED against the real Replicate API in this sandbox: there is no
- * REPLICATE_API_TOKEN here (see @canonry/ai's replicate.ts, which already covers the
- * gateway-proxy request shape and quota wiring against a local HTTP double). What only a
- * real token proves is that a real Replicate prediction for prunaai/p-image and
- * black-forest-labs/flux-schnell actually returns a decodable image at the URL this class
- * downloads from - the request/response plumbing up to that point is exercised by
- * @canonry/ai's own test suite and by provider.test.ts's predictionImageUrls coverage.
  */
 export class ReplicateImageProvider implements ImageProvider {
 	constructor(private readonly deps: ReplicateImageProviderDeps) {}
@@ -92,7 +78,6 @@ export class ReplicateImageProvider implements ImageProvider {
 			generateImage({
 				db: this.deps.db,
 				model: input.model,
-				credentials: this.deps.credentials,
 				replicateApiToken: this.deps.replicateApiToken,
 				input: { prompt: input.prompt, num_outputs: input.count },
 				userId: input.userId,

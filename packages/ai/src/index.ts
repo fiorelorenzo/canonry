@@ -5,7 +5,6 @@
 export {
 	createGateway,
 	readGatewayCredentials,
-	replicateGatewayBaseUrl,
 	MissingGatewayEnvError,
 	type GatewayCredentials
 } from './gateway.js';
@@ -53,7 +52,14 @@ export {
 	type WarmSpendCheck,
 	type WithQuotaMeta
 } from './quota.js';
-export { createLanguageModel, UnknownProviderError, KNOWN_PROVIDERS } from './composition.js';
+export {
+	createLanguageModel,
+	createEmbeddingModel,
+	UnknownProviderError,
+	isKnownProvider,
+	KNOWN_PROVIDERS,
+	type KnownProvider
+} from './composition.js';
 export {
 	encryptApiKey,
 	decryptApiKey,

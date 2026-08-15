@@ -23,12 +23,20 @@ export type { QdrantClient };
  * SPEC.md §9 names the same number for images, and issue #67 covers media generally. */
 export const SIMILARITY_THRESHOLD = 0.94;
 
-/** One collection for every universe and feature, distinguished by payload filters rather
- * than by name - unlike the per-universe lore collections (SPEC.md §11.3), which exist
- * because their vector dimension can change per indexed model. The similarity cache's
- * embedding model is one admin-configured choice for the whole deployment, so there is
- * nothing per-universe about the collection itself. */
-export const MEDIA_SIMILARITY_COLLECTION = 'MediaPromptSimilarity';
+/**
+ * One collection per embedding model, holding every universe and feature, which are
+ * distinguished by payload filters rather than by name. Nothing about this cache is
+ * per-universe, so the name is not; but the vector width is a property of the model, and two
+ * writers at different widths cannot share a collection.
+ *
+ * The model used to be absent from the name, and that was a real defect rather than a tidiness
+ * question: issue #125's switch to a 3072-dimension model left the deployment's 256-dimension
+ * collection in place, and app and tests then took turns deleting and recreating one name at two
+ * widths. Same reasoning as `loreCollectionName` (SPEC.md §11.3), which had it right first.
+ */
+export function mediaSimilarityCollectionName(provider: string, modelId: string): string {
+	return `MediaPromptSimilarity_${provider}_${modelId}`;
+}
 
 interface SimilarityPayload {
 	universeId: string;
@@ -51,6 +59,9 @@ function parseSimilarityPayload(value: Record<string, unknown>): SimilarityPaylo
 
 export interface SimilarityCacheDeps {
 	client: QdrantClient;
+	/** Built with `mediaSimilarityCollectionName` from whichever embedding model the caller's
+	 * `EmbeddingProvider` actually uses, so the name and the width can never disagree. */
+	collection: string;
 	/** The embedding model's output dimensionality - Qdrant needs it up front to create
 	 * the collection. Must match whatever EmbeddingProvider is passed to generate.ts. */
 	vectorSize: number;
@@ -58,7 +69,10 @@ export interface SimilarityCacheDeps {
 
 async function ensureReady(deps: SimilarityCacheDeps): Promise<void> {
 	await ensureCollection(deps.client, {
-		name: MEDIA_SIMILARITY_COLLECTION,
+		// Recreated rather than guarded: this is a cache of prompt embeddings, so a model change costs
+		// one re-embed. Keeping a stale-width collection would reject every upsert instead.
+		onDimensionMismatch: 'recreate',
+		name: deps.collection,
 		vectorSize: deps.vectorSize
 	});
 }
@@ -81,7 +95,7 @@ export async function findSimilarMedia(
 	input: FindSimilarInput
 ): Promise<SimilarityHit | null> {
 	await ensureReady(deps);
-	const hits = await queryPoints(deps.client, MEDIA_SIMILARITY_COLLECTION, {
+	const hits = await queryPoints(deps.client, deps.collection, {
 		vector: input.vector,
 		filter: {
 			must: [
@@ -116,7 +130,7 @@ export async function recordMediaVector(
 	input: RecordVectorInput
 ): Promise<void> {
 	await ensureReady(deps);
-	await upsertPoints(deps.client, MEDIA_SIMILARITY_COLLECTION, [
+	await upsertPoints(deps.client, deps.collection, [
 		{
 			id: input.pointId,
 			vector: input.vector,

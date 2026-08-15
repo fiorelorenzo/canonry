@@ -76,7 +76,6 @@ export async function fastLaneSearch(
 		 * before this function's own "nothing indexed yet" / "model not configured" checks
 		 * even run. */
 		gatewayCredentials: () => GatewayCredentials;
-		embeddingApiToken: () => string;
 		/** The GM's interface language (SPEC.md §17), for this function's own deterministic
 		 * "unavailable" text only - `ModelNotConfiguredError`'s own message (`@canonry/ai`)
 		 * passes through untranslated, same as any other package-owned error surfaced here. */
@@ -108,7 +107,6 @@ export async function fastLaneSearch(
 		const provider: EmbeddingProvider = new GatewayEmbeddingProvider({
 			db: deps.db,
 			credentials: deps.gatewayCredentials(),
-			apiToken: deps.embeddingApiToken(),
 			userId: deps.userId,
 			universeId,
 			agent: 'loremaster',

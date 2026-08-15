@@ -9,7 +9,12 @@ import { randomUUID } from 'node:crypto';
 import { createVectorClient } from '@canonry/vector';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { trigramEmbedding } from './embedding.js';
-import { findSimilarMedia, recordMediaVector, type SimilarityCacheDeps } from './similarity.js';
+import {
+	findSimilarMedia,
+	recordMediaVector,
+	type SimilarityCacheDeps,
+	mediaSimilarityCollectionName
+} from './similarity.js';
 
 const VECTOR_SIZE = 256;
 
@@ -20,7 +25,11 @@ describe('similarity cache (#67, against real Qdrant)', () => {
 	const universeId = `similarity-test-${randomUUID()}`;
 
 	beforeAll(() => {
-		deps = { client: createVectorClient(), vectorSize: VECTOR_SIZE };
+		deps = {
+			client: createVectorClient(),
+			vectorSize: VECTOR_SIZE,
+			collection: mediaSimilarityCollectionName('fake', 'trigram')
+		};
 	});
 
 	afterAll(async () => {

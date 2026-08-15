@@ -7,11 +7,7 @@
  */
 import { json } from '@sveltejs/kit';
 import { instantSearch, fastLaneSearch } from '../_server/search.js';
-import {
-	tableEmbeddingApiToken,
-	tableGatewayCredentials,
-	tableVectorClient
-} from '../_server/deps.js';
+import { tableGatewayCredentials, tableVectorClient } from '../_server/deps.js';
 import { requireTableAccess } from '../_server/guard.js';
 import { db } from '$lib/server/db';
 import type { EntityType } from '@canonry/db/schema';
@@ -51,7 +47,6 @@ export const GET: RequestHandler = async (event) => {
 			userId: access.userId,
 			qdrant: tableVectorClient(),
 			gatewayCredentials: tableGatewayCredentials,
-			embeddingApiToken: tableEmbeddingApiToken,
 			locale: event.locals.locale
 		},
 		access.universe.id,

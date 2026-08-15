@@ -41,8 +41,9 @@ basis alone. They are stated in full in `SPEC.md` §3.
 
 SvelteKit 2 with Svelte 5 (runes), Tailwind 4, shadcn-svelte, `adapter-node`.
 Postgres 16 for structure, Qdrant for vectors, Better Auth for sessions. AI SDK v7
-through **Cloudflare AI Gateway** (`ai-gateway-provider`), Replicate for images
-through the same gateway. pnpm monorepo, Node 22.
+through **Vercel AI Gateway** (`@ai-sdk/gateway`) for text and embeddings, with
+Replicate (images) and ElevenLabs (sound) called directly, because the gateway routes
+neither. pnpm monorepo, Node 22.
 
 Packages, as `SPEC.md` §11 lays them out: `apps/web`, `packages/db`,
 `packages/vector`, `packages/indexing`, `packages/ai`, `packages/import`.

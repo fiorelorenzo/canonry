@@ -14,10 +14,11 @@
 		"test": "TEST_DB_SUFFIX=$$ vitest run"
 	},
 	"dependencies": {
+		"@ai-sdk/gateway": "^4.0.52",
 		"@canonry/db": "workspace:*",
 		"ai": "^7.0.65",
-		"ai-gateway-provider": "^4.0.0",
-		"drizzle-orm": "^0.45.2"
+		"drizzle-orm": "^0.45.2",
+		"zod": "^4.1.13"
 	},
 	"devDependencies": {
 		"@types/node": "^22",

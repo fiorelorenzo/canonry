@@ -9,11 +9,28 @@ import type { Db } from '@canonry/db';
 import { listExclusionPatternsForUniverse, supersededUrlsForUniverse } from '@canonry/db';
 import { queryLore, type LoreChunkPayload, type QdrantClient } from '@canonry/vector';
 
-/** SPEC.md §11.4: measured against a 2044-chunk gold corpus, MRR 0.775 - not guesses,
- * and not to be changed without re-running the eval (packages/eval's retrieval harness).
+/** SPEC.md §11.4 quotes top-k 8 and a 0.5 threshold, and those were measured against a
+ * 2044-chunk gold corpus at MRR 0.775 - with the **hashing embedder**. Issue #125 replaced it
+ * with a real multilingual model (`google/gemini-embedding-001`), and that moves both numbers,
+ * because a real embedder's cosine range is nothing like a token-overlap hash's.
+ *
+ * Measured on the fixture world (5 chunks, 8 questions, half of them Italian against English
+ * prose) through the live gateway: correct pairs 0.5882 to 0.7981, unrelated pairs 0.4896 to
+ * 0.6680, and the right chunk ranked first 8 times out of 8. Two consequences, both load-bearing:
+ *
+ * 1. ranking is what works, thresholding barely discriminates. The distributions overlap, so no
+ *    threshold separates relevant from irrelevant on this model. The threshold is a noise floor,
+ *    not a relevance test, and reading it as one is how retrieval quietly gets worse.
+ * 2. 0.5 was nearly a no-op here (it cut nothing above the 0.4896 floor) and anything above
+ *    0.5882 started dropping correct answers. 0.55 sits between the two with the whole correct
+ *    set intact.
+ *
+ * This is a 5-chunk smoke calibration, not the gold corpus. The 2044-chunk eval has to be
+ * re-run against the real embedder before either number is quotable again, which is what
+ * packages/eval's retrieval harness is for.
  */
 export const DEFAULT_TOP_K = 8;
-export const DEFAULT_THRESHOLD = 0.5;
+export const DEFAULT_THRESHOLD = 0.55;
 
 /** How much each matched keyword adds to a hit's cosine score. Small relative to the
  * [0, 1] cosine range so the boost nudges ranking among close hits rather than
@@ -27,7 +44,11 @@ export interface RetrievalHit {
 }
 
 function queryTermsOf(queryText: string): Set<string> {
-	return new Set(queryText.toLowerCase().match(/[a-z0-9]+/g) ?? []);
+	// Unicode-aware on purpose: `[a-z0-9]+` silently dropped every accented word, so an Italian
+	// question ("perché", "città") lost its keyword boost entirely while an English one kept it.
+	// SPEC.md §17 says the copilot works in both languages; a tokeniser that only sees ASCII is
+	// that promise failing quietly rather than loudly.
+	return new Set(queryText.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
 }
 
 function keywordBoost(queryTerms: Set<string>, keywords: string[]): number {

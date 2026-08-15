@@ -4,7 +4,6 @@ import { closeDb, type Db } from '@canonry/db';
 import { modelCall, operationPrice, operationPriceChange, user } from '@canonry/db/schema';
 import { inArray, like } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { GatewayCredentials } from './gateway.js';
 import type { ResolvedModel } from './models.js';
 import { generateImage, ReplicateRequestError } from './replicate.js';
 import { openTestDb } from './test-db.js';
@@ -102,34 +101,28 @@ describe('generateImage', () => {
 		await new Promise<void>((resolve) => server.close(() => resolve()));
 	});
 
-	function credentials(): GatewayCredentials {
-		return { accountId: 'acct-1', gateway: 'gw-1', apiKey: 'gateway-secret', baseUrl };
-	}
-
-	it('posts to the gateway Replicate proxy path with both auth headers, and records usage', async () => {
+	it('posts directly to api.replicate.com with the Replicate auth header, and records usage', async () => {
 		const operation = `${TEST_OPERATION_PREFIX}success`;
 
 		const prediction = await generateImage({
 			db,
 			model: IMAGE_MODEL,
-			credentials: credentials(),
 			replicateApiToken: 'replicate-secret',
 			input: { prompt: 'a lighthouse at dusk' },
 			userId: 'test-user-replicate-1',
 			universeId: null,
 			agent: 'warm',
-			operation
+			operation,
+			baseUrl
 		});
 
 		expect(prediction.status).toBe('succeeded');
 		expect(requests).toHaveLength(1);
 		const request = requests[0];
 		expect(request?.method).toBe('POST');
-		expect(request?.url).toBe(
-			`/v1/acct-1/gw-1/replicate/v1/models/${IMAGE_MODEL.modelId}/predictions`
-		);
+		expect(request?.url).toBe(`/models/${IMAGE_MODEL.modelId}/predictions`);
 		expect(request?.headers['authorization']).toBe('Bearer replicate-secret');
-		expect(request?.headers['cf-aig-authorization']).toBe('Bearer gateway-secret');
+		expect(request?.headers['cf-aig-authorization']).toBeUndefined();
 
 		const rows = await db.select().from(modelCall).where(like(modelCall.operation, operation));
 		expect(rows).toHaveLength(1);
@@ -150,13 +143,13 @@ describe('generateImage', () => {
 			generateImage({
 				db,
 				model: IMAGE_MODEL,
-				credentials: credentials(),
 				replicateApiToken: 'replicate-secret',
 				input: { prompt: 'a lighthouse at dusk' },
 				userId: 'test-user-replicate-2',
 				universeId: null,
 				agent: 'warm',
-				operation
+				operation,
+				baseUrl
 			})
 		).rejects.toBeInstanceOf(ReplicateRequestError);
 

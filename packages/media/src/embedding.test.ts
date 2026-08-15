@@ -1,24 +1,22 @@
 /**
- * trigramEmbedding is exercised without any credential (#67's "test against a local
- * fake"). GatewayEmbeddingProvider is exercised against a local HTTP double, same
- * technique @canonry/ai's replicate.test.ts already uses for generateImage - this proves
- * the request shape and the withUsage/pricing wiring (media.similarity_check, seeded at
- * 0 credits) actually work, without needing a real EMBEDDING_API_TOKEN or a live
- * provider. See this file's final test for exactly what only a real token would add.
+ * `trigramEmbedding` and `FakeEmbeddingProvider` are exercised without any credential (#67's
+ * "test against a local fake"), because the 0.94 similarity threshold has to be testable on a
+ * machine with no keys.
+ *
+ * `GatewayEmbeddingProvider` is exercised **against the real gateway**, skipped when no key is
+ * present. That replaces the local HTTP double this file used to carry, and it is a deliberate
+ * trade: the double proved our request shape against Cloudflare's OpenAI-compatible proxy, but
+ * we no longer build that request ourselves. The AI SDK does, over a Vercel-specific wire
+ * format, so a double would now assert that we can imitate somebody else's protocol rather than
+ * that anything works. What is worth proving is what the double never could: that a real
+ * embedding comes back, and that the `model_call` row lands with real token counts at zero
+ * credits, which is the margin question in SPEC.md §15.
  */
-import http from 'node:http';
-import type { AddressInfo } from 'node:net';
-import { closeDb, and, eq, inArray, sql, type Db } from '@canonry/db';
-import { modelCall, modelConfig, user } from '@canonry/db/schema';
-import { clearModelCache } from '@canonry/ai';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { GatewayCredentials } from '@canonry/ai';
-import {
-	EmbeddingRequestError,
-	FakeEmbeddingProvider,
-	GatewayEmbeddingProvider,
-	trigramEmbedding
-} from './embedding.js';
+import { closeDb, eq, inArray, type Db } from '@canonry/db';
+import { modelCall, user } from '@canonry/db/schema';
+import { clearModelCache, MissingGatewayEnvError, readGatewayCredentials } from '@canonry/ai';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { FakeEmbeddingProvider, GatewayEmbeddingProvider, trigramEmbedding } from './embedding.js';
 import { openTestDb } from './test-db.js';
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -29,21 +27,21 @@ function cosineSimilarity(a: number[], b: number[]): number {
 
 describe('trigramEmbedding (#67, credential-free fake)', () => {
 	it('scores near-identical prompts at or above the 0.94 threshold', () => {
-		const a = trigramEmbedding('Aldric Vane, ink and wash, muted, cold light', 256);
-		const b = trigramEmbedding('Aldric Vane, ink and wash, muted, cold light', 256);
-		expect(cosineSimilarity(a, b)).toBeCloseTo(1, 6);
+		const a = trigramEmbedding('a rainy dockside at night, lantern light on wet stone', 256);
+		const b = trigramEmbedding('a rainy dockside at night, lantern light on wet stones', 256);
+		expect(cosineSimilarity(a, b)).toBeGreaterThanOrEqual(0.94);
 	});
 
 	it('scores a genuinely different prompt well below the threshold', () => {
-		const a = trigramEmbedding('Aldric Vane, ink and wash, muted, cold light', 256);
-		const b = trigramEmbedding('The Gilded Rat, a smoky tavern at midnight', 256);
+		const a = trigramEmbedding('a rainy dockside at night, lantern light on wet stone', 256);
+		const b = trigramEmbedding('a sunlit meadow at noon, bees over clover', 256);
 		expect(cosineSimilarity(a, b)).toBeLessThan(0.94);
 	});
 
 	it('is deterministic - the same text always embeds to the same vector', () => {
-		const a = trigramEmbedding('a portrait of a ranger', 128);
-		const b = trigramEmbedding('a portrait of a ranger', 128);
-		expect(a).toEqual(b);
+		expect(trigramEmbedding('the Gilded Rat', 256)).toEqual(
+			trigramEmbedding('the Gilded Rat', 256)
+		);
 	});
 });
 
@@ -56,20 +54,19 @@ describe('FakeEmbeddingProvider', () => {
 	});
 });
 
-describe('GatewayEmbeddingProvider (#67, against a local HTTP double)', () => {
-	let db: Db;
-	let server: http.Server;
-	let baseUrl: string;
-	let requests: Array<{
-		method: string | undefined;
-		url: string | undefined;
-		headers: http.IncomingHttpHeaders;
-		body: string;
-	}>;
-	let respond: (req: http.IncomingMessage, res: http.ServerResponse) => void;
+describe('GatewayEmbeddingProvider without a credential', () => {
+	it('refuses rather than embedding against nothing', () => {
+		// The whole point of MissingGatewayEnvError: a missing key is a loud failure, never a
+		// silent direct call or a zero vector that quietly poisons a similarity check.
+		expect(() => readGatewayCredentials({})).toThrow(MissingGatewayEnvError);
+	});
+});
 
-	const TEST_USER_ID = 'canonry-media-test-embedding-user';
-	const TEST_MODEL_ID_PREFIX = 'canonry-media-test-embed-';
+const liveKey = process.env.AI_GATEWAY_API_KEY;
+const TEST_USER_ID = 'canonry-media-test-embedding-user';
+
+describe.skipIf(!liveKey)('GatewayEmbeddingProvider against the real gateway (#67, #125)', () => {
+	let db: Db;
 
 	beforeAll(async () => {
 		db = openTestDb();
@@ -81,130 +78,75 @@ describe('GatewayEmbeddingProvider (#67, against a local HTTP double)', () => {
 				email: `${TEST_USER_ID}@canonry.invalid`
 			})
 			.onConflictDoNothing();
-		// migration 0013 already seeds media.similarity_check at 0 credits - this test
-		// resolves the price through the real operation_price row, not a fixture one.
-		await db.insert(modelConfig).values({
-			purpose: 'embedding',
-			provider: 'openai',
-			modelId: `${TEST_MODEL_ID_PREFIX}v1`,
-			active: true,
-			params: {}
-		});
+		// The multilingual model SPEC.md §17's cross-language retrieval promise is written
+		// against. migration 0013 already seeds media.similarity_check at 0 credits, so the price
+		// resolved here is the real row rather than a fixture.
+		// Migration 0022 already seeds this row with its real price; the test reads the real
+		// configuration rather than overwriting it with a priceless fixture copy.
+		clearModelCache();
 	});
 
 	afterAll(async () => {
 		await db.delete(modelCall).where(eq(modelCall.userId, TEST_USER_ID));
-		await db
-			.delete(modelConfig)
-			.where(sql`${modelConfig.modelId} like ${TEST_MODEL_ID_PREFIX + '%'}`);
 		await db.delete(user).where(inArray(user.id, [TEST_USER_ID]));
 		clearModelCache();
 		await closeDb(db);
 	});
 
-	beforeEach(async () => {
-		requests = [];
-		respond = (_req, res) => {
-			res.setHeader('content-type', 'application/json');
-			res.end(
-				JSON.stringify({ data: [{ embedding: [0.1, 0.2, 0.3] }], usage: { total_tokens: 7 } })
-			);
-		};
-		server = http.createServer((req, res) => {
-			const chunks: Buffer[] = [];
-			req.on('data', (chunk: Buffer) => chunks.push(chunk));
-			req.on('end', () => {
-				requests.push({
-					method: req.method,
-					url: req.url,
-					headers: req.headers,
-					body: Buffer.concat(chunks).toString('utf8')
-				});
-				respond(req, res);
-			});
-		});
-		await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-		const { port } = server.address() as AddressInfo;
-		baseUrl = `http://127.0.0.1:${port}`;
-	});
-
-	afterEach(async () => {
-		await new Promise<void>((resolve) => server.close(() => resolve()));
-	});
-
-	function credentials(): GatewayCredentials {
-		return { accountId: 'acct-1', gateway: 'gw-1', apiKey: 'gateway-secret', baseUrl };
-	}
-
-	it('posts to the gateway provider-specific embeddings proxy and returns the vector, priced at 0 credits', async () => {
+	it('embeds for real, and records the call at zero credits with real tokens', async () => {
 		const provider = new GatewayEmbeddingProvider({
 			db,
-			credentials: credentials(),
-			apiToken: 'embedding-secret',
+			credentials: readGatewayCredentials(),
 			userId: TEST_USER_ID,
 			universeId: null,
-			agent: 'media',
+			agent: 'indexing',
 			operation: 'media.similarity_check'
 		});
 
-		const vector = await provider.embed('Aldric Vane, ink and wash, muted, cold light');
-		expect(vector).toEqual([0.1, 0.2, 0.3]);
+		const vector = await provider.embed('la locanda del Ratto Dorato, di notte');
+		expect(vector.length).toBeGreaterThan(100);
+		expect(vector.some((v) => v !== 0)).toBe(true);
 
-		expect(requests).toHaveLength(1);
-		const request = requests[0];
-		expect(request?.method).toBe('POST');
-		expect(request?.url).toBe('/v1/acct-1/gw-1/openai/embeddings');
-		expect(request?.headers['authorization']).toBe('Bearer embedding-secret');
-		expect(request?.headers['cf-aig-authorization']).toBe('Bearer gateway-secret');
-		expect(JSON.parse(request?.body ?? '{}')).toEqual({
-			model: `${TEST_MODEL_ID_PREFIX}v1`,
-			input: 'Aldric Vane, ink and wash, muted, cold light'
-		});
+		const [call] = await db.select().from(modelCall).where(eq(modelCall.userId, TEST_USER_ID));
+		expect(call, 'the embedding call has to be recorded, cheap or not').toBeTruthy();
+		expect(call?.provider).toBe('google');
+		expect(call?.embeddingTokens ?? 0).toBeGreaterThan(0);
+		// Migration 0022 seeds eurPerEmbeddingMTok, so this is a real cost derived from real
+		// tokens, which is the only version of SPEC.md §15's margin question worth asking. What
+		// the *user* pays for a similarity check is separately zero, through operation_price's
+		// media.similarity_check row - the two numbers are deliberately not the same one.
+		expect(Number(call?.costEur)).toBeGreaterThan(0);
+	}, 60_000);
 
-		// Priced through the real, seeded media.similarity_check row - 0 credits, but a
-		// model_call row still lands (SPEC.md §15's margin question is answered from
-		// those rows and nowhere else, priced or not). Filtered by this test's own user id
-		// so it never depends on being the only test that ever calls this operation.
-		const rows = await db
-			.select()
-			.from(modelCall)
-			.where(
-				and(eq(modelCall.userId, TEST_USER_ID), eq(modelCall.operation, 'media.similarity_check'))
-			);
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.credits).toBe(0);
-		expect(rows[0]?.embeddingTokens).toBe(7);
-	});
-
-	it('records the failed call and rethrows on a non-2xx response, without leaking the body', async () => {
-		respond = (_req, res) => {
-			res.statusCode = 500;
-			res.end('internal error');
-		};
+	it('crosses the language boundary, which is the whole reason for this model', async () => {
 		const provider = new GatewayEmbeddingProvider({
 			db,
-			credentials: credentials(),
-			apiToken: 'embedding-secret',
+			credentials: readGatewayCredentials(),
 			userId: TEST_USER_ID,
 			universeId: null,
-			agent: 'media',
+			agent: 'indexing',
 			operation: 'media.similarity_check'
 		});
 
-		await expect(provider.embed('anything')).rejects.toBeInstanceOf(EmbeddingRequestError);
-	});
+		// The same fact in two languages, and one unrelated sentence. A multilingual model must
+		// rank the translation pair above the unrelated pair; a bag-of-words vectoriser cannot,
+		// which is exactly what issue #125 measured before this switch.
+		const italian = await provider.embed(
+			'La Casa dei Mercanti compra i debiti dei capitani e non li rivende mai.'
+		);
+		const englishSame = await provider.embed(
+			'The Ashen Ledger buys captains debts and never sells them on.'
+		);
+		const unrelated = await provider.embed('A cartographer draws maps of the northern ice.');
 
-	// Main's note: point at least one test at the real path with a stubbed model to prove
-	// the priced path does not throw - both tests above do exactly that (a real
-	// model_config row for purpose 'embedding', a real operation_price row for
-	// media.similarity_check, only the network call is against a local double). What
-	// remains genuinely UNVERIFIED in this sandbox: there is no EMBEDDING_API_TOKEN and
-	// no real embedding provider reachable here, so nobody has proven the gateway's
-	// OpenAI-compatible proxy accepts this exact request shape for whichever provider a
-	// real deployment configures for the 'embedding' purpose. A run with a real token and
-	// a real AI_GATEWAY_* set would prove that; this suite proves everything up to the
-	// network boundary.
-	it('documents the real-path gap this sandbox cannot close', () => {
-		expect(process.env.EMBEDDING_API_TOKEN).toBeUndefined();
-	});
+		const norm = (v: number[]) => {
+			const len = Math.sqrt(v.reduce((acc, x) => acc + x * x, 0));
+			return v.map((x) => x / len);
+		};
+		const translationPair = cosineSimilarity(norm(italian), norm(englishSame));
+		const unrelatedPair = cosineSimilarity(norm(italian), norm(unrelated));
+
+		expect(translationPair).toBeGreaterThan(unrelatedPair);
+		expect(translationPair).toBeGreaterThan(0.5);
+	}, 90_000);
 });

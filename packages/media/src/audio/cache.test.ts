@@ -12,7 +12,8 @@ import { trigramEmbedding } from '../embedding.js';
 import {
 	findSimilarAudioLayer,
 	recordAudioLayerVector,
-	type AudioSimilarityCacheDeps
+	type AudioSimilarityCacheDeps,
+	audioLayerSimilarityCollectionName
 } from './cache.js';
 
 const VECTOR_SIZE = 256;
@@ -24,7 +25,11 @@ describe('audio SFX cache (#68, against real Qdrant)', () => {
 	const universeId = `audio-cache-test-${randomUUID()}`;
 
 	beforeAll(() => {
-		deps = { client: createVectorClient(), vectorSize: VECTOR_SIZE };
+		deps = {
+			client: createVectorClient(),
+			vectorSize: VECTOR_SIZE,
+			collection: audioLayerSimilarityCollectionName('fake', 'trigram')
+		};
 	});
 
 	afterAll(() => {

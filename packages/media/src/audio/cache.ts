@@ -26,9 +26,11 @@ import { SIMILARITY_THRESHOLD } from '../similarity.js';
 export { SIMILARITY_THRESHOLD };
 export type { QdrantClient };
 
-/** One collection for the whole deployment, distinguished by payload filters - the same
- * reasoning as MEDIA_SIMILARITY_COLLECTION in ../similarity.ts. */
-export const AUDIO_LAYER_SIMILARITY_COLLECTION = 'AudioLayerSimilarity';
+/** Per embedding model, for the reason `mediaSimilarityCollectionName` in ../similarity.ts
+ * spells out: the width belongs to the model, so the name has to as well. */
+export function audioLayerSimilarityCollectionName(provider: string, modelId: string): string {
+	return `AudioLayerSimilarity_${provider}_${modelId}`;
+}
 
 interface AudioSimilarityPayload {
 	universeId: string;
@@ -51,6 +53,8 @@ function parseAudioSimilarityPayload(
 
 export interface AudioSimilarityCacheDeps {
 	client: QdrantClient;
+	/** Built with `audioLayerSimilarityCollectionName` from the embedding model in use. */
+	collection: string;
 	/** Must match whatever EmbeddingProvider produces - same contract as
 	 * SimilarityCacheDeps in ../similarity.ts. */
 	vectorSize: number;
@@ -58,7 +62,10 @@ export interface AudioSimilarityCacheDeps {
 
 async function ensureReady(deps: AudioSimilarityCacheDeps): Promise<void> {
 	await ensureCollection(deps.client, {
-		name: AUDIO_LAYER_SIMILARITY_COLLECTION,
+		// Recreated rather than guarded: this is a cache of layer-prompt embeddings, so a model change costs
+		// one re-embed. Keeping a stale-width collection would reject every upsert instead.
+		onDimensionMismatch: 'recreate',
+		name: deps.collection,
 		vectorSize: deps.vectorSize
 	});
 }
@@ -82,7 +89,7 @@ export async function findSimilarAudioLayer(
 	input: FindSimilarAudioLayerInput
 ): Promise<AudioSimilarityHit | null> {
 	await ensureReady(deps);
-	const hits = await queryPoints(deps.client, AUDIO_LAYER_SIMILARITY_COLLECTION, {
+	const hits = await queryPoints(deps.client, deps.collection, {
 		vector: input.vector,
 		filter: {
 			must: [
@@ -117,7 +124,7 @@ export async function recordAudioLayerVector(
 	input: RecordAudioLayerVectorInput
 ): Promise<void> {
 	await ensureReady(deps);
-	await upsertPoints(deps.client, AUDIO_LAYER_SIMILARITY_COLLECTION, [
+	await upsertPoints(deps.client, deps.collection, [
 		{
 			id: input.pointId,
 			vector: input.vector,

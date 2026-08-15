@@ -11,6 +11,7 @@
  * cache without a provider call; a near-duplicate description in the same scene is
  * suppressed by the Jaccard check rather than regenerated.
  */
+import { audioLayerSimilarityCollectionName } from './cache.js';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -86,7 +87,11 @@ describe('generateAmbientPack (#68)', () => {
 	beforeAll(async () => {
 		db = openTestDb();
 		storageRoot = await mkdtemp(path.join(tmpdir(), 'canonry-media-audio-test-'));
-		similarity = { client: createVectorClient(), vectorSize: 256 };
+		similarity = {
+			client: createVectorClient(),
+			vectorSize: 256,
+			collection: audioLayerSimilarityCollectionName('fake', 'trigram')
+		};
 
 		userId = unique('audio-generate-test-user');
 		await db

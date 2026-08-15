@@ -220,7 +220,7 @@ anything is consistent.
 
 Import is not done by a family of hand-written parsers, and it is not done by a
 general-purpose coding agent either. It is a **bounded tool-calling loop on the AI
-SDK, through Cloudflare AI Gateway**, running a **playbook chosen by source type**,
+SDK, through Vercel AI Gateway**, running a **playbook chosen by source type**,
 with a narrow set of tools and no ability to write canon directly.
 
 That is what unblocks the parts a parser cannot do without a project of its own:
@@ -404,10 +404,11 @@ nothing on day one.
 
 ### 6.7 Which model, whose credentials, and what it costs
 
-**At launch: the AI SDK through Cloudflare AI Gateway, with the model chosen per
+**At launch: the AI SDK through Vercel AI Gateway, with the model chosen per
 job from the database.** This is the same routing the Loremaster already uses
-(§5.1) and the same gateway everything else goes through, so imports arrive with
-cost, caching and logs already accounted for. The point of choosing the model per
+(§5.1) and the same gateway every text and embedding call in this product goes
+through (§11.1), so imports arrive with cost, caching and logs already
+accounted for. The point of choosing the model per
 job is bluntly economic: bulk extraction runs on a **cheap** model, the premium one
 is reserved for what a playbook marks as hard, and the multimodal one is used only
 where a page actually has to be looked at.
@@ -637,19 +638,36 @@ pnpm monorepo, Node 22.
 
 ### 11.1 What is reused from ai-game, and what is replaced
 
-Three substitutions, all surgical:
+Two substitutions, both surgical:
 
 | ai-game | here | why |
 | --- | --- | --- |
 | Supabase (auth, DB, storage, RLS) | Postgres + Better Auth + filesystem behind Caddy | Supabase is the most entangled and least portable part of ai-game; carrying it over would import RLS and storage triggers this product does not need |
-| Vercel AI Gateway (`@ai-sdk/gateway`) | **Cloudflare AI Gateway** via `ai-gateway-provider` (maintained by Cloudflare) | stated requirement, and Replicate also routes through the gateway (`/v1/{account}/{gateway}/replicate`), so text and images share one place for logs, caching and cost |
 | Weaviate/Qdrant mix | Qdrant only | one vector store, self-hosted |
 
 Reused close to verbatim: the vector store abstraction, the indexing pipeline
 (chunker, extractors, collection naming), the loremaster retrieval and prompts, the
 ordered SSE emission queue, the per-provider concurrency semaphore, the
 similarity-cache pattern for media, DB-driven model configuration with a short
-in-memory TTL, and the credit/usage accounting shape.
+in-memory TTL, the credit/usage accounting shape, and — after a brief detour —
+the AI routing split itself: **text and embeddings through Vercel AI Gateway**
+(`@ai-sdk/gateway`, model slugs `provider/model`, one project-scoped
+`AI_GATEWAY_API_KEY`), **images and ambient sound called directly**.
+
+The detour is worth recording rather than erasing: for a few days this product
+committed to routing every call, images included, through Cloudflare AI Gateway,
+on the stated goal of one place for logs, caching and cost regardless of call
+type. Checking Vercel's actual coverage found the gap that detour was trying to
+avoid — Vercel's gateway carries language and embedding models, including
+`google/gemini-embedding-001`, the multilingual model §17's cross-language
+retrieval promise depends on (§11.4), but no ElevenLabs sound generation, and
+moving images to Vercel's own `bfl/flux-*` was rejected because Replicate
+remains the vendor of record for §9. So the direct paths are not a preference
+for fewer moving parts; they are the shape the actual provider coverage forces,
+and the rule they narrow is stated precisely rather than dropped: **every call,
+gateway-routed or direct, still records itself in `model_call` with its real
+cost (§11.5), and a missing credential throws a named error — never a silent
+fallback to another provider, another credential, or a degraded response.**
 
 ### 11.2 The import driver, and the seam toward Spole
 
@@ -665,7 +683,7 @@ Two implementations, one now and one later:
 
 | Driver | When | What it is |
 | --- | --- | --- |
-| `GatewayDriver` | **v0** | the AI SDK loop against Cloudflare AI Gateway, model chosen per job from the database (§6.7). No extra process, no container to harden |
+| `GatewayDriver` | **v0** | the AI SDK loop against Vercel AI Gateway, model chosen per job from the database (§6.7). No extra process, no container to harden |
 | `SpoleDriver` | when Spole ships | delegates to `@spole/host` server-side, or through Spole's local daemon to **the user's own agent on their own machine**, which is the whole reason to wait for it |
 
 What makes this credible rather than aspirational: **nothing outside
@@ -822,7 +840,7 @@ Most of the list was closed on 2026-08-07. What survives, and why:
 | # | Decision | State |
 | --- | --- | --- |
 | 1 | **Which wikis get indexed first** | open, deliberately: each needs its own licence review before indexing, and the order depends on which settings the first users actually play in |
-| 2 | **Which commercial provider and plan back production imports** | open, but no longer risky: §6.7 rules out building on a consumer subscription, so this is a procurement question — which metered API agreement, at what rate — with a known end state where the GM's own agent does the work through Spole |
+| 2 | **Zero Data Retention and disallow-prompt-training on Vercel AI Gateway** | open, and for the first time an actual switch rather than a wait on procurement: with the provider decided (below), Vercel AI Gateway offers **Zero Data Retention** — team-wide from the dashboard (Pro/Enterprise, $0.10 per 1,000 successful requests, no code change) or per request (`zeroDataRetention: true`, free) — and a separate, free **disallow prompt training** control (`disallowPromptTraining: true`; ZDR includes it automatically). Neither is turned on as of this writing, and turning either on is Lorenzo's call, not a default this repo assumes. Two consequences to weigh first: ZDR filters the routing set to ZDR-compliant providers only, so a model whose provider has not signed Vercel's ZDR terms silently narrows out of what is reachable, not just what is retained; and under ZDR a user's own BYOK key (#90) is skipped by default and the call falls back to system credentials unless that key is separately marked ZDR-compliant in the dashboard — a marking this repo cannot make on the user's behalf, since Vercel has no visibility into what the user's own provider agreement actually covers |
 | 3 | **Matching thresholds** (§6.4) | open until the benchmark exists, which is the point: they are measured, not chosen |
 
 **The interface is decided elsewhere on purpose.** This file says what the product
@@ -840,6 +858,14 @@ ingestion has no API integrations at all; imported images are stored rather than
 referenced; the free-tier World Anvil capture is rejected on commercial grounds;
 the consumer subscription is a development convenience and never the production
 credential.
+
+Closed separately, on 2026-08-15: **which commercial provider and plan back
+production text and embeddings** — Vercel AI Gateway, one project-scoped
+`AI_GATEWAY_API_KEY`, no markup layered on top of provider pricing — because
+§6.7's metered-API requirement now has a concrete home. Images stay direct to
+Replicate and ambient sound direct to ElevenLabs, not because directness is
+preferred over the gateway in general, but because Vercel's gateway carries
+neither (§11.1).
 
 ## 17. Languages
 

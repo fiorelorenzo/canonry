@@ -125,7 +125,10 @@ describe('resolveModel', () => {
 	});
 
 	it('raises an error naming the purpose when no active row exists', async () => {
-		await expect(resolveModel(db, 'embedding')).rejects.toThrow(/embedding/);
-		await expect(resolveModel(db, 'embedding')).rejects.toBeInstanceOf(ModelNotConfiguredError);
+		// 'image' rather than 'embedding': migration 0022 seeds a real embedding row (issue #125),
+		// so that purpose is configured now. Image models live in `image_model_config`, keyed by
+		// feature, so `model_config`'s 'image' purpose is the one that genuinely has no row.
+		await expect(resolveModel(db, 'image')).rejects.toThrow(/image/);
+		await expect(resolveModel(db, 'image')).rejects.toBeInstanceOf(ModelNotConfiguredError);
 	});
 });

@@ -156,7 +156,10 @@ export async function indexDataSource(
 	try {
 		await ensureCollection(deps.vectorClient, {
 			name: options.collectionName,
-			vectorSize: options.vectorSize
+			vectorSize: options.vectorSize,
+			// Indexed lore is the product of a real crawl, so a width change is a re-index someone
+			// has to ask for, never something this pipeline destroys on its own initiative.
+			onDimensionMismatch: 'throw'
 		});
 
 		const titles = await deps.wikiClient.listPageTitles();

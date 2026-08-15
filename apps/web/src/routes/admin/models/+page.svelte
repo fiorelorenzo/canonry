@@ -63,7 +63,8 @@
 						? (fieldOf(forThisRow, 'saved') as boolean | undefined)
 						: undefined}
 					{@const activeProviderKnown =
-						!!row.active && data.knownProviders.includes(row.active.provider)}
+						!!row.active &&
+						(data.knownProviders as readonly string[]).includes(row.active.provider)}
 					{@const providerValue =
 						(errorHere ? (fieldOf(forThisRow, 'provider') as string | undefined) : undefined) ??
 						(activeProviderKnown ? row.active?.provider : undefined)}

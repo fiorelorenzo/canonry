@@ -50,7 +50,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 			images: imageProvider(),
 			embeddings: embeddingProviderFor(context.userId, context.universe.id),
 			storage: mediaStorage(),
-			similarity: similarityDeps(),
+			similarity: await similarityDeps(),
 			universeId: context.universe.id,
 			aiEnabled: context.universe.aiEnabled,
 			entity: {

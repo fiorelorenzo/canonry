@@ -243,7 +243,11 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		const embeddingModel = await resolveModel(db, 'embedding');
 		const collectionName = loreCollectionNameForModel(embeddingModel, universe.id);
 		collectionNames.push(collectionName);
-		await ensureCollection(vectorClient, { name: collectionName, vectorSize: HASH_VECTOR_SIZE });
+		await ensureCollection(vectorClient, {
+			name: collectionName,
+			vectorSize: HASH_VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 
 		const source = await createDataSource(db, {
 			universeId: universe.id,

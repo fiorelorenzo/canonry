@@ -36,7 +36,12 @@ import {
 	type LoreChunkPayload,
 	type QdrantClient
 } from '@canonry/vector';
-import { retrieveForUniverse, type RetrievalHit } from '@canonry/indexing';
+import {
+	DEFAULT_THRESHOLD,
+	DEFAULT_TOP_K,
+	retrieveForUniverse,
+	type RetrievalHit
+} from '@canonry/indexing';
 import { type Locale } from '@canonry/lang';
 import { streamText } from 'ai';
 import { jaccard, splitIntoSentences, tokenize } from './diff.js';
@@ -86,8 +91,6 @@ export type AskSource = OwnCanonSource | IndexedSource;
 export type QueryEmbedder = (texts: string[]) => Promise<number[][]>;
 
 const OWN_CANON_LIMIT = 3;
-const INDEXED_TOP_K = 8;
-const INDEXED_THRESHOLD = 0.5;
 
 /** Layer 1, SPEC.md §5's "search over their own canon": every sentence in every entity's
  * current body, scored against the question by word overlap, best sentence per entity,
@@ -170,8 +173,11 @@ async function searchIndexed(input: {
 		policyUniverseId: input.universeId,
 		queryVector,
 		queryText: input.question,
-		topK: INDEXED_TOP_K,
-		threshold: INDEXED_THRESHOLD
+		// One source of truth for both numbers: packages/indexing owns them because that is where
+		// they were measured (see `retriever.ts`). A second copy here drifted the moment the
+		// embedding model changed under it, which is exactly what happened with 0.5.
+		topK: DEFAULT_TOP_K,
+		threshold: DEFAULT_THRESHOLD
 	});
 
 	const dataSourceIds = [...new Set(hits.map((h) => h.payload.dataSourceId))];

@@ -76,7 +76,11 @@ describe("packages/indexing retriever wired into packages/eval's retrieval harne
 	beforeAll(async () => {
 		client = createVectorClient();
 		collectionName = `eval-retriever-${randomUUID()}`;
-		await ensureCollection(client, { name: collectionName, vectorSize: HASH_VECTOR_SIZE });
+		await ensureCollection(client, {
+			name: collectionName,
+			vectorSize: HASH_VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
 		await seedCorpus(valdoriaReachRetrieval);
 	});
 

@@ -27,7 +27,7 @@ import {
 } from '@canonry/db';
 import { modelPurposeEnum, type ModelPurpose } from '@canonry/db/schema';
 import { clearImageModelCache } from '@canonry/media';
-import { KNOWN_PROVIDERS, clearModelCache } from '@canonry/ai';
+import { isKnownProvider, KNOWN_PROVIDERS, clearModelCache } from '@canonry/ai';
 import { db } from '$lib/server/db';
 import { requireAdmin } from '$lib/server/admin';
 import type { Actions, PageServerLoad } from './$types';
@@ -97,7 +97,7 @@ export const actions: Actions = {
 			});
 		}
 
-		if (typeof rawProvider !== 'string' || !KNOWN_PROVIDERS.includes(rawProvider)) {
+		if (typeof rawProvider !== 'string' || !isKnownProvider(rawProvider)) {
 			return fail(400, {
 				purpose: rawPurpose,
 				provider: providerOut,

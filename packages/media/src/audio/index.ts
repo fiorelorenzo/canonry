@@ -39,7 +39,7 @@ export {
 export {
 	findSimilarAudioLayer,
 	recordAudioLayerVector,
-	AUDIO_LAYER_SIMILARITY_COLLECTION,
+	audioLayerSimilarityCollectionName,
 	SIMILARITY_THRESHOLD as AUDIO_SIMILARITY_THRESHOLD,
 	type AudioSimilarityCacheDeps,
 	type AudioSimilarityHit,

@@ -1,14 +1,13 @@
 /**
- * ElevenLabsAudioProvider against a local HTTP stub (mirrors ../../ai/src/replicate.test.ts's
- * own pattern for the sibling REST-proxy provider) - this box has no ELEVENLABS_API_KEY, so
- * the real ElevenLabs API itself is never reached. FakeAudioProvider and tinyWavBytes are
- * pure and need no server at all.
+ * ElevenLabsAudioProvider against a local HTTP stub standing in for the real ElevenLabs
+ * API (mirrors ../../ai/src/replicate.test.ts's own pattern for the sibling REST
+ * provider) - the real ElevenLabs API itself is never reached here; see this package's
+ * report for the live call this same request shape was verified against.
  */
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { closeDb, eq, inArray, type Db } from '@canonry/db';
 import { modelCall, user, userBilling } from '@canonry/db/schema';
-import type { GatewayCredentials } from '@canonry/ai';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ProviderLimiter } from '../concurrency.js';
 import {
@@ -106,7 +105,7 @@ describe('FakeAudioProvider (#68)', () => {
 	});
 });
 
-describe('ElevenLabsAudioProvider (#68, against a local gateway-proxy stub)', () => {
+describe('ElevenLabsAudioProvider (#68, against a local HTTP stub)', () => {
 	let db: Db;
 	let server: http.Server;
 	let baseUrl: string;
@@ -163,21 +162,17 @@ describe('ElevenLabsAudioProvider (#68, against a local gateway-proxy stub)', ()
 		await new Promise<void>((resolve) => server.close(() => resolve()));
 	});
 
-	function credentials(): GatewayCredentials {
-		return { accountId: 'acct-1', gateway: 'gw-1', apiKey: 'gateway-secret', baseUrl };
-	}
-
 	function providerFor(): ElevenLabsAudioProvider {
 		return new ElevenLabsAudioProvider({
 			db,
-			credentials: credentials(),
+			baseUrl,
 			elevenLabsApiToken: 'elevenlabs-secret',
 			limiter: new ProviderLimiter(),
 			agent: 'media'
 		});
 	}
 
-	it('posts to the gateway ElevenLabs proxy path with both auth headers, and charges audio.layer', async () => {
+	it('posts to ElevenLabs sound-generation with the xi-api-key header, and charges audio.layer', async () => {
 		const userId = TEST_USER_IDS[0]!;
 		const audio = await providerFor().generate({
 			prompt: 'gentle rain falling on leaves',
@@ -193,11 +188,8 @@ describe('ElevenLabsAudioProvider (#68, against a local gateway-proxy stub)', ()
 		expect(requests).toHaveLength(1);
 		const request = requests[0]!;
 		expect(request.method).toBe('POST');
-		expect(request.url).toBe(
-			'/v1/acct-1/gw-1/elevenlabs/v1/sound-generation?output_format=mp3_44100_128'
-		);
+		expect(request.url).toBe('/v1/sound-generation?output_format=mp3_44100_128');
 		expect(request.headers['xi-api-key']).toBe('elevenlabs-secret');
-		expect(request.headers['cf-aig-authorization']).toBe('Bearer gateway-secret');
 		const body = JSON.parse(request.body) as Record<string, unknown>;
 		expect(body).toEqual({
 			text: 'gentle rain falling on leaves',

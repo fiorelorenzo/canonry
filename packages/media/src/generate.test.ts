@@ -6,6 +6,7 @@
  * stub) and FilesystemMediaStorage writes them to a real temp directory, so "the image is
  * stored" is checked by reading the file back, not by trusting a return value.
  */
+import { mediaSimilarityCollectionName } from './similarity.js';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -43,7 +44,11 @@ describe('generateImages (#64-#67, #71)', () => {
 	beforeAll(async () => {
 		db = openTestDb();
 		storageRoot = await mkdtemp(path.join(tmpdir(), 'canonry-media-test-'));
-		similarity = { client: createVectorClient(), vectorSize: 256 };
+		similarity = {
+			client: createVectorClient(),
+			vectorSize: 256,
+			collection: mediaSimilarityCollectionName('fake', 'trigram')
+		};
 
 		userId = unique('media-generate-test-user');
 		await db

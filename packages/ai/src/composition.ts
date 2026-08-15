@@ -1,106 +1,100 @@
 /**
- * The composition root every other package deferred: turning the `(provider, modelId)` pair
- * that `model_config` stores into a real AI SDK language model, wrapped by the gateway.
+ * The composition root: turning the `(provider, modelId)` pair `model_config` stores into a
+ * real AI SDK model.
  *
- * Four packages independently built an injected seam for this and left it unfilled, which
- * was the right call each time (none of them should own provider mapping) and left the
- * product unable to make a single real model call. This is the one place that mapping lives.
+ * On Vercel AI Gateway this is almost nothing, which is the point. A model is addressed by the
+ * slug `provider/model` and the gateway resolves it, so the per-provider factory table this
+ * file used to carry for Cloudflare (one `create*` import per vendor, plus the `CF_TEMP_TOKEN`
+ * placeholder that had to be stripped before the request left) is gone. Adding a provider is
+ * now a row in `model_config`, not a code change.
  *
- * Providers come from `ai-gateway-provider`'s own per-provider factories rather than from
- * `@ai-sdk/*` directly: the library re-exports them and resolves the underlying SDK itself,
- * so adding a provider here is a case in the switch rather than another dependency in the
- * tree. The gateway then wraps whatever model comes out, which is what keeps SPEC section
- * 11.1's promise that every call, text and image alike, goes through one place for logs,
- * caching and cost.
- *
- * `CF_TEMP_TOKEN` is the library's own convention for Cloudflare's Unified Billing: the
- * underlying provider is constructed with that literal, the library strips the header before
- * forwarding, and the gateway bills the account. It is not a placeholder to be replaced with
- * a real per-provider key later, it is how the gateway is meant to be used when the gateway
- * is paying (SPEC section 6.7's metered arrangement).
+ * What is deliberately kept is the loud failure. `KNOWN_PROVIDERS` still exists and is still
+ * validated, because the admin panel offers it as a select and because an unknown provider
+ * should be refused where a human can see it rather than becoming a 404 from the gateway in the
+ * middle of a GM's save. The list is what this gateway can actually route, not everything the
+ * gateway supports.
  */
-import { createAnthropic } from 'ai-gateway-provider/providers/anthropic';
-import { createGoogleGenerativeAI } from 'ai-gateway-provider/providers/google';
-import { createGroq } from 'ai-gateway-provider/providers/groq';
-import { createMistral } from 'ai-gateway-provider/providers/mistral';
-import { createOpenAI } from 'ai-gateway-provider/providers/openai';
+import type { EmbeddingModel, LanguageModel } from 'ai';
 import { createGateway, type GatewayCredentials } from './gateway.js';
 
-/** The literal the gateway expects where a per-provider key would otherwise go. */
-const UNIFIED_BILLING_TOKEN = 'CF_TEMP_TOKEN';
+/**
+ * Providers this build will construct a model for.
+ *
+ * `mistral` is present for text only and is deliberately not a candidate for embeddings:
+ * `mistral-embed` is English-only per Mistral's own documentation, and SPEC.md §17 requires an
+ * Italian question to find an English chunk.
+ */
+export const KNOWN_PROVIDERS = ['openai', 'anthropic', 'google', 'groq', 'mistral', 'xai'] as const;
+
+export type KnownProvider = (typeof KNOWN_PROVIDERS)[number];
+
+/** Narrows an arbitrary string (a form field, a `model_config` row written before a provider was
+ * removed) to a provider this build can actually construct. The widening on the array is what
+ * lets a `readonly` tuple's `includes` take a plain string at all; the check itself is real, so
+ * an unknown provider is rejected rather than asserted away. */
+export function isKnownProvider(value: string): value is KnownProvider {
+	const known: readonly string[] = KNOWN_PROVIDERS;
+	return known.includes(value);
+}
 
 export class UnknownProviderError extends Error {
-	constructor(provider: string, known: readonly string[]) {
+	constructor(provider: string) {
 		super(
-			`model_config names provider "${provider}", which this build cannot construct. ` +
-				`Known providers: ${known.join(', ')}. Add it to packages/ai/src/composition.ts ` +
-				`rather than working around it at the call site, since the whole point of that file ` +
-				`is that provider mapping lives in exactly one place.`
+			`model_config names provider "${provider}", which this build does not route. ` +
+				`Known providers: ${KNOWN_PROVIDERS.join(', ')}. Add it to KNOWN_PROVIDERS in ` +
+				`packages/ai/src/composition.ts rather than working around it at the call site, so the ` +
+				`admin panel's own select and this check keep agreeing.`
 		);
 		this.name = 'UnknownProviderError';
 	}
 }
 
-/** Whatever the gateway accepts and returns, derived from the gateway itself rather than
- * restated: the AI SDK's own `LanguageModel` union includes a bare string, which the gateway
- * does not accept, and hardcoding a version-suffixed interface here would go stale on the
- * next SDK bump. */
-type GatewayFn = ReturnType<typeof createGateway>;
-type GatewayModel = Exclude<Parameters<GatewayFn>[0], readonly unknown[]>;
-type ProviderFactory = (modelId: string, providerApiKey: string) => GatewayModel;
-
-/**
- * Every provider this build can construct. Deliberately a small, explicit table: a typo in
- * `model_config.provider` should fail loudly with the list of what is possible, not fall back
- * to a default and quietly bill somebody for the wrong model.
- *
- * Each factory takes the api key to hand the underlying SDK rather than closing over
- * `UNIFIED_BILLING_TOKEN` itself - `createLanguageModel`'s `providerApiKey` parameter
- * (issue #90, bring-your-own-key) is what lets a call go out on a user's own provider key
- * instead of the gateway's Unified Billing, through the exact same provider table and the
- * same gateway wrapping, rather than a second code path that could drift from this one.
- */
-function providerFactories(): Record<string, ProviderFactory> {
-	return {
-		openai: (modelId, apiKey) => createOpenAI({ apiKey })(modelId),
-		anthropic: (modelId, apiKey) => createAnthropic({ apiKey })(modelId),
-		google: (modelId, apiKey) => createGoogleGenerativeAI({ apiKey })(modelId),
-		groq: (modelId, apiKey) => createGroq({ apiKey })(modelId),
-		mistral: (modelId, apiKey) => createMistral({ apiKey })(modelId)
-	};
+function slug(provider: string, modelId: string): string {
+	if (!(KNOWN_PROVIDERS as readonly string[]).includes(provider)) {
+		throw new UnknownProviderError(provider);
+	}
+	// The gateway addresses models as `provider/model`. A modelId that already carries its own
+	// provider prefix is passed through rather than doubled: `model_config` rows written against
+	// the gateway's own catalogue often hold the full slug, and `openai/openai/gpt-...` is a 404
+	// nobody enjoys debugging.
+	return modelId.includes('/') ? modelId : `${provider}/${modelId}`;
 }
 
-/** Every provider name `createLanguageModel` can construct, derived from the same table
- * rather than duplicated - issue #90's BYO key settings page uses this so it never offers
- * a provider a key could never actually route through. */
-export const KNOWN_PROVIDERS: readonly string[] = Object.keys(providerFactories());
-
 /**
- * Builds the model named by a `model_config` row, wrapped by the gateway.
+ * Builds the language model a `model_config` row names.
  *
- * This is the function every package's `ModelFactory` seam was waiting for:
+ * This is the function every package's injected `ModelFactory` seam expects:
  * `packages/copilot`'s `models.ts`, `packages/import`'s `DbModelSelector`,
- * `packages/indexing`'s extraction pass and `packages/warm`'s generators all take an
- * injected factory of exactly this shape, so production wiring is passing this in and
- * nothing else changes.
+ * `packages/indexing`'s extraction pass and `packages/warm`'s generators all take a factory of
+ * this shape, so wiring production is passing this in and nothing else changes.
  *
- * `providerApiKey` is issue #90's bring-your-own-key seam: omitted, every call bills the
- * gateway's own Unified Billing account (`UNIFIED_BILLING_TOKEN`) exactly as before: every
- * existing caller's behaviour is untouched. Set it (to a key `@canonry/ai`'s byo-key.ts has
- * already decrypted) and the same provider, the same model, the same gateway wrapping goes
- * out authenticated as the user's own account instead - SPEC.md §15 / decision F3's "does
- * not change model routing... does not skip the gateway" promise held at the one place that
- * could otherwise have quietly broken it.
+ * A user's own provider key (issue #90) is **not** a parameter here any more. Vercel takes
+ * bring-your-own-key per request through `providerOptions`, not at construction, so it lives in
+ * `byokProviderOptions` (gateway.ts) and is merged by whoever makes the call. That is a better
+ * fit than the old fourth argument: the same model object can serve a call billed to us and a
+ * call billed to the user, and nothing has to rebuild it.
  */
 export function createLanguageModel(
 	provider: string,
 	modelId: string,
-	credentials?: GatewayCredentials,
-	providerApiKey?: string
-): ReturnType<GatewayFn> {
-	const factories = providerFactories();
-	const factory = factories[provider];
-	if (!factory) throw new UnknownProviderError(provider, Object.keys(factories));
-	const gateway = createGateway(credentials);
-	return gateway(factory(modelId, providerApiKey ?? UNIFIED_BILLING_TOKEN));
+	credentials?: GatewayCredentials
+): LanguageModel {
+	return createGateway(credentials).languageModel(slug(provider, modelId));
+}
+
+/**
+ * Builds the embedding model a `model_config` row names, for the `embedding` purpose.
+ *
+ * This had no counterpart at all under the previous gateway, which is why retrieval was still
+ * running on a bag-of-words hash while SPEC.md §17 promised that an Italian question finds an
+ * English chunk. The gateway routes `google/gemini-embedding-001`, the model that promise was
+ * written against, so the claim is now testable rather than inferred from a leaderboard.
+ */
+export function createEmbeddingModel(
+	provider: string,
+	modelId: string,
+	credentials?: GatewayCredentials
+): EmbeddingModel {
+	// `embeddingModel`, not the deprecated `textEmbeddingModel` alias.
+	return createGateway(credentials).embeddingModel(slug(provider, modelId));
 }

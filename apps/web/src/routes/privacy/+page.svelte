@@ -26,84 +26,128 @@
 <DocPage title={t.title} backHref={resolve('/')} backLabel={t.backLabel}>
 	<p>
 		Canonry uses AI in a few places: answering questions about your canon, drafting updates when
-		something changes, generating images, and reading your files during an import. This page says
-		plainly which provider sees your campaign's content when that happens, what we do not promise
-		yet, and what never happens to it, whichever provider is behind the gateway on a given day.
+		something changes, generating images, generating ambient sound, and reading your files during an
+		import. This page says plainly which company sees your campaign's content for each of those,
+		what we do not promise yet, and what never happens to it.
 	</p>
 
 	<h2>Text</h2>
 	<p>
 		Every text call, the Loremaster answering a question, a propagation diff, a drafted entry, a
-		document read during an import, goes out through Cloudflare AI Gateway to whichever model is
-		configured for that kind of job. A cheap model handles bulk extraction, a stronger model is
-		reserved for what a playbook marks as hard, and a multimodal model only looks at a page when a
-		page actually has to be looked at. That routing can change from an admin panel without a deploy,
-		so this page names the gateway rather than one company: which company sits behind any single
-		call is a row in our database, not a promise fixed in this paragraph.
+		document read during an import, goes out through <strong>Vercel AI Gateway</strong>, which
+		routes it to whichever model provider is configured for that kind of job: currently Google,
+		Anthropic, OpenAI, Groq or Mistral, picked per job from our database. Vercel is the routing
+		layer that carries the request and handles logging and cost accounting; the model provider on
+		the other side is the company that actually reads and processes your text. A cheap model handles
+		bulk extraction, a stronger model is reserved for what a playbook marks as hard, and a
+		multimodal model only looks at a page when a page actually has to be looked at. That routing can
+		change from an admin panel without a deploy, so this page names both layers, the gateway and the
+		provider it currently points at, rather than freezing one company's name here: which provider
+		sits behind any single call is a row in our database (visible in the admin models panel), not a
+		promise fixed in this paragraph.
 	</p>
 
 	<h2>Images</h2>
 	<p>
-		Generating an image sends that entry's text and your universe's style to Replicate, through the
-		same gateway text uses. The image starts private to you: it never flows automatically into the
-		players' wiki, it stays visibly marked as generated, and image generation can be switched off
-		for a universe entirely. That connection to Replicate runs on our own account, not yours, unless
-		you turn on your own key for it.
+		Generating an image sends that entry's text and your universe's style directly to
+		<strong>Replicate</strong> - not through the gateway text uses, because Vercel's AI Gateway has no
+		route to Replicate's models. The image starts private to you: it never flows automatically into the
+		players' wiki, it stays visibly marked as generated, and image generation can be switched off for
+		a universe entirely. That connection to Replicate runs on our own account; there is no setting yet
+		to use your own Replicate key for it.
+	</p>
+
+	<h2>Sound</h2>
+	<p>
+		Ambient sound layers and one-shot effects are generated directly with
+		<strong>ElevenLabs</strong>, for the same reason images go direct to Replicate: Vercel's gateway
+		carries no ElevenLabs sound-generation route either. That connection also runs on our own
+		account, with no bring-your-own-key option for it yet. A generated layer is cached and reused
+		for similar-enough descriptions, so the same prompt does not necessarily mean a fresh call to
+		ElevenLabs every time. Ambient sound can be switched off the same way image generation can.
 	</p>
 
 	<h2>Reading stays on when writing is switched off</h2>
 	<p>
-		The per-universe switch stops generation: text, images, drafted proposals, warming, anything a
-		model writes. It does not stop reading. Search over your own canon and mention suggestions keep
-		working with writing off, because none of that costs you anything and a wiki that cannot search
-		itself is not a good wiki. The honest cost of that choice: search still sends the relevant
-		pieces of your canon out to build and query its index, through the same gateway, whether or not
-		writing is on. Off turns off generation. It does not mean nothing leaves.
+		The per-universe switch stops generation: text, images, sound, drafted proposals, warming,
+		anything a model writes. It does not stop reading. Search over your own canon and mention
+		suggestions keep working with writing off, because none of that costs you anything and a wiki
+		that cannot search itself is not a good wiki. The honest cost of that choice: search still sends
+		the relevant pieces of your canon out to build and query its index, currently through Vercel's
+		gateway to Google's embedding model, chosen for how well it works across English and Italian
+		questions against English canon, whether or not writing is on. Off turns off generation. It does
+		not mean nothing leaves.
 	</p>
 
 	<h2>Imports</h2>
 	<p>
-		An import's only outbound connection is the gateway. Whatever document you hand it, from
+		An import's only outbound connection is Vercel AI Gateway. Whatever document you hand it, from
 		whichever source, is read by a model picked the same way as everything else: cheap for bulk
 		extraction, a stronger model for what the playbook marks as hard, multimodal only where a
 		scanned page has to actually be looked at. Nothing in the import process talks to World Anvil,
-		Kanka or any other source directly. It only ever reads the file you exported and handed to it
-		yourself.
+		Kanka, Replicate or ElevenLabs directly. It only ever reads the file you exported and handed to
+		it yourself.
 	</p>
 
 	<h2>What we do not do</h2>
 	<p>
 		We do not run production imports or generation on a shared consumer subscription; a convenience
-		like that stays in development, never a real job. Whichever provider ends up behind the gateway,
-		no training on your campaign content is a condition of doing business with them, not a hope
-		about behaviour we cannot see. Our own logs never record what was in your files, only that a
-		call happened: which job, which agent, how many tokens. Never the content, never a credential.
+		like that stays in development, never a real job. Our own logs never record what was in your
+		files, only that a call happened: which job, which agent, how many tokens. Never the content,
+		never a credential. What we do not yet do is guarantee that the model provider behind a call
+		skips training on your prompts - see "Retention, honestly" below for exactly what that gap is
+		and how it gets closed.
 	</p>
 
 	<h2>Retention, honestly</h2>
 	<p>
-		This is the one place we do not have a clean number, and we would rather say so than invent one.
-		Which commercial provider and plan backs production imports is still an open question we are
-		settling as a procurement matter, not a technical one, so we cannot yet tell you how many days a
-		provider holds a request log after it processes one. What is not in question: your entries live
-		in our own database under your account, and any image you generate or import is stored there
-		too, not just linked to. We will put a number on the provider side the day that agreement
-		exists, not before.
+		This is the one place where "we do not know yet" changed shape rather than went away. Which
+		vendor and plan carries text and embeddings is decided now: Vercel AI Gateway, routing to
+		whichever model provider a job names (see "Text" above). So the open question is no longer who,
+		it is which protections we turn on for that connection - and neither is on yet.
+	</p>
+	<p>
+		Vercel AI Gateway offers two controls we have not switched on: <strong
+			>Zero Data Retention</strong
+		>, which deletes a prompt and its response once the request completes and, as a side effect,
+		also stops the provider training on it; and a narrower, free <strong>no-training</strong> setting
+		that stops training without deleting the request log. Turning Zero Data Retention on would also narrow
+		which model providers a job can actually reach, because a provider that has not signed Vercel's zero-retention
+		terms is silently excluded from routing under it rather than surfaced as a choice - so it is a real
+		trade-off, not a free upgrade, and it is not ours to flip silently. Until one of those switches is
+		on, the honest default is the one Vercel itself states for an unconfigured request: if a provider's
+		training stance is not already covered by one of these agreements, assume it trains.
+	</p>
+	<p>
+		What is not in question, regardless of that switch: your entries live in our own database under
+		your account, and any image or sound you generate or import is stored there too, not just linked
+		to. Replicate and ElevenLabs, called directly for images and sound, sit outside this gateway
+		control entirely - we do not have a stated no-training guarantee from either one yet, and this
+		page will say so plainly the day one exists rather than assume it.
 	</p>
 
 	<h2>Bring your own key</h2>
 	<p>
-		You can use your own provider key instead of ours, off by default. Turning it on stops that
-		provider's calls from drawing on your quota, and your own provider's limits apply instead of
-		ours. It does not change which model gets picked for which job, and it does not skip the
-		gateway, so logging and cost tracking stay the same either way. Find it in Settings.
+		You can use your own key for a text-model provider instead of ours, off by default, from
+		Settings. Turning it on stops that provider's calls from drawing on your quota, and your own
+		provider's limits apply instead of ours. It does not change which model gets picked for which
+		job, and it does not skip the gateway, so logging and cost tracking stay the same either way.
+	</p>
+	<p>
+		One thing worth knowing before you rely on it for cost control: if your own key fails, expired,
+		revoked, rate-limited, the gateway does not simply refuse the call. It quietly retries with our
+		credentials instead, so the call still goes through and you still get an answer, but that
+		particular call is billed to us, not to your key. You will not see an error for it; we will see
+		the cost. This applies only to text-model providers today (OpenAI, Anthropic, Google, Groq,
+		Mistral) - Replicate and ElevenLabs do not offer a bring-your-own-key option yet.
 	</p>
 
 	<h2>Where this is going</h2>
 	<p>
-		Cloudflare AI Gateway and Replicate are today's arrangement, not the end state. When Spole
-		ships, an import will be able to run on your own machine with your own agent instead of ours: no
-		credential of ours in the loop, nothing of yours leaving your laptop for that job. That is not a
-		promise of a date. It is the direction every credential decision in this product already points.
+		Vercel AI Gateway, Replicate and ElevenLabs are today's arrangement, not the end state. When
+		Spole ships, an import will be able to run on your own machine with your own agent instead of
+		ours: no credential of ours in the loop, nothing of yours leaving your laptop for that job. That
+		is not a promise of a date. It is the direction every credential decision in this product
+		already points.
 	</p>
 </DocPage>
