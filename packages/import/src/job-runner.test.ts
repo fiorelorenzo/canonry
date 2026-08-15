@@ -709,10 +709,10 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			const model = scriptedModel([
 				toolCallStep([{ id: 'a1', name: 'source_read', input: { path: 'notes/a.md' } }]),
 				entityStep('a2', 'ea', 'Aldric Vane', 'doc-a', 'notes/a.md'),
-				finishStep('a3', 'doc-a'),
+				finishStep('a3'),
 				toolCallStep([{ id: 'b1', name: 'source_read', input: { path: 'notes/b.md' } }]),
 				entityStep('b2', 'eb', 'Aldric Vane', 'doc-b', 'notes/b.md'),
-				finishStep('b3', 'doc-b')
+				finishStep('b3')
 			]);
 			const driver = new GatewayDriver({
 				gateway: IDENTITY_GATEWAY,
@@ -783,10 +783,10 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			const model = scriptedModel([
 				toolCallStep([{ id: 'c1', name: 'source_read', input: { path: 'notes/a.md' } }]),
 				entityStep('c2', 'ea', 'Aldric Vane', 'doc-a', 'notes/a.md'),
-				finishStep('c3', 'doc-a'),
+				finishStep('c3'),
 				toolCallStep([{ id: 'c4', name: 'source_read', input: { path: 'notes/b.md' } }]),
 				entityStep('c5', 'eb', 'Aldric Vane', 'doc-b', 'notes/b.md'),
-				finishStep('c6', 'doc-b')
+				finishStep('c6')
 			]);
 			const driver = new GatewayDriver({
 				gateway: IDENTITY_GATEWAY,
@@ -902,7 +902,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 					}
 				}
 			]),
-			finishStep('d5', 'doc-1')
+			finishStep('d5')
 		]);
 		const driver = new GatewayDriver({
 			gateway: IDENTITY_GATEWAY,
