@@ -101,14 +101,15 @@
 		<UniverseSwitcher {current} {universes} {locale} />
 		{#if mode === 'universe' && universeSlug}
 			<a
-				href={resolve(`/u/${universeSlug}/ask`)}
+				href={resolve(`/w/${universeSlug}/ask`)}
 				class="mt-2 flex items-center gap-2 rounded-md border border-ai-line bg-ai-bg px-2.5 py-1.5 text-sm text-ai hover:opacity-90"
+				title={t.sidebar.askTheLoremaster}
 			>
 				<span aria-hidden="true">✦</span>
+				<!-- Truncated rather than wrapped, with the full phrase on `title` and in the
+				     accessible name: off macOS the hint beside it reads "Ctrl+Shift+A" instead of
+				     three glyphs, and something has to give in a 256px rail. -->
 				<span class="truncate">{t.sidebar.askTheLoremaster}</span>
-				<!-- `flex-none` and no wrapping: off macOS this reads "Ctrl+Shift+A" rather than
-				     three glyphs, which is wide enough to push the label onto a second line in a
-				     256px rail if either side is allowed to give. -->
 				<span class="ml-auto flex-none font-mono text-[10px] whitespace-nowrap text-muted"
 					>{formatShortcut(askShortcut)}</span
 				>
@@ -154,7 +155,7 @@
 						{#each recent as entry (entry.id)}
 							<li>
 								<a
-									href={resolve(`/u/${universeSlug}/e/${entry.slug}`)}
+									href={resolve(`/w/${universeSlug}/e/${entry.slug}`)}
 									class="block truncate rounded-md px-2.5 py-1 text-sm text-ink-2 hover:bg-panel-2 hover:text-ink"
 								>
 									{entry.name}

@@ -62,7 +62,7 @@
 	} = $props();
 	let t = $derived(messages(locale));
 
-	let base = $derived(resolve(`/u/${universeSlug}/e/${entitySlug}/media`));
+	let base = $derived(resolve(`/w/${universeSlug}/e/${entitySlug}/media`));
 
 	let assets = $derived(initialAssets);
 	let dialogOpen = $state(false);

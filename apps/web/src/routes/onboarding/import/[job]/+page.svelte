@@ -148,7 +148,7 @@
 
 	{#if pendingCount > 0}
 		<Button
-			href={resolve(`/u/${data.universe.slug}/import/${job.id}/review`)}
+			href={resolve(`/w/${data.universe.slug}/import/${job.id}/review`)}
 			variant="secondary"
 			class="self-start"
 		>
@@ -157,7 +157,7 @@
 	{/if}
 
 	{#if isTerminal}
-		<Button href={resolve(`/u/${data.universe.slug}`)} variant="link">
+		<Button href={resolve(`/w/${data.universe.slug}`)} variant="link">
 			{t.job.goToUniverse(data.universe.name)}
 		</Button>
 	{/if}

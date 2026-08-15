@@ -236,6 +236,13 @@ const UX_REGISTER = [
     q: 'Seventeen responsive utilities in the whole app, six of them in table mode: is the phone a client?', w: 'now', i: [148], dt: '2026-08-15',
     d: 'B', dn: 'One responsive shell',
     dnote: 'E4\'s bottom tabs generalise past table mode. It is a pass over every route rather than a new screen, so it wants to land with the shell rather than after it.' },
+
+  /* Round five: one question the shipped UI's own bug (#153) forced rather than a page of
+     drawn options, so it has no artifact and points straight at DECISIONS.md. */
+  { s: 'Round five', id: 'J1', f: 'DECISIONS.md', t: 'The URL namespace, now that profiles are certain',
+    q: 'User profiles are coming rather than hypothetical: what do the top-level URL segments mean, and does that answer #153\'s uniqueness question or just move it?', w: 'now', i: [156, 153, 157, 158], dt: '2026-08-15',
+    d: 'D', dn: 'A fourth way: /u/ a person, /w/ a world, /p/ stays the players\' wiki',
+    dnote: '#153 was framed as a scoping question, global uniqueness or resolution scoped to the viewer, my own preference going in. J1 answers a different question instead and settles #153 as a side effect: /u/ was always going to mean a person once profiles were real (#158), so the GM-side app moves to /w/<slug> (#157) and world slugs become globally unique because a world\'s URL still carries no owner. No artifact for this one, recorded directly in DECISIONS.md rather than drawn as options first.' },
 ];
 
 const KEY = (id) => `canonry.ux.${id}`;

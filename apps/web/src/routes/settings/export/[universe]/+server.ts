@@ -1,7 +1,7 @@
 /**
  * `/settings/export/[universe]`: the download itself. GET only, on purpose - this is a
  * file fetch, not a page, so it has no `+page.svelte` sibling for SvelteKit to have to
- * disambiguate against. Issue #86: gated the same way `u/[universe]` is - a 404 both
+ * disambiguate against. Issue #86: gated the same way `w/[universe]` is - a 404 both
  * for an unknown slug and for one this account cannot see, so a probe learns nothing
  * either way.
  */

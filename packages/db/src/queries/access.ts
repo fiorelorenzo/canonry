@@ -15,10 +15,12 @@ export interface UniverseAccess {
 	role: UniverseMemberRole;
 }
 
-/** One universe by slug, only if `userId` may see it - the owner, or a row in
- * universe_member. Returns null rather than throwing so a caller can 404 without
- * leaking whether the slug exists at all (matches the pattern requireAdmin already
- * uses for the same reason). */
+/** One universe by slug, checked against `userId`'s access - the owner, or a row in
+ * universe_member. `universe.slug` is globally unique (decision J1, issue #153: a
+ * world's URL carries no owner), so one row is the whole answer, not the whole answer
+ * for this owner - there is no other owner it could ambiguously mean. Returns null
+ * rather than throwing so a caller can 404 without leaking whether the slug exists at
+ * all (matches the pattern requireAdmin already uses for the same reason). */
 export async function universeAccessBySlug(
 	db: Db,
 	slug: string,

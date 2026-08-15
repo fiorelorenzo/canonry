@@ -3,7 +3,7 @@
 	 * Issue #141 (I3 = B): the shell for the whole product, not only a universe. Reads
 	 * `page.data` from `$app/state` directly rather than props threaded down from the
 	 * root layout - SvelteKit already merges every ancestor layout's load data onto
-	 * `page.data`, so `u/[universe]/+layout.server.ts`'s `current`/`universeSlug`/
+	 * `page.data`, so `w/[universe]/+layout.server.ts`'s `current`/`universeSlug`/
 	 * `recent`/`navCounts` show up here for free on any route nested under a universe,
 	 * and are simply absent everywhere else. That absence is the mode switch: no
 	 * store, no context, no prop drilling.
@@ -51,12 +51,12 @@
 		page.route.id === '/p' || (page.route.id?.startsWith('/p/') ?? false)
 	);
 
-	// Issue #148 (I10 = B): `/u/[universe]/table` already carries its own phone-shaped
+	// Issue #148 (I10 = B): `/w/[universe]/table` already carries its own phone-shaped
 	// top strip (`ContextStrip`) and bottom tabs (`PhoneTabBar`, E4's original) -
 	// mounting PhoneNav there too would stack two top bars and two tab bars on a
 	// 390px screen, exactly the "two navigation patterns at once" this issue rules
 	// out. Every other signed-in route gets PhoneNav; this one keeps what it has.
-	const isTableMode = $derived(page.route.id === '/u/[universe]/table');
+	const isTableMode = $derived(page.route.id === '/w/[universe]/table');
 </script>
 
 {#if isPublicWiki || !data.user}

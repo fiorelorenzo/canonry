@@ -3,7 +3,7 @@
  * job is running, the live feed itself with a single inline accept - D7's own mock shows
  * exactly this as onboarding's fourth screen ("First accept"). The full multi-proposal
  * review queue (D4, C6's keyboard queue with type filters) is ReviewSurfaces'
- * /u/[universe]/import/[job]/review, linked to rather than rebuilt here.
+ * /w/[universe]/import/[job]/review, linked to rather than rebuilt here.
  */
 import { error, fail, redirect } from '@sveltejs/kit';
 import { eq, universeAccessBySlug, type UniverseAccess } from '@canonry/db';

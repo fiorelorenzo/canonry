@@ -65,7 +65,7 @@
 	const actions = $derived(filterActions(paletteActions(mode, universeSlug, locale), query));
 	const askHref = $derived(
 		universeSlug
-			? `${resolve(`/u/${universeSlug}/ask`)}?q=${encodeURIComponent(trimmedQuery)}`
+			? `${resolve(`/w/${universeSlug}/ask`)}?q=${encodeURIComponent(trimmedQuery)}`
 			: null
 	);
 	const filteredUniverses = $derived.by(() => {
@@ -83,7 +83,7 @@
 			return;
 		}
 		searching = true;
-		const response = await fetch(`/u/${slug}/palette-search?q=${encodeURIComponent(q)}`);
+		const response = await fetch(`/w/${slug}/palette-search?q=${encodeURIComponent(q)}`);
 		if (seq !== requestSeq) return; // a later keystroke's response already landed
 		searching = false;
 		if (!response.ok) {
@@ -134,7 +134,7 @@
 		if (universeSlug && matchesShortcut(event, askShortcut)) {
 			event.preventDefault();
 			closePalette();
-			goto(resolve(`/u/${universeSlug}/ask`));
+			goto(resolve(`/w/${universeSlug}/ask`));
 		}
 	}
 </script>
@@ -170,7 +170,7 @@
 					{:else}
 						{#each entityHits as hit (hit.id)}
 							<Command.LinkItem
-								href={resolve(`/u/${universeSlug}/e/${hit.slug}`)}
+								href={resolve(`/w/${universeSlug}/e/${hit.slug}`)}
 								onSelect={closePalette}
 							>
 								<span class="min-w-0 truncate">{hit.name}</span>
@@ -193,7 +193,7 @@
 					<p class="px-2 py-3 text-sm text-muted">{t.noUniverseMatches(trimmedQuery)}</p>
 				{:else}
 					{#each filteredUniverses as universe (universe.id)}
-						<Command.LinkItem href={resolve(`/u/${universe.slug}`)} onSelect={closePalette}>
+						<Command.LinkItem href={resolve(`/w/${universe.slug}`)} onSelect={closePalette}>
 							<span class="min-w-0 truncate">{universe.name}</span>
 						</Command.LinkItem>
 					{/each}

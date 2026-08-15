@@ -54,7 +54,7 @@
 			>
 			{#if whatChanged}
 				<a
-					href={resolve(`/u/${universeSlug}/e/${whatChanged.slug}`)}
+					href={resolve(`/w/${universeSlug}/e/${whatChanged.slug}`)}
 					class="text-sm font-medium text-ink hover:text-accent"
 				>
 					{whatChanged.name}
@@ -73,7 +73,7 @@
 			>
 			{#if pendingReview > 0}
 				<a
-					href={resolve(`/u/${universeSlug}/proposals`)}
+					href={resolve(`/w/${universeSlug}/proposals`)}
 					class="text-sm font-semibold text-ink hover:text-accent"
 				>
 					{pendingReview}
@@ -98,7 +98,7 @@
 			>
 			{#if currentWork}
 				<a
-					href={resolve(`/u/${universeSlug}/works/${currentWork.workSlug}`)}
+					href={resolve(`/w/${universeSlug}/works/${currentWork.workSlug}`)}
 					class="text-sm font-medium text-ink hover:text-accent"
 				>
 					{t.strip.currentWorkValue(currentWork.workName, currentWork.nodeTitle)}

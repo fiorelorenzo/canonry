@@ -31,7 +31,7 @@
 			<li class="text-sm">
 				<span class="text-muted">{relation.label}</span>
 				<a
-					href={resolve(`/u/${universeSlug}/e/${relation.other.slug}`)}
+					href={resolve(`/w/${universeSlug}/e/${relation.other.slug}`)}
 					class="ml-1 text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
 				>
 					{relation.other.name}

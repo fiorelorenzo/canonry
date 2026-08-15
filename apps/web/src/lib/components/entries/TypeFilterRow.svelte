@@ -42,7 +42,7 @@
 		if (type) params.set('type', type);
 		if (query) params.set('q', query);
 		const qs = params.toString();
-		return qs ? `${resolve(`/u/${universeSlug}`)}?${qs}` : resolve(`/u/${universeSlug}`);
+		return qs ? `${resolve(`/w/${universeSlug}`)}?${qs}` : resolve(`/w/${universeSlug}`);
 	}
 </script>
 

@@ -21,13 +21,13 @@
  * Open Graph image tag needs an absolute URL and this is the one place that origin is
  * already correct for every environment, dev included, without hardcoding a domain.
  *
- * Issue #141: `universes` is also here now, not only inside `u/[universe]`'s own
+ * Issue #141: `universes` is also here now, not only inside `w/[universe]`'s own
  * layout - the shell's switcher reaches every route, signed in or not yet in a
  * universe, so `routes/+page.server.ts` reads this list from `await parent()`
  * instead of querying `universesForUser` a second time. The entry count per universe
  * is one grouped query (`entityCountsByUniverseIds`) rather than one `count(*)` per
  * universe - that per-universe query is exactly the N+1 shape that is fine scoped to
- * a single universe's own switcher (`u/[universe]/+layout.server.ts`) but would be a
+ * a single universe's own switcher (`w/[universe]/+layout.server.ts`) but would be a
  * real cost multiplied across every page in the app if it ran here too.
  *
  * Issue #150 (F2 = A): `shellQuota` joins `universes` here for the same reason - the
@@ -39,7 +39,7 @@
  * select by `userId`, its primary key - no join, no scan), plus an in-memory lookup
  * of the matching `SUBSCRIPTION_PLANS` entry. Never computed for a signed-out
  * request, same guard as `universes` below. Named `shellQuota` rather than `quota`
- * because `u/[universe]/+page.server.ts` already returns its own `quota: { used,
+ * because `w/[universe]/+page.server.ts` already returns its own `quota: { used,
  * total }` for `OverviewStrip` - SvelteKit merges every load's return value onto one
  * `page.data` object by key, so a name collision there would have the page load's
  * shape silently win over this layout's on every universe route.
@@ -75,7 +75,7 @@ export const load: LayoutServerLoad = async ({ cookies, locals, url }) => {
 		}));
 
 		// `subscriptionCredits` is the *remaining* interactive balance - it decrements
-		// as it's spent (see u/[universe]/+page.server.ts's own comment on the same
+		// as it's spent (see w/[universe]/+page.server.ts's own comment on the same
 		// field), matching exactly what /settings/billing labels "Included this
 		// period". The total is the plan's granted-per-period figure, falling back to
 		// the remaining balance itself only for an account on a plan this deployment

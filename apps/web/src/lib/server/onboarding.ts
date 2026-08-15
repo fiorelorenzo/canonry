@@ -2,7 +2,7 @@
  * Issue #108: onboarding that ends in a first accepted proposal. Decision D7 = A
  * (docs/ux/DECISIONS.md): import first, with a real pre-indexed-universe fallback for a
  * GM with nothing to import. This file is the server-side plumbing shared by
- * apps/web/src/routes/onboarding/** and apps/web/src/routes/u/new/**:
+ * apps/web/src/routes/onboarding/**:
  *
  * - universe creation (there was no creation UI anywhere before this issue);
  * - D1 (decision "C, detect then confirm"): sniffing an uploaded export's shape;
@@ -86,13 +86,20 @@ function slugifyUniverseName(name: string): string {
 	return base.length > 0 ? base : 'universe';
 }
 
-/** postgres.js surfaces a Postgres error with its SQLSTATE as `.code`; 23505 is
- * unique_violation. universe_owner_slug_key is scoped to (owner_user_id, slug), so this
- * only ever races the same account creating two universes with the same name at once -
- * cheap to retry rather than worth a transaction-level lock. */
+/** drizzle-orm wraps postgres.js's own error as `.cause` on the DrizzleQueryError it
+ * throws (packages/db's warm.ts and supersede.ts check the same shape) - the SQLSTATE
+ * lives on `err.cause.code`, not `err.code` itself, which this previously checked and
+ * which is never present on the wrapper, so a real collision fell straight through to a
+ * 500 rather than ever retrying. Fixed as part of #153 verification: 23505 is
+ * unique_violation. `universe_slug_key` is now a global unique index on slug alone
+ * (decision J1, issue #153), so this races two different accounts picking the same name
+ * at once as well as the same account twice - cheap to retry either way rather than
+ * worth a transaction-level lock. */
 function isUniqueSlugViolation(err: unknown): boolean {
-	if (typeof err !== 'object' || err === null || !('code' in err)) return false;
-	return err.code === '23505';
+	if (typeof err !== 'object' || err === null || !('cause' in err)) return false;
+	const cause = err.cause;
+	if (typeof cause !== 'object' || cause === null || !('code' in cause)) return false;
+	return cause.code === '23505';
 }
 
 export interface CreateUniverseInput {
@@ -104,10 +111,14 @@ export interface CreateUniverseInput {
 
 export type UniverseRow = typeof universe.$inferSelect;
 
-/** Inserts a new universe row, retrying with a numeric suffix on a slug collision under
- * the same owner. `kind: 'derived'` requires `baseUniverseId` - the schema's own check
- * constraint (`universe_derived_has_base`) enforces that regardless, this just fails with
- * the same UniverseNameRequiredError-adjacent honesty rather than a raw constraint error. */
+/** Inserts a new universe row, retrying with a numeric suffix on a slug collision.
+ * `universe.slug` is globally unique (decision J1, issue #153: a world's URL carries no
+ * owner), so the collision this retries against may be a different account's universe,
+ * not just this one's own past creations - the mechanism does not change, only how wide
+ * the index it races against is. `kind: 'derived'` requires `baseUniverseId` - the
+ * schema's own check constraint (`universe_derived_has_base`) enforces that regardless,
+ * this just fails with the same UniverseNameRequiredError-adjacent honesty rather than a
+ * raw constraint error. */
 export async function createOnboardingUniverse(
 	database: Db,
 	input: CreateUniverseInput
@@ -952,7 +963,7 @@ export function startImportRun(database: Db, input: StartImportRunInput): void {
 // Reading back a running (or finished) job's live feed for the onboarding page's polling
 // endpoint, and accepting the one proposal D7's own mock shows inline on the "first
 // accept" screen. The full multi-proposal queue (D4, keyboard C6) is ReviewSurfaces'
-// /u/[universe]/import/[job]/review, linked to rather than rebuilt here.
+// /w/[universe]/import/[job]/review, linked to rather than rebuilt here.
 // ---------------------------------------------------------------------------------------
 
 export type ImportJobRow = typeof importJob.$inferSelect;

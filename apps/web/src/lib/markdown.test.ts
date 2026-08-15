@@ -25,7 +25,7 @@ describe('renderMarkdown mentions', () => {
 			TARGETS
 		);
 		expect(html).toContain(
-			'<a href="/u/valdoria-reach/e/the-ashen-ledger" class="mention">The Ashen Ledger</a>'
+			'<a href="/w/valdoria-reach/e/the-ashen-ledger" class="mention">The Ashen Ledger</a>'
 		);
 	});
 
@@ -43,7 +43,7 @@ describe('renderMarkdown mentions', () => {
 			TARGETS
 		);
 		expect(html).toContain(
-			'<a href="/u/valdoria-reach/e/the-gilded-rat" class="mention">Il Ratto Dorato</a>'
+			'<a href="/w/valdoria-reach/e/the-gilded-rat" class="mention">Il Ratto Dorato</a>'
 		);
 	});
 

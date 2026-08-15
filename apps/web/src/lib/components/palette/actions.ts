@@ -40,7 +40,7 @@ export function paletteActions(
 		actions.push({
 			id: 'new-entry',
 			label: t.universe.index.newEntryAction,
-			href: `${resolve(`/u/${universeSlug}`)}?new=entry`
+			href: `${resolve(`/w/${universeSlug}`)}?new=entry`
 		});
 	}
 

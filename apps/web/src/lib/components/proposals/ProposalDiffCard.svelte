@@ -71,7 +71,7 @@
 		<div>
 			{#if candidate.targetSlug}
 				<a
-					href={resolve(`/u/${universeSlug}/e/${candidate.targetSlug}`)}
+					href={resolve(`/w/${universeSlug}/e/${candidate.targetSlug}`)}
 					class="text-base font-semibold text-ink hover:underline"
 					target="_blank"
 				>

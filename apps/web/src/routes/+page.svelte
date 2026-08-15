@@ -72,7 +72,7 @@
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each data.universes as universe (universe.id)}
 				<a
-					href={resolve(`/u/${universe.slug}`)}
+					href={resolve(`/w/${universe.slug}`)}
 					class="rounded-lg border border-line bg-panel p-4 hover:border-accent"
 				>
 					<div class="flex items-center gap-2">

@@ -26,9 +26,13 @@ export interface ExportEntityRow {
  * batch in memory is never the bottleneck a whole-universe `select` would be. */
 const EXPORT_CURSOR_BATCH_SIZE = 200;
 
-/** Issue #21: the universe a slug names, or undefined if none exists. This is export's
- * only read of the universe table; the README it feeds needs the name, and the route
- * needs the id to scope the entity stream below. */
+/** Issue #21: the universe a slug names, or undefined if none exists. `universe.slug` is
+ * globally unique (decision J1, issue #153), so one row is the whole answer - there is
+ * no owner to disambiguate against. That matters most for `/p/<slug>` (via apps/web's
+ * loadPublicUniverse), the one link a GM shares with people outside the product: a slug
+ * that could resolve differently per reader would not be a shareable URL. The GM export
+ * route reuses this same lookup after its own access check. The README this feeds needs
+ * the name, and the route needs the id to scope the entity stream below. */
 export async function universeForExport(
 	db: Db,
 	slug: string

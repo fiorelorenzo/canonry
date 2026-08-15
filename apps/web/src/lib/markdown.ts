@@ -89,7 +89,7 @@ md.renderer.rules.mention = (tokens: Token[], idx: number, _options, env) => {
 	const mentionEnv = env as MentionEnv;
 	const label = md.utils.escapeHtml(token.content);
 	if (target) {
-		const href = `/u/${md.utils.escapeHtml(mentionEnv.universeSlug)}/e/${md.utils.escapeHtml(target.slug)}`;
+		const href = `/w/${md.utils.escapeHtml(mentionEnv.universeSlug)}/e/${md.utils.escapeHtml(target.slug)}`;
 		return `<a href="${href}" class="mention">${label}</a>`;
 	}
 	// B2: unresolved stays visibly unresolved rather than a dead link, so nobody reads a

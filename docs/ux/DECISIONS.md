@@ -16,11 +16,13 @@ waits for a human, however it is grouped on screen. `AGENTS.md` carries the same
 wording in short form. G6 itself, whether that bucket is informational or reviewable,
 is still open.
 
-**Four rounds, 61 answers.** Round one, 38, and round two, the 11 questions those answers
-opened, were both taken on 2026-08-13; round three's 2 on 2026-08-14; round four's 10 on
-2026-08-15. Rounds one to three answered questions asked before there was code. Round four
-came out of the shipped UI and is recorded at the bottom of this file, with its audit in
-[`product-pass.html`](product-pass.html).
+**Five rounds, 62 answers.** Round one, 38, and round two, the 11 questions those answers
+opened, were both taken on 2026-08-13; round three's 2 on 2026-08-14; round four's 10 and
+round five's 1, both on 2026-08-15. Rounds one to three answered questions asked before
+there was code. Round four came out of the shipped UI and is recorded further down in this
+file, with its audit in [`product-pass.html`](product-pass.html). Round five has no separate
+audit artifact: it is one question the shipped UI's own bug forced, and it is recorded at
+the bottom of this file.
 
 To change a decision: edit this file and the `UX_REGISTER` entry in
 `docs/ux/assets/ux.js`, and say so on the issues it blocks. The artifact keeps its
@@ -392,3 +394,54 @@ decision rather than a task:
   `universeAccessBySlug` resolves a slug with no owner filter and no ordering, so the same URL
   can resolve to a different universe between two requests. It cost an hour of phantom 404s
   during this work before anybody realised the bug was not in the new code.
+
+## Round five, decided 2026-08-15
+
+Round four filed #153 as a defect, not a decision: slug uniqueness was scoped per owner by
+schema, `universeAccessBySlug` resolved a slug with no owner filter and no ordering, and the
+same URL could resolve to a different universe between two requests. Answering it turned out
+to require answering a question round four never asked.
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| J1 | What the top-level URL segments mean, now that user profiles are certain | **`/u/<handle>` a person, `/w/<slug>` a world, `/p/<slug>` the players' wiki** |
+
+**Answered by a fourth way, not by picking among three.** #153 was framed as a scoping
+question: global uniqueness, or resolution scoped to the viewer, my own preference going in.
+J1 answers neither by changing what the segment means instead. `/u/` reads as a person
+everywhere else on the internet, and this product only had it pointing at a universe because
+profiles were hypothetical when A2 named the sidebar's switcher. They are not hypothetical
+any more, filed as #158, so the segment goes to the thing it already reads as, and the whole
+GM-side app moves to `/w/<slug>`, filed as #157, under epic #156.
+
+**What that forces.** A world's URL still carries no owner: `/w/<slug>` is exactly as
+ambiguous as `/u/<slug>` was unless world slugs become globally unique, so the move does not
+dodge #153, it answers it. The argument that settles it, over my own preferred scoped
+resolution, is `/p/<slug>`: that is the one link a GM sends to people outside the product, so
+a slug cannot mean different things to different readers depending on who is asking. A slug
+that resolves per-viewer is not a shareable URL, and `/p/<slug>` is exactly the surface
+guardrail 6 governs: nothing unreviewed reaches a stranger there, and an ambiguous slug is
+another way for the wrong world's content to reach one. Guardrail 5 makes the same argument
+from data transparency's side: a slug is part of a URL somebody may share, so what it resolves to
+cannot be a private fact about which account's rows a scan happened to visit first. Two
+places in the code already assumed a slug resolves to exactly one universe before any of this
+was decided: `PRE_INDEXED_BASE_SLUG` in `lib/server/onboarding.ts` resolves one fixed slug for
+the shared catalogue with no owner in the query, and `loadPublicUniverse` in
+`lib/server/players.ts` looks a slug up the same unfiltered way `universeAccessBySlug` does.
+Filed as #153, the schema change that makes global uniqueness real.
+
+**What it costs, stated plainly.** The first GM to take `valdoria-reach` takes it, globally,
+and every GM after them gets a suffix instead of the name they typed. That is not new code:
+`createOnboardingUniverse` already retries on a unique violation and appends a number, so the
+collision path is exercised today, just against a per-owner index rather than a global one.
+The cost is a name somebody wanted, not a broken flow, and it is accepted rather than
+engineered around, because a slug that means one thing to one reader and another thing to the
+next is the actual bug #153 exists to close.
+
+**What does not change.** The domain word stays universe: `universe.slug`,
+`universeAccessBySlug`, `params.universe`, and the `universe` strings in the i18n catalogue.
+J1 moves a URL segment, not the model, and #157's route parameter keeps its name, so no
+server code changes shape. And no compatibility redirect from `/u/<slug>`: the product is not
+launched, canonry.io serves a waiting list, and every link that exists today is ours to
+update. A permanent redirect would also collide with `/u/<handle>` the day #158 ships, which
+is the whole point of freeing the segment deliberately rather than leaving a trap in it.

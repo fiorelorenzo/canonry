@@ -89,7 +89,7 @@
 					{#each universes as universe (universe.id)}
 						<li class="border-b border-line last:border-b-0">
 							<a
-								href={resolve(`/u/${universe.slug}`)}
+								href={resolve(`/w/${universe.slug}`)}
 								class="flex items-start gap-2 px-3 py-2 hover:bg-panel-2"
 								class:bg-accent-bg={universe.id === current?.id}
 								aria-current={universe.id === current?.id ? 'page' : undefined}

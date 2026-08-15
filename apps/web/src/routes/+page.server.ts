@@ -22,7 +22,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 	if (!locals.user) return { universes };
 
 	if (universes.length === 0) redirect(303, '/onboarding');
-	if (universes.length === 1) redirect(303, `/u/${universes[0].slug}`);
+	if (universes.length === 1) redirect(303, `/w/${universes[0].slug}`);
 
 	return { universes };
 };

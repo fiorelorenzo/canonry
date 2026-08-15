@@ -48,7 +48,7 @@
 					{#each flag.statements as statement (statement.entityId)}
 						<div class="rounded-md border border-line bg-panel p-2 text-xs">
 							<a
-								href={resolve(`/u/${universeSlug}/e/${statement.entitySlug}`)}
+								href={resolve(`/w/${universeSlug}/e/${statement.entitySlug}`)}
 								class="block font-mono text-[10px] font-semibold tracking-wide text-muted uppercase hover:text-accent-ink hover:underline"
 							>
 								{statement.entityName}
@@ -77,7 +77,7 @@
 					<span class="text-muted">{t.entry.audit.openBoth}</span>
 					{#each flag.statements as statement (statement.entityId)}
 						<a
-							href={resolve(`/u/${universeSlug}/e/${statement.entitySlug}`)}
+							href={resolve(`/w/${universeSlug}/e/${statement.entitySlug}`)}
 							target="_blank"
 							rel="noopener"
 							class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"

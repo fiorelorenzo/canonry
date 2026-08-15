@@ -1,5 +1,5 @@
 /**
- * #83's detail page: a genuinely separate render from the GM's `/u/[universe]/e/[slug]`,
+ * #83's detail page: a genuinely separate render from the GM's `/w/[universe]/e/[slug]`,
  * built entirely from `loadPublicEntity`'s already-filtered shape. An entity that does not
  * exist, or is `gm_only`, 404s with the same message either way - neither response tells a
  * player which of the two happened (guardrail 6, defense in depth: even the error text

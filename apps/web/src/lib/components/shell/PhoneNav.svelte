@@ -17,7 +17,7 @@
 	 *   only - account mode's three places already fit the drawer with room to
 	 *   spare, so it gets the top bar alone.
 	 *
-	 * AppShell does not mount this at all under `/u/[universe]/table`: that
+	 * AppShell does not mount this at all under `/w/[universe]/table`: that
 	 * route's own `ContextStrip` and `PhoneTabBar` (#81, E4's original) are this
 	 * same pattern already built for that surface, and stacking a second top bar
 	 * or a second bottom bar on top of them is exactly the "two navigation
@@ -91,14 +91,14 @@
 	const tabs = $derived<PhoneTab[]>(
 		universeSlug
 			? [
-					{ id: 'entries', label: navT.entries, href: resolve(`/u/${universeSlug}`), badge: null },
+					{ id: 'entries', label: navT.entries, href: resolve(`/w/${universeSlug}`), badge: null },
 					{
 						id: 'proposals',
 						label: navT.proposals,
-						href: resolve(`/u/${universeSlug}/proposals`),
+						href: resolve(`/w/${universeSlug}/proposals`),
 						badge: proposalsPending > 0 ? proposalsPending : null
 					},
-					{ id: 'ask', label: t.ask, href: resolve(`/u/${universeSlug}/ask`), badge: null }
+					{ id: 'ask', label: t.ask, href: resolve(`/w/${universeSlug}/ask`), badge: null }
 				]
 			: []
 	);

@@ -1,8 +1,8 @@
 /**
  * Issue #108, D7 = A's screen: name a universe, then choose a start. Issue #142, I4 = B
- * ("one creation surface", docs/ux/DECISIONS.md) folded /u/new's standalone empty-universe
+ * ("one creation surface", docs/ux/DECISIONS.md) folded /w/new's standalone empty-universe
  * form into this route as a third action rather than a second door - `empty` below is the
- * same createOnboardingUniverse call /u/new used to make, just reachable from here now.
+ * same createOnboardingUniverse call /w/new used to make, just reachable from here now.
  */
 import { fail, redirect } from '@sveltejs/kit';
 import { messages } from '$lib/i18n';
@@ -57,7 +57,7 @@ export const actions: Actions = {
 			}
 			throw err;
 		}
-		redirect(303, `/u/${created.slug}`);
+		redirect(303, `/w/${created.slug}`);
 	},
 
 	preindexed: async ({ request, locals }) => {
@@ -89,6 +89,6 @@ export const actions: Actions = {
 			}
 			throw err;
 		}
-		redirect(303, `/u/${created.slug}`);
+		redirect(303, `/w/${created.slug}`);
 	}
 };

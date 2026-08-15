@@ -1,9 +1,9 @@
 <script lang="ts">
 	/**
 	 * Issue #69's client player, mounted at table mode's `#table-ambient-slot`
-	 * (`u/[universe]/table/+page.svelte`, agreed with the table agent). `pack` is the
+	 * (`w/[universe]/table/+page.svelte`, agreed with the table agent). `pack` is the
 	 * declared place's current `ambient_pack` summary from
-	 * `u/[universe]/table/+layout.server.ts` - reactive to it, not owning it: when the
+	 * `w/[universe]/table/+layout.server.ts` - reactive to it, not owning it: when the
 	 * GM declares a new place, `pack.id` changes and this component crossfades to it on
 	 * its own, which is SPEC.md §8's "the GM commands, the system anticipates" applied to
 	 * sound. `null` means no pack has been generated for the declared place yet, which is
@@ -102,7 +102,7 @@
 	});
 
 	async function fetchPackSpec(id: string): Promise<PackSpec> {
-		const response = await fetch(`/u/${universeSlug}/ambient/${id}`);
+		const response = await fetch(`/w/${universeSlug}/ambient/${id}`);
 		if (!response.ok) throw new Error(t.couldNotLoadPack(response.status));
 		const body = (await response.json()) as {
 			id: string;

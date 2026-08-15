@@ -36,7 +36,7 @@
 		}
 		loading = true;
 		const start = performance.now();
-		const response = await fetch(`/u/${universeSlug}/table/search?q=${encodeURIComponent(q)}`);
+		const response = await fetch(`/w/${universeSlug}/table/search?q=${encodeURIComponent(q)}`);
 		const clientElapsedMs = Math.round((performance.now() - start) * 100) / 100;
 		if (seq !== requestSeq) return; // a later keystroke's response already landed
 		loading = false;
@@ -103,7 +103,7 @@
 					{#if 'id' in hit}
 						<li class="rounded-md border border-line bg-panel p-2.5 text-sm">
 							<a
-								href={resolve(`/u/${universeSlug}/e/${hit.slug}`)}
+								href={resolve(`/w/${universeSlug}/e/${hit.slug}`)}
 								class="font-semibold text-ink hover:underline"
 							>
 								{hit.name}
