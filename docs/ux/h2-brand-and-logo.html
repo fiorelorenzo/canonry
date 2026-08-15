@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .markrow { display: flex; align-items: flex-end; gap: 22px; padding: 18px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  .markrow.dark { background: #17140f; border-color: #2d271e; color: #f1e9db; }
+  .markrow .cell { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  .markrow .cell span { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .markrow.dark .cell span { color: #8e8474; }
+  .lockup { display: flex; align-items: center; gap: 10px; }
+  .lockup .word { font-family: var(--serif, 'Iowan Old Style', Palatino, Georgia, serif); font-size: 25px; letter-spacing: .01em; }
+  .lockup .word b { font-weight: 600; }
+  .swatches { display: flex; gap: 0; margin: 12px 0 2px; border-radius: 6px; overflow: hidden; border: 1px solid var(--line-2); max-width: 640px; }
+  .swatches div { flex: 1; height: 46px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; font: 600 9px/1 var(--mono); }
+  .fav { display: flex; align-items: center; gap: 14px; padding: 10px 12px; border: 1px dashed var(--line-2); border-radius: 8px; background: var(--panel-2); }
+  .tabsim { display: flex; align-items: center; gap: 7px; background: var(--panel); border: 1px solid var(--line); border-radius: 7px 7px 0 0; padding: 6px 10px; font-size: 12px; color: var(--ink-2); max-width: 210px; }
+  .tabsim.dark { background: #1e1a14; border-color: #2d271e; color: #cabfae; }
+  .why { font-size: 13.5px; color: var(--ink-2); }
+  .why b { color: var(--ink); }
+  .against { font-size: 13px; color: var(--danger); margin-top: 6px; }
+</style>
+</head>
+<body data-decision="H2">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">Two properties now serve the public: the landing page on <b>canonry.io</b> and the product
+  on <b>app.canonry.io</b>. Both are wearing the browser's default document icon and the word "Canonry" set
+  in body text, which is what a mark decides: not whether we have a logo, but what the product looks like in
+  a tab strip with forty other tabs, in a bookmark bar, and in the shell above every entry a GM writes. The
+  palette and the type are already decided (A1 = B, the reading room; G2 = C, serif everywhere), so this is
+  the one remaining piece of the visual identity, and it inherits every constraint those made.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 7</span> the product says what does not add up, it never certifies
+    that a canon is coherent. A mark built on a checkmark, a shield or a badge says "verified" before a word
+    of copy is read, which is why one obvious option below is drawn and rejected rather than left off the
+    page. <span class="guardref">C1</span> reserves violet for the copilot and forbids every other surface
+    from spending it, so the mark cannot be violet: the identity is the reading room's burnt umber on paper.
+    And the landing repository's own rule stands, <b>no generated art in the marketing</b>, so every option
+    here is hand-drawn geometry that survives being rendered at 16 pixels, not an illustration.</p>
+  </div>
+  <div class="swatches">
+    <div style="background:#f4efe4;color:#221d16">paper f4efe4</div>
+    <div style="background:#fffdf7;color:#221d16">panel fffdf7</div>
+    <div style="background:#221d16;color:#f1e9db">ink 221d16</div>
+    <div style="background:#7a4a1f;color:#fff">accent 7a4a1f</div>
+    <div style="background:#17140f;color:#f1e9db">paper dark 17140f</div>
+  </div>
+  <p class="why">The accent is the only colour the mark may spend, and at 16 pixels colour is nearly all that
+  survives, so each option below is shown filled in accent on paper and in paper on ink. What has to hold up
+  is the silhouette.</p>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts two">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>The keystone</h3></header>
+      <p class="sub">A canonry is the place where the canon is kept, the way an armoury keeps arms and a
+      granary keeps grain. The mark is the stone at the top of the arch: the one piece that holds the rest
+      in place.</p>
+      <div class="markrow">
+        <div class="cell">
+          <svg width="56" height="56" viewBox="0 0 64 64" fill="none" aria-label="Keystone mark">
+            <path d="M22 8h20l7 22H15L22 8Z" fill="#7a4a1f"/>
+            <path d="M13 56V44a19 19 0 0 1 38 0v12" stroke="#7a4a1f" stroke-width="6" stroke-linecap="square"/>
+          </svg>
+          <span>56</span>
+        </div>
+        <div class="cell">
+          <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+            <path d="M22 8h20l7 22H15L22 8Z" fill="#7a4a1f"/>
+            <path d="M13 56V44a19 19 0 0 1 38 0v12" stroke="#7a4a1f" stroke-width="7" stroke-linecap="square"/>
+          </svg>
+          <span>32</span>
+        </div>
+        <div class="cell">
+          <svg width="16" height="16" viewBox="0 0 64 64" fill="none">
+            <path d="M22 8h20l7 22H15L22 8Z" fill="#7a4a1f"/>
+            <path d="M13 56V44a19 19 0 0 1 38 0v12" stroke="#7a4a1f" stroke-width="9" stroke-linecap="square"/>
+          </svg>
+          <span>16</span>
+        </div>
+        <div class="cell" style="align-items:flex-start">
+          <div class="lockup">
+            <svg width="30" height="30" viewBox="0 0 64 64" fill="none">
+              <path d="M22 8h20l7 22H15L22 8Z" fill="#7a4a1f"/>
+              <path d="M13 56V44a19 19 0 0 1 38 0v12" stroke="#7a4a1f" stroke-width="7" stroke-linecap="square"/>
+            </svg>
+            <div class="word">Canonry</div>
+          </div>
+          <span>lockup</span>
+        </div>
+      </div>
+      <div class="markrow dark" style="margin-top:10px">
+        <div class="cell">
+          <svg width="40" height="40" viewBox="0 0 64 64" fill="none">
+            <path d="M22 8h20l7 22H15L22 8Z" fill="#e0b06a"/>
+            <path d="M13 56V44a19 19 0 0 1 38 0v12" stroke="#e0b06a" stroke-width="6" stroke-linecap="square"/>
+          </svg>
+          <span>dark</span>
+        </div>
+        <div class="cell">
+          <div class="tabsim dark">
+            <svg width="16" height="16" viewBox="0 0 64 64" fill="none">
+              <path d="M22 8h20l7 22H15L22 8Z" fill="#e0b06a"/>
+              <path d="M13 56V44a19 19 0 0 1 38 0v12" stroke="#e0b06a" stroke-width="9" stroke-linecap="square"/>
+            </svg>
+            Aldric Vane, Canonry
+          </div>
+          <span>tab</span>
+        </div>
+      </div>
+      <p class="why"><b>For:</b> says what the name means, and nobody else in this category owns an arch.
+      Reads as one solid shape at 16 pixels.</p>
+      <p class="against">Against: architecture can read as heavy and institutional, and an arch is a
+      building, not a graph. It says nothing about the copilot.</p>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>The seal</h3></header>
+      <p class="sub">A canon is a record somebody stands behind. The mark is a seal with a serif C in it:
+      the shape a document carries when it is the authoritative copy.</p>
+      <div class="markrow">
+        <div class="cell">
+          <svg width="56" height="56" viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="25" stroke="#7a4a1f" stroke-width="5"/>
+            <path d="M42 21a15 15 0 1 0 0 22" stroke="#7a4a1f" stroke-width="6" stroke-linecap="round"/>
+          </svg>
+          <span>56</span>
+        </div>
+        <div class="cell">
+          <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="25" stroke="#7a4a1f" stroke-width="6"/>
+            <path d="M42 21a15 15 0 1 0 0 22" stroke="#7a4a1f" stroke-width="7" stroke-linecap="round"/>
+          </svg>
+          <span>32</span>
+        </div>
+        <div class="cell">
+          <svg width="16" height="16" viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="25" stroke="#7a4a1f" stroke-width="8"/>
+            <path d="M42 21a15 15 0 1 0 0 22" stroke="#7a4a1f" stroke-width="9" stroke-linecap="round"/>
+          </svg>
+          <span>16</span>
+        </div>
+        <div class="cell" style="align-items:flex-start">
+          <div class="lockup">
+            <svg width="30" height="30" viewBox="0 0 64 64" fill="none">
+              <circle cx="32" cy="32" r="25" stroke="#7a4a1f" stroke-width="6"/>
+              <path d="M42 21a15 15 0 1 0 0 22" stroke="#7a4a1f" stroke-width="7" stroke-linecap="round"/>
+            </svg>
+            <div class="word">Canonry</div>
+          </div>
+          <span>lockup</span>
+        </div>
+      </div>
+      <div class="markrow dark" style="margin-top:10px">
+        <div class="cell">
+          <svg width="40" height="40" viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="25" stroke="#e0b06a" stroke-width="5"/>
+            <path d="M42 21a15 15 0 1 0 0 22" stroke="#e0b06a" stroke-width="6" stroke-linecap="round"/>
+          </svg>
+          <span>dark</span>
+        </div>
+        <div class="cell">
+          <div class="tabsim dark">
+            <svg width="16" height="16" viewBox="0 0 64 64" fill="none">
+              <circle cx="32" cy="32" r="25" stroke="#e0b06a" stroke-width="8"/>
+              <path d="M42 21a15 15 0 1 0 0 22" stroke="#e0b06a" stroke-width="9" stroke-linecap="round"/>
+            </svg>
+            Aldric Vane, Canonry
+          </div>
+          <span>tab</span>
+        </div>
+      </div>
+      <p class="why"><b>For:</b> immediately legible as "the official record", and a ring is the most
+      forgiving favicon shape there is.</p>
+      <p class="against">Against: rendered, it is the copyright glyph. A ring with a C in it is
+      <b>&copy;</b>, and no amount of stroke weight talks a reader out of that, which on its own settles the
+      option. Underneath that it is also a claim of authority, and this product's whole argument is that it
+      does not certify anything (<span class="guardref">guardrail 7</span>); every lore tool in the category
+      already owns a circle with a letter in it.</p>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">C</span><h3>The tie</h3></header>
+      <p class="sub">Two entries and the link between them: change one and it touches the other, which is
+      the one thing this product does that nothing else does. Drawn so the link is also the C.</p>
+      <div class="markrow">
+        <div class="cell">
+          <svg width="56" height="56" viewBox="0 0 64 64" fill="none" aria-label="Tie mark">
+            <path d="M46 12a21 21 0 1 0 0 40" stroke="#7a4a1f" stroke-width="6" stroke-linecap="round"/><circle cx="46" cy="12" r="7" fill="#7a4a1f"/><circle cx="46" cy="52" r="7" fill="#7a4a1f"/>
+          </svg>
+          <span>56</span>
+        </div>
+        <div class="cell">
+          <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+            <path d="M46 12a21 21 0 1 0 0 40" stroke="#7a4a1f" stroke-width="7" stroke-linecap="round"/><circle cx="46" cy="12" r="7" fill="#7a4a1f"/><circle cx="46" cy="52" r="7" fill="#7a4a1f"/>
+          </svg>
+          <span>32</span>
+        </div>
+        <div class="cell">
+          <svg width="16" height="16" viewBox="0 0 64 64" fill="none">
+            <path d="M46 12a21 21 0 1 0 0 40" stroke="#7a4a1f" stroke-width="11" stroke-linecap="round"/><circle cx="46" cy="12" r="7" fill="#7a4a1f"/><circle cx="46" cy="52" r="7" fill="#7a4a1f"/>
+          </svg>
+          <span>16</span>
+        </div>
+        <div class="cell" style="align-items:flex-start">
+          <div class="lockup">
+            <svg width="30" height="30" viewBox="0 0 64 64" fill="none">
+              <path d="M46 12a21 21 0 1 0 0 40" stroke="#7a4a1f" stroke-width="7" stroke-linecap="round"/><circle cx="46" cy="12" r="7" fill="#7a4a1f"/><circle cx="46" cy="52" r="7" fill="#7a4a1f"/>
+            </svg>
+            <div class="word">Canonry</div>
+          </div>
+          <span>lockup</span>
+        </div>
+      </div>
+      <div class="markrow dark" style="margin-top:10px">
+        <div class="cell">
+          <svg width="40" height="40" viewBox="0 0 64 64" fill="none">
+            <path d="M46 12a21 21 0 1 0 0 40" stroke="#e0b06a" stroke-width="6" stroke-linecap="round"/><circle cx="46" cy="12" r="7" fill="#e0b06a"/><circle cx="46" cy="52" r="7" fill="#e0b06a"/>
+          </svg>
+          <span>dark</span>
+        </div>
+        <div class="cell">
+          <div class="tabsim dark">
+            <svg width="16" height="16" viewBox="0 0 64 64" fill="none">
+              <path d="M46 12a21 21 0 1 0 0 40" stroke="#e0b06a" stroke-width="11" stroke-linecap="round"/><circle cx="46" cy="12" r="7" fill="#e0b06a"/><circle cx="46" cy="52" r="7" fill="#e0b06a"/>
+            </svg>
+            Aldric Vane, Canonry
+          </div>
+          <span>tab</span>
+        </div>
+      </div>
+      <p class="why"><b>For:</b> it is the product, not a metaphor about libraries: two entries, one tie.
+      It reads as a C without being a letter in a circle, the two nodes give it enough mass to survive 16
+      pixels, and it is the only option here that says something a competitor's mark could not honestly
+      say.</p>
+      <p class="against">Against: at a glance it can read as a plain C, and the meaning needs one sentence
+      of copy the first time somebody sees it.</p>
+      <p class="why" style="margin-top:8px"><b>Drawn as shipped.</b> The first cut of this mark used a
+      tighter arc with heavier nodes, and rendered at 16, 32 and 64 in both palettes its aperture closed and
+      it read as a blob. The geometry above is the one that survived that comparison, and it is the same path
+      the favicon, the rasters and both properties' inline component now use: arc radius 21, nodes 40 apart,
+      stroke a touch under the node diameter.</p>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">D</span><h3>The marked line</h3></header>
+      <p class="sub">The product already has a visual language: unaccepted copilot text is an underline plus
+      a marker in the margin (C1 = B). The mark is that, at logo scale: three lines of an entry, one of them
+      proposed and waiting.</p>
+      <div class="markrow">
+        <div class="cell">
+          <svg width="56" height="56" viewBox="0 0 64 64" fill="none">
+            <path d="M14 18h36M14 32h36M14 46h22" stroke="#7a4a1f" stroke-width="5" stroke-linecap="round"/>
+            <path d="M6 46h2" stroke="#7a4a1f" stroke-width="5" stroke-linecap="round"/>
+            <path d="M14 53h22" stroke="#7a4a1f" stroke-width="3" stroke-linecap="round" stroke-dasharray="5 5"/>
+          </svg>
+          <span>56</span>
+        </div>
+        <div class="cell">
+          <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
+            <path d="M14 18h36M14 32h36M14 46h22" stroke="#7a4a1f" stroke-width="6" stroke-linecap="round"/>
+            <path d="M14 54h22" stroke="#7a4a1f" stroke-width="4" stroke-linecap="round" stroke-dasharray="5 5"/>
+          </svg>
+          <span>32</span>
+        </div>
+        <div class="cell">
+          <svg width="16" height="16" viewBox="0 0 64 64" fill="none">
+            <path d="M14 18h36M14 34h36M14 50h22" stroke="#7a4a1f" stroke-width="8" stroke-linecap="round"/>
+          </svg>
+          <span>16</span>
+        </div>
+        <div class="cell" style="align-items:flex-start">
+          <div class="lockup">
+            <svg width="30" height="30" viewBox="0 0 64 64" fill="none">
+              <path d="M14 18h36M14 32h36M14 46h22" stroke="#7a4a1f" stroke-width="6" stroke-linecap="round"/>
+              <path d="M14 54h22" stroke="#7a4a1f" stroke-width="4" stroke-linecap="round" stroke-dasharray="5 5"/>
+            </svg>
+            <div class="word">Canonry</div>
+          </div>
+          <span>lockup</span>
+        </div>
+      </div>
+      <div class="markrow dark" style="margin-top:10px">
+        <div class="cell">
+          <svg width="40" height="40" viewBox="0 0 64 64" fill="none">
+            <path d="M14 18h36M14 32h36M14 46h22" stroke="#e0b06a" stroke-width="5" stroke-linecap="round"/>
+            <path d="M14 53h22" stroke="#e0b06a" stroke-width="3" stroke-linecap="round" stroke-dasharray="5 5"/>
+          </svg>
+          <span>dark</span>
+        </div>
+        <div class="cell">
+          <div class="tabsim dark">
+            <svg width="16" height="16" viewBox="0 0 64 64" fill="none">
+              <path d="M14 18h36M14 34h36M14 50h22" stroke="#e0b06a" stroke-width="8" stroke-linecap="round"/>
+            </svg>
+            Aldric Vane, Canonry
+          </div>
+          <span>tab</span>
+        </div>
+      </div>
+      <p class="why"><b>For:</b> the only option drawn in the product's own existing vocabulary, so the mark
+      and the interface teach each other.</p>
+      <p class="against">Against: at 16 pixels the dashed line and the margin marker both disappear and it
+      becomes three generic lines, which is every document icon and half the hamburger menus ever drawn.</p>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Drawn and rejected</h2>
+  <div class="opts one">
+    <div class="opt">
+      <header><span class="ltr">E</span><h3>The accepted check</h3></header>
+      <p class="sub">The obvious one, and the reason it is on this page is that somebody will suggest it
+      later: the accept step is the product, so put a check in a frame.</p>
+      <div class="markrow">
+        <div class="cell">
+          <svg width="56" height="56" viewBox="0 0 64 64" fill="none">
+            <rect x="10" y="10" width="44" height="44" rx="10" stroke="#a03a22" stroke-width="5"/>
+            <path d="M21 33l8 9 15-19" stroke="#a03a22" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>rejected</span>
+        </div>
+        <div class="cell" style="align-items:flex-start;flex:1">
+          <p class="why" style="text-align:left;max-width:52em"><b>Rejected on guardrail 7.</b> A check is
+          the universal glyph for "verified", and this product's central promise is the opposite: it says
+          what does not add up and never certifies that a canon is coherent. A mark that claims verification
+          in the tab strip contradicts the copy on the page it links to, and it is the one contradiction a
+          careful reader would notice first. It is also what every AI tool in the category already uses.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What the choice locks in</h2>
+  <div class="callout">
+    <p>Whichever mark wins, the same set of files ships and the same rules apply, so those are not part of
+    the decision:</p>
+    <ul>
+      <li>An <b>SVG favicon</b> as the primary icon, because it is the only format that follows the
+      palette: one file, currentColor-aware, sharp at every size. A PNG pair (32 and 180 for iOS) and an ICO
+      for the browsers that still ask for one, all generated from the same SVG rather than redrawn.</li>
+      <li>The <b>mark alone</b> in the app shell, where the universe switcher already carries the name, and
+      the <b>lockup with the wordmark</b> on the landing page and in the Open Graph card, where nobody knows
+      what the mark means yet.</li>
+      <li><b>Accent on paper, paper on ink</b>, and the mark never spends violet, because C1 reserves it for
+      the copilot and a logo that borrows it makes every marked proposal slightly less meaningful.</li>
+      <li>The wordmark is set in the product's own serif at its natural weight, not a display face nobody
+      else in the interface uses. G2 decided serif everywhere with no exceptions, and a logo is not an
+      exception.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

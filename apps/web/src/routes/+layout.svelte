@@ -1,14 +1,33 @@
 <script lang="ts">
 	import './layout.css';
-	import favicon from '$lib/assets/favicon.svg';
 	import AuthStatus from '$lib/components/shell/AuthStatus.svelte';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
 	let { children, data }: { children: Snippet; data: LayoutData } = $props();
+
+	// The spec's own TL;DR sentence (SPEC.md §1), not marketing copy: guardrail 7 means
+	// this product never certifies a canon is coherent, so the description it ships in
+	// link previews has to be the same careful sentence the app itself is held to.
+	const DESCRIPTION =
+		'A wiki for your game world where an AI copilot works in every flow, and never writes anything you did not accept.';
+	// Absolute, not `/og.png`: a relative OG image is the one thing every crawler that
+	// matters (Slack, Discord, iMessage) silently refuses to resolve.
+	const ogImage = $derived(`${data.origin}/og.png`);
 </script>
 
-<svelte:head><link rel="icon" href={favicon} /></svelte:head>
+<svelte:head>
+	<meta name="description" content={DESCRIPTION} />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Canonry" />
+	<meta property="og:title" content="Canonry" />
+	<meta property="og:description" content={DESCRIPTION} />
+	<meta property="og:image" content={ogImage} />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Canonry" />
+	<meta name="twitter:description" content={DESCRIPTION} />
+	<meta name="twitter:image" content={ogImage} />
+</svelte:head>
 
 <a
 	href="#main"

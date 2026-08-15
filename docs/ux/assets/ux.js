@@ -190,6 +190,9 @@ const UX_REGISTER = [
     q: 'G9 keeps retrieval running with the AI off, so what is that switch named, what does the sentence beside it promise, and does reading count against the quota?', w: 'now', i: [107, 88, 109, 113],
     d: 'B', dn: 'Reading is free, and every price lives in a table', dt: '2026-08-14',
     dnote: 'Answered by removing the problem rather than by wording around it. Reading is free: embeddings, semantic search, mention suggestions and the retrieval behind an Ask never draw on the quota, so the meter no longer moves for a universe whose switch is off and B\'s half of the question is settled. The switch is named for what it stops, writing, which was A\'s half. The mechanism is neither option\'s: the credit price of every operation lives in an `operation_price` row an admin edits, a price of zero is how something becomes free, and an unpriced operation fails loudly. Free to the user is still recorded at full cost to us, because the margin question is answered from those rows. In SPEC 15 and guardrail 4, and built in #113.' },
+  { s: 'Round three', id: 'H2', f: 'h2-brand-and-logo.html', t: 'The mark, the favicon and what the brand may spend',
+    q: 'Both properties are public and wearing the browser\'s default icon: what is the mark, and what does it say?',
+    w: 'now', i: [3, 104] },
 ];
 
 const KEY = (id) => `canonry.ux.${id}`;

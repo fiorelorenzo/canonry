@@ -9,6 +9,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { authClient } from '$lib/auth-client';
+	import Mark from '$lib/components/brand/Mark.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -53,6 +54,10 @@
 
 <main id="main" class="mx-auto flex max-w-measure flex-col gap-6 px-8 py-16">
 	<div>
+		<div class="mb-4 flex items-center gap-1.5 text-accent">
+			<Mark size={18} />
+			<span class="text-sm font-semibold tracking-wide text-ink-2">Canonry</span>
+		</div>
 		<h1 class="text-2xl font-semibold text-ink">Sign in</h1>
 		<p class="mt-2 text-sm text-ink-2">Your universes, your account, nobody else's.</p>
 	</div>

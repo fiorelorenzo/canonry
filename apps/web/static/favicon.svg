@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Canonry">
+	<!-- Canonry's mark (decision H2 = C, the tie): two entries and the link between them,
+		drawn so the link is also the C. Change one entry and it touches the other, which is
+		the one thing this product does that nothing else does.
+
+		The geometry is not free-hand. An earlier draft used a tighter arc with heavier nodes
+		and, rendered, the aperture closed up and the whole thing read as a blob at every size.
+		This is the version that still reads as a C at 16 pixels with the nodes distinguishable
+		at 64: arc radius 21, nodes 40 apart, stroke a touch under the node diameter.
+
+		Burnt umber on light, the lighter amber on dark, because one file sits in both tab
+		strips. Violet belongs to the copilot (decision C1), so the mark never spends it.
+
+		No double hyphen anywhere in this comment: XML forbids it, and writing the accent token
+		the way CSS writes it made this file fail to parse in Chrome, which took the primary
+		favicon down with it. -->
+	<style>
+		.mark { stroke: #7a4a1f; fill: #7a4a1f; }
+		@media (prefers-color-scheme: dark) {
+			.mark { stroke: #e0b06a; fill: #e0b06a; }
+		}
+	</style>
+	<path class="mark" d="M46 12a21 21 0 1 0 0 40" fill="none" stroke-width="8.5" stroke-linecap="round" />
+	<circle class="mark" cx="46" cy="12" r="7" />
+	<circle class="mark" cx="46" cy="52" r="7" />
+</svg>

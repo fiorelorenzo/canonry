@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import Mark from '$lib/components/brand/Mark.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -10,7 +11,10 @@
 </svelte:head>
 
 <main id="main" class="mx-auto max-w-2xl px-8 py-12">
-	<h1 class="text-2xl font-semibold text-ink">Canonry</h1>
+	<h1 class="flex items-center gap-2 text-2xl font-semibold text-ink">
+		<span class="text-accent"><Mark size={28} /></span>
+		Canonry
+	</h1>
 
 	{#if !data.user}
 		<p class="mt-2 max-w-measure text-sm text-ink-2">

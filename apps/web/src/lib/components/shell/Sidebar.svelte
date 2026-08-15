@@ -5,6 +5,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import Mark from '$lib/components/brand/Mark.svelte';
 	import { NAV_ITEMS } from './nav';
 	import UniverseSwitcher from './UniverseSwitcher.svelte';
 	import type { RecentEntity, UniverseSummary } from './types';
@@ -40,6 +41,10 @@
 	aria-label="Universe navigation"
 >
 	<div class="border-b border-line p-3">
+		<div class="mb-2 flex items-center gap-1.5 text-accent">
+			<Mark size={14} />
+			<span class="text-xs font-semibold tracking-wide text-ink-2">Canonry</span>
+		</div>
 		<UniverseSwitcher {current} {universes} />
 		<a
 			href={resolve(`/u/${universeSlug}/ask`)}

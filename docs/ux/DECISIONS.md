@@ -178,6 +178,7 @@ sentence beside it load-bearing, which is the whole of round three.
 | Id | Question | Chosen |
 | --- | --- | --- |
 | H1 | What the switch is called when off still spends, and whether reading counts against the quota | **B's half, with a mechanism neither option had: reading is free, and every price lives in a table an admin edits** |
+| H2 | The mark, the favicon, and what the brand may spend | **C, the tie: two entries and the link between them, drawn so the link is also the C** |
 
 H1 was answered by removing the problem rather than by wording around it, and the
 answer is larger than the question:
@@ -221,3 +222,25 @@ onboarding (D7), #72 to #81 table mode (E1 to E4, G1, G8), #82 to #85 reveals, s
 and the players wiki (E5, E6, E7, G7), #66, #71, #65 media (F1, G11), #88, #89 quota
 (F2, G11), #90, #109 privacy (F3), #21 export (F4, G10), #100 to #103 metrics (F5),
 and #3, #4 the landing page (F6, G10).
+
+H2 was decided once both properties were public and wearing the browser's default
+document icon, which is the moment a mark stops being decoration:
+
+- **The mark is the product, not a metaphor.** Two entries and the tie between them:
+  change one and it touches the other, which is the one thing Canonry does that nothing
+  else does. It happens to read as a C, which is why the wordmark can sit beside it
+  without the two fighting.
+- **Two options were rejected for reasons worth keeping.** A seal with a C in it renders
+  as the copyright glyph, and no stroke weight argues a reader out of that; underneath
+  that it also claims an authority guardrail 7 forbids. A check in a frame was drawn
+  precisely so nobody proposes it later: a check means verified, and this product says
+  what does not add up rather than certifying that anything adds up.
+- **The brand spends the accent and nothing else.** C1 reserves violet for the copilot,
+  so the mark never borrows it: a logo in the copilot's hue makes every marked proposal
+  mean slightly less. Burnt umber on paper, amber on ink, and the favicon carries a
+  `prefers-color-scheme` block so one file serves both tab strips.
+- **The wordmark is the product's own serif.** G2 allowed no exceptions and a logo is not
+  one, which also retires the landing header's uppercase-with-tracking treatment.
+- **The favicon is an SVG first**, with a generated ICO and PNG set beside it for the
+  browsers and platforms that still ask. Every raster was rendered from that one file
+  rather than redrawn, so there is exactly one place the geometry lives.
