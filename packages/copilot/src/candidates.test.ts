@@ -11,49 +11,56 @@ const GRAPH: CandidateGraph = {
 			type: 'character',
 			name: 'Aldric Vane',
 			aliases: ['Captain Vane'],
-			body: 'Dismissed from the watch, he now answers to [[The Ashen Ledger]]. He still drinks at [[The Gilded Rat]].'
+			body: 'Dismissed from the watch, he now answers to [[The Ashen Ledger]]. He still drinks at [[The Gilded Rat]].',
+			language: null
 		},
 		{
 			id: 'iselde-wrenn',
 			type: 'character',
 			name: 'Iselde Wrenn',
 			aliases: [],
-			body: 'Harbour magistrate. She appointed [[Aldric Vane]].'
+			body: 'Harbour magistrate. She appointed [[Aldric Vane]].',
+			language: null
 		},
 		{
 			id: 'the-ashen-ledger',
 			type: 'faction',
 			name: 'The Ashen Ledger',
 			aliases: [],
-			body: 'A merchant bank that lends at knife point.'
+			body: 'A merchant bank that lends at knife point.',
+			language: null
 		},
 		{
 			id: 'the-valdoria-watch',
 			type: 'faction',
 			name: 'The Valdoria Watch',
 			aliases: [],
-			body: 'Three hundred and forty sworn, paid badly.'
+			body: 'Three hundred and forty sworn, paid badly.',
+			language: null
 		},
 		{
 			id: 'the-gilded-rat',
 			type: 'place',
 			name: 'The Gilded Rat',
 			aliases: ['Gilded Rat Tavern'],
-			body: 'An inn kept by [[Mother Sennah]].'
+			body: 'An inn kept by [[Mother Sennah]].',
+			language: null
 		},
 		{
 			id: 'mother-sennah',
 			type: 'character',
 			name: 'Mother Sennah',
 			aliases: [],
-			body: 'Keeps [[The Gilded Rat]].'
+			body: 'Keeps [[The Gilded Rat]].',
+			language: null
 		},
 		{
 			id: 'cairnmouth',
 			type: 'place',
 			name: 'Cairnmouth',
 			aliases: [],
-			body: 'A fishing town, unrelated to any of this.'
+			body: 'A fishing town, unrelated to any of this.',
+			language: null
 		}
 	],
 	relations: [

@@ -26,6 +26,7 @@ import {
 	type WarmArtifactRow
 } from '@canonry/db';
 import { proposal, type EntityType, type WarmArtifactKind } from '@canonry/db/schema';
+import { DEFAULT_LOCALE, type Locale } from '@canonry/lang';
 import type { WarmBudgetPort } from './budget.js';
 import { computeFingerprint } from './fingerprint.js';
 import { assertWarmable } from './kinds.js';
@@ -49,6 +50,22 @@ export interface WarmCandidate {
 	/** Free-text reason this candidate exists, carried onto a draft_entity proposal's
 	 * rationale. Ignored for kinds that never produce a proposal. */
 	rationale?: string;
+	/** SPEC.md §17 rule two (issue #123): the interface locale of whoever (or whatever
+	 * schedule) triggered this candidate - `rationale`, and any other speech a generator
+	 * writes about the candidate rather than into it, follows this. Threaded from the
+	 * trigger that built the candidate (triggers.ts, which always sets it), never read
+	 * from a global. Optional only so an external constructor (a hand-built candidate, an
+	 * old fixture) does not fail to compile over it - `createDraftEntityProposal` below
+	 * falls back to `DEFAULT_LOCALE` when it is missing, never to a guess. */
+	locale?: Locale;
+	/** SPEC.md §17 rule three (issue #124), via `@canonry/lang`'s `canonLanguageFor`: the
+	 * language a generator must draft canon-bound prose in for this candidate. Only
+	 * meaningful for a kind whose generator writes something that can become an entry
+	 * (currently `npc_draft`'s `DraftEntityPayload.body`) - absent for every other kind.
+	 * A generator that receives an `npc_draft` candidate with this unset must not fall
+	 * back to `locale` (that is exactly the vandalism rule three exists to prevent); use
+	 * `contentLanguageForSubject` (language.ts) against the subject entity instead. */
+	contentLanguage?: Locale;
 }
 
 /** Only meaningful for `kind === 'npc_draft'`: the fields a `draft_entity` proposal needs.
@@ -135,6 +152,7 @@ async function createDraftEntityProposal(
 			kind: 'draft_entity',
 			patch: { name: draft.name, type: draft.type, body: draft.body, aliases: draft.aliases },
 			rationale: candidate.rationale ?? '',
+			locale: candidate.locale ?? DEFAULT_LOCALE,
 			evidence: draft.evidence ?? {},
 			provider: candidate.provider ?? null,
 			modelId: candidate.modelId,

@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ResolvedModel } from '@canonry/ai';
 import type { RoutedModel } from './models.js';
 import { writePlanRationale } from './ranking.js';
-import { insertHomebrewUniverse, insertUser } from './test-helpers.js';
+import { insertHomebrewUniverse, insertUser, systemPromptOf } from './test-helpers.js';
 import { openTestDb } from './test-db.js';
 
 function usage(inputTotal: number, outputTotal: number) {
@@ -67,7 +67,8 @@ describe('writePlanRationale', () => {
 			editedEntityName: 'Aldric Vane',
 			diff: [],
 			candidates: [],
-			model: routed(scriptedModel({}))
+			model: routed(scriptedModel({})),
+			locale: 'en'
 		});
 
 		expect(result.candidates).toEqual([]);
@@ -95,7 +96,8 @@ describe('writePlanRationale', () => {
 				{ entityId: 'iselde-wrenn', name: 'Iselde Wrenn' },
 				{ entityId: 'the-ashen-ledger', name: 'The Ashen Ledger' }
 			],
-			model: routed(model)
+			model: routed(model),
+			locale: 'en'
 		});
 
 		expect(result.summary).toBe('This touches 2 entries.');
@@ -138,11 +140,75 @@ describe('writePlanRationale', () => {
 				{ entityId: 'iselde-wrenn', name: 'Iselde Wrenn' },
 				{ entityId: 'the-ashen-ledger', name: 'The Ashen Ledger' }
 			],
-			model: routed(model)
+			model: routed(model),
+			locale: 'en'
 		});
 
 		expect(result.candidates).toEqual([
 			{ entityId: 'iselde-wrenn', rationale: 'She appointed him.' }
 		]);
+	});
+
+	it('SPEC.md §17 rule two (issue #123): the prompt states the locale explicitly, and an Italian locale produces an Italian rationale from an English edit', async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, { ownerUserId: owner.id });
+		let capturedSystem = '';
+		const model = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			doGenerate: async (options) => {
+				capturedSystem = systemPromptOf(options);
+				const object = {
+					summary: 'Questo cambiamento tocca una voce.',
+					candidates: [{ entityId: 'iselde-wrenn', rationale: 'Perché lei stessa lo ha nominato.' }]
+				};
+				return {
+					content: [{ type: 'text', text: JSON.stringify(object) }],
+					finishReason: { unified: 'stop', raw: undefined },
+					usage: usage(50, 20),
+					warnings: []
+				};
+			}
+		}) as unknown as LanguageModel;
+
+		const result = await writePlanRationale({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			editedEntityName: 'Aldric Vane',
+			diff: [{ kind: 'added', statement: 'Iselde is reviewing his appointment.' }],
+			candidates: [{ entityId: 'iselde-wrenn', name: 'Iselde Wrenn' }],
+			model: routed(model),
+			locale: 'it'
+		});
+
+		expect(capturedSystem).toContain('Italiano');
+		expect(capturedSystem).toContain('locale "it"');
+		expect(capturedSystem).toContain('never translate a proper noun');
+		expect(capturedSystem).toContain('never translate a quoted sentence');
+		expect(result.summary).toBe('Questo cambiamento tocca una voce.');
+		expect(result.candidates[0]).toEqual({
+			entityId: 'iselde-wrenn',
+			rationale: 'Perché lei stessa lo ha nominato.'
+		});
+	});
+
+	it('the empty-shortlist fallback is locale-templated too - no model call, still Italian', async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, { ownerUserId: owner.id });
+
+		const result = await writePlanRationale({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			editedEntityName: 'Aldric Vane',
+			diff: [],
+			candidates: [],
+			model: routed(scriptedModel({})),
+			locale: 'it'
+		});
+
+		expect(result.summary).toBe("Aldric Vane è cambiato; nient'altro sembra interessato.");
+		expect(result.credits).toBe(0);
 	});
 });

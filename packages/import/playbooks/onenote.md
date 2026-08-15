@@ -1,6 +1,6 @@
 ---
 id: onenote
-version: 1
+version: 2
 name: OneNote page export
 description: Imports one page from a folder tree of exported OneNote pages, trusting the folder hierarchy for parent/subpage relations.
 modelPurpose: cheap
@@ -51,6 +51,20 @@ directly (losing hierarchy, keeping everything else), or use OneNote's own web/d
 export to reach one of those two formats. This playbook does not attempt to open a
 `.onepkg`/`.one` file itself; if you are ever handed one, say so in `job_finish`'s
 summary and finish `skipped` rather than guessing at its binary layout.
+
+## Language
+
+Write every `summary` in the same language as the page itself, whatever that language
+is: an Italian page gets an Italian `summary`, an English page gets an English
+`summary`. This is not your choice to make - never switch to a different language than
+the one the page was written in, and never translate it.
+
+**Proper nouns are copied exactly as written, never translated.** A person's name, a
+place name, an inn's name: if the page calls it "The Gilded Rat", it stays "The
+Gilded Rat" character for character, even inside an otherwise Italian `summary` - the
+same way nobody would translate a person's name. This applies to `name`, to every
+entry in `aliases`, and to any proper noun you mention inside `summary` itself,
+including a linked page's own title.
 
 ## Inputs
 

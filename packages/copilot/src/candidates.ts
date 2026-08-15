@@ -22,6 +22,11 @@ export interface GraphEntity {
 	name: string;
 	aliases: string[];
 	body: string;
+	/** SPEC.md §17: the entry's own recorded content language (`entity.language`), null
+	 * when unknown or genuinely mixed. Carried on the in-memory graph so propagate.ts,
+	 * audit.ts and complete.ts can feed it straight into `@canonry/lang`'s
+	 * `canonLanguageFor` without a second query - never guessed from the reader's locale. */
+	language: string | null;
 }
 
 export interface GraphRelationEdge {

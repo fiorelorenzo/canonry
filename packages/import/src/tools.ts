@@ -16,6 +16,7 @@
  */
 import { tool, type ToolSet } from 'ai';
 import { z } from 'zod';
+import type { Locale } from '@canonry/lang';
 import type { SourceReader } from './sources.js';
 import type { ImageStore } from './images.js';
 import type { EntityProposalPayload, JobEvent, RelationProposalPayload } from './driver.js';
@@ -98,9 +99,19 @@ export interface DocumentRunContext {
 	relationCount: number;
 	finished: boolean;
 	finishOutcome: 'completed' | 'skipped' | null;
+	/** issue #126: this document's own language, detected once by the driver before the
+	 * loop starts (`detectLanguage` over the document's whole text - more signal than any
+	 * one entity's short `summary` alone) and stamped onto every entity this document
+	 * proposes. Never read from the model - see `EntityProposalPayload.language`'s own
+	 * comment for why. */
+	documentLanguage: Locale | null;
 }
 
-export function createDocumentRunContext(jobId: string, documentId: string): DocumentRunContext {
+export function createDocumentRunContext(
+	jobId: string,
+	documentId: string,
+	documentLanguage: Locale | null = null
+): DocumentRunContext {
 	return {
 		jobId,
 		documentId,
@@ -110,7 +121,8 @@ export function createDocumentRunContext(jobId: string, documentId: string): Doc
 		entityCount: 0,
 		relationCount: 0,
 		finished: false,
-		finishOutcome: null
+		finishOutcome: null,
+		documentLanguage
 	};
 }
 
@@ -261,7 +273,8 @@ function proposeEntity(ctx: DocumentRunContext, input: z.infer<typeof ENTITY_PRO
 		summary: input.summary,
 		sourceRef: input.sourceRef,
 		evidenceSpan: input.evidenceSpan,
-		images: input.images
+		images: input.images,
+		language: ctx.documentLanguage
 	};
 	ctx.pending.push({
 		type: 'proposal',

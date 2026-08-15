@@ -15,6 +15,12 @@ import { sveltekit } from '@sveltejs/kit/vite';
 // package's own test harness already reads, and CI's Postgres is not on this box's dev port.
 process.env.DATABASE_URL ??=
 	process.env.TEST_DATABASE_URL ?? 'postgres://canonry:canonry@127.0.0.1:55432/canonry';
+// Issue #120: hooks.server.ts imports $lib/server/auth.ts, which throws at module load
+// with no BETTER_AUTH_SECRET (issue #86's own fail-loud guard) - a test that imports the
+// hook (src/hooks.server.test.ts) cannot even load without one, and CI's test job has no
+// real secret configured. Signs nothing that outlives this process; never used outside a
+// test run.
+process.env.BETTER_AUTH_SECRET ??= 'vitest-throwaway-secret-not-a-real-deployment';
 
 export default defineConfig({
 	plugins: [

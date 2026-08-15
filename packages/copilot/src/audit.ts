@@ -27,6 +27,7 @@ import { chargeFor, resolveModel, withQuota } from '@canonry/ai';
 import type { Db } from '@canonry/db';
 import { createProposalPlan } from '@canonry/db';
 import type { ProposalPlanRow, ProposalRow } from '@canonry/db';
+import type { Locale } from '@canonry/lang';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { mentionsIn } from './candidates.js';
@@ -37,6 +38,7 @@ import type { FactChange } from './diff.js';
 import { routeModel } from './models.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
 import { requireAiEnabled } from './propagate.js';
+import { AUDIT_DISAGREEMENT, AUDIT_DISAGREEMENT_BARE, speechInstruction } from './speech.js';
 
 /** SPEC.md §5.2: "at most a handful of flags". Bounds both the number of candidate pairs
  * examined (so the model is never billed more than a handful of times per audit run) and,
@@ -65,6 +67,10 @@ export interface RunAuditInput {
 	editedEntityId: string;
 	oldBody: string;
 	newBody: string;
+	/** SPEC.md §17 rule two (issue #123): the interface locale of whoever's session
+	 * produced this audit run - every flag's rationale, and the topic phrase the model
+	 * contributes to it, is written in this. */
+	locale: Locale;
 	modelFactory: ModelFactory;
 	gateway: GatewayWrapper;
 	/** Overrides `AUDIT_PAIR_CAP` - tests only; production never needs more than "a
@@ -224,17 +230,20 @@ export function isGuardrailSafeTopic(topic: string): boolean {
 
 /** The exact framing docs/ux/c9-audit-flags.html locks in verbatim: "X and Y do not agree
  * on <topic>." Never "detected", never a percentage, never a verdict - a question, not a
- * finding. */
+ * finding. SPEC.md §17 rule two (issue #123): a locale-templated framing per
+ * `speech.ts`'s `AUDIT_DISAGREEMENT`/`AUDIT_DISAGREEMENT_BARE`, since this is exactly the
+ * kind of user-facing speech this package writes without a model call. */
 export function buildFlagRationale(
 	entityAName: string,
 	entityBName: string,
-	topic: string
+	topic: string,
+	locale: Locale
 ): string {
 	const trimmed = topic.trim();
 	if (trimmed.length > 0 && isGuardrailSafeTopic(trimmed)) {
-		return `${entityAName} and ${entityBName} do not agree on ${trimmed}.`;
+		return AUDIT_DISAGREEMENT[locale](entityAName, entityBName, trimmed);
 	}
-	return `${entityAName} and ${entityBName} do not agree.`;
+	return AUDIT_DISAGREEMENT_BARE[locale](entityAName, entityBName);
 }
 
 const judgmentSchema = z.object({
@@ -304,7 +313,7 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
 				generateObject({
 					model: cheapModel.languageModel,
 					schema: judgmentSchema,
-					system: SYSTEM_PROMPT,
+					system: `${SYSTEM_PROMPT} ${speechInstruction(input.locale)}`,
 					prompt:
 						`${pair.a.entityName}: "${pair.a.statement}"\n\n` +
 						`${pair.b.entityName}: "${pair.b.statement}"\n\n` +
@@ -327,16 +336,27 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
 		universeId: input.universeId,
 		trigger: 'audit',
 		triggerEntityId: input.editedEntityId,
-		summary: buildFlagRationale(first.pair.a.entityName, first.pair.b.entityName, first.topic),
+		summary: buildFlagRationale(
+			first.pair.a.entityName,
+			first.pair.b.entityName,
+			first.topic,
+			input.locale
+		),
 		candidateCap: cap,
 		// Real spend, not a forward-looking estimate: every pair examined above is already
 		// charged by the time this plan is written, so this is what the run actually cost.
 		estimatedCredits: pairs.length * price.credits,
+		locale: input.locale,
 		candidates: survivors.map((s, index) => ({
 			kind: 'flag' as const,
 			targetEntityId: s.pair.a.entityId,
 			relatedEntityId: s.pair.b.entityId,
-			rationale: buildFlagRationale(s.pair.a.entityName, s.pair.b.entityName, s.topic),
+			rationale: buildFlagRationale(
+				s.pair.a.entityName,
+				s.pair.b.entityName,
+				s.topic,
+				input.locale
+			),
 			evidence: [s.pair.a, s.pair.b],
 			rank: index
 		}))

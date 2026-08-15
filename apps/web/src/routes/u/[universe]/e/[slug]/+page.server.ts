@@ -4,9 +4,12 @@ import {
 	mediaAssetsForEntity,
 	priceOf,
 	relationsFor,
+	resetEntityLanguageToDetected,
+	setEntityLanguage,
 	universeAccessBySlug,
 	type Db
 } from '@canonry/db';
+import { isLocale, toLocale } from '@canonry/lang';
 import { ImageModelNotConfiguredError, resolveImageModel, resolveStyle } from '@canonry/media';
 import { AiDisabledError, completeEntry, semanticDiff } from '@canonry/copilot';
 import { UnknownProviderError } from '@canonry/ai';
@@ -158,6 +161,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			slug: current.slug,
 			aliases: current.aliases,
 			body: current.body,
+			language: toLocale(current.language),
+			languageSource: current.languageSource,
 			imagePromptModifier: current.imagePromptModifier,
 			updatedAt: current.updatedAt
 		},
@@ -207,7 +212,7 @@ async function requireAccess(locals: App.Locals, universeSlug: string) {
 	const conn = db();
 	const access = await universeAccessBySlug(conn, universeSlug, locals.user.id);
 	if (!access) error(404, `No universe named "${universeSlug}"`);
-	return { conn, world: access.universe, userId: locals.user.id };
+	return { conn, world: access.universe, role: access.role, userId: locals.user.id };
 }
 
 export const actions: Actions = {
@@ -241,6 +246,9 @@ export const actions: Actions = {
 				userId,
 				universeId: world.id,
 				entityId: current.id,
+				// Speech follows the reader; the drafted body follows this entry's own language,
+				// which `completeEntry` reads from the entity itself (SPEC.md §17).
+				locale: locals.locale,
 				modelFactory,
 				gateway: identityGateway
 			});
@@ -263,5 +271,35 @@ export const actions: Actions = {
 			}
 			throw err;
 		}
+	},
+
+	/** Issue #122, SPEC.md §17: the entry's own language control. `auto` reverts to
+	 * detection and re-runs it immediately against the body as it stands now, rather than
+	 * leaving a stale guess sitting under the new 'detected' provenance until the next
+	 * save; `unsure` is the explicit "not sure / mixed" answer, stored as `language: null`
+	 * under `languageSource: 'human'` so it is never re-guessed. */
+	setLanguage: async ({ request, params, locals }) => {
+		const { conn, world, role } = await requireAccess(locals, params.universe);
+		if (role === 'viewer') error(403, 'Viewers cannot change an entry\u2019s language');
+
+		const current = await conn.query.entity.findFirst({
+			where: (entity, { and, eq }) =>
+				and(eq(entity.universeId, world.id), eq(entity.slug, params.slug)),
+			columns: { id: true }
+		});
+		if (!current) error(404, `No entry named "${params.slug}" in ${world.name}`);
+
+		const form = await request.formData();
+		const choice = form.get('language');
+		if (typeof choice !== 'string') return fail(400, { languageError: 'Missing language choice' });
+
+		if (choice === 'auto') {
+			return await resetEntityLanguageToDetected(conn, { entityId: current.id });
+		}
+		if (choice === 'unsure') {
+			return await setEntityLanguage(conn, { entityId: current.id, language: null });
+		}
+		if (!isLocale(choice)) return fail(400, { languageError: `Unknown language "${choice}"` });
+		return await setEntityLanguage(conn, { entityId: current.id, language: choice });
 	}
 };

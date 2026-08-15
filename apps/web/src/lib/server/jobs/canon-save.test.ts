@@ -317,7 +317,8 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			userId: owner.id,
 			oldBody: cairnmouthOldBody,
 			newBody,
-			triggerRevisionId: null
+			triggerRevisionId: null,
+			locale: 'en' as const
 		});
 		await queue.waitForIdle();
 		await queue.stop();
@@ -379,7 +380,8 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			userId: owner.id,
 			oldBody: edited.body,
 			newBody: 'New body that would otherwise touch other entries.',
-			triggerRevisionId: null
+			triggerRevisionId: null,
+			locale: 'en' as const
 		});
 		await queue.waitForIdle();
 		await queue.stop();
@@ -446,7 +448,8 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			userId: owner.id,
 			oldBody: 'irrelevant before',
 			newBody: 'irrelevant after, just to trigger a run',
-			triggerRevisionId: null
+			triggerRevisionId: null,
+			locale: 'en' as const
 		});
 		await queue.waitForIdle();
 		expect((await queue.recentJobs()).filter((j) => j.entityId === target.id)).toHaveLength(1);
@@ -495,7 +498,8 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 				userId: owner.id,
 				oldBody: `body ${i - 1}`,
 				newBody: `body ${i}`,
-				triggerRevisionId: null
+				triggerRevisionId: null,
+				locale: 'en' as const
 			});
 			await delay(15);
 		}
@@ -559,7 +563,8 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			userId: owner.id,
 			oldBody: 'A quiet harbor town.',
 			newBody: 'A quiet harbor town. Captain Vane leads the watch here now.',
-			triggerRevisionId: null
+			triggerRevisionId: null,
+			locale: 'en' as const
 		});
 
 		await waitForEntityRow(db, world.id, edited.id, (r) => r.status === 'claimed');
@@ -572,7 +577,8 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			oldBody: 'A quiet harbor town. Captain Vane leads the watch here now.',
 			newBody:
 				'A quiet harbor town. Captain Vane leads the watch here now, as he has since the thaw.',
-			triggerRevisionId: null
+			triggerRevisionId: null,
+			locale: 'en' as const
 		});
 
 		await queue.waitForIdle();
@@ -627,7 +633,8 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			userId: owner.id,
 			oldBody: 'A',
 			newBody: 'B',
-			triggerRevisionId: null
+			triggerRevisionId: null,
+			locale: 'en' as const
 		});
 		await delay(15);
 		instanceB.schedule({
@@ -637,7 +644,8 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			userId: owner.id,
 			oldBody: 'B',
 			newBody: 'C',
-			triggerRevisionId: null
+			triggerRevisionId: null,
+			locale: 'en' as const
 		});
 
 		await instanceA.waitForIdle();
@@ -690,6 +698,7 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 				oldBody: 'reclaim old',
 				newBody: 'reclaim new',
 				triggerRevisionId: null,
+				locale: 'en' as const,
 				runAfter: new Date(Date.now() - 2000),
 				status: 'claimed',
 				leaseHolder: 'dead-worker-simulated',
@@ -740,6 +749,7 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 				oldBody: 'cap old',
 				newBody: 'cap new',
 				triggerRevisionId: null,
+				locale: 'en' as const,
 				runAfter: new Date(Date.now() - 2000),
 				status: 'claimed',
 				leaseHolder: 'dead-worker-again',

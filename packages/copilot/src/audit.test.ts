@@ -18,7 +18,8 @@ import {
 	insertEntity,
 	insertHomebrewUniverse,
 	insertModelConfig,
-	insertUser
+	insertUser,
+	systemPromptOf
 } from './test-helpers.js';
 import { openTestDb } from './test-db.js';
 
@@ -44,6 +45,28 @@ function judgmentModel(verdicts: Array<{ disagree: boolean; topic: string }>): L
 		doGenerate: async () => {
 			const verdict = verdicts[call] ?? verdicts[verdicts.length - 1]!;
 			call += 1;
+			return {
+				content: [{ type: 'text', text: JSON.stringify(verdict) }],
+				finishReason: { unified: 'stop', raw: undefined },
+				usage: usage(60, 20),
+				warnings: []
+			};
+		}
+	}) as unknown as LanguageModel;
+}
+
+/** Like `judgmentModel`, but hands the real call `options` to `capture` first - for
+ * asserting on "the prompt actually sent" (SPEC.md §17, issue #123) rather than only on
+ * the verdict that comes back. */
+function capturingJudgmentModel(
+	verdict: { disagree: boolean; topic: string },
+	capture: (options: { prompt: Array<{ role: string; content: unknown }> }) => void
+): LanguageModel {
+	return new MockLanguageModelV4({
+		provider: 'test',
+		modelId: 'test-cheap',
+		doGenerate: async (options) => {
+			capture(options);
 			return {
 				content: [{ type: 'text', text: JSON.stringify(verdict) }],
 				finishReason: { unified: 'stop', raw: undefined },
@@ -125,6 +148,7 @@ describe('runAudit (issue #55, SPEC.md §5.2)', () => {
 			editedEntityId: cairnmouth.id,
 			oldBody: cairnmouthOldBody,
 			newBody,
+			locale: 'en',
 			modelFactory: modelFactoryFor(model),
 			gateway: IDENTITY_GATEWAY
 		});
@@ -172,6 +196,7 @@ describe('runAudit (issue #55, SPEC.md §5.2)', () => {
 			editedEntityId: cairnmouth.id,
 			oldBody: cairnmouthOldBody,
 			newBody,
+			locale: 'en',
 			modelFactory: modelFactoryFor(model),
 			gateway: IDENTITY_GATEWAY
 		});
@@ -195,6 +220,7 @@ describe('runAudit (issue #55, SPEC.md §5.2)', () => {
 			editedEntityId: cairnmouth.id,
 			oldBody: cairnmouthOldBody,
 			newBody,
+			locale: 'en',
 			modelFactory: modelFactoryFor(judgmentModel([{ disagree: true, topic: 'x' }])),
 			gateway: IDENTITY_GATEWAY
 		});
@@ -214,6 +240,7 @@ describe('runAudit (issue #55, SPEC.md §5.2)', () => {
 			editedEntityId: cairnmouth.id,
 			oldBody: cairnmouthOldBody,
 			newBody: `${cairnmouthOldBody}   `,
+			locale: 'en',
 			modelFactory: modelFactoryFor(judgmentModel([{ disagree: true, topic: 'x' }])),
 			gateway: IDENTITY_GATEWAY
 		});
@@ -238,17 +265,72 @@ describe('runAudit (issue #55, SPEC.md §5.2)', () => {
 				editedEntityId: entity.id,
 				oldBody: 'A fishing town.',
 				newBody: 'A fishing town, rebuilt after the fire.',
+				locale: 'en',
 				modelFactory: modelFactoryFor(judgmentModel([{ disagree: true, topic: 'x' }])),
 				gateway: IDENTITY_GATEWAY
 			})
 		).rejects.toBeInstanceOf(AiDisabledError);
+	});
+
+	it('SPEC.md §17 rule two (issue #123): the prompt states the locale explicitly, and an Italian locale produces an Italian flag rationale from English statements', async () => {
+		const { owner, universe, aldric, cairnmouth, cairnmouthOldBody } = await fixture();
+		const newBody =
+			`${cairnmouthOldBody} Captain Vane led the watch through the second freeze, ` +
+			'the winter after the thaw.';
+
+		let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+		const model = capturingJudgmentModel(
+			{ disagree: true, topic: 'chi guidava la ronda durante il secondo gelo' },
+			(options) => {
+				captured = options;
+			}
+		);
+
+		const result = await runAudit({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			editedEntityId: cairnmouth.id,
+			oldBody: cairnmouthOldBody,
+			newBody,
+			locale: 'it',
+			modelFactory: modelFactoryFor(model),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		const system = systemPromptOf(captured!);
+		expect(system).toContain('Italiano');
+		expect(system).toContain('locale "it"');
+		expect(system).toContain('never translate a proper noun');
+		expect(system).toContain('never translate a quoted sentence');
+
+		expect(result.flags).toHaveLength(1);
+		const flag = result.flags[0]!;
+		expect(flag.proposal.rationale).toBe(
+			"Cairnmouth e Aldric Vane non sono d'accordo su chi guidava la ronda durante il secondo gelo."
+		);
+		// Guardrail 3: the quoted statements themselves stay in English, byte-identical to
+		// their source entity's body - only the rationale beside them is in Italian.
+		for (const statement of flag.statements) {
+			const body = statement.entityId === aldric.id ? aldric.body : newBody;
+			expect(body.slice(statement.spanStart, statement.spanEnd)).toBe(statement.statement);
+		}
+
+		expect(result.plan?.summary).toBe(
+			"Cairnmouth e Aldric Vane non sono d'accordo su chi guidava la ronda durante il secondo gelo."
+		);
 	});
 });
 
 describe('buildFlagRationale and isGuardrailSafeTopic (guardrail 7)', () => {
 	it('builds the exact framing docs/ux/c9-audit-flags.html locks in', () => {
 		expect(
-			buildFlagRationale('Aldric Vane', 'Cairnmouth', 'who led the watch through the second freeze')
+			buildFlagRationale(
+				'Aldric Vane',
+				'Cairnmouth',
+				'who led the watch through the second freeze',
+				'en'
+			)
 		).toBe(
 			'Aldric Vane and Cairnmouth do not agree on who led the watch through the second freeze.'
 		);
@@ -261,7 +343,11 @@ describe('buildFlagRationale and isGuardrailSafeTopic (guardrail 7)', () => {
 		expect(isGuardrailSafeTopic('no conflicts found')).toBe(false);
 		expect(isGuardrailSafeTopic('who led the watch through the second freeze')).toBe(true);
 
-		expect(buildFlagRationale('A', 'B', '92% likely inconsistent')).toBe('A and B do not agree.');
-		expect(buildFlagRationale('A', 'B', 'fix this automatically')).toBe('A and B do not agree.');
+		expect(buildFlagRationale('A', 'B', '92% likely inconsistent', 'en')).toBe(
+			'A and B do not agree.'
+		);
+		expect(buildFlagRationale('A', 'B', 'fix this automatically', 'en')).toBe(
+			'A and B do not agree.'
+		);
 	});
 });

@@ -4,6 +4,7 @@
 // never split across a caller and this file.
 import { and, desc, eq } from 'drizzle-orm';
 import type { Db } from '../client.js';
+import { languageFromAcceptedPatch } from './entities.js';
 import { entity } from '../schema/entity.js';
 import type {
 	EntityType,
@@ -103,6 +104,13 @@ export interface CreateProposalPlanInput {
 	summary: string;
 	candidateCap: number;
 	estimatedCredits: number;
+	/** SPEC.md §17: the interface language the plan's own speech was written in, applied to every
+	 * proposal in it, because one plan has one caller and therefore one reader. This is not the
+	 * language of the canon these proposals edit: that lives per entry on `entity.language`, and
+	 * a proposal legitimately carries both at once. Recorded so accept rate can be read per
+	 * locale, which is the only way to notice that Italian proposals are being accepted at half
+	 * the English rate while the aggregate stays healthy. */
+	locale?: string | null;
 	candidates: CreateProposalPlanCandidate[];
 }
 
@@ -152,6 +160,7 @@ export async function createProposalPlan(
 					rationale: candidate.rationale,
 					evidence: candidate.evidence,
 					rank: candidate.rank,
+					locale: input.locale ?? null,
 					outcome: 'pending' as const
 				}))
 			)
@@ -321,6 +330,9 @@ interface EntityUpdatePatchShape {
 	after?: string;
 	name?: string;
 	aliases?: string[];
+	/** ImportLanguage's per-document signal (issue #125), preferred over re-detecting
+	 * from a merged summary when accept runs the write - see `languageFromAcceptedPatch`. */
+	language?: string;
 }
 
 function readEntityUpdatePatch(patch: unknown): EntityUpdatePatchShape {
@@ -332,6 +344,7 @@ function readEntityUpdatePatch(patch: unknown): EntityUpdatePatchShape {
 	if (Array.isArray(record.aliases) && record.aliases.every((a) => typeof a === 'string')) {
 		result.aliases = record.aliases as string[];
 	}
+	if (typeof record.language === 'string') result.language = record.language;
 	return result;
 }
 
@@ -341,6 +354,7 @@ interface EntityCreatePatchShape {
 	slug: string;
 	aliases: string[];
 	body: string;
+	language?: string;
 }
 
 function readEntityCreatePatch(patch: unknown): EntityCreatePatchShape {
@@ -363,7 +377,14 @@ function readEntityCreatePatch(patch: unknown): EntityCreatePatchShape {
 			? (record.aliases as string[])
 			: [];
 	const body = typeof record.body === 'string' ? record.body : '';
-	return { type: type as EntityType, name, slug, aliases, body };
+	return {
+		type: type as EntityType,
+		name,
+		slug,
+		aliases,
+		body,
+		...(typeof record.language === 'string' ? { language: record.language } : {})
+	};
 }
 
 export interface AcceptProposalInput {
@@ -413,6 +434,11 @@ export async function acceptProposal(db: Db, input: AcceptProposalInput): Promis
 			const nextName = patch.name ?? entityRow.name;
 			const nextAliases = patch.aliases ?? entityRow.aliases;
 			const nextBody = patch.after ?? entityRow.body;
+			const nextLanguage = languageFromAcceptedPatch(
+				{ language: entityRow.language, languageSource: entityRow.languageSource },
+				patch.language,
+				nextBody
+			);
 
 			const [rev] = await tx
 				.insert(revision)
@@ -431,10 +457,22 @@ export async function acceptProposal(db: Db, input: AcceptProposalInput): Promis
 
 			await tx
 				.update(entity)
-				.set({ name: nextName, aliases: nextAliases, body: nextBody, updatedAt: new Date() })
+				.set({
+					name: nextName,
+					aliases: nextAliases,
+					body: nextBody,
+					language: nextLanguage.language,
+					languageSource: nextLanguage.languageSource,
+					updatedAt: new Date()
+				})
 				.where(eq(entity.id, existing.targetEntityId));
 		} else if (existing.kind === 'create' || existing.kind === 'draft_entity') {
 			const patch = readEntityCreatePatch(existing.patch);
+			const createdLanguage = languageFromAcceptedPatch(
+				{ language: null, languageSource: 'detected' },
+				patch.language,
+				patch.body
+			);
 			const [createdEntity] = await tx
 				.insert(entity)
 				.values({
@@ -443,7 +481,9 @@ export async function acceptProposal(db: Db, input: AcceptProposalInput): Promis
 					name: patch.name,
 					slug: patch.slug,
 					aliases: patch.aliases,
-					body: patch.body
+					body: patch.body,
+					language: createdLanguage.language,
+					languageSource: createdLanguage.languageSource
 				})
 				.returning();
 			if (!createdEntity) throw new Error('acceptProposal: entity insert returned no row');

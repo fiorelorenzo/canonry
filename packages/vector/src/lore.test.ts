@@ -50,6 +50,7 @@ function payload(overrides: Partial<LoreChunkPayload>): LoreChunkPayload {
 		sectionSummary: 'summary',
 		questionsThisExcerptCanAnswer: ['What is this?'],
 		excerptKeywords: ['keyword'],
+		language: null,
 		...overrides
 	};
 }
@@ -307,5 +308,67 @@ describe('countPoints', () => {
 			must: [{ key: 'universe_id', value: 'universe-a' }]
 		});
 		expect(forA).toBe(2);
+	});
+});
+
+describe('LoreChunkPayload.language (SPEC.md §17, issue #125)', () => {
+	it('round-trips a known language and a null (unknown) one through Qdrant unchanged', async () => {
+		const name = scratchCollectionName();
+		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE });
+		await upsertLoreChunks(client, name, [
+			{
+				id: randomUUID(),
+				vector: unitVector(0),
+				payload: payload({ url: 'https://wiki.example.com/En', language: 'en' })
+			},
+			{
+				id: randomUUID(),
+				vector: unitVector(1),
+				payload: payload({ url: 'https://wiki.example.com/It', language: 'it' })
+			},
+			{
+				id: randomUUID(),
+				vector: unitVector(2),
+				payload: payload({ url: 'https://wiki.example.com/Unknown', language: null })
+			}
+		]);
+
+		const hits = await queryLore(client, name, {
+			vector: unitVector(0),
+			universeId: 'universe-a',
+			limit: 10
+		});
+		const byUrl = new Map(hits.map((hit) => [hit.payload.url, hit.payload.language]));
+		expect(byUrl.get('https://wiki.example.com/En')).toBe('en');
+		expect(byUrl.get('https://wiki.example.com/It')).toBe('it');
+		expect(byUrl.get('https://wiki.example.com/Unknown')).toBeNull();
+	});
+
+	it('is never a retrieval filter: a query returns chunks of every language present, not just one', async () => {
+		const name = scratchCollectionName();
+		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE });
+		await upsertLoreChunks(client, name, [
+			{
+				id: randomUUID(),
+				vector: unitVector(3),
+				payload: payload({ url: 'https://wiki.example.com/English-page', language: 'en' })
+			},
+			{
+				id: randomUUID(),
+				// Deliberately the same vector as the English page: with a semantically-blind
+				// vector, nothing but a language filter could ever separate the two, so a query
+				// that gets both back proves `queryLore` applies no such filter.
+				vector: unitVector(3),
+				payload: payload({ url: 'https://wiki.example.com/Italian-page', language: 'it' })
+			}
+		]);
+
+		const hits = await queryLore(client, name, {
+			vector: unitVector(3),
+			universeId: 'universe-a',
+			limit: 10
+		});
+		const languages = new Set(hits.map((hit) => hit.payload.language));
+		expect(languages).toEqual(new Set(['en', 'it']));
 	});
 });

@@ -9,6 +9,7 @@
  * DATABASE_URL that does not look local unless CANONRY_SEED_FORCE is set.
  */
 import { inArray } from 'drizzle-orm';
+import { detectLanguage } from '@canonry/lang';
 import { closeDb, createDb, type Db } from './client.js';
 import { revealEntityLive, revealFactLive, revealRelationLive } from './queries/players.js';
 import { entity } from './schema/entity.js';
@@ -116,6 +117,26 @@ const ENTITIES: SeedEntity[] = [
 		slug: 'the-drowned-concord',
 		visibility: 'gm_only',
 		body: 'A smuggling ring nobody at the table has heard of yet. Not for players (#82-85 fixture).'
+	},
+	{
+		type: 'faction',
+		name: 'La Casa dei Mercanti',
+		slug: 'la-casa-dei-mercanti',
+		aliases: ['The Merchant House'],
+		// Issue #122, SPEC.md §17: the fixture's Italian entry, so every downstream test
+		// that needs real bilingual canon reads this one rather than inventing its own -
+		// packages/eval's copy of this world mirrors it exactly (`nextEntityLanguage`
+		// reads this as 'it').
+		body: 'La Casa dei Mercanti tiene i suoi registri nel Quartiere della Lanterna, non lontano dal porto di [[Valdoria]]. Nessuno entra senza un debito da saldare o una lettera di credito da mostrare, e il vecchio Contabile non dimentica mai un nome.\n\n## Il libro nero\n\nOgni prestito che la Casa concede viene scritto due volte: una per il debitore, una per la cassa. [[The Ashen Ledger]] la considera una concorrente, mai un’alleata, e i loro uomini non bevono mai allo stesso tavolo.'
+	},
+	{
+		type: 'item',
+		name: "The Smugglers' Ledger",
+		slug: 'smugglers-ledger',
+		// Issue #122: the fixture's deliberately mixed entry - roughly even English and
+		// Italian sentences, so `detectLanguage` refuses to pick a winner. `null` here is
+		// the honest answer, not a missing one (`nextEntityLanguage` reads this as null).
+		body: 'A ledger nobody at the table has read yet, kept by whoever is running goods through the Lantern Quarter that week. The handwriting changes hands more than the goods do, and nobody has ever admitted to owning it.\n\nIl carico di questa settimana non è passato dal molo, ma dalla porta sul retro della locanda, dove nessuno guarda mai due volte. Chi scrive non firma mai con il proprio nome, e questo non è un caso.\n\nHalf the entries are crossed out, and the other half do not match what actually left the harbour that night. Whoever kept it after [[Aldric Vane]] stopped writing has a different hand entirely, but the same habit of saying less than they know.'
 	}
 ];
 
@@ -127,7 +148,9 @@ const RELATIONS: Array<[from: string, label: string, to: string]> = [
 	['the-valdoria-watch', 'located in', 'valdoria'],
 	['the-gilded-rat', 'located in', 'valdoria'],
 	['mother-sennah', 'owns', 'the-gilded-rat'],
-	['the-ashen-ledger', 'employs', 'corvin-ashe']
+	['the-ashen-ledger', 'employs', 'corvin-ashe'],
+	['la-casa-dei-mercanti', 'located in', 'valdoria'],
+	['smugglers-ledger', 'located in', 'valdoria']
 ];
 
 function assertLocal(url: string): void {
@@ -190,6 +213,11 @@ export async function seedFixture(db: Db): Promise<{ universeId: string; entitie
 
 	await db.insert(universeMember).values({ universeId: world.id, userId: OWNER, role: 'owner' });
 
+	// Issue #122, SPEC.md §17: a fixture entity is exactly what a save from the "GM" who
+	// wrote it would produce, and every real save runs detection - so the seed does too,
+	// rather than leaving every entity's language null until somebody happens to open and
+	// re-save it. Nobody has hand-set anything at seed time, so every row lands as
+	// 'detected', same as a fresh entity anywhere else.
 	const inserted = await db
 		.insert(entity)
 		.values(
@@ -200,7 +228,9 @@ export async function seedFixture(db: Db): Promise<{ universeId: string; entitie
 				slug: e.slug,
 				aliases: e.aliases ?? [],
 				body: e.body,
-				visibility: e.visibility ?? 'revealable'
+				visibility: e.visibility ?? 'revealable',
+				language: detectLanguage(e.body),
+				languageSource: 'detected' as const
 			}))
 		)
 		.returning({ id: entity.id, slug: entity.slug });

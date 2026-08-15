@@ -37,8 +37,10 @@ import {
 	type QdrantClient
 } from '@canonry/vector';
 import { retrieveForUniverse, type RetrievalHit } from '@canonry/indexing';
+import { type Locale } from '@canonry/lang';
 import { streamText } from 'ai';
 import { jaccard, splitIntoSentences, tokenize } from './diff.js';
+import { READING_ONLY_FALLBACK, TELL_ME_MORE, speechInstruction } from './speech.js';
 import { routeModel } from './models.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
 import { requireAiEnabled } from './propagate.js';
@@ -197,13 +199,13 @@ async function searchIndexed(input: {
 /** Deterministic follow-ups from what was actually retrieved (never a second billed
  * call): one per distinct entity/page a source names, excluding none of them (the GM
  * asked about one thing; every source is a legitimate "tell me more"), capped at 2. */
-function deriveFollowUps(sources: AskSource[]): string[] {
+function deriveFollowUps(locale: Locale, sources: AskSource[]): string[] {
 	const names: string[] = [];
 	for (const source of sources) {
 		const name = source.kind === 'own_canon' ? source.entityName : source.pageTitle;
 		if (!names.includes(name)) names.push(name);
 	}
-	return names.slice(0, 2).map((name) => `Tell me more about ${name}.`);
+	return names.slice(0, 2).map((name) => TELL_ME_MORE[locale](name));
 }
 
 const DETAIL_LEVEL_INSTRUCTION: Record<AskDetailLevel, string> = {
@@ -227,8 +229,8 @@ function renderSourcesForPrompt(sources: AskSource[]): string {
 /** Layer 1's own honest fallback answer when generation is off: the best-matching
  * sentences quoted verbatim, never a synthesized claim - there is no model call here to
  * make one. */
-function readingOnlyAnswer(sources: OwnCanonSource[]): string {
-	if (sources.length === 0) return 'Nothing in your own canon matches this question yet.';
+function readingOnlyAnswer(locale: Locale, sources: OwnCanonSource[]): string {
+	if (sources.length === 0) return READING_ONLY_FALLBACK[locale];
 	return sources
 		.slice(0, 2)
 		.map((s) => s.statement)
@@ -240,6 +242,10 @@ export interface AskInput {
 	userId: string;
 	universeId: string;
 	question: string;
+	/** SPEC.md §17 rule two (issue #123): the interface locale of whoever asked - the
+	 * synthesized answer, the reading-only fallback and the deterministic follow-ups are
+	 * all written in this, never in the language of the sources they draw from. */
+	locale: Locale;
 	detailLevel: AskDetailLevel;
 	vectorClient: QdrantClient;
 	embedder: QueryEmbedder;
@@ -294,11 +300,11 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 		})
 	]);
 	const sources: AskSource[] = [...ownCanon, ...indexed];
-	const followUps = deriveFollowUps(sources);
+	const followUps = deriveFollowUps(input.locale, sources);
 	input.onSources?.(sources, followUps);
 
 	if (!universeRow.aiEnabled) {
-		const answer = readingOnlyAnswer(ownCanon);
+		const answer = readingOnlyAnswer(input.locale, ownCanon);
 		input.onToken?.(answer);
 		return { answer, sources, followUps, generated: false, credits: 0 };
 	}
@@ -330,7 +336,9 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 						"You are the Loremaster, answering a GM's question about their game world from " +
 						'the sources below only. Never invent a fact the sources do not support. Do not ' +
 						'cite sources inline with numbers or brackets - they are listed separately. ' +
-						DETAIL_LEVEL_INSTRUCTION[input.detailLevel],
+						DETAIL_LEVEL_INSTRUCTION[input.detailLevel] +
+						' ' +
+						speechInstruction(input.locale),
 					prompt:
 						`Sources:\n${renderSourcesForPrompt(sources) || '(none found)'}\n\n` +
 						`Question: ${input.question}`

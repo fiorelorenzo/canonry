@@ -1,6 +1,7 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 import type { auth } from '$lib/server/auth';
+import type { Locale } from '@canonry/lang';
 
 declare global {
 	namespace App {
@@ -11,6 +12,14 @@ declare global {
 			// load and action reads these instead of re-deriving a session itself.
 			session: typeof auth.$Infer.Session.session | null;
 			user: typeof auth.$Infer.Session.user | null;
+			// The one resolved interface locale for this request (issue #120, SPEC.md
+			// §17), negotiated once in hooks.server.ts (see that file's `resolveLocale`)
+			// from the account preference, the `canonry_locale` cookie, then
+			// Accept-Language - never re-derived per route. The players' wiki
+			// (routes/p/**, issue #127) is the one exception: it negotiates from
+			// Accept-Language alone, on purpose, since it has no switcher of its own and
+			// must never leak the GM's own preference into a link they share with players.
+			locale: Locale;
 		}
 		// interface PageData {}
 		// interface PageState {}

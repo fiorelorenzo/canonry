@@ -53,6 +53,7 @@ import {
 	type SourceReader
 } from '@canonry/import';
 import { createLanguageModel, readGatewayCredentials, resolveModel } from '@canonry/ai';
+import { detectLanguage } from '@canonry/lang';
 import { and, desc, eq, type Db } from '@canonry/db';
 import { importJob, proposal, proposalPlan, universe } from '@canonry/db/schema';
 import type { EntityType } from '@canonry/db/schema';
@@ -564,6 +565,11 @@ function extractKankaDocument(
 	}
 	if (!Array.isArray(parsed)) return { entities: [], relations: [] };
 	const records = parsed.map(asRecord);
+	// issue #126, SPEC.md §17: this fallback driver is the "no AI_GATEWAY_* credentials"
+	// stand-in for the real GatewayDriver (this file's own doc comment), so it detects
+	// per document the same way that real loop does - the whole document's own text,
+	// stamped onto every entity it proposes, never the interface's locale.
+	const documentLanguage = detectLanguage(content);
 
 	const entities: EntityProposalPayload[] = [];
 	const localIdByEntityId = new Map<string, string>();
@@ -589,7 +595,8 @@ function extractKankaDocument(
 			summary,
 			sourceRef: { documentId, path: sourcePath },
 			evidenceSpan: { start: 0, end: Math.min(summary.length, 400) },
-			images: []
+			images: [],
+			language: documentLanguage
 		});
 	});
 
@@ -650,6 +657,9 @@ function extractFreeTextDocument(
 	content: string
 ): FakeExtraction {
 	const withoutFrontmatter = content.replace(/^---\n[\s\S]*?\n---\n/, '');
+	// issue #126, SPEC.md §17: same per-document detection the real GatewayDriver runs
+	// (see extractKankaDocument's own comment above).
+	const documentLanguage = detectLanguage(content);
 	const lines = withoutFrontmatter
 		.split('\n')
 		.map((line) => line.trim())
@@ -685,7 +695,8 @@ function extractFreeTextDocument(
 				summary,
 				sourceRef: { documentId, path: sourcePath },
 				evidenceSpan: { start: 0, end: Math.min(summary.length, 400) },
-				images: []
+				images: [],
+				language: documentLanguage
 			}
 		],
 		relations: []
@@ -716,6 +727,10 @@ async function extractWorldAnvilDocument(
 	} catch {
 		return { entities: [], relations: [] };
 	}
+	// issue #126, SPEC.md §17: detected on the document the real driver would see
+	// (`document.sourcePath` resolves to this JSON file, not its HTML sibling - see
+	// extractKankaDocument's own comment above for why this mirrors GatewayDriver).
+	const documentLanguage = detectLanguage(jsonContent);
 	const meta = asRecord(parsed);
 	const title = meta ? readString(meta, 'title') : undefined;
 	if (!meta || !title) return { entities: [], relations: [] };
@@ -744,7 +759,8 @@ async function extractWorldAnvilDocument(
 				summary,
 				sourceRef: { documentId, path: jsonPath },
 				evidenceSpan: { start: 0, end: Math.min(summary.length, 400) },
-				images: []
+				images: [],
+				language: documentLanguage
 			}
 		],
 		relations: []

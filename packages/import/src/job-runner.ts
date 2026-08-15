@@ -488,6 +488,14 @@ interface ResolvedEntityCandidate {
  * exception is a genuinely unchanged field, handled upstream by the content-hash
  * short-circuit before this function is ever called), then does the same for relations
  * whose endpoints both resolved to real, already-existing entities.
+ *
+ * issue #126: every patch carries `language`, straight from `payload.language` (the
+ * per-document detection `GatewayDriver` already ran - see `EntityProposalPayload`'s own
+ * comment). This package stops at proposing it; the accept-time write of
+ * `entity.language` from a patch is issue #122's own boundary (packages/db), not
+ * duplicated here - `patch` is `unknown` all the way down this file on purpose, exactly
+ * so a field like this can travel through a proposal without this module having to know
+ * what reads it on the other end.
  */
 async function materializeDocumentProposals(
 	params: RunImportJobParams,
@@ -539,7 +547,12 @@ async function materializeDocumentProposals(
 					),
 					rank: resolved.length
 				},
-				patch: { name: payload.name, aliases: payload.aliases, after: payload.summary }
+				patch: {
+					name: payload.name,
+					aliases: payload.aliases,
+					after: payload.summary,
+					language: payload.language
+				}
 			});
 		} else {
 			const ambiguousCandidateIds = decision.outcome === 'ask' ? decision.candidateIds : [];
@@ -566,7 +579,8 @@ async function materializeDocumentProposals(
 					name: payload.name,
 					slug: slugify(payload.name),
 					aliases: payload.aliases,
-					body: payload.summary
+					body: payload.summary,
+					language: payload.language
 				}
 			});
 		}

@@ -54,6 +54,9 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 					db: conn,
 					userId: locals.user!.id,
 					universeId: access.universe.id,
+					// SPEC.md §17: the answer comes back in the reader's language whatever language the
+					// canon it cites is written in, and the quoted sources stay in theirs.
+					locale: locals.locale,
 					question,
 					detailLevel,
 					vectorClient: vectorClient(),

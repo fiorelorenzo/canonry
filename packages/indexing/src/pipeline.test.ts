@@ -15,7 +15,7 @@ import {
 	addExclusion
 } from '@canonry/db';
 import { entity, user, universe } from '@canonry/db/schema';
-import { createVectorClient, dropCollection, type QdrantClient } from '@canonry/vector';
+import { createVectorClient, dropCollection, queryLore, type QdrantClient } from '@canonry/vector';
 import { heuristicExtractor } from './extraction.js';
 import { hashingEmbedder, type Embedder } from './embedding.js';
 import { indexDataSource } from './pipeline.js';
@@ -200,6 +200,57 @@ describe('indexDataSource: crawl, chunk, extract, embed, upsert (issue #58)', ()
 		const third = await indexDataSource(deps, options);
 		expect(third.pagesIndexed).toBe(1);
 		expect(third.pagesSkipped).toBe(1);
+	});
+
+	it("tags each chunk's payload with its own detected language (SPEC.md §17, issue #125), never the page's or the universe's", async () => {
+		const { owner, universe: u } = await insertUniverseWithOwner(db);
+		const source = await createDataSource(db, {
+			universeId: u.id,
+			type: 'wiki',
+			name: 'Bilingual Wiki'
+		});
+		await recordLicenceReview(db, {
+			dataSourceId: source.id,
+			licence: 'CC BY-SA 3.0',
+			reviewedBy: owner.id
+		});
+
+		fixture = await startFixtureWikiServer([
+			{
+				title: 'English Page',
+				wikitext:
+					'The city is a coastal trading post that has grown for centuries. After the war, the docks were rebuilt and the market began to grow again, and the people who live there now trade with their neighbors.',
+				updatedAt: '2026-01-01T00:00:00.000Z'
+			},
+			{
+				title: 'Pagina Italiana',
+				wikitext:
+					'La città è un porto molto antico, e i suoi mercanti commerciano con le città vicine da secoli. Dopo la grande tempesta, la popolazione ha ricostruito le banchine e il mercato è tornato a crescere.',
+				updatedAt: '2026-01-01T00:00:00.000Z'
+			}
+		]);
+		const wikiClient = new MediaWikiClient({
+			baseUrl: `${fixture.baseUrl}/api.php`,
+			requestsPerSecond: 1000
+		});
+		const collectionName = scratchCollection();
+
+		await indexDataSource(
+			{ db, vectorClient, wikiClient, extractor: heuristicExtractor, embedder: hashingEmbedder },
+			{ dataSourceId: source.id, universeId: u.id, collectionName, vectorSize: HASH_VECTOR_SIZE }
+		);
+
+		const [queryVector] = await hashingEmbedder(['city']);
+		const hits = await queryLore(vectorClient, collectionName, {
+			vector: queryVector!,
+			universeId: u.id,
+			limit: 10
+		});
+		const languageByPage = new Map(
+			hits.map((hit) => [hit.payload.pageTitle, hit.payload.language])
+		);
+		expect(languageByPage.get('English Page')).toBe('en');
+		expect(languageByPage.get('Pagina Italiana')).toBe('it');
 	});
 });
 

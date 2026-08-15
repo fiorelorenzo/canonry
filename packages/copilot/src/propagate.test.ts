@@ -25,7 +25,8 @@ import {
 	insertModelConfig,
 	insertRelation,
 	insertRelationType,
-	insertUser
+	insertUser,
+	systemPromptOf
 } from './test-helpers.js';
 import { openTestDb } from './test-db.js';
 
@@ -145,6 +146,7 @@ describe('propagation pipeline against the real database', () => {
 			editedEntityName: edited.name,
 			oldBody: edited.body,
 			newBody: `${edited.body} Word of it reached the harbourmaster within the hour.`,
+			locale: 'en',
 			modelFactory: modelFactoryFor(dynamicRankingModel(), fixedDiffModel('unused')),
 			gateway: IDENTITY_GATEWAY
 		});
@@ -190,6 +192,7 @@ describe('propagation pipeline against the real database', () => {
 			editedEntityName: edited.name,
 			oldBody: edited.body,
 			newBody: `${edited.body} It just doubled its collections staff.`,
+			locale: 'en',
 			modelFactory: modelFactoryFor(dynamicRankingModel(), fixedDiffModel('unused')),
 			gateway: IDENTITY_GATEWAY
 		});
@@ -231,6 +234,7 @@ describe('propagation pipeline against the real database', () => {
 			editedEntityName: edited.name,
 			oldBody: edited.body,
 			newBody: `${edited.body} It just doubled its collections staff.`,
+			locale: 'en',
 			modelFactory: modelFactoryFor(dynamicRankingModel(), fixedDiffModel('unused')),
 			gateway: IDENTITY_GATEWAY
 		});
@@ -241,8 +245,10 @@ describe('propagation pipeline against the real database', () => {
 			userId: owner.id,
 			universeId: universe.id,
 			planId: plan!.plan.id,
+			editedEntityId: edited.id,
 			editedEntityName: edited.name,
 			diff: plan!.diff,
+			locale: 'en',
 			modelFactory: modelFactoryFor(dynamicRankingModel(), fixedDiffModel(draftedBody)),
 			gateway: IDENTITY_GATEWAY
 		});
@@ -302,6 +308,7 @@ describe('propagation pipeline against the real database', () => {
 			editedEntityName: edited.name,
 			oldBody: edited.body,
 			newBody: `${edited.body} Word reached the harbourmaster.`,
+			locale: 'en',
 			modelFactory: modelFactoryFor(dynamicRankingModel(), fixedDiffModel('unused')),
 			gateway: IDENTITY_GATEWAY
 		});
@@ -313,8 +320,10 @@ describe('propagation pipeline against the real database', () => {
 			userId: owner.id,
 			universeId: universe.id,
 			planId: plan!.plan.id,
+			editedEntityId: edited.id,
 			editedEntityName: edited.name,
 			diff: plan!.diff,
+			locale: 'en',
 			modelFactory: modelFactoryFor(dynamicRankingModel(), fixedDiffModel(draftedBody)),
 			gateway: IDENTITY_GATEWAY
 		});
@@ -353,6 +362,7 @@ describe('propagation pipeline against the real database', () => {
 				editedEntityName: edited.name,
 				oldBody: 'x',
 				newBody: 'x changed',
+				locale: 'en',
 				modelFactory: modelFactoryFor(dynamicRankingModel(), fixedDiffModel('unused')),
 				gateway: IDENTITY_GATEWAY
 			})
@@ -375,10 +385,115 @@ describe('propagation pipeline against the real database', () => {
 			editedEntityName: edited.name,
 			oldBody: 'x.',
 			newBody: 'x.  ',
+			locale: 'en',
 			modelFactory: modelFactoryFor(dynamicRankingModel(), fixedDiffModel('unused')),
 			gateway: IDENTITY_GATEWAY
 		});
 
 		expect(result).toBeNull();
+	});
+
+	it("SPEC.md §17 rules two and three (issues #123/#124): an Italian locale produces an Italian plan rationale and diff summary, while the drafted body stays in the target entry's own English", async () => {
+		const { owner, universe } = await baseUniverse();
+		const edited = await insertEntity(db, universe.id, {
+			type: 'faction',
+			name: 'The Ashen Ledger',
+			body: 'A merchant bank.'
+		});
+		const rt = await insertRelationType(db, universe.id, {
+			label: 'employs',
+			inverseLabel: 'employed by'
+		});
+		const employee = await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Aldric Vane',
+			body: 'A dismissed watch captain.'
+		});
+		await insertRelation(db, universe.id, {
+			relationTypeId: rt.id,
+			fromEntityId: edited.id,
+			toEntityId: employee.id
+		});
+
+		let planSystem = '';
+		const rankingModel = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			doGenerate: async (options) => {
+				planSystem = systemPromptOf(options);
+				const promptText = JSON.stringify(options.prompt);
+				const ids = Array.from(new Set(Array.from(promptText.matchAll(UUID_RE)).map((m) => m[0])));
+				const object = {
+					summary: 'Questo cambiamento tocca una voce.',
+					candidates: ids.map((id) => ({ entityId: id, rationale: 'Perché lo impiegano ora.' }))
+				};
+				return {
+					content: [{ type: 'text', text: JSON.stringify(object) }],
+					finishReason: { unified: 'stop', raw: undefined },
+					usage: usage(80, 40),
+					warnings: []
+				};
+			}
+		}) as unknown as LanguageModel;
+
+		const plan = await planPropagation({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			editedEntityId: edited.id,
+			editedEntityName: edited.name,
+			oldBody: edited.body,
+			newBody: `${edited.body} It just doubled its collections staff.`,
+			locale: 'it',
+			modelFactory: modelFactoryFor(rankingModel, fixedDiffModel('unused')),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		expect(planSystem).toContain('Italiano');
+		expect(planSystem).toContain('locale "it"');
+		expect(planSystem).toContain('never translate a proper noun');
+		expect(plan!.plan.summary).toBe('Questo cambiamento tocca una voce.');
+		expect(plan!.proposals[0]?.rationale).toBe('Perché lo impiegano ora.');
+		expect(plan!.proposals[0]?.locale).toBe('it');
+
+		let diffSystem = '';
+		const draftedBody = 'A dismissed watch captain, recently hired by the Ashen Ledger.';
+		const diffModel = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-premium',
+			doGenerate: async (options) => {
+				diffSystem = systemPromptOf(options);
+				const object = { summary: 'Annota che ora lo impiega.', after: draftedBody };
+				return {
+					content: [{ type: 'text', text: JSON.stringify(object) }],
+					finishReason: { unified: 'stop', raw: undefined },
+					usage: usage(300, 200),
+					warnings: []
+				};
+			}
+		}) as unknown as LanguageModel;
+
+		const diffed = await generatePlanDiffs({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			planId: plan!.plan.id,
+			editedEntityId: edited.id,
+			editedEntityName: edited.name,
+			diff: plan!.diff,
+			locale: 'it',
+			modelFactory: modelFactoryFor(dynamicRankingModel(), diffModel),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		// Neither entity has a recorded or detectable language (both bodies are under the
+		// detector's MIN_WORDS floor) - canonLanguageFor's chain bottoms out at English,
+		// deliberately never at the Italian reader's locale.
+		expect(diffSystem).toContain('locale "it"');
+		expect(diffSystem).toContain('content language "en"');
+		expect(diffed.written[0]?.patch).toMatchObject({
+			summary: 'Annota che ora lo impiega.',
+			after: draftedBody
+		});
 	});
 });

@@ -1,10 +1,22 @@
 <script lang="ts">
 	import './layout.css';
 	import AuthStatus from '$lib/components/shell/AuthStatus.svelte';
+	import { messages } from '$lib/i18n';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
 	let { children, data }: { children: Snippet; data: LayoutData } = $props();
+
+	const t = $derived(messages(data.locale));
+
+	// Keeps `<html lang>` correct after a client-side locale change (the settings
+	// language page and the auth pages' compact switcher both submit through
+	// `use:enhance`, so `data.locale` updates without a full document reload -
+	// hooks.server.ts's transformPageChunk only rewrites the attribute on a fresh SSR
+	// response, and nothing else in SvelteKit ever touches `document.documentElement`).
+	$effect(() => {
+		document.documentElement.lang = data.locale;
+	});
 
 	// The spec's own TL;DR sentence (SPEC.md §1), not marketing copy: guardrail 7 means
 	// this product never certifies a canon is coherent, so the description it ships in
@@ -33,7 +45,7 @@
 	href="#main"
 	class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-accent focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-panel"
 >
-	Skip to content
+	{t.shell.skipToContent}
 </a>
-<AuthStatus user={data.user} />
+<AuthStatus user={data.user} locale={data.locale} />
 {@render children()}

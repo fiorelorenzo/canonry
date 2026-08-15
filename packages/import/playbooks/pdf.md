@@ -1,6 +1,6 @@
 ---
 id: pdf
-version: 1
+version: 2
 name: PDF document
 description: Imports a PDF, reading its text layer first and looking at any page that has none.
 modelPurpose: cheap
@@ -24,6 +24,22 @@ usable text - a scan, a photographed handout, a page that is an image start to f
 - do you reach for `page_image` and read it the way a person would: by looking at it.
   There is no OCR service behind this and none is coming (SPEC.md §6.6): a scanned page
   is rendered to an image and handed to a multimodal model, once, locally, for free.
+
+## Language
+
+Write every `summary` in the same language as the document itself, whatever that
+language is: an Italian handout gets an Italian `summary`, an English sourcebook page
+gets an English `summary`. This is not your choice to make - never switch to a
+different language than the one the document was written in, and never translate it.
+A page you had to look at with `page_image` is no exception: describe what you see in
+the same language the rest of the document is written in, going by whatever text
+elsewhere in the document tells you that.
+
+**Proper nouns are copied exactly as written, never translated.** A person's name, a
+place name, an inn's name: if the document calls it "The Gilded Rat", it stays "The
+Gilded Rat" character for character, even inside an otherwise Italian `summary` - the
+same way nobody would translate a person's name. This applies to `name`, to every
+entry in `aliases`, and to any proper noun you mention inside `summary` itself.
 
 ## Inputs
 

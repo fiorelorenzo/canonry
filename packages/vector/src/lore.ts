@@ -36,6 +36,14 @@ export interface LoreChunkPayload {
 	sectionSummary: string;
 	questionsThisExcerptCanAnswer: string[];
 	excerptKeywords: string[];
+	/** SPEC.md §17 (issue #125): the chunk's own content language, a BCP-47 primary
+	 * subtag ('en', 'it') or `null` when it was not detected (too short, mostly proper
+	 * nouns, or genuinely mixed - see `@canonry/lang`'s `detectLanguage`). This is
+	 * metadata for a future ranking signal, never a retrieval filter: SPEC.md §17 is
+	 * explicit that a query in one language must still find a chunk in the other, so
+	 * nothing in this package or `@canonry/indexing`'s retriever may add a
+	 * `language`-keyed `must`/`must_not` condition to a lore query. */
+	language: string | null;
 }
 
 export interface LoreChunk {
@@ -56,7 +64,8 @@ function toWirePayload(payload: LoreChunkPayload): Record<string, unknown> {
 		data_source_id: payload.dataSourceId,
 		section_summary: payload.sectionSummary,
 		questions_this_excerpt_can_answer: payload.questionsThisExcerptCanAnswer,
-		excerpt_keywords: payload.excerptKeywords
+		excerpt_keywords: payload.excerptKeywords,
+		language: payload.language
 	};
 }
 
@@ -72,7 +81,8 @@ function fromWirePayload(raw: Record<string, unknown>): LoreChunkPayload {
 		dataSourceId: raw.data_source_id as string,
 		sectionSummary: raw.section_summary as string,
 		questionsThisExcerptCanAnswer: (raw.questions_this_excerpt_can_answer as string[]) ?? [],
-		excerptKeywords: (raw.excerpt_keywords as string[]) ?? []
+		excerptKeywords: (raw.excerpt_keywords as string[]) ?? [],
+		language: (raw.language as string | null | undefined) ?? null
 	};
 }
 

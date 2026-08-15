@@ -9,6 +9,8 @@ import { generateObject } from 'ai';
 import { chargeFor, withQuota } from '@canonry/ai';
 import { z } from 'zod';
 import type { Db } from '@canonry/db';
+import type { Locale } from '@canonry/lang';
+import { canonInstruction, speechInstruction } from './speech.js';
 import type { CandidateEvidence } from './candidates.js';
 import type { FactChange } from './diff.js';
 import type { RoutedModel } from './models.js';
@@ -43,6 +45,13 @@ export interface WriteEntityDiffInput {
 	editedEntityName: string;
 	diff: FactChange[];
 	model: RoutedModel;
+	/** SPEC.md §17 rule two (issue #123): the interface locale of whoever triggered this
+	 * propagation - `patch.summary` ("the reason it exists") is written in this. */
+	locale: Locale;
+	/** SPEC.md §17 rule three (issue #124), via `@canonry/lang`'s `canonLanguageFor` -
+	 * `patch.after` ("the drafted paragraph") is written in this instead, deliberately
+	 * never `locale`: a proposal legitimately carries both languages at once. */
+	contentLanguage: Locale;
 	requestId?: string;
 }
 
@@ -91,7 +100,12 @@ export async function writeEntityDiff(input: WriteEntityDiffInput): Promise<Writ
 						"related entry just changed. Write the entry's full new body text, keeping " +
 						'everything unrelated to this change untouched, and a one-line summary of what you ' +
 						'changed and why. Only use facts the evidence below actually supports - never invent ' +
-						'a detail the source sentence does not carry.',
+						'a detail the source sentence does not carry. The summary is addressed to the GM; ' +
+						'the new body text is the entry itself - they are held to different language rules, ' +
+						'stated separately below. ' +
+						speechInstruction(input.locale) +
+						' ' +
+						canonInstruction(input.contentLanguage),
 					prompt:
 						`Entry to update: ${input.targetEntityName}\n\n` +
 						`Current body:\n${input.targetEntityBody}\n\n` +

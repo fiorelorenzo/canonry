@@ -4,7 +4,9 @@
  * database agree on the same world. Duplicated rather than imported: this package has no
  * dependency on @canonry/db, and `seed-fixture.ts` does not export its entity/relation
  * arrays. If that fixture changes, this file has to change with it - the two are meant to
- * describe the same ten entities and seven relations.
+ * describe the same twelve entities and nine relations (the db fixture's own `session-1`
+ * and gm_only `the-drowned-concord` have no place here and stay out, same as always -
+ * this corpus is about propagation candidates, not session logs or hidden canon).
  */
 import type { PropagationWorld } from '../types.js';
 
@@ -80,6 +82,24 @@ export const valdoriaReach: PropagationWorld = {
 			slug: 'the-sable-winter',
 			name: 'The Sable Winter',
 			body: 'The year 1247, when the strait froze and [[Cairnmouth]] starved.'
+		},
+		{
+			type: 'faction',
+			slug: 'la-casa-dei-mercanti',
+			name: 'La Casa dei Mercanti',
+			aliases: ['The Merchant House'],
+			// Issue #122, SPEC.md §17: the fixture's Italian entry, mirrored exactly from
+			// packages/db/src/seed-fixture.ts.
+			body: 'La Casa dei Mercanti tiene i suoi registri nel Quartiere della Lanterna, non lontano dal porto di [[Valdoria]]. Nessuno entra senza un debito da saldare o una lettera di credito da mostrare, e il vecchio Contabile non dimentica mai un nome.\n\n## Il libro nero\n\nOgni prestito che la Casa concede viene scritto due volte: una per il debitore, una per la cassa. [[The Ashen Ledger]] la considera una concorrente, mai un’alleata, e i loro uomini non bevono mai allo stesso tavolo.'
+		},
+		{
+			type: 'item',
+			slug: 'smugglers-ledger',
+			name: "The Smugglers' Ledger",
+			// Issue #122: the fixture's deliberately mixed entry, mirrored exactly from
+			// packages/db/src/seed-fixture.ts - roughly even English and Italian sentences,
+			// so `detectLanguage` refuses to pick a winner.
+			body: 'A ledger nobody at the table has read yet, kept by whoever is running goods through the Lantern Quarter that week. The handwriting changes hands more than the goods do, and nobody has ever admitted to owning it.\n\nIl carico di questa settimana non è passato dal molo, ma dalla porta sul retro della locanda, dove nessuno guarda mai due volte. Chi scrive non firma mai con il proprio nome, e questo non è un caso.\n\nHalf the entries are crossed out, and the other half do not match what actually left the harbour that night. Whoever kept it after [[Aldric Vane]] stopped writing has a different hand entirely, but the same habit of saying less than they know.'
 		}
 	],
 	relations: [
@@ -89,7 +109,9 @@ export const valdoriaReach: PropagationWorld = {
 		{ from: 'the-valdoria-watch', label: 'located in', to: 'valdoria' },
 		{ from: 'the-gilded-rat', label: 'located in', to: 'valdoria' },
 		{ from: 'mother-sennah', label: 'owns', to: 'the-gilded-rat' },
-		{ from: 'the-ashen-ledger', label: 'employs', to: 'corvin-ashe' }
+		{ from: 'the-ashen-ledger', label: 'employs', to: 'corvin-ashe' },
+		{ from: 'la-casa-dei-mercanti', label: 'located in', to: 'valdoria' },
+		{ from: 'smugglers-ledger', label: 'located in', to: 'valdoria' }
 	],
 	cases: [
 		{

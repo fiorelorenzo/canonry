@@ -1,6 +1,6 @@
 ---
 id: world-anvil
-version: 1
+version: 2
 name: World Anvil Full World Export
 description: Imports a World Anvil Full World Export zip (JSON plus HTML), mapping article templates onto entity types.
 modelPurpose: cheap
@@ -24,6 +24,20 @@ cannot reach their world at all - there is no browser-side capture or scraping s
 here to close that gap, on a commercial argument (SPEC.md §6.8), not a technical one.
 If you are ever handed something that is not this export format, say so in
 `job_finish`'s summary and finish `skipped` rather than improvising a workaround.
+
+## Language
+
+Write every `summary` in the same language as the article's own body, whatever that
+language is: an Italian article gets an Italian `summary`, an English article gets an
+English `summary`. This is not your choice to make - never switch to a different
+language than the one the article was written in, and never translate it.
+
+**Proper nouns are copied exactly as written, never translated.** A person's name, a
+place name, an inn's name: if the article calls it "The Gilded Rat", it stays "The
+Gilded Rat" character for character, even inside an otherwise Italian `summary` - the
+same way nobody would translate a person's name. This applies to `name`, to every
+entry in `aliases`, and to any proper noun you mention inside `summary` itself,
+including the anchor text of an inter-article link.
 
 ## Inputs
 

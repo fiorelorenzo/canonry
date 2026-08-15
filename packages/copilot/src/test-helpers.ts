@@ -146,3 +146,15 @@ export async function insertModelConfig(
 	if (!row) throw new Error('insertModelConfig: upsert returned no row');
 	return row;
 }
+
+/** SPEC.md §17 (issues #123/#124): pulls the `role: 'system'` message's text out of a
+ * `LanguageModelV4CallOptions.prompt` - the AI SDK folds the `system` string this package
+ * passes to `generateObject`/`streamText` into that array rather than keeping it a
+ * separate field, so this is what every test asserting on "the prompt actually sent"
+ * reads instead of a non-existent `options.system`. */
+export function systemPromptOf(options: {
+	prompt: Array<{ role: string; content: unknown }>;
+}): string {
+	const message = options.prompt.find((m) => m.role === 'system');
+	return typeof message?.content === 'string' ? message.content : '';
+}

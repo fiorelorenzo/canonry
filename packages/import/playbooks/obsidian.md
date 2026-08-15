@@ -1,6 +1,6 @@
 ---
 id: obsidian
-version: 1
+version: 2
 name: Obsidian vault
 description: Imports a folder or zip of an Obsidian vault, treating every wikilink as a candidate relation.
 modelPurpose: cheap
@@ -22,6 +22,21 @@ structure comes from convention: YAML frontmatter, folder names, tags, and above
 **wikilinks**. There is no dedicated competitor tool here that already gives you a
 graph, which is exactly why this playbook exists: the wikilinks in this vault **are**
 the starting graph, and every one of them is a candidate relation.
+
+## Language
+
+Write every `summary` in the same language as the note itself, whatever that language
+is: an Italian note gets an Italian `summary`, an English note gets an English
+`summary`. This is not your choice to make - never switch to a different language than
+the one the note was written in, and never translate it.
+
+**Proper nouns are copied exactly as written, never translated.** A person's name, a
+place name, an inn's name: if the note calls it "The Gilded Rat", it stays "The Gilded
+Rat" character for character, even inside an otherwise Italian sentence - the same way
+nobody would translate a person's name. This applies to `name`, to every entry in
+`aliases`, and to any proper noun you mention inside `summary` itself. A wikilink's
+target name (`[[Note Name]]`) is a proper noun too: resolve it to propose the right
+entity, but do not translate it when it appears in prose.
 
 ## Inputs
 

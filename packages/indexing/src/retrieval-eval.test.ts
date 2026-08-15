@@ -28,6 +28,7 @@ import {
 	type QdrantClient
 } from '@canonry/vector';
 import { hashingEmbedder } from './embedding.js';
+import { detectLanguage } from '@canonry/lang';
 
 const HASH_VECTOR_SIZE = 256;
 const TEST_UNIVERSE_ID = 'eval-universe';
@@ -54,7 +55,8 @@ async function seedCorpus(corpus: RetrievalCorpus): Promise<void> {
 			dataSourceId: TEST_DATA_SOURCE_ID,
 			sectionSummary: chunk.text.slice(0, 120),
 			questionsThisExcerptCanAnswer: [],
-			excerptKeywords: chunk.keywords ?? []
+			excerptKeywords: chunk.keywords ?? [],
+			language: detectLanguage(chunk.text)
 		}
 	}));
 	await upsertLoreChunks(client, collectionName, loreChunks);

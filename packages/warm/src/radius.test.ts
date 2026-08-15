@@ -162,7 +162,8 @@ describe('warmOnConsumption honours the governed radius', () => {
 				enteredPlaceEntityId: placeId,
 				promptVersion: 'v1',
 				modelId: 'm1',
-				briefCredits: 1
+				briefCredits: 1,
+				locale: 'en'
 			},
 			generator,
 			bigBudget()
@@ -186,7 +187,8 @@ describe('warmOnConsumption honours the governed radius', () => {
 				enteredPlaceEntityId: placeId,
 				promptVersion: 'v1',
 				modelId: 'm1',
-				briefCredits: 1
+				briefCredits: 1,
+				locale: 'en'
 			},
 			generator,
 			bigBudget()

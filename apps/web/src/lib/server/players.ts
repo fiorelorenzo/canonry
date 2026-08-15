@@ -15,9 +15,11 @@ import {
 	publicMentionTargets,
 	universeForExport,
 	type Db,
-	type PublicEntity,
+	type PublicFullEntity,
+	type PublicGapEntity,
 	type RevealedEntityListItem
 } from '@canonry/db';
+import { detectLanguage, type Locale } from '@canonry/lang';
 import { stripSecretsForPlayers } from '$lib/markdown-secrets';
 
 export interface PublicUniverse {
@@ -47,8 +49,24 @@ export interface PublicMentionTarget {
 	aliases: string[];
 }
 
+/**
+ * #127: the `lang` attribute a revealed entry's prose carries, so a screen reader
+ * pronounces it in the right language. Detected fresh from the *player-visible* body on
+ * every request, deliberately never read off `entity.language` (packages/db/src/schema
+ * /entity.ts): that column may have been written from the raw source, secret and GM-note
+ * fences included, and reusing it here would let a hidden block's language leak through
+ * the one attribute this route exposes about content the filter was supposed to hide.
+ * `detectLanguage` is the same conservative heuristic that column itself is written with
+ * (@canonry/lang, SPEC.md §17) - short or genuinely mixed text answers null here exactly
+ * like it does at save time, and null means "no attribute", inheriting the page's own
+ * chrome language rather than guessing. A `gap` entity never reaches this at all: it has
+ * no body to detect from, and guessing one from nothing would itself be a leak of whether
+ * undiscovered content exists in some particular language.
+ */
+export type PublicEntityView = (PublicFullEntity & { language: Locale | null }) | PublicGapEntity;
+
 export interface PublicEntityPageData {
-	entity: PublicEntity;
+	entity: PublicEntityView;
 	mentionTargets: PublicMentionTarget[];
 }
 
@@ -56,7 +74,9 @@ export interface PublicEntityPageData {
  * value, when `entity.status === 'full'`, has already been through
  * `stripSecretsForPlayers` - a secret or GM-note block is not merely styled invisible, its
  * text is not in this object at all, which is what a `JSON.stringify` of the return value
- * (exactly what SvelteKit serialises as page data) never contains. */
+ * (exactly what SvelteKit serialises as page data) never contains. `entity.language`
+ * alongside it is detected from that same stripped string, for the reason in this file's
+ * own doc comment on `PublicEntityView` above. */
 export async function loadPublicEntity(
 	db: Db,
 	universeId: string,
@@ -70,8 +90,9 @@ export async function loadPublicEntity(
 	}
 
 	const mentionTargets = await publicMentionTargets(db, universeId);
+	const body = stripSecretsForPlayers(found.body);
 	return {
-		entity: { ...found, body: stripSecretsForPlayers(found.body) },
+		entity: { ...found, body, language: detectLanguage(body) },
 		mentionTargets
 	};
 }

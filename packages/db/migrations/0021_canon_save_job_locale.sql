@@ -1,0 +1,1 @@
+ALTER TABLE "canon_save_job" ADD COLUMN "locale" text;

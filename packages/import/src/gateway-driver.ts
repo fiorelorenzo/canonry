@@ -29,6 +29,7 @@
  */
 import { generateText, type ModelMessage, type LanguageModel, type ToolSet } from 'ai';
 import { computeCost, type ModelParams } from '@canonry/ai';
+import { detectLanguage, type Locale } from '@canonry/lang';
 import type {
 	DocumentStatus,
 	ImportDriver,
@@ -150,7 +151,25 @@ interface RunDocumentParams {
  * every one of those is a reported outcome on the stream, never an unhandled loop. */
 async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent> {
 	const { playbook, document, jobId } = params;
-	const ctx = createDocumentRunContext(jobId, document.id);
+	// issue #126, SPEC.md §17: the document's own language, read once before the loop
+	// starts rather than left to the model to self-report - the same "detected, never
+	// asserted" rule §17 puts on `entity.language` applies here, and a model asked to
+	// name its own output language is exactly the kind of self-grading a heuristic
+	// exists to avoid. Runs over the *whole* document text, which carries far more
+	// signal than any one entity's short `summary` - a summary alone can legitimately
+	// fall under `detectLanguage`'s minimum-word floor even when the source document
+	// plainly is not mixed. A document a real `SourceReader` cannot produce text for (a
+	// source path that does not resolve, or genuinely binary content) yields `null`,
+	// the same honest "unknown" answer as a body too short to call - the model still
+	// gets its own chance to `source_read` the path and see the real error.
+	let documentLanguage: Locale | null = null;
+	try {
+		const { content } = await params.sources.read(document.sourcePath);
+		documentLanguage = detectLanguage(content);
+	} catch {
+		documentLanguage = null;
+	}
+	const ctx = createDocumentRunContext(jobId, document.id, documentLanguage);
 	const enabledTools = new Set<string>(playbook.tools);
 	const tools = createImportTools(
 		ctx,

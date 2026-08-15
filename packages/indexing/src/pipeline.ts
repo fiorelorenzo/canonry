@@ -21,6 +21,7 @@ import {
 	type LoreChunk,
 	type QdrantClient
 } from '@canonry/vector';
+import { detectLanguage } from '@canonry/lang';
 import { chunkWikiPage, DEFAULT_CHUNK_TOKEN_BUDGET } from './chunking.js';
 import type { ChunkExtractor } from './extraction.js';
 import type { Embedder } from './embedding.js';
@@ -115,7 +116,14 @@ async function indexPage(
 				dataSourceId: options.dataSourceId,
 				sectionSummary: chunkMetadata.sectionSummary,
 				questionsThisExcerptCanAnswer: chunkMetadata.questionsThisExcerptCanAnswer,
-				excerptKeywords: chunkMetadata.excerptKeywords
+				excerptKeywords: chunkMetadata.excerptKeywords,
+				// SPEC.md §17, issue #125: the chunk's own language, detected from its own
+				// text (not the page's, not the universe's - a page can be mixed), so a future
+				// ranking change has it to read. `detectLanguage` is the same conservative
+				// heuristic an entry's `language` column uses: null for short text, a roster of
+				// names, or a genuinely mixed passage. Never fed into `queryLore`'s filter -
+				// see `LoreChunkPayload.language`'s own doc comment for why.
+				language: detectLanguage(chunk.text)
 			}
 		};
 	});

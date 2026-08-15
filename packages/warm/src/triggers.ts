@@ -12,11 +12,14 @@ import {
 	type Db,
 	type WarmArtifactRow
 } from '@canonry/db';
-import { universe } from '@canonry/db/schema';
+import { entity, universe, user } from '@canonry/db/schema';
+import { DEFAULT_LOCALE, toLocale, type Locale } from '@canonry/lang';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { WarmBudgetPort } from './budget.js';
 import { sortByDegradationOrder } from './budget.js';
+import { contentLanguageForSubject } from './language.js';
 import { currentWarmRadius } from './radius.js';
+import { NPC_DRAFT_RATIONALE } from './speech.js';
 import {
 	regenerate,
 	type RegenerateResult,
@@ -58,6 +61,21 @@ async function aiEnabledUniverseIds(db: Db, universeIds: string[]): Promise<stri
 		.from(universe)
 		.where(and(inArray(universe.id, universeIds), eq(universe.aiEnabled, true)));
 	return rows.map((row) => row.id);
+}
+
+/** No live requesting user exists for `warmNightly` (a system sweep spanning many
+ * universes) - SPEC.md §17 rule one still applies, so the interface locale a nightly
+ * regeneration's speech (if any) is written in falls back to the universe owner's own
+ * stored account preference, the same negotiation order §17 fixes for a live request
+ * minus the request itself, and to `DEFAULT_LOCALE` if the owner never chose one. */
+async function resolveOwnerLocale(db: Db, universeId: string): Promise<Locale> {
+	const [row] = await db
+		.select({ locale: user.locale })
+		.from(universe)
+		.innerJoin(user, eq(user.id, universe.ownerUserId))
+		.where(eq(universe.id, universeId))
+		.limit(1);
+	return toLocale(row?.locale) ?? DEFAULT_LOCALE;
 }
 
 async function runBatch(
@@ -123,6 +141,9 @@ export interface WriteWarmInput {
 	modelId: string;
 	briefCredits: number;
 	contextPackCredits: number;
+	/** SPEC.md §17 rule one (issue #123): the interface locale of whoever just saved -
+	 * threaded onto every candidate this trigger builds, never read from a global. */
+	locale: Locale;
 }
 
 /** "The GM just thought about this place, so use is likely and cost is negligible": a
@@ -143,7 +164,8 @@ export async function warmOnWrite(
 			sourceEntityIds: [input.entityId],
 			promptVersion: input.promptVersion,
 			modelId: input.modelId,
-			credits: input.briefCredits
+			credits: input.briefCredits,
+			locale: input.locale
 		},
 		{
 			universeId: input.universeId,
@@ -152,7 +174,8 @@ export async function warmOnWrite(
 			sourceEntityIds: [input.entityId],
 			promptVersion: input.promptVersion,
 			modelId: input.modelId,
-			credits: input.contextPackCredits
+			credits: input.contextPackCredits,
+			locale: input.locale
 		}
 	];
 	return runBatch(db, candidates, generator, budget);
@@ -178,6 +201,10 @@ export interface PrepWarmInput {
 	portraitCredits: number;
 	/** Default 3, per SPEC §8.1's "3 NPC drafts per expected place". */
 	npcDraftsPerPlace?: number;
+	/** SPEC.md §17 rule one (issue #123): the interface locale of whoever declared this
+	 * prep - every npc_draft's rationale (the "why this draft exists" label) is written
+	 * in this. */
+	locale: Locale;
 }
 
 /** "It is declared, it is asynchronous by nature, and it is the only moment the GM accepts
@@ -195,17 +222,41 @@ export async function warmOnPrep(
 	const slots = input.npcDraftsPerPlace ?? DEFAULT_NPC_DRAFTS_PER_PLACE;
 	const candidates: WarmCandidate[] = [];
 
+	// SPEC.md §17 rule three: each place's own recorded language and body, batched in one
+	// query (db-graph.ts's own comment: "a few dozen to a few hundred rows" is the scale
+	// this codebase treats as safe to load whole) - what a npc_draft generator needs to
+	// draft the NPC's body in the place's canon language, never the reader's locale.
+	const placeRows =
+		input.expectedPlaceEntityIds.length > 0
+			? await db
+					.select({ id: entity.id, language: entity.language, body: entity.body })
+					.from(entity)
+					.where(inArray(entity.id, input.expectedPlaceEntityIds))
+			: [];
+	const placeById = new Map(placeRows.map((row) => [row.id, row]));
+
 	for (const placeId of input.expectedPlaceEntityIds) {
+		const place = placeById.get(placeId);
+		const contentLanguage = contentLanguageForSubject({
+			language: place?.language ?? null,
+			body: place?.body ?? null
+		});
 		for (let slot = 1; slot <= slots; slot += 1) {
 			candidates.push({
 				universeId: input.universeId,
 				kind: 'npc_draft',
 				subjectEntityId: placeId,
 				sourceEntityIds: [placeId],
-				promptVersion: `${input.promptVersion}#npc-slot-${slot}`,
+				// Locale and content language are both baked into the fingerprint (via the
+				// prompt version) alongside the per-slot suffix: a locale switch or a place's
+				// language changing must produce a fresh candidate, not silently reuse a
+				// draft written for a different reader or a different entry language.
+				promptVersion: `${input.promptVersion}#npc-slot-${slot}#lang-${input.locale}-${contentLanguage}`,
 				modelId: input.modelId,
 				credits: input.npcDraftCredits,
-				rationale: `Prep drafted a candidate NPC for this place (slot ${slot} of ${slots}).`
+				rationale: NPC_DRAFT_RATIONALE[input.locale](slot, slots),
+				locale: input.locale,
+				contentLanguage
 			});
 		}
 		candidates.push({
@@ -215,7 +266,8 @@ export async function warmOnPrep(
 			sourceEntityIds: [placeId],
 			promptVersion: input.promptVersion,
 			modelId: input.modelId,
-			credits: input.ambientPackCredits
+			credits: input.ambientPackCredits,
+			locale: input.locale
 		});
 	}
 
@@ -227,7 +279,8 @@ export async function warmOnPrep(
 			sourceEntityIds: [npcId],
 			promptVersion: input.promptVersion,
 			modelId: input.modelId,
-			credits: input.portraitCredits
+			credits: input.portraitCredits,
+			locale: input.locale
 		});
 	}
 
@@ -245,6 +298,9 @@ export interface TableOpenWarmInput {
 	modelId: string;
 	briefCredits: number;
 	contextPackCredits: number;
+	/** SPEC.md §17 rule one (issue #123): the interface locale of whoever opened table
+	 * mode - threaded onto every candidate this trigger builds. */
+	locale: Locale;
 }
 
 /** "Safety net for the improvised session": a context pack spanning the current place and
@@ -270,7 +326,8 @@ export async function warmOnTableOpen(
 			sourceEntityIds: [input.placeEntityId, ...ring1Ids],
 			promptVersion: input.promptVersion,
 			modelId: input.modelId,
-			credits: input.contextPackCredits
+			credits: input.contextPackCredits,
+			locale: input.locale
 		},
 		...ring1.map((neighbor): WarmCandidate => ({
 			universeId: input.universeId,
@@ -279,7 +336,8 @@ export async function warmOnTableOpen(
 			sourceEntityIds: [neighbor.entity.id],
 			promptVersion: input.promptVersion,
 			modelId: input.modelId,
-			credits: input.briefCredits
+			credits: input.briefCredits,
+			locale: input.locale
 		}))
 	];
 
@@ -297,6 +355,9 @@ export interface ConsumptionWarmInput {
 	promptVersion: string;
 	modelId: string;
 	briefCredits: number;
+	/** SPEC.md §17 rule one (issue #123): the interface locale of whoever's session is
+	 * consuming this ring - threaded onto every candidate this trigger builds. */
+	locale: Locale;
 }
 
 /** "You only pay where the party is actually going": brief-only (cheap) candidates for
@@ -324,7 +385,8 @@ export async function warmOnConsumption(
 		sourceEntityIds: [neighbor.entity.id],
 		promptVersion: input.promptVersion,
 		modelId: input.modelId,
-		credits: input.briefCredits
+		credits: input.briefCredits,
+		locale: input.locale
 	}));
 
 	return runBatch(db, candidates, generator, budget);
@@ -380,8 +442,21 @@ export async function warmNightly(
 
 	for (const universeId of universeIds) {
 		const stale = await staleArtifacts(db, universeId);
+		const locale = await resolveOwnerLocale(db, universeId);
 		const candidates: WarmCandidate[] = [];
 		for (const artifact of stale) {
+			let contentLanguage: Locale | undefined;
+			if (artifact.kind === 'npc_draft' && artifact.subjectEntityId !== null) {
+				const [subjectRow] = await db
+					.select({ language: entity.language, body: entity.body })
+					.from(entity)
+					.where(eq(entity.id, artifact.subjectEntityId))
+					.limit(1);
+				contentLanguage = contentLanguageForSubject({
+					language: subjectRow?.language ?? null,
+					body: subjectRow?.body ?? null
+				});
+			}
 			candidates.push({
 				universeId,
 				kind: artifact.kind,
@@ -389,7 +464,9 @@ export async function warmNightly(
 				sourceEntityIds: await sourceEntityIdsForStaleArtifact(db, artifact),
 				promptVersion: input.promptVersion,
 				modelId: input.modelId,
-				credits: input.creditsFor(artifact)
+				credits: input.creditsFor(artifact),
+				locale,
+				...(contentLanguage !== undefined ? { contentLanguage } : {})
 			});
 		}
 		results.set(universeId, await runBatch(db, candidates, generator, budget));

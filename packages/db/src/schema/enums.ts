@@ -202,3 +202,12 @@ export const creditTransactionKindEnum = pgEnum('credit_transaction_kind', [
 	'expiry'
 ]);
 export type CreditTransactionKind = (typeof creditTransactionKindEnum.enumValues)[number];
+
+// SPEC.md §17. Where `entity.language` came from, which the language itself cannot express:
+// null with 'detected' means nobody has established a language yet and the next save may try
+// again, while null with 'human' means the GM looked at it and said the entry is mixed or
+// unknown, which must stick forever. A boolean flag would carry the same information and say
+// less: this records provenance, so a future re-detection pass can safely revisit every
+// 'detected' row and must never touch a 'human' one.
+export const languageSourceEnum = pgEnum('language_source', ['detected', 'human']);
+export type LanguageSource = (typeof languageSourceEnum.enumValues)[number];

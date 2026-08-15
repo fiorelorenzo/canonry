@@ -8,7 +8,8 @@
 		cheap: 'Cheap - candidate generation, quick actions',
 		premium: 'Premium - diffs, ask, propagation',
 		multimodal: 'Multimodal',
-		embedding: 'Embedding - similarity search, warm cache dedup',
+		embedding:
+			'Embedding - similarity search, warm cache dedup, retrieval (must be multilingual - see note below)',
 		image: 'Image (text purpose; see Image models below for the generator itself)'
 	};
 
@@ -51,6 +52,20 @@
 		takes effect on the very next call, no deploy, no restart. Provider is constrained to what
 		<code class="text-xs">createLanguageModel</code> can actually build; a provider outside that list
 		is not offered.
+	</p>
+	<p class="mt-2 max-w-measure text-sm text-ink-2">
+		SPEC.md §17, issue #125: an Italian question against an English canon has to find the English
+		chunk, so the <strong>embedding</strong> purpose is a deliberate multilingual choice, not a free
+		one. Candidates were compared on published multilingual retrieval benchmarks (MIRACL, MTEB
+		Multilingual) restricted to providers this build can construct - full reasoning and the
+		disqualified/fallback candidates are in
+		<code class="text-xs">packages/indexing/src/models.ts</code>'s
+		<code class="text-xs">RECOMMENDED_EMBEDDING_MODEL</code>. Recommended:
+		<code class="text-xs">google</code> / <code class="text-xs">gemini-embedding-001</code>
+		(#1 on the MTEB Multilingual leaderboard, ~100 languages). Gap this box cannot close: no live embedding
+		credential exists here to confirm en/it recall specifically - neither MIRACL nor MTEB publish an isolated
+		English&harr;Italian score, so that is a live benchmark still owed once a real credential exists,
+		not a settled number.
 	</p>
 
 	<div class="mt-8 overflow-x-auto rounded-lg border border-line">

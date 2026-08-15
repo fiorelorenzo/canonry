@@ -29,7 +29,11 @@ function toGraph(world: PropagationWorld): CandidateGraph {
 			type: entity.type,
 			name: entity.name,
 			aliases: entity.aliases ?? [],
-			body: entity.body
+			body: entity.body,
+			// SPEC.md §17: the eval corpus (packages/eval) predates the language work and
+			// models no content-language dimension - null is the honest "unknown" this
+			// package's own detector would return for a body it never analysed.
+			language: null
 		})),
 		relations: world.relations.map((relation) => ({
 			fromId: relation.from,

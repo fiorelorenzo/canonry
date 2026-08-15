@@ -5,6 +5,7 @@
 export { computeFingerprint, type FingerprintInput } from './fingerprint.js';
 
 export { assertWarmable, NotWarmableError } from './kinds.js';
+export { contentLanguageForSubject } from './language.js';
 
 export {
 	warmTierOf,

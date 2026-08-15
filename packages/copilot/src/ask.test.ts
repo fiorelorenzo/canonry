@@ -30,7 +30,8 @@ import {
 	insertEntity,
 	insertHomebrewUniverse,
 	insertModelConfig,
-	insertUser
+	insertUser,
+	systemPromptOf
 } from './test-helpers.js';
 import { openTestDb } from './test-db.js';
 
@@ -73,6 +74,45 @@ function streamingModel(text: string): LanguageModel {
 				}
 			})
 		})
+	}) as unknown as LanguageModel;
+}
+
+/** Same shape as `streamingModel`, but hands the real call `options` to `capture` first -
+ * for asserting on "the prompt actually sent" (SPEC.md §17, issues #123/#124) rather than
+ * only on the text that comes back. */
+function capturingStreamingModel(
+	text: string,
+	capture: (options: { prompt: Array<{ role: string; content: unknown }> }) => void
+): LanguageModel {
+	const words = text.split(' ');
+	return new MockLanguageModelV4({
+		provider: 'test',
+		modelId: 'test-premium',
+		doStream: async (options) => {
+			capture(options);
+			return {
+				stream: new ReadableStream({
+					start(controller) {
+						controller.enqueue({ type: 'stream-start', warnings: [] });
+						controller.enqueue({ type: 'text-start', id: '1' });
+						words.forEach((word, i) => {
+							controller.enqueue({
+								type: 'text-delta',
+								id: '1',
+								delta: i === 0 ? word : ` ${word}`
+							});
+						});
+						controller.enqueue({ type: 'text-end', id: '1' });
+						controller.enqueue({
+							type: 'finish',
+							finishReason: { unified: 'stop', raw: undefined },
+							usage: usage(120, 60)
+						});
+						controller.close();
+					}
+				})
+			};
+		}
 	}) as unknown as LanguageModel;
 }
 
@@ -139,6 +179,7 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 			universeId: universe.id,
 			question: 'Why was Aldric Vane dismissed?',
 			detailLevel: 'normal',
+			locale: 'en',
 			vectorClient,
 			embedder: hashingEmbedder,
 			modelFactory: modelFactoryFor(streamingModel('should never be called')),
@@ -165,6 +206,7 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 			universeId: universe.id,
 			question: 'Why was Aldric Vane dismissed?',
 			detailLevel: 'normal',
+			locale: 'en',
 			vectorClient,
 			embedder: hashingEmbedder,
 			modelFactory: modelFactoryFor(
@@ -237,7 +279,8 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 				dataSourceId: source.id,
 				sectionSummary: 'Waterdeep overview',
 				questionsThisExcerptCanAnswer: ['What is Waterdeep?'],
-				excerptKeywords: ['waterdeep', 'bank']
+				excerptKeywords: ['waterdeep', 'bank'],
+				language: 'en'
 			}
 		};
 		await upsertLoreChunks(vectorClient, collectionName, [chunk]);
@@ -248,6 +291,7 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 			universeId: universe.id,
 			question: 'What is Waterdeep, the port city bank quarter that lends against reputation?',
 			detailLevel: 'normal',
+			locale: 'en',
 			vectorClient,
 			embedder: hashingEmbedder,
 			modelFactory: modelFactoryFor(streamingModel('Waterdeep is a port city bank quarter.')),
@@ -263,5 +307,81 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 			attribution: 'Sample Indexed Wiki, CC BY-SA 3.0',
 			licence: 'CC BY-SA 3.0'
 		});
+	});
+
+	it('SPEC.md §17 rule two (issue #123): an Italian locale states the language in the system prompt, streams an Italian answer over English canon, and derives Italian follow-ups - never translating the source entity name', async () => {
+		const { owner, universe } = await fixture();
+
+		let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+		const result = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Why was Aldric Vane dismissed?',
+			detailLevel: 'normal',
+			locale: 'it',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(
+				capturingStreamingModel(
+					'È stato congedato dopo il Sable Winter e ora serve la Ashen Ledger.',
+					(options) => {
+						captured = options;
+					}
+				)
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		const system = systemPromptOf(captured!);
+		expect(system).toContain('Italiano');
+		expect(system).toContain('locale "it"');
+		expect(system).toContain('never translate a proper noun');
+		expect(system).toContain('never translate a quoted sentence');
+
+		expect(result.answer).toBe(
+			'È stato congedato dopo il Sable Winter e ora serve la Ashen Ledger.'
+		);
+		// The English source entity's name is never translated into the Italian follow-up.
+		expect(result.followUps).toContain('Dimmi di più su Aldric Vane.');
+	});
+
+	it('SPEC.md §17 rule two (issue #123): the reading-only fallback speaks the interface locale too, with AI off and no model call', async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, {
+			ownerUserId: owner.id,
+			name: 'Otherworld',
+			aiEnabled: false
+		});
+		await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Aldric Vane',
+			body: 'Dismissed from the watch in the thaw after the Sable Winter.'
+		});
+
+		const result = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			// Shares no words with the fixture's own body, so layer 1 finds nothing (own-canon
+			// scoring requires a positive word-overlap score) and layer 2 has no collection for
+			// this fresh universe either - the fallback branch is the only one reachable.
+			question: 'Quanti gattini colorati saltano sopra recinzioni dorate?',
+			detailLevel: 'normal',
+			locale: 'it',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(streamingModel('should never be called')),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		expect(result.generated).toBe(false);
+		expect(result.sources).toEqual([]);
+		expect(result.answer).toBe(
+			'Il tuo canone non contiene ancora nulla che risponda a questa domanda.'
+		);
+
+		const calls = await db.select().from(modelCall).where(eq(modelCall.operation, 'ask.answer'));
+		expect(calls.filter((c) => c.userId === owner.id)).toHaveLength(0);
 	});
 });

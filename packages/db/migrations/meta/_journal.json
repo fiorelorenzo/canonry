@@ -141,6 +141,20 @@
       "when": 1786778856346,
       "tag": "0019_languages",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786779536220,
+      "tag": "0020_language_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786781328588,
+      "tag": "0021_canon_save_job_locale",
+      "breakpoints": true
     }
   ]
 }

@@ -73,7 +73,8 @@ describe('trigger 1: warmOnWrite', () => {
 				promptVersion: 'v1',
 				modelId: 'm1',
 				briefCredits: 1,
-				contextPackCredits: 2
+				contextPackCredits: 2,
+				locale: 'en'
 			},
 			generator,
 			bigBudget()
@@ -130,7 +131,8 @@ describe('trigger 2: warmOnPrep', () => {
 				modelId: 'm1',
 				npcDraftCredits: 5,
 				ambientPackCredits: 3,
-				portraitCredits: 4
+				portraitCredits: 4,
+				locale: 'en'
 			},
 			generator,
 			bigBudget()
@@ -175,7 +177,8 @@ describe('trigger 3: warmOnTableOpen', () => {
 			promptVersion: 'v1',
 			modelId: 'm1',
 			briefCredits: 1,
-			contextPackCredits: 2
+			contextPackCredits: 2,
+			locale: 'en' as const
 		};
 
 		const first = await warmOnTableOpen(db, input, generator, budget);
@@ -228,7 +231,8 @@ describe('trigger 4: warmOnConsumption', () => {
 				enteredPlaceEntityId: place,
 				promptVersion: 'v1',
 				modelId: 'm1',
-				briefCredits: 1
+				briefCredits: 1,
+				locale: 'en'
 			},
 			generator,
 			bigBudget()
@@ -346,7 +350,8 @@ describe('budget degradation across a trigger batch', () => {
 				modelId: 'm1',
 				npcDraftCredits: 5,
 				ambientPackCredits: 5,
-				portraitCredits: 5
+				portraitCredits: 5,
+				locale: 'en'
 			},
 			generator,
 			budget
@@ -380,7 +385,8 @@ describe('AI switched off (guardrail 4, issue #107): warm triggers do not fire',
 					promptVersion: 'v1',
 					modelId: 'm1',
 					briefCredits: 1,
-					contextPackCredits: 1
+					contextPackCredits: 1,
+					locale: 'en'
 				},
 				generator,
 				bigBudget()
@@ -405,7 +411,8 @@ describe('AI switched off (guardrail 4, issue #107): warm triggers do not fire',
 					modelId: 'm1',
 					npcDraftCredits: 1,
 					ambientPackCredits: 1,
-					portraitCredits: 1
+					portraitCredits: 1,
+					locale: 'en'
 				},
 				generator,
 				bigBudget()
@@ -428,7 +435,8 @@ describe('AI switched off (guardrail 4, issue #107): warm triggers do not fire',
 					promptVersion: 'v1',
 					modelId: 'm1',
 					briefCredits: 1,
-					contextPackCredits: 1
+					contextPackCredits: 1,
+					locale: 'en'
 				},
 				generator,
 				bigBudget()
@@ -450,7 +458,8 @@ describe('AI switched off (guardrail 4, issue #107): warm triggers do not fire',
 					enteredPlaceEntityId: place,
 					promptVersion: 'v1',
 					modelId: 'm1',
-					briefCredits: 1
+					briefCredits: 1,
+					locale: 'en'
 				},
 				generator,
 				bigBudget()

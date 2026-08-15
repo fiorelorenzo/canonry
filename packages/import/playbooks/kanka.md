@@ -1,6 +1,6 @@
 ---
 id: kanka
-version: 1
+version: 2
 name: Kanka campaign export
 description: Imports a Kanka campaign export (JSON plus images), mapping Kanka's entity types onto ours.
 modelPurpose: cheap
@@ -23,6 +23,20 @@ gallery, produced from Kanka's own "Export" screen. Kanka already models a graph
 from Obsidian: here the hard part is not finding relations, it is that Kanka's entity
 taxonomy is richer than ours and has to be squeezed down to six types without losing
 what does not fit.
+
+## Language
+
+Write every `summary` in the same language as the entity's own `entry` text, whatever
+that language is: an Italian `entry` gets an Italian `summary`, an English `entry`
+gets an English `summary`. This is not your choice to make - never switch to a
+different language than the one the source data was written in, and never translate
+it.
+
+**Proper nouns are copied exactly as written, never translated.** A person's name, a
+place name, an inn's name: if the export calls it "The Gilded Rat", it stays "The
+Gilded Rat" character for character, even inside an otherwise Italian `summary` - the
+same way nobody would translate a person's name. This applies to `name`, to every
+entry in `aliases`, and to any proper noun you mention inside `summary` itself.
 
 ## Inputs
 

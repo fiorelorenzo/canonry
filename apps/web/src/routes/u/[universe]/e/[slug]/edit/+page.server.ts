@@ -1,6 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { type Db, eq, historyFor, universeAccessBySlug } from '@canonry/db';
-import { entity, revision } from '@canonry/db/schema';
+import { type Db, historyFor, saveEntityBody, universeAccessBySlug } from '@canonry/db';
 import { db } from '$lib/server/db';
 import { scheduleCanonSaveJob } from '$lib/server/jobs';
 import { normalizeMentions } from '$lib/markdown';
@@ -89,28 +88,22 @@ export const actions: Actions = {
 		const history = await historyFor(conn, current.id);
 		const parentRevisionId = history[0]?.id;
 
-		// One transaction: the revision row and the entity's own body move together, so
-		// history is never out of step with what the entry currently shows (guardrail 2).
-		// Issue #86: attributed to the real signed-in account, not the universe's
+		// One write path for the revision + the entity's own body (and now its language,
+		// SPEC.md §17): `saveEntityBody` keeps them in the same transaction, so history is
+		// never out of step with what the entry currently shows (guardrail 2), and a reader
+		// of the committed row never sees `language` disagree with the body that produced
+		// it. Issue #86: attributed to the real signed-in account, not the universe's
 		// recorded owner - a member editing someone else's universe now shows up as
 		// themselves in history, not as the owner they are not.
-		let insertedRevisionId: string | null = null;
-		await conn.transaction(async (tx) => {
-			const [rev] = await tx
-				.insert(revision)
-				.values({
-					universeId: world.id,
-					entityId: current.id,
-					parentRevisionId,
-					authorKind: 'human',
-					authorUserId: userId,
-					name: current.name,
-					aliases: current.aliases,
-					body
-				})
-				.returning({ id: revision.id });
-			insertedRevisionId = rev?.id ?? null;
-			await tx.update(entity).set({ body, updatedAt: new Date() }).where(eq(entity.id, current.id));
+		const saved = await saveEntityBody(conn, {
+			universeId: world.id,
+			entityId: current.id,
+			entityName: current.name,
+			entityAliases: current.aliases,
+			parentRevisionId,
+			authorUserId: userId,
+			body,
+			current: { language: current.language, languageSource: current.languageSource }
 		});
 
 		// SPEC.md §5.1/§5.2: propagation and audit run "on save, debounced, in the
@@ -125,7 +118,10 @@ export const actions: Actions = {
 			userId,
 			oldBody: current.body,
 			newBody: body,
-			triggerRevisionId: insertedRevisionId
+			// The language the GM is reading in right now, captured here because the worker that
+			// picks this job up cannot negotiate a locale from a request that has ended.
+			locale: locals.locale,
+			triggerRevisionId: saved.revisionId
 		});
 
 		redirect(303, `/u/${params.universe}/e/${params.slug}`);

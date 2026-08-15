@@ -14,6 +14,7 @@
  */
 import { and, desc, eq, inArray, sql, type Db } from '@canonry/db';
 import { canonSaveJob, type CanonSaveJobStatus } from '@canonry/db/schema';
+import type { Locale } from '@canonry/lang';
 
 export type CanonSaveJobRow = typeof canonSaveJob.$inferSelect;
 
@@ -29,6 +30,10 @@ export interface CanonSaveJobInput {
 	oldBody: string;
 	newBody: string;
 	triggerRevisionId: string | null;
+	/** SPEC.md §17: the interface language this save's propagation and audit speech must come
+	 * back in, captured now because the worker that runs it cannot see the request's cookie or
+	 * Accept-Language header later. */
+	locale: Locale;
 }
 
 export type EngineOutcome =
@@ -74,6 +79,7 @@ export async function scheduleCanonSaveJobRow(
 			oldBody: input.oldBody,
 			newBody: input.newBody,
 			triggerRevisionId: input.triggerRevisionId,
+			locale: input.locale,
 			runAfter
 		})
 		.onConflictDoUpdate({
@@ -84,6 +90,9 @@ export async function scheduleCanonSaveJobRow(
 				userId: input.userId,
 				newBody: input.newBody,
 				triggerRevisionId: input.triggerRevisionId,
+				// A burst that crosses a locale switch takes the latest save's language, which is the
+				// one the GM is reading right now.
+				locale: input.locale,
 				runAfter,
 				updatedAt: new Date()
 			}

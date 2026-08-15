@@ -16,6 +16,7 @@ import { chargeFor, resolveModel, withQuota } from '@canonry/ai';
 import type { Db } from '@canonry/db';
 import { createProposalPlan, recordProposalDiff } from '@canonry/db';
 import type { ProposalRow } from '@canonry/db';
+import { canonLanguageFor, type Locale } from '@canonry/lang';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { mentionsIn } from './candidates.js';
@@ -25,6 +26,7 @@ import { splitIntoSentences } from './diff.js';
 import { routeModel } from './models.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
 import { requireAiEnabled } from './propagate.js';
+import { canonInstruction, speechInstruction } from './speech.js';
 
 export interface CompleteEntryInput {
 	db: Db;
@@ -33,6 +35,10 @@ export interface CompleteEntryInput {
 	entityId: string;
 	modelFactory: ModelFactory;
 	gateway: GatewayWrapper;
+	/** SPEC.md §17 rule two (issue #123): the interface locale of whoever asked to
+	 * complete this entry - `patch.summary` ("what you added and why") is written in
+	 * this. */
+	locale: Locale;
 	requestId?: string;
 }
 
@@ -101,6 +107,14 @@ export async function completeEntry(input: CompleteEntryInput): Promise<Complete
 	const graph = await loadCandidateGraph(input.db, input.universeId);
 	const target = graph.entities.find((e) => e.id === input.entityId);
 	if (!target) throw new Error(`completeEntry: unknown entity "${input.entityId}"`);
+	// SPEC.md §17 rule three: no separate "triggering entry" exists for Complete (it is
+	// invoked directly on one thin entry, not by another entity's edit) - the chain ends
+	// at the target's own recorded language and body, English when even that is unknown,
+	// deliberately never `input.locale`.
+	const contentLanguage = canonLanguageFor({
+		targetLanguage: target.language,
+		targetBody: target.body
+	});
 	const others = graph.entities.filter((e) => e.id !== target.id);
 
 	const evidence: CandidateEvidence[] = [
@@ -139,7 +153,12 @@ export async function completeEntry(input: CompleteEntryInput): Promise<Complete
 						'what you added and why. Only use facts the evidence below actually supports - never ' +
 						'invent a detail no source carries. If the evidence is empty, make the smallest ' +
 						'reasonable addition consistent with what is already written, or leave the body ' +
-						'unchanged if nothing can be said with evidence.',
+						'unchanged if nothing can be said with evidence. The summary is addressed to the ' +
+						'GM; the new body text is the entry itself - different language rules apply to ' +
+						'each, stated separately below. ' +
+						speechInstruction(input.locale) +
+						' ' +
+						canonInstruction(contentLanguage),
 					prompt:
 						`Entry to complete: ${target.name}\n\n` +
 						`Current body:\n${target.body || '(empty)'}\n\n` +
@@ -162,6 +181,7 @@ export async function completeEntry(input: CompleteEntryInput): Promise<Complete
 		summary: result.object.summary,
 		candidateCap: 1,
 		estimatedCredits: price.credits,
+		locale: input.locale,
 		candidates: [
 			{
 				kind: 'update',

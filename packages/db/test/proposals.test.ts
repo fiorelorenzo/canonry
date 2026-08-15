@@ -300,6 +300,129 @@ describe('proposals', () => {
 			expect(createdEntity?.type).toBe('character');
 		});
 
+		it('a create-kind accept prefers patch.language over detecting the (often thin) body (issue #122/#125)', async () => {
+			const { u } = await fixture();
+			const { proposals } = await createProposalPlan(db, {
+				universeId: u.id,
+				trigger: 'save',
+				summary: 'x',
+				candidateCap: 10,
+				estimatedCredits: 1,
+				candidates: [
+					{ kind: 'create', targetEntityId: null, rationale: 'r', evidence: [], rank: 0 }
+				]
+			});
+			const proposal = proposals[0]!;
+			const newSlug = unique('dono-vasari');
+			await recordProposalDiff(db, {
+				proposalId: proposal.id,
+				patch: {
+					type: 'character',
+					name: 'Dono Vasari',
+					slug: newSlug,
+					aliases: [],
+					// Too short for the body-only heuristic to decide on its own - the point of
+					// this test is that `patch.language` is what settles it, not the body.
+					body: 'A merchant.',
+					language: 'it'
+				},
+				provider: 'test',
+				modelId: 'test',
+				credits: 1
+			});
+
+			await acceptProposal(db, { proposalId: proposal.id });
+
+			const [createdEntity] = await db.select().from(entity).where(eq(entity.slug, newSlug));
+			expect(createdEntity?.language).toBe('it');
+			expect(createdEntity?.languageSource).toBe('detected');
+		});
+
+		it('a create-kind accept falls back to detecting the body when the patch carries no language', async () => {
+			const { u } = await fixture();
+			const { proposals } = await createProposalPlan(db, {
+				universeId: u.id,
+				trigger: 'save',
+				summary: 'x',
+				candidateCap: 10,
+				estimatedCredits: 1,
+				candidates: [
+					{ kind: 'create', targetEntityId: null, rationale: 'r', evidence: [], rank: 0 }
+				]
+			});
+			const proposal = proposals[0]!;
+			const newSlug = unique('mira-solenne');
+			await recordProposalDiff(db, {
+				proposalId: proposal.id,
+				patch: {
+					type: 'character',
+					name: 'Mira Solenne',
+					slug: newSlug,
+					aliases: [],
+					body: 'A harbour clerk who keeps every ledger in the Lantern Quarter honest, and none of the friends that would come with it.'
+				},
+				provider: 'test',
+				modelId: 'test',
+				credits: 1
+			});
+
+			await acceptProposal(db, { proposalId: proposal.id });
+
+			const [createdEntity] = await db.select().from(entity).where(eq(entity.slug, newSlug));
+			expect(createdEntity?.language).toBe('en');
+			expect(createdEntity?.languageSource).toBe('detected');
+		});
+
+		it("an update-kind accept never overwrites a target entity's hand-set language, whatever the patch says (issue #122)", async () => {
+			const { u } = await fixture();
+			const [target] = await db
+				.insert(entity)
+				.values({
+					universeId: u.id,
+					type: 'faction',
+					name: 'The Ashen Ledger',
+					slug: unique('ashen-ledger-human'),
+					body: 'A merchant bank.',
+					language: 'en',
+					languageSource: 'human'
+				})
+				.returning();
+			if (!target) throw new Error('fixture setup failed');
+
+			const { proposals } = await createProposalPlan(db, {
+				universeId: u.id,
+				trigger: 'save',
+				summary: 'x',
+				candidateCap: 10,
+				estimatedCredits: 1,
+				candidates: [
+					{ kind: 'update', targetEntityId: target.id, rationale: 'r', evidence: [], rank: 0 }
+				]
+			});
+			const proposal = proposals[0]!;
+			await recordProposalDiff(db, {
+				proposalId: proposal.id,
+				// An import re-run claiming Italian, and a body that would detect as Italian too
+				// if this were a fresh entity - neither is allowed to move a human's choice.
+				patch: {
+					summary: 's',
+					before: target.body,
+					after:
+						'Una banca mercantile che presta denaro con la forza e tiene registri migliori del magistrato.',
+					language: 'it'
+				},
+				provider: 'test',
+				modelId: 'test',
+				credits: 1
+			});
+
+			await acceptProposal(db, { proposalId: proposal.id });
+
+			const [updatedEntity] = await db.select().from(entity).where(eq(entity.id, target.id));
+			expect(updatedEntity?.language).toBe('en');
+			expect(updatedEntity?.languageSource).toBe('human');
+		});
+
 		it('accepts a relation-kind proposal by inserting the relation row', async () => {
 			const { u, target } = await fixture();
 			const [other] = await db

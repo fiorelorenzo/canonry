@@ -63,6 +63,12 @@ export const canonSaveJob = pgTable(
 		triggerRevisionId: uuid('trigger_revision_id').references(() => revision.id, {
 			onDelete: 'set null'
 		}),
+		// SPEC.md §17: the interface language the propagation and audit speech must come back in.
+		// Stored on the row rather than resolved when the job runs, because negotiation reads a
+		// cookie and an Accept-Language header that only exist during the request that scheduled
+		// it: a worker picking this up ten seconds or one restart later has neither. Null means a
+		// row written before this column, which the runner reads as English.
+		locale: text('locale'),
 		runAfter: timestamp('run_after', { withTimezone: true }).notNull().defaultNow(),
 		status: canonSaveJobStatusEnum('status').notNull().default('pending'),
 		leaseHolder: text('lease_holder'),

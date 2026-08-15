@@ -128,7 +128,7 @@ describe('loadBuiltinPlaybook', () => {
 		const playbook = await loadBuiltinPlaybook('generic');
 
 		expect(playbook.id).toBe('generic');
-		expect(playbook.version).toBe(1);
+		expect(playbook.version).toBe(2);
 		expect(playbook.modelPurpose).toBe('cheap');
 		expect(playbook.stepBudget).toBeGreaterThan(0);
 		expect(playbook.tools).toEqual([

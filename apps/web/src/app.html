@@ -1,6 +1,15 @@
 <!doctype html>
 <html lang="en" data-theme-pref>
 	<head>
+		<!-- The `lang` and `data-theme` attributes above start at their static defaults
+				(English, no theme forced) because svelte-kit sync/prerendering runs with no
+				request behind it. hooks.server.ts's `handle` rewrites both per request -
+				`data-theme-pref` to the resolved theme (G1) and the English default to the
+				resolved interface locale (issue #120, SPEC.md §17) - via `transformPageChunk`,
+				a plain string replace on the literal attributes above. This comment
+				deliberately sits *after* both, never before: `replace` only touches the first
+				match in a chunk, and prose describing the mechanism must not itself become
+				that match. -->
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />

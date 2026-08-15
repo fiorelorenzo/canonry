@@ -24,7 +24,13 @@ import {
 	type ProposalRow,
 	type RevelationRow
 } from '@canonry/db';
-import { createDbWarmBudgetPort, regenerate, type WarmCandidate } from '@canonry/warm';
+import {
+	contentLanguageForSubject,
+	createDbWarmBudgetPort,
+	regenerate,
+	type WarmCandidate
+} from '@canonry/warm';
+import type { Locale } from '@canonry/lang';
 import { buildNpcDraftGenerator } from './warm-generator.js';
 
 export interface QuickActionContext {
@@ -33,6 +39,13 @@ export interface QuickActionContext {
 	userId: string;
 	placeEntityId: string;
 	placeName: string;
+	/** SPEC.md §17: the GM's interface language, for anything the draft says *to* them. */
+	locale: Locale;
+	/** The place entity's own recorded language and body, for anything the draft writes *into*
+	 * canon. Passed rather than re-queried so the two languages are decided once, at the edge,
+	 * where the request already knows both. */
+	placeLanguage: string | null;
+	placeBody: string;
 	sessionEntityId: string | null;
 	/** A thunk, not an already-resolved value: reading gateway credentials from the
 	 * environment can itself throw (`MissingGatewayEnvError`, unset on this box), and that
@@ -130,7 +143,14 @@ export async function fireNpcHere(ctx: QuickActionContext): Promise<NpcHereResul
 		modelId: resolved.modelId,
 		provider: resolved.provider,
 		credits: (await chargeFor(ctx.db, 'warm.npc_draft')).credits,
-		rationale: `Drafted via the "+ NPC here" quick action while ${ctx.placeName} was the declared context.`
+		rationale: `Drafted via the "+ NPC here" quick action while ${ctx.placeName} was the declared context.`,
+		// Two languages, both correct at once (SPEC.md §17): the label the GM reads follows their
+		// interface, the NPC's prose follows the place it will be written into.
+		locale: ctx.locale,
+		contentLanguage: contentLanguageForSubject({
+			language: ctx.placeLanguage,
+			body: ctx.placeBody
+		})
 	};
 
 	try {
@@ -143,6 +163,8 @@ export async function fireNpcHere(ctx: QuickActionContext): Promise<NpcHereResul
 			db: ctx.db,
 			userId: ctx.userId,
 			placeName: ctx.placeName,
+			placeLanguage: ctx.placeLanguage,
+			placeBody: ctx.placeBody,
 			resolved,
 			languageModel
 		});

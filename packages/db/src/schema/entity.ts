@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
-import { entityTypeEnum, entityVisibilityEnum } from './enums.js';
+import { entityTypeEnum, entityVisibilityEnum, languageSourceEnum } from './enums.js';
 import { universe } from './universe.js';
 
 // SPEC.md §4.2: a typed entry. `aliases` is mandatory, not decoration - it is what makes
@@ -29,6 +29,11 @@ export const entity = pgTable(
 		// here, not a missing one: guessing from three words is how an entry gets mislabelled and
 		// then written into in the wrong language.
 		language: text('language'),
+		// Whether that value was detected or chosen. Detection may revisit a 'detected' row on any
+		// save; it must never touch a 'human' one, including when the human's answer was "mixed"
+		// and therefore null. Without this column those two nulls are indistinguishable and the
+		// GM's explicit answer would be re-guessed on their next keystroke.
+		languageSource: languageSourceEnum('language_source').notNull().default('detected'),
 		// SPEC.md §9: style is shared at universe level and overridable per entry. Null
 		// means "use the universe's style", which is the case for almost every entry.
 		imagePromptModifier: text('image_prompt_modifier'),

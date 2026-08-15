@@ -178,3 +178,54 @@ below the perfect retriever, and sweeping its threshold from 0 to 0.9 shrinks
 `meanResultCount` from 12 to 2 and `meanRecallAtTopK` from 0.6875 to 0.25,
 monotonically. `pnpm --filter @canonry/eval test` runs all of this as
 `test/retrieval-runner.test.ts`.
+
+## Cross-lingual retrieval and the embedding model (SPEC.md §17, issue #125)
+
+SPEC.md §17: "an Italian question against an English canon must find the English
+chunk, which makes the embedding model a multilingual choice rather than a free one,
+and makes cross-lingual retrieval a test rather than a hope."
+`packages/indexing/src/cross-lingual-retrieval.test.ts` is that test: against real
+Qdrant, it indexes bilingual content and queries across the language boundary in both
+directions (Italian query against English content, English query against Italian
+content), quoting the actual rank/MRR `hashingEmbedder` (this box's only network-free
+vectoriser - no AI Gateway credentials exist here) achieves, next to a same-language
+baseline that proves the harness and corpus are not simply broken. It is a **mechanism**
+test - "does a chunk's language flow through the payload, does nothing filter on it,
+what does today's fallback vectoriser actually return" - never a claim about a real
+embedding model's own recall, which nothing on this box can call.
+
+### The model choice
+
+`packages/indexing/src/models.ts` exports `RECOMMENDED_EMBEDDING_MODEL` with the full
+reasoning in its doc comment; summarised here:
+
+| Candidate | Provider | Published multilingual evidence | Verdict |
+| --- | --- | --- | --- |
+| `mistral-embed` | mistral | English-only per Mistral's own docs | disqualified - no multilingual claim exists to check |
+| `text-embedding-3-small` | openai | MIRACL avg 44.0% | multilingual, but the weaker of OpenAI's two |
+| `text-embedding-3-large` | openai | MIRACL avg 54.9% | strong fallback |
+| `gemini-embedding-001` | google | #1 on MTEB Multilingual (task-mean 68.32), ~100 languages | **chosen** |
+
+Candidates are restricted to providers `packages/ai/src/composition.ts`'s
+`KNOWN_PROVIDERS` can already construct (anthropic and groq offer no embedding endpoint
+at all, so they were never in the running). `google` / `gemini-embedding-001` is
+recommended for `model_config`'s `'embedding'` purpose and named, with this same
+reasoning, in the admin models panel (`apps/web/src/routes/admin/models/+page.svelte`).
+
+### What is proven and what is not
+
+**Proven** (this box, no credential needed): the indexing pipeline detects and tags
+each chunk's own language in the Qdrant payload (`pipeline.test.ts`'s language-tagging
+test), nothing in `queryLore`/`scoreLoreHits` filters on that field
+(`packages/vector/src/lore.test.ts`, `cross-lingual-retrieval.test.ts`'s second
+`describe` block), and today's fallback vectoriser's actual cross-lingual rank/MRR
+numbers are measured rather than assumed.
+
+**Not proven, and not proveable here**: MIRACL and MTEB Multilingual are aggregate
+scores over many languages; neither publishes an isolated English&harr;Italian pair,
+which is exactly the pair this product ships. Confirming `gemini-embedding-001`'s actual
+en/it recall requires a live `google` credential, running `retrieval-eval.test.ts` and
+`cross-lingual-retrieval.test.ts` with `createGatewayEmbedder` in place of
+`hashingEmbedder`, and re-reading the resulting MRR next to the numbers already recorded
+above. That live benchmark is the gap this document files, not a claim this document
+makes.

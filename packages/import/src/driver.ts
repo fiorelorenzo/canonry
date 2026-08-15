@@ -20,6 +20,7 @@
 import type { LoadedPlaybook } from './playbook.js';
 import type { SourceReader } from './sources.js';
 import type { ImageStore } from './images.js';
+import type { Locale } from '@canonry/lang';
 
 /** One document, the unit of work SPEC.md §6.1 requires: "never the whole world, so
  * context cannot grow with the size of the export." */
@@ -51,6 +52,14 @@ export interface EntityProposalPayload {
 	/** Asset ids returned by `image_store` (issue #40) that belong to this entity. Empty
 	 * for the common case of a document with no images. */
 	images: string[];
+	/** issue #126, SPEC.md §17: the language of the *document* this entity came from,
+	 * detected once per document by `@canonry/lang`'s `detectLanguage` (the same free,
+	 * deterministic heuristic §17 requires for `entity.language`) and stamped onto every
+	 * entity that document proposes - never reported by the model, which is exactly the
+	 * "asked to translate a name" failure mode a self-reported field would invite. Null
+	 * when the document's own text is too short or genuinely mixed to call, which is a
+	 * real answer, not a missing one (SPEC.md §17, packages/lang/src/detect.ts). */
+	language: Locale | null;
 }
 
 export interface RelationProposalPayload {

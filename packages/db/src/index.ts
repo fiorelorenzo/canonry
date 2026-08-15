@@ -4,6 +4,17 @@ export { factWithSource, type FactWithSource } from './queries/facts.js';
 export { relationsFor, type RelationView } from './queries/relations.js';
 export { historyFor } from './queries/revisions.js';
 export {
+	nextEntityLanguage,
+	saveEntityBody,
+	setEntityLanguage,
+	resetEntityLanguageToDetected,
+	languageFromAcceptedPatch,
+	type EntityLanguageState,
+	type StoredEntityLanguage,
+	type SaveEntityBodyInput,
+	type SaveEntityBodyResult
+} from './queries/entities.js';
+export {
 	universeForExport,
 	streamEntitiesForExport,
 	countEntitiesForExport,

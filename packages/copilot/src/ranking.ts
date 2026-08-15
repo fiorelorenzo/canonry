@@ -17,6 +17,8 @@ import { generateObject } from 'ai';
 import { chargeFor, withQuota } from '@canonry/ai';
 import { z } from 'zod';
 import type { Db } from '@canonry/db';
+import type { Locale } from '@canonry/lang';
+import { EMPTY_PLAN_SUMMARY, speechInstruction } from './speech.js';
 import type { FactChange } from './diff.js';
 import type { RoutedModel } from './models.js';
 
@@ -49,6 +51,10 @@ export interface WritePlanRationaleInput {
 	 * this is the shortlist the model may narrow, never one it can widen. */
 	candidates: PlanCandidateInput[];
 	model: RoutedModel;
+	/** SPEC.md §17 rule two (issue #123): the interface locale of whoever triggered this
+	 * plan - the summary and every per-candidate rationale are written in this, never in
+	 * the language of the edited entry or its candidates. */
+	locale: Locale;
 	requestId?: string;
 }
 
@@ -70,7 +76,7 @@ function buildSchema(entityIds: string[]) {
 export async function writePlanRationale(input: WritePlanRationaleInput): Promise<PlanRationale> {
 	if (input.candidates.length === 0) {
 		return {
-			summary: `${input.editedEntityName} changed; nothing else looks affected.`,
+			summary: EMPTY_PLAN_SUMMARY[input.locale](input.editedEntityName),
 			candidates: [],
 			provider: input.model.resolved.provider,
 			modelId: input.model.resolved.modelId,
@@ -105,7 +111,8 @@ export async function writePlanRationale(input: WritePlanRationaleInput): Promis
 						'changed on one entry and a shortlist of candidate entries it might touch, write one ' +
 						'short sentence summarising the plan and one short, concrete rationale per candidate ' +
 						'explaining why that specific entry is affected. Drop a candidate from your response ' +
-						'if it genuinely does not matter; never invent a candidate outside the shortlist.',
+						'if it genuinely does not matter; never invent a candidate outside the shortlist. ' +
+						speechInstruction(input.locale),
 					prompt: `Entry edited: ${input.editedEntityName}\n\nWhat changed:\n${changesText}\n\nCandidate entries (id: name):\n${candidatesText}`
 				}),
 			{

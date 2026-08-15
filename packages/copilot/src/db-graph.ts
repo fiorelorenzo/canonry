@@ -20,7 +20,8 @@ export async function loadCandidateGraph(db: Db, universeId: string): Promise<Ca
 				type: entity.type,
 				name: entity.name,
 				aliases: entity.aliases,
-				body: entity.body
+				body: entity.body,
+				language: entity.language
 			})
 			.from(entity)
 			.where(eq(entity.universeId, universeId)),

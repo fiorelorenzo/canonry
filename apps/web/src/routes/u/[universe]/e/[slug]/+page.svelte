@@ -7,6 +7,7 @@
 	import EntryProseWithSecrets from '$lib/components/players/EntryProseWithSecrets.svelte';
 	import EntryTabs from '$lib/components/entry/EntryTabs.svelte';
 	import CompleteEntryControl from '$lib/components/entry/CompleteEntryControl.svelte';
+	import LanguageControl from '$lib/components/entry/LanguageControl.svelte';
 	import AuditFlagBadge from '$lib/components/audit/AuditFlagBadge.svelte';
 	import type { FactRow } from '$lib/components/entry/FactsPanel.svelte';
 	import type { FactSpan } from '$lib/markdown';
@@ -49,14 +50,19 @@
 					<h1 class="text-3xl font-semibold text-ink">{data.entity.name}</h1>
 					<AuditFlagBadge count={data.audit.flags.length} onOpen={openAuditTab} />
 				</div>
-				<p class="flex flex-wrap items-center gap-2 text-sm text-muted">
+				<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
 					<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
 						{data.entity.type}
 					</span>
+					<LanguageControl
+						language={data.entity.language}
+						languageSource={data.entity.languageSource}
+						canWrite={data.media.canWrite}
+					/>
 					{#if data.entity.aliases.length > 0}
 						<span>also: {data.entity.aliases.join(', ')}</span>
 					{/if}
-				</p>
+				</div>
 			</div>
 			<div class="flex flex-none items-start gap-2">
 				<CompleteEntryControl aiEnabled={data.universe.aiEnabled} />

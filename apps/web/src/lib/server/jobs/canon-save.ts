@@ -50,6 +50,7 @@
  * that is a structural guarantee (the accept code path and this file share no call edge),
  * not a runtime flag two files have to keep in sync.
  */
+import { DEFAULT_LOCALE, toLocale, type Locale } from '@canonry/lang';
 import { AiDisabledError, planPropagation, runAudit } from '@canonry/copilot';
 import type { GatewayWrapper, ModelFactory } from '@canonry/copilot';
 import type { Db } from '@canonry/db';
@@ -79,6 +80,10 @@ interface EngineRunInput {
 	oldBody: string;
 	newBody: string;
 	triggerRevisionId: string | null;
+	/** SPEC.md §17: the language the propagation and audit speech comes back in, captured from
+	 * the request that scheduled this rather than resolved when it runs, because negotiation
+	 * reads a cookie and a header the worker will never see. */
+	locale: Locale;
 }
 
 /** Every failure that happens *inside* an actual model call already logs through
@@ -125,6 +130,7 @@ async function runPropagationEngine(input: EngineRunInput): Promise<EngineOutcom
 			oldBody: input.oldBody,
 			newBody: input.newBody,
 			triggerRevisionId: input.triggerRevisionId,
+			locale: input.locale,
 			modelFactory: input.modelFactory,
 			gateway: input.gateway
 		});
@@ -143,6 +149,7 @@ async function runAuditEngine(input: EngineRunInput): Promise<EngineOutcome> {
 			editedEntityId: input.entityId,
 			oldBody: input.oldBody,
 			newBody: input.newBody,
+			locale: input.locale,
 			modelFactory: input.modelFactory,
 			gateway: input.gateway
 		});
@@ -234,7 +241,11 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 			userId: row.userId,
 			oldBody: row.oldBody,
 			newBody: row.newBody,
-			triggerRevisionId: row.triggerRevisionId
+			triggerRevisionId: row.triggerRevisionId,
+			// A row written before this column existed reads as English rather than throwing: a
+			// queue that refuses to drain after a deploy is worse than one whose oldest jobs
+			// answer in the default language.
+			locale: toLocale(row.locale) ?? DEFAULT_LOCALE
 		};
 		const [propagation, audit] = await Promise.all([
 			runPropagationEngine(input),

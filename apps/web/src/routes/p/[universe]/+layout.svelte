@@ -6,15 +6,23 @@
 	 * system (G1/G2, both palettes, serif everywhere) via `routes/layout.css`, which the
 	 * root layout already imports for every route including this one - a second palette
 	 * would mean checking guardrail 6's surface against colours nowhere else uses.
+	 *
+	 * Issue #127: this chrome's language is `data.locale`, which the root layout's own
+	 * `load` already resolved from `locals.locale` - and `locals.locale` itself, for every
+	 * path under `/p/`, comes from `Accept-Language` alone (hooks.server.ts), never an
+	 * account preference or a cookie. A GM previewing their own share link while signed in
+	 * still sees the chrome their browser asks for, not the language they write in.
 	 */
 	import { resolve } from '$app/paths';
+	import { messages } from '$lib/i18n';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
+	let t = $derived(messages(data.locale));
 </script>
 
-<svelte:head><title>{data.universe.name} &middot; players' wiki</title></svelte:head>
+<svelte:head><title>{data.universe.name} &middot; {t.players.wikiLabel}</title></svelte:head>
 
 <div class="min-h-screen bg-paper text-ink">
 	<header class="border-b border-line bg-panel">
@@ -26,7 +34,7 @@
 				{data.universe.name}
 			</a>
 			<span class="flex-1"></span>
-			<span class="text-xs tracking-wide text-muted uppercase">Players' wiki</span>
+			<span class="text-xs tracking-wide text-muted uppercase">{t.players.wikiLabel}</span>
 		</div>
 	</header>
 	<main id="main" class="mx-auto max-w-3xl px-6 py-10">

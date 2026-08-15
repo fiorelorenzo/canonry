@@ -41,11 +41,16 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
+	// `language` and `body` come along because a drafted NPC's prose has to be written in the
+	// place's own language rather than the GM's interface language (SPEC.md §17): the two are
+	// decided here, once, where the request already knows both.
 	const placeRow = await conn.query.entity.findFirst({
 		where: (entity, { eq }) => eq(entity.id, context.placeEntityId as string),
-		columns: { name: true }
+		columns: { name: true, language: true, body: true }
 	});
 	const placeName = placeRow?.name ?? 'this place';
+	const placeLanguage = placeRow?.language ?? null;
+	const placeBody = placeRow?.body ?? '';
 
 	if (body.kind === 'npc') {
 		// SPEC.md §8.1's own timeline: "the tap is instant lane, no model involved. The NPC
@@ -65,6 +70,9 @@ export const POST: RequestHandler = async (event) => {
 			userId: access.userId,
 			placeEntityId: context.placeEntityId,
 			placeName,
+			locale: event.locals.locale,
+			placeLanguage,
+			placeBody,
 			sessionEntityId: context.sessionEntityId,
 			gatewayCredentials: tableGatewayCredentials
 		})
@@ -100,6 +108,9 @@ export const POST: RequestHandler = async (event) => {
 				userId: access.userId,
 				placeEntityId: context.placeEntityId,
 				placeName,
+				locale: event.locals.locale,
+				placeLanguage,
+				placeBody,
 				sessionEntityId: context.sessionEntityId,
 				gatewayCredentials: tableGatewayCredentials
 			},
@@ -128,6 +139,9 @@ export const POST: RequestHandler = async (event) => {
 					userId: access.userId,
 					placeEntityId: context.placeEntityId,
 					placeName,
+					locale: event.locals.locale,
+					placeLanguage,
+					placeBody,
 					sessionEntityId: context.sessionEntityId,
 					gatewayCredentials: tableGatewayCredentials
 				},

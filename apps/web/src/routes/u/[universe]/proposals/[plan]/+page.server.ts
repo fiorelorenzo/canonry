@@ -77,6 +77,13 @@ export const actions: Actions = {
 	generateDiffs: async ({ params, locals }) => {
 		const { conn, access, detail, userId } = await loadPlan(locals, params.universe, params.plan);
 		const triggerEntityName = detail.triggerEntityName ?? 'the edited entry';
+		// A propagation plan always has the entry whose edit produced it. A plan without one is
+		// an import plan, whose diffs are written by the import run itself, so there is nothing
+		// for this action to generate and saying so beats passing an empty id down two layers.
+		const triggerEntityId = detail.plan.triggerEntityId;
+		if (!triggerEntityId) {
+			error(400, 'This plan has no edited entry, so there are no propagation diffs to generate');
+		}
 		// The plan's own summary carries the edit's semantic diff nowhere on the row -
 		// generatePlanDiffs needs it fresh; propagation always stores the edit's meaning in
 		// the plan's summary text at creation, so re-deriving it here would require the
@@ -89,8 +96,12 @@ export const actions: Actions = {
 				userId,
 				universeId: access.universe.id,
 				planId: detail.plan.id,
+				editedEntityId: triggerEntityId,
 				editedEntityName: triggerEntityName,
 				diff: [],
+				// The reader's language for each diff's summary; the target entry's own language for
+				// the drafted prose, which `generatePlanDiffs` reads per candidate (SPEC.md §17).
+				locale: locals.locale,
 				modelFactory,
 				gateway: identityGateway
 			});

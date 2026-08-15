@@ -1,10 +1,18 @@
 import { createHash } from 'node:crypto';
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MockLanguageModelV4 } from 'ai/test';
 import type { LanguageModel } from 'ai';
 import { closeDb, createDb, eq, getImportJob, runMigrations, type Db } from '@canonry/db';
-import { operationPrice, proposal as proposalTable, universe, user } from '@canonry/db/schema';
+import {
+	entity,
+	operationPrice,
+	proposal as proposalTable,
+	universe,
+	user
+} from '@canonry/db/schema';
 import postgres from 'postgres';
 import {
 	GatewayDriver,
@@ -30,6 +38,16 @@ const suffix = process.env.TEST_DB_SUFFIX ?? 'jobrunner-local';
 const TEST_DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
 	`postgres://canonry:canonry@127.0.0.1:55432/canonry_test_jr_${suffix}`;
+
+// issue #126, SPEC.md §17: the same hand-authored bilingual fixture
+// bilingual-import.test.ts drives the real archive loader with, reused here (real
+// files off disk, not re-typed inline) to prove the language survives all the way into
+// a real `proposal.patch` row, not just the in-memory JobEvent stream.
+const BILINGUAL_FIXTURE_ROOT = fileURLToPath(
+	new URL('../test/fixtures/bilingual/', import.meta.url)
+);
+const EN_PATH = 'handout-en.md';
+const IT_PATH = 'racconto-it.md';
 
 async function migrateFreshDatabase(): Promise<void> {
 	const target = new URL(TEST_DATABASE_URL);
@@ -125,6 +143,21 @@ function entityStep(
 function patchName(patch: unknown): string | undefined {
 	if (patch && typeof patch === 'object' && 'name' in patch && typeof patch.name === 'string') {
 		return patch.name;
+	}
+	return undefined;
+}
+
+function patchLanguage(patch: unknown): string | null | undefined {
+	if (patch && typeof patch === 'object' && 'language' in patch) {
+		if (typeof patch.language === 'string' || patch.language === null) return patch.language;
+	}
+	return undefined;
+}
+
+function patchBody(patch: unknown): string | undefined {
+	if (patch && typeof patch === 'object') {
+		if ('body' in patch && typeof patch.body === 'string') return patch.body;
+		if ('after' in patch && typeof patch.after === 'string') return patch.after;
 	}
 	return undefined;
 }
@@ -478,5 +511,161 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 
 		const jobRow = await getImportJob(db, admission.jobId);
 		expect(jobRow.status).toBe('cancelled');
+	});
+
+	it("carries each document's own detected language into the persisted proposal, and preserves the untranslated proper noun in the Italian summary (issue #126, SPEC.md §17)", async () => {
+		await priceFixture();
+		const { userId, universeId } = await userAndUniverse();
+		const playbook = await loadBuiltinPlaybook('generic');
+
+		const enContent = await readFile(`${BILINGUAL_FIXTURE_ROOT}${EN_PATH}`, 'utf8');
+		const itContent = await readFile(`${BILINGUAL_FIXTURE_ROOT}${IT_PATH}`, 'utf8');
+		const sources = new InMemorySourceReader({
+			files: { [EN_PATH]: enContent, [IT_PATH]: itContent }
+		});
+
+		const admission = await admitAndCreateImportJob(db, {
+			universeId,
+			createdBy: userId,
+			sourceType: 'generic',
+			playbook: playbook.id,
+			playbookVersion: playbook.version,
+			artefactPath: 's3://fixtures/bilingual.zip',
+			artefactBytes: 200,
+			artefactSha256: 'b'.repeat(64),
+			documentCount: 2,
+			budgetCredits: 1000,
+			estimate: { documentCount: 2, estimatedMinutes: 1, estimatedCredits: 20 },
+			concurrencyLimit: 5
+		});
+		expect(admission.admitted).toBe(true);
+
+		const gildedRatSummary =
+			'The busiest tavern in Port Verity, run by Mirella Fenn for eleven years.';
+		const aldricSummary =
+			'Non risponde a nessuno tranne il capitano del porto. Lo si trova ogni sera ' +
+			'nella locanda conosciuta come The Gilded Rat.';
+
+		const model = scriptedModel([
+			toolCallStep([{ id: 'e1', name: 'source_read', input: { path: EN_PATH } }]),
+			toolCallStep([
+				{
+					id: 'e2',
+					name: 'entity_propose',
+					input: {
+						localId: 'place-1',
+						type: 'place',
+						name: 'The Gilded Rat',
+						aliases: [],
+						summary: gildedRatSummary,
+						sourceRef: { documentId: 'doc-en', path: EN_PATH },
+						evidenceSpan: { start: 0, end: 10 },
+						images: []
+					}
+				}
+			]),
+			finishStep('e3', 'doc-en'),
+			toolCallStep([{ id: 'i1', name: 'source_read', input: { path: IT_PATH } }]),
+			toolCallStep([
+				{
+					id: 'i2',
+					name: 'entity_propose',
+					input: {
+						localId: 'char-2',
+						type: 'character',
+						name: 'Capitano Aldric Voss',
+						aliases: [],
+						summary: aldricSummary,
+						sourceRef: { documentId: 'doc-it', path: IT_PATH },
+						evidenceSpan: { start: 0, end: 10 },
+						images: []
+					}
+				}
+			]),
+			finishStep('i3', 'doc-it')
+		]);
+
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+		const runner = new ImportJobRunner();
+		const result = await runner.run({
+			db,
+			driver,
+			dbJobId: admission.jobId,
+			universeId,
+			sourceSystem: 'generic',
+			userId,
+			playbook,
+			documents: [
+				{ id: 'doc-en', sourcePath: EN_PATH },
+				{ id: 'doc-it', sourcePath: IT_PATH }
+			],
+			sources,
+			images: new InMemoryImageStore(),
+			budget: { maxCredits: 1000 },
+			similarity: () => 0,
+			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			timeoutMs: 30_000
+		});
+
+		expect(result.finalStatus).toBe('finished');
+		expect(result.proposalsEmitted).toBe(2);
+
+		const rows = await db
+			.select()
+			.from(proposalTable)
+			.where(eq(proposalTable.universeId, universeId));
+		expect(rows).toHaveLength(2);
+
+		const gildedRatRow = rows.find((r) => patchName(r.patch) === 'The Gilded Rat');
+		const aldricRow = rows.find((r) => patchName(r.patch) === 'Capitano Aldric Voss');
+		if (!gildedRatRow || !aldricRow) throw new Error('expected both proposals to persist');
+
+		// The language the driver's per-document detection stamped onto each entity
+		// survives all the way into the real proposal.patch column, quoted here from the
+		// actual rows read back from Postgres rather than the in-memory payload.
+		expect(patchLanguage(gildedRatRow.patch)).toBe('en');
+		expect(patchLanguage(aldricRow.patch)).toBe('it');
+
+		// The proper noun "The Gilded Rat" survives untranslated inside the Italian
+		// proposal's own body, read back from that same real row.
+		const aldricBody = patchBody(aldricRow.patch);
+		expect(aldricBody).toContain('The Gilded Rat');
+		expect(aldricBody).not.toContain('Ratto Dorato');
+
+		// The loop closes: accepting each proposal (issue #122's acceptProposal, via
+		// languageFromAcceptedPatch) prefers this per-document signal over re-detecting
+		// from the merged body, so the real entity.language a GM would see matches the
+		// document its proposal came from, not just the intermediate proposal row.
+		await acceptImportProposal(db, {
+			proposalId: gildedRatRow.id,
+			sourceSystem: 'generic',
+			externalId: EN_PATH,
+			sourceUrl: null,
+			contentHash: createHashOf(enContent),
+			importJobId: admission.jobId
+		});
+		await acceptImportProposal(db, {
+			proposalId: aldricRow.id,
+			sourceSystem: 'generic',
+			externalId: IT_PATH,
+			sourceUrl: null,
+			contentHash: createHashOf(itContent),
+			importJobId: admission.jobId
+		});
+
+		const entityRows = await db.select().from(entity).where(eq(entity.universeId, universeId));
+		const gildedRatEntity = entityRows.find((e) => e.name === 'The Gilded Rat');
+		const aldricEntity = entityRows.find((e) => e.name === 'Capitano Aldric Voss');
+		if (!gildedRatEntity || !aldricEntity) throw new Error('expected both entities to be created');
+
+		expect(gildedRatEntity.language).toBe('en');
+		expect(gildedRatEntity.languageSource).toBe('detected');
+		expect(aldricEntity.language).toBe('it');
+		expect(aldricEntity.languageSource).toBe('detected');
+		expect(aldricEntity.body).toContain('The Gilded Rat');
+		expect(aldricEntity.body).not.toContain('Ratto Dorato');
 	});
 });

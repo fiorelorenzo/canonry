@@ -13,6 +13,7 @@
 import { chargeFor, resolveModel } from '@canonry/ai';
 import { eq, type Db } from '@canonry/db';
 import { entity, universe } from '@canonry/db/schema';
+import { canonLanguageFor, type Locale } from '@canonry/lang';
 import {
 	createProposalPlan,
 	listProposalsForPlan,
@@ -87,6 +88,12 @@ export interface PlanPropagationInput {
 	modelFactory: ModelFactory;
 	gateway: GatewayWrapper;
 	embeddingMatches?: EmbeddingMatch[];
+	/** SPEC.md §17 rule two (issue #123): the interface locale of whoever made this edit -
+	 * the plan's summary and every per-candidate rationale are written in this, recorded
+	 * onto every proposal in the plan (`proposal.locale`) so accept rate can be read per
+	 * locale (issue #128). Never the language of the edit itself, which stays on
+	 * `entity.language` and drives rule three instead (`generatePlanDiffs`). */
+	locale: Locale;
 	requestId?: string;
 }
 
@@ -151,6 +158,7 @@ export async function planPropagation(
 			name: entityById.get(c.entityId)?.name ?? c.entityId
 		})),
 		model: cheapModel,
+		locale: input.locale,
 		...(input.requestId !== undefined ? { requestId: input.requestId } : {})
 	});
 
@@ -170,6 +178,7 @@ export async function planPropagation(
 		summary: planRationale.summary,
 		candidateCap: baseCap,
 		estimatedCredits,
+		locale: input.locale,
 		candidates: survivors.map((c, index) => ({
 			kind: 'update' as const,
 			targetEntityId: c.entityId,
@@ -196,12 +205,16 @@ export interface GeneratePlanDiffsInput {
 	userId: string;
 	universeId: string;
 	planId: string;
+	editedEntityId: string;
 	editedEntityName: string;
 	/** The same edit that produced the plan - every per-entry diff explains itself against
 	 * the same "what changed" text (SPEC.md §5.1 step 4). */
 	diff: FactChange[];
 	modelFactory: ModelFactory;
 	gateway: GatewayWrapper;
+	/** SPEC.md §17 rule two (issue #123): the interface locale of whoever made the
+	 * original edit - each diff's `patch.summary` is written in this. */
+	locale: Locale;
 	requestId?: string;
 }
 
@@ -228,6 +241,15 @@ export async function generatePlanDiffs(
 		input.gateway
 	);
 
+	// SPEC.md §17 rule three: the edited/triggering entity's own recorded language and
+	// current body, fetched once - `canonLanguageFor`'s last fallback before English, for
+	// a target entity whose own language and body are both unknown.
+	const [editedEntityRow] = await input.db
+		.select()
+		.from(entity)
+		.where(eq(entity.id, input.editedEntityId))
+		.limit(1);
+
 	const written: ProposalRow[] = [];
 	for (const candidate of undiffed) {
 		if (candidate.kind !== 'update' || !candidate.targetEntityId) continue;
@@ -238,6 +260,13 @@ export async function generatePlanDiffs(
 			.where(eq(entity.id, candidate.targetEntityId))
 			.limit(1);
 		if (!entityRow) continue;
+
+		const contentLanguage = canonLanguageFor({
+			targetLanguage: entityRow.language,
+			targetBody: entityRow.body,
+			triggerLanguage: editedEntityRow?.language ?? null,
+			triggerBody: editedEntityRow?.body ?? null
+		});
 
 		const evidence = Array.isArray(candidate.evidence)
 			? (candidate.evidence as CandidateEvidence[])
@@ -253,6 +282,8 @@ export async function generatePlanDiffs(
 			editedEntityName: input.editedEntityName,
 			diff: input.diff,
 			model: premiumModel,
+			locale: input.locale,
+			contentLanguage,
 			...(input.requestId !== undefined ? { requestId: input.requestId } : {})
 		});
 
