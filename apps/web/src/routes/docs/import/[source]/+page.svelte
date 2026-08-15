@@ -2,7 +2,6 @@
 	/** Issue #121's sweep localizes only the DocPage chrome here (`docs.importGuide`):
 	 * `section.heading`/block text below is per-source reference content from
 	 * `importGuides.ts` and stays English, same reasoning as the import guides index. */
-	import { resolve } from '$app/paths';
 	import DocPage from '$lib/components/docs/DocPage.svelte';
 	import DocsCallout from '$lib/components/docs/DocsCallout.svelte';
 	import { messages } from '$lib/i18n';
@@ -16,12 +15,7 @@
 	<title>{t.browserTitle(data.guide.label)}: Canonry</title>
 </svelte:head>
 
-<DocPage
-	title={data.guide.label}
-	eyebrow={t.eyebrow}
-	backHref={resolve('/docs/import')}
-	backLabel={t.backLabel}
->
+<DocPage title={data.guide.label} eyebrow={t.eyebrow}>
 	{#each data.guide.sections as section (section.heading)}
 		<h2>{section.heading}</h2>
 		{#each section.blocks as block, i (i)}

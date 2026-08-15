@@ -8,6 +8,7 @@
 	 * proposal (#47), not a shortcut this menu takes for you.
 	 */
 	import { messages, type Locale } from '$lib/i18n';
+	import { Button } from '$lib/components/ui/button';
 	import type { MentionTarget } from '$lib/markdown';
 
 	let {
@@ -45,11 +46,11 @@
 		<ul>
 			{#each matches as target, i (target.slug)}
 				<li>
-					<button
+					<Button
 						type="button"
+						variant="ghost"
 						role="option"
-						class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-panel-2"
-						class:bg-panel-2={i === highlightedIndex}
+						class={`h-auto w-full items-center justify-between gap-2 rounded-none px-3 py-2 text-left text-sm font-normal ${i === highlightedIndex ? 'bg-panel-2' : ''}`}
 						aria-selected={i === highlightedIndex}
 						onclick={() => onSelect(target)}
 					>
@@ -59,7 +60,7 @@
 								>{t.entry.mentionMenu.aliasLabel(target.aliases.join(', '))}</span
 							>
 						{/if}
-					</button>
+					</Button>
 				</li>
 			{/each}
 		</ul>

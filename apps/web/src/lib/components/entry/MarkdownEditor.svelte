@@ -144,6 +144,10 @@
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -- decorate.ts escapes raw text -->
 			{@html decorated}
 		</div>
+		<!-- #147: this textarea stays native. Its text is transparent on purpose - the
+			decorated backdrop behind it is the visible surface, and the two are aligned
+			pixel for pixel by sharing editorBoxClasses; a shadcn Textarea's own border,
+			background and padding would break that alignment and double the chrome. -->
 		<textarea
 			bind:this={textareaEl}
 			bind:value

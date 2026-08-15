@@ -13,6 +13,7 @@
 	 * disabled attribute plus a visible sentence, not just a `title` tooltip nobody reads).
 	 */
 	import { enhance } from '$app/forms';
+	import { Button } from '$lib/components/ui/button';
 	import { messages, type Locale } from '$lib/i18n';
 
 	let { aiEnabled, locale }: { aiEnabled: boolean; locale: Locale } = $props();
@@ -43,13 +44,9 @@
 			};
 		}}
 	>
-		<button
-			type="submit"
-			disabled={!aiEnabled || completing}
-			class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2 disabled:opacity-50"
-		>
+		<Button type="submit" variant="secondary" size="sm" disabled={!aiEnabled || completing}>
 			{completing ? t.entry.complete.completing : t.entry.complete.button}
-		</button>
+		</Button>
 	</form>
 	{#if !aiEnabled}
 		<p class="mt-1 text-xs text-muted">{t.entry.complete.aiOff}</p>

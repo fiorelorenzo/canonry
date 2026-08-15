@@ -6,13 +6,139 @@
  * including down to null when an edit makes the body shorter or genuinely mixed, while a
  * 'human' row is never touched by detection again, because re-guessing a value the GM
  * already set is a fight with the software rather than a helpful default.
+ *
+ * Issue #145 (I7 = C, "one page, two modes") adds the browser this file never had: a
+ * type-scoped, recency-sorted list plus per-type counts for the filter row, and
+ * `createEntity` for the browser's "New entry" dialog. `createEntity` deliberately writes
+ * nothing to `revision` - guardrail 2's one write path (`saveEntityBody`) is what a body
+ * actually landing in canon goes through, and a freshly created entity has no body yet.
+ * The dialog's whole job is establishing a name, a type and therefore a slug, then handing
+ * off to the real editor at `/e/[slug]/edit`, which already calls `saveEntityBody` and
+ * `scheduleCanonSaveJob` on its own first save - no second write path invented here.
  */
-import { eq } from 'drizzle-orm';
+import { count, eq } from 'drizzle-orm';
 import { detectLanguage, toLocale, type Locale } from '@canonry/lang';
 import type { Db } from '../client.js';
 import { entity } from '../schema/entity.js';
 import { revision } from '../schema/revision.js';
-import type { LanguageSource } from '../schema/enums.js';
+import type { EntityType, LanguageSource } from '../schema/enums.js';
+
+export interface EntityLanguageState {
+	language: Locale | null;
+	languageSource: LanguageSource;
+}
+
+function slugifyEntityName(name: string): string {
+	const base = name
+		.normalize('NFKD')
+		.replace(/\p{Diacritic}/gu, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '');
+	return base.length > 0 ? base : 'entry';
+}
+
+export type EntityRow = typeof entity.$inferSelect;
+
+export interface CreateEntityInput {
+	universeId: string;
+	type: EntityType;
+	name: string;
+}
+
+/** The browser's "New entry" dialog (I7 = C): the smallest honest write that gets a GM
+ * from a name and a type to a slug they can open in the real editor. Mirrors
+ * `createWork`'s bounded-suffix slug loop, namespaced the same way `entity`'s own unique
+ * index is (`entity_universe_slug_key`), for the same reason: two characters both named
+ * "Aldric" is a GM typing the same name twice, not a race worth a bare insert-and-catch. */
+export async function createEntity(db: Db, input: CreateEntityInput): Promise<EntityRow> {
+	const base = slugifyEntityName(input.name);
+	let slug = base;
+	for (let suffix = 2; suffix < 100; suffix += 1) {
+		const existing = await db.query.entity.findFirst({
+			where: (row, { and, eq: eqOp }) =>
+				and(eqOp(row.universeId, input.universeId), eqOp(row.slug, slug))
+		});
+		if (!existing) break;
+		slug = `${base}-${suffix}`;
+	}
+
+	const [row] = await db
+		.insert(entity)
+		.values({ universeId: input.universeId, type: input.type, name: input.name, slug })
+		.returning();
+	if (!row) throw new Error('createEntity: insert did not return a row');
+	return row;
+}
+
+export interface EntityBrowserRow {
+	id: string;
+	name: string;
+	type: EntityType;
+	slug: string;
+	excerpt: string;
+	updatedAt: Date;
+}
+
+export interface ListEntitiesOptions {
+	type?: EntityType;
+	limit?: number;
+}
+
+const BROWSER_EXCERPT_LENGTH = 160;
+
+function browserExcerpt(body: string): string {
+	const firstParagraph = (body.split('\n\n')[0] ?? '').trim();
+	return firstParagraph.length > BROWSER_EXCERPT_LENGTH
+		? `${firstParagraph.slice(0, BROWSER_EXCERPT_LENGTH)}…`
+		: firstParagraph;
+}
+
+/** I7 = C's browser with no search box in play: every entry in a universe (or every entry
+ * of one filtered type), newest change first (the decided default sort - a ranked-by-
+ * staleness sort was rejected in the artifact as a model's judgment steering what a GM
+ * reads before they've read anything). `searchEntitiesByNameOrAlias` (`table-search.ts`)
+ * is the other half, for when there is a query to rank against. */
+export async function listEntitiesForUniverse(
+	db: Db,
+	universeId: string,
+	opts?: ListEntitiesOptions
+): Promise<EntityBrowserRow[]> {
+	const rows = await db.query.entity.findMany({
+		where: (row, { and, eq: eqOp }) =>
+			opts?.type
+				? and(eqOp(row.universeId, universeId), eqOp(row.type, opts.type))
+				: eqOp(row.universeId, universeId),
+		orderBy: (row, { desc }) => desc(row.updatedAt),
+		limit: opts?.limit ?? 500,
+		columns: { id: true, name: true, slug: true, type: true, body: true, updatedAt: true }
+	});
+	return rows.map((row) => ({
+		id: row.id,
+		name: row.name,
+		type: row.type,
+		slug: row.slug,
+		excerpt: browserExcerpt(row.body),
+		updatedAt: row.updatedAt
+	}));
+}
+
+/** The filter row's "real counts", per entity type actually present - never a hardcoded
+ * five-entry map, since a universe missing a type (no items yet) should show a real zero,
+ * not silently drop the chip. */
+export async function entityCountsByType(
+	db: Db,
+	universeId: string
+): Promise<Partial<Record<EntityType, number>>> {
+	const rows = await db
+		.select({ type: entity.type, count: count() })
+		.from(entity)
+		.where(eq(entity.universeId, universeId))
+		.groupBy(entity.type);
+	const counts: Partial<Record<EntityType, number>> = {};
+	for (const row of rows) counts[row.type] = row.count;
+	return counts;
+}
 
 export interface EntityLanguageState {
 	language: Locale | null;

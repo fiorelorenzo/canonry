@@ -24,21 +24,3 @@
 <div class="min-h-screen bg-paper pb-16 text-[15px] leading-relaxed md:pb-0">
 	{@render children()}
 </div>
-
-<style>
-	/* #81, E4's own guardrail-4 framing: on 314px of usable width, the fixed 256px
-	 * (`w-64`) shell sidebar from `u/[universe]/+layout.svelte` (outside these owned
-	 * paths - that layout renders it unconditionally, with no responsive breakpoint of
-	 * its own yet) leaves this subtree's content nowhere to go but overflow. `:global()`
-	 * targets it by its stable `aria-label` rather than reaching into that file, and
-	 * because Svelte only loads this stylesheet for routes under this layout, the rule
-	 * never touches the sidebar anywhere outside /table - every other route's mobile nav
-	 * (not yet built, tracked separately) is untouched. `md` matches the exact breakpoint
-	 * `PhoneTabBar.svelte` already uses (`md:hidden`), so the swap from sidebar to bottom
-	 * tabs happens at one consistent width instead of two independently-chosen ones. */
-	@media (max-width: 767px) {
-		:global(aside[aria-label='Universe navigation']) {
-			display: none;
-		}
-	}
-</style>

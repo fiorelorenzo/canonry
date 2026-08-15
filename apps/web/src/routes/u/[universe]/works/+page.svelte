@@ -7,6 +7,10 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
+	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -22,7 +26,11 @@
 	</p>
 
 	{#if data.works.length === 0}
-		<p class="mt-6 text-sm text-muted">{t.works.index.empty}</p>
+		<EmptyState kind="cold" message={t.works.index.empty}>
+			{#snippet action()}
+				<Button href="#work-create-name">{t.works.index.emptyAction}</Button>
+			{/snippet}
+		</EmptyState>
 	{:else}
 		<ul class="mt-6 flex flex-col divide-y divide-line">
 			{#each data.works as work (work.id)}
@@ -54,11 +62,7 @@
 		</h2>
 		<label class="flex flex-col gap-1 text-sm text-ink-2">
 			{t.works.index.nameLabel}
-			<input
-				name="name"
-				required
-				class="rounded-md border border-line-2 bg-panel px-3 py-1.5 text-sm text-ink"
-			/>
+			<Input id="work-create-name" name="name" required />
 		</label>
 		<label class="flex flex-col gap-1 text-sm text-ink-2">
 			{t.works.index.typeLabel}
@@ -73,19 +77,13 @@
 		</label>
 		<label class="flex flex-col gap-1 text-sm text-ink-2">
 			{t.works.index.summaryLabel} <span class="text-muted">{t.works.index.summaryOptional}</span>
-			<textarea
-				name="summary"
-				rows="2"
-				class="rounded-md border border-line-2 bg-panel px-3 py-1.5 text-sm text-ink"></textarea>
+			<Textarea name="summary" rows={2} />
 		</label>
 		{#if form?.message}
 			<p class="text-sm text-danger">{form.message}</p>
 		{/if}
-		<button
-			type="submit"
-			class="mt-1 w-fit rounded-md bg-accent px-4 py-2 text-sm font-medium text-panel hover:opacity-90"
-		>
+		<Button type="submit" class="mt-1 w-fit">
 			{t.works.index.createButton}
-		</button>
+		</Button>
 	</form>
 </div>

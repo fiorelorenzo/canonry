@@ -6,6 +6,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
+	import { Button } from '$lib/components/ui/button';
 	import MarkdownEditor from '$lib/components/entry/MarkdownEditor.svelte';
 	import type { PageProps } from './$types';
 
@@ -41,12 +42,9 @@
 		<input type="hidden" name="body" value={body} />
 
 		<div class="mt-4 flex justify-end">
-			<button
-				type="submit"
-				class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-panel hover:opacity-90"
-			>
+			<Button type="submit">
 				{t.entry.editor.save}
-			</button>
+			</Button>
 		</div>
 	</form>
 </div>

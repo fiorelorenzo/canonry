@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { dateFormat, messages } from '$lib/i18n';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { PageHeader } from '$lib/components/ui/page-header';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -31,12 +35,10 @@
 	<title>{t.models.browserTitle}</title>
 </svelte:head>
 
-<main id="main" class="mx-auto max-w-4xl px-8 py-10">
-	<a href={resolve('/')} class="text-sm text-accent hover:underline">{t.backToUniverses}</a>
-
-	<h1 class="mt-4 text-2xl font-semibold text-ink">{t.models.textHeading}</h1>
+<div class="mx-auto max-w-4xl px-8 py-10">
+	<PageHeader title={t.models.textHeading} />
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
-	<p class="mt-2 max-w-measure text-sm text-ink-2">{@html t.models.textIntro1}</p>
+	<p class="mt-6 max-w-measure text-sm text-ink-2">{@html t.models.textIntro1}</p>
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 	<p class="mt-2 max-w-measure text-sm text-ink-2">{@html t.models.textIntro2}</p>
 
@@ -98,7 +100,7 @@
 							<form method="POST" action="?/text" class="flex flex-wrap items-center gap-2">
 								<input type="hidden" name="purpose" value={row.purpose} />
 								<div class="flex flex-col gap-1">
-									<label class="sr-only" for={providerId}>{t.models.table.provider}</label>
+									<Label class="sr-only" for={providerId}>{t.models.table.provider}</Label>
 									<select
 										id={providerId}
 										name="provider"
@@ -113,21 +115,17 @@
 									</select>
 								</div>
 								<div class="flex flex-col gap-1">
-									<label class="sr-only" for={modelIdId}>{t.models.table.modelId}</label>
-									<input
+									<Label class="sr-only" for={modelIdId}>{t.models.table.modelId}</Label>
+									<Input
 										id={modelIdId}
 										name="modelId"
 										value={modelIdValue}
-										class="w-64 rounded border border-line-2 bg-panel px-2 py-1 font-mono text-xs text-ink"
-										class:border-danger={!!errorHere}
+										class="w-64 font-mono text-xs {errorHere ? 'border-danger' : ''}"
 									/>
 								</div>
-								<button
-									type="submit"
-									class="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-panel hover:bg-accent-ink"
-								>
+								<Button type="submit" size="sm">
 									{t.save}
-								</button>
+								</Button>
 								{#if errorHere}
 									<p class="w-full text-xs text-danger">{errorHere}</p>
 								{:else if savedHere}
@@ -195,42 +193,33 @@
 							<form method="POST" action="?/image" class="flex flex-wrap items-center gap-2">
 								<input type="hidden" name="feature" value={model.feature} />
 								<div class="flex flex-col gap-1">
-									<label class="sr-only" for={providerId}>{t.models.table.provider}</label>
-									<input
-										id={providerId}
-										name="provider"
-										value={providerValue}
-										class="w-28 rounded border border-line-2 bg-panel px-2 py-1 text-ink"
-									/>
+									<Label class="sr-only" for={providerId}>{t.models.table.provider}</Label>
+									<Input id={providerId} name="provider" value={providerValue} class="w-28" />
 								</div>
 								<div class="flex flex-col gap-1">
-									<label class="sr-only" for={modelIdId}>{t.models.table.modelId}</label>
-									<input
+									<Label class="sr-only" for={modelIdId}>{t.models.table.modelId}</Label>
+									<Input
 										id={modelIdId}
 										name="modelId"
 										value={modelIdValue}
-										class="w-64 rounded border border-line-2 bg-panel px-2 py-1 font-mono text-xs text-ink"
+										class="w-64 font-mono text-xs"
 									/>
 								</div>
 								<div class="flex flex-col gap-1">
-									<label class="sr-only" for={eurId}>{t.models.imageTable.eurPerImage}</label>
-									<input
+									<Label class="sr-only" for={eurId}>{t.models.imageTable.eurPerImage}</Label>
+									<Input
 										id={eurId}
 										type="number"
 										name="eurPerImage"
 										min="0"
 										step="0.000001"
 										value={eurValue}
-										class="w-24 rounded border border-line-2 bg-panel px-2 py-1 text-ink tabular-nums"
-										class:border-danger={!!errorHere}
+										class="w-24 tabular-nums"
 									/>
 								</div>
-								<button
-									type="submit"
-									class="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-panel hover:bg-accent-ink"
-								>
+								<Button type="submit" size="sm">
 									{t.save}
-								</button>
+								</Button>
 								{#if errorHere}
 									<p class="w-full text-xs text-danger">{errorHere}</p>
 								{:else if savedHere}
@@ -243,4 +232,4 @@
 			</tbody>
 		</table>
 	</div>
-</main>
+</div>

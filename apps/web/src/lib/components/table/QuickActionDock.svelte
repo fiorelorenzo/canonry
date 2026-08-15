@@ -47,6 +47,9 @@
 	}
 </script>
 
+<!-- #147: every control in this dock stays bespoke. E3's two-tier dock (the two big
+	thumb-sized primary actions plus the "More" overflow) is its own designed thing, not
+	a set of generic buttons, so it keeps its own sizing and styling end to end. -->
 <div class="flex flex-wrap items-center gap-2">
 	<button
 		type="button"

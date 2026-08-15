@@ -14,7 +14,6 @@
 	 * route has no `+page.server.ts`, so `PageData` is exactly the root layout's data), unlike
 	 * its sibling docs pages (`/docs`, `/docs/import`, `/privacy`), which predate the
 	 * catalogue and are issue #121's sweep, not this one's. */
-	import { resolve } from '$app/paths';
 	import DocPage from '$lib/components/docs/DocPage.svelte';
 	import { messages } from '$lib/i18n';
 	import type { PageData } from './$types';
@@ -28,7 +27,7 @@
 	<title>{t.title}: Canonry</title>
 </svelte:head>
 
-<DocPage title={t.title} eyebrow="Docs" backHref={resolve('/docs')} backLabel="Docs">
+<DocPage title={t.title} eyebrow="Docs">
 	<p>{t.intro}</p>
 
 	<h2>{t.interfaceHeading}</h2>

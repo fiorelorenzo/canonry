@@ -1,38 +1,13 @@
 /**
- * Issue #108's other half: universe creation had no UI anywhere before this issue.
- * Standalone, reachable any time by a signed-in user who wants another universe outside
- * the onboarding sequence - /onboarding's own "name your universe" screen calls the same
- * createOnboardingUniverse function, this route is just its general-purpose front door.
+ * Issue #142, I4 = B ("one creation surface", docs/ux/DECISIONS.md): this used to be a
+ * second, rival door to universe creation - its own name field and Create button, doing
+ * exactly what /onboarding's new "start empty" card now does. It redirects into /onboarding
+ * rather than staying a second route; nothing in the codebase links here (checked with
+ * grep before this change), so the redirect alone is the whole cutover.
  */
-import { fail, redirect } from '@sveltejs/kit';
-import { messages } from '$lib/i18n';
-import { db } from '$lib/server/db';
-import { createOnboardingUniverse, UniverseNameRequiredError } from '$lib/server/onboarding';
-import type { Actions, PageServerLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
+import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ locals }) => {
-	if (!locals.user) redirect(303, '/auth/sign-in');
-};
-
-export const actions: Actions = {
-	default: async ({ request, locals }) => {
-		if (!locals.user) redirect(303, '/auth/sign-in');
-		const data = await request.formData();
-		const name = String(data.get('name') ?? '');
-
-		let created;
-		try {
-			created = await createOnboardingUniverse(db(), {
-				userId: locals.user.id,
-				name,
-				kind: 'homebrew'
-			});
-		} catch (err) {
-			if (err instanceof UniverseNameRequiredError) {
-				return fail(400, { error: messages(locals.locale).universe.new.nameRequiredError, name });
-			}
-			throw err;
-		}
-		redirect(303, `/u/${created.slug}`);
-	}
+export const load: PageServerLoad = () => {
+	redirect(303, '/onboarding');
 };

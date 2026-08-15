@@ -5,6 +5,7 @@
 	 * (`editorState.ts`'s pure edits) - never a shortcut around the mention resolve menu.
 	 */
 	import { messages, type Locale } from '$lib/i18n';
+	import { Button } from '$lib/components/ui/button';
 
 	export type FormatCommand = 'bold' | 'italic' | 'heading' | 'list' | 'quote' | 'link' | 'mention';
 
@@ -28,24 +29,28 @@
 	aria-label={t.entry.toolbar.ariaLabel}
 >
 	{#each buttons as button (button.command)}
-		<button
+		<Button
 			type="button"
-			class="min-w-8 rounded px-2 py-1.5 text-sm font-semibold text-ink-2 hover:bg-panel"
+			variant="ghost"
+			size="sm"
+			class="h-auto min-w-8 px-2 py-1.5 font-semibold hover:bg-panel aria-expanded:bg-panel"
 			title={button.title}
 			aria-label={button.title}
 			onclick={() => onCommand(button.command)}
 		>
 			{button.label}
-		</button>
+		</Button>
 	{/each}
 	<div class="mx-1 h-5 w-px bg-line-2"></div>
-	<button
+	<Button
 		type="button"
-		class="rounded px-2 py-1.5 font-mono text-xs text-ink-2 hover:bg-panel"
+		variant="ghost"
+		size="sm"
+		class="h-auto px-2 py-1.5 font-mono text-xs hover:bg-panel aria-expanded:bg-panel"
 		title={t.entry.toolbar.mention}
 		aria-label={t.entry.toolbar.mention}
 		onclick={() => onCommand('mention')}
 	>
 		{t.entry.toolbar.mentionLabel}
-	</button>
+	</Button>
 </div>

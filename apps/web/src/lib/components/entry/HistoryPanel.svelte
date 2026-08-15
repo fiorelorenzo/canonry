@@ -1,6 +1,7 @@
 <script lang="ts">
 	/** B4 = B: history, newest first, every revision's author kind on permanent display. */
 	import { dateFormat, messages, type Locale } from '$lib/i18n';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import type { AuthorKind } from '@canonry/db/schema';
 	import RevisionBadge from './RevisionBadge.svelte';
 
@@ -23,7 +24,11 @@
 </script>
 
 {#if revisions.length === 0}
-	<p class="text-sm text-muted">{t.entry.history.empty}</p>
+	<EmptyState
+		kind="derived"
+		message={t.entry.history.empty}
+		explanation={t.entry.history.explanation}
+	/>
 {:else}
 	<ul class="space-y-2.5">
 		{#each revisions as revision (revision.id)}

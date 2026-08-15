@@ -22,6 +22,7 @@
 		type SecretBlockKind
 	} from '$lib/markdown-secrets';
 	import { renderAiMarkedParagraph } from '$lib/components/ai/aiMarking';
+	import { Button } from '$lib/components/ui/button';
 	import { splitBodyIntoBlocks, markedSegmentsFor } from '$lib/components/ai/entryMarking';
 	import { messages, type Locale } from '$lib/i18n';
 
@@ -103,14 +104,14 @@
 	<span class="text-xs font-semibold tracking-wide text-muted uppercase">
 		{playerPreview ? t.playerPreviewActive : t.gmView}
 	</span>
-	<button
-		type="button"
-		class="rounded-md border border-line-2 px-2.5 py-1 text-xs text-ink-2 hover:bg-panel-2"
+	<Button
+		variant="secondary"
+		size="sm"
 		aria-pressed={playerPreview}
 		onclick={() => (playerPreview = !playerPreview)}
 	>
 		{playerPreview ? t.showGmView : t.playerPreview}
-	</button>
+	</Button>
 </div>
 
 <div

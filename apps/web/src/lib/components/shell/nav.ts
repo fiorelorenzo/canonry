@@ -50,3 +50,22 @@ export const NAV_ITEMS: readonly NavItem[] = [
 		issue: 107
 	}
 ];
+
+/**
+ * Issue #141, I3 = B: the sidebar's other shape, when no universe is selected. Three
+ * places rather than seven - "the account's own places, Universes, Settings, Docs" -
+ * and no counts, since none of them are per-universe totals. Settings has no index
+ * route of its own yet (that is #143's two-pane page), so this points at the same
+ * appearance leaf the old root page's lone settings link used.
+ */
+export interface AccountNavItem {
+	id: 'universes' | 'settings' | 'docs';
+	label: string;
+	href: '/' | '/settings/appearance' | '/docs';
+}
+
+export const ACCOUNT_NAV_ITEMS: readonly AccountNavItem[] = [
+	{ id: 'universes', label: 'Universes', href: '/' },
+	{ id: 'settings', label: 'Settings', href: '/settings/appearance' },
+	{ id: 'docs', label: 'Docs', href: '/docs' }
+];

@@ -184,17 +184,21 @@
 	{/if}
 
 	{#if candidate.outcome === 'pending'}
-		<div class="flex items-center gap-2">
+		<!-- Issue #148 (I10 = B): C6's keyboard queue (j/k/a/r/u) doesn't reach a
+		     phone, so below `sm` these are the primary way to decide - full width,
+		     44px minimum, side by side rather than the compact auto-width pair a
+		     mouse gets at `sm` and up. -->
+		<div class="flex gap-2">
 			<button
 				type="button"
-				class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:brightness-110"
+				class="min-h-11 flex-1 rounded-md bg-accent px-3 text-sm font-medium text-panel hover:brightness-110 sm:min-h-0 sm:flex-none sm:py-1.5"
 				onclick={onAccept}
 			>
 				{t.diffCard.accept}
 			</button>
 			<button
 				type="button"
-				class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
+				class="min-h-11 flex-1 rounded-md border border-line-2 px-3 text-sm text-ink-2 hover:bg-panel-2 sm:min-h-0 sm:flex-none sm:py-1.5"
 				onclick={onReject}
 			>
 				{t.diffCard.reject}

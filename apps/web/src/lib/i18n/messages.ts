@@ -27,10 +27,108 @@ export interface Messages {
 		signUp: string;
 		signOut: string;
 		signingOut: string;
+		/** The spec's own TL;DR sentence (SPEC.md §1) - the root layout's meta
+		 * description and the door page's (#138) own visible sentence read the same
+		 * catalogue entry, so there is exactly one copy to keep guardrail 7 honest. */
+		tagline: string;
+		/** Issue #141 (I3 = B): the sidebar's account-mode shape, with no universe
+		 * selected - three places (Universes, Settings, Docs) instead of a universe's
+		 * seven, looked up the same way `universe.nav` is. */
+		sidebar: {
+			accountNavAriaLabel: string;
+			accountNav: {
+				universes: string;
+				settings: string;
+				docs: string;
+			};
+		};
+		/** Issue #150 (F2 = A, H1's spend rule): the shell footer's quota meter
+		 * (QuotaMeter.svelte). Two lines, not one - included quota and warm budget
+		 * are counted separately (SPEC.md §15) and never merge into one number.
+		 * `ratio` formats "remaining / total" once for both lines (G2: tabular
+		 * figures, per-locale grouping) rather than each line writing its own
+		 * template. Guardrail 7 / SPEC.md §15: both totals passed to `ratio` are
+		 * always a real, finite number - this namespace holds no "unlimited"
+		 * string to reach for. */
+		quota: {
+			includedHeading: string;
+			warmHeading: string;
+			ratio: (remaining: number, total: number) => string;
+		};
+		/** Issue #138 (I1 = B): the signed-out door at `/`. The three outbound links
+		 * reuse `auth.footer` (the same bar shape on the auth pages, #139) rather than
+		 * a second copy; `signIn` reuses this namespace's own `signIn` above. */
+		door: {
+			createAccount: string;
+			/** G10's export sentence, one line under the door's two actions. */
+			exportNote: string;
+		};
+		/** Issue #148 (I10 = B): the phone top bar and bottom tabs PhoneNav.svelte
+		 * renders below `md` - the drawer trigger (hamburger + current universe or
+		 * "Canonry"), the palette icon and the account avatar link, plus the
+		 * generalised E4 tab bar for universe mode. Entries/Proposals reuse
+		 * `universe.nav`'s own labels rather than a second copy; `ask` and `more`
+		 * have no existing short label elsewhere to reuse. */
+		phoneNav: {
+			openNavLabel: string;
+			openNavDescription: string;
+			closeNavLabel: string;
+			paletteTriggerLabel: string;
+			accountLabel: string;
+			tabsAriaLabel: string;
+			ask: string;
+			more: string;
+		};
+		/** Issue #143 (I6 = B): the account menu that replaces the plain link wave one
+		 * left as a placeholder. `docs`/`privacy` reuse `auth.footer`'s own copy and
+		 * `signOut`/`signingOut` reuse this namespace's own two fields above, so each of
+		 * those four words still has exactly one catalogue entry. `modelKeys` and
+		 * `planAndCredits` are the menu's own wording, distinct from the pane titles
+		 * (`settings.keys.title` is "API keys", `settings.billing.title` is "Billing") -
+		 * the issue body names the menu rows separately from the settings sub-nav. */
+		accountMenu: {
+			account: string;
+			language: string;
+			appearance: string;
+			modelKeys: string;
+			planAndCredits: string;
+			export: string;
+		};
+		/** Issue #149 (A3 = C, G3 = B): the command palette, `CommandPalette.svelte`.
+		 * `dialogTitle`/`dialogDescription` are the sr-only `Dialog.Title`/
+		 * `Dialog.Description` text `command-dialog.svelte` requires with no English
+		 * default. `askAction`/`askHint` label the routing row A3 = C adds when a typed
+		 * query classifies as a question (`question.ts`) - it never answers inline (C8,
+		 * G5), only opens Ask with the question carried over. `accountSettingsAction` is
+		 * the palette's own label for the account pane's action-list entry, kept out of
+		 * `settings.account.title` on purpose so this namespace does not depend on I6's
+		 * in-flight settings restructure. */
+		palette: {
+			dialogTitle: string;
+			dialogDescription: string;
+			closeLabel: string;
+			placeholder: string;
+			askHeading: string;
+			askAction: (question: string) => string;
+			askHint: string;
+			entriesHeading: string;
+			noEntryMatches: (query: string) => string;
+			loadingMessage: string;
+			akaHint: (alias: string) => string;
+			universesHeading: string;
+			noUniverseMatches: (query: string) => string;
+			actionsHeading: string;
+			emptyMessage: string;
+			accountSettingsAction: string;
+			footerMove: string;
+			footerOpen: string;
+			footerClose: string;
+		};
 	};
 
 	settings: {
-		backToUniverses: string;
+		/** Issue #143 (I6 = B): the two-pane settings page's own sub-nav. */
+		subNavAriaLabel: string;
 
 		appearance: {
 			title: string;
@@ -134,6 +232,43 @@ export interface Messages {
 			removeSignInRequired: string;
 			unknownProvider: string;
 		};
+
+		/** Issue #143 (I6 = B): the Account pane, the settings leaf that did not exist
+		 * before this issue. Name and password go through Better Auth's own client API
+		 * (`authClient.updateUser`/`authClient.changePassword`) rather than a form
+		 * action, so their failure text comes back from Better Auth at request time -
+		 * only labels, confirmations and fallbacks live here. `deleteUnavailable`
+		 * replaces a delete button rather than shipping one that always fails: Better
+		 * Auth's `deleteUser` endpoint 404s until `user.deleteUser.enabled` is set in
+		 * `lib/server/auth.ts`, which this deployment does not set (checked against the
+		 * installed better-auth 1.6.27 source, not assumed). */
+		account: {
+			title: string;
+			description: string;
+			signInPrompt: string;
+			signInLink: string;
+			nameLabel: string;
+			nameSave: string;
+			nameSaving: string;
+			nameSaved: string;
+			nameSaveFailedFallback: string;
+			emailLabel: string;
+			emailNote: string;
+			passwordHeading: string;
+			currentPasswordLabel: string;
+			newPasswordLabel: string;
+			passwordSave: string;
+			passwordSaving: string;
+			passwordSaved: string;
+			passwordSaveFailedFallback: string;
+			sessionsHeading: string;
+			sessionsDescription: string;
+			signOutEverywhereButton: string;
+			signOutEverywhereInProgress: string;
+			signOutEverywhereFailedFallback: string;
+			deleteHeading: string;
+			deleteUnavailable: string;
+		};
 	};
 
 	auth: {
@@ -163,9 +298,31 @@ export interface Messages {
 			continueWith: (provider: string) => string;
 		};
 		/** The compact switcher on the sign-in/sign-up pages (there is no account yet to
-		 * hold a preference, so it sets the cookie instead - SPEC.md §17). */
+		 * hold a preference, so it sets the cookie instead - SPEC.md §17). Lives in the
+		 * footer rule on both pages (I2, #139), not the top right. */
 		languageSwitcher: {
 			label: string;
+		};
+		/** The auth pages' own footer rule (I2, #139): everything secondary that used to
+		 * compete with the wordmark - the language switcher plus these three links. */
+		footer: {
+			whatCanonryIs: string;
+			docs: string;
+			privacy: string;
+		};
+		/** Sign-up's right pane (I2 = B, #139): the product's one trick drawn static on the
+		 * sample world (docs/ux/SAMPLE-WORLD.md) - a changed sentence and the proposal it
+		 * produced, marked as waiting. No accept control, guardrail 1 and 7 both apply to
+		 * every word here since it is marketing copy that happens to live inside the app. */
+		argument: {
+			intro: string;
+			aldricSentence: string;
+			watchLeadPrefix: string;
+			watchBefore: string;
+			watchAfter: string;
+			waitingBadge: string;
+			evidence: string;
+			disclaimer: string;
 		};
 	};
 
@@ -254,15 +411,27 @@ export interface Messages {
 			images: string;
 			history: string;
 			audit: string;
+			/** Issue #148 (I10 = B): below `md`, B1's five-tab aside can't sit beside
+			 * the document, so it moves behind this trigger into a bottom sheet
+			 * instead of stacking under the prose uninvited - "reachable rather than
+			 * cropped", not a second copy of the panel. */
+			mobile: {
+				trigger: string;
+				closeLabel: string;
+				description: string;
+			};
 		};
 		relations: {
 			empty: string;
+			explanation: string;
 		};
 		facts: {
 			empty: string;
+			explanation: string;
 		};
 		history: {
 			empty: string;
+			explanation: string;
 			revisionHuman: string;
 			revisionAiAccepted: string;
 		};
@@ -277,6 +446,7 @@ export interface Messages {
 		media: {
 			aiOffBanner: string;
 			empty: string;
+			explanation: string;
 			privateNote: string;
 			generatedBadge: string;
 			generateButton: string;
@@ -484,6 +654,7 @@ export interface Messages {
 				failed: (note: string | null) => string;
 			};
 			emptyRunning: string;
+			emptyRunningExplanation: string;
 			emptyDone: string;
 			filtering: string;
 			errors: {
@@ -502,10 +673,12 @@ export interface Messages {
 			description: string;
 			nameLabel: string;
 			namePlaceholder: string;
-			importCard: { heading: string; description: string; cta: string };
+			importCard: { heading: string; description: string; cta: string; badge: string };
+			emptyCard: { heading: string; description: string; cta: string };
 			preindexedCard: {
-				heading: string;
-				description: (baseName: string) => string;
+				heading: (baseName: string) => string;
+				genericHeading: string;
+				description: string;
 				cta: (baseName: string) => string;
 				notConfigured: string;
 			};
@@ -576,6 +749,7 @@ export interface Messages {
 		};
 		liveFeed: {
 			empty: string;
+			explanation: string;
 			badge: Record<'create' | 'update' | 'relation' | 'draft_entity' | 'flag', string>;
 			untitledProposal: string;
 			accept: string;
@@ -790,6 +964,7 @@ export interface Messages {
 			title: string;
 			description: string;
 			empty: string;
+			emptyAction: string;
 			createHeading: string;
 			nameLabel: string;
 			typeLabel: string;
@@ -848,27 +1023,71 @@ export interface Messages {
 			derivedBadge: string;
 			derivedFrom: (baseUniverseName: string) => string;
 			entryCount: (count: number) => string;
+			/** Issue #141 (I3 = B): account mode's two extra switcher rows, below the
+			 * universe list - universe mode never renders these. */
+			allUniverses: string;
+			newUniverse: string;
 		};
+		/** Issue #145 (I7 = C, "one page, two modes"): the universe home is now the entry
+		 * browser, with a collapsible overview strip pinned above it. Replaces the old
+		 * three-sentence Recent-list page (`recentEntriesHeading`/`empty`) entirely - Recent
+		 * stays only in the sidebar (`sidebar.recentHeading`), which Shell owns. */
 		index: {
-			recentEntriesHeading: string;
-			empty: string;
+			homebrewEyebrow: string;
+			derivedEyebrow: string;
 			derivedNoticeBefore: string;
 			derivedNoticeAfter: string;
+			newEntryAction: string;
+			strip: {
+				collapseLabel: string;
+				expandLabel: string;
+				whatChangedHeading: string;
+				whatChangedEmpty: string;
+				waitingForReviewHeading: string;
+				quotaHeading: string;
+				quotaValue: (used: number, total: number) => string;
+				currentWorkHeading: string;
+				currentWorkEmpty: string;
+				currentWorkValue: (workName: string, nodeTitle: string) => string;
+			};
+			filters: {
+				all: string;
+				/** One of the five browsable types (character/place/faction/event/item) - not
+				 * 'session', which nothing in the product creates through this dialog yet. */
+				typeLabel: (type: string) => string;
+			};
+			searchPlaceholder: string;
+			changedAt: (when: string) => string;
+			emptyColdMessage: string;
+			emptyFilteredMessage: string;
+			relativeTime: {
+				justNow: string;
+				minutesAgo: (minutes: number) => string;
+				hoursAgo: (hours: number) => string;
+				daysAgo: (days: number) => string;
+				weeksAgo: (weeks: number) => string;
+				monthsAgo: (months: number) => string;
+			};
+			newEntryDialog: {
+				title: string;
+				description: string;
+				nameLabel: string;
+				typeLabel: string;
+				submit: string;
+				cancel: string;
+				nameRequiredError: string;
+				typeRequiredError: string;
+				viewerForbiddenError: string;
+			};
 		};
 		/** The root `/` page - every universe this account owns or was added to,
 		 * before picking one. Reuses `switcher.derivedFrom`/`switcher.entryCount` for the
 		 * identical "Derived from X · N entries" line the sidebar switcher already shows. */
 		list: {
-			signInPrompt: string;
-			empty: string;
-			appearanceSettingsLink: string;
-		};
-		new: {
-			headTitle: string;
+			/** Issue #138 (I1 = B): signed-in home, the universe picker inside the shell -
+			 * a heading and the permanent "New universe" primary action next to it. */
 			heading: string;
-			nameLabel: string;
-			create: string;
-			nameRequiredError: string;
+			newUniverse: string;
 		};
 		ask: {
 			headTitle: (universeName: string) => string;
@@ -933,10 +1152,6 @@ export interface Messages {
 
 	/** Issue #121's sweep: the /admin subtree (text/image model tables, metrics, pricing). */
 	admin: {
-		/** The "&larr; Universes" back-link every admin page starts with (models,
-		 * metrics, pricing) - one key, three call sites, so the wording never drifts. */
-		backToUniverses: string;
-
 		/** Shared fallback for a row with no attribution recorded - a proposal's
 		 * modelId, a price change's changedBy - reused across the models and metrics
 		 * and pricing tables rather than repeated per table. */
@@ -1085,16 +1300,15 @@ export interface Messages {
 		};
 	};
 
-	/** Issue #121's sweep: the docs pages' chrome (titles, back links, the import-guide
-	 * picker) - the long-form prose body stays English, a documentation-writing project
-	 * distinct from interface string localisation. `importGuide.browserTitle` is a
-	 * function rather than a fixed suffix so each locale can order the source name and
-	 * "import guide" however reads naturally, not just concatenate a shared suffix. */
+	/** Issue #121's sweep: the docs pages' chrome (titles, the import-guide picker) - the
+	 * long-form prose body stays English, a documentation-writing project distinct from
+	 * interface string localisation. `importGuide.browserTitle` is a function rather than
+	 * a fixed suffix so each locale can order the source name and "import guide" however
+	 * reads naturally, not just concatenate a shared suffix. */
 	docs: {
 		hub: {
 			browserTitle: string;
 			title: string;
-			backLabel: string;
 			intro: string;
 			importHeading: string;
 			importIntro: string;
@@ -1106,18 +1320,15 @@ export interface Messages {
 		importIndex: {
 			title: string;
 			eyebrow: string;
-			backLabel: string;
 			intro: string;
 			sourcesHeading: string;
 		};
 		importGuide: {
 			browserTitle: (guideLabel: string) => string;
 			eyebrow: string;
-			backLabel: string;
 		};
 		privacy: {
 			title: string;
-			backLabel: string;
 		};
 	};
 }

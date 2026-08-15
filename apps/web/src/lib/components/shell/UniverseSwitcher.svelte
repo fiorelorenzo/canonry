@@ -8,6 +8,12 @@
 	 * A disclosure, not a listbox: activating a row navigates to a different page
 	 * (the ARIA "menu" pattern), it does not select a value in place, so plain links
 	 * inside a toggled region are the correct and simplest accessible shape here.
+	 *
+	 * Issue #141, I3 = B: `current` is nullable now - the same component serves the
+	 * shell's account mode, with no universe selected. Universe mode is unchanged
+	 * (the list, nothing else); account mode's trigger reads "All universes" and its
+	 * panel adds two rows below the list, "All universes" and "New universe", that
+	 * universe mode never shows.
 	 */
 	import { resolve } from '$app/paths';
 	import { messages, type Locale } from '$lib/i18n';
@@ -18,7 +24,7 @@
 		current,
 		universes,
 		locale
-	}: { current: UniverseSummary; universes: UniverseSummary[]; locale: Locale } = $props();
+	}: { current: UniverseSummary | null; universes: UniverseSummary[]; locale: Locale } = $props();
 
 	const t = $derived(messages(locale).universe.switcher);
 
@@ -58,8 +64,10 @@
 		onclick={() => (open = !open)}
 	>
 		<span class="flex min-w-0 items-center gap-2">
-			<span class="truncate text-sm font-semibold text-ink">{current.name}</span>
-			{#if current.kind === 'derived'}
+			<span class="truncate text-sm font-semibold text-ink">
+				{current ? current.name : t.allUniverses}
+			</span>
+			{#if current?.kind === 'derived'}
 				<span
 					class="shrink-0 rounded-full border border-ai-line bg-ai-bg px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ai uppercase"
 				>
@@ -83,8 +91,8 @@
 							<a
 								href={resolve(`/u/${universe.slug}`)}
 								class="flex items-start gap-2 px-3 py-2 hover:bg-panel-2"
-								class:bg-accent-bg={universe.id === current.id}
-								aria-current={universe.id === current.id ? 'page' : undefined}
+								class:bg-accent-bg={universe.id === current?.id}
+								aria-current={universe.id === current?.id ? 'page' : undefined}
 								onclick={close}
 							>
 								<span
@@ -107,6 +115,28 @@
 						</li>
 					{/each}
 				</ul>
+				{#if !current}
+					<ul class="flex flex-col border-t border-line-2">
+						<li>
+							<a
+								href={resolve('/')}
+								class="block px-3 py-2 text-sm font-medium text-ink hover:bg-panel-2"
+								onclick={close}
+							>
+								{t.allUniverses}
+							</a>
+						</li>
+						<li>
+							<a
+								href={resolve('/onboarding')}
+								class="block px-3 py-2 text-sm font-medium text-accent hover:bg-panel-2"
+								onclick={close}
+							>
+								{t.newUniverse}
+							</a>
+						</li>
+					</ul>
+				{/if}
 			</nav>
 		</div>
 	{/if}

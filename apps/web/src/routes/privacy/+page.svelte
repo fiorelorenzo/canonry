@@ -10,7 +10,6 @@
 	 * Issue #121's sweep localizes only the DocPage chrome (`docs.privacy`): this is a
 	 * legal/product document, and machine-rewriting the long-form prose body below
 	 * risks changing what it actually promises, so the body stays English. */
-	import { resolve } from '$app/paths';
 	import DocPage from '$lib/components/docs/DocPage.svelte';
 	import { messages } from '$lib/i18n';
 	import type { PageData } from './$types';
@@ -23,7 +22,7 @@
 	<title>{t.title}: Canonry</title>
 </svelte:head>
 
-<DocPage title={t.title} backHref={resolve('/')} backLabel={t.backLabel}>
+<DocPage title={t.title}>
 	<p>
 		Canonry uses AI in a few places: answering questions about your canon, drafting updates when
 		something changes, generating images, generating ambient sound, and reading your files during an

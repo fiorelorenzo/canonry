@@ -18,6 +18,8 @@
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
+	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Button } from '$lib/components/ui/button';
 	import ProposalQueue from '$lib/components/proposals/ProposalQueue.svelte';
 	import TypeFilterChips from '$lib/components/proposals/TypeFilterChips.svelte';
 	import type { PageProps } from './$types';
@@ -97,9 +99,15 @@
 			<span>
 				{t.stillImporting(data.job.proposalsEmitted)}
 			</span>
-			<button type="button" class="text-xs font-medium text-ai underline" onclick={refreshNow}>
+			<Button
+				type="button"
+				variant="link"
+				size="sm"
+				class="h-auto p-0 text-ai"
+				onclick={refreshNow}
+			>
 				{t.refresh}
-			</button>
+			</Button>
 		</div>
 	{:else if issueNote}
 		<p class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-muted">
@@ -108,9 +116,11 @@
 	{/if}
 
 	{#if data.candidates.length === 0}
-		<p class="text-sm text-muted">
-			{isRunning ? t.emptyRunning : t.emptyDone}
-		</p>
+		<EmptyState
+			kind={isRunning ? 'derived' : 'settled'}
+			message={isRunning ? t.emptyRunning : t.emptyDone}
+			explanation={isRunning ? t.emptyRunningExplanation : undefined}
+		/>
 	{:else}
 		<div class="mb-4">
 			<TypeFilterChips

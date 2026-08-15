@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { dateFormat, LOCALE_NAMES, messages, numberFormat } from '$lib/i18n';
+	import { PageHeader } from '$lib/components/ui/page-header';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -50,11 +50,9 @@
 	<title>{t.metrics.browserTitle}</title>
 </svelte:head>
 
-<main id="main" class="mx-auto max-w-4xl px-8 py-10">
-	<a href={resolve('/')} class="text-sm text-accent hover:underline">{t.backToUniverses}</a>
-
-	<h1 class="mt-4 text-2xl font-semibold text-ink">{t.metrics.heading}</h1>
-	<p class="mt-2 max-w-measure text-sm text-ink-2">
+<div class="mx-auto max-w-4xl px-8 py-10">
+	<PageHeader title={t.metrics.heading} />
+	<p class="mt-6 max-w-measure text-sm text-ink-2">
 		{t.metrics.intro}
 	</p>
 
@@ -327,4 +325,4 @@
 			</div>
 		{/if}
 	</section>
-</main>
+</div>

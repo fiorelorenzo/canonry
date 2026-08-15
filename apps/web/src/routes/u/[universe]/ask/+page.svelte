@@ -11,7 +11,11 @@
 	 * `askSources` is never empty-while-loading in a way that could read as "no evidence
 	 * for this answer", satisfying guardrail 3 even mid-stream.
 	 */
+	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
 	import { messages } from '$lib/i18n';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -131,6 +135,21 @@
 		asking = false;
 	}
 
+	// Issue #149 (A3 = C): the palette's typed-question result routes here with `?q=`
+	// rather than answering inline (C8, G5) - this is where that question actually
+	// lands. `replaceState` strips the param right away, before `ask` resolves, so a
+	// reload or a copied/shared URL never re-fires the same question a second time.
+	$effect(() => {
+		const carried = page.url.searchParams.get('q');
+		if (!carried) return;
+		const url = new URL(page.url);
+		url.searchParams.delete('q');
+		// Rewrites the current URL to drop a consumed query param, it navigates nowhere.
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		replaceState(url, {});
+		ask(carried);
+	});
+
 	async function askAtLevel(level: DetailLevel) {
 		detailLevel = level;
 		if (askAnswer.length > 0 || askSources.length > 0) await ask(question);
@@ -155,32 +174,29 @@
 				void ask();
 			}}
 		>
-			<input
-				class="flex-1 border-0 bg-transparent text-sm text-ink outline-none"
+			<Input
+				class="h-auto flex-1 border-0 bg-transparent px-0 py-0 shadow-none ring-0 focus-visible:ring-0 dark:bg-transparent"
 				placeholder={t.placeholder}
 				bind:value={question}
 			/>
-			<button
-				type="submit"
-				class="rounded-md bg-accent px-3 py-1 text-sm text-paper"
-				disabled={asking}
-			>
+			<Button type="submit" size="sm" disabled={asking}>
 				{asking ? t.asking : t.ask}
-			</button>
+			</Button>
 		</form>
 
 		<div class="mt-2 flex flex-wrap gap-1">
 			{#each LEVEL_IDS as levelId (levelId)}
-				<button
+				<Button
 					type="button"
-					class="rounded-md border border-line px-2 py-1 text-xs"
-					class:bg-accent-bg={detailLevel === levelId}
-					class:text-ink={detailLevel === levelId}
-					class:text-ink-2={detailLevel !== levelId}
+					variant="secondary"
+					size="sm"
+					class={detailLevel === levelId
+						? 'border-line bg-accent-bg text-xs text-ink'
+						: 'border-line text-xs text-ink-2'}
 					onclick={() => askAtLevel(levelId)}
 				>
 					{t.levels[levelId]}
-				</button>
+				</Button>
 			{/each}
 		</div>
 
@@ -206,6 +222,10 @@
 			<div class="mt-4 flex flex-col gap-1.5">
 				{#each askSources as source, i (source.kind === 'own_canon' ? source.entityId : `${source.dataSourceId}-${i}`)}
 					{#if source.kind === 'own_canon'}
+						<!-- #147: this reads as a result card (title, label and a quoted excerpt
+							stacked on three lines), not an action button - Button's inline-flex,
+							centred, whitespace-nowrap base would fight that layout rather than fit
+							it, so it keeps its own border/bg treatment. -->
 						<button
 							type="button"
 							class="src clickable rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-left text-xs"
@@ -219,6 +239,9 @@
 						</button>
 					{:else}
 						<div class="src derived rounded-lg border border-ai-line bg-ai-bg px-2.5 py-2 text-xs">
+							<!-- #147: bg-ai/text-paper is C1's AI-marking treatment - violet is the
+								copilot's colour and nothing else may spend it, so this indexed-source
+								chip keeps its own styling rather than becoming Badge. -->
 							<span class="badge rounded-full bg-ai px-1.5 py-0.5 text-[10px] text-paper"
 								>{t.indexedBadge}</span
 							>
@@ -239,13 +262,15 @@
 		{#if followUps.length > 0}
 			<div class="mt-3 flex flex-wrap gap-1.5">
 				{#each followUps as followUp (followUp)}
-					<button
+					<Button
 						type="button"
-						class="rounded-md border border-line px-2 py-1 text-xs text-ink-2 hover:bg-panel-2"
+						variant="secondary"
+						size="sm"
+						class="border-line text-xs text-ink-2"
 						onclick={() => ask(followUp)}
 					>
 						{followUp}
-					</button>
+					</Button>
 				{/each}
 			</div>
 		{/if}
@@ -253,8 +278,12 @@
 
 	{#if panelLoading || panelEntry}
 		<div class="w-96 flex-none overflow-y-auto border-l border-line bg-panel p-6">
-			<button type="button" class="text-xs text-muted hover:text-ink" onclick={closePanel}
-				>{t.close} ✕</button
+			<Button
+				type="button"
+				variant="link"
+				size="sm"
+				class="h-auto p-0 text-muted hover:text-ink"
+				onclick={closePanel}>{t.close} ✕</Button
 			>
 			{#if panelLoading}
 				<p class="mt-3 text-sm text-muted">{t.loading}</p>

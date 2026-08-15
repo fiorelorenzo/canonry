@@ -9,6 +9,8 @@
 	 * lane's own 100 ms budget, because there is no round trip at all until submit.
 	 */
 	import { messages, type Locale } from '$lib/i18n';
+	import { Input } from '$lib/components/ui/input';
+	import { Button } from '$lib/components/ui/button';
 	import type { EntityRef } from './types';
 
 	let {
@@ -56,12 +58,12 @@
 		<label for="table-place-query" class="font-mono text-[10px] tracking-wide text-muted uppercase">
 			{t.whereArePlayers}
 		</label>
-		<input
+		<Input
 			id="table-place-query"
 			type="text"
 			bind:value={placeQuery}
 			placeholder={t.placePlaceholder}
-			class="rounded-md border border-line-2 bg-panel px-2.5 py-1.5 font-mono text-sm text-ink"
+			class="font-mono"
 			autocomplete="off"
 		/>
 		<ul
@@ -71,18 +73,17 @@
 		>
 			{#each filteredPlaces as place (place.id)}
 				<li>
-					<button
+					<Button
 						type="button"
+						variant="ghost"
 						role="option"
 						aria-selected={selectedPlaceId === place.id}
 						onclick={() => (selectedPlaceId = place.id)}
-						class="flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-sm hover:bg-panel"
-						class:bg-accent-bg={selectedPlaceId === place.id}
-						class:text-accent-ink={selectedPlaceId === place.id}
+						class={`h-auto w-full items-center justify-between rounded-md px-2 py-1 text-left text-sm font-normal ${selectedPlaceId === place.id ? 'bg-accent-bg text-accent-ink hover:bg-accent-bg' : ''}`}
 					>
 						<span>{place.name}</span>
 						<span class="text-xs text-muted">{t.placeTag}</span>
-					</button>
+					</Button>
 				</li>
 			{:else}
 				<li class="px-2 py-1 text-xs text-muted">{t.noPlaceMatch(placeQuery)}</li>
@@ -107,19 +108,11 @@
 	</div>
 
 	<div class="flex justify-end gap-2">
-		<button
-			type="button"
-			onclick={onCancel}
-			class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel"
-		>
+		<Button type="button" variant="secondary" onclick={onCancel}>
 			{t.cancel}
-		</button>
-		<button
-			type="submit"
-			disabled={!selectedPlaceId}
-			class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:opacity-50"
-		>
+		</Button>
+		<Button type="submit" disabled={!selectedPlaceId}>
 			{t.declare}
-		</button>
+		</Button>
 	</div>
 </form>

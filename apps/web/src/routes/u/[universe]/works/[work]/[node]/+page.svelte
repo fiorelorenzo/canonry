@@ -7,6 +7,10 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { dateFormat, messages } from '$lib/i18n';
+	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import MarkdownEditor from '$lib/components/entry/MarkdownEditor.svelte';
 	import type { ActionData, PageData } from './$types';
 
@@ -37,28 +41,26 @@
 		</p>
 
 		<div class="mb-4 flex items-center gap-2">
-			<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
+			<Badge class="bg-accent-bg font-mono text-accent-ink uppercase">
 				{t.works.kinds[data.node.kind] ?? data.node.kind}
-			</span>
+			</Badge>
 			<form method="POST" action="?/moveUp">
-				<button
-					type="submit"
-					class="rounded-md border border-line-2 px-2 py-1 text-xs text-ink-2 hover:bg-panel-2"
-				>
+				<Button type="submit" variant="secondary" size="sm">
 					{t.works.node.moveUp}
-				</button>
+				</Button>
 			</form>
 			<form method="POST" action="?/moveDown">
-				<button
-					type="submit"
-					class="rounded-md border border-line-2 px-2 py-1 text-xs text-ink-2 hover:bg-panel-2"
-				>
+				<Button type="submit" variant="secondary" size="sm">
 					{t.works.node.moveDown}
-				</button>
+				</Button>
 			</form>
 		</div>
 
 		<form method="POST" action="?/save">
+			<!-- #147: the title stays a bare input on purpose - it reads as the scene's
+				heading (text-2xl font-semibold, no border chrome but a focus underline),
+				and shadcn's Input would flatten that into a form field. Its meaning lives
+				in the styling a generic control can't carry. -->
 			<label class="mb-3 block">
 				<span class="sr-only">{t.works.node.titleSrLabel}</span>
 				<input
@@ -74,12 +76,9 @@
 				<p class="mt-2 text-sm text-danger">{form.message}</p>
 			{/if}
 			<div class="mt-4 flex justify-end">
-				<button
-					type="submit"
-					class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-panel hover:opacity-90"
-				>
+				<Button type="submit">
 					{t.works.node.save}
-				</button>
+				</Button>
 			</div>
 		</form>
 
@@ -90,11 +89,7 @@
 			<form method="POST" action="?/addChild" class="mt-3 flex max-w-sm flex-col gap-3">
 				<label class="flex flex-col gap-1 text-sm text-ink-2">
 					{t.works.node.titleLabel}
-					<input
-						name="title"
-						required
-						class="rounded-md border border-line-2 bg-panel px-3 py-1.5 text-sm text-ink"
-					/>
+					<Input name="title" required />
 				</label>
 				<label class="flex flex-col gap-1 text-sm text-ink-2">
 					{t.works.node.kindLabel}
@@ -107,12 +102,9 @@
 						{/each}
 					</select>
 				</label>
-				<button
-					type="submit"
-					class="w-fit rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
-				>
+				<Button type="submit" variant="secondary" size="sm">
 					{t.works.node.addNodeButton}
-				</button>
+				</Button>
 			</form>
 		</details>
 	</article>
@@ -122,7 +114,11 @@
 			{t.works.node.usesHeading}
 		</h2>
 		{#if data.uses.length === 0}
-			<p class="mt-2 text-sm text-muted">{t.works.node.noUses}</p>
+			<EmptyState
+				kind="derived"
+				message={t.works.node.noUses}
+				explanation={t.works.node.usesHint}
+			/>
 		{:else}
 			<ul class="mt-2 flex flex-col gap-2">
 				{#each data.uses as use (use.entityId)}

@@ -1,28 +1,17 @@
 <script lang="ts">
 	/**
-	 * The one main slot every route nested under a universe renders into, Entry's entry
-	 * and editor routes included. Shell exposes nothing to Entry beyond this layout: no
-	 * shared store, no context, just the `data` SvelteKit itself merges from ancestor
-	 * loads.
+	 * Issue #141 (I3 = B): the sidebar this used to mount moved to the root layout,
+	 * which reads this route's own `current`/`universeSlug`/`recent`/`navCounts` back
+	 * out of `page.data` (SvelteKit merges every ancestor layout's load data down the
+	 * tree) to render AppShell in universe mode. This file keeps the `+layout.server.ts`
+	 * load beside it - every route nested under a universe, Entry's entry and editor
+	 * routes included, still needs that data resolved and merged - but contributes no
+	 * markup of its own any more, so there is exactly one frame per route instead of
+	 * one nested inside another.
 	 */
-	import Sidebar from '$lib/components/shell/Sidebar.svelte';
 	import type { Snippet } from 'svelte';
-	import type { LayoutData } from './$types';
 
-	let { data, children }: { data: LayoutData; children: Snippet } = $props();
+	let { children }: { children: Snippet } = $props();
 </script>
 
-<div class="flex min-h-screen bg-paper">
-	<Sidebar
-		universeSlug={data.universeSlug}
-		current={data.current}
-		universes={data.universes}
-		recent={data.recent}
-		entryCount={data.navCounts.entries}
-		proposalsPending={data.navCounts.proposals}
-		locale={data.locale}
-	/>
-	<main id="main" class="min-w-0 flex-1 overflow-y-auto">
-		{@render children()}
-	</main>
-</div>
+{@render children()}

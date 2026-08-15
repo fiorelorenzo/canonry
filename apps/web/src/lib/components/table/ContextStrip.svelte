@@ -8,6 +8,8 @@
 	 * only trace is the small count riding on the exit control itself.
 	 */
 	import { messages, type Locale } from '$lib/i18n';
+	import { Button } from '$lib/components/ui/button';
+	import { Badge } from '$lib/components/ui/badge';
 	import type { TableContext } from './types';
 
 	let {
@@ -42,31 +44,26 @@
 			<span class="text-muted">, {context.sessionName}</span>
 		{/if}
 		{#if pinnedElapsedMs !== null}
-			<span class="rounded-full bg-panel-2 px-2 py-0.5 font-mono text-xs text-muted">
+			<Badge variant="secondary" class="font-mono text-muted">
 				{t.pinnedIn(pinnedElapsedMs)}
-			</span>
+			</Badge>
 		{/if}
 	{:else}
 		<span class="text-muted">{t.noPlaceDeclared(universeName)}</span>
 	{/if}
 	<span class="flex-1"></span>
-	<button
-		type="button"
-		onclick={onChangeContext}
-		class="rounded-md border border-line-2 px-2.5 py-1 text-xs font-medium text-ink-2 hover:bg-panel-2"
-	>
+	<Button type="button" variant="secondary" size="sm" onclick={onChangeContext}>
 		{t.change}
-	</button>
-	<button
-		type="button"
-		onclick={onExit}
-		class="rounded-md border border-line-2 px-2.5 py-1 text-xs font-medium text-ink-2 hover:bg-panel-2"
-	>
+	</Button>
+	<Button type="button" variant="secondary" size="sm" onclick={onExit}>
 		{t.exit}
 		{#if proposalCount > 0}
+			<!-- #147: bg-ai-bg/text-ai is the proposal-count marking C1/G8 already use for
+				this exact number (PhoneTabBar's queue badge matches) - not Badge's territory,
+				violet stays the copilot's. -->
 			<span class="ml-1 rounded-full bg-ai-bg px-1.5 py-0.5 font-mono text-[10px] text-ai">
 				{proposalCount}
 			</span>
 		{/if}
-	</button>
+	</Button>
 </div>

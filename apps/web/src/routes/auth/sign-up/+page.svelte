@@ -1,13 +1,21 @@
 <script lang="ts">
-	/** Mirrors `/auth/sign-in`'s shape - see that page's doc comment for why the
+	/**
+	 * Mirrors `/auth/sign-in`'s shape - see that page's doc comment for why the
 	 * redirect and the session refresh both happen client-side after authClient
 	 * resolves. `name` is required: `user.name` is `notNull()` in the schema Better
-	 * Auth owns (packages/db/src/schema/auth.ts). */
+	 * Auth owns (packages/db/src/schema/auth.ts).
+	 *
+	 * The split (I2 = B, #139): the same AuthShell as sign-in, with `pane` set so
+	 * the static argument pane renders beside the form at >=900px and drops below
+	 * it (I2's own layout choice for this page).
+	 */
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { authClient } from '$lib/auth-client';
-	import Mark from '$lib/components/brand/Mark.svelte';
-	import LocaleSwitcher from '$lib/components/auth/LocaleSwitcher.svelte';
+	import AuthShell from '$lib/components/auth/AuthShell.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
 	import { messages } from '$lib/i18n';
 	import type { PageData } from './$types';
 
@@ -56,89 +64,67 @@
 	<title>{t.title}: Canonry</title>
 </svelte:head>
 
-<main id="main" class="mx-auto flex max-w-measure flex-col gap-6 px-8 py-16">
-	<div class="flex items-start justify-between gap-4">
-		<div>
-			<div class="mb-4 flex items-center gap-1.5 text-accent">
-				<Mark size={18} />
-				<span class="text-sm font-semibold tracking-wide text-ink-2">Canonry</span>
-			</div>
-			<h1 class="text-2xl font-semibold text-ink">{t.title}</h1>
-			<p class="mt-2 text-sm text-ink-2">{t.subtitle}</p>
-		</div>
-		<LocaleSwitcher locale={data.locale} />
-	</div>
-
+<AuthShell locale={data.locale} subtitle={t.subtitle} pane>
 	{#if data.providers.length > 0}
 		<div class="flex flex-col gap-2">
 			{#each data.providers as provider (provider)}
-				<button
+				<Button
 					type="button"
+					variant="secondary"
+					class="w-full"
 					onclick={() => signUpWithProvider(provider)}
-					class="rounded-md border border-line bg-panel px-4 py-2 text-sm font-medium text-ink hover:border-accent"
 				>
 					{t.continueWith(PROVIDER_DISPLAY_NAME[provider] ?? provider)}
-				</button>
+				</Button>
 			{/each}
 		</div>
-		<div class="flex items-center gap-3 text-xs tracking-wide text-muted uppercase">
+		<div class="my-4 flex items-center gap-3 text-xs tracking-wide text-muted uppercase">
 			<span class="h-px flex-1 bg-line"></span>
 			{t.orDivider}
 			<span class="h-px flex-1 bg-line"></span>
 		</div>
 	{/if}
 
-	<form onsubmit={submit} class="flex flex-col gap-3">
-		<label class="flex flex-col gap-1 text-sm text-ink-2">
-			{t.nameLabel}
-			<input
-				type="text"
-				name="name"
-				autocomplete="name"
-				required
-				bind:value={name}
-				class="rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink"
-			/>
-		</label>
-		<label class="flex flex-col gap-1 text-sm text-ink-2">
-			{t.emailLabel}
-			<input
+	<form onsubmit={submit} class="flex flex-col gap-4">
+		<div class="flex flex-col gap-1.5">
+			<Label for="name">{t.nameLabel}</Label>
+			<Input id="name" type="text" name="name" autocomplete="name" required bind:value={name} />
+		</div>
+		<div class="flex flex-col gap-1.5">
+			<Label for="email">{t.emailLabel}</Label>
+			<Input
+				id="email"
 				type="email"
 				name="email"
 				autocomplete="email"
 				required
 				bind:value={email}
-				class="rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink"
 			/>
-		</label>
-		<label class="flex flex-col gap-1 text-sm text-ink-2">
-			{t.passwordLabel}
-			<input
+		</div>
+		<div class="flex flex-col gap-1.5">
+			<Label for="password">{t.passwordLabel}</Label>
+			<Input
+				id="password"
 				type="password"
 				name="password"
 				autocomplete="new-password"
 				required
 				minlength={8}
 				bind:value={password}
-				class="rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink"
 			/>
-		</label>
+		</div>
 
-		<button
-			type="submit"
-			disabled={submitting}
-			class="mt-2 w-fit rounded-md bg-accent px-4 py-2 text-sm font-medium text-panel hover:bg-accent-ink disabled:opacity-60"
-		>
+		<Button type="submit" disabled={submitting} class="mt-2 w-full">
 			{submitting ? t.submitting : t.submit}
-		</button>
+		</Button>
 
 		{#if error}
-			<p class="text-sm text-danger">{error}</p>
+			<p role="alert" class="text-sm text-danger">{error}</p>
 		{/if}
 	</form>
 
-	<p class="text-sm text-ink-2">
+	<p class="mt-4 text-center text-sm text-ink-2">
 		{t.haveAccount}
 		<a href={resolve('/auth/sign-in')} class="text-accent hover:underline">{t.signInLink}</a>
 	</p>
-</main>
+</AuthShell>

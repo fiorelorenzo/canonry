@@ -3,6 +3,7 @@
 	 * triggered the run - propagation and import stay separate rows, never merged. */
 	import { resolve } from '$app/paths';
 	import { dateFormat, messages } from '$lib/i18n';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -21,7 +22,7 @@
 	<h1 class="mb-6 text-2xl font-semibold text-ink">{t.title}</h1>
 
 	{#if data.plans.length === 0 && data.importJobs.length === 0}
-		<p class="text-sm text-muted">{t.inbox.empty}</p>
+		<EmptyState kind="settled" message={t.inbox.empty} />
 	{/if}
 
 	{#each data.plans as plan (plan.id)}

@@ -1,6 +1,9 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { dateFormat, messages, numberFormat } from '$lib/i18n';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { PageHeader } from '$lib/components/ui/page-header';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -34,12 +37,10 @@
 	<title>{t.pricing.browserTitle}</title>
 </svelte:head>
 
-<main id="main" class="mx-auto max-w-4xl px-8 py-10">
-	<a href={resolve('/')} class="text-sm text-accent hover:underline">{t.backToUniverses}</a>
-
-	<h1 class="mt-4 text-2xl font-semibold text-ink">{t.pricing.title}</h1>
+<div class="mx-auto max-w-4xl px-8 py-10">
+	<PageHeader title={t.pricing.title} />
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
-	<p class="mt-2 max-w-measure text-sm text-ink-2">{@html t.pricing.intro1}</p>
+	<p class="mt-6 max-w-measure text-sm text-ink-2">{@html t.pricing.intro1}</p>
 	<p class="mt-2 max-w-measure text-sm text-ink-2">
 		{t.pricing.intro2}
 	</p>
@@ -73,27 +74,23 @@
 									<form method="POST" class="flex flex-col gap-1">
 										<input type="hidden" name="operation" value={price.operation} />
 										<div class="flex items-center gap-2">
-											<label class="sr-only" for={fieldId}
-												>{t.pricing.creditsFor(price.label)}</label
+											<Label class="sr-only" for={fieldId}
+												>{t.pricing.creditsFor(price.label)}</Label
 											>
-											<input
+											<Input
 												id={fieldId}
 												type="number"
 												name="credits"
 												min="0"
 												step="0.0001"
 												value={failedHere ? form?.credits : price.credits}
-												class="w-24 rounded border border-line-2 bg-panel px-2 py-1 text-ink tabular-nums"
-												class:border-danger={failedHere}
+												class="w-24 tabular-nums {failedHere ? 'border-danger' : ''}"
 												aria-invalid={failedHere ? 'true' : undefined}
 												aria-describedby={failedHere ? `${fieldId}-error` : undefined}
 											/>
-											<button
-												type="submit"
-												class="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-panel hover:bg-accent-ink"
-											>
+											<Button type="submit" size="sm">
 												{t.save}
-											</button>
+											</Button>
 										</div>
 										{#if failedHere}
 											<p id="{fieldId}-error" class="text-xs text-danger">{form?.error}</p>
@@ -122,4 +119,4 @@
 			</div>
 		</section>
 	{/each}
-</main>
+</div>

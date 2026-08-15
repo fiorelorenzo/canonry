@@ -7,6 +7,9 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Badge } from '$lib/components/ui/badge';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -40,17 +43,13 @@
 			</div>
 			<form method="POST" action="?/setAiEnabled">
 				<input type="hidden" name="enabled" value={(!aiEnabled).toString()} />
-				<button
+				<Button
 					type="submit"
-					class="rounded-md border px-3 py-1.5 text-sm font-medium"
-					class:border-line-2={aiEnabled}
-					class:text-ink-2={aiEnabled}
-					class:border-ai-line={!aiEnabled}
-					class:bg-ai-bg={!aiEnabled}
-					class:text-ai={!aiEnabled}
+					variant="secondary"
+					class={aiEnabled ? 'border-line-2 text-ink-2' : 'border-ai-line bg-ai-bg text-ai'}
 				>
 					{aiEnabled ? t.aiToggle.stopWriting : t.aiToggle.resumeWriting}
-				</button>
+				</Button>
 			</form>
 		</div>
 		{#if !aiEnabled}
@@ -76,9 +75,9 @@
 							<span class="flex-1 text-ink-2 line-through decoration-line-2">
 								{row.dataSourceName} &middot; {row.sourceUrl}
 							</span>
-							<span class="rounded-full bg-panel-2 px-2 py-0.5 text-xs text-muted uppercase">
+							<Badge variant="secondary" class="text-muted uppercase">
 								{t.precedence.supersededBadge}
-							</span>
+							</Badge>
 							<a
 								href={resolve(`/u/${data.current.slug}/e/${row.entitySlug}`)}
 								class="text-accent hover:underline"
@@ -87,9 +86,14 @@
 							</a>
 							<form method="POST" action="?/removeSupersede">
 								<input type="hidden" name="id" value={row.id} />
-								<button type="submit" class="text-xs text-muted hover:text-danger"
-									>{t.precedence.remove}</button
+								<Button
+									type="submit"
+									variant="link"
+									size="sm"
+									class="h-auto p-0 text-xs text-muted hover:text-danger"
 								>
+									{t.precedence.remove}
+								</Button>
 							</form>
 						</li>
 					{/each}
@@ -130,28 +134,18 @@
 				</label>
 				<label class="flex flex-col gap-1 text-sm text-ink-2">
 					{t.precedence.sourceUrlLabel}
-					<input
-						name="sourceUrl"
-						required
-						class="rounded-md border border-line-2 bg-panel px-3 py-1.5 text-sm text-ink"
-					/>
+					<Input name="sourceUrl" required />
 				</label>
 				<label class="flex flex-col gap-1 text-sm text-ink-2">
 					{t.precedence.noteLabel} <span class="text-muted">{t.precedence.optional}</span>
-					<input
-						name="note"
-						class="rounded-md border border-line-2 bg-panel px-3 py-1.5 text-sm text-ink"
-					/>
+					<Input name="note" />
 				</label>
 				{#if form?.message}
 					<p class="text-sm text-danger">{form.message}</p>
 				{/if}
-				<button
-					type="submit"
-					class="w-fit rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
-				>
+				<Button type="submit" variant="secondary" class="w-fit">
 					{t.precedence.submit}
-				</button>
+				</Button>
 			</form>
 		</section>
 	{/if}

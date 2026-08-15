@@ -16,6 +16,7 @@
 	import QuickNoteForm from '$lib/components/table/QuickNoteForm.svelte';
 	import InstantSearch from '$lib/components/table/InstantSearch.svelte';
 	import PhoneTabBar from '$lib/components/table/PhoneTabBar.svelte';
+	import { Badge } from '$lib/components/ui/badge';
 	import { connectTableStream, type TableStreamMessage } from '$lib/components/table/stream-client';
 	import { messages } from '$lib/i18n';
 	import { SHORTCUTS, formatShortcut } from '$lib/keys';
@@ -332,6 +333,8 @@
 				<ul class="flex flex-col gap-1.5">
 					{#each proposals as proposal (proposal.proposalId)}
 						<li class="rounded-md border border-line bg-panel p-2.5 text-sm">
+							<!-- #147: bg-ai-bg/text-ai below is C1/G8's proposal-marking colour, not
+							Badge's territory - violet stays the copilot's. -->
 							<span class="rounded-full bg-ai-bg px-1.5 py-0.5 font-mono text-[10px] text-ai">
 								{t.home.proposalLabel} &middot; {proposal.kind}
 							</span>
@@ -344,12 +347,13 @@
 									{t.home.aiDraftedBadge}
 								</span>
 							{:else if proposal.drafted === 'scaffold'}
-								<span
-									class="ml-2 rounded-full bg-panel-2 px-1.5 py-0.5 font-mono text-[10px] text-muted"
+								<Badge
+									variant="secondary"
+									class="ml-2 font-mono text-[10px] text-muted"
 									title={proposal.unavailableReason ?? t.home.scaffoldTooltipDefault}
 								>
 									{t.home.scaffoldBadge}
-								</span>
+								</Badge>
 							{/if}
 							{#if proposal.targetName}
 								<p class="mt-1 text-ink-2">{proposal.targetName}</p>
