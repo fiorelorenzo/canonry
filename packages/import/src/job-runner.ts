@@ -25,10 +25,14 @@
  *   content hash is checked against `entity_source_ref` - an unchanged document costs
  *   nothing and produces nothing, which is what makes a second import of the same export
  *   a no-op rather than a duplicate.
- * - **Matching and proposal persistence** (issues #36, #37, §6.1's merge-engine line):
- *   every entity a document proposes is resolved through `resolveMatch` before it
+ * - **Matching and proposal persistence** (issues #36, #37, #160, §6.1's merge-engine
+ *   line): every entity a document proposes is resolved through `resolveMatch` before it
  *   becomes a `proposal` row - exact source ref first, semantic similarity after, never
- *   a silent guess in the in-between band.
+ *   a silent guess in the in-between band. The candidate pool for that similarity step is
+ *   committed canon *and* this same job's own still-pending `create` proposals (issue
+ *   #160): a document that names an entity a document earlier in this job already
+ *   introduced folds into that pending proposal instead of writing a second, colliding
+ *   one - `materializeDocumentProposals`'s own comment has the detail.
  *
  * One deliberate scope boundary, stated rather than hidden: a relation whose endpoint is
  * a brand-new (not yet accepted) entity cannot be written as a `proposal` row under the
@@ -36,6 +40,8 @@
  * entity ids). Such relations are dropped for this run rather than invented a workaround
  * for - the entities they would connect still get proposed, and the relation becomes
  * proposable once one side is accepted and a later import (or a manual link) supplies it.
+ * The same drop applies when both endpoints resolve to the *same* entity (issue #160): a
+ * self-relation is never proposed at all, since `relation_from_ne_to` would refuse it.
  */
 import { createHash } from 'node:crypto';
 import {
@@ -47,10 +53,12 @@ import {
 	createProposalPlan,
 	findEntityBySourceRef,
 	findOrCreateRelationType,
+	foldEntitySightingIntoPendingProposal,
 	getBalance,
 	getImportJob,
 	importQuotaForUser,
 	importUsageForUser,
+	pendingEntityProposalsForJob,
 	queuePositionFor,
 	recordProposalDiff,
 	settleImportJob,
@@ -60,6 +68,7 @@ import {
 	type CreateImportJobInput,
 	type CreateProposalPlanCandidate,
 	type Db,
+	type MatchCandidateRow,
 	type ProposalRow
 } from '@canonry/db';
 import { chargeFor } from '@canonry/ai';
@@ -516,21 +525,40 @@ async function materializeDocumentProposals(
 			params.sourceSystem,
 			payload.sourceRef.path
 		);
-		const candidatePool = exact
-			? []
-			: await candidateEntitiesForMatching(db, params.universeId, payload.type);
+		const [candidatePool, pendingPool]: [MatchCandidateRow[], MatchCandidateRow[]] = exact
+			? [[], []]
+			: await Promise.all([
+					candidateEntitiesForMatching(db, params.universeId, payload.type),
+					pendingEntityProposalsForJob(db, params.dbJobId, payload.type)
+				]);
+		const pendingProposalIds = new Set(pendingPool.map((p) => p.id));
 
 		const decision = await resolveMatch({
 			subject: { name: payload.name, aliases: payload.aliases },
 			exactSourceRefMatch: exact
 				? { id: exact.entityId, name: exact.name, aliases: exact.aliases }
 				: null,
-			candidates: candidatePool,
+			candidates: [...candidatePool, ...pendingPool],
 			similarity: params.similarity,
 			thresholds: params.thresholds
 		});
 
 		if (decision.outcome === 'exact' || decision.outcome === 'match') {
+			if (decision.outcome === 'match' && pendingProposalIds.has(decision.candidateId)) {
+				// SPEC.md §6.4's order extended to the job's own output (issue #160): this
+				// document's sighting matches a `create` proposal an earlier document in
+				// this same job already wrote, still pending. It folds into that proposal -
+				// never a second create, and never an `update` either, since the entity
+				// behind a pending create does not exist yet for one to target. Nothing
+				// lands in `resolved` and `localIdToEntityId` stays unset for this local id,
+				// exactly like a brand-new entity: a relation naming it in this same
+				// document has nothing real to point at yet either.
+				await foldEntitySightingIntoPendingProposal(db, {
+					proposalId: decision.candidateId,
+					names: [payload.name, ...payload.aliases]
+				});
+				continue;
+			}
 			localIdToEntityId.set(localId, decision.candidateId);
 			resolved.push({
 				localId,
@@ -595,6 +623,11 @@ async function materializeDocumentProposals(
 		// See this module's doc comment: a relation to a not-yet-existing entity has no
 		// real id to reference and is dropped for this run, not invented a workaround for.
 		if (!fromEntityId || !toEntityId || !fromType || !toType) continue;
+		// Two local ids in *this* document can also resolve onto the same target (issue
+		// #160): the relation between them would otherwise be a self-loop, which
+		// `relation_from_ne_to` refuses at accept time anyway. Never propose one - there
+		// is nothing a GM could usefully accept about an entity relating to itself.
+		if (fromEntityId === toEntityId) continue;
 
 		const type = await findOrCreateRelationType(db, {
 			universeId: params.universeId,

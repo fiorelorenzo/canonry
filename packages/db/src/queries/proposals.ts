@@ -72,6 +72,19 @@ export class ProposalCannotBeAcceptedError extends Error {
 	}
 }
 
+/** issue #160: the fallback when a `create`/`draft_entity` accept loses a race onto
+ * `entity_universe_slug_key` - two proposals, from the same import job or two different
+ * ones, that both slugify to the same name. There is no "who is right" to compute here,
+ * so this is only ever thrown when the fallback itself cannot find the entity that must
+ * have just won the race (see `foldCreateProposalOntoExistingSlug`) - the ordinary case
+ * never reaches it, the losing accept folds onto the winner's entity instead. */
+export class EntitySlugCollisionUnresolvedError extends Error {
+	constructor(proposalId: string, slug: string) {
+		super(`proposal "${proposalId}" collided on slug "${slug}" but no entity holds that slug`);
+		this.name = 'EntitySlugCollisionUnresolvedError';
+	}
+}
+
 function isEmptyPatch(patch: unknown): boolean {
 	return (
 		typeof patch === 'object' &&
@@ -348,7 +361,7 @@ function readEntityUpdatePatch(patch: unknown): EntityUpdatePatchShape {
 	return result;
 }
 
-interface EntityCreatePatchShape {
+export interface EntityCreatePatchShape {
 	type: EntityType;
 	name: string;
 	slug: string;
@@ -357,7 +370,7 @@ interface EntityCreatePatchShape {
 	language?: string;
 }
 
-function readEntityCreatePatch(patch: unknown): EntityCreatePatchShape {
+export function readEntityCreatePatch(patch: unknown): EntityCreatePatchShape {
 	if (typeof patch !== 'object' || patch === null) {
 		throw new Error(
 			"acceptProposal: kind 'create'/'draft_entity' requires a patch with type, name and slug"
@@ -387,6 +400,74 @@ function readEntityCreatePatch(patch: unknown): EntityCreatePatchShape {
 	};
 }
 
+/** Local alias for the subset of `Db` a transaction handle actually is - drizzle's
+ * transaction callback param is not literally `Db`, and importing its real type across
+ * every query file that needs it is more coupling than a three-method Pick is worth
+ * (billing.ts and subscriptions.ts already each keep their own copy of this same alias). */
+type Queryable = Pick<Db, 'select' | 'insert' | 'update'>;
+
+/** Shared by a real `update`-kind accept and the slug-collision fallback below: locks
+ * `entityId`, asks `resolve` to turn its current fields into the next ones, writes the
+ * revision and applies it to the entity, all inside the caller's own transaction. */
+async function writeEntityUpdateRevision(
+	tx: Queryable,
+	input: {
+		universeId: string;
+		entityId: string;
+		proposalId: string;
+		resolve: (current: {
+			name: string;
+			aliases: string[];
+			body: string;
+			language: string | null;
+			languageSource: 'detected' | 'human';
+		}) => { name: string; aliases: string[]; body: string; language: string | undefined };
+	}
+): Promise<string> {
+	const [entityRow] = await tx
+		.select()
+		.from(entity)
+		.where(eq(entity.id, input.entityId))
+		.for('update')
+		.limit(1);
+	if (!entityRow) {
+		throw new Error(`proposal "${input.proposalId}" targets missing entity "${input.entityId}"`);
+	}
+	const next = input.resolve(entityRow);
+	const nextLanguage = languageFromAcceptedPatch(
+		{ language: entityRow.language, languageSource: entityRow.languageSource },
+		next.language,
+		next.body
+	);
+
+	const [rev] = await tx
+		.insert(revision)
+		.values({
+			universeId: input.universeId,
+			entityId: input.entityId,
+			authorKind: 'ai_accepted',
+			proposalId: input.proposalId,
+			name: next.name,
+			aliases: next.aliases,
+			body: next.body
+		})
+		.returning();
+	if (!rev) throw new Error('acceptProposal: revision insert returned no row');
+
+	await tx
+		.update(entity)
+		.set({
+			name: next.name,
+			aliases: next.aliases,
+			body: next.body,
+			language: nextLanguage.language,
+			languageSource: nextLanguage.languageSource,
+			updatedAt: new Date()
+		})
+		.where(eq(entity.id, input.entityId));
+	return rev.id;
+}
+
 export interface AcceptProposalInput {
 	proposalId: string;
 	decidedBy?: string | null;
@@ -397,8 +478,36 @@ export interface AcceptProposalInput {
  * `ai_accepted`, `proposal_id` set), apply the change to `entity` (or write the relation),
  * and set `applied_revision_id`. Accepting an already-accepted proposal is a no-op - the
  * row lock taken here serializes a concurrent double-accept, so the second caller always
- * sees `outcome: 'accepted'` and returns without writing a second revision. */
+ * sees `outcome: 'accepted'` and returns without writing a second revision.
+ *
+ * issue #160: a `create`/`draft_entity` accept can still lose a race onto
+ * `entity_universe_slug_key` even with the merge engine now matching a job's own pending
+ * proposals (job-runner.ts's `materializeDocumentProposals`) - two different import jobs,
+ * or an import racing a manually authored "new entity", can independently slugify to the
+ * same name. That unique violation used to reach the caller as a raw `DrizzleQueryError`
+ * with the whole INSERT statement in its message - a GM would see a 500. It is caught
+ * here instead: `foldCreateProposalOntoExistingSlug` treats the entity that won the race
+ * as this proposal's real target and applies its patch to that entity as an update. */
 export async function acceptProposal(db: Db, input: AcceptProposalInput): Promise<ProposalRow> {
+	try {
+		return await acceptProposalTx(db, input);
+	} catch (err) {
+		// Postgres reports a unique violation as a `DrizzleQueryError` whose own `.message`
+		// is just "Failed query: ...params" - the real Postgres error, with the constraint
+		// that fired, is on `.cause`. Checking that, rather than the message text, is what
+		// proves *which* constraint tripped (same check as supersede.ts's own copy of it).
+		const cause = err && typeof err === 'object' && 'cause' in err ? err.cause : undefined;
+		const isSlugCollision =
+			cause &&
+			typeof cause === 'object' &&
+			'constraint_name' in cause &&
+			cause.constraint_name === 'entity_universe_slug_key';
+		if (!isSlugCollision) throw err;
+		return foldCreateProposalOntoExistingSlug(db, input);
+	}
+}
+
+async function acceptProposalTx(db: Db, input: AcceptProposalInput): Promise<ProposalRow> {
 	return db.transaction(async (tx) => {
 		const [existing] = await tx
 			.select()
@@ -418,54 +527,18 @@ export async function acceptProposal(db: Db, input: AcceptProposalInput): Promis
 			if (!existing.targetEntityId) {
 				throw new Error(`proposal "${existing.id}" is kind 'update' with no target entity`);
 			}
-			const [entityRow] = await tx
-				.select()
-				.from(entity)
-				.where(eq(entity.id, existing.targetEntityId))
-				.for('update')
-				.limit(1);
-			if (!entityRow) {
-				throw new Error(
-					`proposal "${existing.id}" targets missing entity "${existing.targetEntityId}"`
-				);
-			}
-
 			const patch = readEntityUpdatePatch(existing.patch);
-			const nextName = patch.name ?? entityRow.name;
-			const nextAliases = patch.aliases ?? entityRow.aliases;
-			const nextBody = patch.after ?? entityRow.body;
-			const nextLanguage = languageFromAcceptedPatch(
-				{ language: entityRow.language, languageSource: entityRow.languageSource },
-				patch.language,
-				nextBody
-			);
-
-			const [rev] = await tx
-				.insert(revision)
-				.values({
-					universeId: existing.universeId,
-					entityId: existing.targetEntityId,
-					authorKind: 'ai_accepted',
-					proposalId: existing.id,
-					name: nextName,
-					aliases: nextAliases,
-					body: nextBody
+			appliedRevisionId = await writeEntityUpdateRevision(tx, {
+				universeId: existing.universeId,
+				entityId: existing.targetEntityId,
+				proposalId: existing.id,
+				resolve: (current) => ({
+					name: patch.name ?? current.name,
+					aliases: patch.aliases ?? current.aliases,
+					body: patch.after ?? current.body,
+					language: patch.language
 				})
-				.returning();
-			if (!rev) throw new Error('acceptProposal: revision insert returned no row');
-			appliedRevisionId = rev.id;
-
-			await tx
-				.update(entity)
-				.set({
-					name: nextName,
-					aliases: nextAliases,
-					body: nextBody,
-					language: nextLanguage.language,
-					languageSource: nextLanguage.languageSource,
-					updatedAt: new Date()
-				})
-				.where(eq(entity.id, existing.targetEntityId));
+			});
 		} else if (existing.kind === 'create' || existing.kind === 'draft_entity') {
 			const patch = readEntityCreatePatch(existing.patch);
 			const createdLanguage = languageFromAcceptedPatch(
@@ -530,6 +603,73 @@ export async function acceptProposal(db: Db, input: AcceptProposalInput): Promis
 				decidedAt: new Date(),
 				decidedBy: input.decidedBy ?? null,
 				appliedRevisionId
+			})
+			.where(eq(proposal.id, existing.id))
+			.returning();
+		if (!updated) throw new Error('acceptProposal: update returned no row');
+		return updated;
+	});
+}
+
+/** issue #160: re-locks the proposal that lost the `entity_universe_slug_key` race (the
+ * transaction that hit it has already rolled back in full, so there is nothing partial
+ * to undo here) and, if it is still a pending create, folds its patch onto whichever
+ * entity now holds that slug instead of retrying the insert. Anything other than a
+ * fresh, still-pending create hitting this constraint is not a shape this fallback
+ * recognises, so it re-throws rather than guessing what happened. */
+async function foldCreateProposalOntoExistingSlug(
+	db: Db,
+	input: AcceptProposalInput
+): Promise<ProposalRow> {
+	return db.transaction(async (tx) => {
+		const [existing] = await tx
+			.select()
+			.from(proposal)
+			.where(eq(proposal.id, input.proposalId))
+			.for('update')
+			.limit(1);
+		if (!existing) throw new ProposalNotFoundError(input.proposalId);
+		if (existing.outcome === 'accepted') return existing;
+		if (existing.outcome !== 'pending') {
+			throw new ProposalAlreadyDecidedError(input.proposalId, existing.outcome);
+		}
+		if (existing.kind !== 'create' && existing.kind !== 'draft_entity') {
+			throw new Error(
+				`proposal "${existing.id}" hit entity_universe_slug_key but is kind '${existing.kind}', not a create`
+			);
+		}
+
+		const patch = readEntityCreatePatch(existing.patch);
+		const [target] = await tx
+			.select()
+			.from(entity)
+			.where(and(eq(entity.universeId, existing.universeId), eq(entity.slug, patch.slug)))
+			.limit(1);
+		if (!target) throw new EntitySlugCollisionUnresolvedError(existing.id, patch.slug);
+
+		const appliedRevisionId = await writeEntityUpdateRevision(tx, {
+			universeId: existing.universeId,
+			entityId: target.id,
+			proposalId: existing.id,
+			resolve: () => ({
+				name: patch.name,
+				aliases: patch.aliases,
+				body: patch.body,
+				language: patch.language
+			})
+		});
+
+		const [updated] = await tx
+			.update(proposal)
+			.set({
+				outcome: 'accepted',
+				decidedAt: new Date(),
+				decidedBy: input.decidedBy ?? null,
+				appliedRevisionId,
+				// Kind stays 'create' - it is honest history that this was proposed as a new
+				// entity - but the target is now recorded, since it did land as an update onto
+				// an entity that turned out to already exist by the time this was accepted.
+				targetEntityId: target.id
 			})
 			.where(eq(proposal.id, existing.id))
 			.returning();

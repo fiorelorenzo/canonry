@@ -49,6 +49,7 @@ export {
 	rejectProposal,
 	setRejectReason,
 	undoAcceptedProposal,
+	readEntityCreatePatch,
 	ProposalNotFoundError,
 	ProposalPlanNotFoundError,
 	ProposalAlreadyDecidedError,
@@ -56,6 +57,7 @@ export {
 	ProposalCannotBeAcceptedError,
 	ProposalNotAcceptedError,
 	UndoNotPossibleError,
+	EntitySlugCollisionUnresolvedError,
 	type ProposalRow,
 	type ProposalPlanRow,
 	type CreateProposalPlanCandidate,
@@ -66,7 +68,8 @@ export {
 	type RejectedProposalRecord,
 	type AcceptProposalInput,
 	type RejectProposalInput,
-	type UndoAcceptedProposalInput
+	type UndoAcceptedProposalInput,
+	type EntityCreatePatchShape
 } from './queries/proposals.js';
 export {
 	FREE_PLAN_SUBSCRIPTION_CREDITS,
@@ -208,6 +211,8 @@ export {
 	checkImportQuota,
 	findEntityBySourceRef,
 	candidateEntitiesForMatching,
+	pendingEntityProposalsForJob,
+	foldEntitySightingIntoPendingProposal,
 	recordEntitySourceRef,
 	findOrCreateRelationType,
 	acceptImportProposal,
@@ -225,6 +230,7 @@ export {
 	type ImportQuotaCheckResult,
 	type EntitySourceRefMatch,
 	type MatchCandidateRow,
+	type FoldEntitySightingInput,
 	type RecordEntitySourceRefInput,
 	type FindOrCreateRelationTypeInput,
 	type AcceptImportProposalInput

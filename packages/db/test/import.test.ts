@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	acceptImportProposal,
+	acceptProposal,
 	admitImportJob,
 	candidateEntitiesForMatching,
 	checkImportQuota,
@@ -10,6 +11,9 @@ import {
 	countRunningImportJobs,
 	createImportJob,
 	createProposalPlan,
+	foldEntitySightingIntoPendingProposal,
+	getProposal,
+	pendingEntityProposalsForJob,
 	recordProposalDiff,
 	type Db,
 	findEntityBySourceRef,
@@ -360,6 +364,91 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 			const candidates = await candidateEntitiesForMatching(db, u.id, 'character');
 			expect(candidates.some((c) => c.name === 'Aldric Voss')).toBe(true);
 			expect(candidates.some((c) => c.name === 'Thornwick College')).toBe(false);
+		});
+	});
+
+	describe('pendingEntityProposalsForJob / foldEntitySightingIntoPendingProposal (issue #160)', () => {
+		async function pendingCreateCandidate(
+			jobId: string,
+			universeId: string,
+			type: 'character' | 'place',
+			name: string,
+			aliases: string[] = []
+		) {
+			const { proposals } = await createProposalPlan(db, {
+				universeId,
+				trigger: 'import',
+				importJobId: jobId,
+				summary: 'x',
+				candidateCap: 10,
+				estimatedCredits: 0,
+				candidates: [
+					{ kind: 'create', targetEntityId: null, rationale: 'r', evidence: [], rank: 0 }
+				]
+			});
+			const created = proposals[0]!;
+			await recordProposalDiff(db, {
+				proposalId: created.id,
+				patch: { type, name, slug: unique(name.toLowerCase()), aliases, body: 'x' },
+				provider: 'test',
+				modelId: 'test',
+				credits: 0
+			});
+			return created;
+		}
+
+		it("only returns this job's own pending create proposals of the requested type", async () => {
+			const { universe: u, job } = await jobFixture();
+			const { job: otherJob } = await jobFixture();
+
+			const character = await pendingCreateCandidate(job.id, u.id, 'character', 'Aldric Vane');
+			await pendingCreateCandidate(job.id, u.id, 'place', 'Port Verity');
+			await pendingCreateCandidate(otherJob.id, u.id, 'character', 'Mira Sable');
+
+			const candidates = await pendingEntityProposalsForJob(db, job.id, 'character');
+			expect(candidates).toEqual([{ id: character.id, name: 'Aldric Vane', aliases: [] }]);
+		});
+
+		it('stops returning a proposal once it is no longer pending', async () => {
+			const { universe: u, job } = await jobFixture();
+			const character = await pendingCreateCandidate(job.id, u.id, 'character', 'Aldric Vane');
+
+			await acceptProposal(db, { proposalId: character.id });
+
+			const candidates = await pendingEntityProposalsForJob(db, job.id, 'character');
+			expect(candidates).toEqual([]);
+		});
+
+		it("folds a repeat sighting's new names into the pending proposal's alias list", async () => {
+			const { universe: u, job } = await jobFixture();
+			const character = await pendingCreateCandidate(job.id, u.id, 'character', 'Aldric Vane', [
+				'Al'
+			]);
+
+			await foldEntitySightingIntoPendingProposal(db, {
+				proposalId: character.id,
+				// "Aldric Vane" repeats the patch's own name (dropped) and "Al" repeats an
+				// alias already there (dropped); "Captain Vane" is genuinely new.
+				names: ['Aldric Vane', 'Al', 'Captain Vane']
+			});
+
+			const row = await getProposal(db, character.id);
+			expect(row?.patch).toMatchObject({ aliases: ['Al', 'Captain Vane'] });
+		});
+
+		it('is a no-op once the proposal is no longer pending, rather than reviving it', async () => {
+			const { universe: u, job } = await jobFixture();
+			const character = await pendingCreateCandidate(job.id, u.id, 'character', 'Aldric Vane');
+			await acceptProposal(db, { proposalId: character.id });
+
+			await foldEntitySightingIntoPendingProposal(db, {
+				proposalId: character.id,
+				names: ['A Name That Should Never Land']
+			});
+
+			const row = await getProposal(db, character.id);
+			expect(row?.outcome).toBe('accepted');
+			expect(row?.patch).toMatchObject({ aliases: [] });
 		});
 	});
 
