@@ -18,13 +18,28 @@ import type { EmbeddingModel, LanguageModel } from 'ai';
 import { createGateway, type GatewayCredentials } from './gateway.js';
 
 /**
- * Providers this build will construct a model for.
+ * Providers this build will construct a model for. The gateway would route many more; this list is
+ * the guardrail on what an admin can select at `/admin/models`, so a typo cannot point a purpose at
+ * a model nobody has evaluated.
  *
- * `mistral` is present for text only and is deliberately not a candidate for embeddings:
- * `mistral-embed` is English-only per Mistral's own documentation, and SPEC.md §17 requires an
- * Italian question to find an English chunk.
+ * `alibaba` is here for **embeddings**, and specifically for `qwen3-embedding-4b`: open weights
+ * under Apache-2.0, measured as the only candidate whose retrieval does not degrade when the
+ * question switches language (see `packages/indexing/src/models.ts` for the table). It is not a
+ * text-model candidate; nothing here has evaluated Qwen for the Loremaster's prose.
+ *
+ * `mistral` is the mirror case, present for text only and deliberately not an embedding candidate:
+ * `mistral-embed` is English-only per Mistral's own documentation, and our own measurement has it
+ * losing 0.323 MRR when the question turns Italian, the worst of anything tested.
  */
-export const KNOWN_PROVIDERS = ['openai', 'anthropic', 'google', 'groq', 'mistral', 'xai'] as const;
+export const KNOWN_PROVIDERS = [
+	'openai',
+	'anthropic',
+	'google',
+	'groq',
+	'mistral',
+	'xai',
+	'alibaba'
+] as const;
 
 export type KnownProvider = (typeof KNOWN_PROVIDERS)[number];
 

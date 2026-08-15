@@ -14,7 +14,12 @@
  */
 import { closeDb, eq, inArray, type Db } from '@canonry/db';
 import { modelCall, user } from '@canonry/db/schema';
-import { clearModelCache, MissingGatewayEnvError, readGatewayCredentials } from '@canonry/ai';
+import {
+	clearModelCache,
+	MissingGatewayEnvError,
+	readGatewayCredentials,
+	resolveModel
+} from '@canonry/ai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { FakeEmbeddingProvider, GatewayEmbeddingProvider, trigramEmbedding } from './embedding.js';
 import { openTestDb } from './test-db.js';
@@ -109,7 +114,12 @@ describe.skipIf(!liveKey)('GatewayEmbeddingProvider against the real gateway (#6
 
 		const [call] = await db.select().from(modelCall).where(eq(modelCall.userId, TEST_USER_ID));
 		expect(call, 'the embedding call has to be recorded, cheap or not').toBeTruthy();
-		expect(call?.provider).toBe('google');
+		// Against whatever `model_config` currently names, not a provider spelled out here: this
+		// assertion existed as `toBe('google')` and broke the moment the model changed, which taught
+		// nothing except that the test knew the answer by heart.
+		const configured = await resolveModel(db, 'embedding');
+		expect(call?.provider).toBe(configured.provider);
+		expect(call?.modelId).toBe(configured.modelId);
 		expect(call?.embeddingTokens ?? 0).toBeGreaterThan(0);
 		// Migration 0022 seeds eurPerEmbeddingMTok, so this is a real cost derived from real
 		// tokens, which is the only version of SPEC.md §15's margin question worth asking. What
@@ -146,7 +156,10 @@ describe.skipIf(!liveKey)('GatewayEmbeddingProvider against the real gateway (#6
 		const translationPair = cosineSimilarity(norm(italian), norm(englishSame));
 		const unrelatedPair = cosineSimilarity(norm(italian), norm(unrelated));
 
-		expect(translationPair).toBeGreaterThan(unrelatedPair);
-		expect(translationPair).toBeGreaterThan(0.5);
+		// Relative, not absolute. A cosine floor differs per model - this same corpus scores around
+		// 0.81 on gemini and lower on qwen3 - so an absolute bar tests which model is configured
+		// rather than whether it crosses languages. The gap is the property worth defending, and a
+		// margin is required so a model that scores everything alike cannot pass.
+		expect(translationPair).toBeGreaterThan(unrelatedPair + 0.05);
 	}, 90_000);
 });

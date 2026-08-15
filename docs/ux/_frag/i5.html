@@ -1,0 +1,283 @@
+<style>
+  /* I5 only. */
+  .i5-flag {
+    display: inline-block; width: 20px; height: 14px; border-radius: 2px;
+    border: 1px solid var(--line-2); overflow: hidden; vertical-align: -2px;
+  }
+  .i5-flag i { display: block; float: left; width: 33.34%; height: 100%; }
+  .i5-menu {
+    width: 232px; border: 1px solid var(--line-2); border-radius: 9px;
+    background: var(--panel); box-shadow: 0 14px 34px -18px rgba(0,0,0,0.45);
+    padding: 5px; font-size: 13px;
+  }
+  .i5-menu a {
+    display: flex; align-items: center; gap: 8px; padding: 7px 9px;
+    border-radius: 6px; text-decoration: none; color: var(--ink-2);
+  }
+  .i5-menu a:hover { background: var(--panel-2); color: var(--ink); }
+  .i5-menu a .val { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .i5-menu .rule { border-top: 1px solid var(--line); margin: 5px 0; }
+  .i5-menu .who { padding: 8px 9px 6px; }
+  .i5-menu .who b { display: block; font-size: 13px; color: var(--ink); }
+  .i5-menu .who span { font-size: 12px; color: var(--muted); }
+  .i5-foot {
+    border-top: 1px solid var(--line); padding: 8px 10px;
+    display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted);
+  }
+  .i5-foot .sp { flex: 1; }
+  .i5-seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 6px; overflow: hidden; }
+  .i5-seg span { padding: 2px 7px; font: 600 11px var(--mono); color: var(--muted); }
+  .i5-seg span.on { background: var(--accent-bg); color: var(--accent-ink); }
+</style>
+
+<section class="surf" id="i5">
+  <h2>I5 &middot; language</h2>
+  <h3 class="stitle">Where the language switch lives, and why it is not a flag</h3>
+  <p class="lede">Today the switcher exists on exactly the two pages where there is no account to
+  save it to, and vanishes on the third. Sign in and the control is gone: the page that writes a
+  real preference, <code>/settings/language</code>, is not linked from anywhere in the interface.
+  So a GM who lands in English and wants Italian has to know the URL.</p>
+
+  <h4 class="shead">Today</h4>
+  <figure class="mock">
+    <div class="frame">
+      <div class="grid2" style="padding: 16px; gap: 14px;">
+        <div>
+          <p class="small muted mt0"><code>/auth/sign-in</code> and <code>/auth/sign-up</code>, the
+          only two</p>
+          <div class="card">
+            <header><h4>Sign in</h4><span class="sp"></span>
+              <span class="i5-seg"><span class="on">ENGLISH</span><span>ITALIANO</span></span>
+            </header>
+            <p class="small muted mt0">Writes the <code>canonry_locale</code> cookie, because there
+            is no account yet.</p>
+          </div>
+        </div>
+        <div>
+          <p class="small muted mt0">Every screen after that</p>
+          <div class="card">
+            <header><h4>Signed in as Lorenzo Fiore</h4><span class="sp"></span><a class="small" href="#i5">Sign out</a></header>
+            <p class="small muted mt0">No language control. No settings link. No menu. The account
+            preference at <code>/settings/language</code> is reachable only by typing it.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>The control is available exactly while it cannot be saved, and unavailable as soon
+    as it can.</figcaption>
+  </figure>
+  <ul class="flaws">
+    <li><b>The switcher is mounted on two routes.</b>
+    <code>components/auth/LocaleSwitcher.svelte</code> appears in
+    <code>routes/auth/sign-in/+page.svelte:71</code> and the sign-up page, and nowhere else in the
+    application.</li>
+    <li><b>The page that saves the preference is unreachable.</b>
+    <code>routes/settings/language</code> writes a per-account preference, which SPEC 17 wants
+    because it has to follow the GM to the phone at the table, and nothing links to it.</li>
+    <li><b>Two different mechanisms, no shared control.</b> The auth pages write a cookie, the
+    settings page writes the account, and a user who switches at sign-in has no way to see which of
+    the two is in force.</li>
+    <li><b>On the auth pages it outranks the product.</b> Sitting top right at the same weight as
+    the wordmark, it is the second thing the eye lands on, for a control most accounts touch
+    once.</li>
+  </ul>
+
+  <div class="callout guard">
+    <p><b>The thing this control must not imply.</b> Canonry has two language concepts and SPEC 17
+    keeps them apart on purpose: the <b>interface and copilot language</b>, which follows the
+    person, and the <b>canon language</b>, which belongs to each entry and stays whatever it was
+    written in. <code>components/entry/LanguageControl.svelte</code> already ships the second one,
+    next to the entry's type. There is no bulk translation and there never will be, because
+    <span class="guardref">guardrail 1</span> means no model rewrites 214 entries into another
+    language without 214 accepts. A prominent global language control that looks like a document
+    toggle is therefore a promise the product deliberately does not make, and that is the real
+    constraint on this decision, more than where the pixels go.</p>
+  </div>
+
+  <h4 class="shead">Options</h4>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Flags in the top bar</h3></header>
+      <p class="sub">A permanent pair in the shell's top right, one tap to switch, visible from
+      every screen.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side">
+              <div class="uni"><span class="dot"></span>Valdoria Reach<span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#i5" class="on">Entries <span class="n">214</span></a>
+                <a href="#i5">Works <span class="n">2</span></a>
+                <a href="#i5">Proposals <span class="n">3</span></a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar">
+                <span class="crumb">Valdoria Reach / character / <b>Aldric Vane</b></span>
+                <span class="sp"></span>
+                <span class="i5-flag" title="English" aria-label="English"><i style="background:#012169"></i><i style="background:#fff"></i><i style="background:#c8102e"></i></span>
+                <span class="i5-flag" title="Italiano" aria-label="Italiano"><i style="background:#008c45"></i><i style="background:#f4f5f0"></i><i style="background:#cd212a"></i></span>
+              </div>
+              <div class="entry">
+                <h1 class="title">Aldric Vane</h1>
+                <div class="kicker"><span class="badge">character</span><span>Entry language: Italiano</span></div>
+                <p class="prose mt0">Congedato dalla guardia nel disgelo dopo l'Inverno Sabbia, ora
+                risponde al Libro Mastro di Cenere.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Drawn as asked. Note what happens next to it: this entry's own language is
+        Italian while the interface is English, which is the normal case SPEC 17 designs for, and
+        the two controls now sit ten centimetres apart meaning different things.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One tap from anywhere, no menu to discover, and it is immediately legible to somebody
+          who does not read the current interface language.</li>
+          <li>Bilingual users switching often, which is Lorenzo's own case, get the fastest possible
+          control.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A flag is a country, not a language. Italian is also Swiss and Argentinian, and English
+          forces a choice between two flags that has annoyed somebody in every product that ever
+          made it. The app's own switcher already avoids this: its comment says endonyms are "the one
+          label a language switcher must never need translating to be understood".</li>
+          <li>It sits in the top bar next to an entry whose own language is a separate, per-entry
+          claim, so it reads as "translate this page", which is the one thing guardrail 1 forbids.</li>
+          <li>It spends permanent shell space on a control most accounts use once, and the top bar is
+          where the palette, the quota meter and the account all want to be.</li>
+          <li>There is no top bar outside a universe today, so this option only exists if I3's
+          option B ships first.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">B</span><h3>In the account menu, with Settings behind it</h3></header>
+      <p class="sub">The shell footer carries the user. Clicking it opens the account menu, where
+      Language is a row showing the current value as an endonym, and choosing it switches in place.
+      The canonical control, with the sentence explaining what it does and does not do, stays on the
+      settings page the menu also links to.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side">
+              <div class="uni"><span class="dot"></span>Valdoria Reach<span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#i5" class="on">Entries <span class="n">214</span></a>
+                <a href="#i5">Works <span class="n">2</span></a>
+                <a href="#i5">Proposals <span class="n">3</span></a>
+                <a href="#i5">Table</a>
+              </nav>
+              <div style="margin-top: 14px;">
+                <div class="i5-menu">
+                  <div class="who"><b>Lorenzo Fiore</b><span>fiorelorenzo.fl@gmail.com</span></div>
+                  <div class="rule"></div>
+                  <a href="#i5">Account</a>
+                  <a href="#i5">Language <span class="val">Italiano &#9662;</span></a>
+                  <a href="#i5">Appearance <span class="val">Match system</span></a>
+                  <a href="#i5">Model keys</a>
+                  <a href="#i5">Plan and credits <span class="val">2,400 / 5,000</span></a>
+                  <a href="#i5">Export</a>
+                  <div class="rule"></div>
+                  <a href="#i5">Docs</a>
+                  <a href="#i5">Privacy</a>
+                  <div class="rule"></div>
+                  <a href="#i5">Sign out</a>
+                </div>
+              </div>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb">Valdoria Reach / <b>214 entries</b></span><span class="sp"></span><kbd class="k">⌘K</kbd></div>
+              <div class="entry" style="padding: 20px 24px;">
+                <p class="small muted mt0">The menu opens from the account row pinned at the bottom
+                of the sidebar, which is also where the quota meter F2 asked for goes.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Endonyms, current value shown on the row, and every account-level destination in
+        one place. This is the same menu I6 needs for its own reasons.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Solves I5 and I6 with one component, and gives the four unreachable settings pages and
+          the privacy page an address in the interface.</li>
+          <li>Endonyms, so nobody has to argue about which flag stands for English.</li>
+          <li>Language sits among the other account preferences, which is what it is, rather than
+          next to canon content, which it is not.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Two clicks instead of one for the bilingual user who switches daily.</li>
+          <li>Needs a real dropdown with focus management and an escape key, which is one of the
+          three components I9 argues we should not hand-roll.</li>
+          <li>Depends on the shell existing outside a universe, or the menu is missing on exactly
+          the pages where a new user is most lost.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>A permanent pair in the sidebar footer</h3></header>
+      <p class="sub">No menu. Two endonym-labelled buttons pinned under the nav, always visible,
+      the way the current auth pages do it. The middle answer between a flag in the top bar and a
+      row inside a menu.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side" style="display: flex; flex-direction: column;">
+              <div class="uni"><span class="dot"></span>Valdoria Reach<span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#i5" class="on">Entries <span class="n">214</span></a>
+                <a href="#i5">Works <span class="n">2</span></a>
+                <a href="#i5">Proposals <span class="n">3</span></a>
+                <a href="#i5">Table</a>
+                <a href="#i5">Settings</a>
+              </nav>
+              <div style="flex: 1;"></div>
+              <div class="i5-foot">
+                <span class="i5-seg"><span class="on">EN</span><span>IT</span></span>
+                <span class="sp"></span>
+                <a href="#i5">Lorenzo</a>
+              </div>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb">Valdoria Reach / <b>214 entries</b></span><span class="sp"></span><kbd class="k">⌘K</kbd></div>
+              <div class="entry" style="padding: 20px 24px;"><p class="small muted mt0">Always
+              visible, one click, no dropdown to build.</p></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Cheapest of the three, and it reuses the component that already exists.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One click, no new component, and <code>LocaleSwitcher.svelte</code> is reused rather
+          than replaced.</li>
+          <li>Nothing depends on a dropdown, so it ships before I6 does.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Permanent sidebar weight for a rarely used control, in the footer where the account and
+          the meter also belong. Three things in a strip that fits two.</li>
+          <li>Two-letter codes are worse than endonyms for the exact user this control serves,
+          somebody who cannot read the current interface.</li>
+          <li>Leaves the other four settings pages exactly as unreachable as they are today.</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout rec">
+    <p><b>I would take B, and the flags are the one part of the request I would push back on.</b>
+    The placement instinct is right, the control belongs in the shell and not on a settings page
+    nobody can find, but the flag is the wrong glyph for a language and this codebase already argued
+    itself out of it once, in <code>LocaleSwitcher.svelte</code>'s own comment. If the top bar
+    really is the right place, the honest version of A is the endonym as text, "Italiano" with a
+    caret, which keeps the placement and drops the problem. The auth pages keep their compact
+    switcher either way, because there is genuinely no account there yet, and they move it out of
+    the top right per I2. Blocks #104 for the shell footer, #86 for the auth pages, and #127 for the
+    catalogue.</p>
+  </div>
+</section>

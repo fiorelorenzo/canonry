@@ -73,10 +73,19 @@
 		anything a model writes. It does not stop reading. Search over your own canon and mention
 		suggestions keep working with writing off, because none of that costs you anything and a wiki
 		that cannot search itself is not a good wiki. The honest cost of that choice: search still sends
-		the relevant pieces of your canon out to build and query its index, currently through Vercel's
-		gateway to Google's embedding model, chosen for how well it works across English and Italian
-		questions against English canon, whether or not writing is on. Off turns off generation. It does
-		not mean nothing leaves.
+		the relevant pieces of your canon out to build and query its index, whether or not writing is
+		on. Off turns off generation. It does not mean nothing leaves.
+	</p>
+	<p>
+		Naming that one precisely, because it is the piece of this page most likely to be read by
+		somebody deciding whether to trust us with a campaign: the embedding model is
+		<strong>Qwen3-Embedding-4B</strong>, open weights published by Alibaba under the Apache-2.0
+		licence, and Vercel's gateway currently routes it to <strong>DeepInfra</strong>, who run the
+		model and therefore see the text being indexed. Alibaba publishes the weights; they do not serve
+		them for us and see nothing. We picked an open model over the proprietary one we started with
+		for a reason that also matters to you: because the weights are public, the same model can be run
+		by a different company, or by us on our own hardware, without re-reading your canon to rebuild
+		the index. That is what makes leaving a provider possible at all.
 	</p>
 
 	<h2>Imports</h2>

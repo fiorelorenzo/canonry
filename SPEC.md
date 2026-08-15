@@ -658,9 +658,9 @@ The detour is worth recording rather than erasing: for a few days this product
 committed to routing every call, images included, through Cloudflare AI Gateway,
 on the stated goal of one place for logs, caching and cost regardless of call
 type. Checking Vercel's actual coverage found the gap that detour was trying to
-avoid — Vercel's gateway carries language and embedding models, including
-`google/gemini-embedding-001`, the multilingual model §17's cross-language
-retrieval promise depends on (§11.4), but no ElevenLabs sound generation, and
+avoid — Vercel's gateway carries language and embedding models, including the
+open-weights `alibaba/qwen3-embedding-4b` that §17's cross-language retrieval
+promise depends on (§11.4), but no ElevenLabs sound generation, and
 moving images to Vercel's own `bfl/flux-*` was rejected because Replicate
 remains the vendor of record for §9. So the direct paths are not a preference
 for fewer moving parts; they are the shape the actual provider coverage forces,
@@ -717,9 +717,17 @@ cross-universe contamination is a bug.
 
 ### 11.4 Retrieval numbers worth keeping
 
-Top-k 8 and a similarity threshold of 0.5 are not guesses: they come from an eval
-over a 2044-chunk gold corpus with MRR 0.775. Keyword boost from the extracted
-`excerptKeywords`. Re-run that eval before changing the embedding model.
+Top-k 8, keyword boost from the extracted `excerptKeywords`, and a similarity
+threshold that belongs to whichever embedding model is configured. That last part
+is the lesson: the 0.5 this section used to state came from an eval over a
+2044-chunk gold corpus at MRR 0.775, and it survived two model changes it was
+never valid across. **A threshold is a property of one model's cosine scale, not a
+constant of this product.** Against `alibaba/qwen3-embedding-4b` the floor is
+0.25, derived from the gold corpus in both languages
+(`packages/indexing/src/retriever.ts` carries the distributions), and 0.55 —
+correct for the model before it — would have discarded most correct hits without
+failing. Re-derive it, from a measurement, whenever the embedding model changes,
+and re-run the retrieval eval in the same breath.
 
 ### 11.5 Cost accounting
 
@@ -904,6 +912,14 @@ language. A translation may be offered beside one, marked as ours, never in plac
 **Retrieval has to cross the boundary or none of this works.** An Italian question against an
 English canon must find the English chunk, which makes the embedding model a multilingual
 choice rather than a free one, and makes cross-lingual retrieval a test rather than a hope.
+That test now exists and the model was chosen by it rather than by a leaderboard: the gold
+corpus asks its twenty questions in both languages against the same mostly-English chunks, and
+`alibaba/qwen3-embedding-4b` scores MRR 0.793 in English and 0.795 in Italian, where every
+proprietary model measured lost between 0.12 and 0.32 when the question changed language. The
+model's weights are Apache-2.0 for a second reason that belongs in this section: a vector is
+the one artefact here that cannot be recomputed cheaply, so the ability to move the same model
+to another provider, or to our own hardware, without re-embedding a customer's canon is part
+of the promise and not an implementation detail.
 The same applies to the matching in section 6.4, whose own example is already bilingual: "the
 Gilded Rat", "Gilded Rat Tavern" and "Il Ratto Dorato" are one inn. Aliases are the cheap
 half of that, embeddings the general half.

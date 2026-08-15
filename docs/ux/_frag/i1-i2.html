@@ -1,0 +1,507 @@
+<style>
+  /* I1 and I2 only. Everything here is prefixed. */
+  .i1-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 14px; border-bottom: 1px solid var(--line);
+    background: var(--panel); font-size: 13px; color: var(--ink-2);
+  }
+  .i1-bar .sp { flex: 1; }
+  .i1-bar a { color: var(--accent-ink); text-decoration: none; }
+  .i1-page { padding: 34px 30px 56px; min-height: 250px; background: var(--bg); }
+  .i1-col { max-width: 34rem; }
+  .i1-wordmark { display: flex; align-items: center; gap: 8px; font-size: 24px; font-weight: 620; }
+  .i1-mark { width: 22px; height: 22px; flex: none; }
+  .i1-dead { color: var(--danger); }
+
+  .i1-demo {
+    display: grid; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr);
+    gap: 0; align-items: stretch; border: 1px solid var(--line);
+    border-radius: 10px; overflow: hidden; background: var(--panel);
+  }
+  .i1-demo .pane { padding: 14px 16px; min-width: 0; }
+  .i1-demo .arrow {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--panel-2); border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+    color: var(--muted); font: 600 13px var(--mono);
+  }
+  .i1-hero { padding: 26px 30px 34px; background: var(--bg); }
+  .i1-hero .under { margin-top: 16px; font-size: 14px; color: var(--ink-2); max-width: 44em; }
+
+  .i2-title { padding: 44px 30px; background: var(--bg); text-align: center; }
+  .i2-card {
+    width: 22rem; margin: 0 auto; text-align: left;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 20px;
+  }
+  .i2-card.plain { border: 0; background: transparent; padding: 0; }
+  .i2-field { margin-bottom: 10px; }
+  .i2-field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .i2-field .box {
+    border: 1px solid var(--line-2); border-radius: 7px; background: var(--panel);
+    padding: 8px 10px; font-size: 13px; color: var(--ink-2);
+  }
+  .i2-field .box.filled { color: var(--ink); }
+  .i2-wide { display: block; width: 100%; text-align: center; margin-top: 6px; }
+  .i2-foot {
+    margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; align-items: center; font-size: 12px; color: var(--muted);
+  }
+  .i2-foot .sp { flex: 1; }
+  .i2-foot a { color: var(--muted); }
+  .i2-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 330px; }
+  .i2-split > .form { padding: 34px 30px; background: var(--bg); display: flex; align-items: center; }
+  .i2-split > .say { padding: 26px 26px; background: var(--panel-2); border-left: 1px solid var(--line); min-width: 0; }
+  .i2-pill {
+    display: inline-block; border: 1px solid var(--line-2); border-radius: 999px;
+    padding: 3px 9px; font: 600 10px/1.6 var(--mono); letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--ink-2); background: var(--panel);
+  }
+  .i2-pill.on { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-bg); }
+  .i2-violet { background: #6b4ee6; color: #fff; padding: 24px; border-radius: 10px; }
+</style>
+
+<section class="surf" id="i1">
+  <h2>I1 &middot; the door</h2>
+  <h3 class="stitle">The signed-out root, which is a landing page that was never built</h3>
+  <p class="lede">Somebody who hears about Canonry and types the domain gets the application's
+  empty home page: the wordmark, a broken sentence, and a link to appearance settings. F6 decided
+  what belongs there over a year of arguing with itself, the demo as the hero with no copy above
+  it, and G10 put the one sentence about export underneath it. Neither is built, so the product's
+  front door is a screen written for a user who is already inside.</p>
+
+  <h4 class="shead">Today</h4>
+  <figure class="mock">
+    <div class="frame">
+      <div class="i1-bar">
+        <span>Not signed in</span><span class="sp"></span>
+        <a href="#i1">Sign in</a><a href="#i1">Sign up</a>
+      </div>
+      <div class="i1-page">
+        <div class="i1-col">
+          <div class="i1-wordmark">
+            <svg class="i1-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+            Canonry
+          </div>
+          <p class="small mt0" style="margin-top: 8px;">
+            <a href="#i1">Sign in</a> <span class="i1-dead">Sign in to see your universes.</span>
+          </p>
+          <p class="small" style="margin-top: 30px;"><a href="#i1">Appearance settings</a></p>
+        </div>
+      </div>
+    </div>
+    <figcaption>The whole page. A link whose label is "Sign in", then a sentence starting with
+    "Sign in", then the one settings page that happens to be linked.</figcaption>
+  </figure>
+  <ul class="flaws">
+    <li><b>The sentence is doubled.</b> The link renders <code>t.shell.signIn</code> and the
+    sentence after it is <code>t.universe.list.signInPrompt</code>, which already opens with the
+    same two words, so the page reads "Sign in Sign in to see your universes."
+    <code>apps/web/src/routes/+page.svelte:23-26</code> against <code>i18n/en.ts:955</code>.</li>
+    <li><b>It never says what the product is.</b> No sentence, no demo, no screenshot, nothing a
+    stranger could act on. The one description that exists is the OG meta tag in the layout, which
+    only Slack ever reads. <code>routes/+layout.svelte:24-25</code>.</li>
+    <li><b>Appearance settings is the only outbound link.</b> Not docs, not privacy, not pricing.
+    Guardrail 5 lives on <code>/privacy</code> and nothing in the interface points at it.</li>
+    <li><b>The mark is not a link and there is no header.</b> Landing, home and error state are all
+    the same route with three branches inside one <code>&lt;main&gt;</code>.</li>
+  </ul>
+
+  <h4 class="shead">Options</h4>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>An honest door, today, and the landing later</h3></header>
+      <p class="sub">Keep <code>/</code> as one route, fix the sentence, and make the signed-out
+      branch a door rather than an empty room: what this is in one line that survives guardrail 7,
+      the two actions, and the links that have to be reachable. No demo, no marketing, one
+      afternoon.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="i1-bar">
+            <span class="sp"></span>
+            <a href="#i1">Docs</a><a href="#i1">Privacy</a>
+            <button class="btn sm">Sign in</button>
+            <button class="btn sm pri">Create an account</button>
+          </div>
+          <div class="i1-page">
+            <div class="i1-col">
+              <div class="i1-wordmark">
+                <svg class="i1-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+                Canonry
+              </div>
+              <p class="prose" style="font-size: 17px; margin-top: 12px;">A wiki for your game
+              world where an AI copilot works in every flow, and never writes anything you did not
+              accept.</p>
+              <p style="margin-top: 18px;">
+                <button class="btn pri">Create an account</button>
+                <button class="btn">Sign in</button>
+              </p>
+              <p class="small muted" style="margin-top: 22px;">Markdown in, markdown out. Your
+              canon exports as plain files on any plan. <a href="#i1">How export works</a></p>
+            </div>
+          </div>
+        </div>
+        <figcaption>The spec's own TL;DR sentence, which the layout already ships as the meta
+        description, promoted to the page. G10's export sentence sits under it.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The domain stops looking abandoned, this week, without touching #3.</li>
+          <li>Docs and privacy become reachable, which guardrail 5 needs and nothing currently
+          provides.</li>
+          <li>Uses copy that already exists and has already been through guardrail 7.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>It is a text page. F6 chose the demo as the hero precisely because a sentence cannot
+          show propagation, and this option does not show it.</li>
+          <li>Two things live at one address again, so #3 will rewrite this route rather than build
+          beside it.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">B</span><h3>Build F6: the demo is the hero</h3></header>
+      <p class="sub">The decided answer. The propagation loop runs above the fold with no copy over
+      it: one entry, one edited sentence, the plan it produces, one diff with its evidence, and an
+      accept that is the visitor's to press. Signing in is a quiet control in the corner. G10's
+      lock-in sentence sits directly under the demo.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="i1-bar">
+            <span style="font-weight: 600; color: var(--ink);">Canonry</span>
+            <span class="sp"></span>
+            <a href="#i1">Docs</a><a href="#i1">Privacy</a>
+            <button class="btn sm">Sign in</button>
+            <button class="btn sm pri">Create an account</button>
+          </div>
+          <div class="i1-hero">
+            <div class="i1-demo">
+              <div class="pane">
+                <div class="small muted mono" style="margin-bottom: 8px;">1 &middot; you change one sentence</div>
+                <div style="font: 600 15px var(--serif);">Aldric Vane</div>
+                <div class="small muted" style="margin-bottom: 8px;">character</div>
+                <div class="diff">
+                  <div class="dl del"><span class="g">-</span><span>Captain of the Valdoria Watch, forty sworn under him.</span></div>
+                  <div class="dl add"><span class="g">+</span><span>Dismissed from the watch in the thaw after the Sable Winter, he now answers to the Ashen Ledger.</span></div>
+                </div>
+              </div>
+              <div class="arrow" aria-hidden="true">&rarr;</div>
+              <div class="pane">
+                <div class="small muted mono" style="margin-bottom: 8px;">2 &middot; four entries stop adding up</div>
+                <div class="rows">
+                  <div class="r"><span class="sp"><b>The Valdoria Watch</b> <span class="why">leadership paragraph still names him captain</span></span></div>
+                  <div class="r"><span class="sp"><b>Iselde Wrenn</b> <span class="why">relation <code>appointed</code> is stale</span></span></div>
+                  <div class="r"><span class="sp"><b>The Gilded Rat</b> <span class="why">"drinks unbothered because the watch is his"</span></span></div>
+                  <div class="r"><span class="sp"><b>The Ashen Ledger</b> <span class="why">roster has no Aldric</span></span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card mt24">
+              <header>
+                <h4>The Valdoria Watch</h4>
+                <span class="badge ai">drafted, not applied</span>
+                <span class="sp"></span>
+                <button class="btn sm">Reject</button>
+                <button class="btn sm pri">Accept this one</button>
+              </header>
+              <p class="prose small mt0">The Watch is led by
+                <del class="d">Captain Aldric Vane</del>
+                <ins class="i">an acting captain, unnamed since the thaw</ins>, and has not filled
+                the post.</p>
+              <p class="ai-note mt0">Because Aldric Vane now reads "dismissed from the watch in the
+              thaw after the Sable Winter". <span class="muted">Aldric Vane, paragraph 1</span></p>
+            </div>
+            <p class="under">Markdown in, markdown out: your canon exports as plain files, on every
+            plan, and the export is not a retention feature.
+            <a href="#i1">What that means</a></p>
+          </div>
+        </div>
+        <figcaption>No headline above the demo, per F6. The accept button is real and per entry,
+        per guardrail 1, and the visitor can press it without an account.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>It shows the one thing no competitor does, in the twelve seconds a stranger gives it,
+          and it shows it without a word of marketing.</li>
+          <li>The demo doubles as the honest version of the product: a proposal that waits, with its
+          evidence attached.</li>
+          <li>G10 gets its sentence, in the one place a reader who cares about lock-in will look.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>It is issues #3 and #4 in full, and the demo has to be a real interactive thing rather
+          than a video, or it lies about latency.</li>
+          <li>Every string on it is guardrail 7 surface. "Canonry keeps your world consistent" is the
+          sentence that will want to be written, and it may not be.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Two addresses: the landing is not the app</h3></header>
+      <p class="sub">The app never renders a landing page. Signed out at <code>/</code> it redirects
+      straight to sign-in, and the marketing site lives at its own address, which can then be a
+      static build with its own cadence.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="i1-bar"><span class="mono small">canonry.io</span><span class="sp"></span><span class="badge later">static site, own deploy</span></div>
+          <div class="i1-page" style="min-height: 90px;"><div class="i1-col"><p class="small mt0">The demo, the pricing, the docs, the lock-in sentence.</p></div></div>
+          <div class="i1-bar"><span class="mono small">app.canonry.io/</span><span class="sp"></span><span class="badge now">302 &rarr; /auth/sign-in</span></div>
+          <div class="i1-page" style="min-height: 90px;"><div class="i1-col"><p class="small mt0">Signed in, the same address is the home page from I3.</p></div></div>
+        </div>
+        <figcaption>Clean separation, and one more thing to deploy.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Marketing copy stops shipping on the app's release cadence, and the app stops carrying
+          a route that has nothing to do with it.</li>
+          <li>The app's signed-out state becomes a single unambiguous thing: the sign-in page.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A second deployment target, a second TLS certificate and a second place for the brand
+          to drift, for a product with one developer.</li>
+          <li>The two-stack preview and prod arrangement in SPEC 12 is per environment, not per
+          site, so this changes the deploy story rather than extending it.</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout rec">
+    <p><b>I would take B, and ship A this week as the interim.</b> B is already decided and I am not
+    reopening it; the only real question this surface asks is what the domain serves for the weeks
+    or months before #3 lands, and today the answer is a broken sentence. A is two hours and uses
+    copy that already passed guardrail 7. C is a real option and I would keep it in the drawer for
+    the moment the landing page needs a pricing table, a changelog and a blog, which is not
+    now.</p>
+  </div>
+</section>
+
+<section class="surf" id="i2">
+  <h2>I2 &middot; auth</h2>
+  <h3 class="stitle">Sign in and sign up, the first screen anybody actually sees</h3>
+  <p class="lede">Both pages are a left-aligned column stuck to the top of an empty page, with the
+  language toggle as the second most prominent thing on the screen and the submit button smaller
+  than the fields above it. Everything on them works. Nothing on them says a person designed
+  them.</p>
+
+  <h4 class="shead">Today</h4>
+  <figure class="mock">
+    <div class="frame">
+      <div class="i1-bar"><span>Not signed in</span><span class="sp"></span><a href="#i2">Sign in</a><a href="#i2">Sign up</a></div>
+      <div class="i1-page">
+        <div class="i1-col">
+          <div class="rowflex" style="justify-content: space-between; align-items: flex-start;">
+            <div>
+              <div class="small" style="display: flex; align-items: center; gap: 6px; color: var(--ink-2); font-weight: 600;">
+                <svg class="i1-mark" style="width: 15px; height: 15px;" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+                Canonry
+              </div>
+              <h4 style="font-size: 22px; margin: 14px 0 4px;">Sign in</h4>
+              <p class="small mt0">Your universes, your account, nobody else's.</p>
+            </div>
+            <div class="rowflex" style="gap: 6px;">
+              <span class="i2-pill on">English</span><span class="i2-pill">Italiano</span>
+            </div>
+          </div>
+          <div style="margin-top: 20px;">
+            <div class="i2-field"><label>Email</label><div class="box filled">fiorelorenzo.fl@gmail.com</div></div>
+            <div class="i2-field"><label>Password</label><div class="box filled">••••••••••••••</div></div>
+            <button class="btn pri" style="margin-top: 8px;">Sign in</button>
+            <p class="small" style="margin-top: 18px;">No account yet? <a href="#i2">Sign up</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>Reproduced from <code>routes/auth/sign-in/+page.svelte:61-134</code>. Sign-up is the
+    same page with a name field added.</figcaption>
+  </figure>
+  <ul class="flaws">
+    <li><b>The language toggle is the loudest control on the page.</b> Two pills at the top right,
+    at the same level as the wordmark, on a screen whose only job is a password.
+    <code>routes/auth/sign-in/+page.svelte:71</code>. See I5 for where it belongs.</li>
+    <li><b>The submit is <code>w-fit</code>.</b> Two full-width fields and then a small button, so
+    the primary action is the least prominent thing in the form.
+    <code>routes/auth/sign-in/+page.svelte:117-123</code>.</li>
+    <li><b>Nothing is centred and nothing is bounded.</b> A 34rem column pinned to the top left of a
+    1440px page, which is why the screenshot has a third of a screen of empty paper under it.</li>
+    <li><b>There is no password recovery anywhere in the product.</b> Not a link, not a route. A
+    forgotten password is currently a database query.</li>
+    <li><b>The error is a paragraph.</b> Rendered into the flow with no <code>role="alert"</code> and
+    no <code>aria-live</code>, so a screen reader is never told the sign-in failed.
+    <code>routes/auth/sign-in/+page.svelte:125-127</code>.</li>
+    <li><b>The mark goes nowhere.</b> On the one page where a visitor may want to find out what this
+    product is before typing an email into it, the wordmark is not a link.</li>
+  </ul>
+
+  <h4 class="shead">Options</h4>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>The same column, done properly</h3></header>
+      <p class="sub">One card, centred in the viewport, mark above the title and linking home,
+      full-width primary, recovery link in the form, language demoted to a quiet footer row with
+      docs and privacy. Nothing structural, one file each.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="i2-title">
+            <div class="i2-card">
+              <div class="i1-wordmark" style="font-size: 17px; justify-content: center; margin-bottom: 16px;">
+                <svg class="i1-mark" style="width: 16px; height: 16px;" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+                Canonry
+              </div>
+              <h4 style="font-size: 20px; margin-bottom: 4px;">Sign in</h4>
+              <p class="small muted mt0" style="margin-bottom: 16px;">Your universes, your account, nobody else's.</p>
+              <div class="i2-field"><label>Email</label><div class="box filled">fiorelorenzo.fl@gmail.com</div></div>
+              <div class="i2-field">
+                <label>Password <a href="#i2" style="float: right; font-weight: 400;">Forgotten?</a></label>
+                <div class="box filled">••••••••••••••</div>
+              </div>
+              <button class="btn pri i2-wide">Sign in</button>
+              <p class="small mt0" style="margin-top: 14px; text-align: center;">No account yet? <a href="#i2">Sign up</a></p>
+              <div class="i2-foot">
+                <a href="#i2">English</a><span>&middot;</span><a href="#i2">Italiano</a>
+                <span class="sp"></span><a href="#i2">Docs</a><a href="#i2">Privacy</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Same content, ranked. The language control is still on the page, because there is
+        no account yet to hold the preference, and it is no longer competing with the wordmark.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Cheapest thing on this page that fixes the actual complaint.</li>
+          <li>Recovery, docs and privacy all get their link, and the error can get its
+          <code>role="alert"</code> in the same edit.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A centred card is the most generic screen in software. It is correct and it says
+          nothing about this product.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Split: the form, and the reason to fill it in</h3></header>
+      <p class="sub">The card on the left, and on the right the product doing its one trick on the
+      sample world: a sentence changed, a proposal drafted, marked as unaccepted and waiting. Static,
+      no model, no network. Below 900px the right pane drops and this becomes A.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="i2-split">
+            <div class="form">
+              <div class="i2-card plain">
+                <div class="i1-wordmark" style="font-size: 17px; margin-bottom: 18px;">
+                  <svg class="i1-mark" style="width: 16px; height: 16px;" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+                  Canonry
+                </div>
+                <h4 style="font-size: 20px; margin-bottom: 4px;">Create your account</h4>
+                <p class="small muted mt0" style="margin-bottom: 16px;">One account, your own universes.</p>
+                <div class="i2-field"><label>Name</label><div class="box">Lorenzo Fiore</div></div>
+                <div class="i2-field"><label>Email</label><div class="box">you@example.com</div></div>
+                <div class="i2-field"><label>Password</label><div class="box">at least 12 characters</div></div>
+                <button class="btn pri i2-wide">Create account</button>
+                <p class="small mt0" style="margin-top: 14px;">Already have one? <a href="#i2">Sign in</a></p>
+              </div>
+            </div>
+            <div class="say">
+              <p class="small muted mt0" style="margin-bottom: 14px;">Change one entry and Canonry
+              says which others that touches, drafts each update, and waits.</p>
+              <div class="card">
+                <header><h4>Aldric Vane</h4><span class="badge">character</span></header>
+                <p class="prose small mt0">Dismissed from the watch in the thaw after the Sable
+                Winter, he now answers to <a class="men t-fact" href="#i2">the Ashen Ledger</a>.</p>
+              </div>
+              <div class="card">
+                <header><h4>The Valdoria Watch</h4><span class="badge ai">waiting for you</span></header>
+                <p class="prose small mt0">The Watch is led by <del class="d">Captain Aldric
+                Vane</del> <ins class="i">an acting captain, unnamed since the thaw</ins>.</p>
+                <p class="ai-note mt0">Evidence: Aldric Vane, paragraph 1.</p>
+              </div>
+              <p class="small muted">Nothing above was applied. Every line a model writes waits for
+              you to accept it, one entry at a time.</p>
+            </div>
+          </div>
+        </div>
+        <figcaption>Sign-up, where the argument is worth making. The right pane never shows an
+        accept control, so nobody reads it as a product that applies things for you.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The one screen where a stranger decides whether to bother now carries the reason.</li>
+          <li>It is honest about the guarantee at the exact moment the guarantee matters, which is
+          the argument guardrail 1 exists to win.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A second layout to maintain, and a right pane that is marketing copy inside the app,
+          so it needs the same guardrail 7 review the landing page gets.</li>
+          <li>On sign-in, where the visitor is already sold, the pane is noise.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">C</span><h3>The title page</h3></header>
+      <p class="sub">Full paper, the mark set large and centred, the form at 22rem under it and
+      nothing else above the fold. The reading room applied to the one screen that currently looks
+      like every other login form on the internet.</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="i2-title" style="padding: 54px 30px 40px;">
+            <svg style="width: 44px; height: 44px;" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 4.5a8.5 8.5 0 1 0 0 15" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"/><circle cx="18" cy="6" r="2.6" fill="var(--accent)"/><circle cx="18" cy="18" r="2.6" fill="var(--accent)"/></svg>
+            <div style="font: 620 30px/1.2 var(--serif); margin-top: 10px;">Canonry</div>
+            <p class="small muted" style="margin: 6px auto 26px; max-width: 26em;">Your universes, your account, nobody else's.</p>
+            <div class="i2-card plain" style="width: 21rem;">
+              <div class="i2-field"><label>Email</label><div class="box filled">fiorelorenzo.fl@gmail.com</div></div>
+              <div class="i2-field">
+                <label>Password <a href="#i2" style="float: right; font-weight: 400;">Forgotten?</a></label>
+                <div class="box filled">••••••••••••••</div>
+              </div>
+              <button class="btn pri i2-wide">Sign in</button>
+              <p class="small mt0" style="margin-top: 14px; text-align: center;">No account yet? <a href="#i2">Sign up</a></p>
+            </div>
+          </div>
+          <div class="i1-bar" style="border-bottom: 0; border-top: 1px solid var(--line); background: var(--panel-2); font-size: 12px;">
+            <a href="#i2">English</a><span class="muted">&middot;</span><a href="#i2">Italiano</a>
+            <span class="sp"></span>
+            <a href="#i2">What Canonry is</a><a href="#i2">Docs</a><a href="#i2">Privacy</a>
+          </div>
+        </div>
+        <figcaption>The mark at 44px is the one place in the product where the brand gets to be
+        large, and H2 drew it for exactly this. Everything secondary is in the footer rule.</figcaption>
+      </figure>
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>It looks like this product and not like a template, using only what H2 already
+          decided.</li>
+          <li>One layout serves sign-in, sign-up, recovery and any future verification screen.</li>
+          <li>Nothing on it needs a guardrail 7 review, because it makes no claim.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Makes no argument, so it leans on the landing page having done that work. Somebody who
+          arrives directly at sign-up from a friend's link learns nothing.</li>
+          <li>Vertical centring on a short laptop viewport needs care or the footer rule pushes the
+          form up awkwardly.</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout rejected">
+    <p><span class="guardref">Guardrail 2</span> <b>Rejected outright: an auth screen painted in the
+    copilot's violet.</b> It is the most tempting thing on the palette and the one colour these
+    pages may not spend. C1 reserves violet for unaccepted AI text, and a product whose sign-in page
+    is violet teaches every user that violet means Canonry rather than "a model wrote this and you
+    have not accepted it". The mark itself follows the same rule and stays burnt umber, per H2.</p>
+  </div>
+
+  <div class="callout rec">
+    <p><b>I would take C for sign-in and B for sign-up.</b> The door is quiet and the decision to
+    sign up gets the argument, which is the same split F6 already made between the demo and the
+    app. They share one layout: B is C with a right pane, so this is one component with a slot, not
+    two designs. Whichever wins, the four defects in the flaw list are fixed in the same commit,
+    since the recovery link and the <code>role="alert"</code> are not design questions. Blocks
+    #86.</p>
+  </div>
+</section>

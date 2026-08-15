@@ -9,10 +9,27 @@ import type { ResolvedModel } from '@canonry/ai';
 
 export type VectorDistance = 'Cosine' | 'Euclid' | 'Dot' | 'Manhattan';
 
-/** SPEC.md §11.3: "Per-universe Qdrant collections named
- * `UniverseLore_{provider}_{model}_{universeId}`". */
-export function loreCollectionName(provider: string, modelId: string, universeId: string): string {
-	return `UniverseLore_${provider}_${modelId}_${universeId}`;
+/**
+ * SPEC.md §11.3: "Per-universe Qdrant collections named
+ * `UniverseLore_{provider}_{model}_{universeId}`".
+ *
+ * **`weightsOwner` is the identity of the weights, never the endpoint that served them.** For
+ * `alibaba/qwen3-embedding-4b` that is `alibaba`, whoever we happen to route through: Vercel AI
+ * Gateway resolves it to DeepInfra today, and Fireworks, Together, Cloudflare, DashScope or our own
+ * hardware would all return vectors from the same Apache-2.0 weights, interchangeable for cosine
+ * search (measured: repeated calls agree to a self-similarity of 0.99989).
+ *
+ * That distinction is the whole portability argument. Naming a collection after the endpoint would
+ * force a full re-index every time we changed where the same model runs, which is exactly the cost
+ * open weights were chosen to avoid. `model_config.provider` holds the weights owner for this
+ * reason, and a future self-hosting path must keep it that way rather than writing 'local' there.
+ */
+export function loreCollectionName(
+	weightsOwner: string,
+	modelId: string,
+	universeId: string
+): string {
+	return `UniverseLore_${weightsOwner}_${modelId}_${universeId}`;
 }
 
 /** Convenience over `loreCollectionName` for the common case of a resolved embedding

@@ -1,0 +1,364 @@
+<!doctype html>
+<!-- The product pass: an audit of the shipped UI, not a decision artifact.
+     It borrows the set's stylesheet and its mock kit, and deliberately does not
+     join UX_REGISTER: the register holds questions that were open before any code
+     existed, this page holds ten questions the code itself asked. Once the answers
+     are taken they go into DECISIONS.md as round four, and the register gets the
+     ids I1 to I10. Vanilla only, no external assets, same rule as every other page
+     here. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The product pass · Canonry UX</title>
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  .hero { max-width: 1360px; margin: 0 auto; padding: 46px 0 8px; }
+  .hero h1 { font-size: 40px; max-width: 22em; }
+  .hero .sub { font-size: 19px; color: var(--ink-2); max-width: 44em; margin-top: 16px; }
+  .hero .tally { margin-top: 22px; font-size: 15px; color: var(--muted); }
+
+  /* one surface: a big title over the small mono section label */
+  .surf { padding-top: 26px; border-top: 1px solid var(--line); margin-top: 46px; }
+  .surf > h2 { margin-bottom: 6px; }
+  .surf h3.stitle { font-size: 27px; max-width: 20em; margin: 0 0 12px; }
+  .surf h4.shead {
+    font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--muted); margin: 30px 0 12px;
+  }
+  ul.flaws { max-width: 52em; padding-left: 0; list-style: none; margin: 14px 0 0; }
+  ul.flaws li {
+    font-size: 14px; color: var(--ink-2); padding: 8px 0 8px 16px;
+    border-left: 2px solid var(--danger); background: var(--danger-bg);
+    padding-right: 12px; border-radius: 0 6px 6px 0; margin-bottom: 6px;
+  }
+  ul.flaws li b { color: var(--ink); }
+  ul.flaws li code { color: var(--ink-2); }
+
+  /* findings table */
+  table.find { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.find th {
+    text-align: left; font: 600 11px/1 var(--mono); text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--muted); padding: 0 10px 8px 0;
+    border-bottom: 1px solid var(--line-2);
+  }
+  table.find td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.find tr:hover td { background: var(--panel); }
+  table.find td.n { font: 600 13px/1.5 var(--mono); white-space: nowrap; color: var(--ink); }
+  table.find td.go { white-space: nowrap; font-size: 13px; }
+  table.find td.sev { white-space: nowrap; }
+
+  /* the shell map */
+  .map .r code { font-size: 12px; }
+  .map .col { min-width: 0; }
+  .map .col > h4 {
+    font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.07em;
+    margin: 0 0 10px;
+  }
+  .map .col.has > h4 { color: var(--ok); }
+  .map .col.hasnt > h4 { color: var(--danger); }
+
+  ol.plan { max-width: 50em; }
+  ol.plan li { margin-bottom: 12px; }
+  ol.plan b { color: var(--ink); }
+
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .toc a {
+    font: 500 13px/1 var(--sans); text-decoration: none; color: var(--ink-2);
+    border: 1px solid var(--line-2); border-radius: 999px; padding: 7px 12px;
+    background: var(--panel);
+  }
+  .toc a:hover { border-color: var(--accent); color: var(--ink); }
+  .toc a b { font: 600 11px var(--mono); color: var(--accent-ink); margin-right: 6px; }
+</style>
+</head>
+<body>
+
+<div class="topline">
+  <b>Canonry</b><span>product pass</span>
+  <span class="sp"></span>
+  <span>2026-08-15</span>
+  <span>·</span>
+  <a href="index.html">UX audit</a>
+  <span>·</span>
+  <a href="DECISIONS.md">decisions</a>
+  <span>·</span>
+  <a href="https://github.com/orgs/fiorelorenzo/projects/9">board</a>
+</div>
+
+<header class="hero">
+  <h1>Forty-seven routes ship, every UX question is answered, and the first three screens still read as a scaffold</h1>
+  <p class="sub">I signed into preview.canonry.io as a new user and could not create a universe.
+  That is the symptom. The cause is one structural thing, and once it is named, most of the
+  rest of the list stops being a list of small ugly screens and becomes one piece of work.</p>
+  <p class="tally">Ten surfaces below, two or three drawn options each, one recommendation each.
+  Nothing here is decided.</p>
+  <nav class="toc">
+    <a href="#i1"><b>I1</b>The signed-out door</a>
+    <a href="#i2"><b>I2</b>Sign in and sign up</a>
+    <a href="#i3"><b>I3</b>The home page</a>
+    <a href="#i4"><b>I4</b>Creating a universe</a>
+    <a href="#i5"><b>I5</b>Where the language lives</a>
+    <a href="#i6"><b>I6</b>The account</a>
+    <a href="#i7"><b>I7</b>The universe home</a>
+    <a href="#i8"><b>I8</b>Empty states</a>
+    <a href="#i9"><b>I9</b>The control layer</a>
+    <a href="#i10"><b>I10</b>The phone</a>
+  </nav>
+</header>
+
+<section>
+  <h2>What this is, and how I read it</h2>
+  <p class="lede">The decision set in <a href="index.html">index.html</a> was written when there
+  was no application code. It asked what the product should look like and answered fifty-one
+  questions. This page is the other direction: I opened the deployed preview as somebody who had
+  never seen it, wrote down every place it felt like an internal tool, and then read every route
+  in <code>apps/web/src/routes</code> to find out whether what I felt was a missing decision, a
+  decision taken and not built, or a defect.</p>
+  <p>Almost none of it is a missing decision. The visual language is decided and implemented:
+  <code>routes/layout.css</code> is a complete, careful design system with the reading room in
+  both palettes, serif everywhere down to the number columns per G2, tabular figures and a 34rem
+  reading measure. The seven-item sidebar A2 chose exists and is correct. The copilot loop, the
+  import surfaces, table mode, the players' wiki and the admin panels are all built and most of
+  them are good. What is missing is everything that holds those screens together, and the
+  reason it is missing is that no issue owned it.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrails 1 to 7</span> bind this page too. Nothing proposed here
+    adds an accept-all, spends violet outside the copilot, or lets a string claim that a canon is
+    consistent. Where an obvious idea breaks one, it is drawn and rejected with the number, so it
+    does not come back.</p>
+  </div>
+</section>
+
+<section>
+  <h2>The one diagnosis</h2>
+  <p class="lede">The app shell exists only inside a universe. <code>Sidebar.svelte</code> is
+  mounted by <code>routes/u/[universe]/+layout.svelte</code> and by nothing else, so every route
+  that is not under <code>/u/{slug}</code> renders as a bare
+  <code>&lt;main class="mx-auto max-w-measure px-8 py-16"&gt;</code> floating on the paper, under
+  a forty-pixel bar that holds one sentence and two text links.</p>
+  <p>That single fact produces most of the findings below. There is no way in, because the
+  landing page is the empty app home. There is no way to create anything, because the create
+  routes exist and nothing links to them. There is no account, because there is nowhere to hang
+  one. The language switcher disappears the moment you sign in, because it lives on the two
+  pages that have their own header. Settings is five islands. A new user's first screen after
+  paying attention to a sign-up form is a sentence telling them they have nothing.</p>
+
+  <figure class="mock">
+    <div class="frame" style="padding: 18px;">
+      <div class="grid2 map">
+        <div class="col has">
+          <h4>Has a shell: the sidebar, the switcher, the nav, the counts</h4>
+          <div class="card">
+            <div class="rows">
+              <div class="r"><code>/u/{slug}</code><span class="sp"></span><span class="why">universe home</span></div>
+              <div class="r"><code>/u/{slug}/e/{entry}</code><span class="sp"></span><span class="why">entry and editor</span></div>
+              <div class="r"><code>/u/{slug}/works</code><span class="sp"></span><span class="why">works and scenes</span></div>
+              <div class="r"><code>/u/{slug}/proposals</code><span class="sp"></span><span class="why">the inbox</span></div>
+              <div class="r"><code>/u/{slug}/ask</code><span class="sp"></span><span class="why">Ask</span></div>
+              <div class="r"><code>/u/{slug}/table</code><span class="sp"></span><span class="why">table mode</span></div>
+              <div class="r"><code>/u/{slug}/import/...</code><span class="sp"></span><span class="why">import review</span></div>
+              <div class="r"><code>/u/{slug}/settings</code><span class="sp"></span><span class="why">the writing switch</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="col hasnt">
+          <h4>Has no shell: one bar, one column, no way back</h4>
+          <div class="card">
+            <div class="rows">
+              <div class="r"><code>/</code><span class="sp"></span><span class="why">landing and home, both</span></div>
+              <div class="r"><code>/auth/sign-in</code>, <code>/auth/sign-up</code><span class="sp"></span><span class="why">the first screen anybody sees</span></div>
+              <div class="r"><code>/onboarding</code>, <code>/onboarding/import</code><span class="sp"></span><span class="why">linked from nowhere</span></div>
+              <div class="r"><code>/u/new</code><span class="sp"></span><span class="why">linked from nowhere</span></div>
+              <div class="r"><code>/settings/appearance</code><span class="sp"></span><span class="why">the only one linked</span></div>
+              <div class="r"><code>/settings/language</code>, <code>/keys</code>, <code>/billing</code>, <code>/export</code><span class="sp"></span><span class="why">unreachable in the UI</span></div>
+              <div class="r"><code>/docs</code>, <code>/docs/import</code>, <code>/docs/languages</code><span class="sp"></span><span class="why">unreachable in the UI</span></div>
+              <div class="r"><code>/privacy</code><span class="sp"></span><span class="why">guardrail 5, unreachable</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>Every route in the product, split by whether the frame reaches it. Eight against
+    eighteen, and the eighteen include every screen a new account meets before it has a
+    universe.</figcaption>
+  </figure>
+
+  <div class="callout locks">
+    <p><b>What follows from it.</b> I3 is the same decision as I6 and half of I1: does the shell
+    reach outside a universe, or does the product keep two kinds of page. Take that one first and
+    six of the ten below collapse into it. The rest are genuinely separate: where the language
+    control lives, what an empty state is for, whether an entry browser exists, whether the phone
+    is a supported client, and whether anybody owns the buttons.</p>
+  </div>
+</section>
+
+<section>
+  <h2>The findings, worst first</h2>
+  <table class="find">
+    <thead><tr><th>#</th><th>What is wrong</th><th>Evidence</th><th>Kind</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="n">1</td>
+        <td><b>A signed-in user cannot create a universe.</b> The zero-universe state is one
+        sentence and a link to appearance settings. <code>/u/new</code> and
+        <code>/onboarding</code> both exist and nothing anywhere links to either.</td>
+        <td class="small muted"><code>routes/+page.svelte:27-30</code></td>
+        <td class="sev"><span class="badge now">broken flow</span></td>
+        <td class="go"><a href="#i3">I3</a>, <a href="#i4">I4</a></td>
+      </tr>
+      <tr>
+        <td class="n">2</td>
+        <td><b>The home page reads "Sign in Sign in to see your universes."</b> A link whose text
+        is <code>t.shell.signIn</code> is rendered immediately before a sentence that already
+        starts with the same two words.</td>
+        <td class="small muted"><code>routes/+page.svelte:23-26</code>, <code>i18n/en.ts:955</code></td>
+        <td class="sev"><span class="badge now">defect</span></td>
+        <td class="go"><a href="#i1">I1</a></td>
+      </tr>
+      <tr>
+        <td class="n">3</td>
+        <td><b>There is no landing page.</b> A signed-out visitor to the public domain gets the
+        application's empty home. F6 decided the demo is the hero and G10 put the lock-in sentence
+        under it; neither exists.</td>
+        <td class="small muted">issues #3, #4, #5</td>
+        <td class="sev"><span class="badge now">decided, unbuilt</span></td>
+        <td class="go"><a href="#i1">I1</a></td>
+      </tr>
+      <tr>
+        <td class="n">4</td>
+        <td><b>There is no account.</b> The product prints your name and offers no page to change
+        it, no password change, no delete. Five settings pages exist with no index and no
+        navigation; four of the five are unreachable by clicking.</td>
+        <td class="small muted"><code>routes/settings/*</code>, <code>shell/AuthStatus.svelte</code></td>
+        <td class="sev"><span class="badge now">missing surface</span></td>
+        <td class="go"><a href="#i6">I6</a></td>
+      </tr>
+      <tr>
+        <td class="n">5</td>
+        <td><b>The language control only exists where there is no account to save it to.</b> The
+        switcher is mounted on the two auth pages and nowhere else, and
+        <code>/settings/language</code>, which is the one that writes a real preference, cannot be
+        reached from inside the app.</td>
+        <td class="small muted"><code>components/auth/LocaleSwitcher.svelte</code></td>
+        <td class="sev"><span class="badge now">broken flow</span></td>
+        <td class="go"><a href="#i5">I5</a></td>
+      </tr>
+      <tr>
+        <td class="n">6</td>
+        <td><b>214 entries and no way to see them.</b> The sidebar's Entries item points at the
+        universe home, which lists a handful of recent entries. No browser, no filter, no search,
+        and no button anywhere that creates an entry.</td>
+        <td class="small muted"><code>routes/u/[universe]/+page.svelte:33-57</code></td>
+        <td class="sev"><span class="badge now">missing surface</span></td>
+        <td class="go"><a href="#i7">I7</a></td>
+      </tr>
+      <tr>
+        <td class="n">7</td>
+        <td><b>Nine empty states, nine hand-written sentences, no actions.</b> Every one of them
+        is a dead end, including the three that are actually good news and should stay a
+        sentence.</td>
+        <td class="small muted"><code>i18n/en.ts</code>, ten <code>empty</code> keys</td>
+        <td class="sev"><span class="badge soon">pattern</span></td>
+        <td class="go"><a href="#i8">I8</a></td>
+      </tr>
+      <tr>
+        <td class="n">8</td>
+        <td><b>Nobody owns the controls.</b> No Button, no Field, no Badge, no PageHeader
+        component exists; every route spells its own, and the spellings differ in padding, size
+        and hover treatment. The tokens are excellent and are being spent forty ways.</td>
+        <td class="small muted"><code>lib/components/**</code>, measured in I9</td>
+        <td class="sev"><span class="badge soon">consistency</span></td>
+        <td class="go"><a href="#i9">I9</a></td>
+      </tr>
+      <tr>
+        <td class="n">9</td>
+        <td><b>The palette and the meter were decided and never built.</b>
+        <code>lib/keys.ts</code> ships the whole shortcut vocabulary including mod+K and nothing
+        listens for it, while the sidebar advertises a hardcoded <kbd class="k">⌘⇧A</kbd> that has
+        no handler and shows a Mac glyph on Windows.</td>
+        <td class="small muted"><code>lib/keys.ts:41-42</code>, <code>shell/Sidebar.svelte:59-66</code></td>
+        <td class="sev"><span class="badge soon">decided, unbuilt</span></td>
+        <td class="go"><a href="#i9">I9</a></td>
+      </tr>
+      <tr>
+        <td class="n">10</td>
+        <td><b>The phone is not a client.</b> Seventeen responsive utilities in the whole
+        application, six of them inside table mode. The shell is a fixed 256px sidebar with no
+        breakpoint, which leaves 134px of content on a 390px screen.</td>
+        <td class="small muted"><code>shell/Sidebar.svelte:50</code></td>
+        <td class="sev"><span class="badge soon">unbuilt</span></td>
+        <td class="go"><a href="#i10">I10</a></td>
+      </tr>
+      <tr>
+        <td class="n">11</td>
+        <td><b>Match system renders light on a dark machine.</b> The dark palette is bound to
+        <code>[data-theme='dark']</code> with no <code>prefers-color-scheme</code> block behind it,
+        which the code itself documents rather than fixes.</td>
+        <td class="small muted"><code>lib/theme.ts:10-16</code>, <code>routes/layout.css:58-61</code></td>
+        <td class="sev"><span class="badge now">defect</span></td>
+        <td class="go">G1</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="small muted mt24">Findings 2 and 11 are defects with no design question attached, so
+  they get no surface below. They get a commit.</p>
+</section>
+
+<!-- SURFACES -->
+
+<section>
+  <h2>What I would do first</h2>
+  <p class="lede">Ordered by what unblocks the most, not by how bad each one looks. The first three
+  are a day and turn the preview from something that cannot be used into something that can.</p>
+  <ol class="plan">
+    <li><b>Fix the two defects.</b> Drop the duplicated link on the home page, and put a
+    <code>prefers-color-scheme</code> block behind the dark palette so Match system means
+    something. Neither needs a decision.</li>
+    <li><b>Make a new account able to reach a universe.</b> Whatever I3 and I4 settle in full, the
+    interim is one line in the home page's loader: no universes goes to <code>/onboarding</code>,
+    which is D7's decided path and already built. Today that screen exists and nothing on earth
+    links to it.</li>
+    <li><b>Give the account somewhere to live.</b> I6's menu in the shell footer, and the five
+    settings islands become one page with a sub-nav. This is also what makes the language control
+    (I5) and the privacy page (guardrail 5) reachable, so it pays for three findings at once.</li>
+    <li><b>Extend the shell past the universe border.</b> I3's option B. It is the structural fix,
+    it is the largest single piece of work here, and every screen outside a universe stops being
+    a floating column the day it lands.</li>
+    <li><b>Then the two surfaces that are missing rather than wrong</b>: the entry browser (I7) and
+    the landing page (I1, which is issues #3 and #4 and was always going to be its own piece).</li>
+    <li><b>Then the pass work</b>: the six components (I9), the empty-state pattern (I8), and the
+    responsive pass (I10). None of them is a screen, all of them are the difference between this
+    reading as a product and reading as a scaffold.</li>
+  </ol>
+  <div class="callout rec">
+    <p><b>What I would not do.</b> Redesign anything inside a universe. The entry reader, the
+    proposal queue, the diff, the plan checklist, the import review and table mode are the product,
+    they are built, and they are the parts that already look like the mocks. The problem is
+    entirely in the ring around them.</p>
+  </div>
+</section>
+
+<section>
+  <h2>The decisions this opens</h2>
+  <p>Ten, ids I1 to I10, and none of them is taken. When they are, they go into
+  <a href="DECISIONS.md">DECISIONS.md</a> as round four and into the register in
+  <code>assets/ux.js</code>, with the issues each one blocks named on the issue itself. Two of them
+  amend an answer that already exists rather than opening new ground, and those are the two worth
+  reading twice: I3's option B changes what A2's sidebar is for, and I10's option B extends E4's
+  bottom tabs past table mode.</p>
+  <p class="small muted">The set's own index still says "there is no UI yet", which was true when it
+  was written and has not been true for a while. That sentence gets fixed in the same commit that
+  records these answers.</p>
+</section>
+
+<nav class="pagenav">
+  <a href="index.html">&larr; The decision register</a>
+  <span class="sp"></span>
+  <a href="DECISIONS.md">DECISIONS.md</a>
+  <span class="sp"></span>
+  <a href="SAMPLE-WORLD.md">The sample world</a>
+</nav>
+</body>
+</html>

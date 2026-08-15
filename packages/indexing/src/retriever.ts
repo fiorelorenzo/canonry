@@ -9,32 +9,58 @@ import type { Db } from '@canonry/db';
 import { listExclusionPatternsForUniverse, supersededUrlsForUniverse } from '@canonry/db';
 import { queryLore, type LoreChunkPayload, type QdrantClient } from '@canonry/vector';
 
-/** SPEC.md §11.4 quotes top-k 8 and a 0.5 threshold, and those were measured against a
- * 2044-chunk gold corpus at MRR 0.775 - with the **hashing embedder**. Issue #125 replaced it
- * with a real multilingual model (`google/gemini-embedding-001`), and that moves both numbers,
- * because a real embedder's cosine range is nothing like a token-overlap hash's.
+/**
+ * SPEC.md §11.4 quotes top-k 8 and a threshold of 0.5, measured against a 2044-chunk gold corpus at
+ * MRR 0.775. That number came from research, with a **hashing embedder** behind it, and it has now
+ * survived two model changes it was never valid across. **A threshold does not transfer between
+ * embedding models.** It is a property of one model's cosine scale, and treating it as a constant of
+ * the product is how retrieval breaks without anything failing.
  *
- * Measured on the fixture world (5 chunks, 8 questions, half of them Italian against English
- * prose) through the live gateway: correct pairs 0.5882 to 0.7981, unrelated pairs 0.4896 to
- * 0.6680, and the right chunk ranked first 8 times out of 8. Two consequences, both load-bearing:
+ * Current model, `alibaba/qwen3-embedding-4b` (issue #125, chosen in `models.ts`), measured on the
+ * Valdoria Reach gold corpus through the live gateway, 20 questions in each language over 15 chunks:
  *
- * 1. ranking is what works, thresholding barely discriminates. The distributions overlap, so no
- *    threshold separates relevant from irrelevant on this model. The threshold is a noise floor,
- *    not a relevance test, and reading it as one is how retrieval quietly gets worse.
- * 2. 0.5 was nearly a no-op here (it cut nothing above the 0.4896 floor) and anything above
- *    0.5882 started dropping correct answers. 0.55 sits between the two with the whole correct
- *    set intact.
+ * | | relevant pairs | unrelated pairs |
+ * | --- | --- | --- |
+ * | English questions | min 0.3105, median 0.5249 | median 0.3186, p99 0.6280 |
+ * | Italian questions | min 0.2372, median 0.4625 | median 0.2560, p99 0.5195 |
  *
- * This is a 5-chunk smoke calibration, not the gold corpus. The 2044-chunk eval has to be
- * re-run against the real embedder before either number is quotable again, which is what
- * packages/eval's retrieval harness is for.
+ * What that buys at each candidate floor, on the Italian set (the harder direction and the one
+ * SPEC.md §17 promises):
+ *
+ * | threshold | answers kept | noise admitted |
+ * | --- | --- | --- |
+ * | 0.20 | 100% | 78% |
+ * | **0.25** | **96%** | **53%** |
+ * | 0.30 | 88% | 32% |
+ * | 0.35 | 69% | 16% |
+ *
+ * So 0.25, and the reasoning is the same one that has held through every model measured here: the
+ * distributions overlap, no threshold separates relevant from irrelevant, and the threshold's only
+ * job is to cut the floor without cutting answers. Precision comes from ranking and top-k, not
+ * from this number. 0.30 would look tidier and would quietly lose 12% of Italian answers.
+ *
+ * The previous value was 0.55, calibrated for `gemini-embedding-001`, whose noise floor alone sat
+ * there. Against this model 0.55 is above the median relevant score in both languages: shipping the
+ * model change without re-deriving this would have discarded most correct hits and looked like a
+ * retrieval quality problem rather than a constant left behind.
  */
 export const DEFAULT_TOP_K = 8;
-export const DEFAULT_THRESHOLD = 0.55;
+export const DEFAULT_THRESHOLD = 0.25;
 
-/** How much each matched keyword adds to a hit's cosine score. Small relative to the
- * [0, 1] cosine range so the boost nudges ranking among close hits rather than
- * overriding vector similarity outright. */
+/**
+ * How much each matched keyword adds to a hit's cosine score, meant to nudge ranking among close
+ * hits rather than override similarity.
+ *
+ * **Unverified against the current model, and the risk is not theoretical.** 0.03 was chosen
+ * against a nominal [0, 1] cosine range, but `qwen3-embedding-4b` separates a relevant chunk from
+ * an unrelated one by about 0.19 on our gold corpus, so six matched keywords would be worth the
+ * entire signal and a chunk could win on vocabulary alone. Nothing measures that today: the model
+ * comparison in `models.ts` scored pure cosine, with this boost out of the path.
+ *
+ * Left as it is rather than guessed downward, because a number changed without a measurement is
+ * how the threshold above ended up wrong. Whoever exercises the boost through
+ * `packages/eval`'s harness should size it against the separation it is nudging inside.
+ */
 const KEYWORD_BOOST_PER_MATCH = 0.03;
 
 export interface RetrievalHit {

@@ -63,7 +63,10 @@ export const modelCall = pgTable(
 		outputTokens: integer('output_tokens').notNull().default(0),
 		embeddingTokens: integer('embedding_tokens').notNull().default(0),
 		credits: numeric('credits', { precision: 12, scale: 4, mode: 'number' }).notNull().default(0),
-		costEur: numeric('cost_eur', { precision: 12, scale: 6, mode: 'number' }).notNull().default(0),
+		// scale 10, not 6: at qwen3-embedding-4b's rate a short embedding call costs about
+		// 0.0000002 EUR, which rounded to zero at scale 6 and quietly removed the highest-volume
+		// call in the product from every cost sum (migration 0026).
+		costEur: numeric('cost_eur', { precision: 14, scale: 10, mode: 'number' }).notNull().default(0),
 		latencyMs: integer('latency_ms').notNull(),
 		requestId: text('request_id'),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()

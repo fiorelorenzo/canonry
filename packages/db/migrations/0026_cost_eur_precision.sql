@@ -1,0 +1,14 @@
+-- `model_call.cost_eur` was numeric(12,6), so the smallest representable cost is 0.000001 EUR.
+-- That was fine at gemini's $0.150 per million tokens and stopped being fine at
+-- qwen3-embedding-4b's $0.020 (migration 0025): a short embedding call costs about 0.0000002 EUR
+-- and rounded to exactly zero on the way into the column. The call was recorded, its tokens were
+-- recorded, and its cost was silently dropped.
+--
+-- That matters precisely because embeddings are the highest-volume, lowest-unit-cost calls this
+-- product makes. Rounding each one to zero does not lose a rounding error, it loses the whole
+-- category, and SPEC.md §15's margin question is answered by summing this column.
+--
+-- numeric(14,10) holds a tenth of a nanoeuro, which covers a single-token call at any rate a
+-- provider is plausibly going to charge, and still leaves four digits ahead of the point for a
+-- job that spends thousands. Widening scale on numeric is lossless for existing rows.
+ALTER TABLE "model_call" ALTER COLUMN "cost_eur" TYPE numeric(14, 10);
