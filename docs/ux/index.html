@@ -68,21 +68,22 @@
   options are drawn rather than described because half of these questions cannot be
   answered from a paragraph: density, marking, diff layout and phone ergonomics are
   decided by looking.</p>
-  <p><b>Rounds one and two are decided:</b> 49 answers, all taken on 2026-08-13 and
-  recorded in <a href="DECISIONS.md">DECISIONS.md</a> and in the register below, so a
-  page you open shows what was chosen at the top and keeps its options and its rejected
-  section underneath. Three of those answers went against what the artifact recommended,
-  which is the set working rather than failing: A1 took the reading room and repainted
-  everything here, G2 took serif all the way down to the number columns, and G9 kept
-  retrieval running with the AI off.</p>
-  <p><b>Nothing is open.</b> H1, the last one, was answered on 2026-08-14 by removing the
-  problem rather than wording around it: reading is free, so the meter no longer moves for
-  a universe whose switch is off, the switch is named for what it stops (writing), and the
-  credit price of every operation lives in a table an admin edits. That is larger than the
-  question asked, which is what a good answer to a decision like this looks like. It is in
-  <a href="https://github.com/fiorelorenzo/canonry/blob/main/SPEC.md">SPEC.md</a> at
-  guardrail 4 and section 15, and built as
-  <a href="https://github.com/fiorelorenzo/canonry/issues/113">#113</a>.</p>
+  <p><b>All four rounds are decided:</b> 61 answers, the first 49 on 2026-08-13, H1 and H2 on
+  2026-08-14, and round four's ten on 2026-08-15, recorded in
+  <a href="DECISIONS.md">DECISIONS.md</a> and in the register below, so a page you open shows
+  what was chosen at the top and keeps its options and its rejected section underneath. Five of
+  those answers went against what the artifact recommended, which is the set working rather
+  than failing: A1 took the reading room and repainted everything here, G2 took serif all the
+  way down to the number columns, G9 kept retrieval running with the AI off, I1 kept a door
+  page in the app rather than redirecting to sign-in, and I9 took shadcn-svelte for the whole
+  control layer rather than six components of our own.</p>
+  <p><b>Round four came from the other direction.</b> The first three answered questions asked
+  before there was any code. Round four is what the shipped UI asked back: I signed into the
+  deployed preview as a new user, could not create a universe, and audited every route to find
+  out why. Its ten answers live in one artifact rather than ten, because it is a pass over the
+  product rather than a question,
+  <a href="product-pass.html"><b>the product pass</b></a>, and they are filed as
+  <a href="https://github.com/fiorelorenzo/canonry/issues/135">#135</a>.</p>
   <ol class="steps">
     <li>Every page in the register shows what was chosen at the top, and keeps its options
     and its rejected section underneath, because the reasoning behind an option that lost
@@ -137,15 +138,15 @@
 
       <tr class="grp"><td colspan="4">Shell and foundations</td></tr>
       <tr><td><b>App shell</b></td><td>Sidebar, top bar, universe switcher, the frame every other screen sits in</td>
-        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/104">#104</a></td><td class="gate">A1 A2 &middot; G1 G2</td></tr>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/104">#104</a> <a href="https://github.com/fiorelorenzo/canonry/issues/141">#141</a> <a href="https://github.com/fiorelorenzo/canonry/issues/148">#148</a></td><td class="gate">A1 A2 &middot; G1 G2 &middot; I3 I10</td></tr>
       <tr><td><b>Command palette</b></td><td>Search, jump, run an action, possibly ask a question</td>
-        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/104">#104</a> <a href="https://github.com/fiorelorenzo/canonry/issues/75">#75</a></td><td class="gate">A3 &middot; G3</td></tr>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/149">#149</a></td><td class="gate">A3 &middot; G3</td></tr>
       <tr><td><b>Auth screens</b></td><td>Signup, login, social login, the first screen anybody sees</td>
-        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/86">#86</a></td><td class="gate">A1 D7</td></tr>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/86">#86</a> <a href="https://github.com/fiorelorenzo/canonry/issues/139">#139</a></td><td class="gate">A1 D7 &middot; I1 I2</td></tr>
       <tr><td><b>Settings</b></td><td>Account, universe, AI on and off, keys, style, export</td>
-        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/107">#107</a> <a href="https://github.com/fiorelorenzo/canonry/issues/90">#90</a></td><td class="gate">C10 F3 &middot; H1</td></tr>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/107">#107</a> <a href="https://github.com/fiorelorenzo/canonry/issues/143">#143</a> <a href="https://github.com/fiorelorenzo/canonry/issues/144">#144</a></td><td class="gate">C10 F3 &middot; H1 &middot; I5 I6</td></tr>
       <tr><td><b>Empty states</b></td><td>New universe, no entries, no proposals, nothing revealed yet</td>
-        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/104">#104</a> <a href="https://github.com/fiorelorenzo/canonry/issues/108">#108</a></td><td class="gate">A2 D7</td></tr>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/146">#146</a></td><td class="gate">A2 D7 &middot; I8</td></tr>
 
       <tr class="grp"><td colspan="4">Canon</td></tr>
       <tr><td><b>Entry read view</b></td><td>The most visited screen in the product</td>
@@ -153,7 +154,7 @@
       <tr><td><b>Entry editor</b></td><td>Markdown, mentions, sections, saving that triggers propagation</td>
         <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/105">#105</a></td><td class="gate">B2 &middot; G4</td></tr>
       <tr><td><b>Entry browser</b></td><td>List and filter 214 entries by type, alias, recency</td>
-        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/15">#15</a> <a href="https://github.com/fiorelorenzo/canonry/issues/104">#104</a></td><td class="gate">A2 B1</td></tr>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/145">#145</a></td><td class="gate">A2 B1 &middot; I7</td></tr>
       <tr><td><b>Relation editing</b></td><td>One row, two labels, cardinality, allowed types</td>
         <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/16">#16</a></td><td class="gate">B3</td></tr>
       <tr><td><b>Type and alias confirmation</b></td><td>Inferred, confirmed with one click, never a form</td>
@@ -239,15 +240,15 @@
       <tr><td><b>Image generation</b></td><td>One image or four variants, a badge, a style</td>
         <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/66">#66</a> <a href="https://github.com/fiorelorenzo/canonry/issues/65">#65</a> <a href="https://github.com/fiorelorenzo/canonry/issues/64">#64</a></td><td class="gate">F1 &middot; G11</td></tr>
       <tr><td><b>Quota and cost</b></td><td>Credits or currency, and the warm budget on its own line</td>
-        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/88">#88</a> <a href="https://github.com/fiorelorenzo/canonry/issues/89">#89</a></td><td class="gate">F2 &middot; G9 G11 H1</td></tr>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/88">#88</a> <a href="https://github.com/fiorelorenzo/canonry/issues/89">#89</a> <a href="https://github.com/fiorelorenzo/canonry/issues/150">#150</a></td><td class="gate">F2 &middot; G9 G11 H1</td></tr>
       <tr><td><b>Subscription and checkout</b></td><td>The page where somebody pays</td>
         <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/91">#91</a> <a href="https://github.com/fiorelorenzo/canonry/issues/7">#7</a></td><td class="gate">F2</td></tr>
       <tr><td><b>BYO key and privacy</b></td><td>Which provider sees what, in plain words</td>
         <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/90">#90</a> <a href="https://github.com/fiorelorenzo/canonry/issues/109">#109</a></td><td class="gate">F3</td></tr>
       <tr><td><b>Metrics</b></td><td>Accept rate and time to first value, the two that decide this</td>
         <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/100">#100</a> <a href="https://github.com/fiorelorenzo/canonry/issues/101">#101</a> <a href="https://github.com/fiorelorenzo/canonry/issues/103">#103</a> <a href="https://github.com/fiorelorenzo/canonry/issues/102">#102</a></td><td class="gate">F5</td></tr>
-      <tr><td><b>Landing and demo</b></td><td>The propagation loop shown without overpromising</td>
-        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/3">#3</a> <a href="https://github.com/fiorelorenzo/canonry/issues/4">#4</a> <a href="https://github.com/fiorelorenzo/canonry/issues/5">#5</a></td><td class="gate">F6 &middot; G10</td></tr>
+      <tr><td><b>Landing and demo</b></td><td>The propagation loop shown without overpromising. Ships from <code>canonry-landing</code>, its own repository and its own deployment, not from this one</td>
+        <td class="iss">another repo &middot; <a href="https://github.com/fiorelorenzo/canonry/issues/129">#129</a></td><td class="gate">F6 &middot; G10</td></tr>
 
     </tbody>
   </table>

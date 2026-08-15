@@ -27,6 +27,27 @@
     font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.07em;
     color: var(--muted); margin: 30px 0 12px;
   }
+
+  /* the answer, once taken: a strip under the lede and an outline on the option */
+  .verdict {
+    max-width: 52em; margin: 16px 0 0; padding: 12px 14px;
+    border: 1px solid var(--accent); border-left-width: 3px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    background: var(--accent-bg); font-size: 14px; color: var(--ink-2);
+  }
+  .verdict b { color: var(--ink); }
+  .verdict .tag {
+    display: inline-block; font: 600 10px/1.6 var(--mono); letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--panel); background: var(--accent);
+    border-radius: 999px; padding: 1px 8px; margin-right: 8px; vertical-align: 1px;
+  }
+  .opt.chosen { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+  .opt.chosen > header::after {
+    content: 'chosen'; margin-left: auto;
+    font: 600 10px/1.6 var(--mono); letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--panel); background: var(--accent); border-radius: 999px; padding: 1px 8px;
+  }
+  .opt.chosen > header { width: 100%; }
   ul.flaws { max-width: 52em; padding-left: 0; list-style: none; margin: 14px 0 0; }
   ul.flaws li {
     font-size: 14px; color: var(--ink-2); padding: 8px 0 8px 16px;
@@ -372,8 +393,11 @@
   <p class="sub">I signed into preview.canonry.io as a new user and could not create a universe.
   That is the symptom. The cause is one structural thing, and once it is named, most of the
   rest of the list stops being a list of small ugly screens and becomes one piece of work.</p>
-  <p class="tally">Ten surfaces below, two or three drawn options each, one recommendation each.
-  Nothing here is decided.</p>
+  <p class="tally">Ten surfaces, two or three drawn options each. <b>All ten answered on
+  2026-08-15</b> and recorded in <a href="DECISIONS.md">DECISIONS.md</a> as round four. Each
+  surface shows its answer under the question and keeps every option underneath, because the
+  reasoning behind an option that lost is what stops it being reopened. Two went against my
+  recommendation, I1 and I9, and both say so where they sit.</p>
   <nav class="toc">
     <a href="#i1"><b>I1</b>The signed-out door</a>
     <a href="#i2"><b>I2</b>Sign in and sign up</a>
@@ -598,6 +622,8 @@
   What is not handled is what the application itself serves at <code>/</code> to somebody who is not
   signed in, which today is the empty universe list with a broken sentence in it.</p>
 
+  <div class="verdict"><span class="tag">decided</span><b>B, the door page.</b> Taken against my recommendation of A, so the app keeps a signed-out root instead of redirecting to sign-in. The cost A avoided is now real and worth naming here: the sentence on this page and the pitch on <code>canonry.io</code> have to be kept in step by hand, and the app's copy is the one nobody will remember to update.</div>
+
   <h4 class="shead">Today</h4>
   <figure class="mock">
     <div class="frame">
@@ -685,7 +711,7 @@
       </div>
     </div>
 
-    <div class="opt">
+    <div class="opt chosen">
       <header><span class="ltr">B</span><h3>A door page: a sentence, two actions, the links that must exist</h3></header>
       <p class="sub">Keep the signed-out branch and make it a door rather than an empty room. The
       spec's own TL;DR sentence, which the layout already ships as its meta description and which has
@@ -799,6 +825,8 @@
   than the fields above it. Everything on them works. Nothing on them says a person designed
   them.</p>
 
+  <div class="verdict"><span class="tag">decided</span><b>C for sign-in, B for sign-up.</b> As recommended. One layout with an optional right pane: the door is the title page, and the screen where somebody decides to sign up carries the argument. The four defects in the flaw list are not part of the choice and go in the same commit.</div>
+
   <h4 class="shead">Today</h4>
   <figure class="mock">
     <div class="frame">
@@ -896,7 +924,7 @@
       </div>
     </div>
 
-    <div class="opt">
+    <div class="opt chosen">
       <header><span class="ltr">B</span><h3>Split: the form, and the reason to fill it in</h3></header>
       <p class="sub">The card on the left, and on the right the product doing its one trick on the
       sample world: a sentence changed, a proposal drafted, marked as unaccepted and waiting. Static,
@@ -955,7 +983,7 @@
       </div>
     </div>
 
-    <div class="opt rec-opt">
+    <div class="opt rec-opt chosen">
       <header><span class="ltr">C</span><h3>The title page</h3></header>
       <p class="sub">Full paper, the mark set large and centred, the form at 22rem under it and
       nothing else above the fold. The reading room applied to the one screen that currently looks
@@ -1025,6 +1053,8 @@
   <h3 class="stitle">The home page, signed in</h3>
   <p class="lede">This is the first screen anyone with an account actually lands on, and it has to say where the product is: your universes, and one way into a new one. Today it says one sentence and offers a settings link.</p>
 
+  <div class="verdict"><span class="tag">decided</span><b>B, the shell reaches outside a universe</b>, with C's redirect as the zero-universe behaviour. This is the structural answer and the largest piece of work on the page: A2's sidebar stops being a universe frame and becomes the product's frame, with an account-level mode when no universe is selected. Six of the other nine surfaces get easier the day it lands.</div>
+
   <h4 class="shead">Today</h4>
   <figure class="mock"><div class="frame">
     <div class="i3-bare">
@@ -1078,7 +1108,7 @@
       </div>
     </div>
 
-    <div class="opt">
+    <div class="opt chosen">
       <header><span class="ltr">B</span><h3>The shell reaches outside a universe</h3></header>
       <p class="sub">A2's sidebar becomes the frame for the whole product. With no universe selected, the switcher offers "All universes" and "New universe," the nav below it becomes the account's own places, and the same footer carries the user, theme, language and quota everywhere.</p>
       <figure class="mock"><div class="frame">
@@ -1159,6 +1189,8 @@
   <h3 class="stitle">Creating a universe</h3>
   <p class="lede">D7 decided the onboarding path: name a universe, then import first with a pre-indexed fallback. What shipped is that screen plus a second, undecided one, and neither is reachable from anywhere in the product.</p>
 
+  <div class="verdict"><span class="tag">decided</span><b>B, one creation surface.</b> <code>/onboarding</code> absorbs <code>/u/new</code>, the three starts are cards with D7's import as the loud default, and <code>/u/new</code> redirects into it rather than staying a second door.</div>
+
   <h4 class="shead">Today</h4>
   <figure class="mock"><div class="frame">
     <div class="i4-split">
@@ -1218,7 +1250,7 @@
       </div>
     </div>
 
-    <div class="opt">
+    <div class="opt chosen">
       <header><span class="ltr">B</span><h3>One creation surface</h3></header>
       <p class="sub">/onboarding absorbs /u/new: name, then three starts drawn as cards, import a world, start empty, derive from a pre-indexed universe. /u/new redirects into it.</p>
       <figure class="mock"><div class="frame">
@@ -1306,6 +1338,8 @@
   save it to, and vanishes on the third. Sign in and the control is gone: the page that writes a
   real preference, <code>/settings/language</code>, is not linked from anywhere in the interface.
   So a GM who lands in English and wants Italian has to know the URL.</p>
+
+  <div class="verdict"><span class="tag">decided</span><b>B, the account menu, with Settings behind it.</b> Endonyms, current value on the row. The flags are not happening, for the reasons in the costs above; if the top bar ever wants this control, it carries “Italiano” as text and not a country.</div>
 
   <h4 class="shead">Today</h4>
   <figure class="mock">
@@ -1423,7 +1457,7 @@
       </div>
     </div>
 
-    <div class="opt rec-opt">
+    <div class="opt rec-opt chosen">
       <header><span class="ltr">B</span><h3>In the account menu, with Settings behind it</h3></header>
       <p class="sub">The shell footer carries the user. Clicking it opens the account menu, where
       Language is a row showing the current value as an endonym, and choosing it switches in place.
@@ -1559,6 +1593,8 @@
   is five unconnected screens, reachable only if you already know the URL, and none of them let
   you change the name or the email the product prints on every page you visit.</p>
 
+  <div class="verdict"><span class="tag">decided</span><b>B, the account menu plus one two-pane settings page</b>, with a real Account pane holding name, email, password, sign out everywhere and delete. Its dependency on I3's shell is the schedule rather than a risk: I3 first, then this, and the menu is the same component I5 needs.</div>
+
   <h4 class="shead">Today</h4>
   <figure class="mock">
     <div class="frame">
@@ -1676,7 +1712,7 @@
       </div>
     </div>
 
-    <div class="opt rec-opt">
+    <div class="opt rec-opt chosen">
       <header><span class="ltr">B</span><h3>Account menu in the shell, two-pane settings</h3></header>
       <p class="sub">The shell's own footer carries the signed-in user. Clicking it opens a
       menu: Account, Language, Appearance, Keys, Billing, Export, Sign out. The five pages
@@ -1857,6 +1893,8 @@
   sort and no pagination, and (verified by grep) no "New entry" control anywhere in the product either.
   <code>docs/ux/index.html</code> promised an entry browser and shipped a Recent list instead.</p>
 
+  <div class="verdict"><span class="tag">decided</span><b>C, one page, two modes.</b> The browser is the universe home with a collapsible overview strip pinned above it, so nothing needs a new address and A2's cap of seven holds. The palette stays the other half of finding an entry, and it still has no issue.</div>
+
   <h4 class="shead">Today</h4>
   <figure class="mock">
     <div class="frame">
@@ -2022,7 +2060,7 @@
       </div>
     </div>
 
-    <div class="opt rec-opt">
+    <div class="opt rec-opt chosen">
       <header><span class="ltr">C</span><h3>One page, two modes</h3></header>
       <p class="sub">The home is the browser, exactly as in A, with a collapsible overview strip pinned above
       it carrying B's four signals: what changed, waiting for review, quota, current work. Collapsing it
@@ -2112,6 +2150,8 @@
   and "no universes yet" are not the same kind of empty, and treating all ten identically means
   the one place a button belongs never gets one.</p>
 
+  <div class="verdict"><span class="tag">decided</span><b>A, one component, three variants.</b> Cold start gets a primary action, a settled state stays a plain sentence and never grows a button that invents work, and a derived absence explains what it waits on. The copy stays in the i18n catalogue, not in the component.</div>
+
   <h4 class="shead">Today</h4>
   <figure class="mock">
     <div class="frame">
@@ -2176,7 +2216,7 @@
   <h4 class="shead">Options</h4>
   <div class="opts one">
 
-    <div class="opt rec-opt">
+    <div class="opt rec-opt chosen">
       <header><span class="ltr">A</span><h3>One component, three variants</h3></header>
       <p class="sub">An <code>EmptyState</code> component with three shapes: <b>cold</b> takes a
       sentence and one primary action, <b>settled</b> takes a sentence and nothing else,
@@ -2346,6 +2386,29 @@
   tokens those controls should be built from are fine: <code>routes/layout.css</code> is a
   complete, careful system, both palettes, serif everywhere per G2, tabular figures, a real
   reading measure. This section counts how many different ways that system gets spent.</p>
+
+  <div class="verdict"><span class="tag">decided</span><b>C, shadcn-svelte as the control
+  layer</b>, with components of our own only where it has no answer. Taken against my
+  recommendation of B, and the argument that wins is the one C's costs understated: the six
+  components B would extract are the easy six, and the three that are actually hard, a dialog, a
+  dropdown and a popover with real focus management, are the ones B still leaves to be
+  hand-rolled. Four things this locks in, all verified against shadcn-svelte 1.5.0 rather than
+  assumed. It expects its own token vocabulary, <code>--background</code>,
+  <code>--foreground</code>, <code>--primary</code>, <code>--muted</code>,
+  <code>--border</code>, <code>--input</code>, <code>--ring</code>, <code>--radius</code>, so
+  the first task is one mapping block in <code>layout.css</code> from the reading room's names
+  into that vocabulary, in one place, or every component gets restyled on arrival. Its dark
+  variant is a <code>.dark</code> class, declared as
+  <code>@custom-variant dark (&amp;:is(.dark *))</code>, and this app themes on
+  <code>[data-theme='dark']</code>, so that custom variant gets redefined against the attribute
+  and G1's preference keeps working. The CLI copies component source into
+  <code>$lib/components/ui</code> rather than adding a runtime dependency, which is what makes
+  the restyle ours to do and ours to keep; what it does add is <code>bits-ui</code>,
+  <code>clsx</code>, <code>tailwind-merge</code>, <code>tailwind-variants</code> and an icon
+  set, all MIT and therefore fine to consume under AGPL. And the icon set is a design decision
+  smuggled in as a dependency: this product has no icon language today, only the mark and a few
+  glyphs, so either Lucide becomes that language deliberately or the components that reach for
+  it get their icons replaced as they land.</div>
 
   <h4 class="shead">Today</h4>
   <figure class="mock">
@@ -2607,7 +2670,7 @@
       </div>
     </div>
 
-    <div class="opt">
+    <div class="opt chosen">
       <header><span class="ltr">C</span><h3>Adopt shadcn-svelte properly</h3></header>
       <p class="sub"><code>SPEC.md</code> &sect;11 already names shadcn-svelte in the
       <code>apps/web</code> stack; nothing in the app imports it. Draw what it buys where
@@ -2769,6 +2832,8 @@
   with no breakpoint, so on a 390px phone it eats two thirds of the screen. E4 and G1 were both decided with
   a GM at a lit table in mind; prep on a sofa, or reading on a train, was never drawn.</p>
 
+  <div class="verdict"><span class="tag">decided</span><b>B, one responsive shell.</b> E4's bottom tabs generalise past table mode, the sidebar collapses to a drawer, and the entry reader and the review queue are the two screens that have to survive at 390px. Priced as a pass over every route rather than a new screen.</div>
+
   <h4 class="shead">Today</h4>
   <figure class="mock">
     <div class="frame" style="display:flex;justify-content:center;padding:20px;background:var(--panel-2)">
@@ -2840,7 +2905,7 @@
       </div>
     </div>
 
-    <div class="opt rec-opt">
+    <div class="opt rec-opt chosen">
       <header><span class="ltr">B</span><h3>One responsive shell</h3></header>
       <p class="sub">The sidebar collapses to a drawer behind the universe switcher; the top bar gains the
       palette and the account; E4's bottom tabs generalise from table mode to the whole app. Drawn at the
@@ -3014,24 +3079,33 @@
 </section>
 
 <section>
-  <h2>The decisions this opens, and the empty board underneath them</h2>
-  <p>Ten, ids I1 to I10, and none of them is taken. When they are, they go into
-  <a href="DECISIONS.md">DECISIONS.md</a> as round four and into the register in
-  <code>assets/ux.js</code>, with the issues each one blocks named on the issue itself. Two of them
-  amend an answer that already exists rather than opening new ground, and those are the two worth
-  reading twice: I3's option B changes what A2's sidebar is for, and I10's option B extends E4's
-  bottom tabs past table mode.</p>
-  <p><b>None of this has a ticket, because the board has nothing left on it.</b> Every issue that
-  built a surface named on this page is closed: #104 the app shell, #86 auth, #108 onboarding, #107
-  the writing switch, #88 and #89 the quota. The five that are still open are import cost bugs, a
-  billing currency bug, a backup alert and the v2 Spole driver. So the board says the shell is Done
-  while the shell does not exist outside a universe, and it says onboarding is Done while nothing
-  links to it. That is the honest reading of a board built issue by issue: each ticket did what it
-  said, and nobody filed the one that says these screens have to add up to a product.</p>
-  <p>Two of the eleven findings need no answer and can be committed today, the doubled sign-in
-  sentence and the <code>prefers-color-scheme</code> gap. The rest wait on the picks above, and then
-  become the next wave: one issue per surface, each hanging off the epic that owns it, with the
-  decision id in the body so the reason survives the ticket.</p>
+  <h2>The answers, and the wave they were filed as</h2>
+  <p>All ten were taken on 2026-08-15, an hour after this page was written, and they are recorded
+  in <a href="DECISIONS.md">DECISIONS.md</a> as round four and in the register in
+  <code>assets/ux.js</code> as I1 to I10. Each surface above carries its answer under the question
+  and keeps every option underneath it, because the reasoning behind an option that lost is what
+  stops it being reopened. Two went against my recommendation: I1 keeps a door page in the app
+  rather than redirecting to sign-in, and I9 takes shadcn-svelte for the whole control layer
+  rather than the six components I would have extracted.</p>
+  <p><b>The board was empty when this was written.</b> Every issue that built a surface named on
+  this page is closed: #104 the app shell, #86 auth, #108 onboarding, #107 the writing switch, #88
+  and #89 the quota. The five still open are import cost bugs, a billing currency bug, a backup
+  alert and the v2 Spole driver. So the board said the shell was Done while the shell does not
+  exist outside a universe, and said onboarding was Done while nothing links to it. That is the
+  honest reading of a board built issue by issue: each ticket did what it said, and nobody filed
+  the one that says these screens have to add up to a product.</p>
+  <p>That issue now exists. <b>Epic
+  <a href="https://github.com/fiorelorenzo/canonry/issues/135">#135</a>, the product pass</b>, with
+  fifteen children: the two defects that needed no answer
+  (<a href="https://github.com/fiorelorenzo/canonry/issues/136">#136</a> the doubled sentence,
+  <a href="https://github.com/fiorelorenzo/canonry/issues/137">#137</a> the
+  <code>prefers-color-scheme</code> gap), one per surface, and two the pass found while looking
+  for something else: the command palette
+  (<a href="https://github.com/fiorelorenzo/canonry/issues/149">#149</a>), which had never had an
+  issue in its life, and the quota meter
+  (<a href="https://github.com/fiorelorenzo/canonry/issues/150">#150</a>), whose numbers are
+  already computed and rendered on a settings page nothing links to. The full mapping is in
+  <a href="DECISIONS.md">DECISIONS.md</a>.</p>
   <p class="small muted">The set's own index said "there is no UI yet", which was true when it was
   written. It now points here instead.</p>
 </section>
