@@ -300,6 +300,68 @@ describe('proposals', () => {
 			expect(createdEntity?.type).toBe('character');
 		});
 
+		it('a create-kind accept that loses the entity_universe_slug_key race folds onto the winner instead of raising a raw query error (issue #160)', async () => {
+			const { u } = await fixture();
+			const sharedSlug = unique('aldric-vane');
+
+			async function createCandidate(name: string, body: string) {
+				const { proposals } = await createProposalPlan(db, {
+					universeId: u.id,
+					trigger: 'import',
+					summary: 'x',
+					candidateCap: 10,
+					estimatedCredits: 0,
+					candidates: [
+						{ kind: 'create', targetEntityId: null, rationale: 'r', evidence: [], rank: 0 }
+					]
+				});
+				const created = proposals[0]!;
+				await recordProposalDiff(db, {
+					proposalId: created.id,
+					patch: { type: 'character', name, slug: sharedSlug, aliases: [], body },
+					provider: 'test',
+					modelId: 'test',
+					credits: 0
+				});
+				return created;
+			}
+
+			// Two independent proposals - as if two different documents, or two different
+			// import jobs, both slugified to the same name. materializeDocumentProposals's
+			// own fix (issue #160) only sees one job's own pending output, so this race is
+			// still real between two jobs, or between an import and a manually authored
+			// "new entity", even after that fix.
+			const first = await createCandidate('Aldric Vane', 'Commands the harbour watch.');
+			const second = await createCandidate('Aldric Vane', 'Also patrols the docks at night.');
+
+			const firstAccepted = await acceptProposal(db, { proposalId: first.id });
+			expect(firstAccepted.outcome).toBe('accepted');
+
+			// Without the fix, this throws a raw DrizzleQueryError wrapping the Postgres
+			// unique violation - a GM's second accept of the same-named entity turning into
+			// a 500 instead of a change.
+			const secondAccepted = await acceptProposal(db, { proposalId: second.id });
+			expect(secondAccepted.outcome).toBe('accepted');
+			expect(secondAccepted.kind).toBe('create');
+
+			const entityRows = await db.select().from(entity).where(eq(entity.slug, sharedSlug));
+			expect(entityRows).toHaveLength(1);
+			const target = entityRows[0]!;
+			// The losing accept's target is now recorded on the proposal - honest history
+			// that it landed as an update onto the entity the winner created.
+			expect(secondAccepted.targetEntityId).toBe(target.id);
+			// The losing proposal's own patch is what the entity now holds.
+			expect(target.body).toBe('Also patrols the docks at night.');
+
+			const revisions = await db
+				.select()
+				.from(revision)
+				.where(eq(revision.entityId, target.id))
+				.orderBy(revision.createdAt);
+			expect(revisions).toHaveLength(2);
+			expect(revisions[1]?.id).toBe(secondAccepted.appliedRevisionId);
+		});
+
 		it('a create-kind accept prefers patch.language over detecting the (often thin) body (issue #122/#125)', async () => {
 			const { u } = await fixture();
 			const { proposals } = await createProposalPlan(db, {

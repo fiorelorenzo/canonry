@@ -6,16 +6,22 @@
 // acceptProposal - "nothing else in the codebase may write canon from a proposal" holds
 // here too, this file only adds the import-specific bookkeeping (entity_source_ref)
 // around that boundary.
-import { and, count, eq, gte, lt, sql } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import { entity } from '../schema/entity.js';
 import type { EntityType, ImportJobStatus, RelationCardinality } from '../schema/enums.js';
 import { relationType } from '../schema/relation.js';
+import { proposal, proposalPlan } from '../schema/proposal.js';
 import { revision } from '../schema/revision.js';
 import { entitySourceRef, importJob } from '../schema/source.js';
 import { userBilling } from '../schema/billing.js';
 import { ensureBilling } from './billing.js';
-import { acceptProposal, type AcceptProposalInput, type ProposalRow } from './proposals.js';
+import {
+	acceptProposal,
+	readEntityCreatePatch,
+	type AcceptProposalInput,
+	type ProposalRow
+} from './proposals.js';
 
 export type ImportJobRow = typeof importJob.$inferSelect;
 export type EntitySourceRefRow = typeof entitySourceRef.$inferSelect;
@@ -372,6 +378,97 @@ export async function candidateEntitiesForMatching(
 		.from(entity)
 		.where(and(eq(entity.universeId, universeId), eq(entity.type, type)))
 		.limit(limit);
+}
+
+// ---------------------------------------------------------------------------
+// The job's own pending proposals (issue #160): the merge engine's candidate pool for
+// document N has to include the `create` proposals documents 1..N-1 of this same job
+// already wrote, not only committed canon - otherwise every document that names an
+// entity a vault already introduced elsewhere proposes it again, and the second accept
+// collides on `entity_universe_slug_key`.
+// ---------------------------------------------------------------------------
+
+/** The semantic step's *other* candidate pool (SPEC.md §6.4 step 2, extended by issue
+ * #160): still-pending `create`/`draft_entity` proposals from this same import job, read
+ * back out of their patch since `proposal` itself carries no `entity.type` column. A row
+ * that does not parse as a create patch (should not happen - job-runner.ts always writes
+ * one before the next document can see it, but a bad row should never take an otherwise
+ * healthy import down) is skipped rather than thrown on. */
+export async function pendingEntityProposalsForJob(
+	db: Db,
+	importJobId: string,
+	type: EntityType,
+	limit = 200
+): Promise<MatchCandidateRow[]> {
+	const rows = await db
+		.select({ id: proposal.id, patch: proposal.patch })
+		.from(proposal)
+		.innerJoin(proposalPlan, eq(proposalPlan.id, proposal.planId))
+		.where(
+			and(
+				eq(proposalPlan.importJobId, importJobId),
+				eq(proposal.outcome, 'pending'),
+				inArray(proposal.kind, ['create', 'draft_entity'])
+			)
+		)
+		.limit(limit);
+
+	const candidates: MatchCandidateRow[] = [];
+	for (const row of rows) {
+		try {
+			const patch = readEntityCreatePatch(row.patch);
+			if (patch.type === type)
+				candidates.push({ id: row.id, name: patch.name, aliases: patch.aliases });
+		} catch {
+			// patch: {} before recordProposalDiff ran, or a genuinely malformed row - either
+			// way, not a candidate, and not a reason to fail the import over.
+		}
+	}
+	return candidates;
+}
+
+export interface FoldEntitySightingInput {
+	proposalId: string;
+	/** This sighting's own name plus its declared aliases - unioned into the pending
+	 * proposal's alias list (minus whatever already equals its name) so a later document
+	 * that calls the entity something slightly different stays findable by both. The
+	 * first sighting's name and body stay authoritative: the document a vault names an
+	 * entity after is what should author its prose, not whichever document happens to
+	 * mention it second. */
+	names: string[];
+}
+
+/** issue #160: folds a repeat sighting of an entity this job already proposed as a
+ * `create` into that same pending proposal, instead of writing a second, colliding one.
+ * A no-op if the proposal moved on since the caller read it as a match candidate (an
+ * accept or reject racing this same import job) - that is a different, already-handled
+ * outcome, not a failure of the fold itself. */
+export async function foldEntitySightingIntoPendingProposal(
+	db: Db,
+	input: FoldEntitySightingInput
+): Promise<void> {
+	await db.transaction(async (tx) => {
+		const [existing] = await tx
+			.select()
+			.from(proposal)
+			.where(eq(proposal.id, input.proposalId))
+			.for('update')
+			.limit(1);
+		if (!existing || existing.outcome !== 'pending') return;
+		if (existing.kind !== 'create' && existing.kind !== 'draft_entity') return;
+
+		const patch = readEntityCreatePatch(existing.patch);
+		const currentAliases = new Set(patch.aliases);
+		const additions = input.names.filter(
+			(name) => name !== patch.name && !currentAliases.has(name)
+		);
+		if (additions.length === 0) return;
+
+		await tx
+			.update(proposal)
+			.set({ patch: { ...patch, aliases: [...patch.aliases, ...additions] } })
+			.where(eq(proposal.id, existing.id));
+	});
 }
 
 export interface RecordEntitySourceRefInput {

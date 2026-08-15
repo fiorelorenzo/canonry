@@ -29,6 +29,7 @@ import {
 	ImportJobRunner,
 	type RunImportJobParams
 } from './job-runner.js';
+import type { SimilarityFn } from './matching.js';
 
 function createHashOf(text: string): string {
 	return createHash('sha256').update(text).digest('hex');
@@ -667,5 +668,278 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		expect(aldricEntity.languageSource).toBe('detected');
 		expect(aldricEntity.body).toContain('The Gilded Rat');
 		expect(aldricEntity.body).not.toContain('Ratto Dorato');
+	});
+
+	describe("the merge engine sees this job's own pending proposals (issue #160)", () => {
+		// A similarity function that only ever agrees with itself on an exact name match -
+		// deliberately dumber than the real embedding call, so a "match" in these tests can
+		// only come from the two documents naming the entity identically, never from an
+		// accidental token-overlap false positive.
+		const exactNameSimilarity: SimilarityFn = (subject, candidate) =>
+			subject.name === candidate.name ? 1 : 0;
+		const MATCH_THRESHOLDS = { matchAbove: 0.85, newBelow: 0.5 } as const;
+
+		it('two documents naming the same entity fold into one proposal, not two colliding creates', async () => {
+			await priceFixture();
+			const { userId, universeId } = await userAndUniverse();
+			const playbook = await loadBuiltinPlaybook('generic');
+			const sources = new InMemorySourceReader({
+				files: {
+					'notes/a.md': 'Aldric Vane commands the harbour watch.',
+					'notes/b.md': 'Aldric Vane also patrols the docks at night.'
+				}
+			});
+
+			const admission = await admitAndCreateImportJob(db, {
+				universeId,
+				createdBy: userId,
+				sourceType: 'obsidian',
+				playbook: playbook.id,
+				playbookVersion: playbook.version,
+				artefactPath: 's3://fixtures/aldric-twice.zip',
+				artefactBytes: 100,
+				artefactSha256: 'f'.repeat(64),
+				documentCount: 2,
+				budgetCredits: 1000,
+				estimate: { documentCount: 2, estimatedMinutes: 1, estimatedCredits: 20 },
+				concurrencyLimit: 5
+			});
+			expect(admission.admitted).toBe(true);
+
+			const model = scriptedModel([
+				toolCallStep([{ id: 'a1', name: 'source_read', input: { path: 'notes/a.md' } }]),
+				entityStep('a2', 'ea', 'Aldric Vane', 'doc-a', 'notes/a.md'),
+				finishStep('a3', 'doc-a'),
+				toolCallStep([{ id: 'b1', name: 'source_read', input: { path: 'notes/b.md' } }]),
+				entityStep('b2', 'eb', 'Aldric Vane', 'doc-b', 'notes/b.md'),
+				finishStep('b3', 'doc-b')
+			]);
+			const driver = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(model)
+			});
+
+			const runner = new ImportJobRunner();
+			const result = await runner.run({
+				db,
+				driver,
+				dbJobId: admission.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents: [
+					{ id: 'doc-a', sourcePath: 'notes/a.md' },
+					{ id: 'doc-b', sourcePath: 'notes/b.md' }
+				],
+				sources,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: exactNameSimilarity,
+				thresholds: MATCH_THRESHOLDS,
+				timeoutMs: 30_000
+			});
+
+			expect(result.finalStatus).toBe('finished');
+			// Without the fix this is 2: one `create` proposal per document, both named
+			// "Aldric Vane", the second colliding with the first on
+			// `entity_universe_slug_key` the moment anyone tries to accept it.
+			expect(result.proposalsEmitted).toBe(1);
+
+			const rows = await db
+				.select()
+				.from(proposalTable)
+				.where(eq(proposalTable.universeId, universeId));
+			expect(rows).toHaveLength(1);
+			expect(rows[0]?.kind).toBe('create');
+			expect(patchName(rows[0]?.patch)).toBe('Aldric Vane');
+		});
+
+		it('accepting the proposals from both documents in sequence does not throw', async () => {
+			await priceFixture();
+			const { userId, universeId } = await userAndUniverse();
+			const playbook = await loadBuiltinPlaybook('generic');
+			const docAContent = 'Aldric Vane commands the harbour watch.';
+			const docBContent = 'Aldric Vane also patrols the docks at night.';
+			const sources = new InMemorySourceReader({
+				files: { 'notes/a.md': docAContent, 'notes/b.md': docBContent }
+			});
+
+			const admission = await admitAndCreateImportJob(db, {
+				universeId,
+				createdBy: userId,
+				sourceType: 'obsidian',
+				playbook: playbook.id,
+				playbookVersion: playbook.version,
+				artefactPath: 's3://fixtures/aldric-twice-accept.zip',
+				artefactBytes: 100,
+				artefactSha256: 'g'.repeat(64),
+				documentCount: 2,
+				budgetCredits: 1000,
+				estimate: { documentCount: 2, estimatedMinutes: 1, estimatedCredits: 20 },
+				concurrencyLimit: 5
+			});
+
+			const model = scriptedModel([
+				toolCallStep([{ id: 'c1', name: 'source_read', input: { path: 'notes/a.md' } }]),
+				entityStep('c2', 'ea', 'Aldric Vane', 'doc-a', 'notes/a.md'),
+				finishStep('c3', 'doc-a'),
+				toolCallStep([{ id: 'c4', name: 'source_read', input: { path: 'notes/b.md' } }]),
+				entityStep('c5', 'eb', 'Aldric Vane', 'doc-b', 'notes/b.md'),
+				finishStep('c6', 'doc-b')
+			]);
+			const driver = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(model)
+			});
+
+			const runner = new ImportJobRunner();
+			const result = await runner.run({
+				db,
+				driver,
+				dbJobId: admission.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents: [
+					{ id: 'doc-a', sourcePath: 'notes/a.md' },
+					{ id: 'doc-b', sourcePath: 'notes/b.md' }
+				],
+				sources,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: exactNameSimilarity,
+				thresholds: MATCH_THRESHOLDS,
+				timeoutMs: 30_000
+			});
+			expect(result.finalStatus).toBe('finished');
+
+			const rows = await db
+				.select()
+				.from(proposalTable)
+				.where(eq(proposalTable.universeId, universeId));
+
+			// Without the fix, `rows` has two colliding `create` proposals here and the
+			// second of these awaits throws a raw DrizzleQueryError on
+			// entity_universe_slug_key - a GM's second accept click turning into a 500.
+			for (const row of rows) {
+				await expect(
+					acceptImportProposal(db, {
+						proposalId: row.id,
+						sourceSystem: 'obsidian',
+						externalId: row.kind === 'create' ? 'notes/a.md' : 'notes/b.md',
+						sourceUrl: null,
+						contentHash: createHashOf(docAContent),
+						importJobId: admission.jobId
+					})
+				).resolves.not.toThrow();
+			}
+
+			const createdEntities = await db
+				.select()
+				.from(entity)
+				.where(eq(entity.universeId, universeId));
+			expect(createdEntities.filter((e) => e.name === 'Aldric Vane')).toHaveLength(1);
+		});
+	});
+
+	it('a relation whose endpoints resolve to the same entity is never proposed (issue #160)', async () => {
+		await priceFixture();
+		const { userId, universeId } = await userAndUniverse();
+		const [existingEntity] = await db
+			.insert(entity)
+			.values({
+				universeId,
+				type: 'character',
+				name: 'Aldric Vane',
+				slug: `aldric-vane-${randomUUID().slice(0, 8)}`,
+				body: 'Commands the harbour watch.'
+			})
+			.returning();
+		if (!existingEntity) throw new Error('fixture setup failed');
+
+		const playbook = await loadBuiltinPlaybook('generic');
+		const sources = new InMemorySourceReader({
+			files: { 'notes/duplicate.md': 'Aldric Vane reports to Aldric Vane, oddly enough.' }
+		});
+
+		const admission = await admitAndCreateImportJob(db, {
+			universeId,
+			createdBy: userId,
+			sourceType: 'obsidian',
+			playbook: playbook.id,
+			playbookVersion: playbook.version,
+			artefactPath: 's3://fixtures/self-relation.zip',
+			artefactBytes: 100,
+			artefactSha256: 'e'.repeat(64),
+			documentCount: 1,
+			budgetCredits: 1000,
+			estimate: { documentCount: 1, estimatedMinutes: 1, estimatedCredits: 10 },
+			concurrencyLimit: 5
+		});
+		expect(admission.admitted).toBe(true);
+
+		const sameNameSimilarity: SimilarityFn = (subject, candidate) =>
+			subject.name === candidate.name ? 1 : 0;
+
+		const model = scriptedModel([
+			toolCallStep([{ id: 'd1', name: 'source_read', input: { path: 'notes/duplicate.md' } }]),
+			entityStep('d2', 'e1', 'Aldric Vane', 'doc-1', 'notes/duplicate.md'),
+			entityStep('d3', 'e2', 'Aldric Vane', 'doc-1', 'notes/duplicate.md'),
+			toolCallStep([
+				{
+					id: 'd4',
+					name: 'relation_propose',
+					input: {
+						fromLocalId: 'e1',
+						toLocalId: 'e2',
+						label: 'reports to',
+						inverseLabel: 'commands',
+						cardinality: 'many_to_one',
+						sourceRef: { documentId: 'doc-1', path: 'notes/duplicate.md' },
+						evidenceSpan: { start: 0, end: 20 }
+					}
+				}
+			]),
+			finishStep('d5', 'doc-1')
+		]);
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+
+		const runner = new ImportJobRunner();
+		const result = await runner.run({
+			db,
+			driver,
+			dbJobId: admission.jobId,
+			universeId,
+			sourceSystem: 'obsidian',
+			userId,
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes/duplicate.md' }],
+			sources,
+			images: new InMemoryImageStore(),
+			budget: { maxCredits: 1000 },
+			similarity: sameNameSimilarity,
+			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			timeoutMs: 30_000
+		});
+
+		expect(result.finalStatus).toBe('finished');
+
+		const rows = await db
+			.select()
+			.from(proposalTable)
+			.where(eq(proposalTable.universeId, universeId));
+		// Both mentions resolve, via similarity, to the pre-existing entity, so this
+		// document proposes two `update` candidates and, without the fix, one `relation`
+		// candidate whose from and to are the same entity id - a self-loop that
+		// `relation_from_ne_to` refuses at accept time. The fix drops it before it is ever
+		// proposed.
+		expect(rows.some((r) => r.kind === 'relation')).toBe(false);
+		expect(rows.filter((r) => r.kind === 'update')).toHaveLength(2);
+		expect(rows.every((r) => r.targetEntityId === existingEntity.id)).toBe(true);
 	});
 });
