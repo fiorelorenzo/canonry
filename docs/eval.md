@@ -291,8 +291,10 @@ constraint. First-run accept rates: pdf 8/8, docx 14/18, kanka 32/43, generic 19
 world-anvil 32/105, obsidian 34/121.
 
 Issues #160 (the duplicates), #161 (the test, and putting it in CI), #162 (OneNote), #163
-(`missing_in_source`, which nothing ever writes) and #166 (`job_finish`'s redundant
-`documentId`, which cost one document four wasted steps out of nine).
+(`missing_in_source`, which nothing ever writes), #166 (`job_finish`'s redundant
+`documentId`, which cost one document four wasted steps out of nine) and #169 (a document
+that spent fourteen consecutive steps calling `source_list` with the same argument, which
+is why the obsidian runs report `stopped_at_ceiling`).
 
 What did work, and is worth recording as much as the failures: the review flow end to end
 (accept, reject, undo, with `revision.author_kind` landing as `ai_accepted`), the

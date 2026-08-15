@@ -52,6 +52,9 @@ two sources), #162 (a OneNote export enumerates zero documents), #163 (`missing_
 never written, over three imports that deliberately drop two entities), #166 (`job_finish`
 cost one document four wasted steps out of nine).
 
-A note on the two obsidian runs marked `stopped_at_ceiling`: all 35 documents were processed
-and the status reflects at least one document reaching its per-document step budget, not the
-job running out of credits. Worth a look, but it did not truncate the run.
+A note on the three obsidian runs marked `stopped_at_ceiling`: all 35 documents were
+processed and the credit budget was never touched (62 of 400 credits on the largest run).
+The status comes from one or two documents per run reaching their 60-step ceiling, and the
+log says why: the model called `source_list` with the same argument fourteen times in a row
+and never called `job_finish`. The ceiling is the backstop working, but it fires 52 wasted
+model calls late. Issue #169.
