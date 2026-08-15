@@ -1,6 +1,6 @@
 ---
 id: world-anvil
-version: 2
+version: 3
 name: World Anvil Full World Export
 description: Imports a World Anvil Full World Export zip (JSON plus HTML), mapping article templates onto entity types.
 modelPurpose: cheap
@@ -136,9 +136,9 @@ by", "born in", "sworn to"); fall back to `mentions` / `mentioned by` when it do
    ```
 
 4. **Checkpoint as you go.** After a meaningful chunk of proposals, call `checkpoint`
-   with this document's id and a short note of where you are.
+   with a short note of where you are.
 
-5. **Finish the document.** Call `job_finish` with this document's id and an outcome
+5. **Finish the document.** Call `job_finish` with an outcome
    of `completed`, or `skipped` if the article is a stub with no body worth proposing
    from. `job_finish` does not take entity or relation counts: the loop already knows
    exactly what you proposed.

@@ -8,7 +8,7 @@
 export const BUILTIN_PLAYBOOK_SOURCES: Readonly<Record<string, string>> = {
 	"docx": `---
 id: docx
-version: 2
+version: 3
 name: DOCX document
 description: Imports a Word document, keeping its structure and dropping its visual styling.
 modelPurpose: cheap
@@ -101,10 +101,10 @@ job's unpacked export are given to you in the first user message.
    \`\`\`
 
 4. **Checkpoint as you go.** After a meaningful chunk of proposals, call \`checkpoint\`
-   with this document's id and a short note of where you are.
+   with a short note of where you are.
 
-5. **Finish the document.** Call \`job_finish\` with this document's id and an outcome
-   of \`completed\`, or \`skipped\` if the document turned out to have nothing to
+5. **Finish the document.** Call \`job_finish\` with an outcome of \`completed\`, or
+   \`skipped\` if the document turned out to have nothing to
    propose. \`job_finish\` does not take entity or relation counts: the loop already
    knows exactly what you proposed.
 
@@ -113,7 +113,7 @@ job's unpacked export are given to you in the first user message.
 `,
 	"generic": `---
 id: generic
-version: 2
+version: 3
 name: Generic fallback
 description: Handles any export a source-specific playbook does not recognise yet, one document at a time.
 modelPurpose: cheap
@@ -203,12 +203,12 @@ which document to work on and you cannot switch to another one.
    \`\`\`
 
 4. **Checkpoint as you go.** After a meaningful chunk of proposals, call \`checkpoint\`
-   with this document's id and a short note of where you are. This is what makes a
+   with a short note of where you are. This is what makes a
    crash cost one document instead of the whole run; do not wait until the very end to
    call it.
 
 5. **Finish the document.** When you have read what there is to read and proposed
-   what you found, call \`job_finish\` with this document's id and an outcome of
+   what you found, call \`job_finish\` with an outcome of
    \`completed\`. If the document turned out to be empty or irrelevant, finish with
    \`skipped\` instead of proposing something to fill the gap. \`job_finish\` does not
    take entity or relation counts: the loop already knows exactly what you proposed,
@@ -220,7 +220,7 @@ which document to work on and you cannot switch to another one.
 `,
 	"kanka": `---
 id: kanka
-version: 2
+version: 3
 name: Kanka campaign export
 description: Imports a Kanka campaign export (JSON plus images), mapping Kanka's entity types onto ours.
 modelPurpose: cheap
@@ -368,9 +368,9 @@ with no \`entry\` and nothing else to go on is not worth proposing.
    through the structured field.
 
 4. **Checkpoint as you go.** After a meaningful chunk of proposals, call \`checkpoint\`
-   with this document's id and a short note of where you are.
+   with a short note of where you are.
 
-5. **Finish the document.** Call \`job_finish\` with this document's id and an outcome
+5. **Finish the document.** Call \`job_finish\` with an outcome
    of \`completed\`, or \`skipped\` if the file held nothing mappable (every record an
    unmapped type from the table above). \`job_finish\` does not take entity or relation
    counts: the loop already knows exactly what you proposed.
@@ -381,7 +381,7 @@ with no \`entry\` and nothing else to go on is not worth proposing.
 `,
 	"obsidian": `---
 id: obsidian
-version: 2
+version: 3
 name: Obsidian vault
 description: Imports a folder or zip of an Obsidian vault, treating every wikilink as a candidate relation.
 modelPurpose: cheap
@@ -564,9 +564,9 @@ Sable#Council Seat]]\`): this is a **typed** candidate relation. Use the field's
    identical edge.
 
 4. **Checkpoint as you go.** After a meaningful chunk of proposals, call \`checkpoint\`
-   with this document's id and a short note of where you are.
+   with a short note of where you are.
 
-5. **Finish the document.** Call \`job_finish\` with this document's id and an outcome
+5. **Finish the document.** Call \`job_finish\` with an outcome
    of \`completed\`, or \`skipped\` if the note turned out to be empty (a stub file, a
    template) or irrelevant. \`job_finish\` does not take entity or relation counts: the
    loop already knows exactly what you proposed.
@@ -576,7 +576,7 @@ Sable#Council Seat]]\`): this is a **typed** candidate relation. Use the field's
 `,
 	"onenote": `---
 id: onenote
-version: 2
+version: 3
 name: OneNote page export
 description: Imports one page from a folder tree of exported OneNote pages, trusting the folder hierarchy for parent/subpage relations.
 modelPurpose: cheap
@@ -776,9 +776,9 @@ its own children.
    proposing the target as described above, then call \`relation_propose\` for each one.
 
 5. **Checkpoint as you go.** After a meaningful chunk of proposals, call \`checkpoint\`
-   with this document's id and a short note of where you are.
+   with a short note of where you are.
 
-6. **Finish the page.** Call \`job_finish\` with this document's id and an outcome of
+6. **Finish the page.** Call \`job_finish\` with an outcome of
    \`completed\`, or \`skipped\` if the page turned out to be empty (no canvas text, a
    stub) or if what you were actually handed is a \`.onepkg\`/\`.one\` file rather than an
    exported page - say so in the summary rather than guessing at its binary layout.
@@ -790,7 +790,7 @@ its own children.
 `,
 	"pdf": `---
 id: pdf
-version: 2
+version: 3
 name: PDF document
 description: Imports a PDF, reading its text layer first and looking at any page that has none.
 modelPurpose: cheap
@@ -906,9 +906,9 @@ job's unpacked export are given to you in the first user message.
    \`\`\`
 
 5. **Checkpoint as you go.** After a meaningful chunk of proposals, call \`checkpoint\`
-   with this document's id and a short note of where you are.
+   with a short note of where you are.
 
-6. **Finish the document.** Call \`job_finish\` with this document's id and an outcome
+6. **Finish the document.** Call \`job_finish\` with an outcome
    of \`completed\`, or \`skipped\` if the document turned out to have nothing to
    propose. \`job_finish\` does not take entity or relation counts: the loop already
    knows exactly what you proposed.
@@ -919,7 +919,7 @@ job's unpacked export are given to you in the first user message.
 `,
 	"world-anvil": `---
 id: world-anvil
-version: 2
+version: 3
 name: World Anvil Full World Export
 description: Imports a World Anvil Full World Export zip (JSON plus HTML), mapping article templates onto entity types.
 modelPurpose: cheap
@@ -1055,9 +1055,9 @@ by", "born in", "sworn to"); fall back to \`mentions\` / \`mentioned by\` when i
    \`\`\`
 
 4. **Checkpoint as you go.** After a meaningful chunk of proposals, call \`checkpoint\`
-   with this document's id and a short note of where you are.
+   with a short note of where you are.
 
-5. **Finish the document.** Call \`job_finish\` with this document's id and an outcome
+5. **Finish the document.** Call \`job_finish\` with an outcome
    of \`completed\`, or \`skipped\` if the article is a stub with no body worth proposing
    from. \`job_finish\` does not take entity or relation counts: the loop already knows
    exactly what you proposed.

@@ -1,6 +1,6 @@
 ---
 id: generic
-version: 2
+version: 3
 name: Generic fallback
 description: Handles any export a source-specific playbook does not recognise yet, one document at a time.
 modelPurpose: cheap
@@ -90,12 +90,12 @@ which document to work on and you cannot switch to another one.
    ```
 
 4. **Checkpoint as you go.** After a meaningful chunk of proposals, call `checkpoint`
-   with this document's id and a short note of where you are. This is what makes a
+   with a short note of where you are. This is what makes a
    crash cost one document instead of the whole run; do not wait until the very end to
    call it.
 
 5. **Finish the document.** When you have read what there is to read and proposed
-   what you found, call `job_finish` with this document's id and an outcome of
+   what you found, call `job_finish` with an outcome of
    `completed`. If the document turned out to be empty or irrelevant, finish with
    `skipped` instead of proposing something to fill the gap. `job_finish` does not
    take entity or relation counts: the loop already knows exactly what you proposed,

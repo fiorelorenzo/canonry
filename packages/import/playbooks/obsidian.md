@@ -1,6 +1,6 @@
 ---
 id: obsidian
-version: 2
+version: 3
 name: Obsidian vault
 description: Imports a folder or zip of an Obsidian vault, treating every wikilink as a candidate relation.
 modelPurpose: cheap
@@ -183,9 +183,9 @@ Sable#Council Seat]]`): this is a **typed** candidate relation. Use the field's 
    identical edge.
 
 4. **Checkpoint as you go.** After a meaningful chunk of proposals, call `checkpoint`
-   with this document's id and a short note of where you are.
+   with a short note of where you are.
 
-5. **Finish the document.** Call `job_finish` with this document's id and an outcome
+5. **Finish the document.** Call `job_finish` with an outcome
    of `completed`, or `skipped` if the note turned out to be empty (a stub file, a
    template) or irrelevant. `job_finish` does not take entity or relation counts: the
    loop already knows exactly what you proposed.

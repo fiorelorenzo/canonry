@@ -72,12 +72,8 @@ describe('generic playbook (issue #44, SPEC.md §6.6)', () => {
 						}
 					}
 				]),
-				toolCallStep([
-					{ id: 't5', name: 'checkpoint', input: { documentId: 'doc-1', note: 'both npcs done' } }
-				]),
-				toolCallStep([
-					{ id: 't6', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-				])
+				toolCallStep([{ id: 't5', name: 'checkpoint', input: { note: 'both npcs done' } }]),
+				toolCallStep([{ id: 't6', name: 'job_finish', input: { outcome: 'completed' } }])
 			]
 		});
 

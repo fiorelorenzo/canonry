@@ -155,12 +155,8 @@ describe('GatewayDriver - bounded loop against a fake model (issue #22, #32)', (
 					}
 				}
 			]),
-			toolCallStep([
-				{ id: 't5', name: 'checkpoint', input: { documentId: 'doc-1', note: 'read and proposed' } }
-			]),
-			toolCallStep([
-				{ id: 't6', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-			])
+			toolCallStep([{ id: 't5', name: 'checkpoint', input: { note: 'read and proposed' } }]),
+			toolCallStep([{ id: 't6', name: 'job_finish', input: { outcome: 'completed' } }])
 		]);
 
 		const driver = new GatewayDriver({
@@ -226,7 +222,7 @@ One document.
 1. Propose entities forever.
 
    \`\`\`json
-   { "documentId": "doc-1", "outcome": "completed" }
+   { "outcome": "completed" }
    \`\`\`
 `);
 		const sources = new InMemorySourceReader({ files: { 'notes.md': 'irrelevant text' } });
@@ -300,9 +296,7 @@ One document.
 					}
 				}
 			]),
-			toolCallStep([
-				{ id: 'a3', name: 'job_finish', input: { documentId: 'doc-a', outcome: 'completed' } }
-			])
+			toolCallStep([{ id: 'a3', name: 'job_finish', input: { outcome: 'completed' } }])
 		]);
 
 		const firstRun = await collect(
@@ -340,9 +334,7 @@ One document.
 					}
 				}
 			]),
-			toolCallStep([
-				{ id: 'b3', name: 'job_finish', input: { documentId: 'doc-b', outcome: 'completed' } }
-			])
+			toolCallStep([{ id: 'b3', name: 'job_finish', input: { outcome: 'completed' } }])
 		]);
 
 		const secondRun = await collect(
@@ -400,9 +392,7 @@ One document.
 					}
 				}
 			]),
-			toolCallStep([
-				{ id: 'c3', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-			])
+			toolCallStep([{ id: 'c3', name: 'job_finish', input: { outcome: 'completed' } }])
 		]);
 
 		const driver = new GatewayDriver({
@@ -461,15 +451,13 @@ describe('GatewayDriver - prompt injection changes nothing (issue #33)', () => {
 				{
 					id: 'i2',
 					name: 'job_finish',
-					input: { documentId: 'doc-1', outcome: 'completed', entityCount: 4000 }
+					input: { outcome: 'completed', entityCount: 4000 }
 				},
 				// Attempt 2: read outside this job's own export.
 				{ id: 'i3', name: 'source_read', input: { path: '/other-universe/secret-plans.md' } }
 			]),
 			// The model gives up after both attempts fail and finishes honestly.
-			toolCallStep([
-				{ id: 'i4', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-			])
+			toolCallStep([{ id: 'i4', name: 'job_finish', input: { outcome: 'completed' } }])
 		]);
 
 		const driver = new GatewayDriver({
@@ -527,6 +515,79 @@ describe('GatewayDriver - prompt injection changes nothing (issue #33)', () => {
 	});
 });
 
+describe('job_finish/checkpoint no longer take a documentId (issue #166)', () => {
+	it('closes the document without being told which document it is, and computes counts from ctx alone', async () => {
+		const sources = new InMemorySourceReader({ files: { 'notes.md': 'irrelevant' } });
+		const ctx = createDocumentRunContext('job-1', 'doc-1');
+		const tools = createImportTools(
+			ctx,
+			{ sources, images: new InMemoryImageStore() },
+			new Set(['job_finish'])
+		);
+
+		const jobFinish = tools.job_finish;
+		expect(jobFinish?.execute).toBeDefined();
+		const result = (await jobFinish?.execute?.(
+			{ outcome: 'completed' },
+			{ toolCallId: 't1', messages: [], context: undefined }
+		)) as { ok: boolean };
+
+		expect(result.ok).toBe(true);
+		expect(ctx.finished).toBe(true);
+		expect(ctx.finishOutcome).toBe('completed');
+	});
+
+	it('records a checkpoint without being told which document it is', async () => {
+		const sources = new InMemorySourceReader({ files: { 'notes.md': 'irrelevant' } });
+		const ctx = createDocumentRunContext('job-1', 'doc-1');
+		const tools = createImportTools(
+			ctx,
+			{ sources, images: new InMemoryImageStore() },
+			new Set(['checkpoint'])
+		);
+
+		const checkpoint = tools.checkpoint;
+		expect(checkpoint?.execute).toBeDefined();
+		const result = (await checkpoint?.execute?.(
+			{ note: 'partway through' },
+			{ toolCallId: 't1', messages: [], context: undefined }
+		)) as { ok: boolean };
+
+		expect(result.ok).toBe(true);
+		expect(ctx.pending).toHaveLength(1);
+	});
+
+	it("no longer accepts documentId on job_finish's input schema, and no longer requires it", () => {
+		const ctx = createDocumentRunContext('job-1', 'doc-1');
+		const tools = createImportTools(
+			ctx,
+			{ sources: new InMemorySourceReader({ files: {} }), images: new InMemoryImageStore() },
+			new Set(['job_finish'])
+		);
+		const schema = tools.job_finish?.inputSchema as {
+			safeParse: (input: unknown) => { success: boolean };
+		};
+
+		expect(schema.safeParse({ outcome: 'completed' }).success).toBe(true);
+		expect(schema.safeParse({ documentId: 'doc-1', outcome: 'completed' }).success).toBe(false);
+	});
+
+	it("no longer accepts documentId on checkpoint's input schema, and no longer requires it", () => {
+		const ctx = createDocumentRunContext('job-1', 'doc-1');
+		const tools = createImportTools(
+			ctx,
+			{ sources: new InMemorySourceReader({ files: {} }), images: new InMemoryImageStore() },
+			new Set(['checkpoint'])
+		);
+		const schema = tools.checkpoint?.inputSchema as {
+			safeParse: (input: unknown) => { success: boolean };
+		};
+
+		expect(schema.safeParse({ note: 'partway through' }).success).toBe(true);
+		expect(schema.safeParse({ documentId: 'doc-1', note: 'partway through' }).success).toBe(false);
+	});
+});
+
 describe('GatewayDriver - metadata-only logging under a real run (issue #31)', () => {
 	it('never lets a recognisable secret string from the document reach the logger', async () => {
 		const secret = 'SECRET-TOKEN-q7f2-do-not-log-me';
@@ -551,9 +612,7 @@ describe('GatewayDriver - metadata-only logging under a real run (issue #31)', (
 					}
 				}
 			]),
-			toolCallStep([
-				{ id: 'l3', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-			])
+			toolCallStep([{ id: 'l3', name: 'job_finish', input: { outcome: 'completed' } }])
 		]);
 
 		const logged: LoopLogFields[] = [];
@@ -587,9 +646,7 @@ describe('GatewayDriver - per-document model purpose routing (issue #24)', () =>
 		});
 		const model = scriptedModel([
 			toolCallStep([{ id: 't1', name: 'source_read', input: { path: 'notes.md' } }]),
-			toolCallStep([
-				{ id: 't2', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-			])
+			toolCallStep([{ id: 't2', name: 'job_finish', input: { outcome: 'completed' } }])
 		]);
 		const purposes: ImportModelPurpose[] = [];
 		const resolved: ImportModel = {
@@ -624,9 +681,7 @@ describe('GatewayDriver - per-document model purpose routing (issue #24)', () =>
 		});
 		const model = scriptedModel([
 			toolCallStep([{ id: 't1', name: 'source_read', input: { path: 'notes.md' } }]),
-			toolCallStep([
-				{ id: 't2', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-			])
+			toolCallStep([{ id: 't2', name: 'job_finish', input: { outcome: 'completed' } }])
 		]);
 		const purposes: ImportModelPurpose[] = [];
 		const resolved: ImportModel = {
@@ -678,9 +733,7 @@ describe('GatewayDriver - schema validation rejects a malformed proposal (issue 
 					}
 				}
 			]),
-			toolCallStep([
-				{ id: 'm3', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-			])
+			toolCallStep([{ id: 'm3', name: 'job_finish', input: { outcome: 'completed' } }])
 		]);
 		const logged: LoopLogFields[] = [];
 		const logger = createLoopLogger((fields) => logged.push(fields));
@@ -724,9 +777,7 @@ describe('GatewayDriver - schema validation rejects a malformed proposal (issue 
 					}
 				}
 			]),
-			toolCallStep([
-				{ id: 'n3', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-			])
+			toolCallStep([{ id: 'n3', name: 'job_finish', input: { outcome: 'completed' } }])
 		]);
 		const logged: LoopLogFields[] = [];
 		const logger = createLoopLogger((fields) => logged.push(fields));

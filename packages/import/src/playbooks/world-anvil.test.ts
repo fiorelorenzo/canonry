@@ -92,12 +92,10 @@ describe('world anvil playbook (issue #43, SPEC.md §6.8)', () => {
 					{
 						id: 't8',
 						name: 'checkpoint',
-						input: { documentId: 'doc-1', note: 'article and its link done' }
+						input: { note: 'article and its link done' }
 					}
 				]),
-				toolCallStep([
-					{ id: 't9', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-				])
+				toolCallStep([{ id: 't9', name: 'job_finish', input: { outcome: 'completed' } }])
 			]
 		});
 
