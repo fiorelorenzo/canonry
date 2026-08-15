@@ -194,8 +194,15 @@
     {
       "idx": 27,
       "version": "7",
+      "when": 1786818887613,
+      "tag": "0027_universe_slug_globally_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
       "when": 1786824090549,
-      "tag": "0027_measured_text_models",
+      "tag": "0028_measured_text_models",
       "breakpoints": true
     }
   ]

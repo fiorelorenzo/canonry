@@ -6,6 +6,8 @@
 	 * proposal, and the confirmation here says "saved as a proposal", never "saved".
 	 */
 	import { messages, type Locale } from '$lib/i18n';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import { Button } from '$lib/components/ui/button';
 	import type { EntityRef } from './types';
 
 	let {
@@ -60,27 +62,14 @@
 		<label for="table-note-text" class="font-mono text-[10px] tracking-wide text-muted uppercase">
 			{t.note}
 		</label>
-		<textarea
-			id="table-note-text"
-			bind:value={note}
-			rows="3"
-			placeholder={t.notePlaceholder}
-			class="rounded-md border border-line-2 bg-panel px-2.5 py-1.5 text-sm text-ink"></textarea>
+		<Textarea id="table-note-text" bind:value={note} rows={3} placeholder={t.notePlaceholder} />
 	</div>
 	<div class="flex justify-end gap-2">
-		<button
-			type="button"
-			onclick={onCancel}
-			class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel"
-		>
+		<Button type="button" variant="secondary" onclick={onCancel}>
 			{t.cancel}
-		</button>
-		<button
-			type="submit"
-			disabled={!targetEntityId}
-			class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:opacity-50"
-		>
+		</Button>
+		<Button type="submit" disabled={!targetEntityId}>
 			{t.saveAsProposal}
-		</button>
+		</Button>
 	</div>
 </form>

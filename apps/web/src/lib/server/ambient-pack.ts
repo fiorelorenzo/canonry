@@ -6,8 +6,8 @@
  * interprets it") - this is the one place that does, for the one kind whose shape this
  * route actually needs to read, with a real runtime check rather than an inline cast.
  *
- * Shared between `u/[universe]/ambient/[id]/+server.ts` (the layer-listing API) and
- * `u/[universe]/table/+layout.server.ts` (the declared place's pack summary), so the
+ * Shared between `w/[universe]/ambient/[id]/+server.ts` (the layer-listing API) and
+ * `w/[universe]/table/+layout.server.ts` (the declared place's pack summary), so the
  * validator is written once.
  */
 import type { AmbientLayerResult } from '@canonry/media';

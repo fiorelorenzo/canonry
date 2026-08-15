@@ -20,7 +20,7 @@
 	<title>{t.title}: Canonry</title>
 </svelte:head>
 
-<DocPage title={t.title} eyebrow={t.eyebrow} backHref={resolve('/docs')} backLabel={t.backLabel}>
+<DocPage title={t.title} eyebrow={t.eyebrow}>
 	<p>
 		{t.intro}
 	</p>

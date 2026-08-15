@@ -192,7 +192,57 @@ const UX_REGISTER = [
     dnote: 'Answered by removing the problem rather than by wording around it. Reading is free: embeddings, semantic search, mention suggestions and the retrieval behind an Ask never draw on the quota, so the meter no longer moves for a universe whose switch is off and B\'s half of the question is settled. The switch is named for what it stops, writing, which was A\'s half. The mechanism is neither option\'s: the credit price of every operation lives in an `operation_price` row an admin edits, a price of zero is how something becomes free, and an unpriced operation fails loudly. Free to the user is still recorded at full cost to us, because the margin question is answered from those rows. In SPEC 15 and guardrail 4, and built in #113.' },
   { s: 'Round three', id: 'H2', f: 'h2-brand-and-logo.html', t: 'The mark, the favicon and what the brand may spend',
     q: 'Both properties are public and wearing the browser\'s default icon: what is the mark, and what does it say?',
-    w: 'now', i: [3, 104] },
+    w: 'now', i: [3, 104],
+    d: 'C', dn: 'The tie: two entries and the link between them', dt: '2026-08-14',
+    dnote: 'Recorded here late: DECISIONS.md carried this answer from the day it was taken and the register did not.' },
+
+  /* Round four: not questions asked before the code, but what the shipped UI asked back.
+     All ten live in one artifact, product-pass.html, which audits every surface rather
+     than posing one question, so every entry below points at the same file. */
+  { s: 'Round four', id: 'I1', f: 'product-pass.html#i1', t: 'The app root, signed out',
+    q: 'The landing page ships from another repository, so what does the application itself serve at / to somebody signed out?', w: 'now', i: [138, 136], dt: '2026-08-15',
+    d: 'B', dn: 'A door page',
+    dnote: 'Taken against my recommendation of A, a redirect to sign-in. The app keeps a signed-out root, which is friendlier to a bookmarked domain and accepts the cost A avoided: the pitch now exists in two repositories, and the app\'s copy is the one nobody will remember to update. Its sentence is a guardrail 7 surface here too.' },
+  { s: 'Round four', id: 'I2', f: 'product-pass.html#i2', t: 'Sign in and sign up',
+    q: 'A left-aligned form with the language toggle louder than the product: what shape do the two auth pages take?', w: 'now', i: [139], dt: '2026-08-15',
+    d: 'C', dn: 'Title page for sign-in, split for sign-up',
+    dnote: 'Two answers, one layout: C is the title page, B is C with a right pane carrying the product\'s one trick, drawn static and with no accept control on it. The door is quiet and the screen where somebody decides to sign up carries the argument.' },
+  { s: 'Round four', id: 'I3', f: 'product-pass.html#i3', t: 'The home page, and whether the shell reaches it',
+    q: 'Signing in lands on a chrome-less page: does A2\'s sidebar frame the whole product or only a universe?', w: 'now', i: [141, 140], dt: '2026-08-15',
+    d: 'B', dn: 'The shell reaches outside a universe',
+    dnote: 'With C\'s redirect as the zero-universe behaviour, so the two compose. A2 is not amended, its seven items still describe a universe; what changes is that the frame belongs to the product. I5, I6 and half of I1 all resolve into this one piece of work.' },
+  { s: 'Round four', id: 'I4', f: 'product-pass.html#i4', t: 'Creating a universe',
+    q: 'Two rival creation routes exist and neither is linked: which one survives?', w: 'now', i: [142], dt: '2026-08-15',
+    d: 'B', dn: 'One creation surface, three starts' },
+  { s: 'Round four', id: 'I5', f: 'product-pass.html#i5', t: 'Where the language switch lives',
+    q: 'The switcher exists only where there is no account to save it to: where does it go once there is one?', w: 'now', i: [144], dt: '2026-08-15',
+    d: 'B', dn: 'A row in the account menu, endonyms',
+    dnote: 'Not flags, and the second reason is the product rather than cartography: the entry\'s own canon language is a separate per-entry claim, so a flag in the chrome reads as "translate this page", which guardrail 1 forbids. If the top bar ever wants the control, it carries the endonym as text.' },
+  { s: 'Round four', id: 'I6', f: 'product-pass.html#i6', t: 'The account, and five settings pages with no home',
+    q: 'There is no account page and four of the five settings leaves cannot be reached by clicking: what holds them?', w: 'now', i: [143], dt: '2026-08-15',
+    d: 'B', dn: 'An account menu plus one two-pane settings page' },
+  { s: 'Round four', id: 'I7', f: 'product-pass.html#i7', t: 'The universe home and the entry browser',
+    q: '214 entries, no list, no filter, no search: is the home a dashboard, a browser, or both?', w: 'now', i: [145], dt: '2026-08-15',
+    d: 'C', dn: 'One page, browser with a collapsible overview strip' },
+  { s: 'Round four', id: 'I8', f: 'product-pass.html#i8', t: 'Empty states, as a pattern',
+    q: 'Ten hand-written sentences with no actions: one component, or nine deliberate one-offs?', w: 'now', i: [146], dt: '2026-08-15',
+    d: 'A', dn: 'One component, three variants',
+    dnote: 'Cold start gets a primary action, a settled state stays a plain sentence and never grows a button that invents work, and a derived absence explains what it waits on.' },
+  { s: 'Round four', id: 'I9', f: 'product-pass.html#i9', t: 'Who owns the controls',
+    q: '73 distinct button-shaped class strings and no component layer: extract our own, or adopt the one the spec already named?', w: 'now', i: [147], dt: '2026-08-15',
+    d: 'C', dn: 'shadcn-svelte as the control layer',
+    dnote: 'Taken against my recommendation of B, extracting six of our own. The argument that wins is the one C\'s costs understated: the six B would extract are the easy six, and the hard three, a dialog, a dropdown and a popover with real focus management, are exactly what B leaves hand-rolled. Four consequences are recorded in DECISIONS.md, checked against shadcn-svelte 1.5.0: a token mapping block from the reading room\'s names into theirs, its dark variant redefined against our [data-theme] attribute, the CLI copying source rather than adding a runtime dependency, and an icon set arriving as a dependency that is really a design decision.' },
+  { s: 'Round four', id: 'I10', f: 'product-pass.html#i10', t: 'The phone',
+    q: 'Seventeen responsive utilities in the whole app, six of them in table mode: is the phone a client?', w: 'now', i: [148], dt: '2026-08-15',
+    d: 'B', dn: 'One responsive shell',
+    dnote: 'E4\'s bottom tabs generalise past table mode. It is a pass over every route rather than a new screen, so it wants to land with the shell rather than after it.' },
+
+  /* Round five: one question the shipped UI's own bug (#153) forced rather than a page of
+     drawn options, so it has no artifact and points straight at DECISIONS.md. */
+  { s: 'Round five', id: 'J1', f: 'DECISIONS.md', t: 'The URL namespace, now that profiles are certain',
+    q: 'User profiles are coming rather than hypothetical: what do the top-level URL segments mean, and does that answer #153\'s uniqueness question or just move it?', w: 'now', i: [156, 153, 157, 158], dt: '2026-08-15',
+    d: 'D', dn: 'A fourth way: /u/ a person, /w/ a world, /p/ stays the players\' wiki',
+    dnote: '#153 was framed as a scoping question, global uniqueness or resolution scoped to the viewer, my own preference going in. J1 answers a different question instead and settles #153 as a side effect: /u/ was always going to mean a person once profiles were real (#158), so the GM-side app moves to /w/<slug> (#157) and world slugs become globally unique because a world\'s URL still carries no owner. No artifact for this one, recorded directly in DECISIONS.md rather than drawn as options first.' },
 ];
 
 const KEY = (id) => `canonry.ux.${id}`;

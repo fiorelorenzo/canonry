@@ -22,7 +22,7 @@ Prices are the gateway's own list on 2026-08-15, converted at that day's ECB ref
 | `multimodal` | nothing, so a scanned page threw | **`google/gemini-3.1-flash-lite`** | every current vision model reads a scan; this one is the fastest and cheapest of them and is already the `cheap` row |
 | `embedding` | `alibaba/qwen3-embedding-4b` | unchanged | already chosen by measurement, and nothing here re-opens it |
 
-Migration `0027_measured_text_models.sql` writes those rows. The estimated cost of an active
+Migration `0028_measured_text_models.sql` writes those rows. The estimated cost of an active
 user's text calls falls from EUR 10.45 a month to EUR 2.59.
 
 Both winners are providers `KNOWN_PROVIDERS` already carries, so nothing in

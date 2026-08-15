@@ -5,6 +5,7 @@
 	 * revision from a month ago is exactly the thing this badge must never say that about.
 	 */
 	import { messages, type Locale } from '$lib/i18n';
+	import { Badge } from '$lib/components/ui/badge';
 	import type { AuthorKind } from '@canonry/db/schema';
 
 	let { kind, locale }: { kind: AuthorKind; locale: Locale } = $props();
@@ -12,11 +13,7 @@
 </script>
 
 {#if kind === 'human'}
-	<span class="rounded-full bg-panel-2 px-2 py-0.5 font-mono text-xs text-ink-2"
-		>{t.entry.history.revisionHuman}</span
-	>
+	<Badge variant="secondary" class="font-mono text-ink-2">{t.entry.history.revisionHuman}</Badge>
 {:else}
-	<span class="rounded-full bg-ok-bg px-2 py-0.5 font-mono text-xs text-ok"
-		>{t.entry.history.revisionAiAccepted}</span
-	>
+	<Badge class="bg-ok-bg font-mono text-ok">{t.entry.history.revisionAiAccepted}</Badge>
 {/if}

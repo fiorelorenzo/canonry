@@ -7,6 +7,8 @@
 	 * because #75's acceptance is a number to quote, not a claim.
 	 */
 	import { resolve } from '$app/paths';
+	import { Input } from '$lib/components/ui/input';
+	import { Badge } from '$lib/components/ui/badge';
 	import type { EntitySearchHit } from '@canonry/db';
 	import { messages, type Locale } from '$lib/i18n';
 	import type { SearchHit } from './types';
@@ -34,7 +36,7 @@
 		}
 		loading = true;
 		const start = performance.now();
-		const response = await fetch(`/u/${universeSlug}/table/search?q=${encodeURIComponent(q)}`);
+		const response = await fetch(`/w/${universeSlug}/table/search?q=${encodeURIComponent(q)}`);
 		const clientElapsedMs = Math.round((performance.now() - start) * 100) / 100;
 		if (seq !== requestSeq) return; // a later keystroke's response already landed
 		loading = false;
@@ -70,13 +72,13 @@
 	>
 		{t.whoIsThis}
 	</label>
-	<input
+	<Input
 		id="table-instant-search"
 		type="text"
 		bind:value={query}
 		oninput={onInput}
 		placeholder={t.placeholder}
-		class="w-full rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-sm text-ink"
+		class="bg-panel-2"
 		autocomplete="off"
 	/>
 
@@ -85,9 +87,9 @@
 			{#if loading}
 				<span>{t.searching}</span>
 			{:else if lane}
-				<span class="rounded-full bg-panel-2 px-2 py-0.5 font-mono">
+				<Badge variant="secondary" class="font-mono">
 					{t.laneStatus(lane === 'instant' ? t.instantLane : t.fastLane, elapsedMs ?? 0)}
-				</span>
+				</Badge>
 			{/if}
 		</div>
 
@@ -101,7 +103,7 @@
 					{#if 'id' in hit}
 						<li class="rounded-md border border-line bg-panel p-2.5 text-sm">
 							<a
-								href={resolve(`/u/${universeSlug}/e/${hit.slug}`)}
+								href={resolve(`/w/${universeSlug}/e/${hit.slug}`)}
 								class="font-semibold text-ink hover:underline"
 							>
 								{hit.name}

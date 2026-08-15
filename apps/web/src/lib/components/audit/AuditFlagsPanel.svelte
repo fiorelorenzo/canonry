@@ -11,6 +11,8 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { messages, type Locale } from '$lib/i18n';
+	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Button } from '$lib/components/ui/button';
 
 	export interface AuditFlagStatementView {
 		entityId: string;
@@ -36,7 +38,7 @@
 </script>
 
 {#if flags.length === 0}
-	<p class="text-sm text-muted">{t.entry.audit.empty}</p>
+	<EmptyState kind="settled" message={t.entry.audit.empty} />
 {:else}
 	<ul class="space-y-3">
 		{#each flags as flag (flag.id)}
@@ -46,7 +48,7 @@
 					{#each flag.statements as statement (statement.entityId)}
 						<div class="rounded-md border border-line bg-panel p-2 text-xs">
 							<a
-								href={resolve(`/u/${universeSlug}/e/${statement.entitySlug}`)}
+								href={resolve(`/w/${universeSlug}/e/${statement.entitySlug}`)}
 								class="block font-mono text-[10px] font-semibold tracking-wide text-muted uppercase hover:text-accent-ink hover:underline"
 							>
 								{statement.entityName}
@@ -68,18 +70,14 @@
 						}}
 					>
 						<input type="hidden" name="proposalId" value={flag.id} />
-						<button
-							type="submit"
-							disabled={dismissing[flag.id]}
-							class="rounded-md border border-line-2 px-2 py-1 text-ink-2 hover:bg-panel-2 disabled:opacity-50"
-						>
+						<Button type="submit" variant="secondary" size="sm" disabled={dismissing[flag.id]}>
 							{dismissing[flag.id] ? t.entry.audit.dismissing : t.entry.audit.dismiss}
-						</button>
+						</Button>
 					</form>
 					<span class="text-muted">{t.entry.audit.openBoth}</span>
 					{#each flag.statements as statement (statement.entityId)}
 						<a
-							href={resolve(`/u/${universeSlug}/e/${statement.entitySlug}`)}
+							href={resolve(`/w/${universeSlug}/e/${statement.entitySlug}`)}
 							target="_blank"
 							rel="noopener"
 							class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"

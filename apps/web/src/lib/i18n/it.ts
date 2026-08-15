@@ -24,11 +24,82 @@ export const it: Messages = {
 		signIn: 'Accedi',
 		signUp: 'Registrati',
 		signOut: 'Esci',
-		signingOut: 'Uscita in corso…'
+		signingOut: 'Uscita in corso…',
+		tagline:
+			'Un wiki per il tuo mondo di gioco, dove un copilota IA lavora in ogni fase e non scrive mai nulla che tu non abbia accettato.',
+		sidebar: {
+			accountNavAriaLabel: 'Navigazione account',
+			accountNav: {
+				universes: 'Universi',
+				settings: 'Impostazioni',
+				docs: 'Documentazione'
+			}
+		},
+		quota: {
+			includedHeading: 'Quota inclusa',
+			warmHeading: 'Budget di precalcolo',
+			// Stesso idioma di `settings.billing.creditsCount`: cifre raggruppate,
+			// nessun credito frazionario mostrato - lo stesso numero che quella
+			// pagina mostra (`subscriptionCredits`/`warmBudgetRemaining`), formattato
+			// allo stesso modo.
+			ratio: (remaining, total) => {
+				const fmt = numberFormat('it', { maximumFractionDigits: 0, useGrouping: 'always' });
+				return `${fmt.format(remaining)} / ${fmt.format(total)}`;
+			}
+		},
+		door: {
+			createAccount: 'Crea un account',
+			exportNote:
+				'Markdown in entrata, markdown in uscita. Il tuo canone si esporta come file semplici su qualunque piano.'
+		},
+		accountMenu: {
+			account: 'Account',
+			language: 'Lingua',
+			appearance: 'Aspetto',
+			modelKeys: 'Chiavi modello',
+			planAndCredits: 'Piano e crediti',
+			export: 'Esportazione'
+		},
+		// Issue #148 (I10 = B): il selettore del drawer nella barra superiore del
+		// telefono, l'icona della palette e l'avatar dell'account, più la barra di
+		// tab in basso in stile E4 che la modalità universo riceve sotto `md`.
+		// "Entries"/"Proposals" si leggono da `universe.nav` nel punto di chiamata,
+		// non ripetuti qui.
+		phoneNav: {
+			openNavLabel: 'Navigazione e account',
+			openNavDescription: 'Selettore universo, link di navigazione e controlli account.',
+			closeNavLabel: 'Chiudi la navigazione',
+			paletteTriggerLabel: 'Apri la palette dei comandi',
+			accountLabel: 'Account',
+			tabsAriaLabel: 'Sezioni principali',
+			ask: 'Chiedi',
+			more: 'Altro'
+		},
+		palette: {
+			dialogTitle: 'Palette dei comandi',
+			dialogDescription: 'Vai a una voce, esegui un comando o fai una domanda.',
+			closeLabel: 'Chiudi la palette dei comandi',
+			placeholder: 'Vai a una voce, esegui un comando o fai una domanda…',
+			askHeading: 'Chiedi',
+			askAction: (question) => `Chiedi "${question}"`,
+			askHint: 'Apre Chiedi',
+			entriesHeading: 'Voci',
+			noEntryMatches: (query) => `Nessuna voce corrisponde a "${query}".`,
+			loadingMessage: 'Ricerca in corso…',
+			akaHint: (alias) => `alias ${alias}`,
+			universesHeading: 'Universi',
+			noUniverseMatches: (query) => `Nessun universo corrisponde a "${query}".`,
+			actionsHeading: 'Azioni',
+			emptyMessage: 'Nulla qui. Prova un altro nome, un\u2019azione o una domanda diversa.',
+			accountSettingsAction: 'Account',
+			footerMove: 'Sposta',
+			footerOpen: 'Apri',
+			footerClose: 'Chiudi'
+		}
 	},
 
 	settings: {
-		backToUniverses: '← Universi',
+		subNavAriaLabel: 'Sezioni delle impostazioni',
 
 		appearance: {
 			title: 'Aspetto',
@@ -131,6 +202,37 @@ export const it: Messages = {
 			toggleSignInRequired: 'Accedi per modificare una chiave.',
 			removeSignInRequired: 'Accedi per rimuovere una chiave.',
 			unknownProvider: 'Provider sconosciuto.'
+		},
+
+		account: {
+			title: 'Account',
+			description:
+				"Il nome e l'email che il prodotto mostra su ogni schermata, la tua password, e come uscire ovunque o eliminare del tutto l'account.",
+			signInPrompt: 'Accedi per vedere e modificare il tuo account.',
+			signInLink: 'Accedi',
+			nameLabel: 'Nome',
+			nameSave: 'Salva nome',
+			nameSaving: 'Salvataggio…',
+			nameSaved: 'Salvato.',
+			nameSaveFailedFallback: 'Non è stato possibile salvare questo nome.',
+			emailLabel: 'Email',
+			emailNote: "L'email non è ancora modificabile da questa pagina.",
+			passwordHeading: 'Password',
+			currentPasswordLabel: 'Password attuale',
+			newPasswordLabel: 'Nuova password',
+			passwordSave: 'Cambia password',
+			passwordSaving: 'Modifica in corso…',
+			passwordSaved: 'Password cambiata.',
+			passwordSaveFailedFallback: 'Non è stato possibile cambiare la password.',
+			sessionsHeading: 'Sessioni',
+			sessionsDescription:
+				'Termina ogni sessione attiva per questo account, incluso questo dispositivo, quindi dovrai accedere di nuovo ovunque.',
+			signOutEverywhereButton: 'Esci ovunque',
+			signOutEverywhereInProgress: 'Uscita da ovunque in corso…',
+			signOutEverywhereFailedFallback: 'Non è stato possibile terminare tutte le sessioni.',
+			deleteHeading: 'Elimina account',
+			deleteUnavailable:
+				"L'eliminazione dell'account non è ancora attiva su questo deployment, quindi qui non c'è un pulsante che fallirebbe in silenzio - chiedi a chi gestisce questo deployment di attivarla nella configurazione di Better Auth."
 		}
 	},
 
@@ -162,6 +264,24 @@ export const it: Messages = {
 		},
 		languageSwitcher: {
 			label: 'Lingua'
+		},
+		footer: {
+			whatCanonryIs: "Cos'è Canonry",
+			docs: 'Documentazione',
+			privacy: 'Privacy'
+		},
+		argument: {
+			intro:
+				'Cambia una voce e Canonry ti dice quali altre ne risentono, prepara ogni aggiornamento e aspetta.',
+			aldricSentence:
+				"Congedato dalla guardia nel disgelo dopo l'Inverno Sabbia, ora risponde al Libro Mastro di Cenere.",
+			watchLeadPrefix: 'La Guardia è comandata da',
+			watchBefore: 'Capitano Aldric Vane',
+			watchAfter: 'un capitano facente funzione, senza nome dal disgelo',
+			waitingBadge: 'ti aspetta',
+			evidence: 'Prova: Aldric Vane, paragrafo 1.',
+			disclaimer:
+				'Niente di quanto sopra è stato applicato. Ogni riga scritta da un modello aspetta la tua approvazione, una voce alla volta.'
 		}
 	},
 
@@ -253,19 +373,30 @@ export const it: Messages = {
 			facts: 'Fatti',
 			images: 'Immagini',
 			history: 'Cronologia',
-			audit: 'Verifica'
+			audit: 'Verifica',
+			mobile: {
+				trigger: 'Dettagli',
+				closeLabel: 'Chiudi i dettagli',
+				description: 'Relazioni, fatti, immagini, cronologia e verifica per questa voce.'
+			}
 		},
 
 		relations: {
-			empty: 'Nessuna relazione registrata finora.'
+			empty: 'Nessuna relazione registrata finora.',
+			explanation:
+				'Una relazione compare quando viene accettata una proposta di propagazione o di importazione che la introduce.'
 		},
 
 		facts: {
-			empty: 'Nessun fatto estratto finora.'
+			empty: 'Nessun fatto estratto finora.',
+			explanation:
+				"I fatti provengono dalla prosa della voce: per questa voce l'estrazione non è ancora stata eseguita."
 		},
 
 		history: {
 			empty: 'Nessuna revisione finora.',
+			explanation:
+				'Una revisione compare quando una modifica a questa voce viene salvata e accettata.',
 			revisionHuman: 'umano',
 			revisionAiAccepted: 'IA \u00b7 accettata'
 		},
@@ -283,6 +414,8 @@ export const it: Messages = {
 			aiOffBanner:
 				'La generazione è disattivata per questo universo. Le immagini esistenti restano visibili qui sotto, ma non se ne possono generare di nuove finché non viene riattivata.',
 			empty: 'Nessuna immagine finora.',
+			explanation:
+				'Le immagini si generano su richiesta, con un clic che chiede sempre conferma della spesa.',
 			privateNote: 'Privata - non visibile ai giocatori finché non riveli questa voce.',
 			generatedBadge: 'Generata',
 			generateButton: 'Genera immagine',
@@ -566,6 +699,8 @@ export const it: Messages = {
 				failed: (note) => (note ? `Import non riuscito: ${note}` : 'Import non riuscito.')
 			},
 			emptyRunning: 'Niente da rivedere ancora.',
+			emptyRunningExplanation:
+				"Le proposte appariranno qui man mano che l'importazione elabora i documenti.",
 			emptyDone: 'Niente da rivedere — questo import non ha prodotto proposte.',
 			filtering: 'Filtro in corso…',
 			errors: {
@@ -587,15 +722,22 @@ export const it: Messages = {
 			nameLabel: "Nome dell'universo",
 			namePlaceholder: 'La Landa di Valdoria',
 			importCard: {
-				heading: 'Hai già appunti, un export da un wiki o un PDF?',
+				heading: 'Importa un mondo',
 				description:
-					'Importalo. Confermerai cosa Canonry ha rilevato prima che parta qualsiasi cosa, vedrai quanto costa, e inizierai a rivedere le proposte entro un minuto o due.',
-				cta: 'Importa il mio mondo'
+					'Appunti, un export da un wiki o un PDF. Confermerai cosa Canonry ha rilevato prima che parta qualsiasi cosa.',
+				cta: 'Importa il mio mondo',
+				badge: 'Predefinito'
+			},
+			emptyCard: {
+				heading: 'Parti da zero',
+				description: 'Niente da portare dentro, per ora. Aggiungi le voci a mano dal selettore.',
+				cta: 'Crea vuoto'
 			},
 			preindexedCard: {
-				heading: 'Non hai ancora niente da importare?',
-				description: (baseName) =>
-					`Parti da ${baseName}, un universo pre-indicizzato. Il tuo canone vince sempre su di esso, e puoi divergerne voce per voce.`,
+				heading: (baseName) => `Parti da ${baseName}`,
+				genericHeading: 'Deriva da un universo pre-indicizzato',
+				description:
+					'Pre-indicizzato. Il tuo canone vince sempre su di esso, diverge voce per voce.',
 				cta: (baseName) => `Parti da ${baseName}`,
 				notConfigured: 'Nessun universo pre-indicizzato è configurato su questa installazione.'
 			},
@@ -684,6 +826,7 @@ export const it: Messages = {
 
 		liveFeed: {
 			empty: 'Nessuna proposta ancora.',
+			explanation: "Le proposte appariranno qui man mano che l'importazione le produce.",
 			badge: {
 				create: 'nuovo',
 				update: 'modifica',
@@ -911,6 +1054,7 @@ export const it: Messages = {
 			description:
 				"Un'avventura singola, un modulo, una campagna, una storia o un romanzo: un albero ordinato di atti, capitoli, scene e incontri, separato dal canone dell'universo. Quello che succede scrivendo o giocando un'opera torna indietro come proposte, mai come scrittura diretta (SPEC.md §4.3).",
 			empty: "Nessun'opera ancora.",
+			emptyAction: 'Nuova opera',
 			createHeading: 'Inizia una nuova opera',
 			nameLabel: 'Nome',
 			typeLabel: 'Tipo',
@@ -968,28 +1112,73 @@ export const it: Messages = {
 			switchAriaLabel: 'Cambia universo',
 			derivedBadge: 'derivato',
 			derivedFrom: (baseUniverseName) => `derivato da ${baseUniverseName}`,
-			entryCount: (count) => (count === 1 ? '1 voce' : `${count} voci`)
+			entryCount: (count) => (count === 1 ? '1 voce' : `${count} voci`),
+			allUniverses: 'Tutti gli universi',
+			newUniverse: 'Nuovo universo'
 		},
 
 		index: {
-			recentEntriesHeading: 'Voci recenti',
-			empty: 'Ancora niente qui.',
+			homebrewEyebrow: 'Universo homebrew',
+			derivedEyebrow: 'Universo derivato',
 			derivedNoticeBefore: 'Derivato: legge il proprio canone più il corpus indicizzato di ',
-			derivedNoticeAfter: ', in sola lettura. Il tuo canone vince sempre (SPEC.md 4.1).'
+			derivedNoticeAfter: ', in sola lettura. Il tuo canone vince sempre (SPEC.md 4.1).',
+			newEntryAction: 'Nuova voce',
+			strip: {
+				collapseLabel: 'Comprimi',
+				expandLabel: 'Espandi il riepilogo',
+				whatChangedHeading: 'Cosa è cambiato',
+				whatChangedEmpty: 'Ancora nessun cambiamento.',
+				waitingForReviewHeading: 'In attesa di revisione',
+				quotaHeading: 'Credito',
+				quotaValue: (used, total) => {
+					const fmt = numberFormat('it', { maximumFractionDigits: 0, useGrouping: 'always' });
+					return `${fmt.format(used)} di ${fmt.format(total)} crediti`;
+				},
+				currentWorkHeading: 'Lavoro in corso',
+				currentWorkEmpty: 'Nessun lavoro in corso.',
+				currentWorkValue: (workName, nodeTitle) => `${workName} \u00b7 ${nodeTitle}`
+			},
+			filters: {
+				all: 'Tutte',
+				typeLabel: (type) => {
+					const labels: Record<string, string> = {
+						character: 'Personaggio',
+						place: 'Luogo',
+						faction: 'Fazione',
+						event: 'Evento',
+						item: 'Oggetto'
+					};
+					return labels[type] ?? type;
+				}
+			},
+			searchPlaceholder: 'Cerca per nome o alias\u2026',
+			changedAt: (when) => `cambiata ${when}`,
+			emptyColdMessage: 'Ancora niente qui. Comincia con la prima voce.',
+			emptyFilteredMessage: 'Nessuna voce corrisponde a questo filtro o a questa ricerca.',
+			relativeTime: {
+				justNow: 'proprio ora',
+				minutesAgo: (minutes) => `${minutes} min fa`,
+				hoursAgo: (hours) => `${hours} h fa`,
+				daysAgo: (days) => `${days} g fa`,
+				weeksAgo: (weeks) => `${weeks} sett fa`,
+				monthsAgo: (months) => `${months} mesi fa`
+			},
+			newEntryDialog: {
+				title: 'Nuova voce',
+				description: 'Un nome e un tipo bastano per iniziare: il resto si scrive nell\u2019editor.',
+				nameLabel: 'Nome',
+				typeLabel: 'Tipo',
+				submit: 'Crea e apri',
+				cancel: 'Annulla',
+				nameRequiredError: 'Il nome è obbligatorio.',
+				typeRequiredError: 'Scegli un tipo.',
+				viewerForbiddenError: 'I lettori non possono creare voci.'
+			}
 		},
 
 		list: {
-			signInPrompt: 'Accedi per vedere i tuoi universi.',
-			empty: 'Nessun universo per ora - il tuo, o uno a cui sei stato aggiunto, comparirà qui.',
-			appearanceSettingsLink: 'Impostazioni aspetto'
-		},
-
-		new: {
-			headTitle: 'Nuovo universo',
-			heading: 'Nuovo universo',
-			nameLabel: 'Nome dell\u2019universo',
-			create: 'Crea',
-			nameRequiredError: 'Dai prima un nome al tuo universo.'
+			heading: 'I tuoi universi',
+			newUniverse: 'Nuovo universo'
 		},
 
 		ask: {
@@ -1061,7 +1250,6 @@ export const it: Messages = {
 	},
 
 	admin: {
-		backToUniverses: '← Universi',
 		unattributed: 'non attribuito',
 		save: 'Salva',
 
@@ -1214,7 +1402,6 @@ export const it: Messages = {
 		hub: {
 			browserTitle: 'Documentazione',
 			title: 'Guide',
-			backLabel: 'Universi',
 			intro:
 				'Guide pratiche per portare un mondo dentro Canonry, e tutto ciò che ha bisogno di istruzioni concrete invece di una sezione della spec.',
 			importHeading: "Guide all'importazione",
@@ -1229,19 +1416,16 @@ export const it: Messages = {
 		importIndex: {
 			title: "Guide all'importazione",
 			eyebrow: 'Documentazione',
-			backLabel: 'Documentazione',
 			intro:
 				"Canonry non ti chiede di scegliere una fonte prima di caricare qualcosa. Trascina una cartella o un file: Canonry ne osserva la forma, ti dice cosa pensa di aver trovato, e ti chiede conferma (o di scegliere un altro playbook da un elenco breve) prima di leggere altro. Queste guide esistono perché il file che consegni sia quello giusto fin dall'inizio: cosa esportare da dove vive oggi il tuo mondo, e cosa Canonry capisce e cosa no una volta che il file arriva.",
 			sourcesHeading: 'Fonti'
 		},
 		importGuide: {
 			browserTitle: (guideLabel) => `Guida all'importazione da ${guideLabel}`,
-			eyebrow: "Guide all'importazione",
-			backLabel: "Guide all'importazione"
+			eyebrow: "Guide all'importazione"
 		},
 		privacy: {
-			title: 'Dove vanno le parole della tua campagna',
-			backLabel: 'Universi'
+			title: 'Dove vanno le parole della tua campagna'
 		}
 	}
 };

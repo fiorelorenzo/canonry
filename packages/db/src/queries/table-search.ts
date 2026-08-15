@@ -29,6 +29,9 @@ export interface EntitySearchHit {
 	/** First ~160 characters of the entry body, for a search result that has to answer
 	 * "who is this" without a click. */
 	excerpt: string;
+	/** Issue #145: the browser's search mode still shows "changed 2d ago" per row, same as
+	 * its unfiltered listing. */
+	updatedAt: Date;
 }
 
 export interface SearchEntitiesOptions {
@@ -69,9 +72,12 @@ export async function searchEntitiesByNameOrAlias(
 		body: string;
 		matched_alias: string | null;
 		rank: number;
+		// `db.execute`'s raw sql tag skips the query builder's own type mapping (see
+		// `activeUniverseIds`'s comment in `warm.ts`), so timestamptz comes back as text.
+		updated_at: string;
 	}>(sql`
 		select
-			e.id, e.name, e.type, e.slug, e.aliases, e.body,
+			e.id, e.name, e.type, e.slug, e.aliases, e.body, e.updated_at,
 			(
 				select a from unnest(e.aliases) a
 				where a ilike ${q + '%'}
@@ -103,6 +109,7 @@ export async function searchEntitiesByNameOrAlias(
 		slug: row.slug,
 		aliases: row.aliases,
 		matchedAlias: row.matched_alias,
-		excerpt: excerptOf(row.body)
+		excerpt: excerptOf(row.body),
+		updatedAt: new Date(row.updated_at)
 	}));
 }

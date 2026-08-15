@@ -22,7 +22,7 @@ export interface LayerSpec {
 	 * preference key and the snapshot/debug id. */
 	id: string;
 	/** Byte-serving URL - built server-side from the existing
-	 * `u/[universe]/e/[slug]/media/[id]` route, never a second media route. */
+	 * `w/[universe]/e/[slug]/media/[id]` route, never a second media route. */
 	url: string;
 	loopType: LoopType;
 	intervalMinSeconds?: number;

@@ -16,9 +16,13 @@ waits for a human, however it is grouped on screen. `AGENTS.md` carries the same
 wording in short form. G6 itself, whether that bucket is informational or reviewable,
 is still open.
 
-**Round one: all 38 decided on 2026-08-13.** Round two, the eleven questions those
-answers opened, is open and tracked on issue
-[#112](https://github.com/fiorelorenzo/canonry/issues/112).
+**Five rounds, 62 answers.** Round one, 38, and round two, the 11 questions those answers
+opened, were both taken on 2026-08-13; round three's 2 on 2026-08-14; round four's 10 and
+round five's 1, both on 2026-08-15. Rounds one to three answered questions asked before
+there was code. Round four came out of the shipped UI and is recorded further down in this
+file, with its audit in [`product-pass.html`](product-pass.html). Round five has no separate
+audit artifact: it is one question the shipped UI's own bug forced, and it is recorded at
+the bottom of this file.
 
 To change a decision: edit this file and the `UX_REGISTER` entry in
 `docs/ux/assets/ux.js`, and say so on the issues it blocks. The artifact keeps its
@@ -244,3 +248,200 @@ document icon, which is the moment a mark stops being decoration:
 - **The favicon is an SVG first**, with a generated ICO and PNG set beside it for the
   browsers and platforms that still ask. Every raster was rendered from that one file
   rather than redrawn, so there is exactly one place the geometry lives.
+
+## Round four, decided 2026-08-15
+
+The first three rounds answered questions asked before there was any code. Round four is
+the other direction: I signed into the deployed preview as a new user, could not create a
+universe, and audited every route to find out why. That audit is
+[`docs/ux/product-pass.html`](product-pass.html), which is not a decision artifact but a
+pass over the shipped UI, one section per surface, each with what ships today drawn
+faithfully, its flaws with file and line, two or three options as working mock UI and a
+recommendation.
+
+**One diagnosis produced most of the ten.** The app shell exists only inside a universe:
+`Sidebar.svelte` is mounted by `routes/u/[universe]/+layout.svelte` and nothing else, so
+`/`, the auth pages, onboarding, `/u/new`, the five settings leaves, docs and privacy all
+render as a bare column under a forty pixel bar. Eight routes have the frame and eighteen
+do not, and the eighteen are every screen a new account meets before it has a universe.
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| I1 | What the app serves at `/` to somebody signed out, now that the landing lives elsewhere | **B, a door page**: the spec's own sentence, sign in and create an account, and the links a visitor is owed |
+| I2 | Sign in and sign up | **C for sign-in, B for sign-up**: one layout, the title page, with an optional right pane carrying the argument where somebody is deciding |
+| I3 | The home page, signed in | **B, the shell reaches outside a universe**, with C's redirect as the zero-universe behaviour |
+| I4 | Creating a universe | **B, one creation surface**: `/onboarding` absorbs `/u/new` and offers three starts |
+| I5 | Where the language switch lives | **B, a row in the account menu**, endonyms, with the settings page behind it |
+| I6 | The account, and five settings pages with no home | **B, an account menu in the shell plus one two-pane settings page**, with a real Account pane |
+| I7 | The universe home, and the entry browser that was never built | **C, one page two modes**: the browser, with a collapsible overview strip above it |
+| I8 | Nine empty states, nine hand-written sentences | **A, one component, three variants**: cold start, settled, derived absence |
+| I9 | Who owns the controls | **C, shadcn-svelte as the control layer**, with components of our own only where it has no answer |
+| I10 | The phone | **B, one responsive shell**, E4's bottom tabs generalised past table mode |
+
+### Where round four went against the recommendation
+
+**I1: B rather than A.** The landing page is not missing. It ships from `canonry-landing`
+at `canonry.io`, in English and Italian, with F6's demo as the hero and G10's export
+sentence under it, so I recommended the app redirect a signed-out visitor straight to
+sign-in and keep exactly one copy of the pitch. B keeps a door page instead, which is
+friendlier to a bookmarked app domain and accepts the cost A avoided: two copies of the
+argument in two repositories, and the app's copy is the one nobody will remember to
+update. That makes the door's sentence a guardrail 7 surface in this repository too, not
+only in the landing one.
+
+**I9: C rather than B.** I recommended extracting six components of our own and reserving
+shadcn-svelte for the three primitives that are genuinely hard. C takes shadcn for
+everything, and the argument that wins is the one its own costs understated: the six B
+would extract are the easy six, and the hard three are exactly what B leaves hand-rolled.
+Four consequences, checked against shadcn-svelte 1.5.0 rather than assumed, and none of
+them optional:
+
+- **It expects its own token vocabulary.** `--background`, `--foreground`, `--primary`,
+  `--muted`, `--border`, `--input`, `--ring`, `--radius` and the rest, declared through a
+  Tailwind 4 `@theme inline` block. The reading room's names are `--color-paper`,
+  `--color-ink`, `--color-line` and so on, so the first task is one mapping block in
+  `routes/layout.css` from our names into theirs. One place, or every component gets
+  restyled on arrival and A1 dies by a thousand paste operations.
+- **Its dark variant is a class, ours is an attribute.** It ships
+  `@custom-variant dark (&:is(.dark *))` and this app themes on `[data-theme='dark']`
+  (G1, set server side in `hooks.server.ts` so there is no flash). Redefine the custom
+  variant against the attribute; do not add a second dark mechanism.
+- **The CLI copies source, it does not add a runtime dependency.** Components land in
+  `$lib/components/ui`, which is what makes restyling them into the reading room ours to
+  do and ours to keep. What it does add is `bits-ui`, `clsx`, `tailwind-merge`,
+  `tailwind-variants` and an icon set, all MIT, so nothing here conflicts with AGPL
+  distribution.
+- **An icon set arrives as a dependency and is a design decision.** The product has no
+  icon language today, only the mark and a few glyphs. Either Lucide becomes that language
+  deliberately, in both palettes, or every component that reaches for an icon gets it
+  replaced as it lands. G2's serif is safe by accident here, since `--font-sans` is the
+  same lever in both systems and already points at the serif stack.
+
+### What round four costs the shell
+
+I3 and I6 together are the structural piece: A2's sidebar stops being a universe frame and
+becomes the product's frame, with an account-level mode when no universe is selected and a
+footer carrying the user, the theme, the language and F2's meter. A2 itself is not amended,
+its seven items still describe a universe, but the answer to "what holds the nav" is now
+"the whole product" rather than "a universe". I5, I6 and half of I1 all resolve into that
+one piece of work, and I10's responsive pass is the same shell seen at 390px, so it wants
+to land with it rather than after it.
+
+Two findings in the pass need no decision and are defects: the home page renders "Sign in"
+twice (`routes/+page.svelte:23-26` against `i18n/en.ts:955`), and "Match system" renders the
+light palette on a dark machine because the dark tokens are bound to `[data-theme='dark']`
+with no `prefers-color-scheme` block behind them, which `lib/theme.ts` documents rather than
+fixes.
+
+### The board these answers land on
+
+It was empty. Every issue that built a surface named in the pass is closed, #104 the app
+shell, #86 auth, #108 onboarding, #107 the writing switch, #88 and #89 the quota, so the
+board said Done for a shell that does not exist outside a universe. Round four is therefore
+filed as new work under a new epic, [#135](https://github.com/fiorelorenzo/canonry/issues/135),
+rather than as reopened tickets:
+
+| Issue | What | Decision |
+| --- | --- | --- |
+| #136 | The home page renders "Sign in" twice | defect, no decision |
+| #137 | "Match system" renders light on a dark machine | defect, G1 |
+| #138 | A door at the app root | I1 |
+| #139 | The auth pages as a title page, with the argument beside sign-up | I2 |
+| #140 | A new account lands on onboarding instead of an empty page | I3, the interim half |
+| #141 | The shell reaches outside a universe | I3 |
+| #142 | One creation surface for a new universe | I4 |
+| #143 | An account menu and one settings page with a sub-nav | I6 |
+| #144 | The language control in the account menu | I5 |
+| #145 | The entry browser, with the overview strip above it | I7 |
+| #146 | One empty state component, three variants | I8 |
+| #147 | shadcn-svelte as the control layer | I9 |
+| #148 | One responsive shell, phone included | I10 |
+| #149 | The command palette | A3, G3 |
+| #150 | The quota meter in the shell | F2 |
+
+The last two are not round four answers. They are decided-but-unbuilt work the pass found
+while looking for something else, and #149 is worth recording on its own: **the command
+palette has never had an issue at all.** A3 and G3 answered it, `lib/keys.ts` carries the
+whole cross-platform shortcut vocabulary including mod+K, nothing listens for it, and #75,
+which this file's own register names against A3, closed having shipped table mode's instant
+search instead.
+
+### Built, 2026-08-15
+
+All fifteen landed the same day the answers were taken, in `1e7b2d8`, and are closed. The
+shell is the change everything else hangs off: `AppShell.svelte` is mounted by the root
+layout and switches `Sidebar.svelte` between a universe mode and an account mode on whether
+`page.data.current` is present, so nothing in the product renders without a frame any more
+and `AuthStatus.svelte` is gone.
+
+Four things surfaced while building and were filed rather than folded in, because each is a
+decision rather than a task:
+
+- **[#151](https://github.com/fiorelorenzo/canonry/issues/151), password recovery.** There is
+  no mail transport anywhere in the app, so I2 shipped without the "Forgotten password?" link
+  the artifact drew rather than with a link that goes nowhere. The transport wants choosing
+  for email verification and universe invitations at the same time.
+- **[#154](https://github.com/fiorelorenzo/canonry/issues/154), account deletion.** I6's
+  Account pane ships name, email, password and sign out everywhere; deletion is a sentence
+  saying it is not enabled. `universe.owner_user_id` cascades, so deleting an account destroys
+  every universe under it, and doing that irreversibly with no confirmation channel is not a
+  thing to enable quietly.
+- **[#155](https://github.com/fiorelorenzo/canonry/issues/155), the control layer's gaps.** No
+  select, and three badge meanings the variant set does not carry, so a handful of call sites
+  stayed hand-written after I9's migration.
+- **[#153](https://github.com/fiorelorenzo/canonry/issues/153), `/u/<slug>` is ambiguous.** Not
+  a round four surface at all: slug uniqueness is per owner by schema, and
+  `universeAccessBySlug` resolves a slug with no owner filter and no ordering, so the same URL
+  can resolve to a different universe between two requests. It cost an hour of phantom 404s
+  during this work before anybody realised the bug was not in the new code.
+
+## Round five, decided 2026-08-15
+
+Round four filed #153 as a defect, not a decision: slug uniqueness was scoped per owner by
+schema, `universeAccessBySlug` resolved a slug with no owner filter and no ordering, and the
+same URL could resolve to a different universe between two requests. Answering it turned out
+to require answering a question round four never asked.
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| J1 | What the top-level URL segments mean, now that user profiles are certain | **`/u/<handle>` a person, `/w/<slug>` a world, `/p/<slug>` the players' wiki** |
+
+**Answered by a fourth way, not by picking among three.** #153 was framed as a scoping
+question: global uniqueness, or resolution scoped to the viewer, my own preference going in.
+J1 answers neither by changing what the segment means instead. `/u/` reads as a person
+everywhere else on the internet, and this product only had it pointing at a universe because
+profiles were hypothetical when A2 named the sidebar's switcher. They are not hypothetical
+any more, filed as #158, so the segment goes to the thing it already reads as, and the whole
+GM-side app moves to `/w/<slug>`, filed as #157, under epic #156.
+
+**What that forces.** A world's URL still carries no owner: `/w/<slug>` is exactly as
+ambiguous as `/u/<slug>` was unless world slugs become globally unique, so the move does not
+dodge #153, it answers it. The argument that settles it, over my own preferred scoped
+resolution, is `/p/<slug>`: that is the one link a GM sends to people outside the product, so
+a slug cannot mean different things to different readers depending on who is asking. A slug
+that resolves per-viewer is not a shareable URL, and `/p/<slug>` is exactly the surface
+guardrail 6 governs: nothing unreviewed reaches a stranger there, and an ambiguous slug is
+another way for the wrong world's content to reach one. Guardrail 5 makes the same argument
+from data transparency's side: a slug is part of a URL somebody may share, so what it resolves to
+cannot be a private fact about which account's rows a scan happened to visit first. Two
+places in the code already assumed a slug resolves to exactly one universe before any of this
+was decided: `PRE_INDEXED_BASE_SLUG` in `lib/server/onboarding.ts` resolves one fixed slug for
+the shared catalogue with no owner in the query, and `loadPublicUniverse` in
+`lib/server/players.ts` looks a slug up the same unfiltered way `universeAccessBySlug` does.
+Filed as #153, the schema change that makes global uniqueness real.
+
+**What it costs, stated plainly.** The first GM to take `valdoria-reach` takes it, globally,
+and every GM after them gets a suffix instead of the name they typed. That is not new code:
+`createOnboardingUniverse` already retries on a unique violation and appends a number, so the
+collision path is exercised today, just against a per-owner index rather than a global one.
+The cost is a name somebody wanted, not a broken flow, and it is accepted rather than
+engineered around, because a slug that means one thing to one reader and another thing to the
+next is the actual bug #153 exists to close.
+
+**What does not change.** The domain word stays universe: `universe.slug`,
+`universeAccessBySlug`, `params.universe`, and the `universe` strings in the i18n catalogue.
+J1 moves a URL segment, not the model, and #157's route parameter keeps its name, so no
+server code changes shape. And no compatibility redirect from `/u/<slug>`: the product is not
+launched, canonry.io serves a waiting list, and every link that exists today is ours to
+update. A permanent redirect would also collide with `/u/<handle>` the day #158 ships, which
+is the whole point of freeing the segment deliberately rather than leaving a trap in it.

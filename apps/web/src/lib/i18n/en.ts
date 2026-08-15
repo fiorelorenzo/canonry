@@ -21,11 +21,83 @@ export const en: Messages = {
 		signIn: 'Sign in',
 		signUp: 'Sign up',
 		signOut: 'Sign out',
-		signingOut: 'Signing out…'
+		signingOut: 'Signing out…',
+		tagline:
+			'A wiki for your game world where an AI copilot works in every flow, and never writes anything you did not accept.',
+		sidebar: {
+			accountNavAriaLabel: 'Account navigation',
+			accountNav: {
+				universes: 'Universes',
+				settings: 'Settings',
+				docs: 'Docs'
+			}
+		},
+		quota: {
+			includedHeading: 'Included quota',
+			warmHeading: 'Warm budget',
+			// Same idiom as `settings.billing.creditsCount`: grouped digits, no
+			// fractional credits shown - this is the same `subscriptionCredits`/
+			// `warmBudgetRemaining` figure that page renders, formatted the same way.
+			ratio: (remaining, total) => {
+				const fmt = numberFormat('en', { maximumFractionDigits: 0, useGrouping: 'always' });
+				return `${fmt.format(remaining)} / ${fmt.format(total)}`;
+			}
+		},
+		door: {
+			createAccount: 'Create an account',
+			exportNote: 'Markdown in, markdown out. Your canon exports as plain files on any plan.'
+		},
+		// Issue #148 (I10 = B): the phone top bar's drawer trigger, palette icon and
+		// account avatar, plus the E4-shaped bottom tab bar universe mode gets below
+		// `md`. "Entries"/"Proposals" are read from `universe.nav` at the call site,
+		// not repeated here.
+		phoneNav: {
+			openNavLabel: 'Navigation and account',
+			openNavDescription: 'Universe switcher, navigation links and account controls.',
+			closeNavLabel: 'Close navigation',
+			paletteTriggerLabel: 'Open the command palette',
+			accountLabel: 'Account',
+			tabsAriaLabel: 'Primary sections',
+			ask: 'Ask',
+			more: 'More'
+		},
+		/** Issue #143 (I6 = B): "Model keys" and "Plan and credits" are the menu's own
+		 * wording (the issue body names the six rows separately from the settings
+		 * sub-nav's shorter pane titles); everything else here reuses another
+		 * namespace's copy rather than a second English string for the same word. */
+		accountMenu: {
+			account: 'Account',
+			language: 'Language',
+			appearance: 'Appearance',
+			modelKeys: 'Model keys',
+			planAndCredits: 'Plan and credits',
+			export: 'Export'
+		},
+		palette: {
+			dialogTitle: 'Command palette',
+			dialogDescription: 'Jump to an entry, run a command, or ask a question.',
+			closeLabel: 'Close the command palette',
+			placeholder: 'Jump to an entry, run a command, or ask a question…',
+			askHeading: 'Ask',
+			askAction: (question) => `Ask "${question}"`,
+			askHint: 'Opens Ask',
+			entriesHeading: 'Entries',
+			noEntryMatches: (query) => `No entries match "${query}".`,
+			loadingMessage: 'Searching…',
+			akaHint: (alias) => `aka ${alias}`,
+			universesHeading: 'Universes',
+			noUniverseMatches: (query) => `No universes match "${query}".`,
+			actionsHeading: 'Actions',
+			emptyMessage: 'Nothing here. Try a different name, action or question.',
+			accountSettingsAction: 'Account',
+			footerMove: 'Move',
+			footerOpen: 'Open',
+			footerClose: 'Close'
+		}
 	},
 
 	settings: {
-		backToUniverses: '← Universes',
+		subNavAriaLabel: 'Settings sections',
 
 		appearance: {
 			title: 'Appearance',
@@ -135,6 +207,37 @@ export const en: Messages = {
 			toggleSignInRequired: 'Sign in to change a key.',
 			removeSignInRequired: 'Sign in to remove a key.',
 			unknownProvider: 'Unknown provider.'
+		},
+
+		account: {
+			title: 'Account',
+			description:
+				'The name and email the product prints on every screen, your password, and how to sign out everywhere or delete the account entirely.',
+			signInPrompt: 'Sign in to see and change your account.',
+			signInLink: 'Sign in',
+			nameLabel: 'Name',
+			nameSave: 'Save name',
+			nameSaving: 'Saving…',
+			nameSaved: 'Saved.',
+			nameSaveFailedFallback: 'Could not save that name.',
+			emailLabel: 'Email',
+			emailNote: 'Email is not editable from this page yet.',
+			passwordHeading: 'Password',
+			currentPasswordLabel: 'Current password',
+			newPasswordLabel: 'New password',
+			passwordSave: 'Change password',
+			passwordSaving: 'Changing…',
+			passwordSaved: 'Password changed.',
+			passwordSaveFailedFallback: 'Could not change your password.',
+			sessionsHeading: 'Sessions',
+			sessionsDescription:
+				'Ends every signed-in session for this account, this device included, so you sign back in everywhere.',
+			signOutEverywhereButton: 'Sign out everywhere',
+			signOutEverywhereInProgress: 'Signing out everywhere…',
+			signOutEverywhereFailedFallback: 'Could not sign out every session.',
+			deleteHeading: 'Delete account',
+			deleteUnavailable:
+				'Account deletion is not turned on for this deployment yet, so there is no button here that would fail quietly - ask whoever runs this deployment to enable it in Better Auth\u2019s own configuration.'
 		}
 	},
 
@@ -166,6 +269,24 @@ export const en: Messages = {
 		},
 		languageSwitcher: {
 			label: 'Language'
+		},
+		footer: {
+			whatCanonryIs: 'What Canonry is',
+			docs: 'Docs',
+			privacy: 'Privacy'
+		},
+		argument: {
+			intro:
+				'Change one entry and Canonry says which others that touches, drafts each update, and waits.',
+			aldricSentence:
+				'Dismissed from the watch in the thaw after the Sable Winter, he now answers to the Ashen Ledger.',
+			watchLeadPrefix: 'The Watch is led by',
+			watchBefore: 'Captain Aldric Vane',
+			watchAfter: 'an acting captain, unnamed since the thaw',
+			waitingBadge: 'waiting for you',
+			evidence: 'Evidence: Aldric Vane, paragraph 1.',
+			disclaimer:
+				'Nothing above was applied. Every line a model writes waits for you to accept it, one entry at a time.'
 		}
 	},
 
@@ -256,19 +377,29 @@ export const en: Messages = {
 			facts: 'Facts',
 			images: 'Images',
 			history: 'History',
-			audit: 'Audit'
+			audit: 'Audit',
+			mobile: {
+				trigger: 'Details',
+				closeLabel: 'Close details',
+				description: 'Relations, facts, images, history and audit for this entry.'
+			}
 		},
 
 		relations: {
-			empty: 'No relations recorded yet.'
+			empty: 'No relations recorded yet.',
+			explanation:
+				'A relation appears once a propagation or import proposal that adds one is accepted.'
 		},
 
 		facts: {
-			empty: 'No facts extracted yet.'
+			empty: 'No facts extracted yet.',
+			explanation:
+				"Facts come from an entry's own prose, pulled out by extraction that hasn't run for this entry yet."
 		},
 
 		history: {
 			empty: 'No revisions yet.',
+			explanation: 'A revision appears once an edit to this entry is saved and accepted.',
 			revisionHuman: 'human',
 			revisionAiAccepted: 'ai \u00b7 accepted'
 		},
@@ -286,6 +417,8 @@ export const en: Messages = {
 			aiOffBanner:
 				'Generation is switched off for this universe. Existing images below still show, but nothing new can be generated until it is turned back on.',
 			empty: 'No images yet.',
+			explanation:
+				'Images are generated on request, one click that always confirms the spend first.',
 			privateNote: 'Private - not shown to players until you reveal this entry.',
 			generatedBadge: 'Generated',
 			generateButton: 'Generate image',
@@ -549,6 +682,7 @@ export const en: Messages = {
 				failed: (note) => (note ? `Import failed: ${note}` : 'Import failed.')
 			},
 			emptyRunning: 'Nothing to review yet.',
+			emptyRunningExplanation: 'Proposals appear here as the import processes each document.',
 			emptyDone: 'Nothing to review — this import produced no proposals.',
 			filtering: 'Filtering…',
 			errors: {
@@ -570,15 +704,21 @@ export const en: Messages = {
 			nameLabel: 'Universe name',
 			namePlaceholder: 'Valdoria Reach',
 			importCard: {
-				heading: 'Have notes, a wiki export, or a PDF already?',
+				heading: 'Import a world',
 				description:
-					'Import it. You will confirm what Canonry detected before anything runs, see what it costs, and start reviewing proposals within a minute or two.',
-				cta: 'Import my world'
+					'Notes, a wiki export, or a PDF. Confirm what Canonry detected before anything runs.',
+				cta: 'Import my world',
+				badge: 'Default'
+			},
+			emptyCard: {
+				heading: 'Start empty',
+				description: 'Nothing to bring in yet. Add entries by hand from the switcher.',
+				cta: 'Create empty'
 			},
 			preindexedCard: {
-				heading: 'Nothing to import yet?',
-				description: (baseName) =>
-					`Start from ${baseName}, a pre-indexed universe. Your canon always wins over it, and you can diverge from it entry by entry.`,
+				heading: (baseName) => `Start from ${baseName}`,
+				genericHeading: 'Derive from a pre-indexed universe',
+				description: 'Pre-indexed. Your canon always wins over it, diverge entry by entry.',
 				cta: (baseName) => `Start from ${baseName}`,
 				notConfigured: 'No pre-indexed universe is configured on this deployment yet.'
 			},
@@ -668,6 +808,7 @@ export const en: Messages = {
 
 		liveFeed: {
 			empty: 'No proposals yet.',
+			explanation: 'Proposals appear here as the import produces them.',
 			badge: {
 				create: 'new',
 				update: 'update',
@@ -884,6 +1025,7 @@ export const en: Messages = {
 			description:
 				"A oneshot, a module, a campaign, a story or a novel: an ordered tree of acts, chapters, scenes and encounters, separate from the universe's canon. What happens while writing or playing one flows back as proposals, never as a direct write (SPEC.md §4.3).",
 			empty: 'No works yet.',
+			emptyAction: 'New work',
 			createHeading: 'Start a new work',
 			nameLabel: 'Name',
 			typeLabel: 'Type',
@@ -941,28 +1083,74 @@ export const en: Messages = {
 			switchAriaLabel: 'Switch universe',
 			derivedBadge: 'derived',
 			derivedFrom: (baseUniverseName) => `derived from ${baseUniverseName}`,
-			entryCount: (count) => (count === 1 ? '1 entry' : `${count} entries`)
+			entryCount: (count) => (count === 1 ? '1 entry' : `${count} entries`),
+			allUniverses: 'All universes',
+			newUniverse: 'New universe'
 		},
 
 		index: {
-			recentEntriesHeading: 'Recent entries',
-			empty: 'Nothing here yet.',
+			homebrewEyebrow: 'Homebrew universe',
+			derivedEyebrow: 'Derived universe',
 			derivedNoticeBefore: 'Derived: reads its own canon plus ',
-			derivedNoticeAfter: "'s indexed corpus, read-only. Your canon always wins (SPEC.md 4.1)."
+			derivedNoticeAfter: "'s indexed corpus, read-only. Your canon always wins (SPEC.md 4.1).",
+			newEntryAction: 'New entry',
+			strip: {
+				collapseLabel: 'Collapse',
+				expandLabel: 'Expand overview',
+				whatChangedHeading: 'What changed',
+				whatChangedEmpty: 'Nothing changed yet.',
+				waitingForReviewHeading: 'Waiting for review',
+				quotaHeading: 'Quota',
+				quotaValue: (used, total) => {
+					const fmt = numberFormat('en', { maximumFractionDigits: 0, useGrouping: 'always' });
+					return `${fmt.format(used)} / ${fmt.format(total)} credits`;
+				},
+				currentWorkHeading: 'Current work',
+				currentWorkEmpty: 'Nothing in progress.',
+				currentWorkValue: (workName, nodeTitle) => `${workName} \u00b7 ${nodeTitle}`
+			},
+			filters: {
+				all: 'All',
+				typeLabel: (type) => {
+					const labels: Record<string, string> = {
+						character: 'Character',
+						place: 'Place',
+						faction: 'Faction',
+						event: 'Event',
+						item: 'Item'
+					};
+					return labels[type] ?? type;
+				}
+			},
+			searchPlaceholder: 'Search by name or alias\u2026',
+			changedAt: (when) => `changed ${when}`,
+			emptyColdMessage: 'Nothing here yet. Start with your first entry.',
+			emptyFilteredMessage: 'No entries match this filter or search.',
+			relativeTime: {
+				justNow: 'just now',
+				minutesAgo: (minutes) => `${minutes}m ago`,
+				hoursAgo: (hours) => `${hours}h ago`,
+				daysAgo: (days) => `${days}d ago`,
+				weeksAgo: (weeks) => `${weeks}w ago`,
+				monthsAgo: (months) => `${months}mo ago`
+			},
+			newEntryDialog: {
+				title: 'New entry',
+				description:
+					'A name and a type is enough to start - everything else is written in the editor.',
+				nameLabel: 'Name',
+				typeLabel: 'Type',
+				submit: 'Create and open',
+				cancel: 'Cancel',
+				nameRequiredError: 'A name is required.',
+				typeRequiredError: 'Pick a type.',
+				viewerForbiddenError: 'Viewers cannot create an entry.'
+			}
 		},
 
 		list: {
-			signInPrompt: 'Sign in to see your universes.',
-			empty: 'No universes yet - yours, or one you were added to, will show up here.',
-			appearanceSettingsLink: 'Appearance settings'
-		},
-
-		new: {
-			headTitle: 'New universe',
-			heading: 'New universe',
-			nameLabel: 'Universe name',
-			create: 'Create',
-			nameRequiredError: 'Name your universe first.'
+			heading: 'Your universes',
+			newUniverse: 'New universe'
 		},
 
 		ask: {
@@ -1033,7 +1221,6 @@ export const en: Messages = {
 	},
 
 	admin: {
-		backToUniverses: '← Universes',
 		unattributed: 'unattributed',
 		save: 'Save',
 
@@ -1189,7 +1376,6 @@ export const en: Messages = {
 		hub: {
 			browserTitle: 'Docs',
 			title: 'Guides',
-			backLabel: 'Universes',
 			intro:
 				'Practical guides for getting a world into Canonry and anything else that needs plain instructions rather than a spec section.',
 			importHeading: 'Import guides',
@@ -1204,19 +1390,16 @@ export const en: Messages = {
 		importIndex: {
 			title: 'Import guides',
 			eyebrow: 'Docs',
-			backLabel: 'Docs',
 			intro:
 				'Canonry does not ask you to pick a source before you upload anything. Drop a folder or a file, and it looks at its shape, tells you what it thinks it found, and asks you to confirm (or pick a different playbook from a short list) before it reads any further. These guides exist so the file you hand it is the right one to begin with: what to export from wherever your world lives now, and what Canonry does and does not understand once it gets there.',
 			sourcesHeading: 'Sources'
 		},
 		importGuide: {
 			browserTitle: (guideLabel) => `${guideLabel} import guide`,
-			eyebrow: 'Import guides',
-			backLabel: 'Import guides'
+			eyebrow: 'Import guides'
 		},
 		privacy: {
-			title: "Where your campaign's words go",
-			backLabel: 'Universes'
+			title: "Where your campaign's words go"
 		}
 	}
 };

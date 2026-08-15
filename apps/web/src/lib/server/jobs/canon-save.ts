@@ -34,7 +34,7 @@
  * written", and `docs/ux/c3-propagation-plan.html`'s own "Rejected outright" section names
  * the alternative by hand: "generate every diff first, let the GM delete what they do not
  * want after ... burns the premium model's writes on entries nobody asked to see." The
- * plan detail route (`u/[universe]/proposals/[plan]/+page.server.ts`'s `generateDiffs`
+ * plan detail route (`w/[universe]/proposals/[plan]/+page.server.ts`'s `generateDiffs`
  * action) is already the one explicit, priced, human-triggered step that turns a plan's
  * checklist into diffs. This job produces exactly the readable, droppable checklist
  * SPEC.md §5.1 step 3 describes - `planPropagation` alone - and stops there, on purpose,

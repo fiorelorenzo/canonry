@@ -13,6 +13,9 @@
 	import { resolve } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
 	import { messages, type Locale } from '$lib/i18n';
+	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Button } from '$lib/components/ui/button';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import type { ImageFeature } from '@canonry/db/schema';
 	import GenerateDialog from './GenerateDialog.svelte';
 
@@ -59,7 +62,7 @@
 	} = $props();
 	let t = $derived(messages(locale));
 
-	let base = $derived(resolve(`/u/${universeSlug}/e/${entitySlug}/media`));
+	let base = $derived(resolve(`/w/${universeSlug}/e/${entitySlug}/media`));
 
 	let assets = $derived(initialAssets);
 	let dialogOpen = $state(false);
@@ -200,27 +203,27 @@
 			{/each}
 		</div>
 		<div class="mt-2 flex gap-2">
-			<button
+			<Button
 				type="button"
-				class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:opacity-50"
+				size="sm"
 				disabled={!selectedCandidateId || inserting}
 				onclick={handleInsert}
 			>
 				{inserting ? t.entry.media.inserting : t.entry.media.insert}
-			</button>
-			<button
-				type="button"
-				class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
-				onclick={discardCandidates}
-			>
+			</Button>
+			<Button type="button" variant="secondary" size="sm" onclick={discardCandidates}>
 				{t.entry.media.discard}
-			</button>
+			</Button>
 		</div>
 	</div>
 {/if}
 
 {#if assets.length === 0 && candidates.length === 0}
-	<p class="text-sm text-muted">{t.entry.media.empty}</p>
+	<EmptyState
+		kind="derived"
+		message={t.entry.media.empty}
+		explanation={t.entry.media.explanation}
+	/>
 {:else if assets.length > 0}
 	<div class="mt-2 grid grid-cols-2 gap-2">
 		{#each assets as asset (asset.id)}
@@ -240,42 +243,28 @@
 {/if}
 
 {#if canWrite}
-	<button
-		type="button"
-		class="mt-3 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:opacity-50"
-		disabled={!aiEnabled}
-		onclick={() => (dialogOpen = true)}
-	>
+	<Button type="button" class="mt-3" disabled={!aiEnabled} onclick={() => (dialogOpen = true)}>
 		{t.entry.media.generateButton}
-	</button>
+	</Button>
 
 	{#if styleEditorOpen}
 		<div class="mt-3 rounded-md border border-line bg-panel-2 p-3">
 			<label class="block text-xs font-medium text-ink-2" for="style-override">
 				{t.entry.media.styleOverrideLabel}
 			</label>
-			<textarea
-				id="style-override"
-				bind:value={styleDraft}
-				rows="2"
-				class="mt-1 w-full rounded-md border border-line-2 bg-panel px-2 py-1 text-sm text-ink"
-			></textarea>
+			<Textarea id="style-override" bind:value={styleDraft} rows={2} class="mt-1" />
 			<div class="mt-2 flex gap-2">
-				<button
-					type="button"
-					class="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-panel hover:bg-accent-ink disabled:opacity-50"
-					disabled={savingStyle}
-					onclick={saveStyle}
-				>
+				<Button type="button" size="sm" disabled={savingStyle} onclick={saveStyle}>
 					{t.entry.media.save}
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
-					class="rounded-md border border-line-2 px-2.5 py-1 text-xs text-ink-2 hover:bg-panel-2"
+					variant="secondary"
+					size="sm"
 					onclick={() => (styleEditorOpen = false)}
 				>
 					{t.entry.media.cancel}
-				</button>
+				</Button>
 			</div>
 		</div>
 	{/if}

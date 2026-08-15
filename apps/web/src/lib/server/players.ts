@@ -28,6 +28,10 @@ export interface PublicUniverse {
 	slug: string;
 }
 
+/** #83's `/p/<slug>` route: the one link a GM shares outside the product, so it cannot
+ * mean different things to different readers. Delegates to `universeForExport`, whose
+ * doc comment has the reasoning - `universe.slug` is globally unique (decision J1, issue
+ * #153), so this is unambiguous with no owner filter needed. */
 export async function loadPublicUniverse(
 	db: Db,
 	universeSlug: string

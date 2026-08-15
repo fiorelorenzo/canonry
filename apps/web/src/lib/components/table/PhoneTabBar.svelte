@@ -31,6 +31,9 @@
 	]);
 </script>
 
+<!-- #147: raw tab strip on purpose - the active tab reads through text-accent-ink plus
+	font-semibold, which none of Button's variants draw, and the queue badge below reuses
+	C1/G8's proposal-count colours (bg-ai-bg/text-ai), which stay off limits to Badge. -->
 <nav
 	class="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-panel md:hidden"
 	aria-label={t.navLabel}

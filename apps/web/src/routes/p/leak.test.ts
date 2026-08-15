@@ -356,7 +356,7 @@ describe('players wiki: leak test (#85)', () => {
 		// Mirrors the real "Insert" step of the F1 = C dialog: generateImages always
 		// creates an unattached row (entity_id null - see packages/media/src/generate.ts's
 		// own guardrail comment), and attachMediaAsset - the exact function
-		// apps/web/src/routes/u/[universe]/e/[slug]/media/attach/+server.ts calls - is the
+		// apps/web/src/routes/w/[universe]/e/[slug]/media/attach/+server.ts calls - is the
 		// only thing that ever sets entity_id. Neither one ever touches
 		// published_to_players; packages/media's own generate.test.ts already proves that
 		// at the row level, so this test proves the other half: the players' route

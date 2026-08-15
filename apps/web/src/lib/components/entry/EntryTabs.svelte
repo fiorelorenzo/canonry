@@ -40,6 +40,7 @@
 	}
 
 	let {
+		id = 'entry-detail',
 		universeSlug,
 		relations,
 		facts,
@@ -51,6 +52,11 @@
 		locale,
 		active = $bindable('relations')
 	}: {
+		/** Issue #148 (I10 = B): this component mounts twice on the entry page below
+		 * `md` (inline, hidden, plus a second copy inside the mobile details sheet)
+		 * - a hardcoded id would duplicate an `id` attribute across the DOM, so the
+		 * caller gives the second mount its own. */
+		id?: string;
 		universeSlug: string;
 		relations: RelationView[];
 		facts: FactRow[];
@@ -76,10 +82,14 @@
 </script>
 
 <aside
-	id="entry-detail"
+	{id}
 	class="w-full border-line bg-panel-2 md:w-64 md:flex-none md:border-l"
 	aria-label={t.entry.tabs.ariaLabel}
 >
+	<!-- #147: this stays a raw tab strip - the active tab reads through a bottom-border
+		indicator (border-accent vs border-transparent), which none of Button's variants
+		draw, so forcing it onto Button would lose the one thing that shows which tab is
+		open. -->
 	<div class="flex border-b border-line" role="tablist" aria-label={t.entry.tabs.sectionsAriaLabel}>
 		{#each tabs as tab (tab.id)}
 			<button

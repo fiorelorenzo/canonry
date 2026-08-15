@@ -2,8 +2,9 @@
 // real once accounts exist, so "every universe on this server" becomes "yours, or one
 // you were added to". Read-only - nothing here writes a universe_member row, that is a
 // future invite flow's job, not auth's.
-import { and, eq } from 'drizzle-orm';
+import { and, count, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../client.js';
+import { entity } from '../schema/entity.js';
 import type { UniverseMemberRole } from '../schema/enums.js';
 import { universe, universeMember } from '../schema/universe.js';
 
@@ -14,10 +15,12 @@ export interface UniverseAccess {
 	role: UniverseMemberRole;
 }
 
-/** One universe by slug, only if `userId` may see it - the owner, or a row in
- * universe_member. Returns null rather than throwing so a caller can 404 without
- * leaking whether the slug exists at all (matches the pattern requireAdmin already
- * uses for the same reason). */
+/** One universe by slug, checked against `userId`'s access - the owner, or a row in
+ * universe_member. `universe.slug` is globally unique (decision J1, issue #153: a
+ * world's URL carries no owner), so one row is the whole answer, not the whole answer
+ * for this owner - there is no other owner it could ambiguously mean. Returns null
+ * rather than throwing so a caller can 404 without leaking whether the slug exists at
+ * all (matches the pattern requireAdmin already uses for the same reason). */
 export async function universeAccessBySlug(
 	db: Db,
 	slug: string,
@@ -53,4 +56,22 @@ export async function universesForUser(
 	const byId = new Map(owned.map((row) => [row.id, row]));
 	for (const { universe: row } of memberOf) byId.set(row.id, row);
 	return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Issue #141: the shell's account-level switcher needs an entry count per universe
+ * on every route, not only inside one, and a per-universe `SELECT count(*)` in that
+ * root layout would turn into an N+1 on every page in the app. One grouped query for
+ * the whole account instead - a universe with no entities yet is simply absent from
+ * the result, so callers default it to zero rather than reading `undefined` as a bug. */
+export async function entityCountsByUniverseIds(
+	db: Db,
+	universeIds: readonly string[]
+): Promise<Map<string, number>> {
+	if (universeIds.length === 0) return new Map();
+	const rows = await db
+		.select({ universeId: entity.universeId, total: count() })
+		.from(entity)
+		.where(inArray(entity.universeId, universeIds as string[]))
+		.groupBy(entity.universeId);
+	return new Map(rows.map((row) => [row.universeId, row.total]));
 }

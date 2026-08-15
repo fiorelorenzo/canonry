@@ -8,6 +8,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { messages, type Locale } from '$lib/i18n';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import type { RelationView } from '@canonry/db';
 
 	let {
@@ -19,14 +20,18 @@
 </script>
 
 {#if relations.length === 0}
-	<p class="text-sm text-muted">{t.entry.relations.empty}</p>
+	<EmptyState
+		kind="derived"
+		message={t.entry.relations.empty}
+		explanation={t.entry.relations.explanation}
+	/>
 {:else}
 	<ul class="space-y-2.5">
 		{#each relations as relation (relation.label + relation.other.id)}
 			<li class="text-sm">
 				<span class="text-muted">{relation.label}</span>
 				<a
-					href={resolve(`/u/${universeSlug}/e/${relation.other.slug}`)}
+					href={resolve(`/w/${universeSlug}/e/${relation.other.slug}`)}
 					class="ml-1 text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
 				>
 					{relation.other.name}

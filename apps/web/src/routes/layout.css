@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn-svelte/tailwind.css';
 @plugin '@tailwindcss/typography';
 
 /* Canonry's design system, as decided in docs/ux (see docs/ux/DECISIONS.md).
@@ -12,6 +14,13 @@
  *          palettes are first class and every surface has to hold up in both.
  * C1 = B, unaccepted AI text is an underline plus a margin marker, and violet is
  *          reserved for the copilot. Nothing else in the product may spend it.
+ * I9 = C (#147), shadcn-svelte is the control layer. Its components land as source
+ *          under $lib/components/ui and are restyled onto the tokens below rather than
+ *          carrying their own palette. `tw-animate-css` supplies the open/close
+ *          transitions those components are written against, and
+ *          `shadcn-svelte/tailwind.css` supplies the data-open/data-selected/... custom
+ *          variants they use - both are plumbing the components need to render at all,
+ *          not a design choice.
  */
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
@@ -53,33 +62,188 @@
 	/* Prose measure. Long enough to read, short enough to scan back to the start of
 	 * the next line, which is what the reading room is for. */
 	--container-measure: 34rem;
+
+	/* I9 = C (DECISIONS.md, #147): shadcn's vocabulary, mapped once onto ours, so a
+	 * component restyle from here on is a token edit and never a per-component one.
+	 * These are aliases, not a second palette - each one resolves through whichever
+	 * value our own token holds in the active palette. None of them touches a hex
+	 * literal, but each one is repeated verbatim (same var() right-hand side, no new
+	 * value) inside [data-theme='dark'] and its prefers-color-scheme fallback below:
+	 * a custom property's inherited value is the ancestor's *computed* value, resolved
+	 * once where it's declared, not re-resolved per descendant - so an alias declared
+	 * only here would stay pointed at the light palette forever, even under
+	 * [data-theme='dark'], unless the same declaration exists again in that scope to
+	 * force its own recomputation there. */
+	--color-background: var(--color-paper);
+	--color-foreground: var(--color-ink);
+	--color-card: var(--color-panel);
+	--color-card-foreground: var(--color-ink);
+	--color-popover: var(--color-panel);
+	--color-popover-foreground: var(--color-ink);
+	--color-primary: var(--color-accent);
+	--color-primary-foreground: var(--color-panel);
+	--color-secondary: var(--color-panel-2);
+	--color-secondary-foreground: var(--color-ink);
+	--color-muted-foreground: var(--color-muted);
+	--color-accent-foreground: var(--color-accent-ink);
+	--color-destructive: var(--color-danger);
+	--color-destructive-foreground: var(--color-panel);
+	--color-border: var(--color-line);
+	--color-input: var(--color-line-2);
+	--color-ring: var(--color-accent);
+
+	/* Two shadcn names are deliberately missing above: --color-accent and --color-muted
+	 * already meant something before shadcn existed (the brand accent above, and muted
+	 * body text above that), and redeclaring either for shadcn's own sense of "quiet
+	 * interactive surface" would silently repaint every existing bg-accent/text-muted
+	 * in the app - Tailwind generates one utility per property per --color-* name and
+	 * has no way to tell the two callers apart. Where a shadcn component wants shadcn's
+	 * sense of accent or muted, its file reaches for --color-accent-bg/--color-accent-ink
+	 * or --color-panel-2 directly instead of the generic alias; grep the ui/ directory
+	 * for those names if a restyle ever needs to touch them.
+	 *
+	 * shadcn's radius scale, all off one dial. --radius-lg lands on the 0.5rem this app
+	 * already used for rounded-lg, so adopting the scale repaints nothing already
+	 * shipped. */
+	--radius: 0.5rem;
+	--radius-sm: calc(var(--radius) * 0.6);
+	--radius-md: calc(var(--radius) * 0.8);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) * 1.4);
+	--radius-2xl: calc(var(--radius) * 1.8);
+	--radius-3xl: calc(var(--radius) * 2.2);
+	--radius-4xl: calc(var(--radius) * 2.6);
 }
 
 /* Dark is the same palette after dark, not a second design language. Applied by an
  * explicit [data-theme] on <html> so the preference is a setting (G1), with the
  * system preference deciding only when nobody has chosen. */
 @layer theme {
+	/* #137: the literal dark values live here once. [data-theme='dark'] below and the
+	 * prefers-color-scheme fallback further down both only reference them, because
+	 * "an explicit dark choice" and "no choice, but the OS prefers dark" are different
+	 * selector conditions CSS has no single rule for - a plain custom property, set
+	 * unconditionally on the root, is the one place both can read from without either
+	 * restating a hex value. */
+	:root {
+		--dark-paper: #17140f;
+		--dark-panel: #1e1a14;
+		--dark-panel-2: #191510;
+		--dark-ink: #f1e9db;
+		--dark-ink-2: #cabfae;
+		--dark-muted: #8e8474;
+		--dark-line: #2d271e;
+		--dark-line-2: #3d3529;
+		--dark-accent: #d9a94a;
+		--dark-accent-ink: #ebc884;
+		--dark-accent-bg: #33270f;
+		--dark-ai: #b8a2ff;
+		--dark-ai-bg: #241f3a;
+		--dark-ai-line: #473d6d;
+		--dark-ok: #7cc78f;
+		--dark-ok-bg: #16301f;
+		--dark-warn: #dcb45f;
+		--dark-warn-bg: #312512;
+		--dark-danger: #e88f70;
+		--dark-danger-bg: #331a13;
+	}
+
 	[data-theme='dark'] {
-		--color-paper: #17140f;
-		--color-panel: #1e1a14;
-		--color-panel-2: #191510;
-		--color-ink: #f1e9db;
-		--color-ink-2: #cabfae;
-		--color-muted: #8e8474;
-		--color-line: #2d271e;
-		--color-line-2: #3d3529;
-		--color-accent: #d9a94a;
-		--color-accent-ink: #ebc884;
-		--color-accent-bg: #33270f;
-		--color-ai: #b8a2ff;
-		--color-ai-bg: #241f3a;
-		--color-ai-line: #473d6d;
-		--color-ok: #7cc78f;
-		--color-ok-bg: #16301f;
-		--color-warn: #dcb45f;
-		--color-warn-bg: #312512;
-		--color-danger: #e88f70;
-		--color-danger-bg: #331a13;
+		--color-paper: var(--dark-paper);
+		--color-panel: var(--dark-panel);
+		--color-panel-2: var(--dark-panel-2);
+		--color-ink: var(--dark-ink);
+		--color-ink-2: var(--dark-ink-2);
+		--color-muted: var(--dark-muted);
+		--color-line: var(--dark-line);
+		--color-line-2: var(--dark-line-2);
+		--color-accent: var(--dark-accent);
+		--color-accent-ink: var(--dark-accent-ink);
+		--color-accent-bg: var(--dark-accent-bg);
+		--color-ai: var(--dark-ai);
+		--color-ai-bg: var(--dark-ai-bg);
+		--color-ai-line: var(--dark-ai-line);
+		--color-ok: var(--dark-ok);
+		--color-ok-bg: var(--dark-ok-bg);
+		--color-warn: var(--dark-warn);
+		--color-warn-bg: var(--dark-warn-bg);
+		--color-danger: var(--dark-danger);
+		--color-danger-bg: var(--dark-danger-bg);
+
+		/* shadcn's aliases, repeated verbatim from @theme above - see that block's own
+		 * doc comment for why a custom property alias has to be redeclared per scope
+		 * rather than just once. */
+		--color-background: var(--color-paper);
+		--color-foreground: var(--color-ink);
+		--color-card: var(--color-panel);
+		--color-card-foreground: var(--color-ink);
+		--color-popover: var(--color-panel);
+		--color-popover-foreground: var(--color-ink);
+		--color-primary: var(--color-accent);
+		--color-primary-foreground: var(--color-panel);
+		--color-secondary: var(--color-panel-2);
+		--color-secondary-foreground: var(--color-ink);
+		--color-muted-foreground: var(--color-muted);
+		--color-accent-foreground: var(--color-accent-ink);
+		--color-destructive: var(--color-danger);
+		--color-destructive-foreground: var(--color-panel);
+		--color-border: var(--color-line);
+		--color-input: var(--color-line-2);
+		--color-ring: var(--color-accent);
+	}
+
+	/* #137: "Match system" (lib/theme.ts) resolves to no data-theme attribute at all, on
+	 * purpose - this is the only other place dark can come from. No :where() here: the
+	 * generated @theme block above lands its light defaults on `:root, :host`, which
+	 * carries specificity (0,1,0), and a zero-specificity :where() wrapper can never
+	 * outrank that regardless of source order (proven the hard way - it rendered light
+	 * on an emulated dark OS with no explicit data-theme). Plain `html:not([data-theme])`
+	 * carries (0,1,1) - the element plus :not()'s own argument's specificity - which
+	 * beats :root's (0,1,0) so this rule wins the "system, no explicit choice" case, and
+	 * never fires at all once hooks.server.ts writes an explicit [data-theme] attribute,
+	 * since :not([data-theme]) simply stops matching - no specificity race needed there. */
+	@media (prefers-color-scheme: dark) {
+		html:not([data-theme]) {
+			--color-paper: var(--dark-paper);
+			--color-panel: var(--dark-panel);
+			--color-panel-2: var(--dark-panel-2);
+			--color-ink: var(--dark-ink);
+			--color-ink-2: var(--dark-ink-2);
+			--color-muted: var(--dark-muted);
+			--color-line: var(--dark-line);
+			--color-line-2: var(--dark-line-2);
+			--color-accent: var(--dark-accent);
+			--color-accent-ink: var(--dark-accent-ink);
+			--color-accent-bg: var(--dark-accent-bg);
+			--color-ai: var(--dark-ai);
+			--color-ai-bg: var(--dark-ai-bg);
+			--color-ai-line: var(--dark-ai-line);
+			--color-ok: var(--dark-ok);
+			--color-ok-bg: var(--dark-ok-bg);
+			--color-warn: var(--dark-warn);
+			--color-warn-bg: var(--dark-warn-bg);
+			--color-danger: var(--dark-danger);
+			--color-danger-bg: var(--dark-danger-bg);
+
+			/* shadcn's aliases, repeated verbatim - see @theme's own doc comment. */
+			--color-background: var(--color-paper);
+			--color-foreground: var(--color-ink);
+			--color-card: var(--color-panel);
+			--color-card-foreground: var(--color-ink);
+			--color-popover: var(--color-panel);
+			--color-popover-foreground: var(--color-ink);
+			--color-primary: var(--color-accent);
+			--color-primary-foreground: var(--color-panel);
+			--color-secondary: var(--color-panel-2);
+			--color-secondary-foreground: var(--color-ink);
+			--color-muted-foreground: var(--color-muted);
+			--color-accent-foreground: var(--color-accent-ink);
+			--color-destructive: var(--color-danger);
+			--color-destructive-foreground: var(--color-panel);
+			--color-border: var(--color-line);
+			--color-input: var(--color-line-2);
+			--color-ring: var(--color-accent);
+		}
 	}
 }
 
@@ -122,5 +286,15 @@
 	:focus-visible {
 		outline: 2px solid var(--color-accent);
 		outline-offset: 2px;
+	}
+
+	/* Tailwind 4 defaults every border/outline to currentColor rather than a fixed
+	 * gray, which the shadcn components (#147) are written expecting a token to fill
+	 * in. Anything that already names its own border or ring color, which is every
+	 * hand-written component in this app, overrides this by specificity - a class
+	 * selector beats the universal one. */
+	* {
+		border-color: var(--color-line);
+		outline-color: color-mix(in oklab, var(--color-accent) 50%, transparent);
 	}
 }

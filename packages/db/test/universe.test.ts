@@ -73,21 +73,61 @@ describe('universe', () => {
 		expect(derived?.baseUniverseId).toBe(base.id);
 	});
 
-	it('scopes slug uniqueness to the owner, not globally', async () => {
+	it('makes slug uniqueness global rather than scoped to the owner (decision J1, issue #153)', async () => {
 		const slug = unique('shared-slug');
 		const ownerA = (await insertUser(db)).id;
 		const ownerB = (await insertUser(db)).id;
 
 		await db.insert(universe).values({ ownerUserId: ownerA, name: 'A', slug, kind: 'homebrew' });
-		// Same slug, different owner: allowed.
-		await expect(
-			db.insert(universe).values({ ownerUserId: ownerB, name: 'B', slug, kind: 'homebrew' })
-		).resolves.not.toThrow();
-		// Same slug, same owner again: rejected.
+		// Same slug, different owner: rejected now that /w/<slug> carries no owner to
+		// disambiguate - this is the schema half of #153's fix.
+		await expectConstraintViolation(
+			db.insert(universe).values({ ownerUserId: ownerB, name: 'B', slug, kind: 'homebrew' }),
+			'universe_slug_key'
+		);
+		// Same slug, same owner again: still rejected, same global constraint.
 		await expectConstraintViolation(
 			db.insert(universe).values({ ownerUserId: ownerA, name: 'A2', slug, kind: 'homebrew' }),
-			'universe_owner_slug_key'
+			'universe_slug_key'
 		);
+	});
+
+	it('a numeric-suffix retry on the global unique index resolves two same-named universes under different owners to different slugs', async () => {
+		// Mirrors createOnboardingUniverse's retry loop (apps/web/src/lib/server/onboarding.ts):
+		// insert the bare slug, and on a 23505 unique_violation retry with "-2", "-3", ... The
+		// mechanism itself is app-layer code this package cannot import, but the constraint it
+		// races against is universe_slug_key, and that is what this test proves - decision J1's
+		// accepted cost is that the second GM to want a name gets a suffix, not a collision.
+		async function insertWithSuffixRetry(ownerUserId: string, base: string) {
+			for (let attempt = 0; attempt < 5; attempt++) {
+				const slug = attempt === 0 ? base : `${base}-${attempt + 1}`;
+				try {
+					const [row] = await db
+						.insert(universe)
+						.values({ ownerUserId, name: base, slug, kind: 'homebrew' })
+						.returning();
+					if (!row) throw new Error('insert returned no row');
+					return row;
+				} catch (err) {
+					const cause = err && typeof err === 'object' && 'cause' in err ? err.cause : undefined;
+					const isUniqueViolation =
+						cause && typeof cause === 'object' && 'code' in cause && cause.code === '23505';
+					if (!isUniqueViolation) throw err;
+				}
+			}
+			throw new Error(`could not find a free slug for "${base}"`);
+		}
+
+		const base = unique('shared-name');
+		const ownerA = (await insertUser(db)).id;
+		const ownerB = (await insertUser(db)).id;
+
+		const first = await insertWithSuffixRetry(ownerA, base);
+		const second = await insertWithSuffixRetry(ownerB, base);
+
+		expect(first.slug).toBe(base);
+		expect(second.slug).toBe(`${base}-2`);
+		expect(second.ownerUserId).toBe(ownerB);
 	});
 
 	it('cascades delete to entities, relations, facts and revisions', async () => {

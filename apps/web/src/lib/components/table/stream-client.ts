@@ -27,7 +27,7 @@ export function connectTableStream(
 	onMessage: (message: TableStreamMessage) => void
 ): TableStreamHandle {
 	const log: TableStreamMessage[] = [];
-	const source = new EventSource(`/u/${universeSlug}/table/stream`);
+	const source = new EventSource(`/w/${universeSlug}/table/stream`);
 
 	for (const type of EVENT_TYPES) {
 		source.addEventListener(type, (event: MessageEvent<string>) => {

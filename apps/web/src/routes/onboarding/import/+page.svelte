@@ -7,6 +7,9 @@
 	 * click below - guardrail 1 extended to spend: no auto-start the instant a file lands.
 	 */
 	import { messages } from '$lib/i18n';
+	import { Button } from '$lib/components/ui/button';
+	import { Label } from '$lib/components/ui/label';
+	import { PageHeader } from '$lib/components/ui/page-header';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -19,9 +22,8 @@
 	<title>{t.headTitle(data.universe.name)}</title>
 </svelte:head>
 
-<main id="main" class="mx-auto flex max-w-measure flex-col gap-6 px-8 py-16">
-	<p class="text-xs tracking-wide text-muted uppercase">{data.universe.name}</p>
-	<h1 class="text-2xl font-semibold text-ink">{t.heading}</h1>
+<div class="mx-auto flex max-w-measure flex-col gap-6 px-8 py-16">
+	<PageHeader eyebrow={data.universe.name} title={t.heading} />
 
 	{#if form && 'error' in form && form.error}
 		<p class="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.error}</p>
@@ -53,12 +55,9 @@
 					class="mx-auto block text-sm text-ink-2"
 				/>
 			</div>
-			<button
-				type="submit"
-				class="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-panel hover:opacity-90"
-			>
+			<Button type="submit" class="self-start">
 				{t.uploadButton}
-			</button>
+			</Button>
 		</form>
 	{:else if form && form.stage === 'confirm'}
 		<div class="flex flex-col gap-4 rounded-lg border border-line bg-panel p-5">
@@ -86,7 +85,9 @@
 				<input type="hidden" name="fileName" value={form.fileName} />
 				<input type="hidden" name="fileBytes" value={form.fileBytes} />
 
-				<label for="playbookId" class="text-sm text-ink-2">{t.confirm.playbookLabel}</label>
+				<Label for="playbookId" class="text-sm font-normal text-ink-2"
+					>{t.confirm.playbookLabel}</Label
+				>
 				<select
 					id="playbookId"
 					name="playbookId"
@@ -97,12 +98,9 @@
 					{/each}
 				</select>
 
-				<button
-					type="submit"
-					class="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-panel hover:opacity-90"
-				>
+				<Button type="submit" class="self-start">
 					{t.confirm.continueButton}
-				</button>
+				</Button>
 			</form>
 		</div>
 	{:else if form && form.stage === 'estimate'}
@@ -129,13 +127,10 @@
 				<input type="hidden" name="playbookId" value={form.playbookId} />
 				<input type="hidden" name="fileName" value={form.fileName} />
 				<input type="hidden" name="fileBytes" value={form.fileBytes} />
-				<button
-					type="submit"
-					class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-panel hover:opacity-90"
-				>
+				<Button type="submit">
 					{t.estimate.startButton}
-				</button>
+				</Button>
 			</form>
 		</div>
 	{/if}
-</main>
+</div>

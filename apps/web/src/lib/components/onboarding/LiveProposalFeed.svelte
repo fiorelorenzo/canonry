@@ -7,6 +7,8 @@
 	 * not this one.
 	 */
 	import { messages, type Locale } from '$lib/i18n';
+	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Button } from '$lib/components/ui/button';
 	import { proposalBadge, proposalDisplayName, type ProposalSummary } from './proposalView';
 
 	let { proposals, locale }: { proposals: ProposalSummary[]; locale: Locale } = $props();
@@ -15,7 +17,7 @@
 </script>
 
 {#if proposals.length === 0}
-	<p class="py-4 text-sm text-muted">{t.empty}</p>
+	<EmptyState kind="derived" message={t.empty} explanation={t.explanation} />
 {:else}
 	<ul class="flex flex-col divide-y divide-line">
 		{#each proposals as proposal (proposal.id)}
@@ -37,12 +39,9 @@
 				{#if proposal.outcome === 'pending'}
 					<form method="POST" action="?/accept" class="shrink-0">
 						<input type="hidden" name="proposalId" value={proposal.id} />
-						<button
-							type="submit"
-							class="rounded-md bg-accent px-3 py-1 text-xs font-medium text-panel hover:opacity-90"
-						>
+						<Button type="submit" size="sm">
 							{t.accept}
-						</button>
+						</Button>
 					</form>
 				{:else if proposal.outcome === 'accepted'}
 					<span class="shrink-0 rounded-full bg-ok-bg px-2 py-0.5 text-xs font-medium text-ok">

@@ -1,9 +1,9 @@
 <script lang="ts">
 	/**
 	 * Issue #69's client player, mounted at table mode's `#table-ambient-slot`
-	 * (`u/[universe]/table/+page.svelte`, agreed with the table agent). `pack` is the
+	 * (`w/[universe]/table/+page.svelte`, agreed with the table agent). `pack` is the
 	 * declared place's current `ambient_pack` summary from
-	 * `u/[universe]/table/+layout.server.ts` - reactive to it, not owning it: when the
+	 * `w/[universe]/table/+layout.server.ts` - reactive to it, not owning it: when the
 	 * GM declares a new place, `pack.id` changes and this component crossfades to it on
 	 * its own, which is SPEC.md §8's "the GM commands, the system anticipates" applied to
 	 * sound. `null` means no pack has been generated for the declared place yet, which is
@@ -16,6 +16,7 @@
 	 * and touches nothing this component does not already expose through its own state.
 	 */
 	import { onDestroy, onMount } from 'svelte';
+	import { Button } from '$lib/components/ui/button';
 	import { messages, type Locale } from '$lib/i18n';
 	import {
 		AmbientEngine,
@@ -101,7 +102,7 @@
 	});
 
 	async function fetchPackSpec(id: string): Promise<PackSpec> {
-		const response = await fetch(`/u/${universeSlug}/ambient/${id}`);
+		const response = await fetch(`/w/${universeSlug}/ambient/${id}`);
 		if (!response.ok) throw new Error(t.couldNotLoadPack(response.status));
 		const body = (await response.json()) as {
 			id: string;
@@ -226,13 +227,15 @@
 	<div class="flex items-center justify-between gap-2">
 		<h3 class="text-sm font-semibold text-ink">{t.heading}</h3>
 		{#if started}
-			<button
+			<Button
 				type="button"
-				class="text-xs text-muted hover:text-ink hover:underline"
+				variant="link"
+				size="sm"
+				class="h-auto p-0 text-muted hover:text-ink"
 				onclick={() => (showDiagnostics = !showDiagnostics)}
 			>
 				{showDiagnostics ? t.hideAudioGraph : t.showAudioGraph}
-			</button>
+			</Button>
 		{/if}
 	</div>
 
@@ -247,21 +250,22 @@
 		<p class="text-xs text-muted">
 			{t.layerSummary(pack?.layerCount ?? 0, pack?.stale ?? false)}
 		</p>
-		<button
-			type="button"
-			class="mt-2 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:opacity-60"
-			onclick={start}
-			disabled={loading}
-		>
+		<Button type="button" class="mt-2" onclick={start} disabled={loading}>
 			{loading ? t.starting : t.play}
-		</button>
+		</Button>
 	{:else}
 		{#if contextState === 'suspended'}
 			<p class="mt-2 rounded-md border border-line bg-panel-2 px-3 py-2 text-sm text-ink-2">
 				{t.audioPausedByBrowser}
-				<button type="button" class="ml-1 text-accent hover:underline" onclick={resumeAudio}>
+				<Button
+					type="button"
+					variant="link"
+					size="sm"
+					class="ml-1 h-auto p-0"
+					onclick={resumeAudio}
+				>
 					{t.enableAudio}
-				</button>
+				</Button>
 			</p>
 		{/if}
 
@@ -273,6 +277,11 @@
 			</p>
 		{/if}
 
+		<!-- #147: the mixer below - mute toggle, master/crossfade/layer sliders - stays
+			native. It is the ambient player's transport, not a form: the range inputs
+			carry the browser's own slider track and thumb, which an Input's text-box
+			chrome would replace, and the mute glyph is a two-state icon, not a label a
+			Button variant expresses. -->
 		<div class="mt-3 flex items-center gap-2">
 			<label class="flex items-center gap-2 text-xs text-ink-2" for="ambient-master-volume">
 				{t.master}

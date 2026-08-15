@@ -16,7 +16,7 @@
 export interface NavItem {
 	id: 'entries' | 'works' | 'proposals' | 'table' | 'players' | 'import' | 'settings';
 	label: string;
-	href: (universeSlug: string) => `/u/${string}`;
+	href: (universeSlug: string) => `/w/${string}`;
 	built: boolean;
 	/** Nearest roadmap issue for this destination, not necessarily a page-specific
 	 * ticket: the board has not filed one for every destination's UI yet. */
@@ -24,29 +24,48 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-	{ id: 'entries', label: 'Entries', href: (slug) => `/u/${slug}`, built: true, issue: 104 },
-	{ id: 'works', label: 'Works', href: (slug) => `/u/${slug}/works`, built: true, issue: 20 },
+	{ id: 'entries', label: 'Entries', href: (slug) => `/w/${slug}`, built: true, issue: 104 },
+	{ id: 'works', label: 'Works', href: (slug) => `/w/${slug}/works`, built: true, issue: 20 },
 	{
 		id: 'proposals',
 		label: 'Proposals',
-		href: (slug) => `/u/${slug}/proposals`,
+		href: (slug) => `/w/${slug}/proposals`,
 		built: true,
 		issue: 51
 	},
-	{ id: 'table', label: 'Table', href: (slug) => `/u/${slug}/table`, built: true, issue: 72 },
+	{ id: 'table', label: 'Table', href: (slug) => `/w/${slug}/table`, built: true, issue: 72 },
 	{
 		id: 'players',
 		label: 'Players',
-		href: (slug) => `/u/${slug}/players`,
+		href: (slug) => `/w/${slug}/players`,
 		built: false,
 		issue: 82
 	},
-	{ id: 'import', label: 'Import', href: (slug) => `/u/${slug}/import`, built: false, issue: 26 },
+	{ id: 'import', label: 'Import', href: (slug) => `/w/${slug}/import`, built: false, issue: 26 },
 	{
 		id: 'settings',
 		label: 'Settings',
-		href: (slug) => `/u/${slug}/settings`,
+		href: (slug) => `/w/${slug}/settings`,
 		built: true,
 		issue: 107
 	}
+];
+
+/**
+ * Issue #141, I3 = B: the sidebar's other shape, when no universe is selected. Three
+ * places rather than seven - "the account's own places, Universes, Settings, Docs" -
+ * and no counts, since none of them are per-universe totals. Settings has no index
+ * route of its own yet (that is #143's two-pane page), so this points at the same
+ * appearance leaf the old root page's lone settings link used.
+ */
+export interface AccountNavItem {
+	id: 'universes' | 'settings' | 'docs';
+	label: string;
+	href: '/' | '/settings/appearance' | '/docs';
+}
+
+export const ACCOUNT_NAV_ITEMS: readonly AccountNavItem[] = [
+	{ id: 'universes', label: 'Universes', href: '/' },
+	{ id: 'settings', label: 'Settings', href: '/settings/appearance' },
+	{ id: 'docs', label: 'Docs', href: '/docs' }
 ];

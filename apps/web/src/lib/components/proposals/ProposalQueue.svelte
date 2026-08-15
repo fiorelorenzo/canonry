@@ -13,6 +13,7 @@
 	import { flushSync } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { messages, type Locale } from '$lib/i18n';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import ProposalDiffCard, { type DiffCandidateView } from './ProposalDiffCard.svelte';
 	import RejectChips from './RejectChips.svelte';
 
@@ -231,7 +232,7 @@
 		{#each items as item, i (item.id)}
 			<button
 				type="button"
-				class="qrow rounded-md border px-2 py-1 font-mono text-[11px]"
+				class="qrow flex min-h-9 min-w-9 items-center justify-center rounded-md border px-2.5 py-1.5 font-mono text-[11px]"
 				class:border-accent={item.id === currentId}
 				class:bg-accent-bg={item.id === currentId}
 				class:border-line={item.id !== currentId}
@@ -273,10 +274,13 @@
 			}}
 		/>
 	{:else}
-		<p class="text-sm text-muted">{t.empty}</p>
+		<EmptyState kind="settled" message={t.empty} />
 	{/if}
 
-	<div class="qkeys flex flex-wrap gap-4 text-xs text-muted">
+	<!-- Issue #148 (I10 = B): bare keys don't exist on a phone, so this legend would
+	     just be noise below `sm` - the card's own Accept/Reject buttons (#148) are
+	     the primary interaction there instead. -->
+	<div class="qkeys hidden flex-wrap gap-4 text-xs text-muted sm:flex">
 		<span
 			><kbd class="rounded border border-line-2 px-1 font-mono">j</kbd>
 			<kbd class="rounded border border-line-2 px-1 font-mono">k</kbd>

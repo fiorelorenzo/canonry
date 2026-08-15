@@ -9,10 +9,17 @@ export {
 	setEntityLanguage,
 	resetEntityLanguageToDetected,
 	languageFromAcceptedPatch,
+	createEntity,
+	listEntitiesForUniverse,
+	entityCountsByType,
 	type EntityLanguageState,
 	type StoredEntityLanguage,
 	type SaveEntityBodyInput,
-	type SaveEntityBodyResult
+	type SaveEntityBodyResult,
+	type EntityRow,
+	type CreateEntityInput,
+	type EntityBrowserRow,
+	type ListEntitiesOptions
 } from './queries/entities.js';
 export {
 	universeForExport,
@@ -96,7 +103,12 @@ export {
 	type SubscriptionWebhookEvent,
 	type ApplyWebhookEventResult
 } from './queries/subscriptions.js';
-export { universeAccessBySlug, universesForUser, type UniverseAccess } from './queries/access.js';
+export {
+	universeAccessBySlug,
+	universesForUser,
+	entityCountsByUniverseIds,
+	type UniverseAccess
+} from './queries/access.js';
 export {
 	latestRevisionIds,
 	findByFingerprint,
@@ -243,6 +255,7 @@ export {
 	usesForNode,
 	scenesUsingEntity,
 	moveWorkNode,
+	mostRecentWorkNode,
 	type WorkRow,
 	type WorkNodeRow,
 	type WorkNodeTreeItem,
@@ -252,7 +265,8 @@ export {
 	type WorkNodeUse,
 	type SceneUsingEntity,
 	type MoveWorkNodeDirection,
-	type MoveWorkNodeResult
+	type MoveWorkNodeResult,
+	type CurrentWorkSignal
 } from './queries/works.js';
 export {
 	listSupersedesForUniverse,

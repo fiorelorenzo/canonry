@@ -7,6 +7,8 @@
 	 */
 	import { enhance } from '$app/forms';
 	import { messages, type Locale } from '$lib/i18n';
+	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Button } from '$lib/components/ui/button';
 
 	interface ChecklistRow {
 		id: string;
@@ -65,9 +67,14 @@
 						}}
 					>
 						<input type="hidden" name="proposalId" value={row.id} />
-						<button type="submit" class="text-xs text-muted underline hover:text-danger">
+						<Button
+							type="submit"
+							variant="link"
+							size="sm"
+							class="h-auto p-0 text-muted hover:text-danger"
+						>
 							{t.drop}
-						</button>
+						</Button>
 					</form>
 				</div>
 			</li>
@@ -75,7 +82,7 @@
 	</ul>
 
 	{#if kept.length === 0}
-		<p class="py-3 text-sm text-muted">{t.empty}</p>
+		<EmptyState kind="settled" message={t.empty} />
 	{:else}
 		<form
 			method="POST"
@@ -89,13 +96,9 @@
 			}}
 			class="mt-3"
 		>
-			<button
-				type="submit"
-				disabled={generating}
-				class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:brightness-110 disabled:opacity-50"
-			>
+			<Button type="submit" disabled={generating}>
 				{generating ? t.generating : t.generateDiffs(kept.length)}
-			</button>
+			</Button>
 		</form>
 	{/if}
 </div>

@@ -16,7 +16,7 @@
 	<title>{t.hub.browserTitle}: Canonry</title>
 </svelte:head>
 
-<DocPage title={t.hub.title} backHref={resolve('/')} backLabel={t.hub.backLabel}>
+<DocPage title={t.hub.title}>
 	<p>
 		{t.hub.intro}
 	</p>

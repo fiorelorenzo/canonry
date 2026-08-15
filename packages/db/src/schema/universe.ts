@@ -20,13 +20,15 @@ export const universe = pgTable(
 	'universe',
 	{
 		id: uuid('id').primaryKey().defaultRandom(),
-		// Slugs are namespaced under the owner so two people can each have a "waterdeep".
 		// The fk exists now that Better Auth's user table does (#86): deleting an account
 		// takes its worlds with it, which is what a deletion request has to mean.
 		ownerUserId: text('owner_user_id')
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
 		name: text('name').notNull(),
+		// Globally unique (decision J1, issue #153): a world's URL carries no owner
+		// (/w/<slug>), so two worlds cannot share one without one of them becoming
+		// unreachable depending on Postgres's scan order. See universe_slug_key below.
 		slug: text('slug').notNull(),
 		kind: universeKindEnum('kind').notNull(),
 		baseUniverseId: uuid('base_universe_id').references((): AnyPgColumn => universe.id),
@@ -43,7 +45,7 @@ export const universe = pgTable(
 		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 	},
 	(t) => [
-		uniqueIndex('universe_owner_slug_key').on(t.ownerUserId, t.slug),
+		uniqueIndex('universe_slug_key').on(t.slug),
 		check(
 			'universe_derived_has_base',
 			sql`(${t.kind} = 'derived' and ${t.baseUniverseId} is not null) or (${t.kind} = 'homebrew' and ${t.baseUniverseId} is null)`

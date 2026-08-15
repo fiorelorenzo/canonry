@@ -20,3 +20,19 @@ export interface RecentEntity {
 	slug: string;
 	type: EntityType;
 }
+
+/**
+ * Issue #150 (F2 = A): the shell footer's quota meter, resolved once in
+ * `routes/+layout.server.ts` from `billingSummaryFor` (never recomputed in a
+ * component). Two independent lines, mirroring `@canonry/db`'s `Balance` - the
+ * interactive ceiling (`subscriptionCredits`, decremented as it is spent) and the
+ * warm cache's own separate budget (SPEC.md §15, issue #89) never share a number.
+ * `includedTotal`/`warmTotal` are always a real, finite ceiling (guardrail 7 /
+ * SPEC.md §15 - "unlimited" is never a value this type can hold).
+ */
+export interface ShellQuota {
+	includedRemaining: number;
+	includedTotal: number;
+	warmRemaining: number;
+	warmTotal: number;
+}

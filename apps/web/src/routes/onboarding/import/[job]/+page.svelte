@@ -11,6 +11,7 @@
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
 	import LiveProposalFeed from '$lib/components/onboarding/LiveProposalFeed.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import type { ProposalSummary } from '$lib/components/onboarding/proposalView';
 	import type { PageProps } from './$types';
 
@@ -114,7 +115,7 @@
 	<title>{t.job.headTitle(data.universe.name)}</title>
 </svelte:head>
 
-<main id="main" class="mx-auto flex max-w-measure flex-col gap-6 px-8 py-16">
+<div class="mx-auto flex max-w-measure flex-col gap-6 px-8 py-16">
 	<p class="text-xs tracking-wide text-muted uppercase">{data.universe.name}</p>
 
 	{#if form && 'error' in form && form.error}
@@ -146,17 +147,18 @@
 	<LiveProposalFeed {proposals} locale={data.locale} />
 
 	{#if pendingCount > 0}
-		<a
-			href={resolve(`/u/${data.universe.slug}/import/${job.id}/review`)}
-			class="self-start rounded-md border border-line-2 bg-panel px-4 py-2 text-sm font-medium text-ink hover:border-accent"
+		<Button
+			href={resolve(`/w/${data.universe.slug}/import/${job.id}/review`)}
+			variant="secondary"
+			class="self-start"
 		>
 			{t.job.reviewNow(pendingCount)}
-		</a>
+		</Button>
 	{/if}
 
 	{#if isTerminal}
-		<a href={resolve(`/u/${data.universe.slug}`)} class="text-sm text-accent hover:underline">
+		<Button href={resolve(`/w/${data.universe.slug}`)} variant="link">
 			{t.job.goToUniverse(data.universe.name)}
-		</a>
+		</Button>
 	{/if}
-</main>
+</div>

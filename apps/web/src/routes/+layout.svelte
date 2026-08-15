@@ -1,6 +1,6 @@
 <script lang="ts">
 	import './layout.css';
-	import AuthStatus from '$lib/components/shell/AuthStatus.svelte';
+	import AppShell from '$lib/components/shell/AppShell.svelte';
 	import { messages } from '$lib/i18n';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
@@ -21,8 +21,10 @@
 	// The spec's own TL;DR sentence (SPEC.md §1), not marketing copy: guardrail 7 means
 	// this product never certifies a canon is coherent, so the description it ships in
 	// link previews has to be the same careful sentence the app itself is held to.
-	const DESCRIPTION =
-		'A wiki for your game world where an AI copilot works in every flow, and never writes anything you did not accept.';
+	// Issue #138 reuses this exact string as the door page's own visible sentence
+	// rather than a second copy hardcoded there - one sentence, one catalogue entry,
+	// in both languages, instead of a meta tag and a page quietly drifting apart.
+	const DESCRIPTION = $derived(t.shell.tagline);
 	// Absolute, not `/og.png`: a relative OG image is the one thing every crawler that
 	// matters (Slack, Discord, iMessage) silently refuses to resolve.
 	const ogImage = $derived(`${data.origin}/og.png`);
@@ -47,5 +49,6 @@
 >
 	{t.shell.skipToContent}
 </a>
-<AuthStatus user={data.user} locale={data.locale} />
-{@render children()}
+<AppShell>
+	{@render children()}
+</AppShell>

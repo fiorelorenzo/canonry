@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { PageHeader } from '$lib/components/ui/page-header';
 	import { dateFormat, messages } from '$lib/i18n';
 	import type { ActionData, PageData } from './$types';
 
@@ -45,131 +49,105 @@
 	<title>{t.title}: Canonry</title>
 </svelte:head>
 
-<main id="main" class="mx-auto max-w-measure px-8 py-10">
-	<a href={resolve('/')} class="text-sm text-accent hover:underline"
-		>{messages(data.locale).settings.backToUniverses}</a
-	>
+<PageHeader title={t.title} />
 
-	<h1 class="mt-4 text-2xl font-semibold text-ink">{t.title}</h1>
+<!-- F3 = C's contextual sentence, in its B home (docs/ux/f3-privacy-and-keys.html: "C for
+     the sentence itself... every one-liner links to B, the settings panel"). Says plainly
+     what turning a key on changes and what it does not (SPEC.md §15, decision F3). -->
+<div class="mt-4 max-w-xl rounded-lg border border-line-2 bg-panel-2 p-4 text-sm text-ink-2">
+	<p class="mt-0">
+		{t.infoPara1Before}<strong class="text-ink">{t.infoPara1Bold}</strong>{t.infoPara1After}
+	</p>
+	<p class="mt-3 mb-0">
+		<strong class="text-ink">{t.infoPara2Bold}</strong>{t.infoPara2After}
+	</p>
+	<p class="mt-2 mb-0">
+		<strong class="text-ink">{t.infoPara3Bold}</strong>{t.infoPara3After}
+		<a href={resolve('/privacy')} class="text-accent hover:underline">{t.infoPara3Link}</a>.
+	</p>
+</div>
 
-	<!-- F3 = C's contextual sentence, in its B home (docs/ux/f3-privacy-and-keys.html: "C for
-	     the sentence itself... every one-liner links to B, the settings panel"). Says plainly
-	     what turning a key on changes and what it does not (SPEC.md §15, decision F3). -->
-	<div class="mt-4 max-w-xl rounded-lg border border-line-2 bg-panel-2 p-4 text-sm text-ink-2">
-		<p class="mt-0">
-			{t.infoPara1Before}<strong class="text-ink">{t.infoPara1Bold}</strong>{t.infoPara1After}
-		</p>
-		<p class="mt-3 mb-0">
-			<strong class="text-ink">{t.infoPara2Bold}</strong>{t.infoPara2After}
-		</p>
-		<p class="mt-2 mb-0">
-			<strong class="text-ink">{t.infoPara3Bold}</strong>{t.infoPara3After}
-			<a href={resolve('/privacy')} class="text-accent hover:underline">{t.infoPara3Link}</a>.
-		</p>
-	</div>
+{#if !data.signedIn}
+	<p class="mt-6 max-w-measure text-sm text-ink-2">
+		<a href={resolve('/auth/sign-in')} class="text-accent hover:underline">{t.signInLink}</a>
+		{t.signInPrompt}
+	</p>
+{:else}
+	<div class="mt-8 flex flex-col gap-4">
+		{#each data.providers as provider (provider)}
+			{@const key = keyFor(provider)}
+			{@const forThisProvider = form && fieldOf(form, 'provider') === provider ? form : null}
+			{@const errorHere = forThisProvider
+				? (fieldOf(forThisProvider, 'error') as string | undefined)
+				: undefined}
+			{@const lastFourHere = forThisProvider
+				? (fieldOf(forThisProvider, 'lastFour') as string | undefined)
+				: undefined}
+			<section class="rounded-lg border border-line bg-panel p-4">
+				<div class="flex flex-wrap items-center justify-between gap-2">
+					<h2 class="text-base font-semibold text-ink">{labelFor(provider)}</h2>
+					{#if key}
+						<Badge variant={key.active ? 'default' : 'secondary'}>
+							{key.active ? t.activeBadge : t.offBadge}
+						</Badge>
+					{/if}
+				</div>
 
-	{#if !data.signedIn}
-		<p class="mt-6 max-w-measure text-sm text-ink-2">
-			<a href={resolve('/auth/sign-in')} class="text-accent hover:underline">{t.signInLink}</a>
-			{t.signInPrompt}
-		</p>
-	{:else}
-		<div class="mt-8 flex flex-col gap-4">
-			{#each data.providers as provider (provider)}
-				{@const key = keyFor(provider)}
-				{@const forThisProvider = form && fieldOf(form, 'provider') === provider ? form : null}
-				{@const errorHere = forThisProvider
-					? (fieldOf(forThisProvider, 'error') as string | undefined)
-					: undefined}
-				{@const lastFourHere = forThisProvider
-					? (fieldOf(forThisProvider, 'lastFour') as string | undefined)
-					: undefined}
-				<section class="rounded-lg border border-line bg-panel p-4">
-					<div class="flex flex-wrap items-center justify-between gap-2">
-						<h2 class="text-base font-semibold text-ink">{labelFor(provider)}</h2>
-						{#if key}
-							<span
-								class="rounded-full px-2 py-0.5 text-xs font-medium"
-								class:bg-accent-bg={key.active}
-								class:text-accent-ink={key.active}
-								class:bg-panel-2={!key.active}
-								class:text-muted={!key.active}
-							>
-								{key.active ? t.activeBadge : t.offBadge}
-							</span>
-						{/if}
+				{#if key}
+					<div class="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs text-ink-2">
+						<span
+							class="rounded border border-line-2 bg-panel-2 px-2 py-1"
+							aria-label={t.keyEndingIn(key.lastFour)}
+						>
+							&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;{key.lastFour}
+						</span>
+						<span class="text-muted">
+							{t.addedOn(keyDateFormat.format(new Date(key.createdAt)))}
+							{#if key.lastUsedAt}
+								&middot; {t.lastUsedOn(keyDateFormat.format(new Date(key.lastUsedAt)))}
+							{:else}
+								&middot; {t.neverUsedYet}
+							{/if}
+						</span>
 					</div>
 
-					{#if key}
-						<div class="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs text-ink-2">
-							<span
-								class="rounded border border-line-2 bg-panel-2 px-2 py-1"
-								aria-label={t.keyEndingIn(key.lastFour)}
-							>
-								&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;{key.lastFour}
-							</span>
-							<span class="text-muted">
-								{t.addedOn(keyDateFormat.format(new Date(key.createdAt)))}
-								{#if key.lastUsedAt}
-									&middot; {t.lastUsedOn(keyDateFormat.format(new Date(key.lastUsedAt)))}
-								{:else}
-									&middot; {t.neverUsedYet}
-								{/if}
-							</span>
-						</div>
+					<div class="mt-3 flex flex-wrap gap-2">
+						<form method="POST" action="?/toggle">
+							<input type="hidden" name="provider" value={provider} />
+							<input type="hidden" name="active" value={key.active ? 'false' : 'true'} />
+							<Button type="submit" variant="secondary" size="sm">
+								{key.active ? t.turnOff : t.turnOn}
+							</Button>
+						</form>
+						<form method="POST" action="?/remove">
+							<input type="hidden" name="provider" value={provider} />
+							<Button type="submit" variant="destructive" size="sm">{t.forgetKey}</Button>
+						</form>
+					</div>
+				{/if}
 
-						<div class="mt-3 flex flex-wrap gap-2">
-							<form method="POST" action="?/toggle">
-								<input type="hidden" name="provider" value={provider} />
-								<input type="hidden" name="active" value={key.active ? 'false' : 'true'} />
-								<button
-									type="submit"
-									class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink hover:border-accent"
-								>
-									{key.active ? t.turnOff : t.turnOn}
-								</button>
-							</form>
-							<form method="POST" action="?/remove">
-								<input type="hidden" name="provider" value={provider} />
-								<button
-									type="submit"
-									class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-danger hover:border-danger"
-								>
-									{t.forgetKey}
-								</button>
-							</form>
-						</div>
-					{/if}
+				<form method="POST" action="?/add" class="mt-3 flex flex-wrap items-end gap-2">
+					<input type="hidden" name="provider" value={provider} />
+					<label class="flex flex-1 flex-col gap-1">
+						<span class="text-xs text-muted">{key ? t.replaceKeyLabel : t.addKeyLabel}</span>
+						<Input
+							type="password"
+							name="apiKey"
+							autocomplete="off"
+							placeholder={t.apiKeyPlaceholder(labelFor(provider))}
+						/>
+					</label>
+					<Button type="submit" size="sm">{key ? t.replaceButton : t.saveButton}</Button>
+				</form>
 
-					<form method="POST" action="?/add" class="mt-3 flex flex-wrap items-end gap-2">
-						<input type="hidden" name="provider" value={provider} />
-						<label class="flex flex-1 flex-col gap-1">
-							<span class="text-xs text-muted">{key ? t.replaceKeyLabel : t.addKeyLabel}</span>
-							<input
-								type="password"
-								name="apiKey"
-								autocomplete="off"
-								placeholder={t.apiKeyPlaceholder(labelFor(provider))}
-								class="min-w-0 rounded border border-line-2 bg-panel px-2 py-1.5 text-sm text-ink"
-							/>
-						</label>
-						<button
-							type="submit"
-							class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:bg-accent-ink"
-						>
-							{key ? t.replaceButton : t.saveButton}
-						</button>
-					</form>
-
-					{#if errorHere}
-						<p class="mt-2 text-xs text-danger">{errorHere}</p>
-					{:else if lastFourHere}
-						<p class="mt-2 text-xs text-ok">
-							{t.savedConfirmation(lastFourHere)}
-						</p>
-					{/if}
-				</section>
-			{/each}
-		</div>
-	{/if}
-</main>
+				{#if errorHere}
+					<p class="mt-2 text-xs text-danger">{errorHere}</p>
+				{:else if lastFourHere}
+					<p class="mt-2 text-xs text-ok">
+						{t.savedConfirmation(lastFourHere)}
+					</p>
+				{/if}
+			</section>
+		{/each}
+	</div>
+{/if}

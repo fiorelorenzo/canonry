@@ -49,7 +49,7 @@
 					</span>
 					<div class="min-w-0">
 						<a
-							href={resolve(`/u/${universeSlug}/e/${pin.slug}`)}
+							href={resolve(`/w/${universeSlug}/e/${pin.slug}`)}
 							class="block truncate text-sm font-semibold text-ink hover:underline"
 						>
 							{pin.name}

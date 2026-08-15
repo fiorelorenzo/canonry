@@ -1,54 +1,28 @@
 /**
  * `/`: your universes - owned, or one you were added to (issue #86 replaces "every
- * universe on this server" with real ownership and membership, via
- * @canonry/db's universesForUser). An unauthenticated visitor sees none and a prompt
- * to sign in on the page itself, rather than a list this route cannot attribute to
- * anyone.
+ * universe on this server" with real ownership and membership).
+ *
+ * Issue #141: the list itself now comes from `await parent()` - the root layout
+ * already ran `universesForUser` plus one grouped entity-count query for the
+ * switcher, and every route needs that same list now, not only this one, so this
+ * loader reuses it rather than querying twice per request.
+ *
+ * Issue #140: zero universes used to render a dead sentence pointing nowhere useful.
+ * /onboarding is D7's decided import-first path and was linked from nothing, so a
+ * fresh account now lands there instead. One universe skips the picker and goes
+ * straight in. /onboarding's own load only checks locals.user, never universe count,
+ * so it never redirects back here - an account that deliberately drops back to zero
+ * universes lands on /onboarding again on its next visit to /, not in a loop.
  */
-import { universesForUser } from '@canonry/db';
-import { db } from '$lib/server/db';
-import type { UniverseSummary } from '$lib/components/shell/types';
+import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
-	if (!locals.user) return { universes: [] as UniverseSummary[] };
+export const load: PageServerLoad = async ({ parent, locals }) => {
+	const { universes } = await parent();
+	if (!locals.user) return { universes };
 
-	const database = db();
-	const rows = await universesForUser(database, locals.user.id);
-
-	// A derived universe may point at a pre-indexed base universe nobody here owns
-	// (SPEC.md §7: "famous universes ... offered as a starting layer, indexed from
-	// their wikis"). Its name is part of the shared catalogue, not private content,
-	// so it is looked up on its own rather than filtered through the ownership check
-	// universesForUser already applied above.
-	const baseIds = rows.map((row) => row.baseUniverseId).filter((id): id is string => id !== null);
-	const baseNameById = new Map<string, string>();
-	if (baseIds.length > 0) {
-		const bases = await database.query.universe.findMany({
-			where: (universe, { inArray }) => inArray(universe.id, baseIds),
-			columns: { id: true, name: true }
-		});
-		for (const base of bases) baseNameById.set(base.id, base.name);
-	}
-
-	const universes: UniverseSummary[] = await Promise.all(
-		rows.map(async (row) => {
-			const entities = await database.query.entity.findMany({
-				where: (entity, { eq }) => eq(entity.universeId, row.id),
-				columns: { id: true }
-			});
-			return {
-				id: row.id,
-				name: row.name,
-				slug: row.slug,
-				kind: row.kind,
-				baseUniverseName: row.baseUniverseId
-					? (baseNameById.get(row.baseUniverseId) ?? null)
-					: null,
-				entityCount: entities.length
-			};
-		})
-	);
+	if (universes.length === 0) redirect(303, '/onboarding');
+	if (universes.length === 1) redirect(303, `/w/${universes[0].slug}`);
 
 	return { universes };
 };

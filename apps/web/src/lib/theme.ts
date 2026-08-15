@@ -5,14 +5,14 @@
  * `[data-theme='dark']` variant reads. `src/hooks.server.ts` and
  * `routes/settings/appearance` both import from here instead of repeating the string.
  *
- * Known gap, out of #104's owned paths: `layout.css` currently only defines
- * `[data-theme='dark']`, no `@media (prefers-color-scheme: dark)` fallback. `system`
- * resolving to "no attribute" is correct and is what this module does; until
- * layout.css grows that media query (mirroring the same custom properties under a
- * media condition instead of an attribute selector), a `system` preference on a
- * dark-OS machine still renders the light palette. Flagged rather than worked around
- * here, since faking it would mean hardcoding the dark palette's hex values a second
- * time in a file that is not the one source of truth for them.
+ * `system` resolves to `undefined` below, meaning "no attribute at all" - deliberately,
+ * since guessing the browser's preference here and writing it back as an explicit
+ * `data-theme` would collapse `system` into whichever of `light`/`dark` the OS happened
+ * to report at cookie-write time, and the setting would stop tracking a later OS change.
+ * `layout.css` carries the other half (#137): a `prefers-color-scheme: dark` media query,
+ * scoped to `html:not([data-theme])`, mirrors `[data-theme='dark']`'s custom properties
+ * without a second copy of their hex values, so "no attribute" still renders dark on a
+ * dark machine and light on a light one, live, with no reload.
  */
 
 export const THEME_COOKIE = 'canonry_theme';
