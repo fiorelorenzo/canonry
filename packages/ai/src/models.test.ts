@@ -1,6 +1,6 @@
 import { closeDb, type Db } from '@canonry/db';
 import { modelConfig } from '@canonry/db/schema';
-import { and, eq, like } from 'drizzle-orm';
+import { and, eq, like, notLike } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearModelCache, ModelNotConfiguredError, resolveModel } from './models.js';
 import { openTestDb } from './test-db.js';
@@ -8,8 +8,29 @@ import { openTestDb } from './test-db.js';
 // Namespaced so cleanup here never touches fixtures another task's tests left behind.
 const TEST_MODEL_ID_PREFIX = 'canonry-ai-test-';
 
+/** The purpose these tests own. Every one of them writes an active row for it, and
+ * `model_config_active_purpose_key` allows exactly one, so a seeded row for the same purpose
+ * makes every insert fail with a unique violation. `multimodal` used to be safe because
+ * nothing seeded it; migration 0027 seeds all three text purposes, so the tests park their
+ * own row out of the way instead of relying on a purpose nobody has claimed yet. */
+const TEST_PURPOSE = 'multimodal';
+
 async function deleteTestRows(db: Db): Promise<void> {
 	await db.delete(modelConfig).where(like(modelConfig.modelId, `${TEST_MODEL_ID_PREFIX}%`));
+}
+
+/** Deactivates whatever the migrations seeded for the purpose under test, and puts it back
+ * afterwards, so these tests neither depend on the seed nor leave the database without one. */
+async function setSeededRowActive(db: Db, active: boolean): Promise<void> {
+	await db
+		.update(modelConfig)
+		.set({ active })
+		.where(
+			and(
+				eq(modelConfig.purpose, TEST_PURPOSE),
+				notLike(modelConfig.modelId, `${TEST_MODEL_ID_PREFIX}%`)
+			)
+		);
 }
 
 describe('resolveModel', () => {
@@ -21,12 +42,14 @@ describe('resolveModel', () => {
 
 	afterAll(async () => {
 		await deleteTestRows(db);
+		await setSeededRowActive(db, true);
 		await closeDb(db);
 	});
 
 	beforeEach(async () => {
 		clearModelCache();
 		await deleteTestRows(db);
+		await setSeededRowActive(db, false);
 	});
 
 	afterEach(async () => {

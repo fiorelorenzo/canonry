@@ -1,0 +1,49 @@
+{
+	"name": "@canonry/bench",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"check": "tsc -p tsconfig.json --noEmit",
+		"lint": "prettier --check .",
+		"format": "prettier --write .",
+		"test": "vitest run",
+		"corpus": "tsx src/corpus/build.ts",
+		"models": "tsx src/models/run.ts",
+		"import-e2e": "tsx src/e2e/import.ts",
+		"loremaster-e2e": "tsx src/e2e/loremaster.ts",
+		"seed": "tsx src/prepare.ts",
+		"rerender": "tsx src/models/rerender.ts"
+	},
+	"dependencies": {
+		"@canonry/ai": "workspace:*",
+		"@canonry/copilot": "workspace:*",
+		"@canonry/db": "workspace:*",
+		"@canonry/eval": "workspace:*",
+		"@canonry/import": "workspace:*",
+		"@canonry/indexing": "workspace:*",
+		"@canonry/lang": "workspace:*",
+		"@canonry/vector": "workspace:*",
+		"ai": "^7.0.65",
+		"zod": "^4.1.13",
+		"fflate": "^0.8.3",
+		"drizzle-orm": "^0.45.2"
+	},
+	"devDependencies": {
+		"@types/node": "^22",
+		"postgres": "^3.4.9",
+		"prettier": "^3.8.3",
+		"tsx": "^4.23.12",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.10"
+	}
+}

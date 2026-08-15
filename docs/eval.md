@@ -234,3 +234,89 @@ en/it recall requires a live `google` credential, running `retrieval-eval.test.t
 `hashingEmbedder`, and re-reading the resulting MRR next to the numbers already recorded
 above. That live benchmark is the gap this document files, not a claim this document
 makes.
+## The first live run, 2026-08-15
+
+Everything above measures a harness against a stub, because until 2026-08-15 this box had
+no gateway credential. It now has one, and `packages/bench` is the credentialed half:
+`packages/eval` stays pure, and the package next to it runs the product's own functions
+against a real gateway, a real Postgres and a real Qdrant. Its README describes how; this
+section records what the first run found, because several of the numbers contradict what
+this document assumed.
+
+### The model choice is no longer a guess
+
+`packages/bench/reports/2026-08-15/` holds the rendered tables this document quotes.
+
+`docs/models.md` is the measurement and the decision. In short: `cheap` moves from
+`anthropic/claude-haiku-4.5` to `google/gemini-3.1-flash-lite`, `premium` from
+`anthropic/claude-opus-4.8` to `openai/gpt-5.4`, `multimodal` gets its first row ever
+(`google/gemini-3.1-flash-lite`), and the estimated text cost of an active user falls from
+EUR 10.45 a month to EUR 2.59. `embedding` is unchanged.
+
+### The live cross-lingual number, which this document filed as a gap
+
+Against the real `alibaba/qwen3-embedding-4b`, over a 32-entity bilingual Valdoria Reach,
+retrieval mean recall is **0.806**, and over the cross-language subset alone it is
+**0.625**. Cross-lingual retrieval works and is measurably worse than same-language, which
+is more than "not proven" and less than "fine". Issue #168 carries the finding and what to
+do about it, in order: index a universe's own canon at all, re-derive the 0.25 threshold
+against a corpus Ask actually queries, then re-measure.
+
+One caveat that matters for reading that number: the corpus chunks one entity into one
+chunk, so a question has to beat every other entity in the world on a single whole-body
+vector, and top-k 8 of 32 returns a quarter of the world. This is not the 2044-chunk shape
+SPEC.md §11.4's own numbers came from.
+
+### Import, end to end, for the first time
+
+Every source format, three imports each (the export, the same export again, the export a
+month later), against the real `GatewayDriver`:
+
+| source | documents | first run | second run | changed run | idempotent |
+| --- | --- | --- | --- | --- | --- |
+| obsidian | 35 | 121 proposals in 633 s | 82 | 156 | **no** |
+| world-anvil | 32 | 105 in 432 s | 77 | 149 | **no** |
+| kanka | 7 | 43 in 117 s | 0 | 55 | yes |
+| generic | 5 | 31 in 60 s | 0 | 31 | yes |
+| docx | 2 | 18 in 32 s | 0 | 29 | yes |
+| pdf | 1 | 8 in 10 s | 0 | 12 | yes |
+| onenote | 0 | nothing, ever | 0 | 0 | vacuously |
+
+SPEC.md §6.4's acceptance test ("importing the same export twice produces zero changes on
+the second run") therefore fails on the two vault-shaped sources, and it fails for the same
+reason 58 per cent of all import proposals cannot be accepted: within one job the merge
+engine only matches against committed canon, so an entity named in several documents is
+proposed as a `create` once per document and the second accept dies on the slug uniqueness
+constraint. First-run accept rates: pdf 8/8, docx 14/18, kanka 32/43, generic 19/31,
+world-anvil 32/105, obsidian 34/121.
+
+Issues #160 (the duplicates), #161 (the test, and putting it in CI), #162 (OneNote), #163
+(`missing_in_source`, which nothing ever writes) and #166 (`job_finish`'s redundant
+`documentId`, which cost one document four wasted steps out of nine).
+
+What did work, and is worth recording as much as the failures: the review flow end to end
+(accept, reject, undo, with `revision.author_kind` landing as `ai_accepted`), the
+between-thresholds "ask the user" band firing on real matches at 0.53 and 0.67 similarity,
+and the content-hash skip making an unchanged document free on the second run.
+
+### The Loremaster, end to end
+
+Also the first time. Three edits through `planPropagation` and `generatePlanDiffs`, the
+same three through `runAudit`, five thin entries through `completeEntry`, eighteen questions
+plus all five detail levels through `runAsk`:
+
+- **propagation** proposed 11 of 11 expected targets across the three edits, with one
+  unexpected entry and one miss, and wrote all 11 diffs;
+- **SPEC.md §17 rule three holds end to end**: every diff to an Italian entry came back in
+  Italian and every diff to an English one in English, and no Ask answer came back in the
+  wrong language;
+- **audit** raised one flag over 13 examined pairs, and it was the real disagreement;
+- **complete** grew four of five thin entries and correctly declined the fifth, on the
+  grounds that the evidence did not support more;
+- **no answer, in 22, made a claim its sources did not carry.**
+
+Two defects came out of it. `runAudit` crashed outright on any body whose paragraph spans
+several lines, including the `:::secret` block the sample world itself uses, because
+`splitIntoSentences` joins a paragraph's lines and `spanOf` then could not find the result
+in the body; fixed in this same change, with a regression test that fails without it. And
+Ask's `full` answer is 29 per cent shorter than its `detailed` one, which is issue #167.

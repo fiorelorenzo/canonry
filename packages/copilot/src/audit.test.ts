@@ -320,6 +320,64 @@ describe('runAudit (issue #55, SPEC.md §5.2)', () => {
 			"Cairnmouth e Aldric Vane non sono d'accordo su chi guidava la ronda durante il secondo gelo."
 		);
 	});
+
+	it('survives a body whose paragraph spans several lines, and still spans it correctly', async () => {
+		// `splitIntoSentences` joins a paragraph's lines with a single space, so a sentence it
+		// produces from a wrapped paragraph appears nowhere in the body verbatim. `spanOf`
+		// used to throw on that ("is not in its own source body"), which took the whole audit
+		// down. The two bodies below are the ordinary shapes that hit it: a `:::secret` block,
+		// which the sample world itself uses, and prose wrapped at a column.
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, { ownerUserId: owner.id });
+
+		const ledgerBody =
+			'A merchant bank that lends at knife point.\n\n:::secret\nAldric Vane, the dismissed ' +
+			'captain of the Valdoria Watch,\nis now on its payroll.\n:::';
+		await insertEntity(db, universe.id, {
+			type: 'faction',
+			name: 'The Ashen Ledger',
+			body: ledgerBody
+		});
+
+		const aldricOldBody = 'Captain of the Valdoria Watch.';
+		const aldric = await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Aldric Vane',
+			body: aldricOldBody
+		});
+
+		const result = await runAudit({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			editedEntityId: aldric.id,
+			oldBody: aldricOldBody,
+			newBody:
+				'Dismissed from the watch in the thaw, he now answers to\nThe Ashen Ledger and no ' +
+				'longer commands anyone.',
+			locale: 'en',
+			modelFactory: modelFactoryFor(
+				judgmentModel([{ disagree: true, topic: 'whether he still commands the watch' }])
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		expect(result.examined).toBe(1);
+		expect(result.flags).toHaveLength(1);
+
+		// The span is the point: a flag whose evidence cannot be found in the body would be a
+		// guardrail-3 failure, so the recorded offsets have to select the real text.
+		const evidence = result.flags[0]!.proposal.evidence as Array<{
+			entityName: string;
+			spanStart: number;
+			spanEnd: number;
+		}>;
+		const ledgerSide = evidence.find((e) => e.entityName === 'The Ashen Ledger');
+		expect(ledgerSide).toBeDefined();
+		const quoted = ledgerBody.slice(ledgerSide!.spanStart, ledgerSide!.spanEnd);
+		expect(quoted).toContain('Aldric Vane');
+		expect(quoted).toContain('payroll');
+	});
 });
 
 describe('buildFlagRationale and isGuardrailSafeTopic (guardrail 7)', () => {

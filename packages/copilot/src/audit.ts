@@ -36,7 +36,7 @@ import { loadCandidateGraph } from './db-graph.js';
 import { jaccard, semanticDiff, splitIntoSentences, tokenize } from './diff.js';
 import type { FactChange } from './diff.js';
 import { routeModel } from './models.js';
-import type { GatewayWrapper, ModelFactory } from './models.js';
+import type { GatewayWrapper, ModelFactory, RoutedModel } from './models.js';
 import { requireAiEnabled } from './propagate.js';
 import { AUDIT_DISAGREEMENT, AUDIT_DISAGREEMENT_BARE, speechInstruction } from './speech.js';
 
@@ -92,12 +92,37 @@ interface CandidatePair {
 	b: AuditFlagStatement;
 }
 
-function spanOf(body: string, sentence: string): { start: number; end: number } {
-	const start = body.indexOf(sentence);
-	// A sentence `splitIntoSentences` produced is always a literal substring of the body it
-	// came from - this is a programming error, not a data condition, if it ever fails.
-	if (start < 0) throw new Error(`audit: sentence "${sentence}" is not in its own source body`);
-	return { start, end: start + sentence.length };
+/**
+ * Where a sentence sits in the body it came from.
+ *
+ * This used to assume a sentence `splitIntoSentences` produced is a literal substring of
+ * its own body, and threw when it was not, on the grounds that anything else is a
+ * programming error. It is a programming error, but it is one in that assumption:
+ * `splitIntoSentences` joins the lines of a paragraph with a single space
+ * (`paragraph.join(' ')` in diff.ts), so a paragraph written across several lines comes
+ * back as text that appears nowhere in the body. Two very ordinary bodies hit it: markdown
+ * wrapped at a column, and a `:::secret` block, which is a shipped feature and which
+ * `packages/db/src/seed-fixture.ts` puts in the sample world. Editing that entry crashed
+ * `runAudit` outright, and in production that is a background canon-save job dying.
+ *
+ * So the search is whitespace-tolerant: the sentence's own runs of whitespace match any
+ * run in the body. A sentence that still cannot be located returns null and the caller
+ * drops that side of the pair, because guardrail 3 says a flag carries the sentence that
+ * produced it and a flag pointing at the wrong span is worse than no flag.
+ */
+function spanOf(body: string, sentence: string): { start: number; end: number } | null {
+	const exact = body.indexOf(sentence);
+	if (exact >= 0) return { start: exact, end: exact + sentence.length };
+
+	const pattern = sentence
+		.trim()
+		.split(/\s+/)
+		.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+		.join('\\s+');
+	if (pattern.length === 0) return null;
+	const match = new RegExp(pattern).exec(body);
+	if (!match) return null;
+	return { start: match.index, end: match.index + match[0].length };
 }
 
 /** The sentence in `body` most similar (Jaccard word overlap) to `target`, or `null` for
@@ -117,8 +142,9 @@ function mostSimilarSentence(body: string, target: string): string | null {
 	return best!.sentence;
 }
 
-function statementFor(entity: GraphEntity, sentence: string): AuditFlagStatement {
+function statementFor(entity: GraphEntity, sentence: string): AuditFlagStatement | null {
 	const span = spanOf(entity.body, sentence);
+	if (!span) return null;
 	return {
 		entityId: entity.id,
 		entityName: entity.name,
@@ -128,8 +154,13 @@ function statementFor(entity: GraphEntity, sentence: string): AuditFlagStatement
 	};
 }
 
-function editedSideFor(entity: GraphEntity, newBody: string, sentence: string): AuditFlagStatement {
+function editedSideFor(
+	entity: GraphEntity,
+	newBody: string,
+	sentence: string
+): AuditFlagStatement | null {
 	const span = spanOf(newBody, sentence);
+	if (!span) return null;
 	return {
 		entityId: entity.id,
 		entityName: entity.name,
@@ -177,11 +208,14 @@ function findCandidatePairs(
 			if (seenEntityIds.has(hit.entity.id)) continue;
 			const otherBest = mostSimilarSentence(hit.entity.body, sentence);
 			if (!otherBest) continue;
+			const a = editedSideFor(editedEntity, newBody, sentence);
+			const b = statementFor(hit.entity, otherBest);
+			// Guardrail 3: a flag has to carry the sentence that produced it, so a pair whose
+			// evidence cannot be located in its own body is dropped rather than flagged with
+			// a span that points at the wrong text.
+			if (!a || !b) continue;
 			seenEntityIds.add(hit.entity.id);
-			pairs.push({
-				a: editedSideFor(editedEntity, newBody, sentence),
-				b: statementFor(hit.entity, otherBest)
-			});
+			pairs.push({ a, b });
 		}
 	}
 
@@ -196,11 +230,11 @@ function findCandidatePairs(
 			if (mentionsIn(sentence, [editedEntity]).length === 0) continue;
 			const editedBest = mostSimilarSentence(newBody, sentence);
 			if (!editedBest) continue;
+			const a = editedSideFor(editedEntity, newBody, editedBest);
+			const b = statementFor(other, sentence);
+			if (!a || !b) continue;
 			seenEntityIds.add(other.id);
-			pairs.push({
-				a: editedSideFor(editedEntity, newBody, editedBest),
-				b: statementFor(other, sentence)
-			});
+			pairs.push({ a, b });
 			break;
 		}
 	}
@@ -264,6 +298,73 @@ const SYSTEM_PROMPT =
 	'"consistent" or "inconsistent", never "contradiction detected" or "error". If they do ' +
 	'not disagree (they are compatible, or about different things), say so.';
 
+export interface StatementPairJudgment {
+	disagree: boolean;
+	topic: string;
+	inputTokens: number;
+	outputTokens: number;
+}
+
+export interface JudgeStatementPairInput {
+	db: Db;
+	userId: string;
+	universeId: string;
+	model: RoutedModel;
+	locale: Locale;
+	a: { entityName: string; statement: string };
+	b: { entityName: string; statement: string };
+	/** Passed straight through to `withQuota` so a retried run charges once. */
+	requestId?: string;
+	idempotencyKey?: string;
+}
+
+/**
+ * One pair, one charged model call, the whole of what a model decides in an audit. Split
+ * out of `runAudit` so the judgement has a seam of its own: it is the only place in this
+ * package where a cheap model's answer is a yes or a no rather than prose, which makes it
+ * the one audit behaviour that can be measured against labelled pairs instead of read.
+ * `packages/bench` does exactly that when it picks the model for the `cheap` purpose, and
+ * it has to be able to measure the shipped prompt rather than a copy of it that drifts.
+ */
+export async function judgeStatementPair(
+	input: JudgeStatementPairInput
+): Promise<StatementPairJudgment> {
+	const judged = await withQuota(
+		input.db,
+		input.model.resolved,
+		{
+			userId: input.userId,
+			universeId: input.universeId,
+			agent: 'loremaster',
+			operation: 'audit.flag',
+			...(input.requestId !== undefined ? { requestId: input.requestId } : {}),
+			...(input.idempotencyKey !== undefined ? { idempotencyKey: input.idempotencyKey } : {})
+		},
+		() =>
+			generateObject({
+				model: input.model.languageModel,
+				schema: judgmentSchema,
+				system: `${SYSTEM_PROMPT} ${speechInstruction(input.locale)}`,
+				prompt:
+					`${input.a.entityName}: "${input.a.statement}"\n\n` +
+					`${input.b.entityName}: "${input.b.statement}"\n\n` +
+					'Do these two statements disagree?'
+			}),
+		{
+			extractUsage: (r) => ({
+				inputTokens: r.usage.inputTokens ?? 0,
+				outputTokens: r.usage.outputTokens ?? 0
+			})
+		}
+	);
+	return {
+		disagree: judged.object.disagree,
+		topic: judged.object.topic,
+		inputTokens: judged.usage.inputTokens ?? 0,
+		outputTokens: judged.usage.outputTokens ?? 0
+	};
+}
+
 /** SPEC.md §5.2, issue #55: audits the sub-graph a recent edit touched and writes at most
  * a handful of flags. Mirrors `planPropagation`'s shape (deterministic candidates first,
  * one charged model call per candidate) but has no diff-generation phase after it - a
@@ -297,36 +398,19 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
 	const survivors: Array<{ pair: CandidatePair; topic: string }> = [];
 	for (let i = 0; i < pairs.length; i++) {
 		const pair = pairs[i]!;
-		const judged = await withQuota(
-			input.db,
-			cheapModel.resolved,
-			{
-				userId: input.userId,
-				universeId: input.universeId,
-				agent: 'loremaster',
-				operation: 'audit.flag',
-				...(input.requestId !== undefined
-					? { requestId: input.requestId, idempotencyKey: `${input.requestId}:${i}` }
-					: {})
-			},
-			() =>
-				generateObject({
-					model: cheapModel.languageModel,
-					schema: judgmentSchema,
-					system: `${SYSTEM_PROMPT} ${speechInstruction(input.locale)}`,
-					prompt:
-						`${pair.a.entityName}: "${pair.a.statement}"\n\n` +
-						`${pair.b.entityName}: "${pair.b.statement}"\n\n` +
-						'Do these two statements disagree?'
-				}),
-			{
-				extractUsage: (r) => ({
-					inputTokens: r.usage.inputTokens ?? 0,
-					outputTokens: r.usage.outputTokens ?? 0
-				})
-			}
-		);
-		if (judged.object.disagree) survivors.push({ pair, topic: judged.object.topic });
+		const judged = await judgeStatementPair({
+			db: input.db,
+			userId: input.userId,
+			universeId: input.universeId,
+			model: cheapModel,
+			locale: input.locale,
+			a: pair.a,
+			b: pair.b,
+			...(input.requestId !== undefined
+				? { requestId: input.requestId, idempotencyKey: `${input.requestId}:${i}` }
+				: {})
+		});
+		if (judged.disagree) survivors.push({ pair, topic: judged.topic });
 	}
 
 	if (survivors.length === 0) return { examined: pairs.length, plan: null, flags: [] };

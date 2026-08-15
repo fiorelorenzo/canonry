@@ -1,0 +1,36 @@
+# Preflight, 2026-08-15
+
+One sentence, one structured object, one tool call per candidate, asked before an hour of
+benchmark starts. Five candidates cannot produce a structured object at all, and every
+Loremaster call in this product is a `generateObject`, so that is disqualifying at any
+price. A sixth, `xai/grok-4.1-fast-non-reasoning`, passes here and then fails under the
+real tool surface, which is worth remembering rather than fixing: three trivial calls
+cannot stand in for the thing itself.
+
+| model                             | reachable | structured object | tool call | vision | ms   | note                                                                                                                                                     |
+| --------------------------------- | --------- | ----------------- | --------- | ------ | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `alibaba/qwen3.5-flash`           | yes       | **NO**            | yes       | yes    | 2860 | object: <400> InternalError.Algo.InvalidParameter: 'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'. |
+| `anthropic/claude-haiku-4.5`      | yes       | yes               | yes       | yes    | 1443 |                                                                                                                                                          |
+| `anthropic/claude-opus-4.8`       | yes       | yes               | yes       | yes    | 1341 |                                                                                                                                                          |
+| `anthropic/claude-sonnet-4.6`     | yes       | yes               | yes       | yes    | 1240 |                                                                                                                                                          |
+| `deepseek/deepseek-v4-flash`      | yes       | **NO**            | yes       | **NO** | 1046 | object: No object generated: response did not match schema.                                                                                              |
+| `google/gemini-2.5-flash`         | yes       | yes               | yes       | yes    | 628  |                                                                                                                                                          |
+| `google/gemini-2.5-flash-lite`    | yes       | yes               | yes       | yes    | 619  |                                                                                                                                                          |
+| `google/gemini-3-flash`           | yes       | yes               | yes       | yes    | 1201 |                                                                                                                                                          |
+| `google/gemini-3.1-flash-lite`    | yes       | yes               | yes       | yes    | 662  |                                                                                                                                                          |
+| `google/gemini-3.1-pro-preview`   | yes       | yes               | yes       | yes    | 2527 |                                                                                                                                                          |
+| `mistral/ministral-14b`           | yes       | yes               | yes       | yes    | 534  |                                                                                                                                                          |
+| `mistral/mistral-large-3`         | yes       | yes               | yes       | yes    | 669  |                                                                                                                                                          |
+| `mistral/mistral-small`           | yes       | yes               | yes       | yes    | 363  |                                                                                                                                                          |
+| `mistral/pixtral-12b`             | yes       | yes               | yes       | yes    | 266  |                                                                                                                                                          |
+| `moonshotai/kimi-k2.5`            | yes       | **NO**            | yes       | yes    | 3260 | object: No object generated: could not parse the response.                                                                                               |
+| `openai/gpt-4.1-nano`             | yes       | yes               | yes       | yes    | 1301 |                                                                                                                                                          |
+| `openai/gpt-5-mini`               | yes       | yes               | yes       | yes    | 1544 |                                                                                                                                                          |
+| `openai/gpt-5-nano`               | yes       | yes               | yes       | yes    | 1244 |                                                                                                                                                          |
+| `openai/gpt-5.2`                  | yes       | yes               | yes       | yes    | 822  |                                                                                                                                                          |
+| `openai/gpt-5.4`                  | yes       | yes               | yes       | yes    | 734  |                                                                                                                                                          |
+| `openai/gpt-oss-120b`             | yes       | **NO**            | yes       | **NO** | 561  | object: No object generated: response did not match schema.                                                                                              |
+| `xai/grok-4.1-fast-non-reasoning` | yes       | yes               | yes       | yes    | 540  |                                                                                                                                                          |
+| `xai/grok-4.3`                    | yes       | yes               | yes       | yes    | 3444 |                                                                                                                                                          |
+| `zai/glm-4.7`                     | yes       | **NO**            | yes       | **NO** | 598  | object: No object generated: response did not match schema.                                                                                              |
+| `zai/glm-4.7-flash`               | yes       | yes               | yes       | **NO** | 310  |                                                                                                                                                          |

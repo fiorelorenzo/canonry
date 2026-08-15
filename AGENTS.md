@@ -53,6 +53,15 @@ exposes `startJob`/`cancel` and nothing outside it knows which driver runs behin
 that interface. `GatewayDriver` is the AI SDK loop; `SpoleDriver` will delegate to
 Spole. No provider or protocol type may leak past that boundary.
 
+**Which model runs which purpose is measured, not chosen.** `docs/models.md` records the
+decision for `cheap`, `premium`, `multimodal` and `embedding`, with the numbers behind each
+one and the cost of the alternative that was not taken. `packages/bench` is the harness that
+produced it: it runs the product's own functions with a candidate swapped into
+`model_config`, against a real gateway, a real Postgres and a real Qdrant, over a corpus of
+the sample world rendered into every import format. It also carries the end-to-end runs for
+import and the Loremaster. Do not change a `model_config` row without re-running it, and do
+not add a provider to `KNOWN_PROVIDERS` without a measurement to point at.
+
 ## The UX decisions live in `docs/ux/`
 
 `SPEC.md` says a proposal shows its evidence and never where the evidence sits, and it

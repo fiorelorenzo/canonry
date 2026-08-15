@@ -1,0 +1,14 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"rootDir": "src",
+		"types": ["node"],
+		// Node 22 has Promise.withResolvers, which the renderers use to wrap the child
+		// processes they shell out to and the bench runner uses for its backoff. The shared
+		// base sits on ES2023 because everything the web app ships has to; this package
+		// never ships anywhere, so it can name the runtime it actually runs on.
+		"lib": ["ES2024"]
+	},
+	"include": ["src/**/*.ts"]
+}

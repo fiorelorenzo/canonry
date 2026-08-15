@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+
+# Every run writes here: built exports, raw model responses, reports. A run is evidence
+# for an afternoon; the conclusion is what gets committed.
+.data/

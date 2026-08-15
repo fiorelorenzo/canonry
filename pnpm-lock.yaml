@@ -164,6 +164,64 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@22.20.1)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.12))
 
+  packages/bench:
+    dependencies:
+      '@canonry/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@canonry/copilot':
+        specifier: workspace:*
+        version: link:../copilot
+      '@canonry/db':
+        specifier: workspace:*
+        version: link:../db
+      '@canonry/eval':
+        specifier: workspace:*
+        version: link:../eval
+      '@canonry/import':
+        specifier: workspace:*
+        version: link:../import
+      '@canonry/indexing':
+        specifier: workspace:*
+        version: link:../indexing
+      '@canonry/lang':
+        specifier: workspace:*
+        version: link:../lang
+      '@canonry/vector':
+        specifier: workspace:*
+        version: link:../vector
+      ai:
+        specifier: ^7.0.65
+        version: 7.0.65(zod@4.4.3)
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@prisma/client@5.22.0)(@types/pg@8.21.0)(better-sqlite3@12.11.1)(kysely@0.29.5)(pg@8.23.0)(postgres@3.4.9)
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+      zod:
+        specifier: ^4.1.13
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^22
+        version: 22.20.1
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
+      prettier:
+        specifier: ^3.8.3
+        version: 3.9.6
+      tsx:
+        specifier: ^4.23.12
+        version: 4.23.12
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@22.20.1)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.12))
+
   packages/copilot:
     dependencies:
       '@canonry/ai':
