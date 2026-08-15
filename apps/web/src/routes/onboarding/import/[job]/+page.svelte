@@ -9,15 +9,21 @@
 	 */
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import { messages } from '$lib/i18n';
 	import LiveProposalFeed from '$lib/components/onboarding/LiveProposalFeed.svelte';
 	import type { ProposalSummary } from '$lib/components/onboarding/proposalView';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 
+	let t = $derived(messages(data.locale).import);
+
+	type ImportJobStatus =
+		'queued' | 'running' | 'finished' | 'stopped_at_ceiling' | 'cancelled' | 'failed';
+
 	interface JobView {
 		id: string;
-		status: string;
+		status: ImportJobStatus;
 		documentCount: number;
 		proposalsEmitted: number;
 		outcomeNote: string;
@@ -50,7 +56,12 @@
 		}))
 	);
 
-	const TERMINAL_STATUSES = new Set(['finished', 'stopped_at_ceiling', 'cancelled', 'failed']);
+	const TERMINAL_STATUSES = new Set<ImportJobStatus>([
+		'finished',
+		'stopped_at_ceiling',
+		'cancelled',
+		'failed'
+	]);
 
 	$effect(() => {
 		let stopped = false;
@@ -85,10 +96,22 @@
 
 	const pendingCount = $derived(proposals.filter((p) => p.outcome === 'pending').length);
 	const isTerminal = $derived(TERMINAL_STATUSES.has(job.status));
+
+	const terminalHeading = $derived(
+		job.status === 'finished'
+			? t.job.headingTerminal.finished
+			: job.status === 'stopped_at_ceiling'
+				? t.job.headingTerminal.stoppedAtCeiling
+				: job.status === 'cancelled'
+					? t.job.headingTerminal.cancelled
+					: job.status === 'failed'
+						? t.job.headingTerminal.failed
+						: null
+	);
 </script>
 
 <svelte:head>
-	<title>Importing into {data.universe.name} &middot; Canonry</title>
+	<title>{t.job.headTitle(data.universe.name)}</title>
 </svelte:head>
 
 <main id="main" class="mx-auto flex max-w-measure flex-col gap-6 px-8 py-16">
@@ -100,44 +123,40 @@
 
 	{#if acceptedProposal && elapsedToAcceptSeconds !== null}
 		<div class="rounded-lg border border-accent bg-accent-bg p-5">
-			<h1 class="text-lg font-semibold text-accent-ink">First accept</h1>
+			<h1 class="text-lg font-semibold text-accent-ink">{t.job.firstAcceptHeading}</h1>
 			<p class="mt-1 text-sm text-ink">
-				Accepted in <strong>{elapsedToAcceptSeconds}s</strong> from the moment you started this import.
+				{t.job.firstAcceptMessage(elapsedToAcceptSeconds)}
 			</p>
 		</div>
 	{:else}
 		<h1 class="text-2xl font-semibold text-ink">
-			{isTerminal ? 'Import finished' : 'Importing your world'}
+			{terminalHeading ?? t.job.headingRunning}
 		</h1>
 	{/if}
 
 	<div class="rounded-lg border border-line bg-panel p-4">
 		<p class="text-sm text-ink">
-			{job.proposalsEmitted} proposal{job.proposalsEmitted === 1 ? '' : 's'} so far &middot; {job.documentCount}
-			document{job.documentCount === 1 ? '' : 's'} total &middot; status: {job.status.replaceAll(
-				'_',
-				' '
-			)}
+			{t.job.statusLine(job.proposalsEmitted, job.documentCount, t.job.statusWord[job.status])}
 		</p>
 		{#if job.outcomeNote}
 			<p class="mt-1 text-sm text-muted">{job.outcomeNote}</p>
 		{/if}
 	</div>
 
-	<LiveProposalFeed {proposals} />
+	<LiveProposalFeed {proposals} locale={data.locale} />
 
 	{#if pendingCount > 0}
 		<a
 			href={resolve(`/u/${data.universe.slug}/import/${job.id}/review`)}
 			class="self-start rounded-md border border-line-2 bg-panel px-4 py-2 text-sm font-medium text-ink hover:border-accent"
 		>
-			Review {pendingCount} now
+			{t.job.reviewNow(pendingCount)}
 		</a>
 	{/if}
 
 	{#if isTerminal}
 		<a href={resolve(`/u/${data.universe.slug}`)} class="text-sm text-accent hover:underline">
-			Go to {data.universe.name}
+			{t.job.goToUniverse(data.universe.name)}
 		</a>
 	{/if}
 </main>

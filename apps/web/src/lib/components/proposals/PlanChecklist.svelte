@@ -6,6 +6,7 @@
 	 * diffs" is the one explicit, priced action that moves the plan into #51's queue.
 	 */
 	import { enhance } from '$app/forms';
+	import { messages, type Locale } from '$lib/i18n';
 
 	interface ChecklistRow {
 		id: string;
@@ -17,12 +18,17 @@
 	let {
 		rows,
 		estimatedCredits,
-		candidateCap
+		candidateCap,
+		locale
 	}: {
 		rows: ChecklistRow[];
 		estimatedCredits: number;
 		candidateCap: number;
+		locale: Locale;
 	} = $props();
+
+	let t = $derived(messages(locale).proposals.checklist);
+	let creditsLabel = $derived(t.estimatedCredits(estimatedCredits));
 
 	let kept = $state(rows.map((r) => ({ ...r })));
 	let generating = $state(false);
@@ -34,10 +40,10 @@
 
 <div class="rounded-lg border border-line bg-panel p-4">
 	<div class="mb-3 flex items-center justify-between text-xs text-muted">
+		<span><b class="text-ink">{kept.length}</b>{t.keptSuffix(rows.length, candidateCap)}</span>
 		<span
-			><b class="text-ink">{kept.length}</b> of {rows.length} kept &middot; cap {candidateCap}</span
-		>
-		<span>Est. <b class="text-ink">{estimatedCredits.toFixed(2)}</b> credits to generate diffs</span
+			>{creditsLabel.prefix}<b class="text-ink">{estimatedCredits.toFixed(2)}</b
+			>{creditsLabel.suffix}</span
 		>
 	</div>
 
@@ -49,7 +55,7 @@
 					<p class="truncate text-xs text-muted">{row.rationale}</p>
 				</div>
 				<div class="flex flex-none items-center gap-2">
-					<span class="font-mono text-xs text-muted">{row.credits.toFixed(2)} cr</span>
+					<span class="font-mono text-xs text-muted">{row.credits.toFixed(2)} {t.creditsUnit}</span>
 					<form
 						method="POST"
 						action="?/drop"
@@ -60,7 +66,7 @@
 					>
 						<input type="hidden" name="proposalId" value={row.id} />
 						<button type="submit" class="text-xs text-muted underline hover:text-danger">
-							Drop
+							{t.drop}
 						</button>
 					</form>
 				</div>
@@ -69,7 +75,7 @@
 	</ul>
 
 	{#if kept.length === 0}
-		<p class="py-3 text-sm text-muted">Nothing left in this plan.</p>
+		<p class="py-3 text-sm text-muted">{t.empty}</p>
 	{:else}
 		<form
 			method="POST"
@@ -88,7 +94,7 @@
 				disabled={generating}
 				class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:brightness-110 disabled:opacity-50"
 			>
-				{generating ? 'Generating\u2026' : `Generate diffs (${kept.length})`}
+				{generating ? t.generating : t.generateDiffs(kept.length)}
 			</button>
 		</form>
 	{/if}

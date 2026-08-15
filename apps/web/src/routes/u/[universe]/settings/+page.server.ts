@@ -20,6 +20,7 @@ import {
 	universeAccessBySlug
 } from '@canonry/db';
 import { universe } from '@canonry/db/schema';
+import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -57,7 +58,9 @@ export const actions: Actions = {
 		const conn = db();
 		const access = await universeAccessBySlug(conn, params.universe, locals.user.id);
 		if (!access) error(404, `No universe named "${params.universe}"`);
-		if (access.role === 'viewer') error(403, 'Viewers cannot change this setting');
+		if (access.role === 'viewer') {
+			error(403, messages(locals.locale).universe.settings.viewerForbiddenError);
+		}
 
 		const form = await request.formData();
 		const enabled = form.get('enabled') === 'true';
@@ -73,9 +76,12 @@ export const actions: Actions = {
 		const conn = db();
 		const access = await universeAccessBySlug(conn, params.universe, locals.user.id);
 		if (!access) error(404, `No universe named "${params.universe}"`);
-		if (access.role === 'viewer') error(403, 'Viewers cannot change this setting');
+		if (access.role === 'viewer') {
+			error(403, messages(locals.locale).universe.settings.viewerForbiddenError);
+		}
+		const tp = messages(locals.locale).universe.settings.precedence;
 		if (!access.universe.baseUniverseId) {
-			return fail(400, { message: 'Only a derived universe can supersede a source page' });
+			return fail(400, { message: tp.onlyDerivedError });
 		}
 
 		const form = await request.formData();
@@ -84,13 +90,13 @@ export const actions: Actions = {
 		const sourceUrl = form.get('sourceUrl');
 		const note = form.get('note');
 		if (typeof entityId !== 'string' || entityId.length === 0) {
-			return fail(400, { message: 'Pick which entry supersedes the page' });
+			return fail(400, { message: tp.pickEntryError });
 		}
 		if (typeof dataSourceId !== 'string' || dataSourceId.length === 0) {
-			return fail(400, { message: 'Pick which source the page belongs to' });
+			return fail(400, { message: tp.pickSourceError });
 		}
 		if (typeof sourceUrl !== 'string' || sourceUrl.trim().length === 0) {
-			return fail(400, { message: 'The source page needs a url' });
+			return fail(400, { message: tp.sourceUrlRequiredError });
 		}
 
 		try {
@@ -103,7 +109,7 @@ export const actions: Actions = {
 			});
 		} catch (err) {
 			if (err instanceof SupersedeAlreadyExistsError) {
-				return fail(400, { message: 'This page is already superseded.' });
+				return fail(400, { message: tp.alreadySupersededError });
 			}
 			throw err;
 		}
@@ -115,12 +121,16 @@ export const actions: Actions = {
 		const conn = db();
 		const access = await universeAccessBySlug(conn, params.universe, locals.user.id);
 		if (!access) error(404, `No universe named "${params.universe}"`);
-		if (access.role === 'viewer') error(403, 'Viewers cannot change this setting');
+		if (access.role === 'viewer') {
+			error(403, messages(locals.locale).universe.settings.viewerForbiddenError);
+		}
 
 		const form = await request.formData();
 		const id = form.get('id');
 		if (typeof id !== 'string' || id.length === 0) {
-			return fail(400, { message: 'Missing supersede id' });
+			return fail(400, {
+				message: messages(locals.locale).universe.settings.precedence.missingIdError
+			});
 		}
 		await removeSupersede(conn, access.universe.id, id);
 		return { removed: true };

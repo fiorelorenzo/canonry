@@ -7,6 +7,7 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const t = $derived(messages(data.locale).settings);
+	const tDocs = $derived(messages(data.locale).docsLanguages);
 
 	// Falls back to the negotiated active locale when nothing has been explicitly saved
 	// yet, so the radio starts on whatever Accept-Language already picked rather than on
@@ -28,6 +29,10 @@
 	<h1 class="mt-4 text-2xl font-semibold text-ink">{t.language.title}</h1>
 	<p class="mt-2 max-w-xl text-sm text-ink-2">
 		{t.language.description}
+	</p>
+	<p class="mt-2 max-w-xl text-sm text-ink-2">
+		{t.language.learnMorePrompt}
+		<a href={resolve('/docs/languages')} class="text-accent hover:underline">{tDocs.title}</a>
 	</p>
 
 	{#if !data.signedIn}

@@ -34,12 +34,16 @@ A `PropagationWorld` (`src/propagation/types.ts`) is a small, self-contained wor
 
 Three worlds ship in `src/propagation/corpus/`:
 
-- **`valdoria-reach`**: the exact ten entities and seven relations
+- **`valdoria-reach`**: the same twelve entities and nine relations
   `packages/db/src/seed-fixture.ts` seeds, so the corpus and
-  `pnpm --filter @canonry/db seed` describe the same world. Duplicated by hand
-  rather than imported, because `@canonry/eval` has no dependency on `@canonry/db`
-  and `seed-fixture.ts` does not export its data. If the fixture changes, update
-  this file to match.
+  `pnpm --filter @canonry/db seed` describe the same world (issue #122 added the last two
+  entities, `la-casa-dei-mercanti` and `smugglers-ledger`, real bilingual canon rather than
+  lorem ipsum). Duplicated by hand rather than imported, because `@canonry/eval` has no
+  dependency on `@canonry/db` and `seed-fixture.ts` does not export its data. If the
+  fixture changes, update this file to match. Two of its cases (issue #130) cross the
+  English/Italian boundary on purpose - an edit to an English entry whose expected
+  propagation is Italian, and the reverse - so cross-language recall is measured in the
+  same harness as everything else, not in a separate report.
 - **`brackwater-mire`**: a smuggling-toll setting built to stress precision.
   Several entities share a relation path to the edited entity without being
   narratively relevant to a specific edit, which is exactly the false positive a
@@ -82,15 +86,16 @@ EntitySlug[]`, an ordered list of proposed entity slugs. `report` is a
 that should not have been proposed, which is what a failing run points you at
 first.
 
-Measured against the three shipped worlds (nine cases total): a selector that
-returns every other entity in the world scores `meanRecall: 1` but
-`meanFalsePositiveRate: 1` (39 false positives). A selector that returns nothing
-scores `meanRecall: 0` across the board. A selector that returns exactly the
-ground truth scores `meanRecall: 1`, `meanRecallAtCap: 1`,
-`meanFalsePositiveRate: 0`, `totalFalsePositives: 0`, and `meanOrderingScore:
-0.675` (below 1, correctly: several cases expect more than one entity, and only
-one can occupy rank 1). `pnpm --filter @canonry/eval test` runs all three as
-`test/propagation-runner.test.ts`.
+Measured against the three shipped worlds (eleven cases total, two of them crossing the
+English/Italian boundary): a selector that returns every other entity in the world scores
+`meanRecall: 1` but `meanFalsePositiveRate: 1` (47 false positives). A selector that
+returns nothing scores `meanRecall: 0` across the board. A selector that returns exactly
+the ground truth scores `meanRecall: 1`, `meanRecallAtCap: 1`, `meanFalsePositiveRate: 0`,
+`totalFalsePositives: 0`, and `meanOrderingScore: 0.734` (below 1, correctly: several cases
+expect more than one entity, and only one can occupy rank 1). `pnpm --filter @canonry/eval
+test` runs all three as `test/propagation-runner.test.ts`; the real candidate selector's
+own numbers, English and bilingual side by side, are in
+`packages/copilot/src/eval.test.ts`.
 
 ### Accept-rate metric shape
 

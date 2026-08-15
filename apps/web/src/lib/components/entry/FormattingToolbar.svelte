@@ -4,24 +4,28 @@
 	 * not free on an Italian keyboard. Every button inserts real markdown characters
 	 * (`editorState.ts`'s pure edits) - never a shortcut around the mention resolve menu.
 	 */
+	import { messages, type Locale } from '$lib/i18n';
+
 	export type FormatCommand = 'bold' | 'italic' | 'heading' | 'list' | 'quote' | 'link' | 'mention';
 
-	let { onCommand }: { onCommand: (command: FormatCommand) => void } = $props();
+	let { onCommand, locale }: { onCommand: (command: FormatCommand) => void; locale: Locale } =
+		$props();
+	let t = $derived(messages(locale));
 
-	const buttons: { command: FormatCommand; label: string; title: string }[] = [
-		{ command: 'bold', label: 'B', title: 'Bold' },
-		{ command: 'italic', label: 'I', title: 'Italic' },
-		{ command: 'heading', label: 'H2', title: 'Heading' },
-		{ command: 'list', label: '\u2022', title: 'Bulleted list' },
-		{ command: 'quote', label: '\u201C', title: 'Quote' },
-		{ command: 'link', label: 'Link', title: 'Link' }
-	];
+	let buttons = $derived<{ command: FormatCommand; label: string; title: string }[]>([
+		{ command: 'bold', label: 'B', title: t.entry.toolbar.bold },
+		{ command: 'italic', label: 'I', title: t.entry.toolbar.italic },
+		{ command: 'heading', label: 'H2', title: t.entry.toolbar.heading },
+		{ command: 'list', label: '\u2022', title: t.entry.toolbar.list },
+		{ command: 'quote', label: '\u201C', title: t.entry.toolbar.quote },
+		{ command: 'link', label: t.entry.toolbar.link, title: t.entry.toolbar.link }
+	]);
 </script>
 
 <div
 	class="fmtbar flex items-center gap-1 rounded-t-lg border border-b-0 border-line-2 bg-panel-2 p-1.5"
 	role="toolbar"
-	aria-label="Formatting"
+	aria-label={t.entry.toolbar.ariaLabel}
 >
 	{#each buttons as button (button.command)}
 		<button
@@ -38,10 +42,10 @@
 	<button
 		type="button"
 		class="rounded px-2 py-1.5 font-mono text-xs text-ink-2 hover:bg-panel"
-		title="Mention"
-		aria-label="Mention"
+		title={t.entry.toolbar.mention}
+		aria-label={t.entry.toolbar.mention}
 		onclick={() => onCommand('mention')}
 	>
-		@ Mention
+		{t.entry.toolbar.mentionLabel}
 	</button>
 </div>

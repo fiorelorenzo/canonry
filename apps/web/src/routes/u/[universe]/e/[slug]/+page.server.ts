@@ -9,7 +9,7 @@ import {
 	universeAccessBySlug,
 	type Db
 } from '@canonry/db';
-import { isLocale, toLocale } from '@canonry/lang';
+import { isLocale, messages, toLocale } from '$lib/i18n';
 import { ImageModelNotConfiguredError, resolveImageModel, resolveStyle } from '@canonry/media';
 import { AiDisabledError, completeEntry, semanticDiff } from '@canonry/copilot';
 import { UnknownProviderError } from '@canonry/ai';
@@ -40,18 +40,20 @@ async function modelSummary(conn: Db, feature: 'portrait' | 'variants') {
 }
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-	if (!locals.user) error(404, `No universe named "${params.universe}"`);
+	if (!locals.user)
+		error(404, messages(locals.locale).entry.errors.universeNotFound(params.universe));
 
 	const conn = db();
 	const access = await universeAccessBySlug(conn, params.universe, locals.user.id);
-	if (!access) error(404, `No universe named "${params.universe}"`);
+	if (!access) error(404, messages(locals.locale).entry.errors.universeNotFound(params.universe));
 	const world = access.universe;
 
 	const current = await conn.query.entity.findFirst({
 		where: (entity, { and, eq }) =>
 			and(eq(entity.universeId, world.id), eq(entity.slug, params.slug))
 	});
-	if (!current) error(404, `No entry named "${params.slug}" in ${world.name}`);
+	if (!current)
+		error(404, messages(locals.locale).entry.errors.entryNotFound(params.slug, world.name));
 
 	// Mention resolution needs every entity's name and aliases, not just this one - a body
 	// full of `[[Other Entity]]` has to resolve against the whole universe (#105/#15).
@@ -208,10 +210,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
  * count for zero real content.
  */
 async function requireAccess(locals: App.Locals, universeSlug: string) {
-	if (!locals.user) error(404, `No universe named "${universeSlug}"`);
+	if (!locals.user) error(404, messages(locals.locale).entry.errors.universeNotFound(universeSlug));
 	const conn = db();
 	const access = await universeAccessBySlug(conn, universeSlug, locals.user.id);
-	if (!access) error(404, `No universe named "${universeSlug}"`);
+	if (!access) error(404, messages(locals.locale).entry.errors.universeNotFound(universeSlug));
 	return { conn, world: access.universe, role: access.role, userId: locals.user.id };
 }
 
@@ -220,7 +222,8 @@ export const actions: Actions = {
 		const { conn, userId } = await requireAccess(locals, params.universe);
 		const data = await request.formData();
 		const proposalId = data.get('proposalId');
-		if (typeof proposalId !== 'string') return fail(400, { error: 'Missing proposalId' });
+		if (typeof proposalId !== 'string')
+			return fail(400, { error: messages(locals.locale).entry.errors.missingProposalId });
 		try {
 			const rejected = await rejectProposal(conn, { proposalId, reason: null, decidedBy: userId });
 			return { id: rejected.id };
@@ -238,7 +241,8 @@ export const actions: Actions = {
 			where: (entity, { and, eq }) =>
 				and(eq(entity.universeId, world.id), eq(entity.slug, params.slug))
 		});
-		if (!current) error(404, `No entry named "${params.slug}" in ${world.name}`);
+		if (!current)
+			error(404, messages(locals.locale).entry.errors.entryNotFound(params.slug, world.name));
 
 		try {
 			const result = await completeEntry({
@@ -264,10 +268,12 @@ export const actions: Actions = {
 			return { completed: true };
 		} catch (err) {
 			if (err instanceof AiDisabledError) {
-				return fail(403, { completeError: 'Writing is switched off for this universe.' });
+				return fail(403, { completeError: messages(locals.locale).entry.complete.aiOff });
 			}
 			if (err instanceof UnknownProviderError) {
-				return fail(503, { completeError: `Complete cannot run: ${err.message}` });
+				return fail(503, {
+					completeError: messages(locals.locale).entry.errors.completeCannotRun(err.message)
+				});
 			}
 			throw err;
 		}
@@ -280,18 +286,23 @@ export const actions: Actions = {
 	 * under `languageSource: 'human'` so it is never re-guessed. */
 	setLanguage: async ({ request, params, locals }) => {
 		const { conn, world, role } = await requireAccess(locals, params.universe);
-		if (role === 'viewer') error(403, 'Viewers cannot change an entry\u2019s language');
+		if (role === 'viewer')
+			error(403, messages(locals.locale).entry.errors.viewerCannotChangeLanguage);
 
 		const current = await conn.query.entity.findFirst({
 			where: (entity, { and, eq }) =>
 				and(eq(entity.universeId, world.id), eq(entity.slug, params.slug)),
 			columns: { id: true }
 		});
-		if (!current) error(404, `No entry named "${params.slug}" in ${world.name}`);
+		if (!current)
+			error(404, messages(locals.locale).entry.errors.entryNotFound(params.slug, world.name));
 
 		const form = await request.formData();
 		const choice = form.get('language');
-		if (typeof choice !== 'string') return fail(400, { languageError: 'Missing language choice' });
+		if (typeof choice !== 'string')
+			return fail(400, {
+				languageError: messages(locals.locale).entry.errors.missingLanguageChoice
+			});
 
 		if (choice === 'auto') {
 			return await resetEntityLanguageToDetected(conn, { entityId: current.id });
@@ -299,7 +310,10 @@ export const actions: Actions = {
 		if (choice === 'unsure') {
 			return await setEntityLanguage(conn, { entityId: current.id, language: null });
 		}
-		if (!isLocale(choice)) return fail(400, { languageError: `Unknown language "${choice}"` });
+		if (!isLocale(choice))
+			return fail(400, {
+				languageError: messages(locals.locale).entry.errors.unknownLanguage(choice)
+			});
 		return await setEntityLanguage(conn, { entityId: current.id, language: choice });
 	}
 };

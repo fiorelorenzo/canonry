@@ -17,18 +17,13 @@ export interface ProposalSummary {
 }
 
 // Import never produces a 'flag' proposal (that is audit mode's own kind, SPEC.md §5.2) -
-// listed anyway so this map stays exhaustive against proposal_kind rather than needing a
-// fallback branch nothing here can otherwise reach.
-const KIND_BADGE: Record<ProposalSummary['kind'], string> = {
-	create: 'new',
-	update: 'update',
-	relation: 'relation',
-	draft_entity: 'draft',
-	flag: 'flag'
-};
-
-export function proposalBadge(proposal: ProposalSummary): string {
-	return KIND_BADGE[proposal.kind];
+// listed anyway so the caller's badge map stays exhaustive against proposal_kind rather
+// than needing a fallback branch nothing here can otherwise reach.
+export function proposalBadge(
+	proposal: ProposalSummary,
+	badges: Record<ProposalSummary['kind'], string>
+): string {
+	return badges[proposal.kind];
 }
 
 function patchName(patch: unknown): string | null {
@@ -36,8 +31,8 @@ function patchName(patch: unknown): string | null {
 	const name = (patch as Record<string, unknown>).name;
 	return typeof name === 'string' && name.length > 0 ? name : null;
 }
-export function proposalDisplayName(proposal: ProposalSummary): string {
+export function proposalDisplayName(proposal: ProposalSummary, untitled: string): string {
 	const fromPatch = patchName(proposal.patch);
 	if (fromPatch) return fromPatch;
-	return proposal.rationale.length > 0 ? proposal.rationale : 'Untitled proposal';
+	return proposal.rationale.length > 0 ? proposal.rationale : untitled;
 }

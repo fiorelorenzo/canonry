@@ -17,6 +17,7 @@
  * through here would turn a loud startup error into a silent failure on the next Ask.
  */
 import { fail } from '@sveltejs/kit';
+import { messages } from '$lib/i18n';
 import {
 	listImageModels,
 	listActiveTextModels,
@@ -92,7 +93,7 @@ export const actions: Actions = {
 				provider: providerOut,
 				modelId,
 				saved: false,
-				error: `"${purposeOut}" is not a known model purpose.`
+				error: messages(event.locals.locale).admin.models.errors.unknownPurpose(purposeOut)
 			});
 		}
 
@@ -102,7 +103,10 @@ export const actions: Actions = {
 				provider: providerOut,
 				modelId,
 				saved: false,
-				error: `"${providerOut}" is not a known provider. Choose one of: ${KNOWN_PROVIDERS.join(', ')}.`
+				error: messages(event.locals.locale).admin.models.errors.unknownProvider(
+					providerOut,
+					KNOWN_PROVIDERS.join(', ')
+				)
 			});
 		}
 
@@ -112,7 +116,7 @@ export const actions: Actions = {
 				provider: rawProvider,
 				modelId,
 				saved: false,
-				error: 'Model id is required.'
+				error: messages(event.locals.locale).admin.models.errors.modelIdRequired
 			});
 		}
 
@@ -149,7 +153,7 @@ export const actions: Actions = {
 				modelId: typeof modelId === 'string' ? modelId : '',
 				eurPerImage: typeof rawEurPerImage === 'string' ? rawEurPerImage : '',
 				saved: false,
-				error: 'Provider and model id are required.'
+				error: messages(event.locals.locale).admin.models.errors.providerAndModelIdRequired
 			});
 		}
 
@@ -161,7 +165,7 @@ export const actions: Actions = {
 				modelId,
 				eurPerImage: typeof rawEurPerImage === 'string' ? rawEurPerImage : '',
 				saved: false,
-				error: 'Enter a non-negative EUR-per-image cost, up to 6 decimal places.'
+				error: messages(event.locals.locale).admin.models.errors.invalidEurPerImage
 			});
 		}
 

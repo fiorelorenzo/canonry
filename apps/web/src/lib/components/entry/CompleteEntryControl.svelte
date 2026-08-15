@@ -13,8 +13,10 @@
 	 * disabled attribute plus a visible sentence, not just a `title` tooltip nobody reads).
 	 */
 	import { enhance } from '$app/forms';
+	import { messages, type Locale } from '$lib/i18n';
 
-	let { aiEnabled }: { aiEnabled: boolean } = $props();
+	let { aiEnabled, locale }: { aiEnabled: boolean; locale: Locale } = $props();
+	let t = $derived(messages(locale));
 
 	let completing = $state(false);
 	let message = $state<string | null>(null);
@@ -30,11 +32,9 @@
 			return async ({ result, update }) => {
 				completing = false;
 				if (result.type === 'success' && result.data) {
-					message = result.data.completeEmpty
-						? 'Nothing to complete right now.'
-						: 'Drafted an update - now a pending proposal below.';
+					message = result.data.completeEmpty ? t.entry.complete.empty : t.entry.complete.drafted;
 				} else if (result.type === 'failure' && result.data) {
-					message = String(result.data.completeError ?? 'Complete could not run.');
+					message = String(result.data.completeError ?? t.entry.complete.genericFailure);
 				}
 				// Refreshes `load()` so a real new proposal (not the empty case above, which
 				// already rejected itself) shows up through the same pending-proposal banner
@@ -48,11 +48,11 @@
 			disabled={!aiEnabled || completing}
 			class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2 disabled:opacity-50"
 		>
-			{completing ? 'Completing\u2026' : 'Complete entry'}
+			{completing ? t.entry.complete.completing : t.entry.complete.button}
 		</button>
 	</form>
 	{#if !aiEnabled}
-		<p class="mt-1 text-xs text-muted">Writing is switched off for this universe.</p>
+		<p class="mt-1 text-xs text-muted">{t.entry.complete.aiOff}</p>
 	{:else if message}
 		<p class="mt-1 text-xs text-muted">{message}</p>
 	{/if}

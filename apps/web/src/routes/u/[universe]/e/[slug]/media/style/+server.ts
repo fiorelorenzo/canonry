@@ -10,17 +10,19 @@
 import { error, json } from '@sveltejs/kit';
 import { eq } from '@canonry/db';
 import { entity } from '@canonry/db/schema';
+import { messages } from '$lib/i18n';
 import type { RequestHandler } from './$types';
 import { loadMediaContext, requireWriter } from '../_context.js';
 
 export const POST: RequestHandler = async ({ request, params, locals }) => {
 	const context = await loadMediaContext(locals, params.universe, params.slug);
-	requireWriter(context.role);
+	requireWriter(locals, context.role);
 
 	const body: unknown = await request.json();
 	const modifier =
 		typeof body === 'object' && body !== null && 'modifier' in body ? body.modifier : undefined;
-	if (typeof modifier !== 'string') error(400, 'modifier must be a string');
+	if (typeof modifier !== 'string')
+		error(400, messages(locals.locale).entry.errors.modifierMustBeString);
 
 	await context.conn
 		.update(entity)
@@ -32,7 +34,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 /** Clears the override back to null, so the entry inherits the universe style again. */
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	const context = await loadMediaContext(locals, params.universe, params.slug);
-	requireWriter(context.role);
+	requireWriter(locals, context.role);
 
 	await context.conn
 		.update(entity)

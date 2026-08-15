@@ -10,9 +10,12 @@
 	 * the parent (which shows the resulting toast/proposal) or opens a small form first
 	 * (location's name, the note's text) rather than ever writing canon directly.
 	 */
+	import { messages, type Locale } from '$lib/i18n';
+
 	let {
 		canReveal,
 		npcPending,
+		locale,
 		onMarkRevealed,
 		onNpcHere,
 		onCreateLocation,
@@ -20,11 +23,14 @@
 	}: {
 		canReveal: boolean;
 		npcPending: boolean;
+		locale: Locale;
 		onMarkRevealed: () => void;
 		onNpcHere: () => void;
 		onCreateLocation: (label: string) => void;
 		onJotNote: () => void;
 	} = $props();
+
+	const t = $derived(messages(locale).table);
 
 	let overflowOpen = $state(false);
 	let locationFormOpen = $state(false);
@@ -46,10 +52,10 @@
 		type="button"
 		onclick={onMarkRevealed}
 		disabled={!canReveal}
-		title={canReveal ? undefined : 'Declare a session to mark places as revealed'}
+		title={canReveal ? undefined : t.quickActionDock.markAsRevealedDisabledTitle}
 		class="min-h-[44px] min-w-[78px] rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-40"
 	>
-		Mark as revealed
+		{t.quickActionDock.markAsRevealed}
 	</button>
 	<button
 		type="button"
@@ -57,7 +63,7 @@
 		disabled={npcPending}
 		class="min-h-[44px] min-w-[78px] rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
 	>
-		{npcPending ? 'Drafting…' : '+ NPC here'}
+		{npcPending ? t.quickActionDock.drafting : t.actionLabels.npcHere}
 	</button>
 	<div class="relative">
 		<button
@@ -66,7 +72,7 @@
 			class="min-h-[44px] rounded-md border border-line-2 px-3 py-2.5 text-sm text-ink-2 hover:bg-panel-2"
 			aria-expanded={overflowOpen}
 		>
-			More &#9662;
+			{t.quickActionDock.more} &#9662;
 		</button>
 		{#if overflowOpen}
 			<div
@@ -75,20 +81,20 @@
 				{#if locationFormOpen}
 					<form onsubmit={submitLocation} class="flex flex-col gap-1.5 p-1.5">
 						<label for="table-location-label" class="text-xs text-muted"
-							>Name the child location</label
+							>{t.quickActionDock.nameChildLocation}</label
 						>
 						<input
 							id="table-location-label"
 							type="text"
 							bind:value={locationLabel}
-							placeholder="e.g. The Salt Cellar"
+							placeholder={t.quickActionDock.locationPlaceholder}
 							class="rounded-md border border-line-2 bg-panel-2 px-2 py-1 text-sm text-ink"
 						/>
 						<button
 							type="submit"
 							class="rounded-md bg-accent px-2 py-1 text-xs font-medium text-panel hover:bg-accent-ink"
 						>
-							Create
+							{t.quickActionDock.create}
 						</button>
 					</form>
 				{:else}
@@ -97,7 +103,7 @@
 						onclick={() => (locationFormOpen = true)}
 						class="rounded-md px-2.5 py-1.5 text-left text-sm text-ink-2 hover:bg-panel-2"
 					>
-						+ Create a child location
+						{t.actionLabels.createChildLocation}
 					</button>
 				{/if}
 				<button
@@ -108,7 +114,7 @@
 					}}
 					class="rounded-md px-2.5 py-1.5 text-left text-sm text-ink-2 hover:bg-panel-2"
 				>
-					Jot a note
+					{t.quickActionDock.jotNote}
 				</button>
 			</div>
 		{/if}

@@ -10,6 +10,7 @@
  */
 import { error, json } from '@sveltejs/kit';
 import { createProposalPlan, recordProposalDiff, runningSessionContext } from '@canonry/db';
+import { dateFormat, messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { publishTableEvent } from '$lib/server/table-stream';
 import { requireTableAccess } from '../_server/guard.js';
@@ -26,13 +27,14 @@ function isNoteBody(value: unknown): value is NoteBody {
 
 export const POST: RequestHandler = async (event) => {
 	const access = await requireTableAccess(event);
+	const t = messages(event.locals.locale).table.server;
 	const raw: unknown = await event.request.json().catch(() => ({}));
 	const body = isNoteBody(raw) ? raw : {};
 
 	const note = (body.note ?? '').trim();
 	const targetEntityId = body.targetEntityId;
-	if (!note) error(400, 'the note is empty');
-	if (!targetEntityId) error(400, 'pick which entry this note is about');
+	if (!note) error(400, t.noteEmpty);
+	if (!targetEntityId) error(400, t.pickNoteTarget);
 
 	const conn = db();
 	const target = await conn.query.entity.findFirst({
@@ -40,10 +42,12 @@ export const POST: RequestHandler = async (event) => {
 			and(eq(entity.id, targetEntityId), eq(entity.universeId, access.universe.id)),
 		columns: { id: true, name: true, body: true }
 	});
-	if (!target) error(404, 'that entry does not exist in this universe');
+	if (!target) error(404, t.entryNotFound);
 
 	const context = await runningSessionContext(conn, access.universe.id);
-	const when = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+	const when = dateFormat(event.locals.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(
+		new Date()
+	);
 	const afterBody =
 		target.body.length > 0
 			? `${target.body}\n\n**Table note, ${when}:** ${note}`
@@ -60,7 +64,7 @@ export const POST: RequestHandler = async (event) => {
 			{
 				kind: 'update',
 				targetEntityId: target.id,
-				rationale: `Captured as a quick note at the table${context?.placeEntityId ? ' while a place was declared' : ''}. Never applied directly - review it like any other proposal.`,
+				rationale: t.quickNoteRationale(Boolean(context?.placeEntityId)),
 				evidence: {
 					source: 'table-quick-note',
 					sessionContextId: context?.id ?? null,
@@ -72,7 +76,7 @@ export const POST: RequestHandler = async (event) => {
 		]
 	});
 	const created = proposals[0];
-	if (!created) error(500, 'could not create the note proposal');
+	if (!created) error(500, t.noteProposalFailed);
 
 	const proposal = await recordProposalDiff(conn, {
 		proposalId: created.id,
@@ -88,7 +92,7 @@ export const POST: RequestHandler = async (event) => {
 		targetEntityId: target.id,
 		targetName: target.name,
 		preview: note.slice(0, 120),
-		via: 'quick note'
+		via: 'quick-note'
 	});
 
 	return json({ ok: true, proposal });

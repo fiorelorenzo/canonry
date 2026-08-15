@@ -6,13 +6,16 @@
 	 * full multi-proposal queue (D4) is a separate surface (ReviewSurfaces' review link),
 	 * not this one.
 	 */
+	import { messages, type Locale } from '$lib/i18n';
 	import { proposalBadge, proposalDisplayName, type ProposalSummary } from './proposalView';
 
-	let { proposals }: { proposals: ProposalSummary[] } = $props();
+	let { proposals, locale }: { proposals: ProposalSummary[]; locale: Locale } = $props();
+
+	let t = $derived(messages(locale).import.liveFeed);
 </script>
 
 {#if proposals.length === 0}
-	<p class="py-4 text-sm text-muted">No proposals yet.</p>
+	<p class="py-4 text-sm text-muted">{t.empty}</p>
 {:else}
 	<ul class="flex flex-col divide-y divide-line">
 		{#each proposals as proposal (proposal.id)}
@@ -21,10 +24,13 @@
 					<span
 						class="rounded-full border border-line-2 px-2 py-0.5 text-xs tracking-wide text-muted uppercase"
 					>
-						{proposalBadge(proposal)}
+						{proposalBadge(proposal, t.badge)}
 					</span>
-					<span class="truncate text-sm text-ink" title={proposalDisplayName(proposal)}>
-						{proposalDisplayName(proposal)}
+					<span
+						class="truncate text-sm text-ink"
+						title={proposalDisplayName(proposal, t.untitledProposal)}
+					>
+						{proposalDisplayName(proposal, t.untitledProposal)}
 					</span>
 				</div>
 
@@ -35,15 +41,15 @@
 							type="submit"
 							class="rounded-md bg-accent px-3 py-1 text-xs font-medium text-panel hover:opacity-90"
 						>
-							Accept
+							{t.accept}
 						</button>
 					</form>
 				{:else if proposal.outcome === 'accepted'}
 					<span class="shrink-0 rounded-full bg-ok-bg px-2 py-0.5 text-xs font-medium text-ok">
-						accepted
+						{t.accepted}
 					</span>
 				{:else}
-					<span class="shrink-0 text-xs text-muted">{proposal.outcome}</span>
+					<span class="shrink-0 text-xs text-muted">{t.outcome[proposal.outcome]}</span>
 				{/if}
 			</li>
 		{/each}

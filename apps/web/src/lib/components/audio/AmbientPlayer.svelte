@@ -16,6 +16,7 @@
 	 * and touches nothing this component does not already expose through its own state.
 	 */
 	import { onDestroy, onMount } from 'svelte';
+	import { messages, type Locale } from '$lib/i18n';
 	import {
 		AmbientEngine,
 		type LayerSpec,
@@ -40,12 +41,16 @@
 	let {
 		universeSlug,
 		userId,
-		pack
+		pack,
+		locale
 	}: {
 		universeSlug: string;
 		userId: string;
 		pack: PackSummary | null;
+		locale: Locale;
 	} = $props();
+
+	const t = $derived(messages(locale).table.ambientPlayer);
 
 	const DEFAULT_CROSSFADE_SECONDS = 4;
 	const DIAGNOSTICS_REFRESH_MS = 500;
@@ -97,7 +102,7 @@
 
 	async function fetchPackSpec(id: string): Promise<PackSpec> {
 		const response = await fetch(`/u/${universeSlug}/ambient/${id}`);
-		if (!response.ok) throw new Error(`Could not load the ambient pack (${response.status})`);
+		if (!response.ok) throw new Error(t.couldNotLoadPack(response.status));
 		const body = (await response.json()) as {
 			id: string;
 			description: string;
@@ -138,7 +143,7 @@
 			loadErrors = voice.loadErrors;
 			started = true;
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Could not start the soundscape';
+			error = err instanceof Error ? err.message : t.couldNotStart;
 		} finally {
 			loading = false;
 		}
@@ -159,7 +164,7 @@
 			activeLayers = spec.layers;
 			loadErrors = voice.loadErrors;
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Crossfade failed';
+			error = err instanceof Error ? err.message : t.crossfadeFailed;
 		} finally {
 			loading = false;
 		}
@@ -219,14 +224,14 @@
 
 <div class="rounded-lg border border-line bg-panel p-3" data-testid="ambient-player">
 	<div class="flex items-center justify-between gap-2">
-		<h3 class="text-sm font-semibold text-ink">Ambient soundscape</h3>
+		<h3 class="text-sm font-semibold text-ink">{t.heading}</h3>
 		{#if started}
 			<button
 				type="button"
 				class="text-xs text-muted hover:text-ink hover:underline"
 				onclick={() => (showDiagnostics = !showDiagnostics)}
 			>
-				{showDiagnostics ? 'Hide' : 'Show'} audio graph
+				{showDiagnostics ? t.hideAudioGraph : t.showAudioGraph}
 			</button>
 		{/if}
 	</div>
@@ -236,13 +241,11 @@
 		the chain never re-runs when playback begins, and the body stays on the Play
 		button forever while the header above it updates. Do not reorder this. -->
 	{#if !started && !pack}
-		<p class="mt-2 text-sm text-muted">No ambient pack generated for this place yet.</p>
+		<p class="mt-2 text-sm text-muted">{t.noPackYet}</p>
 	{:else if !started}
 		<p class="mt-2 text-sm text-ink-2">{pack?.description}</p>
 		<p class="text-xs text-muted">
-			{pack?.layerCount} layer{pack?.layerCount === 1 ? '' : 's'}{pack?.stale
-				? ' · stale, refreshes next trigger'
-				: ''}
+			{t.layerSummary(pack?.layerCount ?? 0, pack?.stale ?? false)}
 		</p>
 		<button
 			type="button"
@@ -250,14 +253,14 @@
 			onclick={start}
 			disabled={loading}
 		>
-			{loading ? 'Starting…' : 'Play'}
+			{loading ? t.starting : t.play}
 		</button>
 	{:else}
 		{#if contextState === 'suspended'}
 			<p class="mt-2 rounded-md border border-line bg-panel-2 px-3 py-2 text-sm text-ink-2">
-				Audio is paused by the browser until you interact with the page.
+				{t.audioPausedByBrowser}
 				<button type="button" class="ml-1 text-accent hover:underline" onclick={resumeAudio}>
-					Enable audio
+					{t.enableAudio}
 				</button>
 			</p>
 		{/if}
@@ -266,13 +269,13 @@
 
 		{#if loadErrors.length > 0}
 			<p class="mt-1 text-xs text-danger">
-				{loadErrors.length} layer{loadErrors.length === 1 ? '' : 's'} failed to load.
+				{t.layersFailedToLoad(loadErrors.length)}
 			</p>
 		{/if}
 
 		<div class="mt-3 flex items-center gap-2">
 			<label class="flex items-center gap-2 text-xs text-ink-2" for="ambient-master-volume">
-				Master
+				{t.master}
 				<input
 					id="ambient-master-volume"
 					type="range"
@@ -284,7 +287,7 @@
 				/>
 			</label>
 			<label class="flex items-center gap-1 text-xs text-muted" for="ambient-crossfade-seconds">
-				Crossfade
+				{t.crossfade}
 				<input
 					id="ambient-crossfade-seconds"
 					type="number"
@@ -299,7 +302,7 @@
 			</label>
 		</div>
 
-		<ul class="mt-3 flex flex-col gap-1.5" aria-label="Ambient layers">
+		<ul class="mt-3 flex flex-col gap-1.5" aria-label={t.layersAriaLabel}>
 			{#each activeLayers as layer (layer.id)}
 				{@const layerState = layerVolumes[layer.id] ?? { muted: false, volume: layer.volume }}
 				<li class="flex items-center gap-2 text-xs">
@@ -307,7 +310,7 @@
 						type="button"
 						class="w-4 flex-none text-center"
 						aria-pressed={layerState.muted}
-						aria-label={layerState.muted ? `Unmute ${layer.prompt}` : `Mute ${layer.prompt}`}
+						aria-label={layerState.muted ? t.unmuteLayer(layer.prompt) : t.muteLayer(layer.prompt)}
 						onclick={() => toggleMute(layer.id)}
 					>
 						{layerState.muted ? '🔇' : '🔊'}

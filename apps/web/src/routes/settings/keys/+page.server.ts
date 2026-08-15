@@ -7,6 +7,7 @@
  * (the same rule `$lib/server/admin.ts`'s doc comment states for /admin's own actions).
  */
 import { fail } from '@sveltejs/kit';
+import { messages } from '$lib/i18n';
 import {
 	addOrReplaceKey,
 	BYO_KEY_PROVIDERS,
@@ -42,16 +43,17 @@ function requireProvider(formData: FormData): string | null {
 
 export const actions: Actions = {
 	add: async ({ request, locals }) => {
-		if (!locals.user) return fail(401, { error: 'Sign in to add a key.' });
+		const t = messages(locals.locale).settings.keys;
+		if (!locals.user) return fail(401, { error: t.addSignInRequired });
 
 		const formData = await request.formData();
 		const provider = requireProvider(formData);
 		if (!provider) {
-			return fail(400, { error: 'Pick a provider from the list.' });
+			return fail(400, { error: t.addPickProvider });
 		}
 		const apiKey = formData.get('apiKey');
 		if (typeof apiKey !== 'string' || apiKey.trim().length === 0) {
-			return fail(400, { error: 'Paste the key before saving.' });
+			return fail(400, { error: t.addPasteKey });
 		}
 
 		try {
@@ -60,18 +62,21 @@ export const actions: Actions = {
 		} catch (err) {
 			// encryptApiKey's own "shorter than 8 characters" check, or a misconfigured
 			// BYO_KEY_ENCRYPTION_KEY - either way the user sees why, never a raw stack trace,
-			// and the plaintext they submitted never appears in the error.
-			const message = err instanceof Error ? err.message : 'Could not save that key.';
+			// and the plaintext they submitted never appears in the error. That thrown
+			// message is server-config/crypto-library text, not interface copy, so only the
+			// generic fallback below is catalogued.
+			const message = err instanceof Error ? err.message : t.addSaveFailedFallback;
 			return fail(400, { error: message });
 		}
 	},
 
 	toggle: async ({ request, locals }) => {
-		if (!locals.user) return fail(401, { error: 'Sign in to change a key.' });
+		const t = messages(locals.locale).settings.keys;
+		if (!locals.user) return fail(401, { error: t.toggleSignInRequired });
 
 		const formData = await request.formData();
 		const provider = requireProvider(formData);
-		if (!provider) return fail(400, { error: 'Unknown provider.' });
+		if (!provider) return fail(400, { error: t.unknownProvider });
 		const active = formData.get('active') === 'true';
 
 		await setKeyActive(locals.user.id, provider, active);
@@ -79,11 +84,12 @@ export const actions: Actions = {
 	},
 
 	remove: async ({ request, locals }) => {
-		if (!locals.user) return fail(401, { error: 'Sign in to remove a key.' });
+		const t = messages(locals.locale).settings.keys;
+		if (!locals.user) return fail(401, { error: t.removeSignInRequired });
 
 		const formData = await request.formData();
 		const provider = requireProvider(formData);
-		if (!provider) return fail(400, { error: 'Unknown provider.' });
+		if (!provider) return fail(400, { error: t.unknownProvider });
 
 		await removeKey(locals.user.id, provider);
 		return { removed: true, provider };

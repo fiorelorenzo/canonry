@@ -17,11 +17,14 @@
 	import InstantSearch from '$lib/components/table/InstantSearch.svelte';
 	import PhoneTabBar from '$lib/components/table/PhoneTabBar.svelte';
 	import { connectTableStream, type TableStreamMessage } from '$lib/components/table/stream-client';
+	import { messages } from '$lib/i18n';
 	import { SHORTCUTS, formatShortcut } from '$lib/keys';
 	import type { ProposalSummary } from '$lib/components/table/types';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	const t = $derived(messages(data.locale).table);
 
 	let context = $state(data.context);
 	let pins = $state(data.pins);
@@ -50,6 +53,26 @@
 
 	const paletteShortcut = SHORTCUTS.find((shortcut) => shortcut.id === 'palette');
 
+	// The three quick actions publish a stable id over SSE (never a display phrase, which
+	// would freeze that event's "via"/"action" attribution in whatever locale published
+	// it) - this is the one place that id becomes the label the dock's own buttons show,
+	// so a GM never sees a mix of one translated phrase and one English one for the same
+	// tap (`table.actionLabels`, shared with `QuickActionDock.svelte`).
+	function actionLabel(id: 'npc-here' | 'create-child-location' | 'quick-note'): string {
+		if (id === 'npc-here') return t.actionLabels.npcHere;
+		if (id === 'create-child-location') return t.actionLabels.createChildLocation;
+		return t.actionLabels.quickNote;
+	}
+
+	// `fireAction`'s own kind, for the one client-side fallback toast that never reaches
+	// the server's own (already-localized) error message at all - a network failure before
+	// `response.json()` can even parse.
+	function kindLabel(kind: 'npc' | 'location' | 'reveal'): string {
+		if (kind === 'npc') return t.actionLabels.npcHere;
+		if (kind === 'location') return t.actionLabels.createChildLocation;
+		return t.quickActionDock.markAsRevealed;
+	}
+
 	function showToast(message: string) {
 		toast = message;
 		setTimeout(() => {
@@ -74,14 +97,16 @@
 			pins = payload.pinned;
 		} else if (message.type === 'quick-action') {
 			const payload = message.data as {
-				action: string;
+				action: 'npc-here' | 'create-child-location';
 				status?: string;
 				reason?: string;
 				placeEntityId?: string;
 			};
-			if (payload.status === 'drafting') showToast(`Drafting an NPC…`);
+			if (payload.status === 'drafting') showToast(t.home.draftingNpc);
 			else if (payload.status === 'failed')
-				showToast(`${payload.action} failed: ${payload.reason ?? 'unknown reason'}`);
+				showToast(
+					t.home.actionFailed(actionLabel(payload.action), payload.reason ?? t.home.unknownReason)
+				);
 			npcPending = payload.status === 'drafting';
 		} else if (message.type === 'proposal') {
 			const payload = message.data as ProposalSummary;
@@ -89,14 +114,14 @@
 			npcPending = false;
 			showToast(
 				payload.drafted === 'scaffold'
-					? `Saved as a proposal (${payload.via}, no model - a scaffold to fill in)`
-					: `Saved as a proposal (${payload.via})`
+					? t.home.savedAsProposalScaffold(actionLabel(payload.via))
+					: t.home.savedAsProposal(actionLabel(payload.via))
 			);
 		} else if (message.type === 'reveal') {
 			const payload = message.data as { name: string };
-			showToast(`${payload.name} marked as revealed`);
+			showToast(t.home.markedRevealed(payload.name));
 		} else if (message.type === 'session-ended') {
-			sessionEndedBanner = `Session ended, ${proposals.length} proposal${proposals.length === 1 ? '' : 's'} arrived while you played.`;
+			sessionEndedBanner = t.home.sessionEnded(proposals.length);
 		}
 	}
 
@@ -161,10 +186,10 @@
 		if (!response.ok) {
 			npcPending = false;
 			const body = (await response.json().catch(() => null)) as { message?: string } | null;
-			showToast(body?.message ?? `${kind} failed`);
+			showToast(body?.message ?? t.home.actionFailed(kindLabel(kind), t.home.unknownReason));
 			return;
 		}
-		if (kind === 'location') showToast('Saved as a proposal (+ create a child location)');
+		if (kind === 'location') showToast(t.home.savedAsProposal(t.actionLabels.createChildLocation));
 		if (kind === 'reveal') await invalidateAll();
 	}
 
@@ -175,12 +200,12 @@
 			body: JSON.stringify(input)
 		});
 		showNoteForm = false;
-		if (!response.ok) showToast('Could not save that note');
+		if (!response.ok) showToast(t.home.noteSaveFailed);
 	}
 
 	async function exitTableMode() {
 		await fetch(`/u/${data.universeSlug}/table/end`, { method: 'POST' });
-		sessionEndedBanner = `Session ended. ${proposals.length} proposal${proposals.length === 1 ? '' : 's'} arrived while you played.`;
+		sessionEndedBanner = t.home.sessionEnded(proposals.length);
 		context = null;
 		pins = [];
 		await invalidateAll();
@@ -202,6 +227,7 @@
 	universeName={data.universeName}
 	{pinnedElapsedMs}
 	proposalCount={proposals.length}
+	locale={data.locale}
 	onChangeContext={() => (showDeclareForm = !showDeclareForm)}
 	onExit={exitTableMode}
 />
@@ -228,31 +254,42 @@
 			sessions={data.sessions}
 			initialPlaceId={context?.placeEntityId ?? null}
 			initialSessionId={context?.sessionEntityId ?? null}
+			locale={data.locale}
 			onDeclare={declareContext}
 			onCancel={() => (showDeclareForm = false)}
 		/>
 	{/if}
 
 	{#if !context?.placeEntityId}
-		<p class="text-sm text-muted">Declare a place to pin its main characters and relations.</p>
+		<p class="text-sm text-muted">{t.home.noContextDeclared}</p>
 	{:else}
 		<section class="hidden md:block" class:!block={activeTab === 'here'}>
-			<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">Pinned</h2>
-			<PinnedCards {pins} universeSlug={data.universeSlug} />
+			<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+				{t.home.pinnedHeading}
+			</h2>
+			<PinnedCards {pins} universeSlug={data.universeSlug} locale={data.locale} />
 		</section>
 
 		<section class="hidden md:block" class:!block={activeTab === 'here' || activeTab === 'actions'}>
-			<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">Quick actions</h2>
+			<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+				{t.home.quickActionsHeading}
+			</h2>
 			<QuickActionDock
 				canReveal={context.sessionEntityId !== null}
 				{npcPending}
+				locale={data.locale}
 				onMarkRevealed={() => fireAction('reveal')}
 				onNpcHere={() => fireAction('npc')}
 				onCreateLocation={(label) => fireAction('location', label)}
 				onJotNote={() => (showNoteForm = true)}
 			/>
 			<div class="mt-3">
-				<AmbientPlayer universeSlug={data.universeSlug} userId={data.userId} pack={ambientPack} />
+				<AmbientPlayer
+					universeSlug={data.universeSlug}
+					userId={data.userId}
+					pack={ambientPack}
+					locale={data.locale}
+				/>
 			</div>
 		</section>
 
@@ -260,6 +297,7 @@
 			<section class="hidden md:block" class:!block={activeTab === 'actions'}>
 				<QuickNoteForm
 					targets={noteTargets}
+					locale={data.locale}
 					onSubmit={submitNote}
 					onCancel={() => (showNoteForm = false)}
 				/>
@@ -267,46 +305,50 @@
 		{/if}
 
 		<section class="hidden md:block" class:!block={activeTab === 'here'}>
-			<InstantSearch universeSlug={data.universeSlug} />
+			<InstantSearch universeSlug={data.universeSlug} locale={data.locale} />
 		</section>
 
 		<section class="hidden md:block" class:!block={activeTab === 'ask'}>
-			<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">Ask</h2>
+			<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+				{t.home.askHeading}
+			</h2>
 			<p class="text-sm text-muted">
-				Ask is not built in this wave. {#if paletteShortcut}Once it ships, it opens from the command
-					palette ({formatShortcut(paletteShortcut)}).{/if}
+				{t.home.askNotBuilt}
+				{#if paletteShortcut}
+					{t.home.askOpensFromPalette(formatShortcut(paletteShortcut))}
+				{/if}
 			</p>
 		</section>
 
 		<section class="hidden md:block" class:!block={activeTab === 'queue'}>
 			<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
-				Proposals from this session
+				{t.home.proposalsHeading}
 			</h2>
 			{#if proposals.length === 0}
 				<p class="text-sm text-muted">
-					Nothing yet. Fire a quick action or jot a note to see one land here.
+					{t.home.proposalsEmpty}
 				</p>
 			{:else}
 				<ul class="flex flex-col gap-1.5">
 					{#each proposals as proposal (proposal.proposalId)}
 						<li class="rounded-md border border-line bg-panel p-2.5 text-sm">
 							<span class="rounded-full bg-ai-bg px-1.5 py-0.5 font-mono text-[10px] text-ai">
-								proposal &middot; {proposal.kind}
+								{t.home.proposalLabel} &middot; {proposal.kind}
 							</span>
-							<span class="ml-2 text-muted">from: {proposal.via}</span>
+							<span class="ml-2 text-muted">{t.home.from(actionLabel(proposal.via))}</span>
 							{#if proposal.drafted === 'model'}
 								<span
 									class="ml-2 rounded-full bg-ai-bg px-1.5 py-0.5 font-mono text-[10px] text-ai"
-									title="A model drafted this - still unapplied until you accept it in Proposals."
+									title={t.home.aiDraftedTooltip}
 								>
-									AI-drafted
+									{t.home.aiDraftedBadge}
 								</span>
 							{:else if proposal.drafted === 'scaffold'}
 								<span
 									class="ml-2 rounded-full bg-panel-2 px-1.5 py-0.5 font-mono text-[10px] text-muted"
-									title={proposal.unavailableReason ?? 'No model was available for this draft.'}
+									title={proposal.unavailableReason ?? t.home.scaffoldTooltipDefault}
 								>
-									scaffold, no model
+									{t.home.scaffoldBadge}
 								</span>
 							{/if}
 							{#if proposal.targetName}
@@ -319,7 +361,7 @@
 							{/if}
 							{#if proposal.drafted === 'scaffold' && proposal.unavailableReason && proposal.targetName}
 								<p class="mt-1 text-[11px] text-muted">
-									AI unavailable: {proposal.unavailableReason}
+									{t.home.aiUnavailable(proposal.unavailableReason)}
 								</p>
 							{/if}
 						</li>
@@ -330,15 +372,16 @@
 	{/if}
 
 	<p class="text-[11px] text-muted">
-		stream: {streamEvents.length} event{streamEvents.length === 1 ? '' : 's'} received{streamEvents.length >
-		0
-			? ` · last id ${streamEvents[streamEvents.length - 1]?.id}`
-			: ''}
+		{t.home.streamStatus(
+			streamEvents.length,
+			streamEvents.length > 0 ? (streamEvents[streamEvents.length - 1]?.id ?? null) : null
+		)}
 	</p>
 </main>
 
 <PhoneTabBar
 	active={activeTab}
 	queueCount={proposals.length}
+	locale={data.locale}
 	onSelect={(tab) => (activeTab = tab)}
 />

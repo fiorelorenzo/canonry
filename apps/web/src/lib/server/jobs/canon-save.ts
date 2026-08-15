@@ -358,8 +358,17 @@ function getProductionQueue(): CanonSaveJobQueue {
 }
 
 /** Starts this process's canon-save worker. Idempotent - safe to call every request if a
- * caller ever needed to, though `hooks.server.ts` only needs it once, at boot. */
+ * caller ever needed to, though `hooks.server.ts` only needs it once, at boot.
+ *
+ * Refuses to start under vitest, and this is not test-shy production code. Importing
+ * `hooks.server.ts` from a test, which `hooks.server.test.ts` legitimately does to assert that
+ * a real request ends up with the right locale, would otherwise start a background poller
+ * against whatever database that run uses, carrying production's own attempt cap. It then
+ * competes for rows with the queues the tests construct themselves, and the symptom is the
+ * attempt-cap test watching its dead-letter candidate quietly succeed instead, in one run out
+ * of several. A unit-test process has no business running a durable worker. */
 export function startCanonSaveJobWorker(): void {
+	if (process.env.VITEST) return;
 	getProductionQueue();
 }
 

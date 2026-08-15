@@ -4,6 +4,7 @@
 	 * sense that it lives behind a tab (B1 = C); each individual fact is closed on top of
 	 * that, and opening one is what tells `EntryProse` which span to highlight in the body.
 	 */
+	import { messages, type Locale } from '$lib/i18n';
 	import type { AuthorKind } from '@canonry/db/schema';
 
 	export interface FactRow {
@@ -18,16 +19,19 @@
 	let {
 		facts,
 		activeFactId,
-		onToggle
+		onToggle,
+		locale
 	}: {
 		facts: FactRow[];
 		activeFactId: string | null;
 		onToggle: (fact: FactRow) => void;
+		locale: Locale;
 	} = $props();
+	let t = $derived(messages(locale));
 </script>
 
 {#if facts.length === 0}
-	<p class="text-sm text-muted">No facts extracted yet.</p>
+	<p class="text-sm text-muted">{t.entry.facts.empty}</p>
 {:else}
 	<ul class="divide-y divide-line">
 		{#each facts as fact, i (fact.id)}

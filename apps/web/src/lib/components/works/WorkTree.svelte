@@ -5,6 +5,7 @@
 	 * pre-order list, so rendering it is one `{#each}`, not a component calling itself.
 	 */
 	import { resolve } from '$app/paths';
+	import { messages, type Locale } from '$lib/i18n';
 	import type { WorkNodeKind } from '@canonry/db/schema';
 
 	export interface TreeItem {
@@ -20,16 +21,19 @@
 		universeSlug,
 		workSlug,
 		tree,
-		activeNodeId
+		activeNodeId,
+		locale
 	}: {
 		universeSlug: string;
 		workSlug: string;
 		tree: TreeItem[];
 		activeNodeId: string | null;
+		locale: Locale;
 	} = $props();
+	let t = $derived(messages(locale));
 </script>
 
-<nav class="flex flex-col gap-0.5" aria-label="Work tree">
+<nav class="flex flex-col gap-0.5" aria-label={t.works.tree.ariaLabel}>
 	{#each tree as node (node.id)}
 		{@const active = node.id === activeNodeId}
 		<a
@@ -42,7 +46,9 @@
 			class:text-ink-2={!active}
 			class:hover:bg-panel-2={!active}
 		>
-			<span class="shrink-0 font-mono text-[10px] text-muted uppercase">{node.kind[0]}</span>
+			<span class="shrink-0 font-mono text-[10px] text-muted uppercase"
+				>{t.works.kinds[node.kind][0]}</span
+			>
 			<span class="truncate">{node.title}</span>
 		</a>
 	{/each}

@@ -4,6 +4,18 @@ import type { Messages } from './messages.js';
 // Written thinking in Italian, not translated word-for-word from en.ts (issue #121's own
 // rule, honoured here even though the sweep itself is that issue's job): plain, specific
 // copy, the product's own voice, not English syntax wearing Italian words.
+// Condivisa fra le cinque etichette dei chip di `proposals.rejectChips` e
+// `proposals.diffCard.rejectReasonLabel` (che ripropone il motivo salvato): l'oggetto
+// letterale qui sotto non può riferirsi alle proprietà dei propri fratelli mentre è
+// ancora in costruzione, quindi questa mappa vive fuori da esso.
+const PROPOSAL_REJECT_REASON_LABELS_IT: Record<string, string> = {
+	wrong: 'Sbagliata',
+	'already true': 'Già vero',
+	'not canon yet': 'Non ancora canone',
+	'too much': 'Troppo',
+	prose: 'Prosa'
+};
+
 export const it: Messages = {
 	shell: {
 		skipToContent: 'Vai al contenuto',
@@ -37,7 +49,8 @@ export const it: Messages = {
 			signInLink: 'Accedi',
 			save: 'Salva',
 			saved: 'Salvato.',
-			error: 'Scegli una lingua dall\u2019elenco.'
+			error: 'Scegli una lingua dall\u2019elenco.',
+			learnMorePrompt: 'Ti stai chiedendo cosa viene tradotto e cosa no?'
 		},
 
 		billing: {
@@ -64,6 +77,60 @@ export const it: Messages = {
 			perMonth: '/mese',
 			currentPlanBadge: 'Piano attuale',
 			switchTo: (planName) => `Passa a ${planName}`
+		},
+
+		export: {
+			title: 'Esportazione',
+			para1Before:
+				"Ogni voce di un universo diventa un file markdown con frontmatter YAML, tutte insieme in un unico zip, più un README che indica l'universo e la data dell'esportazione. Le menzioni ",
+			para1After:
+				" restano scritte esattamente come sono, perché il markdown è il modo in cui Canonry conserva il canone (SPEC.md §13): quello che esce da questo zip è quello che c'è nel database, senza riscritture per adattarlo a un altro formato.",
+			para2Before:
+				'Questo è un dump piatto, non una cartella tipizzata pronta per git: ogni file sta al livello più alto dello zip, con il nome dello slug della voce. Anche le voci riservate al GM sono incluse, con la propria ',
+			para2After:
+				' indicata nel frontmatter invece di essere nascosta o filtrata - questa è la copia del GM, non quello che vedrebbero i giocatori.',
+			emptyState: 'Nessun universo ancora.',
+			downloadButton: 'Scarica lo .zip'
+		},
+
+		keys: {
+			title: 'Chiavi API',
+			infoPara1Before:
+				'Usa la tua chiave per collegare il tuo account presso il provider invece del nostro. ',
+			infoPara1Bold: 'Disattivata di default, per ogni provider, finché non ne aggiungi una',
+			infoPara1After: ' - SPEC.md §15 non rende mai questa la via predefinita.',
+			infoPara2Bold: 'Cosa cambia:',
+			infoPara2After:
+				' una chiamata instradata sulla tua chiave smette di consumare la quota inclusa o il budget di precalcolo, e si applicano i limiti del tuo provider invece dei nostri.',
+			infoPara3Bold: 'Cosa non cambia:',
+			infoPara3After:
+				" l'instradamento dei modelli resta invariato (la stessa suddivisione modello economico per i candidati, premium per i diff funziona sulla tua chiave esattamente come sulla nostra), la chiamata passa comunque dal nostro gateway quindi log e conteggio dei costi restano uniformi, e i contenuti generati portano comunque la stessa marcatura di autore e le stesse regole sulla privacy, indipendentemente da quale chiave l'ha pagata.",
+			infoPara3Link: 'Informativa completa',
+			signInLink: 'Accedi',
+			signInPrompt: 'per configurare una chiave.',
+			activeBadge: 'Attiva',
+			offBadge: 'Disattivata',
+			keyEndingIn: (lastFour) => `Chiave che termina con ${lastFour}`,
+			addedOn: (date) => `aggiunta il ${date}`,
+			lastUsedOn: (date) => `usata l'ultima volta il ${date}`,
+			neverUsedYet: 'mai usata',
+			turnOff: 'Disattiva',
+			turnOn: 'Attiva',
+			forgetKey: 'Dimentica questa chiave',
+			replaceKeyLabel: 'Sostituisci chiave',
+			addKeyLabel: 'Aggiungi chiave',
+			apiKeyPlaceholder: (providerLabel) => `Chiave API ${providerLabel}`,
+			replaceButton: 'Sostituisci',
+			saveButton: 'Salva',
+			savedConfirmation: (lastFour) =>
+				`Salvata - vengono mostrati di nuovo solo gli ultimi quattro caratteri (…${lastFour}).`,
+			addSignInRequired: 'Accedi per aggiungere una chiave.',
+			addPickProvider: "Scegli un provider dall'elenco.",
+			addPasteKey: 'Incolla la chiave prima di salvare.',
+			addSaveFailedFallback: 'Non è stato possibile salvare questa chiave.',
+			toggleSignInRequired: 'Accedi per modificare una chiave.',
+			removeSignInRequired: 'Accedi per rimuovere una chiave.',
+			unknownProvider: 'Provider sconosciuto.'
 		}
 	},
 
@@ -110,5 +177,1071 @@ export const it: Messages = {
 		gapNoticeAfter: (type) => `perché questa pagina di tipo ${type} dica di più, per ora.`,
 		factsHeading: 'Cosa si sa',
 		relationsHeading: 'Relazioni note'
+	},
+
+	docsLanguages: {
+		title: 'Cosa traduciamo, e cosa no',
+		intro:
+			'Chi sta per affidarci un decennio di appunti di gioco merita una risposta diretta sulla lingua, non un elenco di funzionalità. Ecco cosa promette Canonry, e dove quella promessa si ferma.',
+		interfaceHeading: 'L\u2019interfaccia e il Loremaster parlano la tua lingua',
+		interfaceBody:
+			'Menu, pulsanti, stati vuoti, messaggi di errore, date e i numeri nel pannello dei crediti seguono la lingua del tuo account - oggi inglese o italiano - ovunque tu sia collegato, telefono al tavolo incluso. Tutto ciò che il Loremaster ti dice segue la stessa preferenza: una risposta di Ask, il motivo di un piano di propagazione, la spiegazione di una segnalazione di controllo, sempre nella tua lingua, qualunque sia la lingua del canone sotto.',
+		canonHeading: 'Il tuo canone mantiene la propria lingua',
+		canonBody:
+			'Questa è la regola che conta davvero, e va nella direzione opposta. La lingua di una voce viene rilevata da ciò che hai già scritto al suo interno, voce per voce, nel momento in cui la salvi - e puoi correggerla se il rilevatore sbaglia. Quando il Loremaster propone un paragrafo destinato a finire dentro una voce, lo scrive nella lingua di quella voce, non nella tua: un\u2019interfaccia in italiano non inizia a scrivere paragrafi in italiano dentro una voce in inglese solo perché sei tu a leggere lo schermo. Una proposta di propagazione può avere due lingue insieme, ed entrambe sono corrette: il testo proposto è nella lingua della voce di destinazione, il motivo per cui esiste è nella tua.',
+		namesBody:
+			'I nomi non vengono mai tradotti, né da un\u2019importazione né da una proposta. "The Gilded Rat" resta "The Gilded Rat" anche in una frase italiana, come il nome di una persona.',
+		retrievalHeading: 'La ricerca attraversa il confine',
+		retrievalBody:
+			'Niente di tutto questo vale molto se la ricerca funziona solo dentro una lingua. Una domanda in italiano deve trovare la voce in inglese che le risponde - è questo che rende la scelta del modello di embedding una scelta multilingue e non un dettaglio, ed è per questo che "chi gestisce il Ratto Dorato" e "who runs the Gilded Rat Tavern" possono indicare la stessa locanda.',
+		noRewriteHeading: 'Niente riscrive quello che hai scritto',
+		noRewriteBody:
+			'Il Loremaster propone; non riscrive la tua prosa di propria iniziativa, in nessuna lingua. Un paragrafo proposto resta nella tua casella come qualsiasi altra proposta finché non lo accetti - non esiste un lavoro in background che traduce il tuo mondo mentre non guardi.',
+		limitsHeading: 'Cosa questo non include',
+		limitsIntro:
+			'Detto senza giri di parole, perché i limiti sono la parte che vale la pena di fidarsi:',
+		limitLocales:
+			'Due lingue, oggi. Inglese e italiano, nient\u2019altro, al lancio - una terza non è su questa pagina perché non è stata decisa, non perché sarebbe difficile.',
+		limitNoBulkTranslation:
+			'Nessuna traduzione in blocco di un mondo già esistente. Non esiste un pulsante che riscrive tutto quello che hai già scritto in un\u2019altra lingua. La tua prosa è tua, e una riscrittura di massa è un lavoro che Canonry non esegue: un paragrafo tradotto è una proposta come le altre, una voce alla volta, e va comunque accettato da te.',
+		limitQuotations:
+			'Le citazioni restano sempre nella lingua originale. Le prove dietro una proposta sono citate parola per parola dalla voce da cui provengono - tradotta, una citazione non è più la frase che si trova davvero nel tuo canone, e non puoi verificarla confrontandola con il testo. Una traduzione può comparire accanto a una citazione, segnata chiaramente come nostra, ma mai al suo posto.',
+		limitCopilotDirection:
+			'Quando il Loremaster parla con te, segue la lingua della tua interfaccia, non quella della voce. Chiedi al tuo account in italiano di una voce in inglese, e la risposta arriva in italiano - è l\u2019opposto della regola qui sopra, apposta: quella regola governa cosa finisce scritto nel tuo canone, questa governa cosa ti viene detto a riguardo.'
+	},
+
+	entry: {
+		page: {
+			editLink: 'Modifica',
+			aliasesLabel: (aliases) => `anche: ${aliases}`,
+			pendingProposalsText: (count) =>
+				count === 1
+					? 'proposta in attesa su questa voce \u00b7 rivedi'
+					: 'proposte in attesa su questa voce \u00b7 rivedi'
+		},
+
+		secrets: {
+			hiddenBlock: 'Nascosto \u00b7 si sblocca alla rivelazione',
+			gmNoteBlock: 'Nota del GM \u00b7 mai mostrata ai giocatori',
+			gmView: 'Vista GM',
+			playerPreviewActive: 'Anteprima giocatori, quello che vede il tavolo',
+			showGmView: 'Mostra vista GM',
+			playerPreview: 'Anteprima giocatori'
+		},
+
+		language: {
+			label: 'Lingua',
+			autoDetect: 'Rilevamento automatico',
+			unsure: 'Non sicuro / misto',
+			detectedPrefix: (name) => `Rilevata: ${name}`,
+			detectedUnknown: 'testo insufficiente per stabilirlo'
+		},
+
+		complete: {
+			button: 'Completa la voce',
+			completing: 'Completamento in corso\u2026',
+			empty: 'Al momento non c\u2019è nulla da completare.',
+			drafted: 'Bozza di aggiornamento pronta - ora è una proposta in attesa qui sotto.',
+			genericFailure: 'Non è stato possibile eseguire il completamento.',
+			aiOff: 'La scrittura è disattivata per questo universo.'
+		},
+
+		tabs: {
+			ariaLabel: 'Dettagli della voce',
+			sectionsAriaLabel: 'Sezioni dei dettagli della voce',
+			relations: 'Relazioni',
+			facts: 'Fatti',
+			images: 'Immagini',
+			history: 'Cronologia',
+			audit: 'Verifica'
+		},
+
+		relations: {
+			empty: 'Nessuna relazione registrata finora.'
+		},
+
+		facts: {
+			empty: 'Nessun fatto estratto finora.'
+		},
+
+		history: {
+			empty: 'Nessuna revisione finora.',
+			revisionHuman: 'umano',
+			revisionAiAccepted: 'IA \u00b7 accettata'
+		},
+
+		audit: {
+			empty: 'Nessuna segnalazione su questa voce al momento.',
+			disclaimer: 'Da controllare, non necessariamente sbagliato.',
+			dismiss: 'Ignora',
+			dismissing: 'Ignorando\u2026',
+			openBoth: 'Apri entrambe le voci:',
+			toCheck: (count) => (count === 1 ? '1 da controllare' : `${count} da controllare`)
+		},
+
+		media: {
+			aiOffBanner:
+				'La generazione è disattivata per questo universo. Le immagini esistenti restano visibili qui sotto, ma non se ne possono generare di nuove finché non viene riattivata.',
+			empty: 'Nessuna immagine finora.',
+			privateNote: 'Privata - non visibile ai giocatori finché non riveli questa voce.',
+			generatedBadge: 'Generata',
+			generateButton: 'Genera immagine',
+			candidatesSummary: (reusedFromCache, multiple) => {
+				const lead = reusedFromCache
+					? 'Recuperata dalla cache di similarità - nessun addebito.'
+					: 'Generata:';
+				return multiple ? `${lead} scegline una da inserire.` : lead;
+			},
+			insert: 'Inserisci',
+			inserting: 'Inserimento in corso\u2026',
+			discard: 'Scarta',
+			styleOverrideLabel:
+				'Stile personalizzato per questa voce (lascia vuoto per usare lo stile dell\u2019universo)',
+			save: 'Salva',
+			cancel: 'Annulla',
+			genericGenerationFailedWithStatus: (status) => `Generazione non riuscita (${status})`,
+			genericGenerationFailed: 'Generazione non riuscita',
+			genericInsertFailedWithStatus: (status) => `Inserimento non riuscito (${status})`,
+			genericInsertFailed: 'Inserimento non riuscito',
+			styleSaveFailedWithStatus: (status) => `Salvataggio dello stile non riuscito (${status})`,
+			genericStyleSaveFailed: 'Salvataggio dello stile non riuscito',
+			dialogTitle: (entityName) => `Genera immagine: ${entityName}`,
+			howManyAriaLabel: 'Quante immagini',
+			styleLabel: (modifier) =>
+				`Stile: ${modifier && modifier.length > 0 ? modifier : 'nessuno impostato'}`,
+			editStyle: 'modifica',
+			fourOptions: 'Quattro opzioni tra cui scegliere',
+			oneImage: 'Un\u2019immagine',
+			notConfigured: 'non configurato',
+			suggestedForCharacter: '\u00b7 consigliato per un personaggio',
+			creditsLabel: (count) => {
+				const n = numberFormat('it', { maximumFractionDigits: 0, useGrouping: 'always' }).format(
+					count
+				);
+				const form = pluralRules('it').select(Math.round(count));
+				return form === 'one' ? `${n} credito` : `${n} crediti`;
+			},
+			privateHint:
+				'L\u2019immagine resta privata finché non la inserisci qui - non raggiunge mai da sola il wiki dei giocatori.',
+			generateAction: 'Genera',
+			generating: 'Generazione in corso\u2026'
+		},
+
+		editor: {
+			breadcrumbEdit: 'Modifica',
+			heading: (entityName) => `Modifica ${entityName}`,
+			save: 'Salva',
+			bodyAriaLabel: 'Corpo della voce, markdown'
+		},
+
+		toolbar: {
+			ariaLabel: 'Formattazione',
+			bold: 'Grassetto',
+			italic: 'Corsivo',
+			heading: 'Titolo',
+			list: 'Elenco puntato',
+			quote: 'Citazione',
+			link: 'Link',
+			mention: 'Menzione',
+			mentionLabel: '@ Menzione'
+		},
+
+		mentionMenu: {
+			ariaLabel: 'Suggerimenti di menzione',
+			matching: (query) => `Corrispondenze per "${query}"`,
+			noExactMatch: 'Nessuna corrispondenza esatta',
+			noMatchBefore: (query) => `Nessuna voce di nome "${query}" ancora. Chiudila con`,
+			noMatchAfter: 'per lasciare una menzione non risolta.',
+			aliasLabel: (aliases) => `alias: ${aliases}`
+		},
+
+		errors: {
+			universeNotFound: (slug) => `Nessun universo chiamato "${slug}"`,
+			entryNotFound: (slug, universeName) => `Nessuna voce chiamata "${slug}" in ${universeName}`,
+			viewerCannotEdit: 'I lettori non possono modificare le voci',
+			viewerCannotChangeLanguage: 'I lettori non possono cambiare la lingua di una voce',
+			viewerCannotGenerateMedia: 'I lettori non possono generare o allegare media',
+			missingBody: 'Corpo mancante',
+			missingProposalId: 'proposalId mancante',
+			missingLanguageChoice: 'Scelta della lingua mancante',
+			unknownLanguage: (choice) => `Lingua sconosciuta "${choice}"`,
+			completeCannotRun: (message) => `Impossibile eseguire il completamento: ${message}`,
+			modifierMustBeString: 'modifier deve essere una stringa',
+			featureInvalid: 'feature deve essere "portrait" o "variants"',
+			generationOff: 'La generazione è disattivata per questo universo.',
+			notEnoughCredits: 'Crediti insufficienti per generare questa immagine.',
+			mediaAssetIdMustBeString: 'mediaAssetId deve essere una stringa',
+			noSuchGeneratedImage: 'Nessuna immagine generata di questo tipo in questo universo',
+			alreadyAttached: 'Quell\u2019immagine è già allegata a una voce, oppure non esiste.',
+			noSuchImage: 'Nessuna immagine di questo tipo in questo universo'
+		}
+	},
+
+	proposals: {
+		title: 'Proposte',
+
+		inbox: {
+			empty: 'Niente in sospeso. Modifica una voce per avviare una propagazione.',
+			fromEntity: (entityName) => `Da: modifica di ${entityName}`,
+			fromTrigger: (trigger) => {
+				const labels: Record<string, string> = {
+					save: 'una modifica',
+					complete: 'un completamento',
+					audit: 'un controllo',
+					import: "un'importazione",
+					table: 'la modalità tavolo'
+				};
+				return `Da: ${labels[trigger] ?? trigger}`;
+			},
+			entriesLabel: (total) => {
+				const form = pluralRules('it').select(total);
+				return `${total} ${form === 'one' ? 'voce' : 'voci'}`;
+			},
+			pendingLabel: (count) => `${count} in sospeso`,
+			importFrom: (playbook) => `Da: importazione ${playbook}`,
+			importSummary: (total, pending) => {
+				const form = pluralRules('it').select(total);
+				return `${total} ${form === 'one' ? 'proposta' : 'proposte'}: ${pending} in sospeso`;
+			},
+			openImportReview: "Apri la revisione dell'importazione"
+		},
+
+		plan: {
+			crumbCurrent: 'Piano',
+			headingFromEntity: (entityName) => `Piano \u00b7 da modifica di ${entityName}`,
+			headingFromPropagation: 'Piano \u00b7 da propagazione'
+		},
+
+		checklist: {
+			keptSuffix: (total, cap) => {
+				const form = pluralRules('it').select(total);
+				const word = form === 'one' ? 'mantenuto' : 'mantenuti';
+				return ` su ${total} ${word} \u00b7 limite ${cap}`;
+			},
+			estimatedCredits: (credits) => {
+				const form = pluralRules('it').select(credits);
+				return {
+					prefix: 'Stima: ',
+					suffix:
+						form === 'one'
+							? ' credito per generare le differenze'
+							: ' crediti per generare le differenze'
+				};
+			},
+			drop: 'Scarta',
+			empty: 'Non è rimasto nulla in questo piano.',
+			generating: 'Generazione in corso\u2026',
+			generateDiffs: (count) => `Genera differenze (${count})`,
+			creditsUnit: 'cr'
+		},
+
+		queue: {
+			empty: "Non c'è più nulla da revisionare.",
+			position: (total) => ({ prefix: 'Proposta ', suffix: ` di ${total}` }),
+			filterShown: (typeLabel) => `(${typeLabel} mostrati)`,
+			acceptedSuffix: (count) =>
+				pluralRules('it').select(count) === 'one' ? ' accettata' : ' accettate',
+			rejectedSuffix: (count) =>
+				pluralRules('it').select(count) === 'one' ? ' rifiutata' : ' rifiutate',
+			acceptedToast: (entityName) => `Accettato: ${entityName ?? 'la voce'}`,
+			undoFailedToast: "Impossibile annullare: non c'è nulla da ripristinare.",
+			undo: 'Annulla',
+			keyboardMove: 'sposta',
+			keyboardAccept: 'accetta',
+			keyboardReject: 'rifiuta',
+			keyboardUndo: 'annulla'
+		},
+
+		diffCard: {
+			newEntry: 'Nuova voce',
+			accepted: 'accettata',
+			rejected: 'rifiutata',
+			accept: 'Accetta',
+			reject: 'Rifiuta',
+			undo: 'Annulla',
+			showCurrentWording: 'Mostra il testo attuale',
+			showWhatThisReplaced: 'Mostra cosa sostituisce',
+			was: 'Prima',
+			now: 'Ora',
+			kindLabel: (kind) => {
+				const labels: Record<string, string> = {
+					create: 'nuovo',
+					update: 'modifica',
+					relation: 'relazione',
+					draft_entity: 'bozza',
+					flag: 'segnalazione'
+				};
+				return labels[kind] ?? kind;
+			},
+			entityTypeLabel: (type) => {
+				const labels: Record<string, string> = {
+					character: 'personaggio',
+					place: 'luogo',
+					faction: 'fazione',
+					item: 'oggetto',
+					event: 'evento',
+					session: 'sessione',
+					relation: 'relazione'
+				};
+				return labels[type] ?? type;
+			},
+			rejectReasonLabel: (value) => PROPOSAL_REJECT_REASON_LABELS_IT[value] ?? value
+		},
+
+		filterBuckets: {
+			all: 'Tutti',
+			character: 'Personaggi',
+			place: 'Luoghi',
+			faction: 'Fazioni',
+			item: 'Oggetti',
+			event: 'Eventi',
+			session: 'Sessioni',
+			relation: 'Relazioni'
+		},
+
+		bulkReject: {
+			rejecting: 'Rifiuto in corso\u2026',
+			rejectShown: (count) => {
+				const form = pluralRules('it').select(count);
+				return `Rifiuta ${count} ${form === 'one' ? 'mostrata' : 'mostrate'}`;
+			},
+			rejectedCount: (count) => {
+				const form = pluralRules('it').select(count);
+				return `${form === 'one' ? 'Rifiutata' : 'Rifiutate'} ${count}.`;
+			}
+		},
+
+		evidence: {
+			button: 'Prova',
+			embeddingOnly: 'Solo similarità di embedding',
+			close: 'Chiudi',
+			reasonRelation: (path, hops) => {
+				const form = pluralRules('it').select(hops);
+				return `relazione ${path}, ${hops} ${form === 'one' ? 'salto' : 'salti'}`;
+			},
+			reasonMention: (direction, matchedText) =>
+				`menzione ${direction === 'forward' ? 'in avanti' : "all'indietro"} ("${matchedText}")`,
+			reasonEmbedding: 'solo somiglianza testuale, nessun collegamento nel grafo',
+			reasonImportAmbiguous: (path, count) => {
+				const form = pluralRules('it').select(count);
+				return `corrispondenza ambigua in "${path ?? "l'import"}", con ${count} ${form === 'one' ? 'voce esistente' : 'voci esistenti'}`;
+			},
+			reasonImportMatched: (path) => `corrisponde a una voce esistente in "${path ?? "l'import"}"`,
+			reasonImportExtracted: (path) => `estratto da "${path ?? "l'import"}"`
+		},
+
+		rejectChips: {
+			prompt: 'Perché no?',
+			wrong: PROPOSAL_REJECT_REASON_LABELS_IT.wrong,
+			alreadyTrue: PROPOSAL_REJECT_REASON_LABELS_IT['already true'],
+			notCanonYet: PROPOSAL_REJECT_REASON_LABELS_IT['not canon yet'],
+			tooMuch: PROPOSAL_REJECT_REASON_LABELS_IT['too much'],
+			prose: PROPOSAL_REJECT_REASON_LABELS_IT.prose,
+			other: 'Altro\u2026',
+			otherPlaceholder: 'dicci di più\u2026',
+			save: 'Salva'
+		},
+
+		errors: {
+			noDiffsToGenerate:
+				'Questo piano non ha una voce modificata, quindi non ci sono differenze di propagazione da generare.'
+		}
+	},
+
+	import: {
+		review: {
+			headTitle: (universeName) => `Revisione import · ${universeName}`,
+			breadcrumbProposals: 'Proposte',
+			breadcrumbCurrent: 'Revisione import',
+			heading: (playbook) => `Revisione import · ${playbook}`,
+			stillImporting: (count) =>
+				`Importazione in corso — ${count} ${count === 1 ? 'proposta' : 'proposte'} finora.`,
+			refresh: 'Aggiorna',
+			statusNote: {
+				stoppedAtCeiling: (note) =>
+					note
+						? `Import in pausa al tetto di credito: ${note}`
+						: 'Import in pausa al tetto di credito — riavvialo per continuare da dove si era fermato.',
+				cancelled: (note) => (note ? `Import annullato: ${note}` : 'Import annullato.'),
+				failed: (note) => (note ? `Import non riuscito: ${note}` : 'Import non riuscito.')
+			},
+			emptyRunning: 'Niente da rivedere ancora.',
+			emptyDone: 'Niente da rivedere — questo import non ha prodotto proposte.',
+			filtering: 'Filtro in corso…',
+			errors: {
+				universeNotFound: (slug) => `Nessun universo di nome "${slug}"`,
+				jobNotFound: (jobId, universeName) => `Nessun import "${jobId}" in ${universeName}`,
+				missingProposalId: 'ID proposta mancante.',
+				proposalNotFound: (proposalId) => `Nessuna proposta "${proposalId}" in questo import.`,
+				missingProposalOrReason: 'ID proposta o motivo mancante.',
+				proposalNotRejected: 'Quella proposta non è stata rifiutata.',
+				missingFilterType: 'Tipo di filtro mancante.'
+			}
+		},
+
+		start: {
+			headTitle: 'Nuovo universo · Canonry',
+			heading: 'Dai un nome al tuo universo',
+			description:
+				'Tutto, in Canonry, vive dentro un universo. Puoi aggiungerne altri più avanti dal selettore di qualsiasi universo.',
+			nameLabel: "Nome dell'universo",
+			namePlaceholder: 'La Landa di Valdoria',
+			importCard: {
+				heading: 'Hai già appunti, un export da un wiki o un PDF?',
+				description:
+					'Importalo. Confermerai cosa Canonry ha rilevato prima che parta qualsiasi cosa, vedrai quanto costa, e inizierai a rivedere le proposte entro un minuto o due.',
+				cta: 'Importa il mio mondo'
+			},
+			preindexedCard: {
+				heading: 'Non hai ancora niente da importare?',
+				description: (baseName) =>
+					`Parti da ${baseName}, un universo pre-indicizzato. Il tuo canone vince sempre su di esso, e puoi divergerne voce per voce.`,
+				cta: (baseName) => `Parti da ${baseName}`,
+				notConfigured: 'Nessun universo pre-indicizzato è configurato su questa installazione.'
+			},
+			errors: { nameRequired: 'Dai prima un nome al tuo universo.' }
+		},
+
+		upload: {
+			headTitle: (universeName) => `Import in ${universeName} · Canonry`,
+			heading: 'Importa il tuo mondo',
+			description:
+				'Trascina un export da Obsidian, Kanka o World Anvil, oppure un file PDF o DOCX. Canonry indovina la sorgente e ti mostra cosa ha trovato prima che parta qualsiasi cosa.',
+			noLiveModelNotice:
+				'Questa installazione non ha un modello live configurato, quindi in questo momento possono davvero partire solo gli import da Obsidian, Kanka e testo generico (il rilevamento funziona comunque per tutto).',
+			uploadButton: 'Carica',
+			confirm: {
+				uploadedSummary: (fileName, kilobytes) => `${fileName} caricato, ${kilobytes} KB`,
+				detected: (label) => `Rilevato: ${label}`,
+				notDetected: (label) => `Formato non rilevato con sicurezza: ${label}`,
+				playbookLabel: 'Playbook da eseguire',
+				continueButton: 'Conferma e continua'
+			},
+			estimate: {
+				heading: "Stima dell'import",
+				summary: (fileName, playbookLabel) => `${fileName}, playbook ${playbookLabel}`,
+				sizeLabel: 'Dimensione',
+				documentCount: (count) => `${count} document${count === 1 ? 'o' : 'i'}`,
+				timeLabel: 'Tempo',
+				estimatedMinutes: (minutes) => `circa ${minutes} minut${minutes === 1 ? 'o' : 'i'}`,
+				costLabel: 'Costo',
+				estimatedCredits: (credits) => {
+					const n = numberFormat('it', { maximumFractionDigits: 0, useGrouping: 'always' }).format(
+						credits
+					);
+					const form = pluralRules('it').select(Math.round(credits));
+					return form === 'one' ? `${n} credito` : `${n} crediti`;
+				},
+				startButton: 'Avvia import'
+			},
+			errors: {
+				noUniverseGiven: "Nessun universo indicato per l'import.",
+				universeNotFound: (slug) => `Nessun universo di nome "${slug}".`,
+				chooseFile: 'Scegli un file da caricare.',
+				unreadableFile: (fileName, message) => `Impossibile leggere "${fileName}": ${message}`,
+				lostUpload: 'Il caricamento si è perso — riprova.',
+				needsLiveModel: (playbookLabel) =>
+					`Avviare un import ${playbookLabel} richiede un modello live, e questa installazione non ha credenziali AI_GATEWAY_* configurate. Gli import da Obsidian, Kanka e testo generico non ne hanno bisogno.`,
+				noDocumentsFound: 'Questo playbook non ha riconosciuto nessun documento nel file caricato.',
+				refused: {
+					jobsQuota: 'Import rifiutato: hai raggiunto il tuo limite di import.',
+					documentsQuota: 'Import rifiutato: questo import ha troppi documenti per il tuo piano.',
+					insufficientCredits: 'Import rifiutato: crediti insufficienti per il costo stimato.'
+				}
+			}
+		},
+
+		job: {
+			headTitle: (universeName) => `Import in corso in ${universeName} · Canonry`,
+			firstAcceptHeading: 'Prima accettazione',
+			firstAcceptMessage: (seconds) =>
+				`Accettata in ${seconds}s dal momento in cui hai avviato questo import.`,
+			headingRunning: 'Importazione del tuo mondo in corso',
+			headingTerminal: {
+				finished: 'Import completato',
+				stoppedAtCeiling: 'Import in pausa al tetto di credito',
+				cancelled: 'Import annullato',
+				failed: 'Import non riuscito'
+			},
+			statusWord: {
+				queued: 'in coda',
+				running: 'in corso',
+				finished: 'completato',
+				stopped_at_ceiling: 'fermato al tetto',
+				cancelled: 'annullato',
+				failed: 'non riuscito'
+			},
+			statusLine: (proposalsEmitted, documentCount, statusWord) =>
+				`${proposalsEmitted} ${proposalsEmitted === 1 ? 'proposta' : 'proposte'} finora · ${documentCount} ${documentCount === 1 ? 'documento' : 'documenti'} totali · stato: ${statusWord}`,
+			reviewNow: (count) => `Rivedi ${count} ora`,
+			goToUniverse: (universeName) => `Vai a ${universeName}`,
+			errors: {
+				jobNotFound: 'Nessun import di questo tipo.',
+				signInRequired: 'Accesso richiesto.',
+				proposalGone: 'Quella proposta non fa più parte di questo import.'
+			}
+		},
+
+		liveFeed: {
+			empty: 'Nessuna proposta ancora.',
+			badge: {
+				create: 'nuovo',
+				update: 'modifica',
+				relation: 'relazione',
+				draft_entity: 'bozza',
+				flag: 'segnalazione'
+			},
+			untitledProposal: 'Proposta senza titolo',
+			accept: 'Accetta',
+			accepted: 'accettata',
+			outcome: { rejected: 'rifiutata', superseded: 'sostituita' }
+		}
+	},
+
+	table: {
+		title: 'Tavolo',
+
+		contextStrip: {
+			modeOn: 'Modalità tavolo: attiva',
+			noPlaceDeclared: (universeName) => `nessun luogo dichiarato ancora - ${universeName}`,
+			pinnedIn: (ms) => `appuntati in ${ms}ms`,
+			change: 'Cambia',
+			exit: 'Esci dalla modalità tavolo'
+		},
+
+		declareContext: {
+			formLabel: 'Dichiara il contesto',
+			whereArePlayers: 'Dove si trovano i giocatori?',
+			placePlaceholder: 'Scrivi il nome di un luogo...',
+			placeCandidatesLabel: 'Luoghi candidati',
+			placeTag: 'luogo',
+			noPlaceMatch: (query) => `Nessun luogo corrisponde a "${query}".`,
+			sessionLabel: 'Sessione (necessaria per "segna come rivelato")',
+			noSessionOption: 'Nessuna sessione dichiarata',
+			cancel: 'Annulla',
+			declare: 'Dichiara'
+		},
+
+		pinnedCards: {
+			empty:
+				'Ancora nessuna relazione a due salti dal luogo dichiarato - la colonna degli appuntati si popola non appena ce n\u2019è una.',
+			listLabel: 'Appuntati dal luogo dichiarato',
+			declaredPlace: 'il luogo dichiarato',
+			hopsFromPlace: (hops) => `a ${hops} ${hops === 1 ? 'salto' : 'salti'} dal luogo dichiarato`,
+			warmBriefAt: (relativeTime) => `sintesi precalcolata · ${relativeTime}`,
+			staleSince: (relativeTime) => `obsoleta da ${relativeTime}, si aggiorna al prossimo innesco`,
+			notWarmedThisSession: 'non precalcolato in questa sessione',
+			justNow: 'proprio ora',
+			minutesAgo: (minutes) => `${minutes} min fa`,
+			hoursAgo: (hours) => `${hours} h fa`
+		},
+
+		phoneTabBar: {
+			navLabel: 'Sezioni della modalità tavolo',
+			here: 'Qui',
+			actions: 'Azioni',
+			ask: 'Chiedi',
+			queue: 'Coda'
+		},
+
+		actionLabels: {
+			npcHere: '+ PNG qui',
+			createChildLocation: '+ Crea un luogo figlio',
+			quickNote: 'nota rapida'
+		},
+
+		quickActionDock: {
+			markAsRevealed: 'Segna come rivelato',
+			markAsRevealedDisabledTitle: 'Dichiara una sessione per segnare i luoghi come rivelati',
+			drafting: 'Bozza in corso…',
+			more: 'Altro',
+			nameChildLocation: 'Assegna un nome al luogo figlio',
+			locationPlaceholder: 'es. La Cantina di Sale',
+			create: 'Crea',
+			jotNote: 'Prendi una nota'
+		},
+
+		quickNoteForm: {
+			formLabel: 'Prendi una nota rapida',
+			disclaimer:
+				'Mai applicata direttamente - diventa una proposta in attesa, revisionata come ogni altra, dopo la sessione.',
+			about: 'Riguardo a',
+			note: 'Nota',
+			notePlaceholder: 'es. Aldric ha esitato quando ho nominato il registro',
+			cancel: 'Annulla',
+			saveAsProposal: 'Salva come proposta'
+		},
+
+		instantSearch: {
+			whoIsThis: 'Chi è?',
+			placeholder: 'Scrivi un nome o un alias...',
+			searching: 'ricerca in corso…',
+			instantLane: 'corsia immediata',
+			fastLane: 'corsia veloce',
+			laneStatus: (laneName, ms) => `${laneName} · ${ms}ms`,
+			noMatch: (query) => `Nessuna corrispondenza per "${query}".`,
+			aka: (alias) => `alias ${alias}`
+		},
+
+		ambientPlayer: {
+			heading: 'Paesaggio sonoro ambientale',
+			showAudioGraph: 'Mostra il grafico audio',
+			hideAudioGraph: 'Nascondi il grafico audio',
+			noPackYet: 'Nessun pacchetto ambientale generato per questo luogo, per ora.',
+			layerSummary: (count, stale) => {
+				const layers = count === 1 ? 'livello' : 'livelli';
+				return `${count} ${layers}${stale ? ' · obsoleto, si aggiorna al prossimo innesco' : ''}`;
+			},
+			play: 'Riproduci',
+			starting: 'Avvio…',
+			audioPausedByBrowser:
+				"L'audio è in pausa per via del browser finché non interagisci con la pagina.",
+			enableAudio: 'Attiva audio',
+			layersFailedToLoad: (count) => {
+				const noun = count === 1 ? 'livello' : 'livelli';
+				const verb = count === 1 ? 'non è stato caricato' : 'non sono stati caricati';
+				return `${count} ${noun} ${verb}.`;
+			},
+			master: 'Master',
+			crossfade: 'Dissolvenza',
+			muteLayer: (prompt) => `Silenzia ${prompt}`,
+			unmuteLayer: (prompt) => `Riattiva ${prompt}`,
+			couldNotLoadPack: (status) => `Impossibile caricare il pacchetto ambientale (${status})`,
+			couldNotStart: 'Impossibile avviare il paesaggio sonoro',
+			crossfadeFailed: 'Dissolvenza non riuscita',
+			layersAriaLabel: 'Livelli ambientali'
+		},
+
+		home: {
+			noContextDeclared:
+				'Dichiara un luogo per appuntare i suoi personaggi principali e le sue relazioni.',
+			pinnedHeading: 'Appuntati',
+			quickActionsHeading: 'Azioni rapide',
+			askHeading: 'Chiedi',
+			askNotBuilt: 'Chiedi non è ancora disponibile in questa fase.',
+			askOpensFromPalette: (shortcut) =>
+				`Una volta pronto, si aprirà dalla palette dei comandi (${shortcut}).`,
+			proposalsHeading: 'Proposte di questa sessione',
+			proposalsEmpty:
+				'Ancora nulla. Avvia un\u2019azione rapida o prendi una nota per vederne arrivare una qui.',
+			proposalLabel: 'proposta',
+			from: (source) => `da: ${source}`,
+			aiDraftedTooltip:
+				'Il Loremaster ha proposto questo testo - resta in sospeso finché non lo accetti in Proposte.',
+			aiDraftedBadge: 'Bozza del Loremaster',
+			scaffoldBadge: 'scheletro, nessun modello',
+			scaffoldTooltipDefault: 'Nessun modello disponibile per questa bozza.',
+			aiUnavailable: (reason) => `Loremaster non disponibile: ${reason}`,
+			streamStatus: (count, lastId) => {
+				const events = count === 1 ? 'evento' : 'eventi';
+				const received = count === 1 ? 'ricevuto' : 'ricevuti';
+				const suffix = lastId !== null ? ` · ultimo id ${lastId}` : '';
+				return `flusso: ${count} ${events} ${received}${suffix}`;
+			},
+			draftingNpc: 'Bozza del PNG in corso…',
+			actionFailed: (action, reason) => `${action} non riuscita: ${reason}`,
+			unknownReason: 'motivo sconosciuto',
+			savedAsProposal: (via) => `Salvata come proposta (${via})`,
+			savedAsProposalScaffold: (via) =>
+				`Salvata come proposta (${via}, nessun modello - uno scheletro da completare)`,
+			markedRevealed: (name) => `${name} segnato come rivelato`,
+			noteSaveFailed: 'Impossibile salvare la nota',
+			sessionEnded: (proposalCount) =>
+				`Sessione terminata. ${proposalCount} proposta${proposalCount === 1 ? '' : 'e'} arrivat${proposalCount === 1 ? 'a' : 'e'} mentre giocavate.`
+		},
+
+		server: {
+			notFound: 'Non trovato',
+			declareBeforeAction:
+				'dichiara un luogo prima di avviare un\u2019azione rapida - qui ogni azione è "legata al contesto"',
+			nameLocationBeforeCreating: 'assegna un nome al luogo figlio prima di crearlo',
+			unknownActionKind: (kind) => `tipo di azione rapida sconosciuto "${kind}"`,
+			noSessionDeclared:
+				'segnare come rivelato richiede una sessione dichiarata - impostane una dichiarando il contesto',
+			noteEmpty: 'la nota è vuota',
+			pickNoteTarget: 'scegli a quale voce si riferisce questa nota',
+			entryNotFound: 'quella voce non esiste in questo universo',
+			noteProposalFailed: 'non è stato possibile creare la proposta della nota',
+			nothingIndexedYet: 'ancora nulla di indicizzato per questo universo',
+			embeddingFailed: (reason) => `l\u2019embedding della ricerca non è riuscito (${reason})`,
+			quickNoteRationale: (hadPlaceDeclared) =>
+				`Registrata come nota rapida al tavolo${hadPlaceDeclared ? ' mentre era dichiarato un luogo' : ''}. Mai applicata direttamente - revisionala come ogni altra proposta.`,
+			npcDraftedRationale: (placeName) =>
+				`Proposto tramite l\u2019azione rapida "+ PNG qui" mentre ${placeName} era il contesto dichiarato.`,
+			npcScaffoldRationale: (placeName, unavailableReason) =>
+				`Proposto tramite "+ PNG qui" mentre ${placeName} era il contesto dichiarato. La scrittura del Loremaster non era disponibile (${unavailableReason}), quindi questo è uno scheletro vuoto da completare invece di un tocco scartato.`,
+			createLocationRationale: (placeName) =>
+				`Creato tramite l\u2019azione rapida del luogo figlio mentre ${placeName} era il contesto dichiarato.`,
+			warmBudgetUnavailable:
+				'il budget di precalcolo non poteva coprire questa bozza in questo momento',
+			warmStatusNoProposal: (status) =>
+				`lo stato di precalcolo "${status}" non ha prodotto una nuova proposta`
+		}
+	},
+
+	works: {
+		types: {
+			oneshot: 'Oneshot',
+			module: 'Modulo',
+			campaign: 'Campagna',
+			story: 'Storia',
+			novel: 'Romanzo'
+		},
+		statuses: {
+			planning: 'In preparazione',
+			running: 'In corso',
+			finished: 'Conclusa',
+			abandoned: 'Abbandonata'
+		},
+		kinds: {
+			act: 'Atto',
+			chapter: 'Capitolo',
+			scene: 'Scena',
+			encounter: 'Incontro'
+		},
+		errors: {
+			workNeedsName: "Un'opera ha bisogno di un nome",
+			pickWorkType: 'Scegli il tipo di opera',
+			nodeNeedsTitle: 'Un nodo ha bisogno di un titolo',
+			pickNodeKind: 'Scegli il tipo di nodo',
+			missingBody: 'Testo mancante'
+		},
+		index: {
+			title: 'Opere',
+			description:
+				"Un'avventura singola, un modulo, una campagna, una storia o un romanzo: un albero ordinato di atti, capitoli, scene e incontri, separato dal canone dell'universo. Quello che succede scrivendo o giocando un'opera torna indietro come proposte, mai come scrittura diretta (SPEC.md §4.3).",
+			empty: "Nessun'opera ancora.",
+			createHeading: 'Inizia una nuova opera',
+			nameLabel: 'Nome',
+			typeLabel: 'Tipo',
+			summaryLabel: 'Riassunto',
+			summaryOptional: '(facoltativo)',
+			createButton: 'Crea opera'
+		},
+		tree: {
+			ariaLabel: "Albero dell'opera",
+			emptyHeading: (workName) => `Ancora niente in ${workName}`,
+			emptyHint:
+				"Aggiungi il primo nodo - di solito un atto, ma un'avventura singola breve può iniziare direttamente da una scena.",
+			pickNodeHint: "Scegli un nodo dall'albero a sinistra, oppure aggiungine uno alla radice qui.",
+			titleLabel: 'Titolo',
+			kindLabel: 'Tipo',
+			addNodeButton: 'Aggiungi nodo'
+		},
+		node: {
+			moveUp: '↑ Sposta su',
+			moveDown: '↓ Sposta giù',
+			titleSrLabel: 'Titolo',
+			save: 'Salva',
+			addChildSummary: (nodeTitle) => `Aggiungi un nodo sotto ${nodeTitle}`,
+			titleLabel: 'Titolo',
+			kindLabel: 'Tipo',
+			addNodeButton: 'Aggiungi nodo',
+			usesHeading: 'Riferimenti',
+			noUses: 'Nessuna voce citata ancora.',
+			changedAt: (when) => `modificata: ${when}`,
+			usesHint:
+				'Apri una voce per leggere cosa è cambiato: accettare una propagazione avviene lì, oppure in fase di revisione.'
+		}
+	},
+
+	universe: {
+		nav: {
+			entries: 'Voci',
+			works: 'Opere',
+			proposals: 'Proposte',
+			table: 'Tavolo',
+			players: 'Giocatori',
+			import: 'Importa',
+			settings: 'Impostazioni'
+		},
+
+		sidebar: {
+			navAriaLabel: 'Navigazione universo',
+			primaryNavAriaLabel: 'Principale',
+			askTheLoremaster: 'Chiedi al Loremaster',
+			recentHeading: 'Recenti',
+			notBuiltYet: (issue) => `Non ancora disponibile, issue #${issue}`
+		},
+
+		switcher: {
+			switchAriaLabel: 'Cambia universo',
+			derivedBadge: 'derivato',
+			derivedFrom: (baseUniverseName) => `derivato da ${baseUniverseName}`,
+			entryCount: (count) => (count === 1 ? '1 voce' : `${count} voci`)
+		},
+
+		index: {
+			recentEntriesHeading: 'Voci recenti',
+			empty: 'Ancora niente qui.',
+			derivedNoticeBefore: 'Derivato: legge il proprio canone più il corpus indicizzato di ',
+			derivedNoticeAfter: ', in sola lettura. Il tuo canone vince sempre (SPEC.md 4.1).'
+		},
+
+		list: {
+			signInPrompt: 'Accedi per vedere i tuoi universi.',
+			empty: 'Nessun universo per ora - il tuo, o uno a cui sei stato aggiunto, comparirà qui.',
+			appearanceSettingsLink: 'Impostazioni aspetto'
+		},
+
+		new: {
+			headTitle: 'Nuovo universo',
+			heading: 'Nuovo universo',
+			nameLabel: 'Nome dell\u2019universo',
+			create: 'Crea',
+			nameRequiredError: 'Dai prima un nome al tuo universo.'
+		},
+
+		ask: {
+			headTitle: (universeName) => `Chiedi: ${universeName}`,
+			crumb: (universeName) => `Chiedi · ${universeName}`,
+			placeholder: 'Fai una domanda su questo universo…',
+			ask: 'Chiedi',
+			asking: 'Sto chiedendo…',
+			askFailed: 'Richiesta non riuscita.',
+			questionRequired: 'Serve una domanda.',
+			methodNotAllowed: 'Invia una domanda con POST.',
+			noLiveModel:
+				'La generazione è disattivata per questo universo: qui si legge direttamente il tuo canone, a costo zero, invece di una risposta scritta da un modello.',
+			levels: {
+				'1_line': '1 riga',
+				short: 'Breve',
+				normal: 'Normale',
+				detailed: 'Dettagliata',
+				full: 'Completa'
+			},
+			ownCanonLabel: 'il tuo canone',
+			indexedBadge: 'indicizzata',
+			close: 'Chiudi',
+			loading: 'Caricamento…'
+		},
+
+		settings: {
+			headTitle: (universeName) => `Impostazioni: ${universeName}`,
+			heading: 'Impostazioni',
+			introBefore: (universeName) =>
+				`Impostazioni dell'universo per ${universeName}. Il tema dei colori e l'esportazione dell'account si trovano in `,
+			introAnd: ' e ',
+			introAfter: ", che valgono per l'intero account e non per un singolo universo.",
+			appearanceLink: 'Aspetto',
+			exportLink: 'Esporta',
+			viewerForbiddenError:
+				'Chi ha accesso in sola visualizzazione non può modificare questa impostazione.',
+			aiToggle: {
+				heading: 'Scrittura del Loremaster',
+				description: (universeName) =>
+					`Disattiva nuove proposte, immagini, Chiedi e il precalcolo per ${universeName}. Ricerca e suggerimenti di menzione continuano a leggere questo universo, e non costano nulla.`,
+				stopWriting: 'Ferma la scrittura',
+				resumeWriting: 'Riprendi la scrittura',
+				offNotice: (universeName) =>
+					`La scrittura è disattivata per ${universeName}. Ricerca e suggerimenti di menzione continuano comunque a pesare sulla tua quota inclusa come qualsiasi altra richiesta; semplicemente non costano nulla, attivi o no.`
+			},
+			precedence: {
+				heading: 'Precedenza',
+				description: (universeName) =>
+					`Il tuo canone vince sempre. Una pagina sorgente che una voce qui soppianta viene segnata sotto, non cancellata, e smette di comparire nel recupero per ${universeName} (SPEC.md §4.1).`,
+				empty: 'Nessuna sostituzione ancora.',
+				supersededBadge: 'soppiantata',
+				remove: 'rimuovi',
+				declareHeading: 'Dichiara una sostituzione',
+				entryLabel: 'La tua voce',
+				baseSourceLabel: 'Fonte di base',
+				sourceUrlLabel: 'Url della pagina sorgente',
+				noteLabel: 'Nota',
+				optional: '(facoltativo)',
+				submit: 'Sostituisci',
+				onlyDerivedError: 'Solo un universo derivato può soppiantare una pagina sorgente.',
+				pickEntryError: 'Scegli quale voce soppianta la pagina.',
+				pickSourceError: 'Scegli a quale fonte appartiene la pagina.',
+				sourceUrlRequiredError: 'Alla pagina sorgente serve un url.',
+				alreadySupersededError: 'Questa pagina è già stata soppiantata.',
+				missingIdError: 'Id della sostituzione mancante.'
+			}
+		}
+	},
+
+	admin: {
+		backToUniverses: '← Universi',
+		unattributed: 'non attribuito',
+		save: 'Salva',
+
+		models: {
+			browserTitle: 'Modelli, Canonry admin',
+			textHeading: 'Modelli di testo',
+			textIntro1:
+				'SPEC.md §11.1: il modello attivo per ciascuno scopo vive in <code class="text-xs">model_config</code>, non nel codice, e ogni flusso - le quattro modalità del Loremaster, la propagazione, la generazione a caldo, l\'indicizzazione, l\'embedding - lo legge tramite <code class="text-xs">resolveModel</code>. Una modifica qui ha effetto dalla chiamata successiva, senza deploy né riavvio. Il provider è vincolato a ciò che <code class="text-xs">createLanguageModel</code> può effettivamente costruire; un provider fuori da questo elenco non è proposto.',
+			textIntro2:
+				'SPEC.md §17, issue #125: una domanda in italiano su un canone in inglese deve trovare il blocco inglese, quindi lo scopo <strong>embedding</strong> è una scelta multilingue deliberata, non gratuita. I candidati sono stati confrontati sui benchmark di retrieval multilingue pubblicati (MIRACL, MTEB Multilingual), limitati ai provider che questa build può costruire - il ragionamento completo e i candidati scartati/di riserva sono in <code class="text-xs">packages/indexing/src/models.ts</code>, nella costante <code class="text-xs">RECOMMENDED_EMBEDDING_MODEL</code>. Consigliato: <code class="text-xs">google</code> / <code class="text-xs">gemini-embedding-001</code> (#1 nella classifica MTEB Multilingual, ~100 lingue). Lacuna che questo riquadro non può colmare: qui non esiste una credenziale di embedding attiva per confermare il recall en/it nello specifico - né MIRACL né MTEB pubblicano un punteggio isolato inglese&harr;italiano, quindi resta un benchmark ancora da fare una volta disponibile una credenziale reale, non un dato consolidato.',
+			table: {
+				purpose: 'Scopo',
+				currentlyActive: 'Attualmente attivo',
+				provider: 'Provider',
+				modelId: 'ID modello',
+				notConfigured: 'non configurato',
+				providerUnknown: (provider) =>
+					`il provider "${provider}" non è tra quelli noti a questa app - nessuna chiamata può essere costruita finché non viene cambiato.`
+			},
+			purposeLabel: {
+				cheap: 'Economico - generazione di candidati, azioni rapide',
+				premium: 'Premium - diff, ask, propagazione',
+				multimodal: 'Multimodale',
+				embedding:
+					'Embedding - ricerca per similarità, deduplica della cache a caldo, retrieval (deve essere multilingue - vedi nota sotto)',
+				image:
+					'Immagine (scopo testuale; vedi Modelli immagine più sotto per il generatore vero e proprio)'
+			},
+			saved: 'Salvato. Ha effetto immediatamente.',
+			imageHeading: 'Modelli immagine',
+			imageIntro1:
+				'SPEC.md §9, issue #64: il modello attivo per ciascuna funzione vive qui, non nel codice, e una modifica qui ha effetto dalla prossima richiesta di "Genera immagine" - senza deploy né riavvio.',
+			imageIntro2Pre:
+				'Predefinito iniziale: <code class="text-xs">prunaai/p-image</code> per un singolo ritratto, <code class="text-xs">black-forest-labs/flux-schnell</code> per il lotto da quattro varianti (SPEC.md §9). L\'EUR per immagine è la nostra contabilità dei costi, mai il prezzo in crediti che vede un GM - quello vive in',
+			imageTable: {
+				feature: 'Funzione',
+				eurPerImage: 'EUR / immagine',
+				active: 'attivo',
+				inactive: 'inattivo'
+			},
+			featureLabel: {
+				portrait: "Ritratto - un'immagine per richiesta",
+				variants: 'Varianti - fino a quattro tra cui scegliere',
+				scene: 'Scena'
+			},
+			errors: {
+				unknownPurpose: (purpose) => `"${purpose}" non è uno scopo di modello noto.`,
+				unknownProvider: (provider, choices) =>
+					`"${provider}" non è un provider noto. Scegli tra: ${choices}.`,
+				modelIdRequired: "L'ID del modello è obbligatorio.",
+				providerAndModelIdRequired: 'Provider e ID del modello sono obbligatori.',
+				invalidEurPerImage:
+					'Inserisci un costo in EUR per immagine non negativo, con al massimo 6 cifre decimali.'
+			}
+		},
+
+		metrics: {
+			browserTitle: 'Metriche, Canonry admin',
+			heading: 'Metriche',
+			intro:
+				'SPEC.md §14 e decisione F5: i due numeri che decidono se il copilota funziona, più i tre che dicono se il resto del prodotto funziona. Solo per lo staff, e volutamente non mostrati al GM - un GM che ottimizza il proprio tasso di accettazione è un incentivo strano per entrambe le parti del rapporto.',
+			table: {
+				produced: 'Prodotte',
+				accepted: 'Accettate',
+				rejected: 'Respinte',
+				rate: 'Tasso',
+				universe: 'Universo',
+				noDataYet: 'nessun dato ancora'
+			},
+			noUniversesYet: 'Nessun universo ancora.',
+			accept: {
+				heading: 'Tasso di accettazione',
+				intro: (windowDays) =>
+					`Issue #100. <code class="text-xs">proposal.outcome</code>, \`superseded\` e \`pending\` esclusi dal denominatore - calcolato dalla funzione <code class="text-xs">acceptRate</code> di <code class="text-xs">@canonry/eval</code>, la stessa che valuta il corpus di propagazione per le modifiche a prompt e modello. Finestra: ultimi ${windowDays} giorni.`,
+				noProposalsYet:
+					"Nessuna proposta è stata ancora prodotta. Un tasso di accettazione dello 0% qui sarebbe una bugia per omissione, non una lettura onesta, quindi questo pannello non mostra nulla finché non c'è qualcosa da mostrare.",
+				acceptRateLabel: 'Tasso di accettazione (proposte decise)',
+				table: { weekOf: 'Settimana del', kind: 'Tipo', model: 'Modello' },
+				byLocale: {
+					heading: "Per lingua dell'interfaccia",
+					intro:
+						'Issue #128, SPEC.md §17 "misurato per lingua": <code class="text-xs">proposal.locale</code> - la lingua dell\'interfaccia in cui è stata prodotta la proposta, calcolata dalla stessa <code class="text-xs">acceptRate</code> qui sopra. Una lingua senza ancora proposte compare come "nessun dato", mai come uno 0% inventato.',
+					localeLabel: 'Lingua'
+				}
+			},
+			timeToFirstAccept: {
+				heading: 'Tempo alla prima proposta accettata',
+				intro:
+					"Issue #101. Dall'inizio di un import alla sua prima proposta accettata, per universo, come distribuzione: un singolo valore anomalo e lento è l'evento di churn che preoccupa AGENTS.md, e una media nasconderebbe esattamente quell'anomalia.",
+				noImportsYet: 'Nessun import è ancora stato eseguito.',
+				noAcceptYet: (count) => `${count} import, nessuno con una proposta accettata finora.`,
+				summary: (accepted, total, median) =>
+					`${accepted} di ${total} import con una prima accettazione, mediana ${median}.`,
+				importStarted: 'Import avviato',
+				timeToFirstAcceptLabel: 'Tempo alla prima accettazione',
+				stillWaiting: 'ancora in attesa'
+			},
+			warmRadius: {
+				heading: 'Raggio di precalcolo',
+				intro: (thresholdPercent) =>
+					`Issue #102. Il tasso di successo a caldo - artefatti consumati sul totale generato - governa automaticamente il raggio di precalcolo: sotto il ${thresholdPercent}% si restringe dall'anello 2 all'anello 1. È la stessa lettura che <code class="text-xs">warmOnConsumption</code> usa per decidere quanto estendersi, non una stima separata.`,
+				consumed: 'Consumati',
+				generated: 'Generati',
+				hitRate: 'Tasso di successo',
+				currentRadius: 'Raggio attuale',
+				ring: (n) => `anello ${n}`
+			},
+			entropy: {
+				heading: 'Entropia del canone',
+				intro:
+					"Issue #103. Voci aggiornate dopo una sessione rispetto a quelle create in preparazione, per universo - la metrica che dice se l'entropia del canone è stata davvero risolta o se questo è solo un altro posto dove annotarla.",
+				createdInPrep: 'Create in preparazione',
+				updatedAfterSession: 'Aggiornate dopo una sessione'
+			}
+		},
+
+		pricing: {
+			browserTitle: 'Prezzi delle operazioni, Canonry admin',
+			title: 'Prezzi delle operazioni',
+			intro1:
+				"SPEC.md §15, issue #113: il prezzo in crediti di ogni operazione a pagamento vive qui, non nel codice, e una modifica qui ha effetto immediato, non dopo la scadenza di una cache. Un prezzo pari a <b class=\"text-ink\">zero</b> significa che l'operazione è gratuita per l'utente: è l'intero meccanismo dietro alla lettura che resta gratuita, non un caso speciale aggiunto altrove.",
+			intro2:
+				"Gratis per l'utente non è gratis per noi: ogni chiamata, a pagamento o no, viene comunque registrata per intero con i suoi token reali e il suo costo in euro, perché la domanda sul margine trova risposta solo in quelle righe, in nessun altro posto.",
+			kindLabel: {
+				reading: 'Lettura, sempre gratuita',
+				generation: 'Generazione, a pagamento',
+				import: 'Import, a pagamento per documento'
+			},
+			table: {
+				label: 'Etichetta',
+				operation: 'Operazione',
+				credits: 'Crediti',
+				notes: 'Note',
+				lastChange: 'Ultima modifica'
+			},
+			creditsFor: (label) => `Crediti per ${label}`,
+			saved: 'Salvato.',
+			lastChangeSummary: (from, to, changedBy, date) =>
+				`${from} → ${to} crediti, ${changedBy}, ${date}`,
+			noChangesYet: 'Nessuna modifica da quando è stato configurato inizialmente.',
+			errors: {
+				missingOperation: 'Operazione mancante.',
+				invalidCredits: 'Inserisci un numero non negativo, con al massimo 4 cifre decimali.',
+				unknownOperation: (operation) => `"${operation}" non è un'operazione nota.`
+			}
+		}
+	},
+
+	docs: {
+		hub: {
+			browserTitle: 'Documentazione',
+			title: 'Guide',
+			backLabel: 'Universi',
+			intro:
+				'Guide pratiche per portare un mondo dentro Canonry, e tutto ciò che ha bisogno di istruzioni concrete invece di una sezione della spec.',
+			importHeading: "Guide all'importazione",
+			importIntro:
+				'Una pagina per ciascuna fonte, con i passaggi di esportazione da seguire prima di caricare qualsiasi cosa: Obsidian, Kanka, World Anvil, OneNote, PDF, DOCX, e il percorso generico per tutto il resto.',
+			importLink: "Leggi le guide all'importazione",
+			languagesHeading: 'Lingue',
+			languagesIntro:
+				"Cosa traduce l'interfaccia, cosa il tuo canone mantiene nella propria lingua, e perché Canonry non tradurrà automaticamente un mondo che hai già scritto.",
+			languagesLink: 'Leggi cosa viene tradotto, e cosa no'
+		},
+		importIndex: {
+			title: "Guide all'importazione",
+			eyebrow: 'Documentazione',
+			backLabel: 'Documentazione',
+			intro:
+				"Canonry non ti chiede di scegliere una fonte prima di caricare qualcosa. Trascina una cartella o un file: Canonry ne osserva la forma, ti dice cosa pensa di aver trovato, e ti chiede conferma (o di scegliere un altro playbook da un elenco breve) prima di leggere altro. Queste guide esistono perché il file che consegni sia quello giusto fin dall'inizio: cosa esportare da dove vive oggi il tuo mondo, e cosa Canonry capisce e cosa no una volta che il file arriva.",
+			sourcesHeading: 'Fonti'
+		},
+		importGuide: {
+			browserTitle: (guideLabel) => `Guida all'importazione da ${guideLabel}`,
+			eyebrow: "Guide all'importazione",
+			backLabel: "Guide all'importazione"
+		},
+		privacy: {
+			title: 'Dove vanno le parole della tua campagna',
+			backLabel: 'Universi'
+		}
 	}
 };

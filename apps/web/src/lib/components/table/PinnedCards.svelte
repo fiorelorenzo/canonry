@@ -8,9 +8,13 @@
 	 * never spins while saying it (decision E2 = A, no promised time, no spinner).
 	 */
 	import { resolve } from '$app/paths';
+	import { messages, type Locale } from '$lib/i18n';
 	import type { PinCard } from './types';
 
-	let { pins, universeSlug }: { pins: PinCard[]; universeSlug: string } = $props();
+	let { pins, universeSlug, locale }: { pins: PinCard[]; universeSlug: string; locale: Locale } =
+		$props();
+
+	const t = $derived(messages(locale).table.pinnedCards);
 
 	function initialsOf(name: string): string {
 		const parts = name.split(/\s+/).filter(Boolean);
@@ -22,19 +26,19 @@
 	function relativeTime(iso: string): string {
 		const ms = Date.now() - new Date(iso).getTime();
 		const minutes = Math.round(ms / 60000);
-		if (minutes < 1) return 'just now';
-		if (minutes < 60) return `${minutes}m ago`;
+		if (minutes < 1) return t.justNow;
+		if (minutes < 60) return t.minutesAgo(minutes);
 		const hours = Math.round(minutes / 60);
-		return `${hours}h ago`;
+		return t.hoursAgo(hours);
 	}
 </script>
 
 {#if pins.length === 0}
 	<p class="text-sm text-muted">
-		No relations two hops from the declared place yet - the pinned column fills in once one exists.
+		{t.empty}
 	</p>
 {:else}
-	<ul class="flex flex-wrap gap-3" aria-label="Pinned by the declared place">
+	<ul class="flex flex-wrap gap-3" aria-label={t.listLabel}>
 		{#each pins as pin (pin.entityId)}
 			<li class="w-[13rem] rounded-lg border border-line bg-panel p-3">
 				<div class="flex items-start gap-2.5">
@@ -58,23 +62,19 @@
 						{pin.via.relationLabel}
 						{pin.via.entityName}
 					{:else}
-						{pin.hopDistance === 0
-							? 'the declared place'
-							: `${pin.hopDistance} hop from the declared place`}
+						{pin.hopDistance === 0 ? t.declaredPlace : t.hopsFromPlace(pin.hopDistance)}
 					{/if}
 				</p>
 				<div class="mt-2.5 flex items-center gap-1.5 border-t border-line pt-2 text-[11px]">
 					{#if pin.warm.status === 'warm'}
 						<span class="h-1.5 w-1.5 flex-none rounded-full bg-accent" aria-hidden="true"></span>
-						<span class="text-muted">warm brief &middot; {relativeTime(pin.warm.updatedAt)}</span>
+						<span class="text-muted">{t.warmBriefAt(relativeTime(pin.warm.updatedAt))}</span>
 					{:else if pin.warm.lastWarmedAt}
 						<span class="h-1.5 w-1.5 flex-none rounded-full bg-muted" aria-hidden="true"></span>
-						<span class="text-muted"
-							>stale since {relativeTime(pin.warm.lastWarmedAt)}, refreshes next trigger</span
-						>
+						<span class="text-muted">{t.staleSince(relativeTime(pin.warm.lastWarmedAt))}</span>
 					{:else}
 						<span class="h-1.5 w-1.5 flex-none rounded-full bg-muted" aria-hidden="true"></span>
-						<span class="text-muted">not warmed this session</span>
+						<span class="text-muted">{t.notWarmedThisSession}</span>
 					{/if}
 				</div>
 			</li>

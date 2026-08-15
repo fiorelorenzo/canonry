@@ -5,6 +5,7 @@
  * in": accept and reject live on this screen, never on the plan list or the inbox.
  */
 import { error, fail } from '@sveltejs/kit';
+import { messages } from '$lib/i18n';
 import { universeAccessBySlug } from '@canonry/db';
 import { generatePlanDiffs, AiDisabledError } from '@canonry/copilot';
 import { MissingGatewayEnvError } from '@canonry/ai';
@@ -51,7 +52,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			.filter((c) => c.proposal.outcome === 'pending')
 			.map((c) => ({
 				id: c.proposal.id,
-				name: c.targetEntity?.name ?? c.relatedEntity?.name ?? 'New entry',
+				name:
+					c.targetEntity?.name ??
+					c.relatedEntity?.name ??
+					messages(locals.locale).proposals.diffCard.newEntry,
 				rationale: c.proposal.rationale,
 				credits: c.proposal.credits
 			})),
@@ -82,7 +86,7 @@ export const actions: Actions = {
 		// for this action to generate and saying so beats passing an empty id down two layers.
 		const triggerEntityId = detail.plan.triggerEntityId;
 		if (!triggerEntityId) {
-			error(400, 'This plan has no edited entry, so there are no propagation diffs to generate');
+			error(400, messages(locals.locale).proposals.errors.noDiffsToGenerate);
 		}
 		// The plan's own summary carries the edit's semantic diff nowhere on the row -
 		// generatePlanDiffs needs it fresh; propagation always stores the edit's meaning in

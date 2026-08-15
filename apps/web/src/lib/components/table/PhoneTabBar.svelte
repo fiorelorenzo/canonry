@@ -7,27 +7,33 @@
 	 * `md:hidden` keeps this off the desktop layout, where E1's wider screen already shows
 	 * every tab's content at once with no navigation needed.
 	 */
+	import { messages, type Locale } from '$lib/i18n';
+
 	let {
 		active,
 		queueCount,
+		locale,
 		onSelect
 	}: {
 		active: 'here' | 'actions' | 'ask' | 'queue';
 		queueCount: number;
+		locale: Locale;
 		onSelect: (tab: 'here' | 'actions' | 'ask' | 'queue') => void;
 	} = $props();
 
-	const TABS = [
-		{ id: 'here', label: 'Here' },
-		{ id: 'actions', label: 'Actions' },
-		{ id: 'ask', label: 'Ask' },
-		{ id: 'queue', label: 'Queue' }
-	] as const;
+	const t = $derived(messages(locale).table.phoneTabBar);
+
+	const TABS = $derived([
+		{ id: 'here' as const, label: t.here },
+		{ id: 'actions' as const, label: t.actions },
+		{ id: 'ask' as const, label: t.ask },
+		{ id: 'queue' as const, label: t.queue }
+	]);
 </script>
 
 <nav
 	class="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-panel md:hidden"
-	aria-label="Table mode sections"
+	aria-label={t.navLabel}
 >
 	{#each TABS as tab (tab.id)}
 		<button

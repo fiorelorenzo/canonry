@@ -6,6 +6,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { createWork, listWorksForUniverse, universeAccessBySlug } from '@canonry/db';
 import type { WorkType } from '@canonry/db/schema';
+import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -43,10 +44,10 @@ export const actions: Actions = {
 		const type = form.get('type');
 		const summary = form.get('summary');
 		if (typeof name !== 'string' || name.trim().length === 0) {
-			return fail(400, { message: 'A work needs a name' });
+			return fail(400, { message: messages(locals.locale).works.errors.workNeedsName });
 		}
 		if (!isWorkType(type)) {
-			return fail(400, { message: 'Pick a work type' });
+			return fail(400, { message: messages(locals.locale).works.errors.pickWorkType });
 		}
 
 		const work = await createWork(conn, {

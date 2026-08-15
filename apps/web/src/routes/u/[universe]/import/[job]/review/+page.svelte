@@ -17,14 +17,16 @@
 	 */
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { messages } from '$lib/i18n';
 	import ProposalQueue from '$lib/components/proposals/ProposalQueue.svelte';
 	import TypeFilterChips from '$lib/components/proposals/TypeFilterChips.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
+	let t = $derived(messages(data.locale).import.review);
+
 	const RUNNING_STATUSES = new Set(['queued', 'running']);
-	const ISSUE_STATUSES = new Set(['failed', 'cancelled', 'stopped_at_ceiling']);
 
 	let selectedType = $state<string | null>(null);
 	let remountNonce = $state(0);
@@ -37,6 +39,16 @@
 			: data.candidates.filter((c) => data.filterTypeById[c.id] === selectedType)
 	);
 	let activeLabel = $derived(data.buckets.find((b) => b.type === selectedType)?.label ?? null);
+
+	let issueNote = $derived(
+		data.job.status === 'stopped_at_ceiling'
+			? t.statusNote.stoppedAtCeiling(data.job.outcomeNote || null)
+			: data.job.status === 'cancelled'
+				? t.statusNote.cancelled(data.job.outcomeNote || null)
+				: data.job.status === 'failed'
+					? t.statusNote.failed(data.job.outcomeNote || null)
+					: null
+	);
 
 	// D4's cost, accepted rather than worked around by reaching into ProposalQueue's own
 	// state: switching chips remounts the queue, so it has to start from a fresh load or
@@ -67,41 +79,37 @@
 	});
 </script>
 
-<svelte:head><title>Import review &middot; {data.universe.name}</title></svelte:head>
+<svelte:head><title>{t.headTitle(data.universe.name)}</title></svelte:head>
 
 <div class="mx-auto max-w-3xl px-6 py-8">
 	<p class="mb-2 text-xs text-muted">
-		<a class="hover:underline" href={resolve(`/u/${data.universe.slug}/proposals`)}>Proposals</a>
-		/ <span class="text-ink-2">Import review</span>
+		<a class="hover:underline" href={resolve(`/u/${data.universe.slug}/proposals`)}
+			>{t.breadcrumbProposals}</a
+		>
+		/ <span class="text-ink-2">{t.breadcrumbCurrent}</span>
 	</p>
-	<h1 class="mb-4 text-2xl font-semibold text-ink">Import review &middot; {data.job.playbook}</h1>
+	<h1 class="mb-4 text-2xl font-semibold text-ink">{t.heading(data.job.playbook)}</h1>
 
 	{#if isRunning}
 		<div
 			class="mb-4 flex items-center justify-between gap-3 rounded-md border border-ai-line bg-ai-bg px-4 py-3 text-sm text-ink"
 		>
 			<span>
-				Still importing &mdash; {data.job.proposalsEmitted} proposal{data.job.proposalsEmitted === 1
-					? ''
-					: 's'} so far.
+				{t.stillImporting(data.job.proposalsEmitted)}
 			</span>
 			<button type="button" class="text-xs font-medium text-ai underline" onclick={refreshNow}>
-				Refresh
+				{t.refresh}
 			</button>
 		</div>
-	{:else if ISSUE_STATUSES.has(data.job.status)}
+	{:else if issueNote}
 		<p class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-muted">
-			Import {data.job.status.replaceAll('_', ' ')}{data.job.outcomeNote
-				? `: ${data.job.outcomeNote}`
-				: '.'}
+			{issueNote}
 		</p>
 	{/if}
 
 	{#if data.candidates.length === 0}
 		<p class="text-sm text-muted">
-			{isRunning
-				? 'Nothing to review yet.'
-				: 'Nothing to review - this import produced no proposals.'}
+			{isRunning ? t.emptyRunning : t.emptyDone}
 		</p>
 	{:else}
 		<div class="mb-4">
@@ -110,17 +118,19 @@
 				selected={selectedType}
 				onSelect={selectFilter}
 				{onRejectedFiltered}
+				locale={data.locale}
 			/>
 		</div>
 
 		{#if switchingFilter}
-			<p class="text-sm text-muted">Filtering&hellip;</p>
+			<p class="text-sm text-muted">{t.filtering}</p>
 		{:else}
 			{#key `${selectedType}:${remountNonce}`}
 				<ProposalQueue
 					candidates={filteredCandidates}
 					universeSlug={data.universe.slug}
 					filterType={activeLabel}
+					locale={data.locale}
 				/>
 			{/key}
 		{/if}

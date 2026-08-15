@@ -23,17 +23,20 @@
 	} from '$lib/markdown-secrets';
 	import { renderAiMarkedParagraph } from '$lib/components/ai/aiMarking';
 	import { splitBodyIntoBlocks, markedSegmentsFor } from '$lib/components/ai/entryMarking';
+	import { messages, type Locale } from '$lib/i18n';
 
 	let {
 		body,
 		universeSlug,
 		mentionTargets,
+		locale,
 		highlightSpan = null,
 		markedSentences = new Set<string>()
 	}: {
 		body: string;
 		universeSlug: string;
 		mentionTargets: MentionTarget[];
+		locale: Locale;
 		highlightSpan?: FactSpan | null;
 		/** C1 = B, #106: sentences (exact strings, `packages/copilot`'s `semanticDiff`
 		 * normalisation) a pending `update` proposal targets on this entity. Empty by
@@ -42,12 +45,14 @@
 		markedSentences?: ReadonlySet<string>;
 	} = $props();
 
+	let t = $derived(messages(locale).entry.secrets);
+
 	let playerPreview = $state(false);
 
-	const BLOCK_LABEL: Record<SecretBlockKind, string> = {
-		secret: 'Hidden \u00b7 unlocks on reveal',
-		gmnote: 'GM note \u00b7 never shown to players'
-	};
+	const BLOCK_LABEL: Record<SecretBlockKind, string> = $derived({
+		secret: t.hiddenBlock,
+		gmnote: t.gmNoteBlock
+	});
 
 	// The GM view only, never the player preview: highlighting is Facts-panel span
 	// highlighting (B4), which has no meaning once a span's own secret block has been
@@ -96,7 +101,7 @@
 
 <div class="mb-4 flex items-center justify-between gap-2 border-b border-line pb-2">
 	<span class="text-xs font-semibold tracking-wide text-muted uppercase">
-		{playerPreview ? 'Player preview, what the party sees' : 'GM view'}
+		{playerPreview ? t.playerPreviewActive : t.gmView}
 	</span>
 	<button
 		type="button"
@@ -104,7 +109,7 @@
 		aria-pressed={playerPreview}
 		onclick={() => (playerPreview = !playerPreview)}
 	>
-		{playerPreview ? 'Show GM view' : 'Player preview'}
+		{playerPreview ? t.showGmView : t.playerPreview}
 	</button>
 </div>
 

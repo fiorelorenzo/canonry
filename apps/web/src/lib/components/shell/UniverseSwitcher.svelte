@@ -10,10 +10,17 @@
 	 * inside a toggled region are the correct and simplest accessible shape here.
 	 */
 	import { resolve } from '$app/paths';
+	import { messages, type Locale } from '$lib/i18n';
 	import { isDismissKey } from '$lib/keys';
 	import type { UniverseSummary } from './types';
 
-	let { current, universes }: { current: UniverseSummary; universes: UniverseSummary[] } = $props();
+	let {
+		current,
+		universes,
+		locale
+	}: { current: UniverseSummary; universes: UniverseSummary[]; locale: Locale } = $props();
+
+	const t = $derived(messages(locale).universe.switcher);
 
 	let open = $state(false);
 	let triggerEl: HTMLButtonElement | undefined = $state();
@@ -56,7 +63,7 @@
 				<span
 					class="shrink-0 rounded-full border border-ai-line bg-ai-bg px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ai uppercase"
 				>
-					derived
+					{t.derivedBadge}
 				</span>
 			{/if}
 		</span>
@@ -69,7 +76,7 @@
 			id={panelId}
 			class="absolute right-0 left-0 z-10 mt-1 max-h-96 overflow-y-auto rounded-md border border-line-2 bg-panel shadow-lg"
 		>
-			<nav aria-label="Switch universe">
+			<nav aria-label={t.switchAriaLabel}>
 				<ul class="flex flex-col">
 					{#each universes as universe (universe.id)}
 						<li class="border-b border-line last:border-b-0">
@@ -91,10 +98,9 @@
 									<span class="block text-xs text-muted">
 										{universe.kind}
 										{#if universe.baseUniverseName}
-											&middot; derived from {universe.baseUniverseName}
+											&middot; {t.derivedFrom(universe.baseUniverseName)}
 										{/if}
-										&middot; {universe.entityCount}
-										{universe.entityCount === 1 ? 'entry' : 'entries'}
+										&middot; {t.entryCount(universe.entityCount)}
 									</span>
 								</span>
 							</a>

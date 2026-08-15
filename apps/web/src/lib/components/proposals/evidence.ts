@@ -11,13 +11,24 @@
  * renders open by default rather than behind a click (`EvidencePopover`'s `forceOpen`).
  */
 
+export type EvidenceReason =
+	| { kind: 'relation'; path: string[]; hops: number }
+	| { kind: 'mention'; direction: 'forward' | 'reverse'; matchedText: string }
+	| { kind: 'embedding' }
+	| { kind: 'importAmbiguous'; path: string | null; count: number }
+	| { kind: 'importMatched'; path: string | null }
+	| { kind: 'importExtracted'; path: string | null };
+
 export interface EvidenceView {
 	/** The source sentence, when the producer captured one. Import's match evidence only
 	 * carries offsets into a document this app cannot re-read (packages/import's own
 	 * provider boundary - see job-runner.ts), so an import candidate's view has no quote,
 	 * only its rationale and source path, which is what is actually known. */
 	quote: string | null;
-	reason: string;
+	/** Structured, never a pre-formatted sentence: this module carries no English words,
+	 * so a locale only has to format a known shape, never re-parse a sentence to
+	 * translate it (issue #121 - see `EvidencePopover.svelte`'s formatting switch). */
+	reason: EvidenceReason;
 }
 
 interface RelationEvidenceShape {
@@ -51,15 +62,19 @@ function viewForCandidateEvidence(evidence: CandidateEvidenceShape): EvidenceVie
 		case 'relation':
 			return {
 				quote: null,
-				reason: `relation ${evidence.path.join(' \u2192 ')}, ${evidence.hops}-hop`
+				reason: { kind: 'relation', path: evidence.path, hops: evidence.hops }
 			};
 		case 'mention':
 			return {
 				quote: evidence.sourceSentence,
-				reason: `${evidence.direction} mention ("${evidence.matchedText}")`
+				reason: {
+					kind: 'mention',
+					direction: evidence.direction,
+					matchedText: evidence.matchedText
+				}
 			};
 		case 'embedding':
-			return { quote: evidence.sourceSentence, reason: 'similar wording only, no graph link' };
+			return { quote: evidence.sourceSentence, reason: { kind: 'embedding' } };
 	}
 }
 
@@ -83,24 +98,20 @@ function viewForImportEvidence(evidence: ImportEvidenceShape): {
 	view: EvidenceView;
 	weak: boolean;
 } {
-	const path =
-		typeof evidence.sourceRef?.path === 'string' ? evidence.sourceRef.path : 'the import';
+	const path = typeof evidence.sourceRef?.path === 'string' ? evidence.sourceRef.path : null;
 	const ambiguousCount = Array.isArray(evidence.ambiguousCandidateIds)
 		? evidence.ambiguousCandidateIds.length
 		: 0;
 	if (typeof evidence.similarity === 'number' && ambiguousCount > 0) {
 		return {
-			view: {
-				quote: null,
-				reason: `ambiguous match in "${path}", against ${ambiguousCount} existing entries`
-			},
+			view: { quote: null, reason: { kind: 'importAmbiguous', path, count: ambiguousCount } },
 			weak: true
 		};
 	}
 	if (typeof evidence.similarity === 'number') {
-		return { view: { quote: null, reason: `matched an existing entry in "${path}"` }, weak: true };
+		return { view: { quote: null, reason: { kind: 'importMatched', path } }, weak: true };
 	}
-	return { view: { quote: null, reason: `extracted from "${path}"` }, weak: false };
+	return { view: { quote: null, reason: { kind: 'importExtracted', path } }, weak: false };
 }
 
 export interface NormalizedEvidence {

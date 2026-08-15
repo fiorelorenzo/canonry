@@ -23,15 +23,19 @@
 		type MentionMenuKey,
 		type TextEdit
 	} from './editorState';
+	import { messages, type Locale } from '$lib/i18n';
 	import type { MentionTarget } from '$lib/markdown';
 
 	let {
 		value = $bindable(''),
-		targets
+		targets,
+		locale
 	}: {
 		value: string;
 		targets: MentionTarget[];
+		locale: Locale;
 	} = $props();
+	let t = $derived(messages(locale));
 
 	let textareaEl: HTMLTextAreaElement | undefined = $state();
 	let backdropEl: HTMLDivElement | undefined = $state();
@@ -129,7 +133,7 @@
 </script>
 
 <div>
-	<FormattingToolbar onCommand={runCommand} />
+	<FormattingToolbar onCommand={runCommand} {locale} />
 
 	<div class="relative overflow-hidden rounded-b-lg border border-line-2 bg-panel">
 		<div
@@ -145,7 +149,7 @@
 			bind:value
 			class="{editorBoxClasses} relative resize-y bg-transparent text-transparent caret-ink outline-none"
 			spellcheck="false"
-			aria-label="Entry body, markdown"
+			aria-label={t.entry.editor.bodyAriaLabel}
 			oninput={trackCaret}
 			onkeyup={trackCaret}
 			onclick={trackCaret}
@@ -159,6 +163,7 @@
 			{matches}
 			highlightedIndex={effectiveHighlight}
 			onSelect={selectMention}
+			{locale}
 		/>
 	{/if}
 </div>

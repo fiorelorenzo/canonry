@@ -11,18 +11,15 @@
 	 * `askSources` is never empty-while-loading in a way that could read as "no evidence
 	 * for this answer", satisfying guardrail 3 even mid-stream.
 	 */
+	import { messages } from '$lib/i18n';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
+	const t = $derived(messages(data.locale).universe.ask);
+
 	type DetailLevel = '1_line' | 'short' | 'normal' | 'detailed' | 'full';
-	const LEVELS: Array<{ id: DetailLevel; label: string }> = [
-		{ id: '1_line', label: '1 line' },
-		{ id: 'short', label: 'Short' },
-		{ id: 'normal', label: 'Normal' },
-		{ id: 'detailed', label: 'Detailed' },
-		{ id: 'full', label: 'Full' }
-	];
+	const LEVEL_IDS: readonly DetailLevel[] = ['1_line', 'short', 'normal', 'detailed', 'full'];
 
 	interface OwnCanonSource {
 		kind: 'own_canon';
@@ -96,7 +93,7 @@
 			body: JSON.stringify({ question: q, detailLevel })
 		});
 		if (!res.ok || !res.body) {
-			askError = 'Ask failed.';
+			askError = t.askFailed;
 			asking = false;
 			return;
 		}
@@ -141,7 +138,7 @@
 </script>
 
 <svelte:head>
-	<title>Ask: {data.current.name}, Canonry</title>
+	<title>{t.headTitle(data.current.name)}</title>
 </svelte:head>
 
 <div class="flex h-screen">
@@ -149,7 +146,7 @@
 		class="flex-1 overflow-y-auto px-8 py-8"
 		class:max-w-2xl={panelEntry !== null || panelLoading}
 	>
-		<p class="crumb text-xs tracking-wide text-muted uppercase">Ask · {data.current.name}</p>
+		<p class="crumb text-xs tracking-wide text-muted uppercase">{t.crumb(data.current.name)}</p>
 
 		<form
 			class="mt-3 flex items-center gap-2 rounded-lg border border-line-2 bg-panel px-3 py-2"
@@ -160,7 +157,7 @@
 		>
 			<input
 				class="flex-1 border-0 bg-transparent text-sm text-ink outline-none"
-				placeholder="Ask about this universe…"
+				placeholder={t.placeholder}
 				bind:value={question}
 			/>
 			<button
@@ -168,21 +165,21 @@
 				class="rounded-md bg-accent px-3 py-1 text-sm text-paper"
 				disabled={asking}
 			>
-				{asking ? 'Asking…' : 'Ask'}
+				{asking ? t.asking : t.ask}
 			</button>
 		</form>
 
 		<div class="mt-2 flex flex-wrap gap-1">
-			{#each LEVELS as level (level.id)}
+			{#each LEVEL_IDS as levelId (levelId)}
 				<button
 					type="button"
 					class="rounded-md border border-line px-2 py-1 text-xs"
-					class:bg-accent-bg={detailLevel === level.id}
-					class:text-ink={detailLevel === level.id}
-					class:text-ink-2={detailLevel !== level.id}
-					onclick={() => askAtLevel(level.id)}
+					class:bg-accent-bg={detailLevel === levelId}
+					class:text-ink={detailLevel === levelId}
+					class:text-ink-2={detailLevel !== levelId}
+					onclick={() => askAtLevel(levelId)}
 				>
-					{level.label}
+					{t.levels[levelId]}
 				</button>
 			{/each}
 		</div>
@@ -195,8 +192,7 @@
 
 		{#if generated === false}
 			<p class="mt-3 rounded-md border border-warn-bg bg-warn-bg px-3 py-2 text-xs text-warn">
-				Generation is switched off for this universe: this reads your own canon directly, at no
-				cost, rather than a model-written answer.
+				{t.noLiveModel}
 			</p>
 		{/if}
 
@@ -218,13 +214,13 @@
 							<b class="text-ink underline decoration-dotted underline-offset-2"
 								>{source.entityName}</b
 							>
-							<span class="text-muted"> · your canon</span>
+							<span class="text-muted"> · {t.ownCanonLabel}</span>
 							<span class="mt-0.5 block text-ink-2">"{source.statement}"</span>
 						</button>
 					{:else}
 						<div class="src derived rounded-lg border border-ai-line bg-ai-bg px-2.5 py-2 text-xs">
 							<span class="badge rounded-full bg-ai px-1.5 py-0.5 text-[10px] text-paper"
-								>indexed</span
+								>{t.indexedBadge}</span
 							>
 							<b class="text-ink">{source.pageTitle}</b>
 							<a href={source.url} target="_blank" rel="noreferrer" class="text-ink-2 underline"
@@ -258,10 +254,10 @@
 	{#if panelLoading || panelEntry}
 		<div class="w-96 flex-none overflow-y-auto border-l border-line bg-panel p-6">
 			<button type="button" class="text-xs text-muted hover:text-ink" onclick={closePanel}
-				>Close ✕</button
+				>{t.close} ✕</button
 			>
 			{#if panelLoading}
-				<p class="mt-3 text-sm text-muted">Loading…</p>
+				<p class="mt-3 text-sm text-muted">{t.loading}</p>
 			{:else if panelEntry}
 				<div class="kicker mt-3">
 					<span class="text-xs tracking-wide text-muted uppercase">{panelEntry.type}</span>

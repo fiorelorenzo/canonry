@@ -8,6 +8,7 @@
  * 30 second TTL - the ai-game behaviour issue #113 exists to avoid.
  */
 import { fail } from '@sveltejs/kit';
+import { messages } from '$lib/i18n';
 import { desc, inArray, listPrices, OperationNotPricedError, setPrice } from '@canonry/db';
 import { operationPriceChange, user } from '@canonry/db/schema';
 import { clearPriceCache } from '@canonry/ai';
@@ -84,7 +85,7 @@ export const actions: Actions = {
 				operation: null,
 				credits: null,
 				saved: false,
-				error: 'Missing operation.'
+				error: messages(event.locals.locale).admin.pricing.errors.missingOperation
 			});
 		}
 
@@ -94,7 +95,7 @@ export const actions: Actions = {
 				operation,
 				credits: typeof rawCredits === 'string' ? rawCredits : '',
 				saved: false,
-				error: 'Enter a non-negative number, up to 4 decimal places.'
+				error: messages(event.locals.locale).admin.pricing.errors.invalidCredits
 			});
 		}
 
@@ -108,7 +109,7 @@ export const actions: Actions = {
 					operation,
 					credits: rawCredits,
 					saved: false,
-					error: `"${operation}" is not a known operation.`
+					error: messages(event.locals.locale).admin.pricing.errors.unknownOperation(operation)
 				});
 			}
 			throw err;

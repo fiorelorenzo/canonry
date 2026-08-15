@@ -43,7 +43,10 @@ export interface ProposalSummary {
 	targetEntityId?: string;
 	targetName?: string;
 	preview?: string;
-	via: string;
+	/** A stable id, not a display phrase - `+page.svelte`'s own `actionLabel` looks up the
+	 * locale-appropriate label (`table.actionLabels`), so the same tap never freezes an
+	 * English phrase into an SSE event a different locale later renders. */
+	via: 'npc-here' | 'create-child-location' | 'quick-note';
 	drafted?: 'model' | 'scaffold';
 	unavailableReason?: string | null;
 }

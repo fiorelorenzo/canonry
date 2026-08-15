@@ -5,17 +5,41 @@
 	 * the guardrail-3 case where the only evidence is embedding similarity, which must
 	 * never be the one thing a skimming GM clicks past.
 	 */
-	import type { EvidenceView } from './evidence';
+	import { messages, type Locale } from '$lib/i18n';
+	import type { EvidenceReason, EvidenceView } from './evidence';
 
 	let {
 		views,
-		forceOpen
+		forceOpen,
+		locale
 	}: {
 		views: EvidenceView[];
 		forceOpen: boolean;
+		locale: Locale;
 	} = $props();
 
+	let t = $derived(messages(locale).proposals.evidence);
+
 	let open = $state(forceOpen);
+
+	// `reason` never carries English words (see evidence.ts's own doc comment) - this is
+	// the one place a structured reason becomes the sentence a GM actually reads.
+	function reasonText(reason: EvidenceReason): string {
+		switch (reason.kind) {
+			case 'relation':
+				return t.reasonRelation(reason.path.join(' \u2192 '), reason.hops);
+			case 'mention':
+				return t.reasonMention(reason.direction, reason.matchedText);
+			case 'embedding':
+				return t.reasonEmbedding;
+			case 'importAmbiguous':
+				return t.reasonImportAmbiguous(reason.path, reason.count);
+			case 'importMatched':
+				return t.reasonImportMatched(reason.path);
+			case 'importExtracted':
+				return t.reasonImportExtracted(reason.path);
+		}
+	}
 </script>
 
 {#if views.length > 0}
@@ -27,7 +51,7 @@
 			disabled={forceOpen}
 			onclick={() => (open = !open)}
 		>
-			Evidence
+			{t.button}
 		</button>
 		{#if open}
 			<span
@@ -37,7 +61,7 @@
 					<span
 						class="mb-1.5 block font-mono text-[10px] font-bold tracking-wide text-ai uppercase"
 					>
-						Embedding similarity only
+						{t.embeddingOnly}
 					</span>
 				{/if}
 				{#each views as view, i (i)}
@@ -45,7 +69,7 @@
 						{#if view.quote}
 							<span class="block text-ink-2 italic">&ldquo;{view.quote}&rdquo;</span>
 						{/if}
-						<span class="block text-muted">{view.reason}</span>
+						<span class="block text-muted">{reasonText(view.reason)}</span>
 					</span>
 				{/each}
 				{#if !forceOpen}
@@ -54,7 +78,7 @@
 						class="mt-1 text-[11px] text-muted underline"
 						onclick={() => (open = false)}
 					>
-						Close
+						{t.close}
 					</button>
 				{/if}
 			</span>

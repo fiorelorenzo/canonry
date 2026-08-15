@@ -7,11 +7,13 @@
 	 */
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import { messages } from '$lib/i18n';
 	import WorkTree from '$lib/components/works/WorkTree.svelte';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
+	let t = $derived(messages(data.locale));
 
 	let activeNodeId = $derived(page.params.node ?? null);
 </script>
@@ -21,7 +23,7 @@
 <div class="flex min-h-full">
 	<aside
 		class="w-52 flex-none overflow-y-auto border-r border-line bg-panel-2 p-2"
-		aria-label="Work tree"
+		aria-label={t.works.tree.ariaLabel}
 	>
 		<a
 			href={resolve(`/u/${data.current.slug}/works`)}
@@ -35,6 +37,7 @@
 			workSlug={data.work.slug}
 			tree={data.tree}
 			{activeNodeId}
+			locale={data.locale}
 		/>
 	</aside>
 	<div class="min-w-0 flex-1">

@@ -19,6 +19,7 @@ import {
 	generateImages
 } from '@canonry/media';
 import { stripMentionSyntax } from '$lib/markdown';
+import { messages } from '$lib/i18n';
 import {
 	embeddingProviderFor,
 	imageProvider,
@@ -34,13 +35,13 @@ function isImageFeature(value: unknown): value is 'portrait' | 'variants' {
 
 export const POST: RequestHandler = async ({ request, params, locals }) => {
 	const context = await loadMediaContext(locals, params.universe, params.slug);
-	requireWriter(context.role);
+	requireWriter(locals, context.role);
 
 	const body: unknown = await request.json();
 	const feature =
 		typeof body === 'object' && body !== null && 'feature' in body ? body.feature : undefined;
 	if (!isImageFeature(feature)) {
-		error(400, 'feature must be "portrait" or "variants"');
+		error(400, messages(locals.locale).entry.errors.featureInvalid);
 	}
 
 	try {
@@ -73,10 +74,10 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		});
 	} catch (err) {
 		if (err instanceof AiDisabledError) {
-			error(409, 'Generation is switched off for this universe.');
+			error(409, messages(locals.locale).entry.errors.generationOff);
 		}
 		if (err instanceof InsufficientCreditsError) {
-			error(402, 'Not enough credits to generate this image.');
+			error(402, messages(locals.locale).entry.errors.notEnoughCredits);
 		}
 		if (
 			err instanceof ImageModelNotConfiguredError ||

@@ -6,6 +6,7 @@
 	 * stays a real, visible one - never silently decided by type alone (that was option B,
 	 * rejected).
 	 */
+	import { messages, type Locale } from '$lib/i18n';
 	import type { ImageFeature } from '@canonry/db/schema';
 
 	type ModelSummary = { provider: string; modelId: string } | null;
@@ -21,7 +22,8 @@
 		variantsModel,
 		busy,
 		onGenerate,
-		onEditStyle
+		onEditStyle,
+		locale
 	}: {
 		open?: boolean;
 		entityName: string;
@@ -34,7 +36,9 @@
 		busy: boolean;
 		onGenerate: (feature: ImageFeature) => void;
 		onEditStyle: () => void;
+		locale: Locale;
 	} = $props();
+	let t = $derived(messages(locale));
 
 	let feature = $state<'portrait' | 'variants'>('portrait');
 
@@ -69,13 +73,13 @@
 	class="max-w-md rounded-lg border border-line bg-panel p-0 text-ink backdrop:bg-ink/40"
 >
 	<div class="p-5">
-		<h3 class="text-base font-semibold text-ink">Generate image: {entityName}</h3>
+		<h3 class="text-base font-semibold text-ink">{t.entry.media.dialogTitle(entityName)}</h3>
 
 		<div
 			class="mt-3 flex items-center gap-2 rounded-full border border-dashed border-line-2 bg-panel-2 px-3 py-1.5 text-xs text-ink-2"
 		>
 			<span class="flex-1">
-				Style: {styleModifier && styleModifier.length > 0 ? styleModifier : 'none set'}
+				{t.entry.media.styleLabel(styleModifier)}
 			</span>
 			<button
 				type="button"
@@ -85,11 +89,15 @@
 					onEditStyle();
 				}}
 			>
-				edit
+				{t.entry.media.editStyle}
 			</button>
 		</div>
 
-		<div class="mt-4 flex flex-col gap-2" role="radiogroup" aria-label="How many images">
+		<div
+			class="mt-4 flex flex-col gap-2"
+			role="radiogroup"
+			aria-label={t.entry.media.howManyAriaLabel}
+		>
 			<label
 				class="flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2"
 				class:border-accent={feature === 'variants'}
@@ -97,16 +105,16 @@
 			>
 				<input type="radio" name="feature" value="variants" bind:group={feature} class="mt-1" />
 				<span class="flex-1">
-					<span class="block text-sm text-ink">Four options to choose from</span>
+					<span class="block text-sm text-ink">{t.entry.media.fourOptions}</span>
 					<span class="block text-xs text-muted">
-						{variantsModel ? variantsModel.modelId : 'not configured'}
-						{entityType === 'character' ? ' \u00b7 suggested for a character' : ''}
+						{variantsModel ? variantsModel.modelId : t.entry.media.notConfigured}
+						{entityType === 'character' ? ` ${t.entry.media.suggestedForCharacter}` : ''}
 					</span>
 				</span>
 				<span
 					class="rounded-full bg-panel-2 px-2 py-0.5 text-xs font-medium text-ink-2 tabular-nums"
 				>
-					{variantsPrice} credits
+					{t.entry.media.creditsLabel(variantsPrice)}
 				</span>
 			</label>
 
@@ -117,22 +125,21 @@
 			>
 				<input type="radio" name="feature" value="portrait" bind:group={feature} class="mt-1" />
 				<span class="flex-1">
-					<span class="block text-sm text-ink">One image</span>
+					<span class="block text-sm text-ink">{t.entry.media.oneImage}</span>
 					<span class="block text-xs text-muted"
-						>{portraitModel ? portraitModel.modelId : 'not configured'}</span
+						>{portraitModel ? portraitModel.modelId : t.entry.media.notConfigured}</span
 					>
 				</span>
 				<span
 					class="rounded-full bg-panel-2 px-2 py-0.5 text-xs font-medium text-ink-2 tabular-nums"
 				>
-					{portraitPrice} credits
+					{t.entry.media.creditsLabel(portraitPrice)}
 				</span>
 			</label>
 		</div>
 
 		<p class="mt-3 text-xs text-muted">
-			The image stays private to you until you insert it here - it never reaches the players' wiki
-			on its own.
+			{t.entry.media.privateHint}
 		</p>
 
 		<div class="mt-4 flex gap-2">
@@ -142,14 +149,14 @@
 				disabled={busy || (feature === 'portrait' ? !portraitModel : !variantsModel)}
 				onclick={() => onGenerate(feature)}
 			>
-				{busy ? 'Generating…' : 'Generate'}
+				{busy ? t.entry.media.generating : t.entry.media.generateAction}
 			</button>
 			<button
 				type="button"
 				class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
 				onclick={close}
 			>
-				Cancel
+				{t.entry.media.cancel}
 			</button>
 		</div>
 	</div>

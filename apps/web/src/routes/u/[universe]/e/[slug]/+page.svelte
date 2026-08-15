@@ -4,6 +4,7 @@
 	 * Relations, Facts, Images, History and Audit (C9 = B, #55).
 	 */
 	import { resolve } from '$app/paths';
+	import { messages } from '$lib/i18n';
 	import EntryProseWithSecrets from '$lib/components/players/EntryProseWithSecrets.svelte';
 	import EntryTabs from '$lib/components/entry/EntryTabs.svelte';
 	import CompleteEntryControl from '$lib/components/entry/CompleteEntryControl.svelte';
@@ -14,6 +15,7 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	let t = $derived(messages(data.locale));
 
 	let activeFact = $state<FactRow | null>(null);
 	let activeDetailTab = $state<'relations' | 'facts' | 'images' | 'history' | 'audit'>('relations');
@@ -48,7 +50,11 @@
 			<div>
 				<div class="mb-1 flex flex-wrap items-center gap-2">
 					<h1 class="text-3xl font-semibold text-ink">{data.entity.name}</h1>
-					<AuditFlagBadge count={data.audit.flags.length} onOpen={openAuditTab} />
+					<AuditFlagBadge
+						count={data.audit.flags.length}
+						onOpen={openAuditTab}
+						locale={data.locale}
+					/>
 				</div>
 				<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
 					<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
@@ -58,19 +64,20 @@
 						language={data.entity.language}
 						languageSource={data.entity.languageSource}
 						canWrite={data.media.canWrite}
+						locale={data.locale}
 					/>
 					{#if data.entity.aliases.length > 0}
-						<span>also: {data.entity.aliases.join(', ')}</span>
+						<span>{t.entry.page.aliasesLabel(data.entity.aliases.join(', '))}</span>
 					{/if}
 				</div>
 			</div>
 			<div class="flex flex-none items-start gap-2">
-				<CompleteEntryControl aiEnabled={data.universe.aiEnabled} />
+				<CompleteEntryControl aiEnabled={data.universe.aiEnabled} locale={data.locale} />
 				<a
 					href={resolve(`/u/${data.universe.slug}/e/${data.entity.slug}/edit`)}
 					class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
 				>
-					Edit
+					{t.entry.page.editLink}
 				</a>
 			</div>
 		</div>
@@ -87,7 +94,7 @@
 			>
 				<span class="font-mono text-xs font-bold text-ai">{data.proposals.count}</span>
 				<span>
-					pending proposal{data.proposals.count === 1 ? '' : 's'} on this entry &middot; review
+					{t.entry.page.pendingProposalsText(data.proposals.count)}
 				</span>
 			</a>
 		{/if}
@@ -96,6 +103,7 @@
 			body={data.entity.body}
 			universeSlug={data.universe.slug}
 			mentionTargets={data.mentionTargets}
+			locale={data.locale}
 			{highlightSpan}
 			markedSentences={new Set(data.proposals.markedSentences)}
 		/>
@@ -124,5 +132,6 @@
 			portraitModel: data.media.generate.portrait.model,
 			variantsModel: data.media.generate.variants.model
 		}}
+		locale={data.locale}
 	/>
 </div>

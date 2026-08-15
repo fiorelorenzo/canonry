@@ -7,6 +7,7 @@
  */
 import { error } from '@sveltejs/kit';
 import { universeAccessBySlug, type UniverseAccess } from '@canonry/db';
+import { messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
 
 export interface TableAccess extends UniverseAccess {
@@ -15,17 +16,18 @@ export interface TableAccess extends UniverseAccess {
 
 interface GuardEvent {
 	params: { universe?: string };
-	locals: { user: { id: string } | null };
+	locals: { user: { id: string } | null; locale: Locale };
 }
 
 /** 404, never 401 - same reasoning as requireAdmin: a slug that does not exist and one
  * this account cannot see must be indistinguishable to the caller. */
 export async function requireTableAccess(event: GuardEvent): Promise<TableAccess> {
 	const universeSlug = event.params.universe;
-	if (!event.locals.user || !universeSlug) error(404, 'Not Found');
+	const notFound = messages(event.locals.locale).table.server.notFound;
+	if (!event.locals.user || !universeSlug) error(404, notFound);
 
 	const access = await universeAccessBySlug(db(), universeSlug, event.locals.user.id);
-	if (!access) error(404, 'Not Found');
+	if (!access) error(404, notFound);
 
 	return { ...access, userId: event.locals.user.id };
 }

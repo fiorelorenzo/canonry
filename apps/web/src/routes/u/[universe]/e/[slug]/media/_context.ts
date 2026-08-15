@@ -10,6 +10,7 @@ import { universeAccessBySlug, type Db } from '@canonry/db';
 // The enum's TypeScript type lives with the schema rather than on the query barrel, since
 // it is generated from the pgEnum itself.
 import type { UniverseMemberRole } from '@canonry/db/schema';
+import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 
 export interface MediaRequestContext {
@@ -31,18 +32,19 @@ export async function loadMediaContext(
 	universeSlug: string,
 	entitySlug: string
 ): Promise<MediaRequestContext> {
-	if (!locals.user) error(404, `No universe named "${universeSlug}"`);
+	if (!locals.user) error(404, messages(locals.locale).entry.errors.universeNotFound(universeSlug));
 
 	const conn = db();
 	const access = await universeAccessBySlug(conn, universeSlug, locals.user.id);
-	if (!access) error(404, `No universe named "${universeSlug}"`);
+	if (!access) error(404, messages(locals.locale).entry.errors.universeNotFound(universeSlug));
 	const world = access.universe;
 
 	const current = await conn.query.entity.findFirst({
 		where: (entity, { and, eq }) =>
 			and(eq(entity.universeId, world.id), eq(entity.slug, entitySlug))
 	});
-	if (!current) error(404, `No entry named "${entitySlug}" in ${world.name}`);
+	if (!current)
+		error(404, messages(locals.locale).entry.errors.entryNotFound(entitySlug, world.name));
 
 	return {
 		conn,
@@ -63,6 +65,6 @@ export async function loadMediaContext(
  * guardrail-adjacent principle applies to money too - only owner/editor may generate,
  * attach or edit a style override), matching the edit page's own 403-not-404 reasoning:
  * existence is not what is being hidden here. */
-export function requireWriter(role: UniverseMemberRole): void {
-	if (role === 'viewer') error(403, 'Viewers cannot generate or attach media');
+export function requireWriter(locals: App.Locals, role: UniverseMemberRole): void {
+	if (role === 'viewer') error(403, messages(locals.locale).entry.errors.viewerCannotGenerateMedia);
 }

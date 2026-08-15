@@ -7,24 +7,26 @@
 import { error, json } from '@sveltejs/kit';
 import { eq, universeAccessBySlug } from '@canonry/db';
 import { universe } from '@canonry/db/schema';
+import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { getImportJobRow, proposalsForImportJob } from '$lib/server/onboarding';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
-	if (!locals.user) error(401, 'sign in required');
+	const t = messages(locals.locale).import.job.errors;
+	if (!locals.user) error(401, t.signInRequired);
 
 	const job = await getImportJobRow(db(), params.job);
-	if (!job) error(404, 'no such import job');
+	if (!job) error(404, t.jobNotFound);
 
 	const [universeRow] = await db()
 		.select()
 		.from(universe)
 		.where(eq(universe.id, job.universeId))
 		.limit(1);
-	if (!universeRow) error(404, 'no such import job');
+	if (!universeRow) error(404, t.jobNotFound);
 	const access = await universeAccessBySlug(db(), universeRow.slug, locals.user.id);
-	if (!access) error(404, 'no such import job');
+	if (!access) error(404, t.jobNotFound);
 
 	const proposals = await proposalsForImportJob(db(), job.id);
 	return json({

@@ -8,7 +8,7 @@ describe('computeFilterBuckets', () => {
 			{ id: '2', filterType: 'place', outcome: 'accepted' },
 			{ id: '3', filterType: 'relation', outcome: 'rejected' }
 		];
-		const buckets = computeFilterBuckets(candidates);
+		const buckets = computeFilterBuckets(candidates, 'en');
 		expect(buckets[0]).toEqual({ type: null, label: 'All', total: 3, pending: 1 });
 	});
 
@@ -18,7 +18,7 @@ describe('computeFilterBuckets', () => {
 			{ id: '2', filterType: 'place', outcome: 'pending' },
 			{ id: '3', filterType: 'character', outcome: 'pending' }
 		];
-		const buckets = computeFilterBuckets(candidates);
+		const buckets = computeFilterBuckets(candidates, 'en');
 		expect(buckets.map((b) => b.type)).toEqual([null, 'character', 'place', 'relation']);
 	});
 
@@ -26,7 +26,7 @@ describe('computeFilterBuckets', () => {
 		const candidates: FilterCandidate[] = [
 			{ id: '1', filterType: 'character', outcome: 'pending' }
 		];
-		const buckets = computeFilterBuckets(candidates);
+		const buckets = computeFilterBuckets(candidates, 'en');
 		expect(buckets.some((b) => b.type === 'item')).toBe(false);
 	});
 
@@ -36,14 +36,14 @@ describe('computeFilterBuckets', () => {
 			{ id: '2', filterType: 'faction', outcome: 'accepted' },
 			{ id: '3', filterType: 'faction', outcome: 'rejected' }
 		];
-		const buckets = computeFilterBuckets(candidates);
+		const buckets = computeFilterBuckets(candidates, 'en');
 		const factions = buckets.find((b) => b.type === 'faction');
 		expect(factions).toEqual({ type: 'faction', label: 'Factions', total: 3, pending: 1 });
 	});
 
 	it('labels a type outside the known six-plus-relation set with the raw string, never drops it', () => {
 		const candidates: FilterCandidate[] = [{ id: '1', filterType: 'mystery', outcome: 'pending' }];
-		const buckets = computeFilterBuckets(candidates);
+		const buckets = computeFilterBuckets(candidates, 'en');
 		expect(buckets.find((b) => b.type === 'mystery')).toEqual({
 			type: 'mystery',
 			label: 'mystery',
@@ -53,6 +53,17 @@ describe('computeFilterBuckets', () => {
 	});
 
 	it('returns just the "All" bucket for an empty job', () => {
-		expect(computeFilterBuckets([])).toEqual([{ type: null, label: 'All', total: 0, pending: 0 }]);
+		expect(computeFilterBuckets([], 'en')).toEqual([
+			{ type: null, label: 'All', total: 0, pending: 0 }
+		]);
+	});
+
+	it('labels every chip in the requested locale (issue #121)', () => {
+		const candidates: FilterCandidate[] = [
+			{ id: '1', filterType: 'character', outcome: 'pending' },
+			{ id: '2', filterType: 'place', outcome: 'pending' }
+		];
+		const buckets = computeFilterBuckets(candidates, 'it');
+		expect(buckets.map((b) => b.label)).toEqual(['Tutti', 'Personaggi', 'Luoghi']);
 	});
 });

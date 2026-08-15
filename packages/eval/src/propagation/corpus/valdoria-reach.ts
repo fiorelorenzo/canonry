@@ -161,6 +161,43 @@ export const valdoriaReach: PropagationWorld = {
 			],
 			rationale:
 				'Cairnmouth starved because of this event, so a narrower dating changes its own account directly. Mother Sennah and Aldric Vane both anchor their backstory to this event ("through the Sable Winter", "in the thaw after"), so a timeline revision is worth flagging to them even though neither mentions the new detail. None of the Ledger, the magistrate, the tavern building or the Watch reference the timeline at all.'
+		},
+		{
+			// Issue #130, SPEC.md §17 rule three: the corpus's first case whose edit and whose
+			// expected propagation are on opposite sides of the language boundary. La Casa dei
+			// Mercanti is genuinely Italian (`detectLanguage` -> 'it', issue #122); the entry it
+			// must reach, The Ashen Ledger, is English. Nothing about `buildCandidatePool`
+			// (candidates.ts) is language-aware - it finds this the same way it finds any other
+			// forward mention, which is the whole point: a real graph does not need translation to
+			// propagate correctly, only a wikilink to an untranslated proper noun (SPEC.md §17:
+			// "Names are not translated, ever").
+			id: 'mercanti-buys-ashen-ledger-debt',
+			editSummary:
+				'La Casa dei Mercanti: since this winter, the House has started buying up debts The Ashen Ledger can no longer collect.',
+			editedEntitySlug: 'la-casa-dei-mercanti',
+			editedBody: `La Casa dei Mercanti tiene i suoi registri nel Quartiere della Lanterna, non lontano dal porto di [[Valdoria]]. Nessuno entra senza un debito da saldare o una lettera di credito da mostrare, e il vecchio Contabile non dimentica mai un nome.\n\n## Il libro nero\n\nOgni prestito che la Casa concede viene scritto due volte: una per il debitore, una per la cassa. [[The Ashen Ledger]] la considera una concorrente, mai un’alleata, e i loro uomini non bevono mai allo stesso tavolo.\n\nDa quest’inverno, la Casa compra i debiti che [[The Ashen Ledger]] non riesce più a riscuotere, pagando in argento e pretendendo silenzio in cambio.`,
+			expected: ['the-ashen-ledger'],
+			mustNotPropose: ['valdoria', 'the-gilded-rat', 'the-sable-winter', 'cairnmouth'],
+			rationale:
+				'The new paragraph names [[The Ashen Ledger]] directly and describes a competitive move against its own business - a rival buying up debt it can no longer collect is exactly the kind of change SPEC.md §5.1 expects to propagate, and it crosses from an Italian entry to an English one without anybody translating anything: the wikilink names the English entity by its own untranslated name, same as any other mention. Valdoria and the Gilded Rat are only reachable through the shared "located in" hub and have no stake in a lending dispute; the Sable Winter and Cairnmouth are unrelated history the edit never touches.'
+		},
+		{
+			// Issue #130: the reverse direction - an English entry edited, an Italian entry
+			// expected back. La Casa dei Mercanti is reachable two ways at once here: forward,
+			// because the new English sentence names it by its own untranslated name, and reverse,
+			// because its own Italian body already names The Ashen Ledger back (issue #122's
+			// rivalry line) - either mechanism alone would have found it, which is the point: this
+			// is not a fragile case that depends on one lucky wikilink.
+			id: 'ashen-ledger-undercuts-mercanti',
+			editSummary:
+				'The Ashen Ledger: this season it started underbidding La Casa dei Mercanti on every loan the Lantern Quarter offers.',
+			editedEntitySlug: 'the-ashen-ledger',
+			editedBody:
+				'A merchant bank that lends at knife point and keeps better records than the magistrate. This season it has started underbidding La Casa dei Mercanti on every loan the Lantern Quarter offers, silver rate included.',
+			expected: ['la-casa-dei-mercanti'],
+			mustNotPropose: ['iselde-wrenn', 'the-valdoria-watch', 'the-sable-winter', 'cairnmouth'],
+			rationale:
+				"Iselde Wrenn and the Watch are only two hops away through Aldric Vane's own relations and have no stake in a lending rate; the Sable Winter and Cairnmouth are unrelated history the edit never touches. La Casa dei Mercanti has no such distance to explain away: its own name is used, untranslated, in the new sentence, and its own body already names The Ashen Ledger back, so a selector that ignored language entirely still finds it twice over."
 		}
 	]
 };

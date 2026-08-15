@@ -1,9 +1,14 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { dateFormat, messages } from '$lib/i18n';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	let t = $derived(messages(data.locale).settings.keys);
+
+	// Provider names (OpenAI, Anthropic, Google, Groq, Mistral) are proper nouns and stay
+	// out of the catalogue.
 	const PROVIDER_LABEL: Record<string, string> = {
 		openai: 'OpenAI',
 		anthropic: 'Anthropic',
@@ -16,7 +21,9 @@
 		return PROVIDER_LABEL[provider] ?? provider;
 	}
 
-	const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+	let keyDateFormat = $derived(
+		dateFormat(data.locale, { dateStyle: 'medium', timeStyle: 'short' })
+	);
 
 	function keyFor(provider: string) {
 		return data.signedIn ? data.keys.find((key) => key.provider === provider) : undefined;
@@ -35,41 +42,36 @@
 </script>
 
 <svelte:head>
-	<title>API keys: Canonry</title>
+	<title>{t.title}: Canonry</title>
 </svelte:head>
 
 <main id="main" class="mx-auto max-w-measure px-8 py-10">
-	<a href={resolve('/')} class="text-sm text-accent hover:underline">&larr; Universes</a>
+	<a href={resolve('/')} class="text-sm text-accent hover:underline"
+		>{messages(data.locale).settings.backToUniverses}</a
+	>
 
-	<h1 class="mt-4 text-2xl font-semibold text-ink">API keys</h1>
+	<h1 class="mt-4 text-2xl font-semibold text-ink">{t.title}</h1>
 
 	<!-- F3 = C's contextual sentence, in its B home (docs/ux/f3-privacy-and-keys.html: "C for
 	     the sentence itself... every one-liner links to B, the settings panel"). Says plainly
 	     what turning a key on changes and what it does not (SPEC.md §15, decision F3). -->
 	<div class="mt-4 max-w-xl rounded-lg border border-line-2 bg-panel-2 p-4 text-sm text-ink-2">
 		<p class="mt-0">
-			Bring your own key to use your own provider account instead of ours. <strong class="text-ink"
-				>Off by default, for every provider, until you add one</strong
-			> - SPEC.md §15 never makes this the default path.
+			{t.infoPara1Before}<strong class="text-ink">{t.infoPara1Bold}</strong>{t.infoPara1After}
 		</p>
 		<p class="mt-3 mb-0">
-			<strong class="text-ink">What changes:</strong> a call routed on your key stops drawing on your
-			included quota or your warm budget, and your own provider's rate limits apply instead of ours.
+			<strong class="text-ink">{t.infoPara2Bold}</strong>{t.infoPara2After}
 		</p>
 		<p class="mt-2 mb-0">
-			<strong class="text-ink">What does not:</strong> model routing is unchanged (the same
-			cheap-model-for-candidates, premium-for-diffs split runs on your key exactly as on ours), the
-			call still goes through our gateway so logging and cost accounting stay uniform, and generated
-			content still carries the same authorship marking and the same privacy rules regardless of
-			whose key paid for it.
-			<a href={resolve('/privacy')} class="text-accent hover:underline">Full policy</a>.
+			<strong class="text-ink">{t.infoPara3Bold}</strong>{t.infoPara3After}
+			<a href={resolve('/privacy')} class="text-accent hover:underline">{t.infoPara3Link}</a>.
 		</p>
 	</div>
 
 	{#if !data.signedIn}
 		<p class="mt-6 max-w-measure text-sm text-ink-2">
-			<a href={resolve('/auth/sign-in')} class="text-accent hover:underline">Sign in</a> to configure
-			a key.
+			<a href={resolve('/auth/sign-in')} class="text-accent hover:underline">{t.signInLink}</a>
+			{t.signInPrompt}
 		</p>
 	{:else}
 		<div class="mt-8 flex flex-col gap-4">
@@ -93,7 +95,7 @@
 								class:bg-panel-2={!key.active}
 								class:text-muted={!key.active}
 							>
-								{key.active ? 'Active' : 'Off'}
+								{key.active ? t.activeBadge : t.offBadge}
 							</span>
 						{/if}
 					</div>
@@ -102,16 +104,16 @@
 						<div class="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs text-ink-2">
 							<span
 								class="rounded border border-line-2 bg-panel-2 px-2 py-1"
-								aria-label="Key ending in {key.lastFour}"
+								aria-label={t.keyEndingIn(key.lastFour)}
 							>
 								&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;{key.lastFour}
 							</span>
 							<span class="text-muted">
-								added {dateFormat.format(new Date(key.createdAt))}
+								{t.addedOn(keyDateFormat.format(new Date(key.createdAt)))}
 								{#if key.lastUsedAt}
-									&middot; last used {dateFormat.format(new Date(key.lastUsedAt))}
+									&middot; {t.lastUsedOn(keyDateFormat.format(new Date(key.lastUsedAt)))}
 								{:else}
-									&middot; never used yet
+									&middot; {t.neverUsedYet}
 								{/if}
 							</span>
 						</div>
@@ -124,7 +126,7 @@
 									type="submit"
 									class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink hover:border-accent"
 								>
-									{key.active ? 'Turn off' : 'Turn on'}
+									{key.active ? t.turnOff : t.turnOn}
 								</button>
 							</form>
 							<form method="POST" action="?/remove">
@@ -133,7 +135,7 @@
 									type="submit"
 									class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-danger hover:border-danger"
 								>
-									Forget this key
+									{t.forgetKey}
 								</button>
 							</form>
 						</div>
@@ -142,12 +144,12 @@
 					<form method="POST" action="?/add" class="mt-3 flex flex-wrap items-end gap-2">
 						<input type="hidden" name="provider" value={provider} />
 						<label class="flex flex-1 flex-col gap-1">
-							<span class="text-xs text-muted">{key ? 'Replace key' : 'Add key'}</span>
+							<span class="text-xs text-muted">{key ? t.replaceKeyLabel : t.addKeyLabel}</span>
 							<input
 								type="password"
 								name="apiKey"
 								autocomplete="off"
-								placeholder="{labelFor(provider)} API key"
+								placeholder={t.apiKeyPlaceholder(labelFor(provider))}
 								class="min-w-0 rounded border border-line-2 bg-panel px-2 py-1.5 text-sm text-ink"
 							/>
 						</label>
@@ -155,7 +157,7 @@
 							type="submit"
 							class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:bg-accent-ink"
 						>
-							{key ? 'Replace' : 'Save'}
+							{key ? t.replaceButton : t.saveButton}
 						</button>
 					</form>
 
@@ -163,7 +165,7 @@
 						<p class="mt-2 text-xs text-danger">{errorHere}</p>
 					{:else if lastFourHere}
 						<p class="mt-2 text-xs text-ok">
-							Saved - only the last four characters (&hellip;{lastFourHere}) are ever shown again.
+							{t.savedConfirmation(lastFourHere)}
 						</p>
 					{/if}
 				</section>

@@ -6,17 +6,12 @@
 	 * the entry itself, never here.
 	 */
 	import { resolve } from '$app/paths';
+	import { dateFormat, messages } from '$lib/i18n';
 	import MarkdownEditor from '$lib/components/entry/MarkdownEditor.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
-
-	const KIND_LABELS: Record<string, string> = {
-		act: 'Act',
-		chapter: 'Chapter',
-		scene: 'Scene',
-		encounter: 'Encounter'
-	};
+	let t = $derived(messages(data.locale));
 
 	// svelte-ignore state_referenced_locally
 	let title = $state(data.node.title);
@@ -25,7 +20,7 @@
 
 	function formatWhen(value: string | Date): string {
 		const date = typeof value === 'string' ? new Date(value) : value;
-		return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+		return dateFormat(data.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 	}
 </script>
 
@@ -43,14 +38,14 @@
 
 		<div class="mb-4 flex items-center gap-2">
 			<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
-				{KIND_LABELS[data.node.kind] ?? data.node.kind}
+				{t.works.kinds[data.node.kind] ?? data.node.kind}
 			</span>
 			<form method="POST" action="?/moveUp">
 				<button
 					type="submit"
 					class="rounded-md border border-line-2 px-2 py-1 text-xs text-ink-2 hover:bg-panel-2"
 				>
-					&uarr; Move up
+					{t.works.node.moveUp}
 				</button>
 			</form>
 			<form method="POST" action="?/moveDown">
@@ -58,14 +53,14 @@
 					type="submit"
 					class="rounded-md border border-line-2 px-2 py-1 text-xs text-ink-2 hover:bg-panel-2"
 				>
-					&darr; Move down
+					{t.works.node.moveDown}
 				</button>
 			</form>
 		</div>
 
 		<form method="POST" action="?/save">
 			<label class="mb-3 block">
-				<span class="sr-only">Title</span>
+				<span class="sr-only">{t.works.node.titleSrLabel}</span>
 				<input
 					name="title"
 					bind:value={title}
@@ -73,7 +68,7 @@
 					class="w-full border-0 border-b border-line-2 bg-transparent px-0 py-1 text-2xl font-semibold text-ink outline-none focus:border-accent"
 				/>
 			</label>
-			<MarkdownEditor bind:value={body} targets={data.mentionTargets} />
+			<MarkdownEditor bind:value={body} targets={data.mentionTargets} locale={data.locale} />
 			<input type="hidden" name="body" value={body} />
 			{#if form?.message}
 				<p class="mt-2 text-sm text-danger">{form.message}</p>
@@ -83,18 +78,18 @@
 					type="submit"
 					class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-panel hover:opacity-90"
 				>
-					Save
+					{t.works.node.save}
 				</button>
 			</div>
 		</form>
 
 		<details class="mt-8 border-t border-line pt-4">
 			<summary class="cursor-pointer text-xs font-semibold tracking-wide text-muted uppercase">
-				Add a node under {data.node.title}
+				{t.works.node.addChildSummary(data.node.title)}
 			</summary>
 			<form method="POST" action="?/addChild" class="mt-3 flex max-w-sm flex-col gap-3">
 				<label class="flex flex-col gap-1 text-sm text-ink-2">
-					Title
+					{t.works.node.titleLabel}
 					<input
 						name="title"
 						required
@@ -102,12 +97,12 @@
 					/>
 				</label>
 				<label class="flex flex-col gap-1 text-sm text-ink-2">
-					Kind
+					{t.works.node.kindLabel}
 					<select
 						name="kind"
 						class="rounded-md border border-line-2 bg-panel px-3 py-1.5 text-sm text-ink"
 					>
-						{#each Object.entries(KIND_LABELS) as [value, label] (value)}
+						{#each Object.entries(t.works.kinds) as [value, label] (value)}
 							<option {value}>{label}</option>
 						{/each}
 					</select>
@@ -116,16 +111,18 @@
 					type="submit"
 					class="w-fit rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
 				>
-					Add node
+					{t.works.node.addNodeButton}
 				</button>
 			</form>
 		</details>
 	</article>
 
 	<aside class="w-60 flex-none border-l border-line bg-panel-2 p-4">
-		<h2 class="text-xs font-semibold tracking-wide text-muted uppercase">Uses</h2>
+		<h2 class="text-xs font-semibold tracking-wide text-muted uppercase">
+			{t.works.node.usesHeading}
+		</h2>
 		{#if data.uses.length === 0}
-			<p class="mt-2 text-sm text-muted">No entries mentioned yet.</p>
+			<p class="mt-2 text-sm text-muted">{t.works.node.noUses}</p>
 		{:else}
 			<ul class="mt-2 flex flex-col gap-2">
 				{#each data.uses as use (use.entityId)}
@@ -151,14 +148,14 @@
 						</div>
 						{#if use.fresh}
 							<p class="mt-1 font-mono text-[11px] text-ai">
-								changed {formatWhen(use.changedAt)}
+								{t.works.node.changedAt(formatWhen(use.changedAt))}
 							</p>
 						{/if}
 					</li>
 				{/each}
 			</ul>
 			<p class="mt-3 text-xs text-muted">
-				Open an entry to read what changed. Accepting a propagation happens there, or in Review.
+				{t.works.node.usesHint}
 			</p>
 		{/if}
 	</aside>

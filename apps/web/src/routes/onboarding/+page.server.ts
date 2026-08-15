@@ -4,6 +4,7 @@
  * start from the pre-indexed universe (D7's real fallback, not an inert link).
  */
 import { fail, redirect } from '@sveltejs/kit';
+import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import {
 	createOnboardingUniverse,
@@ -33,7 +34,7 @@ export const actions: Actions = {
 			created = await createOnboardingUniverse(db(), { userId, name, kind: 'homebrew' });
 		} catch (err) {
 			if (err instanceof UniverseNameRequiredError) {
-				return fail(400, { error: 'Name your universe first.', name });
+				return fail(400, { error: messages(locals.locale).import.start.errors.nameRequired, name });
 			}
 			throw err;
 		}
@@ -50,7 +51,7 @@ export const actions: Actions = {
 		const base = await findPreIndexedBaseUniverse(database);
 		if (!base) {
 			return fail(400, {
-				error: 'No pre-indexed universe is configured on this deployment yet.',
+				error: messages(locals.locale).import.start.preindexedCard.notConfigured,
 				name
 			});
 		}
@@ -65,7 +66,7 @@ export const actions: Actions = {
 			});
 		} catch (err) {
 			if (err instanceof UniverseNameRequiredError) {
-				return fail(400, { error: 'Name your universe first.', name });
+				return fail(400, { error: messages(locals.locale).import.start.errors.nameRequired, name });
 			}
 			throw err;
 		}

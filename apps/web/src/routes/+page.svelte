@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import Mark from '$lib/components/brand/Mark.svelte';
+	import { messages } from '$lib/i18n';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	const t = $derived(messages(data.locale));
 </script>
 
 <svelte:head>
@@ -18,11 +21,12 @@
 
 	{#if !data.user}
 		<p class="mt-2 max-w-measure text-sm text-ink-2">
-			<a href={resolve('/auth/sign-in')} class="text-accent hover:underline">Sign in</a> to see your universes.
+			<a href={resolve('/auth/sign-in')} class="text-accent hover:underline">{t.shell.signIn}</a>
+			{t.universe.list.signInPrompt}
 		</p>
 	{:else if data.universes.length === 0}
 		<p class="mt-2 max-w-measure text-sm text-ink-2">
-			No universes yet - yours, or one you were added to, will show up here.
+			{t.universe.list.empty}
 		</p>
 	{:else}
 		<ul class="mt-8 flex flex-col gap-3">
@@ -42,10 +46,9 @@
 						</div>
 						<p class="mt-1 text-sm text-ink-2">
 							{#if universe.baseUniverseName}
-								Derived from {universe.baseUniverseName} &middot;
+								{t.universe.switcher.derivedFrom(universe.baseUniverseName)} &middot;
 							{/if}
-							{universe.entityCount}
-							{universe.entityCount === 1 ? 'entry' : 'entries'}
+							{t.universe.switcher.entryCount(universe.entityCount)}
 						</p>
 					</a>
 				</li>
@@ -57,6 +60,6 @@
 		href={resolve('/settings/appearance')}
 		class="mt-10 inline-block text-sm text-accent hover:underline"
 	>
-		Appearance settings
+		{t.universe.list.appearanceSettingsLink}
 	</a>
 </main>

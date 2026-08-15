@@ -79,31 +79,37 @@ describe('metrics queries', () => {
 			expect(rows).toEqual([]);
 		});
 
-		it('carries outcome, kind and model for every proposal in the window, pending and superseded included', async () => {
+		it('carries outcome, kind, model and locale for every proposal in the window, pending and superseded included', async () => {
 			const u = await insertHomebrewUniverse(db);
 			await insertProposal({
 				universeId: u.id,
 				outcome: 'accepted',
 				kind: 'update',
-				modelId: 'gpt-a'
+				modelId: 'gpt-a',
+				locale: 'en'
 			});
 			await insertProposal({
 				universeId: u.id,
 				outcome: 'rejected',
 				kind: 'update',
-				modelId: 'gpt-a'
+				modelId: 'gpt-a',
+				locale: 'it'
 			});
 			await insertProposal({
 				universeId: u.id,
 				outcome: 'pending',
 				kind: 'create',
-				modelId: 'gpt-b'
+				modelId: 'gpt-b',
+				locale: 'it'
 			});
+			// issue #128: a row written before issue #124 has no recorded locale at all - carried
+			// through as null, never coerced to a guessed value.
 			await insertProposal({
 				universeId: u.id,
 				outcome: 'superseded',
 				kind: 'relation',
-				modelId: null
+				modelId: null,
+				locale: null
 			});
 
 			const rows = await proposalOutcomesForMetrics(db, { universeId: u.id, sinceDays: 0 });
@@ -117,6 +123,10 @@ describe('metrics queries', () => {
 			]);
 			expect(rows.find((r) => r.outcome === 'accepted')?.modelId).toBe('gpt-a');
 			expect(rows.find((r) => r.outcome === 'pending')?.modelId).toBe('gpt-b');
+			expect(rows.find((r) => r.outcome === 'accepted')?.locale).toBe('en');
+			expect(rows.find((r) => r.outcome === 'rejected')?.locale).toBe('it');
+			expect(rows.find((r) => r.outcome === 'pending')?.locale).toBe('it');
+			expect(rows.find((r) => r.outcome === 'superseded')?.locale).toBeNull();
 		});
 
 		it('excludes proposals older than the requested window', async () => {

@@ -5,16 +5,25 @@
 	 * that short version links to for the full detail, so it is written for the GM
 	 * reading it, not for another engineer, and it says "we do not know yet" where
 	 * that is the honest answer (SPEC.md §16, open decision 2) instead of a number
-	 * this repo cannot back up. */
+	 * this repo cannot back up.
+	 *
+	 * Issue #121's sweep localizes only the DocPage chrome (`docs.privacy`): this is a
+	 * legal/product document, and machine-rewriting the long-form prose body below
+	 * risks changing what it actually promises, so the body stays English. */
 	import { resolve } from '$app/paths';
 	import DocPage from '$lib/components/docs/DocPage.svelte';
+	import { messages } from '$lib/i18n';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+	let t = $derived(messages(data.locale).docs.privacy);
 </script>
 
 <svelte:head>
-	<title>Where your campaign's words go: Canonry</title>
+	<title>{t.title}: Canonry</title>
 </svelte:head>
 
-<DocPage title="Where your campaign's words go" backHref={resolve('/')} backLabel="Universes">
+<DocPage title={t.title} backHref={resolve('/')} backLabel={t.backLabel}>
 	<p>
 		Canonry uses AI in a few places: answering questions about your canon, drafting updates when
 		something changes, generating images, and reading your files during an import. This page says

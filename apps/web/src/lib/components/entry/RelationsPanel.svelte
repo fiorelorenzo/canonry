@@ -7,13 +7,19 @@
 	 * propagation lands, a pending row belongs in this same panel, not a new one.
 	 */
 	import { resolve } from '$app/paths';
+	import { messages, type Locale } from '$lib/i18n';
 	import type { RelationView } from '@canonry/db';
 
-	let { relations, universeSlug }: { relations: RelationView[]; universeSlug: string } = $props();
+	let {
+		relations,
+		universeSlug,
+		locale
+	}: { relations: RelationView[]; universeSlug: string; locale: Locale } = $props();
+	let t = $derived(messages(locale));
 </script>
 
 {#if relations.length === 0}
-	<p class="text-sm text-muted">No relations recorded yet.</p>
+	<p class="text-sm text-muted">{t.entry.relations.empty}</p>
 {:else}
 	<ul class="space-y-2.5">
 		{#each relations as relation (relation.label + relation.other.id)}

@@ -6,7 +6,9 @@ describe('normalizeEvidence', () => {
 		const { views, forceOpen } = normalizeEvidence('save', [
 			{ kind: 'relation', hops: 1, path: ['commands'] }
 		]);
-		expect(views).toEqual([{ quote: null, reason: 'relation commands, 1-hop' }]);
+		expect(views).toEqual([
+			{ quote: null, reason: { kind: 'relation', path: ['commands'], hops: 1 } }
+		]);
 		expect(forceOpen).toBe(false);
 	});
 
@@ -22,7 +24,7 @@ describe('normalizeEvidence', () => {
 		expect(views).toEqual([
 			{
 				quote: 'the watch is his to command',
-				reason: 'forward mention ("the watch")'
+				reason: { kind: 'mention', direction: 'forward', matchedText: 'the watch' }
 			}
 		]);
 	});
@@ -32,9 +34,8 @@ describe('normalizeEvidence', () => {
 			{ kind: 'embedding', similarity: 0.81, sourceSentence: 'felt the same thaw' }
 		]);
 		expect(forceOpen).toBe(true);
-		expect(views[0]?.reason).toBe('similar wording only, no graph link');
-		// Never a bare confidence number in the reason text.
-		expect(views[0]?.reason).not.toMatch(/\d/);
+		// Structured, not a formatted sentence - never a bare confidence number in the reason.
+		expect(views[0]?.reason).toEqual({ kind: 'embedding' });
 	});
 
 	it('does not force evidence open when a relation or mention backs the same candidate too', () => {
@@ -53,7 +54,9 @@ describe('normalizeEvidence', () => {
 			similarity: null,
 			ambiguousCandidateIds: []
 		});
-		expect(views).toEqual([{ quote: null, reason: 'extracted from "places/sable-reach.md"' }]);
+		expect(views).toEqual([
+			{ quote: null, reason: { kind: 'importExtracted', path: 'places/sable-reach.md' } }
+		]);
 		expect(forceOpen).toBe(false);
 	});
 
@@ -64,9 +67,11 @@ describe('normalizeEvidence', () => {
 			ambiguousCandidateIds: ['a', 'b']
 		});
 		expect(forceOpen).toBe(true);
-		expect(views[0]?.reason).toBe(
-			'ambiguous match in "characters/aldric.md", against 2 existing entries'
-		);
+		expect(views[0]?.reason).toEqual({
+			kind: 'importAmbiguous',
+			path: 'characters/aldric.md',
+			count: 2
+		});
 	});
 
 	it('returns nothing for unrecognised evidence rather than guessing', () => {

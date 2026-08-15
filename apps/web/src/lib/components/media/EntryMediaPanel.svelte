@@ -12,6 +12,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
+	import { messages, type Locale } from '$lib/i18n';
 	import type { ImageFeature } from '@canonry/db/schema';
 	import GenerateDialog from './GenerateDialog.svelte';
 
@@ -38,7 +39,8 @@
 		portraitPrice,
 		variantsPrice,
 		portraitModel,
-		variantsModel
+		variantsModel,
+		locale
 	}: {
 		universeSlug: string;
 		entitySlug: string;
@@ -53,7 +55,9 @@
 		variantsPrice: number;
 		portraitModel: ModelSummary;
 		variantsModel: ModelSummary;
+		locale: Locale;
 	} = $props();
+	let t = $derived(messages(locale));
 
 	let base = $derived(resolve(`/u/${universeSlug}/e/${entitySlug}/media`));
 
@@ -95,7 +99,7 @@
 			});
 			if (!res.ok) {
 				const text = await res.text();
-				throw new Error(text || `Generation failed (${res.status})`);
+				throw new Error(text || t.entry.media.genericGenerationFailedWithStatus(res.status));
 			}
 			const data = (await res.json()) as {
 				reusedFromCache: boolean;
@@ -106,7 +110,7 @@
 			selectedCandidateId = data.assets[0]?.id ?? null;
 			dialogOpen = false;
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Generation failed';
+			error = err instanceof Error ? err.message : t.entry.media.genericGenerationFailed;
 		} finally {
 			generating = false;
 		}
@@ -124,7 +128,7 @@
 			});
 			if (!res.ok) {
 				const text = await res.text();
-				throw new Error(text || `Insert failed (${res.status})`);
+				throw new Error(text || t.entry.media.genericInsertFailedWithStatus(res.status));
 			}
 			// `assets` is derived from the `assets` prop (see its declaration above), so
 			// there is nothing to push locally here - awaiting `invalidateAll()` below is
@@ -134,7 +138,7 @@
 			selectedCandidateId = null;
 			await invalidateAll();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Insert failed';
+			error = err instanceof Error ? err.message : t.entry.media.genericInsertFailed;
 		} finally {
 			inserting = false;
 		}
@@ -154,11 +158,11 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ modifier: styleDraft })
 			});
-			if (!res.ok) throw new Error(`Saving the style override failed (${res.status})`);
+			if (!res.ok) throw new Error(t.entry.media.styleSaveFailedWithStatus(res.status));
 			styleEditorOpen = false;
 			await invalidateAll();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Saving the style override failed';
+			error = err instanceof Error ? err.message : t.entry.media.genericStyleSaveFailed;
 		} finally {
 			savingStyle = false;
 		}
@@ -167,8 +171,7 @@
 
 {#if !aiEnabled}
 	<p class="rounded-md border border-line bg-panel-2 px-3 py-2 text-sm text-ink-2">
-		Generation is switched off for this universe. Existing images below still show, but nothing new
-		can be generated until it is turned back on.
+		{t.entry.media.aiOffBanner}
 	</p>
 {/if}
 
@@ -181,8 +184,7 @@
 {#if candidates.length > 0}
 	<div class="mt-3 rounded-md border border-line bg-panel-2 p-3">
 		<p class="text-xs text-ink-2">
-			{reusedFromCache ? 'Reused from the similarity cache - not charged.' : 'Generated:'}
-			{candidates.length > 1 ? 'pick one to insert.' : ''}
+			{t.entry.media.candidatesSummary(reusedFromCache, candidates.length > 1)}
 		</p>
 		<div class="mt-2 grid grid-cols-2 gap-2">
 			{#each candidates as candidate (candidate.id)}
@@ -204,21 +206,21 @@
 				disabled={!selectedCandidateId || inserting}
 				onclick={handleInsert}
 			>
-				{inserting ? 'Inserting…' : 'Insert'}
+				{inserting ? t.entry.media.inserting : t.entry.media.insert}
 			</button>
 			<button
 				type="button"
 				class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
 				onclick={discardCandidates}
 			>
-				Discard
+				{t.entry.media.discard}
 			</button>
 		</div>
 	</div>
 {/if}
 
 {#if assets.length === 0 && candidates.length === 0}
-	<p class="text-sm text-muted">No images yet.</p>
+	<p class="text-sm text-muted">{t.entry.media.empty}</p>
 {:else if assets.length > 0}
 	<div class="mt-2 grid grid-cols-2 gap-2">
 		{#each assets as asset (asset.id)}
@@ -228,13 +230,13 @@
 					<span
 						class="absolute top-1 left-1 rounded-full border border-ai-line bg-ai-bg px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ai uppercase"
 					>
-						Generated
+						{t.entry.media.generatedBadge}
 					</span>
 				{/if}
 			</div>
 		{/each}
 	</div>
-	<p class="mt-1 text-xs text-muted">Private - not shown to players until you reveal this entry.</p>
+	<p class="mt-1 text-xs text-muted">{t.entry.media.privateNote}</p>
 {/if}
 
 {#if canWrite}
@@ -244,13 +246,13 @@
 		disabled={!aiEnabled}
 		onclick={() => (dialogOpen = true)}
 	>
-		Generate image
+		{t.entry.media.generateButton}
 	</button>
 
 	{#if styleEditorOpen}
 		<div class="mt-3 rounded-md border border-line bg-panel-2 p-3">
 			<label class="block text-xs font-medium text-ink-2" for="style-override">
-				Style override for this entry (leave blank to use the universe style)
+				{t.entry.media.styleOverrideLabel}
 			</label>
 			<textarea
 				id="style-override"
@@ -265,14 +267,14 @@
 					disabled={savingStyle}
 					onclick={saveStyle}
 				>
-					Save
+					{t.entry.media.save}
 				</button>
 				<button
 					type="button"
 					class="rounded-md border border-line-2 px-2.5 py-1 text-xs text-ink-2 hover:bg-panel-2"
 					onclick={() => (styleEditorOpen = false)}
 				>
-					Cancel
+					{t.entry.media.cancel}
 				</button>
 			</div>
 		</div>
@@ -293,5 +295,6 @@
 			styleDraft = entityImagePromptModifier ?? '';
 			styleEditorOpen = true;
 		}}
+		{locale}
 	/>
 {/if}

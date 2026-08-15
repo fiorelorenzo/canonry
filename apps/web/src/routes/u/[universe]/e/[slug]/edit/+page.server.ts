@@ -1,5 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { type Db, historyFor, saveEntityBody, universeAccessBySlug } from '@canonry/db';
+import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { scheduleCanonSaveJob } from '$lib/server/jobs';
 import { normalizeMentions } from '$lib/markdown';
@@ -14,18 +15,19 @@ import type { Actions, PageServerLoad } from './$types';
  * page view, so it is re-checked here rather than assumed.
  */
 async function loadUniverseAndEntity(locals: App.Locals, universeSlug: string, entitySlug: string) {
-	if (!locals.user) error(404, `No universe named "${universeSlug}"`);
+	if (!locals.user) error(404, messages(locals.locale).entry.errors.universeNotFound(universeSlug));
 
 	const conn = db();
 	const access = await universeAccessBySlug(conn, universeSlug, locals.user.id);
-	if (!access) error(404, `No universe named "${universeSlug}"`);
+	if (!access) error(404, messages(locals.locale).entry.errors.universeNotFound(universeSlug));
 	const world = access.universe;
 
 	const current = await conn.query.entity.findFirst({
 		where: (entity, { and, eq }) =>
 			and(eq(entity.universeId, world.id), eq(entity.slug, entitySlug))
 	});
-	if (!current) error(404, `No entry named "${entitySlug}" in ${world.name}`);
+	if (!current)
+		error(404, messages(locals.locale).entry.errors.entryNotFound(entitySlug, world.name));
 
 	return { conn, world, current, role: access.role, userId: locals.user.id };
 }
@@ -68,12 +70,12 @@ export const actions: Actions = {
 		);
 		// A viewer can see this page (the layout already let them in) but may not write
 		// to it - a 403, not a 404, since existence is not what is being hidden here.
-		if (role === 'viewer') error(403, 'Viewers cannot edit entries');
+		if (role === 'viewer') error(403, messages(locals.locale).entry.errors.viewerCannotEdit);
 
 		const form = await request.formData();
 		const rawBody = form.get('body');
 		if (typeof rawBody !== 'string') {
-			return fail(400, { message: 'Missing body' });
+			return fail(400, { message: messages(locals.locale).entry.errors.missingBody });
 		}
 
 		// Browsers normalise a form field's newlines to CRLF on submission (the HTML spec's

@@ -5,6 +5,7 @@
  */
 import { error } from '@sveltejs/kit';
 import { mediaAssetById } from '@canonry/db';
+import { messages } from '$lib/i18n';
 import { mediaStorage } from '$lib/server/media';
 import type { RequestHandler } from './$types';
 import { loadMediaContext } from '../_context.js';
@@ -14,7 +15,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
 	const asset = await mediaAssetById(context.conn, params.id);
 	if (!asset || asset.universeId !== context.universe.id) {
-		error(404, 'No such image in this universe');
+		error(404, messages(locals.locale).entry.errors.noSuchImage);
 	}
 
 	const bytes = await mediaStorage().read(asset.path);

@@ -10,6 +10,7 @@
  * type comes from its patch, since it has no target entity yet), and that is the only
  * place worth trusting it.
  */
+import { messages, type Locale } from '$lib/i18n';
 
 export interface FilterCandidate {
 	id: string;
@@ -29,16 +30,6 @@ export interface FilterBucket {
 	pending: number;
 }
 
-const BUCKET_LABELS: Record<string, string> = {
-	character: 'Characters',
-	place: 'Places',
-	faction: 'Factions',
-	item: 'Items',
-	event: 'Events',
-	session: 'Sessions',
-	relation: 'Relations'
-};
-
 /** SPEC.md §4.2's own order ("character, place, faction, item, event, session"), relations
  * last - matches the D4 mock's own chip order (docs/ux/d4-import-review.html). */
 const BUCKET_ORDER = ['character', 'place', 'faction', 'item', 'event', 'session', 'relation'];
@@ -49,12 +40,17 @@ const BUCKET_ORDER = ['character', 'place', 'faction', 'item', 'event', 'session
  * set (should never happen - `resolveCandidates` only ever writes those seven - but
  * `filterType` is a plain string here, not the enum, so this stays defensive) still gets
  * a chip, appended after the known ones, labelled with the raw string rather than
- * silently dropping a proposal nobody could otherwise reach. */
-export function computeFilterBuckets(candidates: FilterCandidate[]): FilterBucket[] {
+ * silently dropping a proposal nobody could otherwise reach. `locale` picks which
+ * language `proposals.filterBuckets` labels every chip in (issue #121). */
+export function computeFilterBuckets(
+	candidates: FilterCandidate[],
+	locale: Locale
+): FilterBucket[] {
+	const bucketLabels: Record<string, string> = messages(locale).proposals.filterBuckets;
 	const buckets: FilterBucket[] = [
 		{
 			type: null,
-			label: 'All',
+			label: bucketLabels.all,
 			total: candidates.length,
 			pending: candidates.filter((c) => c.outcome === 'pending').length
 		}
@@ -66,7 +62,7 @@ export function computeFilterBuckets(candidates: FilterCandidate[]): FilterBucke
 		if (matching.length === 0) continue;
 		buckets.push({
 			type,
-			label: BUCKET_LABELS[type] ?? type,
+			label: bucketLabels[type] ?? type,
 			total: matching.length,
 			pending: matching.filter((c) => c.outcome === 'pending').length
 		});

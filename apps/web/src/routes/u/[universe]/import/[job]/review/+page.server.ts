@@ -28,6 +28,7 @@
 import { error, fail } from '@sveltejs/kit';
 import { universeAccessBySlug } from '@canonry/db';
 import { acceptImportProposal, type AcceptImportProposalInput } from '@canonry/import';
+import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import {
 	importJobDetailFor,
@@ -46,12 +47,13 @@ import { computeFilterBuckets, type FilterCandidate } from '$lib/components/prop
 import type { Actions, PageServerLoad } from './$types';
 
 async function loadJob(locals: App.Locals, universeSlug: string, jobId: string) {
-	if (!locals.user) error(404, `No universe named "${universeSlug}"`);
+	const t = messages(locals.locale).import.review.errors;
+	if (!locals.user) error(404, t.universeNotFound(universeSlug));
 	const conn = db();
 	const access = await universeAccessBySlug(conn, universeSlug, locals.user.id);
-	if (!access) error(404, `No universe named "${universeSlug}"`);
+	if (!access) error(404, t.universeNotFound(universeSlug));
 	const detail = await importJobDetailFor(conn, access.universe.id, jobId);
-	if (!detail) error(404, `No import job "${jobId}" in ${access.universe.name}`);
+	if (!detail) error(404, t.jobNotFound(jobId, access.universe.name));
 	return { conn, access, detail, userId: locals.user.id };
 }
 
@@ -99,18 +101,19 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		},
 		candidates: enrichCandidates(detail.candidates),
 		filterTypeById: Object.fromEntries(detail.candidates.map((c) => [c.proposal.id, c.filterType])),
-		buckets: computeFilterBuckets(filterCandidates)
+		buckets: computeFilterBuckets(filterCandidates, locals.locale)
 	};
 };
 
 export const actions: Actions = {
 	accept: async ({ request, params, locals }) => {
 		const { conn, detail, userId } = await loadJob(locals, params.universe, params.job);
+		const t = messages(locals.locale).import.review.errors;
 		const data = await request.formData();
 		const proposalId = data.get('proposalId');
-		if (typeof proposalId !== 'string') return fail(400, { error: 'Missing proposalId' });
+		if (typeof proposalId !== 'string') return fail(400, { error: t.missingProposalId });
 		const candidate = detail.candidates.find((c) => c.proposal.id === proposalId);
-		if (!candidate) return fail(404, { error: `No proposal "${proposalId}" in this job` });
+		if (!candidate) return fail(404, { error: t.proposalNotFound(proposalId) });
 		try {
 			const accepted = await acceptImportProposal(conn, {
 				proposalId,
@@ -128,9 +131,10 @@ export const actions: Actions = {
 
 	reject: async ({ request, params, locals }) => {
 		const { conn, userId } = await loadJob(locals, params.universe, params.job);
+		const t = messages(locals.locale).import.review.errors;
 		const data = await request.formData();
 		const proposalId = data.get('proposalId');
-		if (typeof proposalId !== 'string') return fail(400, { error: 'Missing proposalId' });
+		if (typeof proposalId !== 'string') return fail(400, { error: t.missingProposalId });
 		try {
 			const rejected = await rejectProposal(conn, { proposalId, reason: null, decidedBy: userId });
 			return { id: rejected.id };
@@ -144,22 +148,24 @@ export const actions: Actions = {
 
 	setRejectReason: async ({ request, params, locals }) => {
 		await loadJob(locals, params.universe, params.job);
+		const t = messages(locals.locale).import.review.errors;
 		const data = await request.formData();
 		const proposalId = data.get('proposalId');
 		const reason = data.get('reason');
 		if (typeof proposalId !== 'string' || typeof reason !== 'string') {
-			return fail(400, { error: 'Missing proposalId or reason' });
+			return fail(400, { error: t.missingProposalOrReason });
 		}
 		const updated = await setRejectReason(db(), proposalId, reason);
-		if (!updated) return fail(409, { error: 'Proposal is not rejected' });
+		if (!updated) return fail(409, { error: t.proposalNotRejected });
 		return { id: updated.id, reason: updated.rejectReason };
 	},
 
 	undo: async ({ request, params, locals }) => {
 		const { conn } = await loadJob(locals, params.universe, params.job);
+		const t = messages(locals.locale).import.review.errors;
 		const data = await request.formData();
 		const proposalId = data.get('proposalId');
-		if (typeof proposalId !== 'string') return fail(400, { error: 'Missing proposalId' });
+		if (typeof proposalId !== 'string') return fail(400, { error: t.missingProposalId });
 		try {
 			const undone = await undoAcceptedProposal(conn, { proposalId });
 			return { id: undone.id };
@@ -178,9 +184,12 @@ export const actions: Actions = {
 	// keyboard queue a moment earlier is never double-acted on here.
 	rejectFiltered: async ({ request, params, locals }) => {
 		const { conn, detail, userId } = await loadJob(locals, params.universe, params.job);
+		const t = messages(locals.locale).import.review.errors;
 		const data = await request.formData();
 		const type = data.get('type');
-		if (typeof type !== 'string' || type.length === 0) return fail(400, { error: 'Missing type' });
+		if (typeof type !== 'string' || type.length === 0) {
+			return fail(400, { error: t.missingFilterType });
+		}
 
 		const matches = detail.candidates.filter(
 			(c) => c.filterType === type && c.proposal.outcome === 'pending'

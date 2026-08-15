@@ -28,6 +28,7 @@ import {
 	queryLore,
 	type QdrantClient
 } from '@canonry/vector';
+import { messages, type Locale } from '$lib/i18n';
 import { stripMentionSyntax } from '$lib/markdown';
 import type { FastLaneHit } from '$lib/components/table/types';
 
@@ -76,10 +77,15 @@ export async function fastLaneSearch(
 		 * even run. */
 		gatewayCredentials: () => GatewayCredentials;
 		embeddingApiToken: () => string;
+		/** The GM's interface language (SPEC.md §17), for this function's own deterministic
+		 * "unavailable" text only - `ModelNotConfiguredError`'s own message (`@canonry/ai`)
+		 * passes through untranslated, same as any other package-owned error surfaced here. */
+		locale: Locale;
 	},
 	universeId: string,
 	query: string
 ): Promise<SearchResult> {
+	const t = messages(deps.locale).table.server;
 	let resolved;
 	try {
 		resolved = await resolveModel(deps.db, 'embedding');
@@ -93,7 +99,7 @@ export async function fastLaneSearch(
 		return {
 			lane: 'fast',
 			hits: [],
-			unavailableReason: `nothing indexed yet for this universe (collection "${collectionName}" does not exist)`
+			unavailableReason: t.nothingIndexedYet
 		};
 	}
 
@@ -111,7 +117,7 @@ export async function fastLaneSearch(
 		vector = await provider.embed(query);
 	} catch (err) {
 		const reason = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-		return { lane: 'fast', hits: [], unavailableReason: `embedding the query failed (${reason})` };
+		return { lane: 'fast', hits: [], unavailableReason: t.embeddingFailed(reason) };
 	}
 
 	// search.semantic is priced at 0 credits (reading is free, H1) but the call is still

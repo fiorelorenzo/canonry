@@ -12,15 +12,19 @@
 	 * `buckets` is the parent's `data.buckets` prop, so it stays reactive across a full
 	 * page-data refresh (an accepted/rejected count updates in place) without this
 	 * component owning any candidate state itself - `ProposalQueue` already owns that.
+	 * Bucket `label`s arrive already localized (`computeFilterBuckets`'s own `locale`
+	 * argument); `locale` here only drives this component's own bulk-reject strings.
 	 */
 	import { enhance } from '$app/forms';
+	import { messages, type Locale } from '$lib/i18n';
 	import type { FilterBucket } from './importFilter';
 
 	let {
 		buckets,
 		selected,
 		onSelect,
-		onRejectedFiltered
+		onRejectedFiltered,
+		locale
 	}: {
 		buckets: FilterBucket[];
 		selected: string | null;
@@ -28,7 +32,10 @@
 		/** Fires once the server confirms a filtered bulk reject, so the page can force the
 		 * queue below to remount against the (now smaller) filtered set. */
 		onRejectedFiltered?: (type: string, count: number) => void;
+		locale: Locale;
 	} = $props();
+
+	let t = $derived(messages(locale).proposals.bulkReject);
 
 	let rejecting = $state(false);
 	let lastRejected = $state<{ type: string; count: number } | null>(null);
@@ -82,12 +89,12 @@
 				disabled={rejecting}
 				class="rounded-md border border-danger px-2 py-1 text-xs font-medium text-danger hover:bg-danger-bg disabled:opacity-50"
 			>
-				{rejecting ? 'Rejecting…' : `Reject ${activeBucket.pending} shown`}
+				{rejecting ? t.rejecting : t.rejectShown(activeBucket.pending)}
 			</button>
 		</form>
 	{/if}
 
 	{#if lastRejected}
-		<span class="text-xs text-muted">Rejected {lastRejected.count}.</span>
+		<span class="text-xs text-muted">{t.rejectedCount(lastRejected.count)}</span>
 	{/if}
 </div>

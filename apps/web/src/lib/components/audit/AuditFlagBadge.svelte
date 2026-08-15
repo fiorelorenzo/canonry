@@ -7,7 +7,10 @@
 	 * guardrail 7 forbids implying"), so "no badge" and "zero flags" have to look
 	 * different, not the same badge showing "0".
 	 */
-	let { count, onOpen }: { count: number; onOpen: () => void } = $props();
+	import { messages, type Locale } from '$lib/i18n';
+
+	let { count, onOpen, locale }: { count: number; onOpen: () => void; locale: Locale } = $props();
+	let t = $derived(messages(locale));
 </script>
 
 {#if count > 0}
@@ -16,6 +19,6 @@
 		onclick={onOpen}
 		class="inline-flex flex-none items-center rounded-full border border-warn bg-warn-bg px-2 py-0.5 font-mono text-xs font-semibold text-warn hover:brightness-95"
 	>
-		{count === 1 ? '1 to check' : `${count} to check`}
+		{t.entry.audit.toCheck(count)}
 	</button>
 {/if}

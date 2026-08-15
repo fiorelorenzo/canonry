@@ -11,6 +11,7 @@ import { readFile } from 'node:fs/promises';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { universeAccessBySlug, type UniverseAccess } from '@canonry/db';
 import { ArchiveSourceReader, DEFAULT_ARCHIVE_LIMITS } from '@canonry/import';
+import { messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import {
 	admitAndCreateImportJob,
@@ -39,11 +40,14 @@ const IMPORT_CONCURRENCY_LIMIT = 20;
 
 async function requireImportAccess(
 	userId: string | undefined,
-	slug: string
+	slug: string,
+	locale: Locale
 ): Promise<UniverseAccess> {
 	if (!userId) redirect(303, '/auth/sign-in');
 	const access = await universeAccessBySlug(db(), slug, userId);
-	if (!access || access.role === 'viewer') error(404, `no universe called "${slug}"`);
+	if (!access || access.role === 'viewer') {
+		error(404, messages(locale).import.upload.errors.universeNotFound(slug));
+	}
 	return access;
 }
 
@@ -53,8 +57,8 @@ function isKnownPlaybookId(value: FormDataEntryValue | null): value is KnownPlay
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const slug = url.searchParams.get('universe');
-	if (!slug) error(400, 'no universe given to import into');
-	const access = await requireImportAccess(locals.user?.id, slug);
+	if (!slug) error(400, messages(locals.locale).import.upload.errors.noUniverseGiven);
+	const access = await requireImportAccess(locals.user?.id, slug, locals.locale);
 
 	return {
 		universe: { slug: access.universe.slug, name: access.universe.name },
@@ -69,11 +73,12 @@ export const actions: Actions = {
 	upload: async ({ request, locals }) => {
 		const data = await request.formData();
 		const slug = String(data.get('universe') ?? '');
-		await requireImportAccess(locals.user?.id, slug);
+		await requireImportAccess(locals.user?.id, slug, locals.locale);
+		const t = messages(locals.locale).import.upload.errors;
 
 		const file = data.get('file');
 		if (!(file instanceof File) || file.size === 0) {
-			return fail(400, { stage: 'upload' as const, error: 'Choose a file to upload.' });
+			return fail(400, { stage: 'upload' as const, error: t.chooseFile });
 		}
 
 		const bytes = new Uint8Array(await file.arrayBuffer());
@@ -84,7 +89,7 @@ export const actions: Actions = {
 			const message = err instanceof Error ? err.message : String(err);
 			return fail(400, {
 				stage: 'upload' as const,
-				error: `Could not read "${file.name}": ${message}`
+				error: t.unreadableFile(file.name, message)
 			});
 		}
 
@@ -107,14 +112,15 @@ export const actions: Actions = {
 	confirm: async ({ request, locals }) => {
 		const data = await request.formData();
 		const slug = String(data.get('universe') ?? '');
-		await requireImportAccess(locals.user?.id, slug);
+		await requireImportAccess(locals.user?.id, slug, locals.locale);
+		const t = messages(locals.locale).import.upload.errors;
 
 		const tempId = String(data.get('tempId') ?? '');
 		const playbookIdRaw = data.get('playbookId');
 		const fileName = String(data.get('fileName') ?? 'upload');
 		const fileBytes = Number(data.get('fileBytes') ?? 0);
 		if (!tempId || !isKnownPlaybookId(playbookIdRaw)) {
-			return fail(400, { stage: 'upload' as const, error: 'Lost track of the upload, try again.' });
+			return fail(400, { stage: 'upload' as const, error: t.lostUpload });
 		}
 		const playbookId = playbookIdRaw;
 		const reshowConfirm = {
@@ -130,7 +136,7 @@ export const actions: Actions = {
 		if (!hasLiveGatewayCredentials() && !FAKE_DRIVER_SUPPORTED_PLAYBOOKS.has(playbookId)) {
 			return fail(400, {
 				...reshowConfirm,
-				error: `Starting a ${PLAYBOOK_LABELS[playbookId]} import needs a live model, and this deployment has no AI_GATEWAY_* credentials configured. Obsidian, Kanka and generic text imports do not need one.`
+				error: t.needsLiveModel(PLAYBOOK_LABELS[playbookId])
 			});
 		}
 
@@ -140,7 +146,7 @@ export const actions: Actions = {
 		if (documents.length === 0) {
 			return fail(400, {
 				...reshowConfirm,
-				error: 'No documents this playbook recognises were found in the upload.'
+				error: t.noDocumentsFound
 			});
 		}
 		const averages = await estimateAveragesFor(db(), playbookId);
@@ -166,12 +172,13 @@ export const actions: Actions = {
 	start: async ({ request, locals }) => {
 		const data = await request.formData();
 		const slug = String(data.get('universe') ?? '');
-		const access = await requireImportAccess(locals.user?.id, slug);
+		const access = await requireImportAccess(locals.user?.id, slug, locals.locale);
+		const t = messages(locals.locale).import.upload.errors;
 
 		const tempId = String(data.get('tempId') ?? '');
 		const playbookIdRaw = data.get('playbookId');
 		if (!tempId || !isKnownPlaybookId(playbookIdRaw)) {
-			return fail(400, { stage: 'upload' as const, error: 'Lost track of the upload, try again.' });
+			return fail(400, { stage: 'upload' as const, error: t.lostUpload });
 		}
 		const playbookId = playbookIdRaw;
 
@@ -204,6 +211,12 @@ export const actions: Actions = {
 			});
 		} catch (err) {
 			if (err instanceof ImportQuotaExceededError) {
+				const refused =
+					err.reason === 'jobs_quota'
+						? t.refused.jobsQuota
+						: err.reason === 'documents_quota'
+							? t.refused.documentsQuota
+							: t.refused.insufficientCredits;
 				return fail(400, {
 					stage: 'estimate' as const,
 					tempId,
@@ -213,7 +226,7 @@ export const actions: Actions = {
 					documentCount: documents.length,
 					estimatedMinutes: estimate.estimatedMinutes,
 					estimatedCredits: estimate.estimatedCredits,
-					error: `This import was refused: ${err.reason.replace('_', ' ')}.`
+					error: refused
 				});
 			}
 			throw err;

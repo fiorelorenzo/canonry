@@ -11,6 +11,7 @@
 import { error, json } from '@sveltejs/kit';
 import { universeAccessBySlug } from '@canonry/db';
 import { runAsk, type AskDetailLevel } from '@canonry/copilot';
+import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { identityGateway, modelFactory, queryEmbedder, vectorClient } from '$lib/server/copilot';
 import type { RequestHandler } from './$types';
@@ -36,7 +37,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		body && typeof body === 'object' && 'detailLevel' in body && isDetailLevel(body.detailLevel)
 			? body.detailLevel
 			: 'normal';
-	if (question.length === 0) error(400, 'A question is required.');
+	if (question.length === 0) error(400, messages(locals.locale).universe.ask.questionRequired);
 
 	const encoder = new TextEncoder();
 	const send = (
@@ -76,7 +77,10 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 					credits: result.credits
 				});
 			} catch (err) {
-				send(controller, 'error', { message: err instanceof Error ? err.message : 'Ask failed.' });
+				send(controller, 'error', {
+					message:
+						err instanceof Error ? err.message : messages(locals.locale).universe.ask.askFailed
+				});
 			} finally {
 				controller.close();
 			}
@@ -92,5 +96,5 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	});
 };
 
-export const GET: RequestHandler = () =>
-	json({ error: 'POST a question to ask.' }, { status: 405 });
+export const GET: RequestHandler = ({ locals }) =>
+	json({ error: messages(locals.locale).universe.ask.methodNotAllowed }, { status: 405 });

@@ -9,13 +9,16 @@
 	 * product (routes/layout.css).
 	 */
 	import type { Snippet } from 'svelte';
+	import { messages } from '$lib/i18n';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
+
+	const t = $derived(messages(data.locale).table);
 </script>
 
 <svelte:head>
-	<title>Table &middot; {data.universeName} &middot; Canonry</title>
+	<title>{t.title} &middot; {data.universeName} &middot; Canonry</title>
 </svelte:head>
 
 <div class="min-h-screen bg-paper pb-16 text-[15px] leading-relaxed md:pb-0">

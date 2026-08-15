@@ -6,6 +6,7 @@
  */
 import { error, json } from '@sveltejs/kit';
 import { runningSessionContext } from '@canonry/db';
+import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { publishTableEvent } from '$lib/server/table-stream';
 import { tableGatewayCredentials } from '../_server/deps.js';
@@ -29,16 +30,14 @@ function isActionBody(value: unknown): value is ActionBody {
 
 export const POST: RequestHandler = async (event) => {
 	const access = await requireTableAccess(event);
+	const t = messages(event.locals.locale).table.server;
 	const raw: unknown = await event.request.json().catch(() => ({}));
 	const body = isActionBody(raw) ? raw : {};
 
 	const conn = db();
 	const context = await runningSessionContext(conn, access.universe.id);
 	if (!context?.placeEntityId) {
-		error(
-			400,
-			'declare a place before firing a quick action - every action here is "linked to the context"'
-		);
+		error(400, t.declareBeforeAction);
 	}
 
 	// `language` and `body` come along because a drafted NPC's prose has to be written in the
@@ -59,7 +58,7 @@ export const POST: RequestHandler = async (event) => {
 		// the actual draft (or scaffold fallback) lands on the stream separately, whenever it
 		// finishes, however long that takes.
 		publishTableEvent(access.universe.id, 'quick-action', {
-			action: '+ NPC here',
+			action: 'npc-here',
 			status: 'drafting',
 			placeEntityId: context.placeEntityId
 		});
@@ -83,13 +82,13 @@ export const POST: RequestHandler = async (event) => {
 					rationale: result.proposal.rationale,
 					drafted: result.drafted,
 					unavailableReason: result.unavailableReason ?? null,
-					via: '+ NPC here'
+					via: 'npc-here'
 				});
 			})
 			.catch((err: unknown) => {
 				const reason = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
 				publishTableEvent(access.universe.id, 'quick-action', {
-					action: '+ NPC here',
+					action: 'npc-here',
 					status: 'failed',
 					reason
 				});
@@ -100,7 +99,7 @@ export const POST: RequestHandler = async (event) => {
 
 	if (body.kind === 'location') {
 		const label = (body.label ?? '').trim();
-		if (!label) error(400, 'name the child location before creating it');
+		if (!label) error(400, t.nameLocationBeforeCreating);
 		const proposal = await fireCreateChildLocation(
 			{
 				db: conn,
@@ -117,7 +116,7 @@ export const POST: RequestHandler = async (event) => {
 			label
 		);
 		publishTableEvent(access.universe.id, 'quick-action', {
-			action: '+ create a child location',
+			action: 'create-child-location',
 			proposalId: proposal.id,
 			label
 		});
@@ -125,7 +124,7 @@ export const POST: RequestHandler = async (event) => {
 			proposalId: proposal.id,
 			kind: proposal.kind,
 			rationale: proposal.rationale,
-			via: '+ create a child location'
+			via: 'create-child-location'
 		});
 		return json({ ok: true, proposal });
 	}
@@ -159,5 +158,5 @@ export const POST: RequestHandler = async (event) => {
 		}
 	}
 
-	error(400, `unknown quick action kind "${String(body.kind)}"`);
+	error(400, t.unknownActionKind(String(body.kind)));
 };

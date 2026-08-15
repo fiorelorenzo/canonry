@@ -8,9 +8,12 @@
 	 */
 	import { resolve } from '$app/paths';
 	import type { EntitySearchHit } from '@canonry/db';
+	import { messages, type Locale } from '$lib/i18n';
 	import type { SearchHit } from './types';
 
-	let { universeSlug }: { universeSlug: string } = $props();
+	let { universeSlug, locale }: { universeSlug: string; locale: Locale } = $props();
+
+	const t = $derived(messages(locale).table.instantSearch);
 
 	let query = $state('');
 	let hits = $state<SearchHit[]>([]);
@@ -65,14 +68,14 @@
 		for="table-instant-search"
 		class="font-mono text-[10px] tracking-wide text-muted uppercase"
 	>
-		Who is this?
+		{t.whoIsThis}
 	</label>
 	<input
 		id="table-instant-search"
 		type="text"
 		bind:value={query}
 		oninput={onInput}
-		placeholder="Type a name or alias..."
+		placeholder={t.placeholder}
 		class="w-full rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-sm text-ink"
 		autocomplete="off"
 	/>
@@ -80,17 +83,17 @@
 	{#if query.trim().length > 0}
 		<div class="flex items-center gap-2 text-xs text-muted">
 			{#if loading}
-				<span>searching…</span>
+				<span>{t.searching}</span>
 			{:else if lane}
 				<span class="rounded-full bg-panel-2 px-2 py-0.5 font-mono">
-					{lane} lane &middot; {elapsedMs}ms
+					{t.laneStatus(lane === 'instant' ? t.instantLane : t.fastLane, elapsedMs ?? 0)}
 				</span>
 			{/if}
 		</div>
 
 		{#if !loading && hits.length === 0}
 			<p class="text-sm text-muted">
-				{fastLaneNote ?? `No match for "${query}".`}
+				{fastLaneNote ?? t.noMatch(query)}
 			</p>
 		{:else}
 			<ul class="flex flex-col gap-1.5">
@@ -105,7 +108,7 @@
 							</a>
 							<span class="ml-1.5 text-xs text-muted">{hit.type}</span>
 							{#if hit.matchedAlias}
-								<span class="ml-1.5 text-xs text-muted">aka {hit.matchedAlias}</span>
+								<span class="ml-1.5 text-xs text-muted">{t.aka(hit.matchedAlias)}</span>
 							{/if}
 							{#if hit.excerpt}
 								<p class="mt-1 text-xs text-ink-2">{hit.excerpt}</p>

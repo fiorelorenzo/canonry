@@ -51,7 +51,8 @@ export const GET: RequestHandler = async (event) => {
 			userId: access.userId,
 			qdrant: tableVectorClient(),
 			gatewayCredentials: tableGatewayCredentials,
-			embeddingApiToken: tableEmbeddingApiToken
+			embeddingApiToken: tableEmbeddingApiToken,
+			locale: event.locals.locale
 		},
 		access.universe.id,
 		q

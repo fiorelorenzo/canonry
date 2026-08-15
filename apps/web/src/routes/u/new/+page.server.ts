@@ -5,6 +5,7 @@
  * createOnboardingUniverse function, this route is just its general-purpose front door.
  */
 import { fail, redirect } from '@sveltejs/kit';
+import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { createOnboardingUniverse, UniverseNameRequiredError } from '$lib/server/onboarding';
 import type { Actions, PageServerLoad } from './$types';
@@ -28,7 +29,7 @@ export const actions: Actions = {
 			});
 		} catch (err) {
 			if (err instanceof UniverseNameRequiredError) {
-				return fail(400, { error: 'Name your universe first.', name });
+				return fail(400, { error: messages(locals.locale).universe.new.nameRequiredError, name });
 			}
 			throw err;
 		}

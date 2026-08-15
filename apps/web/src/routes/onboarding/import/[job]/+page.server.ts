@@ -8,6 +8,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { eq, universeAccessBySlug, type UniverseAccess } from '@canonry/db';
 import { universe } from '@canonry/db/schema';
+import { messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import {
 	acceptOnboardingProposal,
@@ -21,25 +22,27 @@ import type { Actions, PageServerLoad } from './$types';
 
 async function requireJobAccess(
 	userId: string | undefined,
-	jobId: string
+	jobId: string,
+	locale: Locale
 ): Promise<{ job: ImportJobRow; access: UniverseAccess }> {
 	if (!userId) redirect(303, '/auth/sign-in');
+	const notFound = messages(locale).import.job.errors.jobNotFound;
 	const job = await getImportJobRow(db(), jobId);
-	if (!job) error(404, 'no such import job');
+	if (!job) error(404, notFound);
 
 	const [universeRow] = await db()
 		.select()
 		.from(universe)
 		.where(eq(universe.id, job.universeId))
 		.limit(1);
-	if (!universeRow) error(404, 'no such import job');
+	if (!universeRow) error(404, notFound);
 	const access = await universeAccessBySlug(db(), universeRow.slug, userId);
-	if (!access) error(404, 'no such import job');
+	if (!access) error(404, notFound);
 	return { job, access };
 }
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-	const { job, access } = await requireJobAccess(locals.user?.id, params.job);
+	const { job, access } = await requireJobAccess(locals.user?.id, params.job, locals.locale);
 	const proposals = await proposalsForImportJob(db(), job.id);
 
 	return {
@@ -51,13 +54,15 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 export const actions: Actions = {
 	accept: async ({ request, params, locals }) => {
-		const { job } = await requireJobAccess(locals.user?.id, params.job);
+		const { job } = await requireJobAccess(locals.user?.id, params.job, locals.locale);
 		const data = await request.formData();
 		const proposalId = String(data.get('proposalId') ?? '');
 
 		const proposals = await proposalsForImportJob(db(), job.id);
 		const target = proposals.find((p) => p.id === proposalId);
-		if (!target) return fail(400, { error: 'That proposal is no longer part of this import.' });
+		if (!target) {
+			return fail(400, { error: messages(locals.locale).import.job.errors.proposalGone });
+		}
 
 		const sourcePath = evidenceSourcePath(target.evidence);
 		let contentHash = '';

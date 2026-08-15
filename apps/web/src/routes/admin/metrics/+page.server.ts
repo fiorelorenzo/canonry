@@ -4,11 +4,14 @@
  * Deliberately never shown to the GM - "a GM optimising their own accept rate is a strange
  * incentive", per the F5 artifact's rejected-outright section.
  *
- * Four panels:
+ * Five panels:
  * - Accept rate (#100), by proposal kind and model, over time. Computed with
  *   @canonry/eval's `acceptRate`/`acceptRateByGroup` - the same functions the propagation
  *   corpus scores prompt and model changes against - rather than a second definition here
  *   that could drift from it.
+ * - Accept rate by interface locale (#128, SPEC.md §17 "instrumented per locale"): the
+ *   same `acceptRate` function again, filtered by `proposal.locale`, next to the panel
+ *   above rather than a second definition of the rate.
  * - Time to first accepted proposal (#101), per universe, as a distribution: every import
  *   job's own delta, not a single averaged number, so one slow outlier stays visible.
  * - Warm radius (#102): the current radius and the hit rate that chose it, per universe.
@@ -39,6 +42,7 @@ import {
 	WARM_RADIUS_HIT_RATE_THRESHOLD,
 	type WarmRadiusDecision
 } from '@canonry/warm';
+import { LOCALES, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import type { PageServerLoad } from './$types';
 
@@ -98,6 +102,29 @@ function weeklyAcceptRateByKindAndModel(rows: ProposalOutcomeMetricRow[]): Weekl
 	});
 }
 
+export interface LocaleAcceptRateRow extends AcceptRateResult {
+	locale: Locale;
+}
+
+/** Issue #128, SPEC.md §17's "instrumented per locale": accept rate broken out by the
+ * interface locale `proposal.locale` records (issue #124's `createProposalPlan`),
+ * computed with the exact same `acceptRate` the panel above and the eval harness's
+ * corpus both call - never a second definition of "accepted over decided" that could
+ * quietly disagree with it. Every locale in `LOCALES` gets a row, even one with zero
+ * proposals: `acceptRate` on an empty array reports `produced: 0, acceptRate: null`,
+ * which the template renders as "no data" - a locale nobody has used yet must never read
+ * as a fabricated 0%, which would look like a broken copilot rather than an empty
+ * column. Proposals with no recorded locale (written before issue #124) are excluded
+ * rather than folded into either locale's count. */
+function acceptRateByInterfaceLocale(rows: ProposalOutcomeMetricRow[]): LocaleAcceptRateRow[] {
+	return LOCALES.map((locale) => ({
+		locale,
+		...acceptRate(
+			rows.filter((row) => row.locale === locale).map((row) => ({ outcome: row.outcome }))
+		)
+	}));
+}
+
 export interface ImportAcceptDistributionRow {
 	universeId: string;
 	universeName: string;
@@ -154,6 +181,7 @@ export const load: PageServerLoad = async () => {
 
 	const overallAcceptRate = acceptRate(proposalRows.map((row) => ({ outcome: row.outcome })));
 	const weeklyAcceptRate = weeklyAcceptRateByKindAndModel(proposalRows);
+	const acceptRateByLocale = acceptRateByInterfaceLocale(proposalRows);
 
 	const importsByUniverse = groupImportsByUniverse(importRows);
 
@@ -171,6 +199,7 @@ export const load: PageServerLoad = async () => {
 		acceptRateWindowDays: ACCEPT_RATE_DEFAULT_WINDOW_DAYS,
 		overallAcceptRate,
 		weeklyAcceptRate,
+		acceptRateByLocale,
 		importsByUniverse,
 		warmRadiusByUniverse,
 		warmRadiusThresholdPercent: Math.round(WARM_RADIUS_HIT_RATE_THRESHOLD * 100),

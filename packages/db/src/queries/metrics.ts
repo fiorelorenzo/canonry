@@ -5,7 +5,8 @@
  * - #100 accept rate: raw `proposal` rows, so the admin route can hand them to
  *   @canonry/eval's `acceptRate`/`acceptRateByGroup` rather than a second definition of
  *   "accepted over decided" that could drift from the one the harness already scores
- *   prompt and model changes against.
+ *   prompt and model changes against. Carries `proposal.locale` (issue #128) so the same
+ *   two functions can also break the rate out by interface language, next to kind/model.
  * - #101 time to first accepted proposal: one row per import job with the delta to that
  *   job's first accepted proposal, or null if it has none yet - a distribution, not a
  *   single averaged number, because SPEC §14 worries about the slow outlier, which an
@@ -35,6 +36,13 @@ export interface ProposalOutcomeMetricRow {
 	kind: ProposalKind;
 	modelId: string | null;
 	createdAt: Date;
+	/** SPEC.md §17 "instrumented per locale" (issue #128): the interface locale
+	 * `proposal.locale` recorded the proposal's speech in, so the admin panel can break
+	 * accept rate out by interface language through the same `@canonry/eval` function it
+	 * already uses for kind/model, rather than a second definition of the rate. Null for
+	 * proposals written before issue #124 - the panel reads that as "not recorded", never
+	 * folded into either locale's count. */
+	locale: string | null;
 }
 
 /** Default window for the accept-rate panel: wide enough that a slow week does not read
@@ -66,7 +74,8 @@ export async function proposalOutcomesForMetrics(
 			outcome: proposal.outcome,
 			kind: proposal.kind,
 			modelId: proposal.modelId,
-			createdAt: proposal.createdAt
+			createdAt: proposal.createdAt,
+			locale: proposal.locale
 		})
 		.from(proposal)
 		.where(conditions.length > 0 ? and(...conditions) : undefined)

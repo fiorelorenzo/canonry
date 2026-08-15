@@ -1,25 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { dateFormat, messages } from '$lib/i18n';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	const PURPOSE_LABEL: Record<string, string> = {
-		cheap: 'Cheap - candidate generation, quick actions',
-		premium: 'Premium - diffs, ask, propagation',
-		multimodal: 'Multimodal',
-		embedding:
-			'Embedding - similarity search, warm cache dedup, retrieval (must be multilingual - see note below)',
-		image: 'Image (text purpose; see Image models below for the generator itself)'
-	};
+	const t = $derived(messages(data.locale).admin);
 
-	const FEATURE_LABEL: Record<string, string> = {
-		portrait: 'Portrait - one image per request',
-		variants: 'Variants - up to four to choose from',
-		scene: 'Scene'
-	};
-
-	const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+	const activeDateFormat = $derived(
+		dateFormat(data.locale, { dateStyle: 'medium', timeStyle: 'short' })
+	);
 
 	function paramsEurPerImage(params: unknown): string {
 		if (typeof params !== 'object' || params === null) return '';
@@ -38,35 +28,17 @@
 </script>
 
 <svelte:head>
-	<title>Models, Canonry admin</title>
+	<title>{t.models.browserTitle}</title>
 </svelte:head>
 
 <main id="main" class="mx-auto max-w-4xl px-8 py-10">
-	<a href={resolve('/')} class="text-sm text-accent hover:underline">&larr; Universes</a>
+	<a href={resolve('/')} class="text-sm text-accent hover:underline">{t.backToUniverses}</a>
 
-	<h1 class="mt-4 text-2xl font-semibold text-ink">Text models</h1>
-	<p class="mt-2 max-w-measure text-sm text-ink-2">
-		SPEC.md §11.1: the active model per purpose lives in <code class="text-xs">model_config</code>,
-		not in code, and every flow - the Loremaster's four modes, propagation, warm generation,
-		indexing, embedding - reads it through <code class="text-xs">resolveModel</code>. A change here
-		takes effect on the very next call, no deploy, no restart. Provider is constrained to what
-		<code class="text-xs">createLanguageModel</code> can actually build; a provider outside that list
-		is not offered.
-	</p>
-	<p class="mt-2 max-w-measure text-sm text-ink-2">
-		SPEC.md §17, issue #125: an Italian question against an English canon has to find the English
-		chunk, so the <strong>embedding</strong> purpose is a deliberate multilingual choice, not a free
-		one. Candidates were compared on published multilingual retrieval benchmarks (MIRACL, MTEB
-		Multilingual) restricted to providers this build can construct - full reasoning and the
-		disqualified/fallback candidates are in
-		<code class="text-xs">packages/indexing/src/models.ts</code>'s
-		<code class="text-xs">RECOMMENDED_EMBEDDING_MODEL</code>. Recommended:
-		<code class="text-xs">google</code> / <code class="text-xs">gemini-embedding-001</code>
-		(#1 on the MTEB Multilingual leaderboard, ~100 languages). Gap this box cannot close: no live embedding
-		credential exists here to confirm en/it recall specifically - neither MIRACL nor MTEB publish an isolated
-		English&harr;Italian score, so that is a live benchmark still owed once a real credential exists,
-		not a settled number.
-	</p>
+	<h1 class="mt-4 text-2xl font-semibold text-ink">{t.models.textHeading}</h1>
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
+	<p class="mt-2 max-w-measure text-sm text-ink-2">{@html t.models.textIntro1}</p>
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
+	<p class="mt-2 max-w-measure text-sm text-ink-2">{@html t.models.textIntro2}</p>
 
 	<div class="mt-8 overflow-x-auto rounded-lg border border-line">
 		<table class="w-full border-collapse text-sm">
@@ -74,10 +46,10 @@
 				<tr
 					class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
 				>
-					<th class="px-3 py-2 font-normal">Purpose</th>
-					<th class="px-3 py-2 font-normal">Currently active</th>
-					<th class="px-3 py-2 font-normal">Provider</th>
-					<th class="px-3 py-2 font-normal">Model id</th>
+					<th class="px-3 py-2 font-normal">{t.models.table.purpose}</th>
+					<th class="px-3 py-2 font-normal">{t.models.table.currentlyActive}</th>
+					<th class="px-3 py-2 font-normal">{t.models.table.provider}</th>
+					<th class="px-3 py-2 font-normal">{t.models.table.modelId}</th>
 					<th class="px-3 py-2 font-normal"></th>
 				</tr>
 			</thead>
@@ -103,29 +75,29 @@
 					{@const modelIdId = `text-modelId-${row.purpose}`}
 					<tr class="bg-panel align-top">
 						<td class="px-3 py-3 text-ink">
-							{PURPOSE_LABEL[row.purpose] ?? row.purpose}
+							{t.models.purposeLabel[row.purpose as keyof typeof t.models.purposeLabel] ??
+								row.purpose}
 						</td>
 						<td class="px-3 py-3 text-xs">
 							{#if row.active}
 								<div class="font-mono text-ink">
 									{row.active.provider} / {row.active.modelId}
 								</div>
-								<div class="mt-1 text-muted">{dateFormat.format(row.active.updatedAt)}</div>
+								<div class="mt-1 text-muted">{activeDateFormat.format(row.active.updatedAt)}</div>
 								{#if !activeProviderKnown}
 									<div class="mt-1 text-danger">
-										provider "{row.active.provider}" is not one of this app's known providers - no
-										call can be built for it until this is changed.
+										{t.models.table.providerUnknown(row.active.provider)}
 									</div>
 								{/if}
 							{:else}
-								<span class="text-muted">not configured</span>
+								<span class="text-muted">{t.models.table.notConfigured}</span>
 							{/if}
 						</td>
 						<td colspan="2" class="px-3 py-3">
 							<form method="POST" action="?/text" class="flex flex-wrap items-center gap-2">
 								<input type="hidden" name="purpose" value={row.purpose} />
 								<div class="flex flex-col gap-1">
-									<label class="sr-only" for={providerId}>Provider</label>
+									<label class="sr-only" for={providerId}>{t.models.table.provider}</label>
 									<select
 										id={providerId}
 										name="provider"
@@ -140,7 +112,7 @@
 									</select>
 								</div>
 								<div class="flex flex-col gap-1">
-									<label class="sr-only" for={modelIdId}>Model id</label>
+									<label class="sr-only" for={modelIdId}>{t.models.table.modelId}</label>
 									<input
 										id={modelIdId}
 										name="modelId"
@@ -153,12 +125,12 @@
 									type="submit"
 									class="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-panel hover:bg-accent-ink"
 								>
-									Save
+									{t.save}
 								</button>
 								{#if errorHere}
 									<p class="w-full text-xs text-danger">{errorHere}</p>
 								{:else if savedHere}
-									<p class="w-full text-xs text-ok">Saved. Takes effect immediately.</p>
+									<p class="w-full text-xs text-ok">{t.models.saved}</p>
 								{/if}
 							</form>
 						</td>
@@ -168,16 +140,12 @@
 		</table>
 	</div>
 
-	<h1 class="mt-12 text-2xl font-semibold text-ink">Image models</h1>
+	<h1 class="mt-12 text-2xl font-semibold text-ink">{t.models.imageHeading}</h1>
+	<p class="mt-2 max-w-measure text-sm text-ink-2">{t.models.imageIntro1}</p>
 	<p class="mt-2 max-w-measure text-sm text-ink-2">
-		SPEC.md §9, issue #64: the active model per feature lives here, not in code, and a change here
-		takes effect on the very next "Generate image" request - no deploy, no restart.
-	</p>
-	<p class="mt-2 max-w-measure text-sm text-ink-2">
-		Seeded default: <code class="text-xs">prunaai/p-image</code> for a single portrait,
-		<code class="text-xs">black-forest-labs/flux-schnell</code> for the four-variant batch (SPEC.md
-		§9). EUR per image is our own cost bookkeeping, never the credit price a GM sees - that lives in
-		<a href={resolve('/admin/pricing')} class="text-accent-ink hover:underline">Operation pricing</a
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
+		{@html t.models.imageIntro2Pre}
+		<a href={resolve('/admin/pricing')} class="text-accent-ink hover:underline">{t.pricing.title}</a
 		>.
 	</p>
 
@@ -187,10 +155,10 @@
 				<tr
 					class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
 				>
-					<th class="px-3 py-2 font-normal">Feature</th>
-					<th class="px-3 py-2 font-normal">Provider</th>
-					<th class="px-3 py-2 font-normal">Model id</th>
-					<th class="px-3 py-2 font-normal">EUR / image</th>
+					<th class="px-3 py-2 font-normal">{t.models.imageTable.feature}</th>
+					<th class="px-3 py-2 font-normal">{t.models.table.provider}</th>
+					<th class="px-3 py-2 font-normal">{t.models.table.modelId}</th>
+					<th class="px-3 py-2 font-normal">{t.models.imageTable.eurPerImage}</th>
 					<th class="px-3 py-2 font-normal"></th>
 				</tr>
 			</thead>
@@ -217,14 +185,16 @@
 					{@const eurId = `eur-${model.feature}`}
 					<tr class="bg-panel align-top">
 						<td class="px-3 py-3 text-ink">
-							{FEATURE_LABEL[model.feature] ?? model.feature}
-							<div class="text-xs text-muted">{model.active ? 'active' : 'inactive'}</div>
+							{t.models.featureLabel[model.feature as keyof typeof t.models.featureLabel]}
+							<div class="text-xs text-muted">
+								{model.active ? t.models.imageTable.active : t.models.imageTable.inactive}
+							</div>
 						</td>
 						<td colspan="3" class="px-3 py-3">
 							<form method="POST" action="?/image" class="flex flex-wrap items-center gap-2">
 								<input type="hidden" name="feature" value={model.feature} />
 								<div class="flex flex-col gap-1">
-									<label class="sr-only" for={providerId}>Provider</label>
+									<label class="sr-only" for={providerId}>{t.models.table.provider}</label>
 									<input
 										id={providerId}
 										name="provider"
@@ -233,7 +203,7 @@
 									/>
 								</div>
 								<div class="flex flex-col gap-1">
-									<label class="sr-only" for={modelIdId}>Model id</label>
+									<label class="sr-only" for={modelIdId}>{t.models.table.modelId}</label>
 									<input
 										id={modelIdId}
 										name="modelId"
@@ -242,7 +212,7 @@
 									/>
 								</div>
 								<div class="flex flex-col gap-1">
-									<label class="sr-only" for={eurId}>EUR per image</label>
+									<label class="sr-only" for={eurId}>{t.models.imageTable.eurPerImage}</label>
 									<input
 										id={eurId}
 										type="number"
@@ -258,12 +228,12 @@
 									type="submit"
 									class="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-panel hover:bg-accent-ink"
 								>
-									Save
+									{t.save}
 								</button>
 								{#if errorHere}
 									<p class="w-full text-xs text-danger">{errorHere}</p>
 								{:else if savedHere}
-									<p class="w-full text-xs text-ok">Saved. Takes effect immediately.</p>
+									<p class="w-full text-xs text-ok">{t.models.saved}</p>
 								{/if}
 							</form>
 						</td>

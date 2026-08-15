@@ -5,10 +5,12 @@
 	 * loop on half a sentence.
 	 */
 	import { resolve } from '$app/paths';
+	import { messages } from '$lib/i18n';
 	import MarkdownEditor from '$lib/components/entry/MarkdownEditor.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	let t = $derived(messages(data.locale));
 
 	// `body` seeds once from the loaded entity and then owns its own edits; the route's
 	// dynamic `[slug]` param means a different entry remounts this component rather than
@@ -17,23 +19,25 @@
 	let body = $state(data.entity.body);
 </script>
 
-<svelte:head><title>Edit {data.entity.name} &middot; {data.universe.name}</title></svelte:head>
+<svelte:head
+	><title>{t.entry.editor.heading(data.entity.name)} &middot; {data.universe.name}</title
+	></svelte:head
+>
 
 <div class="mx-auto max-w-3xl px-6 py-8">
 	<p class="mb-3 text-xs text-muted">
 		<a class="hover:underline" href={resolve(`/u/${data.universe.slug}/e/${data.entity.slug}`)}
 			>{data.entity.name}</a
 		>
-		/ Edit
+		/ {t.entry.editor.breadcrumbEdit}
 	</p>
-	<h1 class="mb-6 text-2xl font-semibold text-ink">Edit {data.entity.name}</h1>
-
+	<h1 class="mb-6 text-2xl font-semibold text-ink">{t.entry.editor.heading(data.entity.name)}</h1>
 	{#if form?.message}
 		<p class="mb-4 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.message}</p>
 	{/if}
 
 	<form method="POST">
-		<MarkdownEditor bind:value={body} targets={data.mentionTargets} />
+		<MarkdownEditor bind:value={body} targets={data.mentionTargets} locale={data.locale} />
 		<input type="hidden" name="body" value={body} />
 
 		<div class="mt-4 flex justify-end">
@@ -41,7 +45,7 @@
 				type="submit"
 				class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-panel hover:opacity-90"
 			>
-				Save
+				{t.entry.editor.save}
 			</button>
 		</div>
 	</form>

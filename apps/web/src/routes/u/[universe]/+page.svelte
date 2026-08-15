@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { messages } from '$lib/i18n';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	const t = $derived(messages(data.locale).universe);
 </script>
 
 <svelte:head>
@@ -21,16 +24,18 @@
 		</div>
 		{#if data.current.baseUniverseName}
 			<p class="mt-2 max-w-measure text-sm text-ink-2">
-				Derived: reads its own canon plus <b class="text-ink">{data.current.baseUniverseName}</b>'s
-				indexed corpus, read-only. Your canon always wins (SPEC.md 4.1).
+				{t.index.derivedNoticeBefore}<b class="text-ink">{data.current.baseUniverseName}</b>{t.index
+					.derivedNoticeAfter}
 			</p>
 		{/if}
 	</header>
 
 	<section class="mt-8">
-		<h2 class="text-xs font-semibold tracking-wide text-muted uppercase">Recent entries</h2>
+		<h2 class="text-xs font-semibold tracking-wide text-muted uppercase">
+			{t.index.recentEntriesHeading}
+		</h2>
 		{#if data.recentEntries.length === 0}
-			<p class="mt-2 text-sm text-ink-2">Nothing here yet.</p>
+			<p class="mt-2 text-sm text-ink-2">{t.index.empty}</p>
 		{:else}
 			<ul class="mt-3 flex flex-col divide-y divide-line">
 				{#each data.recentEntries as entry (entry.id)}

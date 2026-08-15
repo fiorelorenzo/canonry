@@ -10,6 +10,7 @@
 	 */
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { messages, type Locale } from '$lib/i18n';
 
 	export interface AuditFlagStatementView {
 		entityId: string;
@@ -24,13 +25,18 @@
 		statements: [AuditFlagStatementView, AuditFlagStatementView];
 	}
 
-	let { flags, universeSlug }: { flags: AuditFlagView[]; universeSlug: string } = $props();
+	let {
+		flags,
+		universeSlug,
+		locale
+	}: { flags: AuditFlagView[]; universeSlug: string; locale: Locale } = $props();
+	let t = $derived(messages(locale));
 
 	let dismissing = $state<Record<string, boolean>>({});
 </script>
 
 {#if flags.length === 0}
-	<p class="text-sm text-muted">No flags on this entry right now.</p>
+	<p class="text-sm text-muted">{t.entry.audit.empty}</p>
 {:else}
 	<ul class="space-y-3">
 		{#each flags as flag (flag.id)}
@@ -49,7 +55,7 @@
 						</div>
 					{/each}
 				</div>
-				<p class="mt-2 text-xs text-muted">Worth checking, not necessarily wrong.</p>
+				<p class="mt-2 text-xs text-muted">{t.entry.audit.disclaimer}</p>
 				<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
 					<form
 						method="POST"
@@ -67,10 +73,10 @@
 							disabled={dismissing[flag.id]}
 							class="rounded-md border border-line-2 px-2 py-1 text-ink-2 hover:bg-panel-2 disabled:opacity-50"
 						>
-							{dismissing[flag.id] ? 'Dismissing\u2026' : 'Dismiss'}
+							{dismissing[flag.id] ? t.entry.audit.dismissing : t.entry.audit.dismiss}
 						</button>
 					</form>
-					<span class="text-muted">Open both entries:</span>
+					<span class="text-muted">{t.entry.audit.openBoth}</span>
 					{#each flag.statements as statement (statement.entityId)}
 						<a
 							href={resolve(`/u/${universeSlug}/e/${statement.entitySlug}`)}

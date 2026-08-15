@@ -21,6 +21,7 @@ import {
 	type Db
 } from '@canonry/db';
 import type { WorkNodeKind } from '@canonry/db/schema';
+import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { normalizeMentions, resolveMentionName, type MentionTarget } from '$lib/markdown';
 import type { Actions, PageServerLoad } from './$types';
@@ -124,10 +125,10 @@ export const actions: Actions = {
 		const title = form.get('title');
 		const rawBody = form.get('body');
 		if (typeof title !== 'string' || title.trim().length === 0) {
-			return fail(400, { message: 'A node needs a title' });
+			return fail(400, { message: messages(locals.locale).works.errors.nodeNeedsTitle });
 		}
 		if (typeof rawBody !== 'string') {
-			return fail(400, { message: 'Missing body' });
+			return fail(400, { message: messages(locals.locale).works.errors.missingBody });
 		}
 
 		const targets = await mentionTargetsFor(conn, access.universe.id);
@@ -152,10 +153,10 @@ export const actions: Actions = {
 		const title = form.get('title');
 		const kind = form.get('kind');
 		if (typeof title !== 'string' || title.trim().length === 0) {
-			return fail(400, { message: 'A node needs a title' });
+			return fail(400, { message: messages(locals.locale).works.errors.nodeNeedsTitle });
 		}
 		if (!isWorkNodeKind(kind)) {
-			return fail(400, { message: 'Pick a node kind' });
+			return fail(400, { message: messages(locals.locale).works.errors.pickNodeKind });
 		}
 
 		const child = await createWorkNode(conn, {

@@ -15,14 +15,21 @@
 	 * defect, so there is nothing here shaped like a warning.
 	 */
 	import { enhance } from '$app/forms';
-	import { LOCALES, LOCALE_NAMES, type Locale } from '@canonry/lang';
+	import { LOCALES, LOCALE_NAMES, messages, type Locale } from '$lib/i18n';
 	import type { LanguageSource } from '@canonry/db/schema';
 
 	let {
 		language,
 		languageSource,
-		canWrite
-	}: { language: Locale | null; languageSource: LanguageSource; canWrite: boolean } = $props();
+		canWrite,
+		locale
+	}: {
+		language: Locale | null;
+		languageSource: LanguageSource;
+		canWrite: boolean;
+		locale: Locale;
+	} = $props();
+	let t = $derived(messages(locale));
 
 	// The select's value space is wider than `Locale | null`: 'auto' and 'unsure' are both
 	// real choices with no locale of their own, so they need their own tokens rather than
@@ -66,7 +73,9 @@
 	}}
 >
 	<label class="flex items-center justify-end gap-1.5 text-xs text-ink-2">
-		<span class="font-mono text-[10px] tracking-wide text-muted uppercase">Language</span>
+		<span class="font-mono text-[10px] tracking-wide text-muted uppercase"
+			>{t.entry.language.label}</span
+		>
 		<select
 			name="language"
 			bind:value={choice}
@@ -74,16 +83,18 @@
 			onchange={() => formEl?.requestSubmit()}
 			class="rounded-md border border-line-2 bg-panel px-1.5 py-0.5 text-xs text-ink disabled:opacity-50"
 		>
-			<option value="auto">Auto-detect</option>
-			{#each LOCALES as locale (locale)}
-				<option value={locale}>{LOCALE_NAMES[locale]}</option>
+			<option value="auto">{t.entry.language.autoDetect}</option>
+			{#each LOCALES as entityLocale (entityLocale)}
+				<option value={entityLocale}>{LOCALE_NAMES[entityLocale]}</option>
 			{/each}
-			<option value="unsure">Not sure / mixed</option>
+			<option value="unsure">{t.entry.language.unsure}</option>
 		</select>
 	</label>
 	{#if source === 'detected'}
 		<p class="mt-1 text-[11px] text-muted">
-			Detected: {detected ? LOCALE_NAMES[detected] : 'not enough text to tell'}
+			{t.entry.language.detectedPrefix(
+				detected ? LOCALE_NAMES[detected] : t.entry.language.detectedUnknown
+			)}
 		</p>
 	{/if}
 </form>

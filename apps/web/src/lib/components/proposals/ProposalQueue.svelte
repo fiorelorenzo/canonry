@@ -12,21 +12,27 @@
 	 */
 	import { flushSync } from 'svelte';
 	import { enhance } from '$app/forms';
+	import { messages, type Locale } from '$lib/i18n';
 	import ProposalDiffCard, { type DiffCandidateView } from './ProposalDiffCard.svelte';
 	import RejectChips from './RejectChips.svelte';
 
 	let {
 		candidates,
 		universeSlug,
-		filterType = null
+		filterType = null,
+		locale
 	}: {
 		candidates: DiffCandidateView[];
 		universeSlug: string;
 		/** D4's chip filter, applied by the caller before candidates ever reach this
 		 * component - kept as a prop only so the position counter can say "N of M shown"
-		 * against the filtered set rather than the whole queue. */
+		 * against the filtered set rather than the whole queue. Already a display label
+		 * (the caller's own bucket `label`, already localized), never a raw type key. */
 		filterType?: string | null;
+		locale: Locale;
 	} = $props();
+
+	let t = $derived(messages(locale).proposals.queue);
 
 	let items = $state(candidates.map((c) => ({ ...c })));
 	let currentId = $state<string | null>(
@@ -40,6 +46,7 @@
 	let currentIndex = $derived(items.findIndex((c) => c.id === currentId));
 	let acceptedCount = $derived(items.filter((c) => c.outcome === 'accepted').length);
 	let rejectedCount = $derived(items.filter((c) => c.outcome === 'rejected').length);
+	let posLabel = $derived(t.position(items.length));
 
 	// Hidden form fields, reused for every action - one form per action name, its
 	// proposalId/reason set right before a programmatic submit.
@@ -145,7 +152,7 @@
 				const id = result.data.id as string;
 				const item = items.find((c) => c.id === id);
 				if (item) item.outcome = 'accepted';
-				showToast(`Accepted ${current?.targetName ?? 'entry'}`, id);
+				showToast(t.acceptedToast(current?.targetName ?? null), id);
 				currentId = nextPendingAfter(id);
 			}
 		};
@@ -211,7 +218,7 @@
 				toast = null;
 				currentId = id;
 			} else if (result.type === 'failure') {
-				showToast('Could not undo - nothing recorded to restore to.', null);
+				showToast(t.undoFailedToast, null);
 			}
 		};
 	}}
@@ -239,12 +246,12 @@
 
 	<div class="qhead flex items-center justify-between text-xs text-muted">
 		<span>
-			Proposal <b class="text-ink">{currentIndex + 1}</b> of {items.length}
-			{#if filterType}({filterType} shown){/if}
+			{posLabel.prefix}<b class="text-ink">{currentIndex + 1}</b>{posLabel.suffix}
+			{#if filterType}{t.filterShown(filterType)}{/if}
 		</span>
 		<span
-			><b class="text-ok">{acceptedCount}</b> accepted &middot;
-			<b class="text-danger">{rejectedCount}</b> rejected</span
+			><b class="text-ok">{acceptedCount}</b>{t.acceptedSuffix(acceptedCount)} &middot;
+			<b class="text-danger">{rejectedCount}</b>{t.rejectedSuffix(rejectedCount)}</span
 		>
 	</div>
 
@@ -253,6 +260,7 @@
 			candidate={current}
 			{universeSlug}
 			showRejectChips={false}
+			{locale}
 			onAccept={accept}
 			onReject={reject}
 			onRejectReason={pickReason}
@@ -265,17 +273,18 @@
 			}}
 		/>
 	{:else}
-		<p class="text-sm text-muted">Nothing left to review.</p>
+		<p class="text-sm text-muted">{t.empty}</p>
 	{/if}
 
 	<div class="qkeys flex flex-wrap gap-4 text-xs text-muted">
 		<span
 			><kbd class="rounded border border-line-2 px-1 font-mono">j</kbd>
-			<kbd class="rounded border border-line-2 px-1 font-mono">k</kbd> move</span
+			<kbd class="rounded border border-line-2 px-1 font-mono">k</kbd>
+			{t.keyboardMove}</span
 		>
-		<span><kbd class="rounded border border-line-2 px-1 font-mono">a</kbd> accept</span>
-		<span><kbd class="rounded border border-line-2 px-1 font-mono">r</kbd> reject</span>
-		<span><kbd class="rounded border border-line-2 px-1 font-mono">u</kbd> undo</span>
+		<span><kbd class="rounded border border-line-2 px-1 font-mono">a</kbd> {t.keyboardAccept}</span>
+		<span><kbd class="rounded border border-line-2 px-1 font-mono">r</kbd> {t.keyboardReject}</span>
+		<span><kbd class="rounded border border-line-2 px-1 font-mono">u</kbd> {t.keyboardUndo}</span>
 	</div>
 
 	{#if toast}
@@ -284,14 +293,14 @@
 		>
 			<span>{toast.text}</span>
 			{#if toast.undoId}
-				<button type="button" class="underline" onclick={undo}>Undo</button>
+				<button type="button" class="underline" onclick={undo}>{t.undo}</button>
 			{/if}
 		</div>
 	{/if}
 
 	{#if rejectChipsFor}
 		<div class="rounded-md border border-line bg-panel-2 px-3 py-2">
-			<RejectChips onPick={pickReason} />
+			<RejectChips onPick={pickReason} {locale} />
 		</div>
 	{/if}
 </div>

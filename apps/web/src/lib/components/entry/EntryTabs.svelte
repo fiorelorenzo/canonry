@@ -7,6 +7,7 @@
 	 * this tab from the title row, the same lift-to-parent shape `activeFactId` already
 	 * uses between this component and `EntryProseWithSecrets`.
 	 */
+	import { messages, type Locale } from '$lib/i18n';
 	import type { RelationView } from '@canonry/db';
 	import RelationsPanel from './RelationsPanel.svelte';
 	import FactsPanel, { type FactRow } from './FactsPanel.svelte';
@@ -47,6 +48,7 @@
 		onFactToggle,
 		media,
 		audit,
+		locale,
 		active = $bindable('relations')
 	}: {
 		universeSlug: string;
@@ -57,26 +59,28 @@
 		onFactToggle: (fact: FactRow) => void;
 		media: MediaTabData;
 		audit: AuditFlagView[];
+		locale: Locale;
 		active?: TabId;
 	} = $props();
+	let t = $derived(messages(locale));
 
 	type TabId = 'relations' | 'facts' | 'images' | 'history' | 'audit';
 
 	let tabs = $derived<{ id: TabId; label: string; count: number | null }[]>([
-		{ id: 'relations', label: 'Relations', count: relations.length },
-		{ id: 'facts', label: 'Facts', count: facts.length },
-		{ id: 'images', label: 'Images', count: media.assets.length },
-		{ id: 'history', label: 'History', count: history.length },
-		{ id: 'audit', label: 'Audit', count: audit.length }
+		{ id: 'relations', label: t.entry.tabs.relations, count: relations.length },
+		{ id: 'facts', label: t.entry.tabs.facts, count: facts.length },
+		{ id: 'images', label: t.entry.tabs.images, count: media.assets.length },
+		{ id: 'history', label: t.entry.tabs.history, count: history.length },
+		{ id: 'audit', label: t.entry.tabs.audit, count: audit.length }
 	]);
 </script>
 
 <aside
 	id="entry-detail"
 	class="w-full border-line bg-panel-2 md:w-64 md:flex-none md:border-l"
-	aria-label="Entry detail"
+	aria-label={t.entry.tabs.ariaLabel}
 >
-	<div class="flex border-b border-line" role="tablist" aria-label="Entry detail sections">
+	<div class="flex border-b border-line" role="tablist" aria-label={t.entry.tabs.sectionsAriaLabel}>
 		{#each tabs as tab (tab.id)}
 			<button
 				type="button"
@@ -96,9 +100,9 @@
 
 	<div class="p-4" role="tabpanel">
 		{#if active === 'relations'}
-			<RelationsPanel {relations} {universeSlug} />
+			<RelationsPanel {relations} {universeSlug} {locale} />
 		{:else if active === 'facts'}
-			<FactsPanel {facts} {activeFactId} onToggle={onFactToggle} />
+			<FactsPanel {facts} {activeFactId} onToggle={onFactToggle} {locale} />
 		{:else if active === 'images'}
 			<EntryMediaPanel
 				{universeSlug}
@@ -114,11 +118,12 @@
 				variantsPrice={media.variantsPrice}
 				portraitModel={media.portraitModel}
 				variantsModel={media.variantsModel}
+				{locale}
 			/>
 		{:else if active === 'audit'}
-			<AuditFlagsPanel flags={audit} {universeSlug} />
+			<AuditFlagsPanel flags={audit} {universeSlug} {locale} />
 		{:else}
-			<HistoryPanel revisions={history} />
+			<HistoryPanel revisions={history} {locale} />
 		{/if}
 	</div>
 </aside>

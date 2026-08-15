@@ -31,6 +31,7 @@ import {
 	type WarmCandidate
 } from '@canonry/warm';
 import type { Locale } from '@canonry/lang';
+import { messages } from '$lib/i18n';
 import { buildNpcDraftGenerator } from './warm-generator.js';
 
 export interface QuickActionContext {
@@ -70,6 +71,7 @@ async function scaffoldNpcProposal(
 	ctx: QuickActionContext,
 	unavailableReason: string
 ): Promise<ProposalRow> {
+	const t = messages(ctx.locale).table.server;
 	const { plan, proposals } = await createProposalPlan(ctx.db, {
 		universeId: ctx.universeId,
 		trigger: 'table',
@@ -81,7 +83,7 @@ async function scaffoldNpcProposal(
 			{
 				kind: 'draft_entity',
 				targetEntityId: null,
-				rationale: `Drafted via "+ NPC here" while ${ctx.placeName} was the declared context. AI drafting was unavailable (${unavailableReason}), so this is an empty scaffold for the GM to fill in rather than a discarded tap.`,
+				rationale: t.npcScaffoldRationale(ctx.placeName, unavailableReason),
 				evidence: {
 					source: 'table-quick-action',
 					action: '+ NPC here',
@@ -118,6 +120,7 @@ async function scaffoldNpcProposal(
  * has run dry - rather than leaving the GM's tap with nothing to show for it.
  */
 export async function fireNpcHere(ctx: QuickActionContext): Promise<NpcHereResult> {
+	const t = messages(ctx.locale).table.server;
 	let resolved;
 	try {
 		resolved = await resolveModel(ctx.db, 'cheap');
@@ -143,7 +146,7 @@ export async function fireNpcHere(ctx: QuickActionContext): Promise<NpcHereResul
 		modelId: resolved.modelId,
 		provider: resolved.provider,
 		credits: (await chargeFor(ctx.db, 'warm.npc_draft')).credits,
-		rationale: `Drafted via the "+ NPC here" quick action while ${ctx.placeName} was the declared context.`,
+		rationale: t.npcDraftedRationale(ctx.placeName),
 		// Two languages, both correct at once (SPEC.md §17): the label the GM reads follows their
 		// interface, the NPC's prose follows the place it will be written into.
 		locale: ctx.locale,
@@ -175,8 +178,8 @@ export async function fireNpcHere(ctx: QuickActionContext): Promise<NpcHereResul
 		// spend) - either way the GM tapped a button and nothing landed in their queue yet.
 		const reason =
 			result.status === 'degraded'
-				? 'the warm budget could not cover this draft right now'
-				: `warm status "${result.status}" produced no new proposal`;
+				? t.warmBudgetUnavailable
+				: t.warmStatusNoProposal(result.status);
 		return {
 			proposal: await scaffoldNpcProposal(ctx, reason),
 			drafted: 'scaffold',
@@ -203,6 +206,7 @@ export async function fireCreateChildLocation(
 	ctx: QuickActionContext,
 	label: string
 ): Promise<ProposalRow> {
+	const t = messages(ctx.locale).table.server;
 	const { proposals } = await createProposalPlan(ctx.db, {
 		universeId: ctx.universeId,
 		trigger: 'table',
@@ -214,7 +218,7 @@ export async function fireCreateChildLocation(
 			{
 				kind: 'create',
 				targetEntityId: null,
-				rationale: `Created via the child-location quick action while ${ctx.placeName} was the declared context.`,
+				rationale: t.createLocationRationale(ctx.placeName),
 				evidence: {
 					source: 'table-quick-action',
 					action: '+ create a child location',
@@ -247,8 +251,8 @@ export async function fireCreateChildLocation(
 }
 
 export class NoSessionDeclaredError extends Error {
-	constructor() {
-		super('mark as revealed needs a declared session - set one when declaring context first');
+	constructor(localizedMessage: string) {
+		super(localizedMessage);
 		this.name = 'NoSessionDeclaredError';
 	}
 }
@@ -260,7 +264,9 @@ export async function fireMarkAsRevealed(
 	ctx: QuickActionContext,
 	confirmedBy: string
 ): Promise<RevelationRow> {
-	if (!ctx.sessionEntityId) throw new NoSessionDeclaredError();
+	if (!ctx.sessionEntityId) {
+		throw new NoSessionDeclaredError(messages(ctx.locale).table.server.noSessionDeclared);
+	}
 	return revealEntityLive(ctx.db, {
 		universeId: ctx.universeId,
 		entityId: ctx.placeEntityId,
