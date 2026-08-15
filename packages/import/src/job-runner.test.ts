@@ -162,8 +162,8 @@ function patchBody(patch: unknown): string | undefined {
 	return undefined;
 }
 
-function finishStep(id: string, documentId: string) {
-	return toolCallStep([{ id, name: 'job_finish', input: { documentId, outcome: 'completed' } }]);
+function finishStep(id: string) {
+	return toolCallStep([{ id, name: 'job_finish', input: { outcome: 'completed' } }]);
 }
 
 describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
@@ -255,7 +255,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		const model1 = scriptedModel([
 			toolCallStep([{ id: 'r1', name: 'source_read', input: { path: 'notes/aldric.md' } }]),
 			entityStep('r2', 'e1', 'Aldric Voss', 'doc-1', 'notes/aldric.md'),
-			finishStep('r3', 'doc-1')
+			finishStep('r3')
 		]);
 		const driver1 = new GatewayDriver({
 			gateway: IDENTITY_GATEWAY,
@@ -305,7 +305,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			concurrencyLimit: 5
 		});
 
-		const model2 = scriptedModel([finishStep('never', 'doc-1')]);
+		const model2 = scriptedModel([finishStep('never')]);
 		const driver2 = new GatewayDriver({
 			gateway: IDENTITY_GATEWAY,
 			models: fixedModelSelector(model2)
@@ -382,7 +382,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		const modelA = scriptedModel([
 			toolCallStep([{ id: 'a1', name: 'source_read', input: { path: 'notes/a.md' } }]),
 			entityStep('a2', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
-			finishStep('a3', 'doc-a')
+			finishStep('a3')
 		]);
 		const driverA = new GatewayDriver({
 			gateway: IDENTITY_GATEWAY,
@@ -414,7 +414,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		const modelB = scriptedModel([
 			toolCallStep([{ id: 'b1', name: 'source_read', input: { path: 'notes/b.md' } }]),
 			entityStep('b2', 'eb', 'Entity B', 'doc-b', 'notes/b.md'),
-			finishStep('b3', 'doc-b')
+			finishStep('b3')
 		]);
 		const driverB = new GatewayDriver({
 			gateway: IDENTITY_GATEWAY,
@@ -466,7 +466,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			toolCallStep([{ id: 'c1', name: 'source_read', input: { path: 'notes/c.md' } }]),
 			entityStep('c2', 'ec', 'Entity C', 'doc-c', 'notes/c.md'),
 			// A third step the cancel should prevent from ever running.
-			finishStep('c3', 'doc-c')
+			finishStep('c3')
 		]);
 		const runner = new ImportJobRunner();
 
@@ -564,7 +564,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 					}
 				}
 			]),
-			finishStep('e3', 'doc-en'),
+			finishStep('e3'),
 			toolCallStep([{ id: 'i1', name: 'source_read', input: { path: IT_PATH } }]),
 			toolCallStep([
 				{
@@ -582,7 +582,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 					}
 				}
 			]),
-			finishStep('i3', 'doc-it')
+			finishStep('i3')
 		]);
 
 		const driver = new GatewayDriver({

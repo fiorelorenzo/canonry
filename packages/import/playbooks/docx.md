@@ -1,6 +1,6 @@
 ---
 id: docx
-version: 2
+version: 3
 name: DOCX document
 description: Imports a Word document, keeping its structure and dropping its visual styling.
 modelPurpose: cheap
@@ -93,10 +93,10 @@ job's unpacked export are given to you in the first user message.
    ```
 
 4. **Checkpoint as you go.** After a meaningful chunk of proposals, call `checkpoint`
-   with this document's id and a short note of where you are.
+   with a short note of where you are.
 
-5. **Finish the document.** Call `job_finish` with this document's id and an outcome
-   of `completed`, or `skipped` if the document turned out to have nothing to
+5. **Finish the document.** Call `job_finish` with an outcome of `completed`, or
+   `skipped` if the document turned out to have nothing to
    propose. `job_finish` does not take entity or relation counts: the loop already
    knows exactly what you proposed.
 

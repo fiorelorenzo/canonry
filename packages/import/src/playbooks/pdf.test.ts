@@ -90,12 +90,8 @@ describe('pdf playbook (issue #39, SPEC.md §6.6)', () => {
 						}
 					}
 				]),
-				toolCallStep([
-					{ id: 't5', name: 'checkpoint', input: { documentId: 'doc-1', note: 'both pages done' } }
-				]),
-				toolCallStep([
-					{ id: 't6', name: 'job_finish', input: { documentId: 'doc-1', outcome: 'completed' } }
-				])
+				toolCallStep([{ id: 't5', name: 'checkpoint', input: { note: 'both pages done' } }]),
+				toolCallStep([{ id: 't6', name: 'job_finish', input: { outcome: 'completed' } }])
 			]
 		});
 

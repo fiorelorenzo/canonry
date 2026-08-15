@@ -1,6 +1,6 @@
 ---
 id: kanka
-version: 2
+version: 3
 name: Kanka campaign export
 description: Imports a Kanka campaign export (JSON plus images), mapping Kanka's entity types onto ours.
 modelPurpose: cheap
@@ -148,9 +148,9 @@ with no `entry` and nothing else to go on is not worth proposing.
    through the structured field.
 
 4. **Checkpoint as you go.** After a meaningful chunk of proposals, call `checkpoint`
-   with this document's id and a short note of where you are.
+   with a short note of where you are.
 
-5. **Finish the document.** Call `job_finish` with this document's id and an outcome
+5. **Finish the document.** Call `job_finish` with an outcome
    of `completed`, or `skipped` if the file held nothing mappable (every record an
    unmapped type from the table above). `job_finish` does not take entity or relation
    counts: the loop already knows exactly what you proposed.

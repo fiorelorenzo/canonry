@@ -12,9 +12,10 @@
  * nothing in the story deleted them. CHANGE_MANIFEST records exactly what differs, as data, so an
  * e2e run can assert against it instead of against my prose.
  *
- * Relation labels: the shipped catalogue (packages/db/migrations/0001_seed_relation_type_catalogue.sql,
- * confirmed against the live migrated DB) is exactly eight labels, each with a fixed allowed_from /
- * allowed_to entity-type set that is enforced, not advisory:
+ * Relation labels: the shipped catalogue (packages/db/migrations/0001_seed_relation_type_catalogue.sql
+ * plus 0029_containment_and_protects_relations.sql, confirmed against the live migrated DB) is ten
+ * labels, each with a fixed allowed_from / allowed_to entity-type set that is enforced, not
+ * advisory:
  *
  *   commands     | commanded by | one_to_many  | {character,faction} -> {character,faction}
  *   employs      | employed by  | one_to_many  | {character,faction} -> {character}
@@ -24,15 +25,19 @@
  *   parent of    | child of     | one_to_many  | {character} -> {character}
  *   owns         | owned by     | one_to_many  | {character,faction} -> {item,place}
  *   appointed    | appointed by | one_to_many  | {character,faction} -> {character}
+ *   part of      | contains     | many_to_one  | {place,faction} -> {place,faction}
+ *   protects     | protected by | many_to_many | {character,faction} -> {character,faction}
  *
- * I hold to exactly these eight labels and their real allowed_from/allowed_to below. Two
- * consequences worth naming: a place can never start a `located in` edge (only character, faction,
- * item or event can), so Valdoria's quarters and its harbour cannot hang a `located in` off the
- * city the way seed-fixture.ts's own `['the-gilded-rat', 'located in', 'valdoria']` row does - that
- * row is a place starting a `located in` edge and is invalid against this catalogue, so I did not
- * replicate it here. And a session entity can carry no relation at all, since no label's
- * allowed_from or allowed_to includes `session`. See "edges the catalogue cannot express" in my
- * report for the full list of what this cost the world.
+ * I hold to exactly these ten labels and their real allowed_from/allowed_to below. `part of`
+ * (issue #165) is what makes seed-fixture.ts's own `['the-gilded-rat', 'part of', 'valdoria']` row
+ * legal - a place inside a place, which `located in` still cannot start (allowed_from stays
+ * {character,faction,item,event}, no `place`). I have not gone back to nest the other quarters or
+ * the harbour into Valdoria below: that is new fiction this issue did not ask for, not a
+ * consequence of the fix. A session entity still carries no relation at all, since no label's
+ * allowed_from or allowed_to includes `session` - #165 left that gap open on purpose (sessions
+ * already attach to canon through `revelation.session_entity_id` and
+ * `session_context.session_entity_id`, not through the relation catalogue). See "edges the
+ * catalogue cannot express" in my report for the full list of what this cost the world.
  */
 import type { World, WorldEntity, WorldRelation } from './types.js';
 
@@ -44,7 +49,9 @@ type CatalogueLabel =
 	| 'ally of'
 	| 'parent of'
 	| 'owns'
-	| 'appointed';
+	| 'appointed'
+	| 'part of'
+	| 'protects';
 
 const RELATION_CATALOGUE: Record<CatalogueLabel, { inverseLabel: string; cardinality: WorldRelation['cardinality'] }> = {
 	commands: { inverseLabel: 'commanded by', cardinality: 'one_to_many' },
@@ -54,7 +61,9 @@ const RELATION_CATALOGUE: Record<CatalogueLabel, { inverseLabel: string; cardina
 	'ally of': { inverseLabel: 'ally of', cardinality: 'many_to_many' },
 	'parent of': { inverseLabel: 'child of', cardinality: 'one_to_many' },
 	owns: { inverseLabel: 'owned by', cardinality: 'one_to_many' },
-	appointed: { inverseLabel: 'appointed by', cardinality: 'one_to_many' }
+	appointed: { inverseLabel: 'appointed by', cardinality: 'one_to_many' },
+	'part of': { inverseLabel: 'contains', cardinality: 'many_to_one' },
+	protects: { inverseLabel: 'protected by', cardinality: 'many_to_many' }
 };
 
 function rel(from: string, label: CatalogueLabel, to: string): WorldRelation {
