@@ -457,3 +457,28 @@ bilingual gold set with more cross-language pairs than this fixture carries, or 
 step - not run here, because the gap did not survive to that step in the form the issue
 described it: it is now two specific hard questions and a small-corpus top-k effect, not
 an eight-question-wide model weakness.
+
+## The re-run, 2026-08-16, after the fixes
+
+Nine of the issues the first run filed were fixed and merged the same night (#160 to #169,
+plus #178 which came out of #161's own evidence). I re-ran the import end to end on the
+result rather than trusting the PRs, and the numbers are in
+`packages/bench/reports/2026-08-16/import-e2e.md`. The two that matter:
+
+**Every import proposal is now acceptable: 165 of 165, against 139 of 326 before.** The
+duplicate-create defect is gone, and with it the raw unique violation a GM used to see as a
+500. Proposal counts roughly halved, which is the fix rather than a regression: 87 of
+obsidian's original 121 were duplicates of entities other documents had already proposed.
+
+**Four of seven sources now pass SPEC.md §6.4's re-import test, and three still fail**:
+obsidian at 21 proposals on an identical second import, world-anvil at 48, and onenote,
+which now imports at all, at 18. That is no longer the duplicate defect. It is issue #186:
+`entity_propose` never validates `sourceRef.path`, so a proposal can name a document it did
+not come from, and the `entity_source_ref` row it produces pairs one document's path with
+another document's content hash. The skip then cannot fire for either. Five of eight OneNote
+refs written on a first import carry a hash belonging to a different document, which is the
+measurement in that issue.
+
+The retrieval half was re-measured separately under #168 and is recorded above: the
+threshold moved from 0.25 to 0.35 on evidence, and the cross-language gap did not move,
+which the sweep attributes mostly to a 32-chunk corpus rather than to the model.
