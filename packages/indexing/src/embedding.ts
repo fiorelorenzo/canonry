@@ -15,11 +15,17 @@ export interface GatewayEmbedderDeps {
 	model: ResolvedEmbeddingModel;
 	userId: string;
 	universeId: string | null;
+	/** SPEC.md §15/§7: the `operation_price` row this call is billed against, always at
+	 * zero credits (reading is free) but distinct rows for distinct reasons - `'index.wiki.embed'`
+	 * for the MediaWiki crawl's batch embedding, `'index.embed'` for a universe's own canon on
+	 * save (issue #164). Defaults to the wiki crawl's own operation, so every existing caller
+	 * of this function keeps its current `model_call` attribution unchanged. */
+	operation?: string;
 }
 
 /** Production implementation: one `embedMany` call per batch, wrapped in `withUsage`
- * (agent `'indexing'`, operation `'index.wiki.embed'`, zero credits - see
- * `operation_price`). */
+ * (agent `'indexing'`, operation `deps.operation` - `'index.wiki.embed'` by default - zero
+ * credits, see `operation_price`). */
 export function createGatewayEmbedder(deps: GatewayEmbedderDeps): Embedder {
 	return async (texts) => {
 		if (texts.length === 0) return [];
@@ -30,7 +36,7 @@ export function createGatewayEmbedder(deps: GatewayEmbedderDeps): Embedder {
 				userId: deps.userId,
 				universeId: deps.universeId,
 				agent: 'indexing',
-				operation: 'index.wiki.embed'
+				operation: deps.operation ?? 'index.wiki.embed'
 			},
 			() => embedMany({ model: deps.model.model, values: texts }),
 			{ extractUsage: (result) => ({ embeddingTokens: result.usage.tokens ?? 0 }) }

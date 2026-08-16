@@ -33,6 +33,7 @@ import {
 	recordProposalDiff,
 	type Db
 } from '@canonry/db';
+import { resolveModel } from '@canonry/ai';
 import type { GatewayWrapper, ModelFactory } from '@canonry/copilot';
 import {
 	canonSaveJob,
@@ -45,9 +46,15 @@ import {
 	universe,
 	user
 } from '@canonry/db/schema';
-import { MockLanguageModelV4 } from 'ai/test';
-import type { LanguageModel } from 'ai';
+import { MockEmbeddingModelV4, MockLanguageModelV4 } from 'ai/test';
+import type { EmbeddingModel, LanguageModel } from 'ai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+	embeddingDimensionsFor,
+	retrieveForUniverse,
+	type EmbeddingModelFactory
+} from '@canonry/indexing';
+import { createVectorClient, dropCollection, loreCollectionNameForModel } from '@canonry/vector';
 import {
 	createCanonSaveJobQueue,
 	type CanonSaveJobQueue,
@@ -133,6 +140,54 @@ const IDENTITY_GATEWAY: GatewayWrapper = (model) => model;
 function modelFactoryFor(cheap: LanguageModel): ModelFactory {
 	return () => cheap;
 }
+
+/** Issue #164: no `AI_GATEWAY_*` credentials in this box either, so the index engine's
+ * embedder is a scripted stand-in too - same hashing trick `@canonry/indexing`'s own
+ * `hashingEmbedder` uses, parameterised to whatever width the suite's active `'embedding'`
+ * `model_config` row (migration 0025's seed) actually resolves to, so a real
+ * `ensureCollection`/`upsertPoints` call never sees a width mismatch. */
+function fakeEmbedVector(text: string, dims: number): number[] {
+	const vector = new Array(dims).fill(0) as number[];
+	const tokens = text
+		.toLowerCase()
+		.replace(/[^a-z0-9\s]/g, ' ')
+		.split(/\s+/)
+		.filter((token) => token.length > 0);
+	for (const token of tokens) {
+		let hash = 2166136261;
+		for (let i = 0; i < token.length; i++) {
+			hash ^= token.charCodeAt(i);
+			hash = Math.imul(hash, 16777619);
+		}
+		const bucket = Math.abs(hash) % dims;
+		vector[bucket] = (vector[bucket] ?? 0) + 1;
+	}
+	const norm = Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0));
+	return norm > 0 ? vector.map((v) => v / norm) : vector;
+}
+
+function fakeEmbeddingModelFactory(): EmbeddingModelFactory {
+	return (resolved) => {
+		const dims = embeddingDimensionsFor(resolved.provider, resolved.modelId);
+		return new MockEmbeddingModelV4({
+			doEmbed: async (options) => ({
+				embeddings: options.values.map((text) => fakeEmbedVector(text, dims)),
+				usage: { tokens: options.values.join(' ').length },
+				warnings: []
+			})
+		}) as unknown as EmbeddingModel;
+	};
+}
+
+/** Every other test in this file never wires a real embedding gateway - this factory is
+ * never called for them (`runIndexEngine` resolves the embedding model and checks
+ * `oldBody !== newBody` before ever reaching it, and every save below that changes a body
+ * still only exercises the caught, contained `error` path this throw produces), so the
+ * default keeps the suite from writing to Qdrant at all except in the one test below that
+ * asks to. */
+const NO_EMBEDDING_MODEL_FACTORY: EmbeddingModelFactory = () => {
+	throw new Error('no embedding gateway wired in this test');
+};
 
 type CanonSaveJobRow = typeof canonSaveJob.$inferSelect;
 
@@ -251,6 +306,8 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			db,
 			modelFactory: modelFactoryFor(cheap),
 			gateway: IDENTITY_GATEWAY,
+			vectorClient: createVectorClient(),
+			embeddingModelFactory: NO_EMBEDDING_MODEL_FACTORY,
 			...overrides
 		});
 	}
@@ -777,5 +834,121 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 		const record = recent.find((r) => r.entityId === edited.id);
 		expect(record?.propagation.status).toBe('error');
 		expect(record?.audit.status).toBe('error');
+	});
+
+	it('indexes the saved entity through the worker (issue #164): retrievable chunks, and a re-save replaces rather than duplicates them', async () => {
+		const { owner, world } = await fixture();
+		const embeddingModel = await resolveModel(db, 'embedding');
+		const dims = embeddingDimensionsFor(embeddingModel.provider, embeddingModel.modelId);
+		const collectionName = loreCollectionNameForModel(embeddingModel, world.id);
+		const vector = createVectorClient();
+		const queue = testQueue({
+			vectorClient: vector,
+			embeddingModelFactory: fakeEmbeddingModelFactory()
+		});
+
+		try {
+			const [saved] = await db
+				.insert(entity)
+				.values({
+					universeId: world.id,
+					type: 'place',
+					name: 'The Gilded Rat',
+					slug: unique('gilded-rat'),
+					aliases: [],
+					body: ''
+				})
+				.returning();
+			if (!saved) throw new Error('entity insert returned no row');
+
+			const firstBody =
+				'The Gilded Rat is a smugglers tavern in the harbour district, run by Old Maren.';
+			queue.schedule({
+				universeId: world.id,
+				entityId: saved.id,
+				entityName: saved.name,
+				userId: owner.id,
+				oldBody: '',
+				newBody: firstBody,
+				triggerRevisionId: null,
+				locale: 'en'
+			});
+
+			const firstRow = await waitForEntityRow(
+				db,
+				world.id,
+				saved.id,
+				(row) => row.status === 'done' && row.newBody === firstBody
+			);
+			const firstOutcome = firstRow.indexOutcome as { status: string; chunkCount?: number };
+			expect(firstOutcome.status).toBe('ok');
+			expect(firstOutcome.chunkCount).toBeGreaterThan(0);
+
+			const findsMaren = 'smugglers tavern harbour district Old Maren';
+			const marenHits = await retrieveForUniverse({
+				db,
+				vectorClient: vector,
+				collectionName,
+				universeId: world.id,
+				queryVector: fakeEmbedVector(findsMaren, dims),
+				queryText: findsMaren,
+				topK: 10,
+				threshold: -1
+			});
+			expect(marenHits.some((h) => h.payload.text.includes('Old Maren'))).toBe(true);
+
+			// Re-save with a different body: the stale chunk has to be replaced, not
+			// accumulated alongside the new one.
+			const secondBody = 'The Gilded Rat burned down last winter; only the sign remains.';
+			queue.schedule({
+				universeId: world.id,
+				entityId: saved.id,
+				entityName: saved.name,
+				userId: owner.id,
+				oldBody: firstBody,
+				newBody: secondBody,
+				triggerRevisionId: null,
+				locale: 'en'
+			});
+			const secondRow = await waitForEntityRow(
+				db,
+				world.id,
+				saved.id,
+				(row) => row.status === 'done' && row.newBody === secondBody
+			);
+			const secondOutcome = secondRow.indexOutcome as { status: string; chunkCount?: number };
+			expect(secondOutcome.status).toBe('ok');
+
+			const afterResave = await retrieveForUniverse({
+				db,
+				vectorClient: vector,
+				collectionName,
+				universeId: world.id,
+				queryVector: fakeEmbedVector(findsMaren, dims),
+				queryText: findsMaren,
+				topK: 10,
+				threshold: -1
+			});
+			expect(afterResave.every((h) => !h.payload.text.includes('Old Maren'))).toBe(true);
+
+			const findsRuin = 'burned down winter sign remains';
+			const allForEntity = await retrieveForUniverse({
+				db,
+				vectorClient: vector,
+				collectionName,
+				universeId: world.id,
+				queryVector: fakeEmbedVector(findsRuin, dims),
+				queryText: findsRuin,
+				topK: 50,
+				threshold: -1
+			});
+			const pointsForEntity = allForEntity.filter((h) => h.payload.url.endsWith(saved.id));
+			expect(pointsForEntity, 'no duplicate points left behind by the first save').toHaveLength(
+				secondOutcome.chunkCount ?? -1
+			);
+		} finally {
+			await queue.stop();
+			await dropCollection(vector, collectionName).catch(() => undefined);
+		}
 	});
 });

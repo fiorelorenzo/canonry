@@ -24,7 +24,11 @@ export {
 
 export { chunkPointId } from './point-id.js';
 
-export type { ResolvedExtractionModel, ResolvedEmbeddingModel } from './models.js';
+export type {
+	ResolvedExtractionModel,
+	ResolvedEmbeddingModel,
+	EmbeddingModelFactory
+} from './models.js';
 export {
 	RECOMMENDED_EMBEDDING_MODEL,
 	embeddingDimensionsFor,
@@ -64,3 +68,16 @@ export {
 	type ScoreLoreHitsOptions,
 	type RetrieveForUniverseOptions
 } from './retriever.js';
+
+export {
+	indexEntity,
+	deleteEntityLoreChunks,
+	resolveOwnCanonCollection,
+	entityLoreUrl,
+	type IndexEntityDeps,
+	type IndexEntityOptions,
+	type IndexEntityResult,
+	type DeleteEntityLoreChunksDeps,
+	type DeleteEntityLoreChunksOptions,
+	type OwnCanonCollection
+} from './entity-pipeline.js';

@@ -211,6 +211,13 @@
       "when": 1786835686034,
       "tag": "0029_containment_and_protects_relations",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1786839586770,
+      "tag": "0030_index_own_canon",
+      "breakpoints": true
     }
   ]
 }

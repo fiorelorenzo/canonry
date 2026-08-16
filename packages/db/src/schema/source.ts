@@ -1,6 +1,7 @@
 // SPEC.md §4.6, §6.4, §7. Everything about where canon came from: the import run, the
 // reference that makes a second import an update instead of a duplicate world, and the
 // indexed corpora a derived universe reads.
+import { sql } from 'drizzle-orm';
 import {
 	boolean,
 	index,
@@ -135,7 +136,18 @@ export const dataSource = pgTable(
 		chunkCount: integer('chunk_count').notNull().default(0),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},
-	(t) => [index('data_source_universe_idx').on(t.universeId, t.status)]
+	(t) => [
+		index('data_source_universe_idx').on(t.universeId, t.status),
+		// Issue #164: one "Own canon" row per universe - the row `ownCanonDataSource`
+		// (queries/sources.ts) finds or creates so a homebrew universe's own indexing has a
+		// real data_source id to write against (`retrieveForUniverse` loads the source to
+		// apply its exclusion patterns, so a synthetic id fails every query). Scoped to this
+		// one literal name, not a general (universe_id, name) uniqueness, so it can never
+		// conflict with a wiki source an admin already named however they liked.
+		uniqueIndex('data_source_universe_own_canon_key')
+			.on(t.universeId)
+			.where(sql`${t.name} = 'Own canon'`)
+	]
 );
 
 // SPEC.md §7: "an exclusion list, honoured on request". A pattern rather than an id,

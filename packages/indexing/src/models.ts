@@ -14,6 +14,14 @@ import type { ResolvedModel } from '@canonry/ai';
 export type ResolvedExtractionModel = ResolvedModel & { model: LanguageModel };
 export type ResolvedEmbeddingModel = ResolvedModel & { model: EmbeddingModel };
 
+/** Maps a `resolveModel(db, 'embedding')` result onto a real, callable AI SDK embedding
+ * model - the embedding-purpose sibling of `@canonry/copilot`'s `ModelFactory`
+ * (`(resolved: ResolvedModel) => LanguageModel`), same seam idiom, for whichever caller
+ * needs to construct a `ResolvedEmbeddingModel` for `createGatewayEmbedder` (issue #164:
+ * the canon-save-job worker, injected once at queue construction so a test can swap in a
+ * scripted embedder without a real gateway credential). */
+export type EmbeddingModelFactory = (resolved: ResolvedModel) => EmbeddingModel;
+
 /**
  * The embedding model is the one choice in this product that is expensive to reverse: change it
  * and every vector ever written is unreadable, so every customer's corpus has to be embedded

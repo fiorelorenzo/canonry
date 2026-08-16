@@ -42,6 +42,18 @@ export type EngineOutcome =
 	| { status: 'ai-disabled' }
 	| { status: 'error'; errorName: string; message: string };
 
+/** Issue #164: the third engine's outcome, alongside `EngineOutcome` above - shaped
+ * differently on purpose rather than shoehorned into it. There is no "plan" for indexing
+ * to name (`ok` carries a chunk count instead), and indexing is never gated on
+ * `aiEnabled` (embedding for search is reading infrastructure, not generation - see
+ * `runIndexEngine`'s own doc comment), so there is no `ai-disabled` case here either.
+ * `no-change` covers both "the body did not actually change" and "no embedding model is
+ * configured yet", neither of which is a failure. */
+export type IndexOutcome =
+	| { status: 'ok'; chunkCount: number }
+	| { status: 'no-change' }
+	| { status: 'error'; errorName: string; message: string };
+
 export interface CanonSaveJobResult {
 	universeId: string;
 	entityId: string;
@@ -50,6 +62,7 @@ export interface CanonSaveJobResult {
 	finishedAt: Date;
 	propagation: EngineOutcome;
 	audit: EngineOutcome;
+	index: IndexOutcome;
 }
 
 /** Inserts a new pending job, or - if one is still pending for this (universe, entity) -
@@ -181,13 +194,13 @@ export async function claimNextCanonSaveJob(
 	return claimed ?? null;
 }
 
-/** Marks a claimed row done with both engines' outcomes - called only by the worker that
- * still holds the lease when its run actually finishes. A worker that dies before this
- * runs leaves the row `claimed` for the lease to reclaim, which is the point. */
+/** Marks a claimed row done with all three engines' outcomes - called only by the worker
+ * that still holds the lease when its run actually finishes. A worker that dies before
+ * this runs leaves the row `claimed` for the lease to reclaim, which is the point. */
 export async function completeCanonSaveJob(
 	db: Db,
 	id: string,
-	outcome: { propagation: EngineOutcome; audit: EngineOutcome }
+	outcome: { propagation: EngineOutcome; audit: EngineOutcome; index: IndexOutcome }
 ): Promise<void> {
 	await db
 		.update(canonSaveJob)
@@ -195,6 +208,7 @@ export async function completeCanonSaveJob(
 			status: 'done',
 			propagationOutcome: outcome.propagation,
 			auditOutcome: outcome.audit,
+			indexOutcome: outcome.index,
 			finishedAt: new Date(),
 			updatedAt: new Date()
 		})
@@ -202,16 +216,31 @@ export async function completeCanonSaveJob(
 }
 
 /** A row with no recorded engine outcome only happens for a dead-lettered (`failed`) job -
- * a `done` row always has both, since `completeCanonSaveJob` is the only way a row becomes
- * `done`. Represented as the same `EngineOutcome` shape everything else already uses,
- * rather than a third result type nothing else needs to handle. */
-function outcomeOrDeadLetter(recorded: EngineOutcome | null, row: CanonSaveJobRow): EngineOutcome {
-	if (recorded) return recorded;
+ * a `done` row always has one for every engine, since `completeCanonSaveJob` is the only
+ * way a row becomes `done`. The fallback's shape is the 'error' branch every engine's
+ * outcome type already has, so this one function backs all three rather than a copy per
+ * engine. */
+function deadLetterFallback(row: CanonSaveJobRow): {
+	status: 'error';
+	errorName: string;
+	message: string;
+} {
 	return {
 		status: 'error',
 		errorName: 'CanonSaveJobLeaseExhausted',
 		message: row.lastError ?? 'lease expired repeatedly; job abandoned'
 	};
+}
+
+function outcomeOrDeadLetter(recorded: EngineOutcome | null, row: CanonSaveJobRow): EngineOutcome {
+	return recorded ?? deadLetterFallback(row);
+}
+
+function indexOutcomeOrDeadLetter(
+	recorded: IndexOutcome | null,
+	row: CanonSaveJobRow
+): IndexOutcome {
+	return recorded ?? deadLetterFallback(row);
 }
 
 function toResult(row: CanonSaveJobRow): CanonSaveJobResult {
@@ -222,7 +251,8 @@ function toResult(row: CanonSaveJobRow): CanonSaveJobResult {
 		startedAt: row.startedAt ?? row.createdAt,
 		finishedAt: row.finishedAt ?? row.updatedAt,
 		propagation: outcomeOrDeadLetter(row.propagationOutcome as EngineOutcome | null, row),
-		audit: outcomeOrDeadLetter(row.auditOutcome as EngineOutcome | null, row)
+		audit: outcomeOrDeadLetter(row.auditOutcome as EngineOutcome | null, row),
+		index: indexOutcomeOrDeadLetter(row.indexOutcome as IndexOutcome | null, row)
 	};
 }
 

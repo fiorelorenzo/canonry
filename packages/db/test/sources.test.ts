@@ -15,6 +15,7 @@ import {
 	markIndexed,
 	markIndexingFailed,
 	markIndexingStarted,
+	ownCanonDataSource,
 	recordLicenceReview,
 	requireIndexableDataSource
 } from '../src/index.js';
@@ -168,6 +169,62 @@ describe('data source lifecycle (SPEC.md §7, issues #59/#61)', () => {
 
 		const rows = await listDataSourcesForUniverse(db, universeA.id);
 		expect(rows.map((r) => r.id)).toEqual([sourceA.id]);
+	});
+});
+
+describe('ownCanonDataSource (issue #164)', () => {
+	let db: Db;
+
+	beforeAll(() => {
+		db = testDb();
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	it('creates one "Own canon" row per universe, indexed outright, and returns the same row again', async () => {
+		const universe = await insertHomebrewUniverse(db);
+		const first = await ownCanonDataSource(db, universe.id);
+		expect(first.name).toBe('Own canon');
+		expect(first.status).toBe('indexed');
+		expect(first.licenceReviewedAt).not.toBeNull();
+
+		const second = await ownCanonDataSource(db, universe.id);
+		expect(second.id).toBe(first.id);
+
+		const rows = await listDataSourcesForUniverse(db, universe.id);
+		expect(rows.filter((r) => r.name === 'Own canon')).toHaveLength(1);
+	});
+
+	it('never collides with a wiki source that happens to share the universe', async () => {
+		const universe = await insertHomebrewUniverse(db);
+		await createDataSource(db, { universeId: universe.id, type: 'wiki', name: unique('wiki') });
+		const ownCanon = await ownCanonDataSource(db, universe.id);
+		expect(ownCanon.name).toBe('Own canon');
+		expect((await listDataSourcesForUniverse(db, universe.id)).map((r) => r.type).sort()).toEqual([
+			'text',
+			'wiki'
+		]);
+	});
+
+	it('two concurrent first calls for the same universe still produce exactly one row', async () => {
+		const universe = await insertHomebrewUniverse(db);
+		const [a, b] = await Promise.all([
+			ownCanonDataSource(db, universe.id),
+			ownCanonDataSource(db, universe.id)
+		]);
+		expect(a.id).toBe(b.id);
+		const rows = await listDataSourcesForUniverse(db, universe.id);
+		expect(rows.filter((r) => r.name === 'Own canon')).toHaveLength(1);
+	});
+
+	it('each universe gets its own row', async () => {
+		const universeA = await insertHomebrewUniverse(db);
+		const universeB = await insertHomebrewUniverse(db);
+		const a = await ownCanonDataSource(db, universeA.id);
+		const b = await ownCanonDataSource(db, universeB.id);
+		expect(a.id).not.toBe(b.id);
 	});
 });
 

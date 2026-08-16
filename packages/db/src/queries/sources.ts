@@ -4,7 +4,7 @@
  * pipeline without going through it - `requireIndexableDataSource` is the one function
  * that turns "reviewed" into a fact the indexing pipeline can act on.
  */
-import { eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import { dataSource, dataSourceExclusion } from '../schema/source.js';
 import type { DataSourceStatus, DataSourceType } from '../schema/enums.js';
@@ -252,4 +252,76 @@ export async function addExclusion(
 		.returning();
 	if (!row) throw new Error('addExclusion: insert returned no row');
 	return row;
+}
+
+/** Issue #164's own-canon data source name, exact and unique enough that nobody would
+ * pick it by hand for a real wiki - `data_source_universe_own_canon_key`
+ * (schema/source.ts) is a partial unique index on this literal string. */
+const OWN_CANON_DATA_SOURCE_NAME = 'Own canon';
+
+function isUniqueViolation(err: unknown): boolean {
+	const cause = err instanceof Error ? err.cause : err;
+	if (typeof cause !== 'object' || cause === null || !('code' in cause)) return false;
+	return cause.code === '23505';
+}
+
+/**
+ * Issue #164: the `data_source` row that stands in for a universe's own hand-written
+ * canon, found or created on a universe's first save. Has to be a real row, not a
+ * synthetic id: `retrieveForUniverse` loads the source (through
+ * `LoreChunkPayload.dataSourceId`) to apply its exclusion patterns, so a made-up id would
+ * fail every query against this universe's collection rather than simply finding nothing.
+ *
+ * `status: 'indexed'` and a licence recorded outright, never `licence_review_pending`:
+ * the licence gate (`requireIndexableDataSource`) exists for somebody else's wiki, and a
+ * universe's own writing was never subject to it.
+ */
+export async function ownCanonDataSource(db: Db, universeId: string): Promise<DataSourceRow> {
+	const existing = await db
+		.select()
+		.from(dataSource)
+		.where(
+			and(eq(dataSource.universeId, universeId), eq(dataSource.name, OWN_CANON_DATA_SOURCE_NAME))
+		)
+		.limit(1);
+	if (existing[0]) return existing[0];
+
+	try {
+		const [inserted] = await db
+			.insert(dataSource)
+			.values({
+				universeId,
+				type: 'text',
+				name: OWN_CANON_DATA_SOURCE_NAME,
+				status: 'indexed',
+				licence: 'the universe owner wrote it',
+				licenceReviewedAt: new Date(),
+				// Not '' - `IndexedSource.attribution` (`@canonry/copilot`'s `ask.ts`) falls back to
+				// the data source's own name only on null/undefined, never on an empty string
+				// (`source?.attribution ?? source?.name ?? '...'`), so a blank string here would
+				// render as a blank attribution badge on every Ask answer this source appears in
+				// rather than falling through to something readable.
+				attribution: 'Your own canon'
+			})
+			.returning();
+		if (!inserted) {
+			throw new Error(`ownCanonDataSource: insert returned no row for universe "${universeId}"`);
+		}
+		return inserted;
+	} catch (err) {
+		if (!isUniqueViolation(err)) throw err;
+		// Lost the race: two saves in the same universe both found no row and both tried to
+		// create it (two entities saved for the first time around the same moment) - the
+		// loser reads back the winner's row rather than failing a save that only ever raced
+		// another save.
+		const [row] = await db
+			.select()
+			.from(dataSource)
+			.where(
+				and(eq(dataSource.universeId, universeId), eq(dataSource.name, OWN_CANON_DATA_SOURCE_NAME))
+			)
+			.limit(1);
+		if (!row) throw err;
+		return row;
+	}
 }
