@@ -546,7 +546,7 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 		});
 	});
 
-	describe('pendingEntityProposalsForJob / foldEntitySightingIntoPendingProposal (issue #160)', () => {
+	describe('pendingEntityProposalsForJob / foldEntitySightingIntoPendingProposal (issue #160, #178)', () => {
 		async function pendingCreateCandidate(
 			jobId: string,
 			universeId: string,
@@ -608,7 +608,10 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 				proposalId: character.id,
 				// "Aldric Vane" repeats the patch's own name (dropped) and "Al" repeats an
 				// alias already there (dropped); "Captain Vane" is genuinely new.
-				names: ['Aldric Vane', 'Al', 'Captain Vane']
+				names: ['Aldric Vane', 'Al', 'Captain Vane'],
+				documentId: 'doc-2',
+				sourceRef: { documentId: 'doc-2', path: 'notes/aldric-2.md' },
+				contentHash: 'hash-doc-2'
 			});
 
 			const row = await getProposal(db, character.id);
@@ -622,12 +625,59 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 
 			await foldEntitySightingIntoPendingProposal(db, {
 				proposalId: character.id,
-				names: ['A Name That Should Never Land']
+				names: ['A Name That Should Never Land'],
+				documentId: 'doc-2',
+				sourceRef: { documentId: 'doc-2', path: 'notes/never.md' },
+				contentHash: 'hash-never'
 			});
 
 			const row = await getProposal(db, character.id);
 			expect(row?.outcome).toBe('accepted');
 			expect(row?.patch).toMatchObject({ aliases: [] });
+		});
+
+		it("records the folding document's sourceRef/contentHash onto the proposal's evidence, for a later entity_source_ref of its own (issue #178)", async () => {
+			const { universe: u, job } = await jobFixture();
+			const character = await pendingCreateCandidate(job.id, u.id, 'character', 'Aldric Vane');
+
+			await foldEntitySightingIntoPendingProposal(db, {
+				proposalId: character.id,
+				names: ['Aldric Vane'],
+				documentId: 'doc-2',
+				sourceRef: { documentId: 'doc-2', path: 'notes/aldric-2.md' },
+				contentHash: 'hash-doc-2'
+			});
+
+			const row = await getProposal(db, character.id);
+			expect(row?.evidence).toMatchObject({
+				foldedSources: [
+					{
+						documentId: 'doc-2',
+						sourceRef: { documentId: 'doc-2', path: 'notes/aldric-2.md' },
+						contentHash: 'hash-doc-2'
+					}
+				]
+			});
+		});
+
+		it('does not duplicate a document that folds into the same proposal twice', async () => {
+			const { universe: u, job } = await jobFixture();
+			const character = await pendingCreateCandidate(job.id, u.id, 'character', 'Aldric Vane');
+			const fold = () =>
+				foldEntitySightingIntoPendingProposal(db, {
+					proposalId: character.id,
+					names: ['Aldric Vane'],
+					documentId: 'doc-2',
+					sourceRef: { documentId: 'doc-2', path: 'notes/aldric-2.md' },
+					contentHash: 'hash-doc-2'
+				});
+
+			await fold();
+			await fold();
+
+			const row = await getProposal(db, character.id);
+			const evidence = row?.evidence as { foldedSources?: unknown[] };
+			expect(evidence.foldedSources).toHaveLength(1);
 		});
 	});
 
@@ -707,6 +757,60 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 
 			const entityRow = await db.select().from(entity).where(eq(entity.slug, slug)).limit(1);
 			expect(entityRow[0]?.name).toBe('Mira Sable');
+		});
+
+		it('gives every document that folded into this proposal its own entity_source_ref row once accepted (issue #178)', async () => {
+			const { universe: u, job } = await jobFixture();
+			const slug = unique('aldric-voss');
+			const { proposals } = await createProposalPlan(db, {
+				universeId: u.id,
+				trigger: 'import',
+				importJobId: job.id,
+				summary: 'Import: 1 new entity',
+				candidateCap: 10,
+				estimatedCredits: 0,
+				candidates: [
+					{ kind: 'create', targetEntityId: null, rationale: 'r', evidence: [], rank: 0 }
+				]
+			});
+			const created = proposals[0];
+			if (!created) throw new Error('fixture setup failed');
+			await recordProposalDiff(db, {
+				proposalId: created.id,
+				patch: { type: 'character', name: 'Aldric Voss', slug, aliases: [], body: 'x' },
+				provider: 'test',
+				modelId: 'test',
+				credits: 0
+			});
+
+			// A second document's sighting of the same entity folded into this proposal
+			// before accept (foldEntitySightingIntoPendingProposal, issue #160) - its own
+			// path never becomes evidence.sourceRef, only evidence.foldedSources.
+			await foldEntitySightingIntoPendingProposal(db, {
+				proposalId: created.id,
+				names: ['Aldric Voss'],
+				documentId: 'doc-2',
+				sourceRef: { documentId: 'doc-2', path: 'notes/aldric-2.md' },
+				contentHash: 'hash-doc-2'
+			});
+
+			const accepted = await acceptImportProposal(db, {
+				proposalId: created.id,
+				sourceSystem: 'obsidian',
+				externalId: 'notes/aldric-1.md',
+				sourceUrl: null,
+				contentHash: 'hash-doc-1',
+				importJobId: job.id
+			});
+			expect(accepted.outcome).toBe('accepted');
+
+			const primary = await findEntityBySourceRef(db, u.id, 'obsidian', 'notes/aldric-1.md');
+			expect(primary?.contentHash).toBe('hash-doc-1');
+
+			const folded = await findEntityBySourceRef(db, u.id, 'obsidian', 'notes/aldric-2.md');
+			expect(folded).not.toBeNull();
+			expect(folded?.contentHash).toBe('hash-doc-2');
+			expect(folded?.entityId).toBe(primary?.entityId);
 		});
 	});
 
