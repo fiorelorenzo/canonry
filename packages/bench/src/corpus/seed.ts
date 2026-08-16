@@ -9,13 +9,42 @@
  * are measured against, and this file is the only place that writes it.
  *
  * Idempotent by deleting the universe's entities first, the same shape
- * `packages/db/src/seed-fixture.ts` uses. It does not delete the universe, because the
- * fixture user's balance and the bench's own `model_call` history hang off it.
+ * `packages/db/src/seed-fixture.ts` uses - and, since issue #168 wired the bench to the
+ * real per-entity `indexEntity` (`index-corpus.ts`), idempotent for entity *ids* too:
+ * `entity.id` used to come from Postgres's own `defaultRandom()`, a fresh UUID on every
+ * reseed. That was harmless while nothing downstream kept state keyed on it across runs,
+ * but `indexEntity` deletes a universe's own-canon Qdrant points by
+ * `entityLoreUrl(entityId)` before writing new ones - a random id on every reseed means
+ * every re-run of `seed`/`loremaster-e2e`/`retrieval-sweep` against an already-indexed
+ * universe leaves the previous run's points orphaned in Qdrant instead of replacing them,
+ * silently doubling the corpus a second run measures against. `deterministicEntityId`
+ * derives the id from `(universeId, slug)` instead, so the same entity gets the same id
+ * every time and `indexEntity`'s delete-before-upsert actually cleans up after itself.
  */
+import { createHash } from 'node:crypto';
 import { and, eq, inArray, type Db } from '@canonry/db';
 import { entity, relation, relationType, revision } from '@canonry/db/schema';
 import { detectLanguage } from '@canonry/lang';
 import { markdownBody, type World } from './types.js';
+
+// RFC 4122 UUID v5 (SHA-1 of namespace + name), the same technique
+// `packages/indexing/src/point-id.ts` uses for chunk ids - only has to be stable across
+// runs, not meaningful on its own. Reimplemented locally rather than imported: this
+// package owns its own fixture ids, and the two have no reason to share a namespace.
+const ENTITY_ID_NAMESPACE = '1c9b7e6a-3f0d-5a8c-8e2b-7a5d4c9f0e6b';
+
+function deterministicEntityId(universeId: string, slug: string): string {
+	const namespaceBytes = Buffer.from(ENTITY_ID_NAMESPACE.replace(/-/g, ''), 'hex');
+	const hash = createHash('sha1')
+		.update(namespaceBytes)
+		.update(`${universeId}\u0000${slug}`, 'utf8')
+		.digest();
+	const bytes = hash.subarray(0, 16);
+	bytes[6] = (bytes[6]! & 0x0f) | 0x50;
+	bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+	const hex = bytes.toString('hex');
+	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 export interface SeedResult {
 	universeId: string;
@@ -37,6 +66,7 @@ export async function seedWorld(db: Db, universeId: string, world: World): Promi
 			world.entities.map((e) => {
 				const body = markdownBody(e);
 				return {
+					id: deterministicEntityId(universeId, e.slug),
 					universeId,
 					type: e.type,
 					name: e.name,

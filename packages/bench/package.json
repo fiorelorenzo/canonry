@@ -22,7 +22,8 @@
 		"import-e2e": "tsx src/e2e/import.ts",
 		"loremaster-e2e": "tsx src/e2e/loremaster.ts",
 		"seed": "tsx src/prepare.ts",
-		"rerender": "tsx src/models/rerender.ts"
+		"rerender": "tsx src/models/rerender.ts",
+		"retrieval-sweep": "tsx src/retrieval-sweep.ts"
 	},
 	"dependencies": {
 		"@canonry/ai": "workspace:*",

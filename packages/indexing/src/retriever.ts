@@ -24,28 +24,52 @@ import { queryLore, type LoreChunkPayload, type QdrantClient } from '@canonry/ve
  * | English questions | min 0.3105, median 0.5249 | median 0.3186, p99 0.6280 |
  * | Italian questions | min 0.2372, median 0.4625 | median 0.2560, p99 0.5195 |
  *
- * What that buys at each candidate floor, on the Italian set (the harder direction and the one
- * SPEC.md §17 promises):
+ * That derivation picked 0.25. Issue #168 re-derived it a second time, against a corpus Ask
+ * actually queries rather than a purpose-built gold set: the 32-entity bilingual Valdoria Reach the
+ * canon-save-job worker's own `indexEntity` pipeline indexes (`packages/bench`'s
+ * `pnpm --filter @canonry/bench retrieval-sweep`, `@canonry/eval`'s `runRetrievalEval` swept over
+ * `thresholdSweep`, real embeddings, real Qdrant, all eighteen `ASK_QUESTIONS`). Mean recall at the
+ * shipped top-k of 8:
  *
- * | threshold | answers kept | noise admitted |
+ * | threshold | recall@8 | mean hits admitted (of 32) |
  * | --- | --- | --- |
- * | 0.20 | 100% | 78% |
- * | **0.25** | **96%** | **53%** |
- * | 0.30 | 88% | 32% |
- * | 0.35 | 69% | 16% |
+ * | 0.00 - 0.40 | **0.806**, flat | 32.00 -> 6.94 |
+ * | 0.45 | 0.722 | 4.06 |
+ * | 0.50 | 0.611 | 2.17 |
+ * | 0.55 | 0.500 | 1.39 |
+ * | 0.60 | 0.250 | 0.72 |
+ * | 0.65 | 0.194 | 0.44 |
  *
- * So 0.25, and the reasoning is the same one that has held through every model measured here: the
- * distributions overlap, no threshold separates relevant from irrelevant, and the threshold's only
- * job is to cut the floor without cutting answers. Precision comes from ranking and top-k, not
- * from this number. 0.30 would look tidier and would quietly lose 12% of Italian answers.
+ * Recall is completely flat from 0 through 0.40 - every threshold in that range keeps exactly the
+ * same answers, so the choice inside it is pure noise-cutting with no recall cost, and the cliff
+ * sits between 0.40 and 0.45. **0.25 survives** (it costs nothing) **but was not the best available
+ * point**: it only trims 32 candidates to a mean of 24.78, most of a 32-chunk world. 0.35, one
+ * measured step below the cliff (the same margin-below-the-edge the first derivation used, never
+ * the tightest point), trims to a mean of 11.50 - more than twice the noise cut of 0.25, for zero
+ * measured recall cost. Raised to 0.35 on that basis.
  *
- * The previous value was 0.55, calibrated for `gemini-embedding-001`, whose noise floor alone sat
- * there. Against this model 0.55 is above the median relevant score in both languages: shipping the
- * model change without re-deriving this would have discarded most correct hits and looked like a
- * retrieval quality problem rather than a constant left behind.
+ * **Top-k stays at 8, not because the measurement found nothing - it found the opposite.** Sweeping
+ * top-k at threshold 0.25 over the same eighteen questions: recall@k 0.806 at k=8, 0.889 at k=16,
+ * 0.944 at k=24 and 32 - top-k 8 of a 32-chunk world visibly caps recall on *this* corpus, and the
+ * cross-language subset alone is worse hit: 0.625 at k=8 against 0.875 at k=32 (`docs/eval.md`'s
+ * 2026-08-16 entry carries the full breakdown), because a correct cross-language match tends to
+ * rank behind same-language false positives on a corpus that chunks one entity into one
+ * whole-body vector. That is a real effect, but it is a property of *this bench corpus's size*
+ * (32 chunks total, so top-k 8 already returns a quarter of the world) rather than of the model or
+ * the threshold, and it will not hold in a universe with hundreds of chunks the way this bench's
+ * own 32 do not resemble SPEC.md §11.4's 2044-chunk corpus either. Raising the shipped default to
+ * chase a 32-chunk toy world's ceiling would mean every real Ask answer in every universe, of any
+ * size, carries twice the sources for a benefit this measurement cannot show holds anywhere but
+ * here. Re-run this sweep once a universe with own-canon plus an imported wiki source exists to
+ * measure top-k against a corpus of realistic size, and revisit then.
+ *
+ * The previous value before this one, 0.55, was calibrated for `gemini-embedding-001`, whose noise
+ * floor alone sat there. Against this model 0.55 is above the median relevant score in both
+ * languages: shipping the model change without re-deriving this would have discarded most correct
+ * hits and looked like a retrieval quality problem rather than a constant left behind.
  */
 export const DEFAULT_TOP_K = 8;
-export const DEFAULT_THRESHOLD = 0.25;
+export const DEFAULT_THRESHOLD = 0.35;
 
 /**
  * How much each matched keyword adds to a hit's cosine score, meant to nudge ranking among close

@@ -322,3 +322,125 @@ several lines, including the `:::secret` block the sample world itself uses, bec
 `splitIntoSentences` joins a paragraph's lines and `spanOf` then could not find the result
 in the body; fixed in this same change, with a regression test that fails without it. And
 Ask's `full` answer is 29 per cent shorter than its `detailed` one, which is issue #167.
+
+## Issue #168: the threshold, top-k and cross-language re-derivation, 2026-08-16
+
+The 2026-08-15 entry above filed cross-language recall as a finding and named three
+things to do about it in order: index a universe's own canon at all (issue #164, merged
+the morning of the 16th), re-derive the threshold and top-k against a corpus Ask actually
+queries, then re-measure. This entry is that work.
+
+### The bench now measures what ships
+
+`packages/bench/src/index-canon.ts` was a sixty-line hand-rolled copy of chunk, extract,
+embed, upsert, written before issue #164 existed because nothing else indexed a
+universe's own canon. It is gone. `packages/bench/src/index-corpus.ts` calls the real
+`indexEntity` (`@canonry/indexing`, the same call the canon-save-job worker makes) once
+per seeded entity; `prepare.ts` and `e2e/loremaster.ts` both go through it now. Doing this
+surfaced a real bug worth recording on its own: `packages/bench/src/corpus/seed.ts`
+reseeded entities with a fresh random id on every run, which `indexDataSource` never
+noticed but `indexEntity`'s delete-before-upsert does - it deletes a universe's own-canon
+points by the *current* run's entity id, so a random id every reseed meant every repeat
+run of `seed`, `loremaster-e2e` or `retrieval-sweep` against an already-indexed universe
+left the previous run's points orphaned in Qdrant, doubling the corpus a second run
+silently measured against (64 points where 32 were seeded, confirmed by scrolling the
+collection). `seedWorld` now derives each entity's id deterministically from
+`(universeId, slug)`, so a reseed replaces its own prior points instead of shadowing them.
+With that fixed, indexing through the real path reproduces the 2026-08-15 numbers exactly
+(below) - the migration itself moved nothing, which is the result worth having: the bench
+was measuring the real pipeline all along in spirit, and now it does in fact.
+
+### Threshold re-derived: 0.25 to 0.35, top-k left at 8
+
+`pnpm --filter @canonry/bench retrieval-sweep` runs `@canonry/eval`'s `runRetrievalEval`
+against the real 32-entity corpus through the live gateway - the corpus Ask actually
+queries, not a purpose-built gold set. Sweeping the threshold at the shipped top-k of 8,
+over all eighteen `ASK_QUESTIONS`:
+
+| threshold | recall@8 | mean hits admitted (of 32) |
+| --- | --- | --- |
+| 0.00 - 0.40 | **0.806**, flat | 32.00 -> 6.94 |
+| 0.45 | 0.722 | 4.06 |
+| 0.50 | 0.611 | 2.17 |
+| 0.55 | 0.500 | 1.39 |
+| 0.60 | 0.250 | 0.72 |
+| 0.65 | 0.194 | 0.44 |
+
+Recall is completely flat from 0 through 0.40: every threshold in that range keeps
+exactly the same answers, so 0.25 was costing nothing but also was not the best point
+available in the flat range - it only trims a mean of 32 candidates to 24.78. 0.35, one
+measured step below where the cliff actually sits (the same margin the 2026-08-15
+derivation used, never the tightest point), trims to a mean of 11.50: more than twice the
+noise cut, for zero measured recall cost. `packages/indexing/src/retriever.ts`'s
+`DEFAULT_THRESHOLD` moves to 0.35; `SPEC.md` §11.4 updated to match.
+
+`DEFAULT_TOP_K` stays at 8, and the sweep is why, not despite it. At threshold 0.25,
+recall@k rises with k across the whole corpus: 0.806 at k=8, 0.889 at k=16, 0.944 at
+k=24 and 32. Top-k 8 of a 32-chunk world visibly caps recall on *this* corpus. But
+raising the shipped default on that basis would mean every real Ask answer, in every
+universe of any size, carries twice the sources for a benefit this measurement cannot
+show holds anywhere but a 32-chunk toy world - the same reasoning SPEC.md §11.4 already
+applies to its own 2044-chunk number not transferring down. `retriever.ts` carries the
+full reasoning next to the constant. The right corpus to re-sweep top-k against is one
+with own-canon plus an imported wiki source, large enough that top-k 8 is a real fraction
+of a real universe rather than a quarter of a 32-entity fixture; that does not exist yet.
+
+### Cross-language re-measured: still 0.625, and now three separate findings instead of one
+
+`pnpm --filter @canonry/bench loremaster-e2e`, full run, real `alibaba/qwen3-embedding-4b`,
+the product's own indexing path, threshold 0.35, top-k 8: mean recall **0.806**,
+cross-language mean recall **0.625** - unchanged from 2026-08-15's number. The threshold
+move was recall-neutral by construction (it sits inside the flat range above), so this is
+the expected result, not a surprise, and it rules the threshold out as the explanation.
+
+Breaking the top-k sweep out by language answers the question the 2026-08-15 entry left
+open - "is top-k 8 of 32 the reason cross-language is worse":
+
+| top-k | cross-language recall (n=8) | same-language recall (n=10) |
+| --- | --- | --- |
+| 8 | 0.625 | 0.950 |
+| 16 | 0.813 | 0.950 |
+| 24 | 0.875 | 1.000 |
+| 32 (no cap) | 0.875 | 1.000 |
+
+Two things are true at once here. First, top-k *is* a real part of the story: cross-language
+recall rises 0.625 to 0.875 as top-k grows, while same-language only rises 0.950 to
+1.000 - the crowding top-k causes on a 32-chunk, one-chunk-per-entity corpus lands
+disproportionately on cross-language questions, because a correct cross-language match
+tends to rank behind same-language false positives rather than ahead of them. Second, even
+with top-k removed entirely (k=32, every candidate above threshold returned), cross-language
+recall does not reach 1.000. Two of the eight cross-language question-entity pairs
+(`ask-01`, `ask-06`, both Italian questions about English-language content) never surface
+their target at any top-k - a floor no amount of top-k or threshold tuning moves, and the
+one piece of this that is a genuine embedding-ranking limit rather than a retrieval-parameter
+artifact.
+
+**The chunker is not the explanation.** Re-indexed the same corpus at a 100-token chunk
+budget instead of the shipped 400 (`chunkWikiPage`'s default), one entity now split into
+2-3 chunks instead of always 1, into an isolated collection so the real one was never
+touched: 44 chunks instead of 32, and cross-language recall@8 at threshold 0.25 held at
+**0.625**, identical to the coarse-chunked number. Aggregate recall@8 actually fell to
+0.750 (from 0.806), because finer chunking gives one entity's own chunks more chances to
+each occupy a top-k slot, crowding out a *different* relevant entity - the same crowding
+effect the top-k sweep above found, now shown to cut against finer chunking rather than
+for it on this corpus. `chunkWikiPage`'s 400-token budget is not the reason cross-language
+trails same-language here.
+
+### Where this leaves it
+
+Not the threshold (re-derived, moved, recall-neutral by measurement). Not decisively the
+chunker (tested at 4x the granularity, no change to the cross-language number, a modest
+cost to the aggregate one). Mostly the corpus: a 32-entity world with one chunk per entity
+means top-k 8 already returns a quarter of it, and that crowding falls harder on
+cross-language matches than same-language ones - real, measured, and expected to shrink on
+its own once a universe carries more than 32 chunks. What top-k and the corpus's size
+cannot explain is `ask-01` and `ask-06` specifically: two Italian questions whose English
+target never ranks above threshold at any top-k, which is either a genuine limit of
+`alibaba/qwen3-embedding-4b`'s cross-lingual ranking on this exact question phrasing, or a
+property of these two questions rather than the model in general - eight cross-language
+question-entity pairs is too few to tell those apart. Settling it needs either a larger
+bilingual gold set with more cross-language pairs than this fixture carries, or the
+`text-embedding-3-large`/`gemini-embedding-001` comparison issue #168 names as its last
+step - not run here, because the gap did not survive to that step in the form the issue
+described it: it is now two specific hard questions and a small-corpus top-k effect, not
+an eight-question-wide model weakness.
