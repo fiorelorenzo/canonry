@@ -214,6 +214,8 @@ export {
 	pendingEntityProposalsForJob,
 	foldEntitySightingIntoPendingProposal,
 	recordEntitySourceRef,
+	syncMissingEntitySourceRefs,
+	missingEntitySourceRefsForJob,
 	findOrCreateRelationType,
 	acceptImportProposal,
 	ImportJobNotFoundError,
@@ -233,7 +235,10 @@ export {
 	type FoldEntitySightingInput,
 	type RecordEntitySourceRefInput,
 	type FindOrCreateRelationTypeInput,
-	type AcceptImportProposalInput
+	type AcceptImportProposalInput,
+	type SyncMissingEntitySourceRefsInput,
+	type SyncMissingEntitySourceRefsResult,
+	type MissingEntitySourceRefRow
 } from './queries/import.js';
 export {
 	proposalOutcomesForMetrics,

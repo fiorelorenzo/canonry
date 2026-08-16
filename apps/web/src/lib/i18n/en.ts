@@ -685,6 +685,14 @@ export const en: Messages = {
 			emptyRunningExplanation: 'Proposals appear here as the import processes each document.',
 			emptyDone: 'Nothing to review — this import produced no proposals.',
 			filtering: 'Filtering…',
+			missing: {
+				heading: (count) =>
+					count === 1
+						? '1 entity is missing from this import'
+						: `${count} entities are missing from this import`,
+				explanation:
+					'These existed after an earlier import of this source but were not found this time. Nothing has been deleted — open each one and decide what it means.'
+			},
 			errors: {
 				universeNotFound: (slug) => `No universe named "${slug}"`,
 				jobNotFound: (jobId, universeName) => `No import job "${jobId}" in ${universeName}`,

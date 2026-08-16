@@ -13,6 +13,7 @@ import {
 	createProposalPlan,
 	foldEntitySightingIntoPendingProposal,
 	getProposal,
+	missingEntitySourceRefsForJob,
 	pendingEntityProposalsForJob,
 	recordProposalDiff,
 	type Db,
@@ -25,6 +26,7 @@ import {
 	queuePositionFor,
 	recordEntitySourceRef,
 	settleImportJob,
+	syncMissingEntitySourceRefs,
 	updateImportJobCheckpoint
 } from '../src/index.js';
 import { entity } from '../src/schema/entity.js';
@@ -339,6 +341,183 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 				.from(entitySourceRef)
 				.where(eq(entitySourceRef.externalId, externalId));
 			expect(rows).toHaveLength(1);
+		});
+	});
+
+	describe('syncMissingEntitySourceRefs / missingEntitySourceRefsForJob (issue #163, SPEC.md §6.4)', () => {
+		async function entityWithSourceRef(
+			universeId: string,
+			name: string,
+			externalId: string,
+			importJobId: string
+		) {
+			const [row] = await db
+				.insert(entity)
+				.values({
+					universeId,
+					type: 'character',
+					name,
+					slug: unique(name.toLowerCase().replace(/\s+/g, '-')),
+					body: ''
+				})
+				.returning();
+			if (!row) throw new Error('fixture setup failed');
+			await recordEntitySourceRef(db, {
+				entityId: row.id,
+				sourceSystem: 'obsidian',
+				externalId,
+				sourceUrl: null,
+				contentHash: 'hash-v1',
+				lastImportJobId: importJobId
+			});
+			return row;
+		}
+
+		async function jobInSameUniverse(universeId: string, ownerId: string) {
+			return createImportJob(db, {
+				universeId,
+				createdBy: ownerId,
+				sourceType: 'obsidian',
+				playbook: 'obsidian',
+				playbookVersion: 1,
+				artefactPath: `s3://imports/${unique('artefact')}.zip`,
+				artefactBytes: 100,
+				artefactSha256: unique('hash').padEnd(64, '0'),
+				documentCount: 1,
+				budgetCredits: 100
+			});
+		}
+
+		it("marks the ref this run's document list did not touch, leaves the touched one alone, and stamps the marking job's id", async () => {
+			const { universe: u, owner, job: firstJob } = await jobFixture();
+			const stayingPath = unique('notes/aldric.md');
+			const vanishingPath = unique('notes/drowned-concord.md');
+			await entityWithSourceRef(u.id, 'Aldric Voss', stayingPath, firstJob.id);
+			const vanishing = await entityWithSourceRef(
+				u.id,
+				'The Drowned Concord',
+				vanishingPath,
+				firstJob.id
+			);
+
+			const secondJob = await jobInSameUniverse(u.id, owner.id);
+			const result = await syncMissingEntitySourceRefs(db, {
+				universeId: u.id,
+				sourceSystem: 'obsidian',
+				touchedExternalIds: [stayingPath],
+				importJobId: secondJob.id
+			});
+
+			expect(result.markedMissing).toHaveLength(1);
+			expect(result.markedMissing[0]).toMatchObject({
+				entityId: vanishing.id,
+				missingInSource: true,
+				lastImportJobId: secondJob.id
+			});
+			expect(result.unmarked).toEqual([]);
+
+			const stayingRef = await findEntityBySourceRef(db, u.id, 'obsidian', stayingPath);
+			expect(stayingRef).not.toBeNull();
+			const stayingRow = await db
+				.select()
+				.from(entitySourceRef)
+				.where(eq(entitySourceRef.externalId, stayingPath));
+			expect(stayingRow[0]?.missingInSource).toBe(false);
+
+			const missing = await missingEntitySourceRefsForJob(db, secondJob.id);
+			expect(missing).toEqual([
+				expect.objectContaining({ entityId: vanishing.id, name: 'The Drowned Concord' })
+			]);
+		});
+
+		it('unmarks a previously missing ref once its external id reappears in a later run', async () => {
+			const { universe: u, owner, job: firstJob } = await jobFixture();
+			const returningPath = unique('notes/session-1.md');
+			const returning = await entityWithSourceRef(u.id, 'Session 1', returningPath, firstJob.id);
+
+			const secondJob = await jobInSameUniverse(u.id, owner.id);
+			await syncMissingEntitySourceRefs(db, {
+				universeId: u.id,
+				sourceSystem: 'obsidian',
+				touchedExternalIds: [],
+				importJobId: secondJob.id
+			});
+			const afterMissing = await db
+				.select()
+				.from(entitySourceRef)
+				.where(eq(entitySourceRef.externalId, returningPath));
+			expect(afterMissing[0]?.missingInSource).toBe(true);
+
+			const thirdJob = await jobInSameUniverse(u.id, owner.id);
+			const result = await syncMissingEntitySourceRefs(db, {
+				universeId: u.id,
+				sourceSystem: 'obsidian',
+				touchedExternalIds: [returningPath],
+				importJobId: thirdJob.id
+			});
+
+			expect(result.unmarked).toHaveLength(1);
+			expect(result.unmarked[0]).toMatchObject({ entityId: returning.id, missingInSource: false });
+			expect(await missingEntitySourceRefsForJob(db, thirdJob.id)).toEqual([]);
+		});
+
+		it('never marks a ref with no external id - semantic matching carried it, there is no path to compare', async () => {
+			const { universe: u, job } = await jobFixture();
+			const [noPathEntity] = await db
+				.insert(entity)
+				.values({
+					universeId: u.id,
+					type: 'character',
+					name: 'Unpathed Wanderer',
+					slug: unique('unpathed'),
+					body: ''
+				})
+				.returning();
+			if (!noPathEntity) throw new Error('fixture setup failed');
+			await recordEntitySourceRef(db, {
+				entityId: noPathEntity.id,
+				sourceSystem: 'obsidian',
+				externalId: null,
+				sourceUrl: null,
+				contentHash: 'hash-v1',
+				lastImportJobId: job.id
+			});
+
+			const result = await syncMissingEntitySourceRefs(db, {
+				universeId: u.id,
+				sourceSystem: 'obsidian',
+				touchedExternalIds: [],
+				importJobId: job.id
+			});
+			expect(result.markedMissing).toEqual([]);
+		});
+
+		it('scopes marking to the given source system and universe, leaving another source or universe alone', async () => {
+			const { universe: u, owner, job: firstJob } = await jobFixture();
+			const otherUniverse = await insertHomebrewUniverse(db, { ownerUserId: owner.id });
+			const sharedPath = unique('notes/shared-name.md');
+
+			await entityWithSourceRef(u.id, 'Kanka Only', sharedPath, firstJob.id);
+			const kankaRef = await db
+				.select()
+				.from(entitySourceRef)
+				.innerJoin(entity, eq(entity.id, entitySourceRef.entityId))
+				.where(eq(entity.name, 'Kanka Only'));
+			await db
+				.update(entitySourceRef)
+				.set({ sourceSystem: 'kanka' })
+				.where(eq(entitySourceRef.id, kankaRef[0]!.entity_source_ref.id));
+
+			await entityWithSourceRef(otherUniverse.id, 'Other Universe', sharedPath, firstJob.id);
+
+			const result = await syncMissingEntitySourceRefs(db, {
+				universeId: u.id,
+				sourceSystem: 'obsidian',
+				touchedExternalIds: [],
+				importJobId: firstJob.id
+			});
+
+			expect(result.markedMissing).toEqual([]);
 		});
 	});
 

@@ -26,7 +26,7 @@
  * canon (same page, "Why this is a decision").
  */
 import { error, fail } from '@sveltejs/kit';
-import { universeAccessBySlug } from '@canonry/db';
+import { missingEntitySourceRefsForJob, universeAccessBySlug } from '@canonry/db';
 import { acceptImportProposal, type AcceptImportProposalInput } from '@canonry/import';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
@@ -81,12 +81,25 @@ function importAcceptFields(
 }
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-	const { access, detail } = await loadJob(locals, params.universe, params.job);
+	const { conn, access, detail } = await loadJob(locals, params.universe, params.job);
 	const filterCandidates: FilterCandidate[] = detail.candidates.map((c) => ({
 		id: c.proposal.id,
 		filterType: c.filterType,
 		outcome: c.proposal.outcome
 	}));
+	// issue #163, SPEC.md §6.4: entities this job's merge engine found missing from the
+	// source, never deleted - a fact for the GM to act on, not a proposal (guardrail 1's
+	// exception: a merge-engine write, not a model's). Scoped to this job's own id
+	// (`missingEntitySourceRefsForJob`'s own comment), so an earlier job's find stays on
+	// that job's review screen rather than repeating here.
+	const missingFromSource = (await missingEntitySourceRefsForJob(conn, detail.job.id)).map(
+		(row) => ({
+			id: row.entityId,
+			name: row.name,
+			slug: row.slug,
+			type: row.type
+		})
+	);
 
 	return {
 		universe: { slug: access.universe.slug, name: access.universe.name },
@@ -101,7 +114,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		},
 		candidates: enrichCandidates(detail.candidates),
 		filterTypeById: Object.fromEntries(detail.candidates.map((c) => [c.proposal.id, c.filterType])),
-		buckets: computeFilterBuckets(filterCandidates, locals.locale)
+		buckets: computeFilterBuckets(filterCandidates, locals.locale),
+		missingFromSource
 	};
 };
 

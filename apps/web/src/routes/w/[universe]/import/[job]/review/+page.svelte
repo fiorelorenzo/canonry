@@ -27,6 +27,7 @@
 	let { data }: PageProps = $props();
 
 	let t = $derived(messages(data.locale).import.review);
+	let entityTypeLabel = $derived(messages(data.locale).proposals.diffCard.entityTypeLabel);
 
 	const RUNNING_STATUSES = new Set(['queued', 'running']);
 
@@ -113,6 +114,30 @@
 		<p class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-muted">
 			{issueNote}
 		</p>
+	{/if}
+
+	{#if data.missingFromSource.length > 0}
+		<div class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-ink">
+			<p class="font-medium">{t.missing.heading(data.missingFromSource.length)}</p>
+			<p class="mt-1 text-muted">{t.missing.explanation}</p>
+			<ul class="mt-3 flex flex-col gap-1.5">
+				{#each data.missingFromSource as item (item.id)}
+					<li>
+						<a
+							href={resolve(`/w/${data.universe.slug}/e/${item.slug}`)}
+							class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
+						>
+							{item.name}
+						</a>
+						<span
+							class="ml-1 rounded-full bg-accent-bg px-1.5 py-0.5 font-mono text-[10px] text-accent-ink uppercase"
+						>
+							{entityTypeLabel(item.type)}
+						</span>
+					</li>
+				{/each}
+			</ul>
+		</div>
 	{/if}
 
 	{#if data.candidates.length === 0}
