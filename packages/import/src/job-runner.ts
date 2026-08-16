@@ -586,9 +586,19 @@ async function materializeDocumentProposals(
 				// lands in `resolved` and `localIdToEntityId` stays unset for this local id,
 				// exactly like a brand-new entity: a relation naming it in this same
 				// document has nothing real to point at yet either.
+				//
+				// issue #178: this document's own sourceRef/contentHash travels with the
+				// fold (not just its names) so the eventual accept can still give *this*
+				// document an `entity_source_ref` row of its own - the surviving proposal's
+				// `evidence.sourceRef` stays the first document's forever, which used to mean
+				// every document after the first was invisible to the next import's skip
+				// check and got re-processed on every run.
 				await foldEntitySightingIntoPendingProposal(db, {
 					proposalId: decision.candidateId,
-					names: [payload.name, ...payload.aliases]
+					names: [payload.name, ...payload.aliases],
+					documentId,
+					sourceRef: payload.sourceRef,
+					contentHash
 				});
 				continue;
 			}
@@ -731,7 +741,10 @@ function isEmptyPatchTarget(patch: unknown): boolean {
  * say, a new proposal_plan column) because it is per-*entity-proposal* provenance, the
  * same shape `sourceRef`/`evidenceSpan` already are, and the review UI's accept action
  * (`acceptImportProposal`) needs it to record `entity_source_ref` without a `SourceReader`
- * of its own. */
+ * of its own. `foldedSources` starts empty: it only grows past this call, on a `create`/
+ * `draft_entity` proposal, if a later document's own sighting folds into this one
+ * (`foldEntitySightingIntoPendingProposal`, issue #178) - never here, since this document
+ * has not folded into anything, it *is* the sighting a later one might fold into. */
 function matchEvidence(
 	documentId: string,
 	payload: EntityProposalPayload,
@@ -745,7 +758,8 @@ function matchEvidence(
 		evidenceSpan: payload.evidenceSpan,
 		similarity,
 		ambiguousCandidateIds,
-		contentHash
+		contentHash,
+		foldedSources: []
 	};
 }
 

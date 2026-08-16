@@ -301,6 +301,19 @@ What did work, and is worth recording as much as the failures: the review flow e
 between-thresholds "ask the user" band firing on real matches at 0.53 and 0.67 similarity,
 and the content-hash skip making an unchanged document free on the second run.
 
+**Update, 2026-08-16 (issue #178).** The "no" verdict in the idempotency table above was
+#160's accept-time crash: a repeated name across documents died on `entity_universe_slug_key`
+before a second run ever got the chance to matter. #175 fixed that by folding the repeat
+sighting into the job's own still-pending create instead of proposing a duplicate - but the
+fold only ever recorded `entity_source_ref` for the *first* document's path, never the
+folded-away one's, so the same two vault-shaped sources (obsidian, world-anvil) would still
+have failed the second-run check after #175 alone, for a different reason: no crash, but the
+folded document re-proposed on every later import forever. #178 gives every folded document
+its own `entity_source_ref` row. The table above is left as measured - this box has no
+`AI_GATEWAY_*` credential outside a live `packages/bench` run, and none has re-run against
+the real gateway since 2026-08-15, so whether obsidian and world-anvil now read "yes" is
+unverified, not claimed here.
+
 ### The Loremaster, end to end
 
 Also the first time. Three edits through `planPropagation` and `generatePlanDiffs`, the

@@ -58,3 +58,20 @@ The status comes from one or two documents per run reaching their 60-step ceilin
 log says why: the model called `source_list` with the same argument fourteen times in a row
 and never called `job_finish`. The ceiling is the backstop working, but it fires 52 wasted
 model calls late. Issue #169.
+
+## Update, 2026-08-16 (issue #178)
+
+The "idempotent: no" verdict above for obsidian and world-anvil was #160's accept-time
+crash on `entity_universe_slug_key` (see "What did not" and the accept table's 187
+refusals). #175 fixed the crash by folding a repeat sighting into the job's own
+still-pending create instead of proposing a second one - but the fold only ever recorded
+`entity_source_ref` for the _first_ document that named the entity, never the ones that
+folded into it afterward. Fixed alone, the same two sources would still have failed the
+second-run check in this table: no crash, but every folded-away document re-proposed as a
+fresh `update` on every later import, forever. #178 gives every folded document its own
+`entity_source_ref` row so it is skipped too.
+
+This is not re-measured here: the table, token counts and every other number above are
+this run's real measurement against `GatewayDriver` and are left as recorded. Whether
+obsidian and world-anvil now read "yes" needs a fresh credentialed run, which this note is
+not.

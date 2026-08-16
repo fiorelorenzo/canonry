@@ -436,13 +436,65 @@ export interface FoldEntitySightingInput {
 	 * entity after is what should author its prose, not whichever document happens to
 	 * mention it second. */
 	names: string[];
+	/** issue #178: the folding document's own identity, threaded onto the surviving
+	 * proposal's evidence (`foldedSources`) so `acceptImportProposal` can give it an
+	 * `entity_source_ref` row of its own once the proposal lands - not just the first
+	 * document's, which is all `evidence.sourceRef` itself ever points to. */
+	documentId: string;
+	sourceRef: { documentId: string; path: string };
+	contentHash: string;
+}
+
+/** One folded-in document's own provenance, as recorded on a `create`/`draft_entity`
+ * proposal's `evidence.foldedSources` (issue #178). Read defensively, like every other
+ * field on `proposal.evidence` - the column carries no schema, only this file's own
+ * writers (`foldEntitySightingIntoPendingProposal` below) ever produce one. */
+interface FoldedSourceRef {
+	documentId: string;
+	sourceRef: { documentId: string; path: string };
+	contentHash: string;
+}
+
+function readFoldedSources(evidence: unknown): FoldedSourceRef[] {
+	if (typeof evidence !== 'object' || evidence === null) return [];
+	const raw = (evidence as Record<string, unknown>).foldedSources;
+	if (!Array.isArray(raw)) return [];
+	const result: FoldedSourceRef[] = [];
+	for (const entry of raw) {
+		if (typeof entry !== 'object' || entry === null) continue;
+		const record = entry as Record<string, unknown>;
+		const sourceRef = record.sourceRef;
+		if (typeof sourceRef !== 'object' || sourceRef === null) continue;
+		const sourceRefRecord = sourceRef as Record<string, unknown>;
+		if (
+			typeof record.documentId === 'string' &&
+			typeof sourceRefRecord.documentId === 'string' &&
+			typeof sourceRefRecord.path === 'string' &&
+			typeof record.contentHash === 'string'
+		) {
+			result.push({
+				documentId: record.documentId,
+				sourceRef: { documentId: sourceRefRecord.documentId, path: sourceRefRecord.path },
+				contentHash: record.contentHash
+			});
+		}
+	}
+	return result;
 }
 
 /** issue #160: folds a repeat sighting of an entity this job already proposed as a
  * `create` into that same pending proposal, instead of writing a second, colliding one.
  * A no-op if the proposal moved on since the caller read it as a match candidate (an
  * accept or reject racing this same import job) - that is a different, already-handled
- * outcome, not a failure of the fold itself. */
+ * outcome, not a failure of the fold itself.
+ *
+ * issue #178: also records the folding document's own sourceRef/contentHash onto the
+ * proposal's evidence (`foldedSources`), keyed by `documentId` so a document that folds
+ * more than once (a crash-resumed run reprocessing it) does not pile up duplicate
+ * entries. Without this, `acceptImportProposal` only ever learns about the *first*
+ * document's path - `evidence.sourceRef` never moves off it - so every other document
+ * that folded into this same proposal got no `entity_source_ref` row at all and was
+ * re-processed on every later import. */
 export async function foldEntitySightingIntoPendingProposal(
 	db: Db,
 	input: FoldEntitySightingInput
@@ -462,11 +514,37 @@ export async function foldEntitySightingIntoPendingProposal(
 		const additions = input.names.filter(
 			(name) => name !== patch.name && !currentAliases.has(name)
 		);
-		if (additions.length === 0) return;
+
+		const foldedSources = readFoldedSources(existing.evidence);
+		const alreadyRecorded = foldedSources.some((source) => source.documentId === input.documentId);
+		if (additions.length === 0 && alreadyRecorded) return;
+
+		const evidenceBase =
+			typeof existing.evidence === 'object' && existing.evidence !== null
+				? (existing.evidence as Record<string, unknown>)
+				: {};
 
 		await tx
 			.update(proposal)
-			.set({ patch: { ...patch, aliases: [...patch.aliases, ...additions] } })
+			.set({
+				patch:
+					additions.length > 0
+						? { ...patch, aliases: [...patch.aliases, ...additions] }
+						: existing.patch,
+				evidence: alreadyRecorded
+					? existing.evidence
+					: {
+							...evidenceBase,
+							foldedSources: [
+								...foldedSources,
+								{
+									documentId: input.documentId,
+									sourceRef: input.sourceRef,
+									contentHash: input.contentHash
+								}
+							]
+						}
+			})
 			.where(eq(proposal.id, existing.id));
 	});
 }
@@ -717,5 +795,26 @@ export async function acceptImportProposal(
 		contentHash: input.contentHash,
 		lastImportJobId: input.importJobId
 	});
+
+	// issue #178: a document that folded its sighting into another document's still-
+	// pending create proposal (foldEntitySightingIntoPendingProposal, issue #160) never
+	// became `evidence.sourceRef` on the accepted proposal - that stays the first
+	// document's, on purpose (its prose is what became the entity's body and patch). Every
+	// folded document still named the same real entity, though, so each one recorded in
+	// `evidence.foldedSources` gets its own `entity_source_ref` row here, against the same
+	// entity `rev.entityId` just resolved to, so it is skipped on the next import too.
+	await Promise.all(
+		readFoldedSources(accepted.evidence).map((source) =>
+			recordEntitySourceRef(db, {
+				entityId: rev.entityId,
+				sourceSystem: input.sourceSystem,
+				externalId: source.sourceRef.path,
+				sourceUrl: null,
+				contentHash: source.contentHash,
+				lastImportJobId: input.importJobId
+			})
+		)
+	);
+
 	return accepted;
 }
