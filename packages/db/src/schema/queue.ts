@@ -79,6 +79,12 @@ export const canonSaveJob = pgTable(
 		lastError: text('last_error'),
 		propagationOutcome: jsonb('propagation_outcome'),
 		auditOutcome: jsonb('audit_outcome'),
+		// Issue #164: the third engine a save's job runs, alongside propagation and audit -
+		// chunk/extract/embed/upsert of the entity's own body into its universe's lore
+		// collection. Same shape idiom as the two columns above (`IndexOutcome` in
+		// `$lib/server/jobs/store.ts`), recorded independently so an embedding failure never
+		// hides whether propagation or audit actually ran, and vice versa.
+		indexOutcome: jsonb('index_outcome'),
 		startedAt: timestamp('started_at', { withTimezone: true }),
 		finishedAt: timestamp('finished_at', { withTimezone: true }),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

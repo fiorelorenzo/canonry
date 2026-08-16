@@ -20,7 +20,8 @@ import {
 	sql,
 	acceptProposal,
 	rejectProposal,
-	undoAcceptedProposal,
+	undoAcceptedProposal as undoAcceptedProposalRow,
+	entityDeletedByUndo,
 	setRejectReason,
 	dropCandidateFromPlan,
 	setProposalPlanStatus,
@@ -38,7 +39,8 @@ import {
 	type ProposalPlanRow,
 	type ImportJobRow,
 	type AcceptProposalInput,
-	type RejectProposalInput
+	type RejectProposalInput,
+	type UndoAcceptedProposalInput
 } from '@canonry/db';
 import {
 	entity,
@@ -49,14 +51,16 @@ import {
 	type EntityType,
 	type ProposalKind
 } from '@canonry/db/schema';
+import { ModelNotConfiguredError, resolveModel } from '@canonry/ai';
 import { semanticDiff, type FactChange } from '@canonry/copilot';
+import { deleteEntityLoreChunks, resolveOwnCanonCollection } from '@canonry/indexing';
+import { vectorClient } from '$lib/server/copilot';
 import { normalizeEvidence, type EvidenceView } from '$lib/components/proposals/evidence';
 import { diffLayoutFor, type DiffLayout } from '$lib/components/proposals/diffLayout';
 
 export {
 	acceptProposal,
 	rejectProposal,
-	undoAcceptedProposal,
 	setRejectReason,
 	dropCandidateFromPlan,
 	setProposalPlanStatus,
@@ -74,6 +78,60 @@ export {
 	type AcceptProposalInput,
 	type RejectProposalInput
 };
+
+/** Issue #164: an entity delete has to remove its own-canon lore points too, or a stale
+ * chunk keeps answering Ask questions about canon that no longer exists. The only entity
+ * delete this product has today is this one - undoing an accepted `create`/`draft_entity`
+ * proposal (C6's "few-seconds fat-finger undo") - reached from two routes
+ * (`w/[universe]/proposals/[plan]` and `w/[universe]/import/[job]/review`), both of which
+ * import `undoAcceptedProposal` from this module rather than `@canonry/db` directly, so
+ * wrapping it once here covers both without either route needing to change.
+ *
+ * `entityDeletedByUndo` reads which entity (if any) is about to disappear *before* the
+ * undo runs, because `@canonry/db`'s raw `undoAcceptedProposal` clears the evidence
+ * (`appliedRevisionId`) this needs to find it. Best-effort and never blocking: a Qdrant
+ * hiccup or a not-yet-configured embedding model must not turn a successful undo into a
+ * failed one, so the cleanup is logged and swallowed, never rethrown. */
+async function cleanupEntityIndexAfterDelete(
+	db: Db,
+	universeId: string,
+	entityId: string
+): Promise<void> {
+	try {
+		const embeddingModel = await resolveModel(db, 'embedding');
+		const { collectionName, dataSourceId } = await resolveOwnCanonCollection(
+			db,
+			universeId,
+			embeddingModel
+		);
+		await deleteEntityLoreChunks(
+			{ vectorClient: vectorClient() },
+			{ collectionName, universeId, dataSourceId, entityId }
+		);
+	} catch (err) {
+		if (err instanceof ModelNotConfiguredError) return;
+		console.error(
+			JSON.stringify({
+				event: 'entity_lore_cleanup_failed',
+				universeId,
+				entityId,
+				message: err instanceof Error ? err.message : String(err)
+			})
+		);
+	}
+}
+
+export async function undoAcceptedProposal(
+	db: Db,
+	input: UndoAcceptedProposalInput
+): Promise<ProposalRow> {
+	const deletedEntityId = await entityDeletedByUndo(db, input.proposalId);
+	const updated = await undoAcceptedProposalRow(db, input);
+	if (deletedEntityId) {
+		await cleanupEntityIndexAfterDelete(db, updated.universeId, deletedEntityId);
+	}
+	return updated;
+}
 
 // ---------------------------------------------------------------------------
 // Inbox (C2 = A): propagation plans and import jobs that still carry a pending proposal.

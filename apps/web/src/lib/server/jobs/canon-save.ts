@@ -53,9 +53,18 @@
 import { DEFAULT_LOCALE, toLocale, type Locale } from '@canonry/lang';
 import { AiDisabledError, planPropagation, runAudit } from '@canonry/copilot';
 import type { GatewayWrapper, ModelFactory } from '@canonry/copilot';
+import { createEmbeddingModel, ModelNotConfiguredError, resolveModel } from '@canonry/ai';
+import {
+	createGatewayEmbedder,
+	heuristicExtractor,
+	indexEntity,
+	resolveOwnCanonCollection,
+	type EmbeddingModelFactory
+} from '@canonry/indexing';
+import type { QdrantClient } from '@canonry/vector';
 import type { Db } from '@canonry/db';
 import { db } from '$lib/server/db';
-import { identityGateway, modelFactory } from '$lib/server/copilot';
+import { identityGateway, modelFactory, vectorClient } from '$lib/server/copilot';
 import { DurableJobPoller, type DurableQueueHandlers } from './queue.js';
 import {
 	claimNextCanonSaveJob,
@@ -65,9 +74,19 @@ import {
 	statusesFor,
 	type CanonSaveJobRow
 } from './store.js';
-import type { CanonSaveJobInput, CanonSaveJobResult, EngineOutcome } from './store.js';
+import type {
+	CanonSaveJobInput,
+	CanonSaveJobResult,
+	EngineOutcome,
+	IndexOutcome
+} from './store.js';
 
-export type { CanonSaveJobInput, CanonSaveJobResult, EngineOutcome } from './store.js';
+export type {
+	CanonSaveJobInput,
+	CanonSaveJobResult,
+	EngineOutcome,
+	IndexOutcome
+} from './store.js';
 
 interface EngineRunInput {
 	db: Db;
@@ -97,13 +116,12 @@ interface EngineRunInput {
  * plus turning *every* failure into a job-level record a human can actually find, since a
  * console line from deep inside `@canonry/ai` says nothing about which entity's save
  * produced it. */
-function describeEngineFailure(
+function logEngineFailure(
 	err: unknown,
 	universeId: string,
 	entityId: string,
-	engine: 'propagate.plan' | 'audit.flag'
-): EngineOutcome {
-	if (err instanceof AiDisabledError) return { status: 'ai-disabled' };
+	engine: 'propagate.plan' | 'audit.flag' | 'index.entity'
+): { errorName: string; message: string } {
 	const errorName = err instanceof Error ? err.name : 'UnknownError';
 	const message = err instanceof Error ? err.message : String(err);
 	console.error(
@@ -116,7 +134,17 @@ function describeEngineFailure(
 			message
 		})
 	);
-	return { status: 'error', errorName, message };
+	return { errorName, message };
+}
+
+function describeEngineFailure(
+	err: unknown,
+	universeId: string,
+	entityId: string,
+	engine: 'propagate.plan' | 'audit.flag'
+): EngineOutcome {
+	if (err instanceof AiDisabledError) return { status: 'ai-disabled' };
+	return { status: 'error', ...logEngineFailure(err, universeId, entityId, engine) };
 }
 
 async function runPropagationEngine(input: EngineRunInput): Promise<EngineOutcome> {
@@ -159,6 +187,78 @@ async function runAuditEngine(input: EngineRunInput): Promise<EngineOutcome> {
 	}
 }
 
+/** Issue #164: the third engine a save's job runs - chunk/extract/embed/upsert of the
+ * entity's own body into its universe's own-canon lore collection, deleting its stale
+ * points first. Rides the same debounced, durable, per-(universe, entity) worker
+ * propagation and audit already use, which is the obvious place for it: it already runs
+ * off every human save, off the request/response cycle, with a lease that retries a
+ * crashed run - so a slow or failed embed here can never make the save itself slow or
+ * fail, because this worker only ever starts after the save's own transaction and HTTP
+ * response have already finished.
+ *
+ * Never gated on `aiEnabled`, unlike propagation and audit: embedding for search is
+ * reading infrastructure, not generation - the same reasoning `@canonry/copilot`'s
+ * `searchIndexed` (Ask's own indexed-retrieval layer) already follows, since it runs
+ * unconditionally, before that file's `aiEnabled` check exists at all. Guardrail 4 is
+ * about the AI that writes canon, not about whether a homebrew world can find its own
+ * canon again. `heuristicExtractor` (no model call) does the chunk metadata pass, so the
+ * embedding call is the only thing here that touches the gateway - charged at zero
+ * credits through `operation_price`'s existing `index.embed` row (issue #164's own note:
+ * "charging for indexing a save would tax the act of saving").
+ *
+ * A body that did not actually change is `no-change`, not a failed run - so is a universe
+ * with no `embedding` purpose configured yet (a fresh deployment, the same state
+ * `searchIndexed` already treats as normal rather than an error). Anything else that goes
+ * wrong - the gateway down, a missing credential, a dimension mismatch - is caught here
+ * and recorded as `error`, never rethrown: the `Promise.all` below can never let an
+ * embedding failure take propagation or audit down with it, and a job whose only trouble
+ * was indexing still completes `done`. */
+async function runIndexEngine(
+	input: EngineRunInput,
+	deps: { vectorClient: QdrantClient; embeddingModelFactory: EmbeddingModelFactory }
+): Promise<IndexOutcome> {
+	if (input.oldBody === input.newBody) return { status: 'no-change' };
+	try {
+		let embeddingModel;
+		try {
+			embeddingModel = await resolveModel(input.db, 'embedding');
+		} catch (err) {
+			if (err instanceof ModelNotConfiguredError) return { status: 'no-change' };
+			throw err;
+		}
+		const { collectionName, vectorSize, dataSourceId } = await resolveOwnCanonCollection(
+			input.db,
+			input.universeId,
+			embeddingModel
+		);
+		const embedder = createGatewayEmbedder({
+			db: input.db,
+			model: { ...embeddingModel, model: deps.embeddingModelFactory(embeddingModel) },
+			userId: input.userId,
+			universeId: input.universeId,
+			operation: 'index.embed'
+		});
+		const result = await indexEntity(
+			{ db: input.db, vectorClient: deps.vectorClient, extractor: heuristicExtractor, embedder },
+			{
+				dataSourceId,
+				universeId: input.universeId,
+				entityId: input.entityId,
+				entityName: input.entityName,
+				body: input.newBody,
+				collectionName,
+				vectorSize
+			}
+		);
+		return { status: 'ok', chunkCount: result.chunkCount };
+	} catch (err) {
+		return {
+			status: 'error',
+			...logEngineFailure(err, input.universeId, input.entityId, 'index.entity')
+		};
+	}
+}
+
 const RECENT_JOBS_LIMIT = 200;
 // SPEC.md §5.1/§5.2's "a few seconds" debounce, unchanged from the in-memory version.
 const DEFAULT_DEBOUNCE_MS = 4000;
@@ -185,6 +285,11 @@ export interface CanonSaveJobQueueOptions extends JobQueueOptions {
 	db: Db;
 	modelFactory: ModelFactory;
 	gateway: GatewayWrapper;
+	/** Issue #164: the index engine's own two seams, mirroring `modelFactory`/`gateway`
+	 * above - a real Qdrant client and a real embedding-model factory in production,
+	 * scripted test doubles in `canon-save.test.ts`. */
+	vectorClient: QdrantClient;
+	embeddingModelFactory: EmbeddingModelFactory;
 	/** How long a claim's lease lasts before another worker may reclaim it. */
 	leaseMs?: number;
 	/** How often an idle worker polls Postgres for the next due job. */
@@ -219,7 +324,14 @@ async function delay(ms: number): Promise<void> {
 }
 
 export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): CanonSaveJobQueue {
-	const { db: conn, modelFactory: factory, gateway, debounceMs } = options;
+	const {
+		db: conn,
+		modelFactory: factory,
+		gateway,
+		debounceMs,
+		vectorClient: qdrant,
+		embeddingModelFactory
+	} = options;
 	const leaseMs = options.leaseMs ?? DEFAULT_LEASE_MS;
 	const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
 	const tracked = new Set<string>();
@@ -247,11 +359,12 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 			// answer in the default language.
 			locale: toLocale(row.locale) ?? DEFAULT_LOCALE
 		};
-		const [propagation, audit] = await Promise.all([
+		const [propagation, audit, index] = await Promise.all([
 			runPropagationEngine(input),
-			runAuditEngine(input)
+			runAuditEngine(input),
+			runIndexEngine(input, { vectorClient: qdrant, embeddingModelFactory })
 		]);
-		await completeCanonSaveJob(conn, row.id, { propagation, audit });
+		await completeCanonSaveJob(conn, row.id, { propagation, audit, index });
 	}
 
 	const handlers: DurableQueueHandlers<CanonSaveJobRow> = {
@@ -350,7 +463,14 @@ function getProductionQueue(): CanonSaveJobQueue {
 			maxConcurrent: DEFAULT_MAX_CONCURRENT,
 			db: db(),
 			modelFactory,
-			gateway: identityGateway
+			gateway: identityGateway,
+			vectorClient: vectorClient(),
+			// Mirrors `realModelFactory` in `$lib/server/copilot.ts`: no credentials passed
+			// through, so `createEmbeddingModel` falls back to `readGatewayCredentials()`'s own
+			// default at call time - the same `MissingGatewayEnvError` a real gateway call
+			// throws anywhere else in this codebase when the env var is missing, caught by
+			// `runIndexEngine` like any other embedding failure rather than crashing the worker.
+			embeddingModelFactory: (resolved) => createEmbeddingModel(resolved.provider, resolved.modelId)
 		});
 		productionQueue.start();
 	}

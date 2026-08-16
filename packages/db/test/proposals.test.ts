@@ -6,6 +6,7 @@ import {
 	closeDb,
 	createProposalPlan,
 	dropCandidateFromPlan,
+	entityDeletedByUndo,
 	getProposal,
 	listProposalsForPlan,
 	ProposalAlreadyDecidedError,
@@ -674,6 +675,63 @@ describe('proposals', () => {
 			const undone = await undoAcceptedProposal(db, { proposalId: proposal.id });
 			expect(undone.outcome).toBe('pending');
 			expect(await db.select().from(entity).where(eq(entity.slug, newSlug))).toEqual([]);
+		});
+
+		it('entityDeletedByUndo names the entity undo is about to delete, and nothing once it is gone (issue #164)', async () => {
+			const { u } = await fixture();
+			const { proposals } = await createProposalPlan(db, {
+				universeId: u.id,
+				trigger: 'save',
+				summary: 'x',
+				candidateCap: 10,
+				estimatedCredits: 1,
+				candidates: [
+					{ kind: 'create', targetEntityId: null, rationale: 'x', evidence: [], rank: 0 }
+				]
+			});
+			const proposal = proposals[0]!;
+			const newSlug = unique('lira-onyx');
+			await recordProposalDiff(db, {
+				proposalId: proposal.id,
+				patch: { type: 'character', name: 'Lira Onyx', slug: newSlug, aliases: [], body: 'x' },
+				provider: 'test',
+				modelId: 'test',
+				credits: 1
+			});
+			await acceptProposal(db, { proposalId: proposal.id });
+			const [created] = await db.select().from(entity).where(eq(entity.slug, newSlug));
+			if (!created) throw new Error('fixture setup failed');
+
+			expect(await entityDeletedByUndo(db, proposal.id)).toBe(created.id);
+
+			await undoAcceptedProposal(db, { proposalId: proposal.id });
+
+			// The entity is gone and the proposal is back to pending - nothing left to name.
+			expect(await entityDeletedByUndo(db, proposal.id)).toBeNull();
+		});
+
+		it('entityDeletedByUndo is null for an accepted update - there is no entity to delete', async () => {
+			const { u, target } = await fixture();
+			const { proposals } = await createProposalPlan(db, {
+				universeId: u.id,
+				trigger: 'save',
+				summary: 'x',
+				candidateCap: 10,
+				estimatedCredits: 1,
+				candidates: [
+					{ kind: 'update', targetEntityId: target.id, rationale: 'x', evidence: [], rank: 0 }
+				]
+			});
+			const proposal = proposals[0]!;
+			await recordProposalDiff(db, {
+				proposalId: proposal.id,
+				patch: { summary: 's', before: target.body, after: `${target.body} changed.` },
+				provider: 'test',
+				modelId: 'test',
+				credits: 1
+			});
+			await acceptProposal(db, { proposalId: proposal.id });
+			expect(await entityDeletedByUndo(db, proposal.id)).toBeNull();
 		});
 
 		it('undoing a relation-kind accept deletes the relation row', async () => {

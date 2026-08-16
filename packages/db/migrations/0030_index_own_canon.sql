@@ -1,0 +1,21 @@
+-- Issue #164: a universe's own canon was never indexed - `indexDataSource` only ever
+-- crawled a MediaWiki, so Ask's second retrieval layer stayed empty for every homebrew
+-- world. Indexing now rides the canon-save-job worker: on every human save it chunks,
+-- extracts, embeds and upserts the entity's own body, and deletes its stale points first.
+--
+-- Two changes, both additive:
+--
+-- 1. `canon_save_job.index_outcome` records that third engine's result next to
+-- `propagation_outcome`/`audit_outcome` - same jsonb-per-engine shape, so an embedding
+-- failure (the gateway down, a missing credential) is visible on the job row exactly like
+-- a propagation or audit failure already is, independent of whether the other two engines
+-- ran or not.
+--
+-- 2. `data_source_universe_own_canon_key` backs `ownCanonDataSource`
+-- (packages/db/src/queries/sources.ts): the one "Own canon" data_source row per universe
+-- that `retrieveForUniverse` needs to be a real row (it loads the source to apply
+-- exclusion patterns). Scoped to the single literal name rather than a general
+-- (universe_id, name) uniqueness, so it can never conflict with a wiki source an admin
+-- already named however they liked.
+ALTER TABLE "canon_save_job" ADD COLUMN "index_outcome" jsonb;--> statement-breakpoint
+CREATE UNIQUE INDEX "data_source_universe_own_canon_key" ON "data_source" USING btree ("universe_id") WHERE "data_source"."name" = 'Own canon';

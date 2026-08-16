@@ -856,3 +856,26 @@ export async function undoAcceptedProposal(
 		return updated;
 	});
 }
+
+/**
+ * Issue #164: the entity id `undoAcceptedProposal` is about to delete for an accepted
+ * `create`/`draft_entity` proposal, resolved *before* the undo runs so a caller can clean
+ * up anything keyed on that entity (its lore chunks in Qdrant, packages/indexing's
+ * `deleteEntityLoreChunks`) once the undo has actually committed. Null for every other
+ * kind, for a proposal that is not currently `accepted`, or for the slug-collision fold
+ * (`foldCreateProposalOntoExistingSlug`) where the applied revision landed on an entity
+ * that already existed rather than one this accept created.
+ */
+export async function entityDeletedByUndo(db: Db, proposalId: string): Promise<string | null> {
+	const [existing] = await db.select().from(proposal).where(eq(proposal.id, proposalId)).limit(1);
+	if (!existing) return null;
+	if (existing.outcome !== 'accepted') return null;
+	if (existing.kind !== 'create' && existing.kind !== 'draft_entity') return null;
+	if (existing.targetEntityId || !existing.appliedRevisionId) return null;
+	const [createdRevision] = await db
+		.select({ entityId: revision.entityId })
+		.from(revision)
+		.where(eq(revision.id, existing.appliedRevisionId))
+		.limit(1);
+	return createdRevision?.entityId ?? null;
+}
