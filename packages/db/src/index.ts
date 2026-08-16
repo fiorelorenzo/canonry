@@ -8,14 +8,18 @@ export {
 	renameRelationType,
 	widenRelationType,
 	mergeRelationTypes,
+	setRelationTypeLabel,
+	clearRelationTypeLabel,
 	RelationTypeNotOwnedError,
 	RelationTypeLabelConflictError,
 	type RelationTypeRow,
 	type RelationTypeCatalogueRow,
+	type RelationTypeLabelRow,
 	type RenameRelationTypeInput,
 	type WidenRelationTypeInput,
 	type MergeRelationTypesInput,
-	type MergeRelationTypesResult
+	type MergeRelationTypesResult,
+	type SetRelationTypeLabelInput
 } from './queries/relation-types.js';
 export { historyFor } from './queries/revisions.js';
 export {

@@ -8,10 +8,15 @@
  *      "employ" / "employed by" (the catalogue's own inverse label) are one type, not
  *      three. A label that matches a type's *inverse* resolves to that type rather than
  *      becoming a second one - half the synonym sprawl the epic reports is a model saying
- *      "employed by" where the catalogue already says "employs".
+ *      "employed by" where the catalogue already says "employs". For a shipped type this
+ *      checks every locale's label and inverse label, not only the one stored on the row
+ *      (#197) - "comanda" matches "commands" the same way "commanded by" does.
  *   2. Semantic match over whatever survives rung 1, through an injected `embed` -
  *      "hires" and "works for" share no letters with "employs" but mean the same thing,
- *      which no amount of normalisation will catch.
+ *      which no amount of normalisation will catch. Embeds the same locale-expanded
+ *      candidate set rung 1 matches against (#197), so a paraphrase in a language rung 1's
+ *      exact match does not cover still has a shot at its own locale's phrasing rather
+ *      than needing the embedder to bridge language and wording at once.
  *   3. The allowed-type check (#191): whichever type rungs 1/2 landed on, if it does not
  *      admit this pair of entity types the resolution is `widen-proposed` - never a
  *      silent write, never a rejection. #173 used to widen the catalogue by hand with a
@@ -29,6 +34,29 @@
  * `relation_type` row is a human accepting a proposal (#190), never this function -
  * `resolveRelationType` only ever *reads* `@canonry/db`.
  *
+ * Decision L1 (#195): every rung below still matches against `label`/`inverseLabel`, on
+ * purpose, and this is not a bug to "fix" onto `key` - a model or an import document
+ * proposes a word ("hires", "employed by"), never a key, so there is nothing to compare
+ * a key against until a type is already chosen. The *result* is what carries identity: a
+ * `RelationTypeRow` full row, `.key` included, so every caller (`packages/import/src/
+ * job-runner.ts`, this file's own callers) identifies the resolved type by `.key`
+ * (or the row's `.id` for a foreign key write), never by re-deriving it from the label
+ * that got it there.
+ *
+ * Issue #197: rungs 1 and 2 both match a proposed label against every shipped locale's
+ * strings for a candidate type, not just the caller's active one - an Italian corpus
+ * proposing "comanda" has no reason to know English, and matching it only against the
+ * catalogue's English label used to fork a needless universe-scoped duplicate for every
+ * one of the ten shipped types. `relation-catalogue.ts`'s `relationTypeMatchCandidates`
+ * is the one place that expansion happens, shared by `isForwardMatch`/`isInverseMatch`
+ * (rung 1) and `bestSemanticMatch` (rung 2). Not injected the way `embed` is - see
+ * `relation-catalogue.ts`'s own doc comment for why fixed shipped content is not a seam.
+ * Rung 2 leans on the injected `embed` being a genuinely multilingual model - the
+ * property #168's own embedder selection measured for and chose it on - to bridge a
+ * proposed label in one language against a candidate's text in another; swapping in a
+ * monolingual embedder would not error, it would just quietly stop this rung matching
+ * anything outside the one language it was trained on.
+ *
  * Lives here rather than in `packages/import` (where the only caller happens to be today)
  * because the copilot's own propose paths will want this the moment they can create a
  * relation themselves, and duplicating the reconciliation logic per caller is exactly the
@@ -37,6 +65,7 @@
 import type { Db } from '@canonry/db';
 import { relationTypesForUniverse, type RelationTypeRow } from '@canonry/db';
 import type { EntityType, RelationCardinality } from '@canonry/db/schema';
+import { relationTypeMatchCandidates } from '@canonry/lang';
 
 export type RelationTypeResolution =
 	| { kind: 'existing'; type: RelationTypeRow }
@@ -133,9 +162,31 @@ function stemWord(word: string): string {
  * suggestion this function is free to flip), so a caller that gets back
  * `{ kind: 'existing' | 'reuse-proposed' | 'widen-proposed' }` and wants a *correct*
  * relation row has to make exactly this check before writing one: rung 1's own use of it
- * below is not special. */
+ * below is not special.
+ *
+ * Checks every shipped locale's inverse label for `type`, not just the one stored on the
+ * row (#197) - `relationTypeMatchCandidates` is the one place that expansion happens,
+ * shared with the forward check below and with rung 2's embedding set. */
 export function isInverseMatch(type: RelationTypeRow, label: string): boolean {
-	return normalizeRelationLabel(type.inverseLabel) === normalizeRelationLabel(label);
+	const normalizedLabel = normalizeRelationLabel(label);
+	return relationTypeMatchCandidates(type).some(
+		(candidate) =>
+			candidate.direction === 'inverse' &&
+			normalizeRelationLabel(candidate.label) === normalizedLabel
+	);
+}
+
+/** `isInverseMatch`'s forward-direction counterpart, not exported: rung 1a below is the
+ * only caller that needs "does `label` read as this type's forward label, in any shipped
+ * locale" as a single check - unlike the inverse case, nothing outside this file needs to
+ * ask it (see `isInverseMatch`'s own doc comment for why that one stays exported). */
+function isForwardMatch(type: RelationTypeRow, label: string): boolean {
+	const normalizedLabel = normalizeRelationLabel(label);
+	return relationTypeMatchCandidates(type).some(
+		(candidate) =>
+			candidate.direction === 'forward' &&
+			normalizeRelationLabel(candidate.label) === normalizedLabel
+	);
 }
 
 /** A universe's own override of a shipped label wins over the catalogue on an exact tie
@@ -253,16 +304,33 @@ async function bestSemanticMatch(
 	candidates: RelationTypeRow[]
 ): Promise<{ type: RelationTypeRow; similarity: number } | null> {
 	if (candidates.length === 0) return null;
-	const vectors = await embed([label, ...candidates.map((c) => c.label)]);
+	// #197: embeds every shipped locale's label and inverse label for a candidate, not
+	// just the one stored on the row - see this file's module doc for why that leans on
+	// `embed` being multilingual. Still one batched call, same as before; a candidate's
+	// score is the best similarity across its own expanded text set, so it is found if
+	// *any* of its known synonyms or translations reads close to the proposed label.
+	const candidateTexts = candidates.map((candidate) =>
+		relationTypeMatchCandidates(candidate).map((match) => match.label)
+	);
+	const vectors = await embed([label, ...candidateTexts.flat()]);
 	const inputVector = vectors[0];
 	if (!inputVector) return null;
 	let best: { type: RelationTypeRow; similarity: number } | null = null;
+	let offset = 1;
 	for (let i = 0; i < candidates.length; i++) {
 		const candidate = candidates[i]!;
-		const vector = vectors[i + 1];
-		if (!vector) continue;
-		const similarity = cosineSimilarity(inputVector, vector);
-		if (!best || similarity > best.similarity) best = { type: candidate, similarity };
+		const texts = candidateTexts[i]!;
+		let candidateBest: number | null = null;
+		for (let j = 0; j < texts.length; j++) {
+			const vector = vectors[offset + j];
+			if (!vector) continue;
+			const similarity = cosineSimilarity(inputVector, vector);
+			if (candidateBest === null || similarity > candidateBest) candidateBest = similarity;
+		}
+		offset += texts.length;
+		if (candidateBest !== null && (!best || candidateBest > best.similarity)) {
+			best = { type: candidate, similarity: candidateBest };
+		}
 	}
 	return best;
 }
@@ -278,10 +346,10 @@ export async function resolveRelationType(
 	const candidates = await relationTypesForUniverse(deps.db, input.universeId);
 	const ordered = preferUniverseOwned(candidates, input.universeId);
 
-	// Rung 1a: normalised exact match, forward direction.
-	const normalizedInput = normalizeRelationLabel(input.label);
+	// Rung 1a: normalised exact match, forward direction - checks every shipped locale's
+	// forward label for a candidate, not just the one stored on the row (#197).
 	for (const candidate of ordered) {
-		if (normalizeRelationLabel(candidate.label) === normalizedInput) {
+		if (isForwardMatch(candidate, input.label)) {
 			return resolveAgainstAdmission(
 				candidate,
 				input.fromType,

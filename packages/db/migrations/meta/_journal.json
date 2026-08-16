@@ -225,6 +225,20 @@
       "when": 1786862287472,
       "tag": "0031_relation_type_proposal_kinds",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1786878128921,
+      "tag": "0032_relation_type_key",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1786879683213,
+      "tag": "0033_relation_type_label",
+      "breakpoints": true
     }
   ]
 }

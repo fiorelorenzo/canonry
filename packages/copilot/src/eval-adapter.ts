@@ -38,7 +38,12 @@ function toGraph(world: PropagationWorld): CandidateGraph {
 		relations: world.relations.map((relation) => ({
 			fromId: relation.from,
 			toId: relation.to,
-			label: relation.label
+			// The eval corpus's own `PropagationRelation.label` (packages/eval) predates
+			// #195 and has no relation_type row behind it to carry a real key - its raw
+			// label text becomes the graph's `key` here, which is fine: this corpus only
+			// ever compares a path entry against another path entry from the same corpus,
+			// never against a real database key.
+			key: relation.label
 		}))
 	};
 }

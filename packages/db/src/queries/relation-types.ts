@@ -14,13 +14,22 @@
  * enforced by the query shape, not left to a caller to remember. Adding to the shipped
  * ten stays a migration's job (0001_seed_relation_type_catalogue.sql,
  * 0029_containment_and_protects_relations.sql).
+ *
+ * #198 adds one more direct human write of the same kind: `setRelationTypeLabel` /
+ * `clearRelationTypeLabel` let a GM author a per-locale reading of their own type, from
+ * the catalogue page, right next to rename/widen/merge above. Ownership-checked the
+ * same way, and not a proposal either - the model-authored half of #198 (a copilot
+ * proposing a translation, accepted or rejected like any other queue item) is
+ * deliberately not built here; see #198's own tracking note for what that would need.
  */
 import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Db } from '../client.js';
-import type { EntityType, RelationCardinality } from '../schema/enums.js';
-import { relation, relationType } from '../schema/relation.js';
+import type { AuthorKind, EntityType, RelationCardinality } from '../schema/enums.js';
+import { relation, relationType, relationTypeLabel } from '../schema/relation.js';
 
 export type RelationTypeRow = typeof relationType.$inferSelect;
+
+export type RelationTypeLabelRow = typeof relationTypeLabel.$inferSelect;
 
 /** #189's own read: every relation type a label proposed in `universeId` could
  * legitimately match - the shipped catalogue plus this universe's own types, in one
@@ -48,6 +57,15 @@ export interface RelationTypeCatalogueRow extends RelationTypeRow {
 	 * universe, not globally, since two universes both using "commands" do not share a
 	 * count any more than they share canon. */
 	usageCount: number;
+	/** #198: this type's own per-locale translations, keyed by locale. `null` for a
+	 * universe's own type nobody has translated yet, and always `null` for a shipped
+	 * type - the migration's `relation_type_label_owned_only_trigger` makes a row here
+	 * for one structurally impossible, so this column needs no separate "is this
+	 * shipped" branch to stay empty for the shipped ten.
+	 * `relationTypeDisplayLabel`/`relationTypeDisplayInverseLabel`
+	 * (apps/web's `components/relations/types.ts`) read this, for the active locale,
+	 * before falling back to `label`/`inverseLabel` above. */
+	labels: Record<string, { label: string; inverseLabel: string; authorKind: AuthorKind }> | null;
 }
 
 /** Every type a universe can use: the shipped catalogue plus its own, each carrying its
@@ -68,17 +86,41 @@ export async function listRelationTypesForUniverse(
 		where ${relation.relationTypeId} = "relation_type"."id"
 		and ${relation.universeId} = ${universeId}
 	)`;
+	// #198: every locale this type has been translated into, as one JSON object keyed
+	// by locale. `jsonb_object_agg` returns null over zero rows, which is exactly
+	// "nothing translated yet" and matches `labels`'s `| null` type - a shipped row
+	// (structurally impossible to have any, per the migration's trigger) and an
+	// untranslated own type read identically, with no separate branch for either. Same
+	// unaliased `"relation_type"."id"` correlation as `usageCount` above, for the same
+	// reason.
+	const labels = sql<Record<
+		string,
+		{ label: string; inverseLabel: string; authorKind: AuthorKind }
+	> | null>`(
+		select jsonb_object_agg(
+			${relationTypeLabel.locale},
+			jsonb_build_object(
+				'label', ${relationTypeLabel.label},
+				'inverseLabel', ${relationTypeLabel.inverseLabel},
+				'authorKind', ${relationTypeLabel.authorKind}
+			)
+		)
+		from ${relationTypeLabel}
+		where ${relationTypeLabel.relationTypeId} = "relation_type"."id"
+	)`;
 	return db
 		.select({
 			id: relationType.id,
 			universeId: relationType.universeId,
+			key: relationType.key,
 			label: relationType.label,
 			inverseLabel: relationType.inverseLabel,
 			cardinality: relationType.cardinality,
 			allowedFrom: relationType.allowedFrom,
 			allowedTo: relationType.allowedTo,
 			createdAt: relationType.createdAt,
-			usageCount
+			usageCount,
+			labels
 		})
 		.from(relationType)
 		.where(or(isNull(relationType.universeId), eq(relationType.universeId, universeId)))
@@ -113,9 +155,12 @@ export interface RenameRelationTypeInput {
 /** Renames a universe's own type. One row holds both labels (SPEC.md §4.2's "one row,
  * never two, so the two sides cannot drift apart"), so this is the only place either one
  * changes, and every relation using the type shows the new wording immediately - nothing
- * else stores a label copy. Scoped by `universe_id = universeId` in the same query as the
- * id match, so a shipped row or another universe's row can never match: this throws
- * `RelationTypeNotOwnedError` rather than silently updating nothing. */
+ * else stores a label copy. `.set()` below only ever writes `label`/`inverseLabel`, never
+ * `key` - issue #195's whole point: renaming a type must not orphan it from its own
+ * history (its relations, its evidence paths, its rejection history), and identity lives
+ * on `key` now, not on the words being renamed. Scoped by `universe_id = universeId` in
+ * the same query as the id match, so a shipped row or another universe's row can never
+ * match: this throws `RelationTypeNotOwnedError` rather than silently updating nothing. */
 export async function renameRelationType(
 	db: Db,
 	universeId: string,
@@ -260,4 +305,90 @@ export async function mergeRelationTypes(
 
 		return { movedCount: movableIds.length, dedupedCount: duplicateIds.length, intoType };
 	});
+}
+
+// ---------------------------------------------------------------------------
+// #198: a universe's own type's per-locale translations. The GM-written half only -
+// `authorKind` is exposed on the input so an accepted copilot proposal could call this
+// same function with `'ai_accepted'` the day that half exists, but nothing here drafts
+// or accepts a proposal itself. See this file's module doc for why that half is not
+// built yet.
+// ---------------------------------------------------------------------------
+
+export interface SetRelationTypeLabelInput {
+	locale: string;
+	label: string;
+	inverseLabel: string;
+	authorKind: AuthorKind;
+}
+
+/** Writes (or revises) one locale's translation of a universe's own type - the whole of
+ * #198's interactive path, called once per locale the catalogue page's translate form
+ * submits. Ownership-checked the same way rename/widen/merge are: scoped to
+ * `relation_type.universe_id = universeId` before the write, so neither a shipped type
+ * nor another universe's type can gain a row here (the migration's
+ * `relation_type_label_owned_only_trigger` is the second, unconditional guard against
+ * the shipped half specifically - this check exists so a mismatched write reports
+ * `RelationTypeNotOwnedError` instead of a raw trigger exception). `onConflictDoUpdate`
+ * on the `(relation_type_id, locale)` unique constraint makes a second save for the
+ * same locale a revision of the one row, never a duplicate next to it. */
+export async function setRelationTypeLabel(
+	db: Db,
+	universeId: string,
+	typeId: string,
+	input: SetRelationTypeLabelInput
+): Promise<RelationTypeLabelRow> {
+	const [owned] = await db
+		.select({ id: relationType.id })
+		.from(relationType)
+		.where(and(eq(relationType.id, typeId), eq(relationType.universeId, universeId)))
+		.limit(1);
+	if (!owned) throw new RelationTypeNotOwnedError(typeId, universeId);
+
+	const [row] = await db
+		.insert(relationTypeLabel)
+		.values({
+			relationTypeId: typeId,
+			locale: input.locale,
+			label: input.label,
+			inverseLabel: input.inverseLabel,
+			authorKind: input.authorKind
+		})
+		.onConflictDoUpdate({
+			target: [relationTypeLabel.relationTypeId, relationTypeLabel.locale],
+			set: {
+				label: input.label,
+				inverseLabel: input.inverseLabel,
+				authorKind: input.authorKind,
+				updatedAt: sql`now()`
+			}
+		})
+		.returning();
+	if (!row) throw new RelationTypeNotOwnedError(typeId, universeId);
+	return row;
+}
+
+/** Clears one locale's translation - a GM emptying both fields back to "no translation
+ * here", which is display fallback to the authored label, never a translation of the
+ * empty string. Ownership-checked the same way `setRelationTypeLabel` is. Deleting a
+ * locale that was never translated is a no-op, not an error: the catalogue page's
+ * translate form always submits every shipped locale's pair, whether or not each one
+ * has a saved row yet, so "nothing to delete" is the ordinary case for most locales on
+ * most submits. */
+export async function clearRelationTypeLabel(
+	db: Db,
+	universeId: string,
+	typeId: string,
+	locale: string
+): Promise<void> {
+	const [owned] = await db
+		.select({ id: relationType.id })
+		.from(relationType)
+		.where(and(eq(relationType.id, typeId), eq(relationType.universeId, universeId)))
+		.limit(1);
+	if (!owned) throw new RelationTypeNotOwnedError(typeId, universeId);
+
+	await db
+		.delete(relationTypeLabel)
+		.where(and(eq(relationTypeLabel.relationTypeId, typeId), eq(relationTypeLabel.locale, locale)));
 }

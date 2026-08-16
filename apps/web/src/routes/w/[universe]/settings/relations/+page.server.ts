@@ -11,11 +11,22 @@
  * read-only rule structurally (every mutation filters on `universe_id = universeId`, so
  * a shipped row can never match), so this file's job is just role-gating and turning a
  * thrown error into a `fail()` a dialog can show.
+ *
+ * `translateRelationType` (#198) is the same kind of write as the three above it, one
+ * `LOCALES` loop wider: one submit from `TranslateRelationTypeDialog` carries every
+ * shipped locale's field pair for one type, and this action writes or clears each
+ * locale in turn - a blank pair clears that locale back to fallback, a filled pair
+ * saves it, one filled and one blank is rejected as an error before anything is
+ * written. Nothing here drafts or accepts a copilot proposal; see
+ * `packages/db/src/queries/relation-types.ts`'s module doc for why that half of #198 is
+ * not built.
  */
 import { error, fail } from '@sveltejs/kit';
 import {
+	clearRelationTypeLabel,
 	mergeRelationTypes,
 	renameRelationType,
+	setRelationTypeLabel,
 	widenRelationType,
 	listRelationTypesForUniverse,
 	RelationTypeLabelConflictError,
@@ -25,7 +36,7 @@ import {
 	type UniverseAccess
 } from '@canonry/db';
 import type { EntityType } from '@canonry/db/schema';
-import { messages, type Locale } from '$lib/i18n';
+import { LOCALES, messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -162,7 +173,8 @@ export const actions: Actions = {
 				action: 'merge' as const,
 				movedCount: result.movedCount,
 				dedupedCount: result.dedupedCount,
-				intoLabel: result.intoType.label
+				intoLabel: result.intoType.label,
+				intoKey: result.intoType.key
 			};
 		} catch (err) {
 			if (err instanceof RelationTypeNotOwnedError) {
@@ -170,5 +182,60 @@ export const actions: Actions = {
 			}
 			throw err;
 		}
+	},
+
+	translateRelationType: async ({ request, params, locals }) => {
+		if (!locals.user) error(404, `No universe named "${params.universe}"`);
+		const conn = db();
+		const access = await requireManager(conn, params.universe, locals.user.id, locals.locale);
+		const t = messages(locals.locale).universe.settings.relations;
+
+		const form = await request.formData();
+		const typeId = form.get('typeId');
+		if (typeof typeId !== 'string' || typeId.length === 0) {
+			return fail(400, {
+				action: 'translate' as const,
+				typeId: '',
+				error: t.translate.notOwnedError
+			});
+		}
+
+		for (const loc of LOCALES) {
+			const label = form.get(`label_${loc}`);
+			const inverseLabel = form.get(`inverseLabel_${loc}`);
+			const trimmedLabel = typeof label === 'string' ? label.trim() : '';
+			const trimmedInverse = typeof inverseLabel === 'string' ? inverseLabel.trim() : '';
+
+			try {
+				if (trimmedLabel.length === 0 && trimmedInverse.length === 0) {
+					await clearRelationTypeLabel(conn, access.universe.id, typeId, loc);
+					continue;
+				}
+				if (trimmedLabel.length === 0 || trimmedInverse.length === 0) {
+					return fail(400, {
+						action: 'translate' as const,
+						typeId,
+						error: t.translate.incompletePairError
+					});
+				}
+				await setRelationTypeLabel(conn, access.universe.id, typeId, {
+					locale: loc,
+					label: trimmedLabel,
+					inverseLabel: trimmedInverse,
+					authorKind: 'human'
+				});
+			} catch (err) {
+				if (err instanceof RelationTypeNotOwnedError) {
+					return fail(403, {
+						action: 'translate' as const,
+						typeId,
+						error: t.translate.notOwnedError
+					});
+				}
+				throw err;
+			}
+		}
+
+		return { action: 'translate' as const, typeId };
 	}
 };

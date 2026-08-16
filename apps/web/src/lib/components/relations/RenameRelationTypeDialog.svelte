@@ -17,18 +17,22 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import type { Messages } from '$lib/i18n';
+	import type { Locale, Messages } from '$lib/i18n';
 	import type { RelationTypeCatalogueRow } from '@canonry/db';
-	import type { RenameActionResult } from './types.js';
+	import { relationTypeDisplayLabel, type RenameActionResult } from './types.js';
 
 	let {
 		type,
 		t,
+		relationTypeLabel,
+		locale,
 		form,
 		onClose
 	}: {
 		type: RelationTypeCatalogueRow;
 		t: Messages['universe']['settings']['relations'];
+		relationTypeLabel: Messages['relationTypeLabel'];
+		locale: Locale;
 		form?: RenameActionResult | undefined;
 		onClose: () => void;
 	} = $props();
@@ -46,7 +50,11 @@
 <Dialog bind:open>
 	<DialogContent closeLabel={t.close}>
 		<DialogHeader>
-			<DialogTitle>{t.rename.dialogTitle(type.label)}</DialogTitle>
+			<DialogTitle
+				>{t.rename.dialogTitle(
+					relationTypeDisplayLabel(type, relationTypeLabel, locale)
+				)}</DialogTitle
+			>
 			<DialogDescription>{t.rename.dialogDescription}</DialogDescription>
 		</DialogHeader>
 		<form

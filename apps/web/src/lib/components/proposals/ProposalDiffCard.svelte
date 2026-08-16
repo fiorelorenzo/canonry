@@ -31,6 +31,9 @@
 	 * `relation` proposal already renders below. */
 	export interface DiffCandidateRelationVocabView {
 		kind: 'relation_type_reuse' | 'relation_type_widen' | 'relation_type_new';
+		/** #196: the existing type's catalogue key for reuse/widen, null for
+		 * `relation_type_new` - see `$lib/server/proposals.ts`'s `RelationVocabCandidate`. */
+		key: string | null;
 		label: string;
 		inverseLabel: string;
 		cardinality: string | null;
@@ -55,6 +58,9 @@
 		targetSlug: string | null;
 		relatedName: string | null;
 		relationLabel: string | null;
+		/** #196: `relationType.key`, null for anything that is not a plain `relation`
+		 * proposal - mirrors `relationLabel`'s own null case. */
+		relationKey: string | null;
 		diff: FactChangeLike[];
 		diffLayout: 'in-place' | 'side-by-side';
 		evidenceViews: EvidenceView[];
@@ -86,11 +92,27 @@
 
 	let t = $derived(messages(locale).proposals);
 
+	// #196 (decision L1): the shipped ten's words come from the catalogue, keyed on
+	// `relationType.key`; a universe's own type has no entry and `?? candidate.relationLabel`/
+	// `?? candidate.relationVocab.label` falls back to the stored text exactly as authored.
+	let relationTypeLabel = $derived(messages(locale).relationTypeLabel);
+	let vocabPair = $derived(
+		candidate.relationVocab?.key ? relationTypeLabel(candidate.relationVocab.key) : undefined
+	);
+	let vocabLabel = $derived(vocabPair?.label ?? candidate.relationVocab?.label ?? '');
+	let vocabInverseLabel = $derived(
+		vocabPair?.inverseLabel ?? candidate.relationVocab?.inverseLabel ?? ''
+	);
+	let relationLabel = $derived(
+		(candidate.relationKey ? relationTypeLabel(candidate.relationKey)?.label : undefined) ??
+			candidate.relationLabel
+	);
+
 	let showOld = $state(false);
 
 	let title = $derived(
 		candidate.relationVocab
-			? `${candidate.relationVocab.label} / ${candidate.relationVocab.inverseLabel}`
+			? `${vocabLabel} / ${vocabInverseLabel}`
 			: candidate.kind === 'relation'
 				? `${candidate.targetName ?? '?'} \u2192 ${candidate.relatedName ?? '?'}`
 				: (candidate.targetName ?? t.diffCard.newEntry)
@@ -135,7 +157,7 @@
 					</span>
 				{/if}
 				{#if candidate.relationLabel && !candidate.relationVocab}
-					<span>{candidate.relationLabel}</span>
+					<span>{relationLabel}</span>
 				{/if}
 				<span>{candidate.rationale}</span>
 			</p>
@@ -172,14 +194,14 @@
 			</p>
 			<div class="rounded-md bg-ai-bg px-3 py-2">
 				{#if vocab.kind === 'relation_type_reuse'}
-					<p class="text-ink">{t.relationVocab.reuseType(vocab.label, vocab.inverseLabel)}</p>
+					<p class="text-ink">{t.relationVocab.reuseType(vocabLabel, vocabInverseLabel)}</p>
 					{#if vocab.proposedLabel}
 						<p class="mt-1 text-xs text-muted">
-							"{vocab.proposedLabel}" &rarr; "{vocab.label}"
+							"{vocab.proposedLabel}" &rarr; "{vocabLabel}"
 						</p>
 					{/if}
 				{:else}
-					<p class="font-semibold text-ink">{vocab.label} / {vocab.inverseLabel}</p>
+					<p class="font-semibold text-ink">{vocabLabel} / {vocabInverseLabel}</p>
 				{/if}
 				{#if vocab.cardinality}
 					<p class="mt-1 text-xs text-muted">
@@ -215,7 +237,7 @@
 					{#each vocab.relations as relation, i (i)}
 						<li class="rounded-md bg-panel-2 px-3 py-2 text-sm text-ink-2">
 							<span class="font-semibold text-ink">{relation.fromName ?? '?'}</span>
-							<span class="mx-1 text-ai">{vocab.label}</span>
+							<span class="mx-1 text-ai">{vocabLabel}</span>
 							<span class="font-semibold text-ink">{relation.toName ?? '?'}</span>
 							{#if relation.evidenceViews.length > 0}
 								<EvidencePopover
@@ -232,7 +254,7 @@
 	{:else if candidate.kind === 'relation'}
 		<p class="mb-3 rounded-md bg-ai-bg px-3 py-2 text-sm text-ink-2">
 			<span class="font-semibold text-ink">{candidate.targetName}</span>
-			<span class="mx-1 text-ai">{candidate.relationLabel}</span>
+			<span class="mx-1 text-ai">{relationLabel}</span>
 			<span class="font-semibold text-ink">{candidate.relatedName}</span>
 			{#if candidate.evidenceViews.length > 0}
 				<EvidencePopover

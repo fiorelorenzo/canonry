@@ -104,7 +104,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		pendingProposals,
 		openFlags
 	] = await Promise.all([
-		relationsFor(conn, current.id),
+		relationsFor(conn, current.id, locals.locale),
 		historyFor(conn, current.id),
 		mediaAssetsForEntity(conn, current.id),
 		resolveStyle(conn, current.id),

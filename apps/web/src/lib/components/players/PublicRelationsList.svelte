@@ -5,8 +5,11 @@
 	renders, not this list.
 
 	Issue #127: `locale` picks the "Known relations" heading and the "(not yet discovered)"
-	annotation - both chrome. `rel.label` and `rel.other.name` are canon (a relation type's
-	label, an entity's name), never touched by it.
+	annotation - both chrome. `rel.other.name` is canon (an entity's name), never touched by
+	it. `rel.label`'s own status changed under decision L1 (#196): a universe's own relation
+	type is still canon, never touched, but the shipped ten now repaint with `locale` exactly
+	like every other chrome string, because their word is interface furniture, not a GM's own
+	writing (SPEC.md §17 rule 3, guardrail 1).
 -->
 <script lang="ts">
 	import { resolve } from '$app/paths';
@@ -27,9 +30,12 @@
 			{t.players.relationsHeading}
 		</h2>
 		<ul class="mt-2 space-y-2">
-			{#each relations as rel (rel.label + rel.other.id)}
+			{#each relations as rel (rel.key + rel.other.id)}
 				<li class="text-sm">
-					<span class="text-muted">{rel.label}</span>
+					<span class="text-muted">
+						{t.relationTypeLabel(rel.key)?.[rel.direction === 'from' ? 'label' : 'inverseLabel'] ??
+							rel.label}
+					</span>
 					<a
 						href={resolve(`/p/${universeSlug}/${rel.other.slug}`)}
 						class="ml-1 text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"

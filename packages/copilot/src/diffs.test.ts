@@ -7,7 +7,12 @@ import type { ResolvedModel } from '@canonry/ai';
 import type { CandidateEvidence } from './candidates.js';
 import { writeEntityDiff } from './diffs.js';
 import type { RoutedModel } from './models.js';
-import { insertHomebrewUniverse, insertUser, systemPromptOf } from './test-helpers.js';
+import {
+	insertHomebrewUniverse,
+	insertUser,
+	systemPromptOf,
+	userPromptOf
+} from './test-helpers.js';
 import { openTestDb } from './test-db.js';
 
 function usage(inputTotal: number, outputTotal: number) {
@@ -179,6 +184,43 @@ describe('writeEntityDiff', () => {
 			before: currentBody,
 			after: proposedBody
 		});
+	});
+
+	it("issue #197: an Italian-locale propagation prompt carries the shipped relation's Italian label, not its English key", async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, { ownerUserId: owner.id });
+		const currentBody = 'A merchant bank that lends at knife point.';
+		const proposedBody = `${currentBody} It now employs a dismissed watch captain.`;
+
+		let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+		const model = capturingScriptedModel(
+			{ summary: "Annota che l'Ashen Ledger ora impiega Aldric.", after: proposedBody },
+			(options) => {
+				captured = options;
+			}
+		);
+
+		await writeEntityDiff({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			targetEntityName: 'The Ashen Ledger',
+			targetEntityBody: currentBody,
+			planRationale: 'Lo assumono.',
+			// The shipped "employs" key - `writeEntityDiff` resolves it against the real
+			// catalogue (seeded by migration, not this file's own fixture), so no
+			// `insertRelationType` call is needed to prove the label it renders.
+			evidence: [{ kind: 'relation', hops: 1, path: ['employs'] }],
+			editedEntityName: 'Aldric Vane',
+			diff: [{ kind: 'added', statement: 'He now answers to [[The Ashen Ledger]].' }],
+			model: routed(model),
+			locale: 'it',
+			contentLanguage: 'en'
+		});
+
+		const user = userPromptOf(captured!);
+		expect(user).toContain('relation path: impiega');
+		expect(user).not.toContain('relation path: employs');
 	});
 
 	it("and the reverse: an English locale produces an English summary while the drafted body lands in the target entry's Italian", async () => {

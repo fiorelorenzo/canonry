@@ -58,20 +58,22 @@ export async function requireAiEnabled(db: Db, universeId: string): Promise<void
 	if (!row.aiEnabled) throw new AiDisabledError(universeId);
 }
 
-function extractRelationLabels(evidence: unknown): string[] {
+// `proposal.evidence`'s relation paths carry `relation_type.key` values, not labels
+// (decision L1, #195) - this reads back exactly what candidates.ts wrote in, for
+// reject-signal.ts's `resemblance` to compare against a live candidate's own evidence.
+function extractRelationKeys(evidence: unknown): string[] {
 	if (!Array.isArray(evidence)) return [];
-	const labels: string[] = [];
+	const keys: string[] = [];
 	for (const item of evidence) {
-		if (
-			item &&
-			typeof item === 'object' &&
-			(item as { kind?: unknown }).kind === 'relation' &&
-			Array.isArray((item as { path?: unknown }).path)
-		) {
-			labels.push(...((item as { path: unknown[] }).path as string[]));
+		if (!item || typeof item !== 'object' || !('kind' in item) || item.kind !== 'relation') {
+			continue;
+		}
+		if (!('path' in item) || !Array.isArray(item.path)) continue;
+		for (const step of item.path) {
+			if (typeof step === 'string') keys.push(step);
 		}
 	}
-	return labels;
+	return keys;
 }
 
 export interface PlanPropagationInput {
@@ -128,7 +130,7 @@ export async function planPropagation(
 		.filter((row): row is typeof row & { targetEntityId: string } => row.targetEntityId !== null)
 		.map((row) => ({
 			targetEntityId: row.targetEntityId,
-			relationLabels: extractRelationLabels(row.evidence),
+			relationKeys: extractRelationKeys(row.evidence),
 			reason: row.reason
 		}));
 

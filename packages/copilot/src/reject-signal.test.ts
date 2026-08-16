@@ -8,11 +8,11 @@ import {
 	type RejectionRecord
 } from './reject-signal.js';
 
-function candidate(entityId: string, score: number, relationLabels: string[] = []): CandidateEntry {
+function candidate(entityId: string, score: number, relationKeys: string[] = []): CandidateEntry {
 	return {
 		entityId,
 		score,
-		evidence: relationLabels.map((label) => ({ kind: 'relation' as const, hops: 1, path: [label] }))
+		evidence: relationKeys.map((key) => ({ kind: 'relation' as const, hops: 1, path: [key] }))
 	};
 }
 
@@ -36,10 +36,10 @@ describe('rejectPenaltyFor and scoreCandidates', () => {
 	it('a candidate resembling a previously rejected one ranks lower than an equally-scored peer with no history', () => {
 		// Two candidates found the same way (one hop-1 relation, equal base score).
 		const resemblesRejected = candidate('corvin-ashe', 1, ['employs']);
-		const noHistory = candidate('the-valdoria-watch', 1, ['member of']);
+		const noHistory = candidate('the-valdoria-watch', 1, ['member_of']);
 
 		const history: RejectionRecord[] = [
-			{ targetEntityId: 'some-other-entity', relationLabels: ['employs'], reason: 'wrong' }
+			{ targetEntityId: 'some-other-entity', relationKeys: ['employs'], reason: 'wrong' }
 		];
 
 		const ranked = scoreCandidates([resemblesRejected, noHistory], history);
@@ -51,7 +51,7 @@ describe('rejectPenaltyFor and scoreCandidates', () => {
 		const exactMatch = candidate('corvin-ashe', 1, ['employs']);
 		const resemblesOnly = candidate('another-employee', 1, ['employs']);
 		const history: RejectionRecord[] = [
-			{ targetEntityId: 'corvin-ashe', relationLabels: ['employs'], reason: 'wrong' }
+			{ targetEntityId: 'corvin-ashe', relationKeys: ['employs'], reason: 'wrong' }
 		];
 
 		const ranked = scoreCandidates([exactMatch, resemblesOnly], history);
@@ -59,9 +59,9 @@ describe('rejectPenaltyFor and scoreCandidates', () => {
 	});
 
 	it('a candidate with no resemblance at all is unaffected', () => {
-		const unrelated = candidate('cairnmouth', 1, ['starved in']);
+		const unrelated = candidate('cairnmouth', 1, ['starved_in']);
 		const history: RejectionRecord[] = [
-			{ targetEntityId: 'corvin-ashe', relationLabels: ['employs'], reason: 'wrong' }
+			{ targetEntityId: 'corvin-ashe', relationKeys: ['employs'], reason: 'wrong' }
 		];
 		expect(rejectPenaltyFor(unrelated, history)).toBe(0);
 	});
@@ -69,7 +69,7 @@ describe('rejectPenaltyFor and scoreCandidates', () => {
 	it('"already true" carries the same strong penalty as "wrong"', () => {
 		const target = candidate('corvin-ashe', 1);
 		const history: RejectionRecord[] = [
-			{ targetEntityId: 'corvin-ashe', relationLabels: [], reason: 'already true' }
+			{ targetEntityId: 'corvin-ashe', relationKeys: [], reason: 'already true' }
 		];
 		expect(rejectPenaltyFor(target, history)).toBe(-1);
 	});
@@ -78,12 +78,12 @@ describe('rejectPenaltyFor and scoreCandidates', () => {
 		const target = candidate('corvin-ashe', 1);
 		expect(
 			rejectPenaltyFor(target, [
-				{ targetEntityId: 'corvin-ashe', relationLabels: [], reason: 'prose' }
+				{ targetEntityId: 'corvin-ashe', relationKeys: [], reason: 'prose' }
 			])
 		).toBe(0);
 		expect(
 			rejectPenaltyFor(target, [
-				{ targetEntityId: 'corvin-ashe', relationLabels: [], reason: 'not canon yet' }
+				{ targetEntityId: 'corvin-ashe', relationKeys: [], reason: 'not canon yet' }
 			])
 		).toBe(0);
 	});
@@ -92,7 +92,7 @@ describe('rejectPenaltyFor and scoreCandidates', () => {
 		const target = candidate('corvin-ashe', 1);
 		expect(
 			rejectPenaltyFor(target, [
-				{ targetEntityId: 'corvin-ashe', relationLabels: [], reason: 'this happened off-screen' }
+				{ targetEntityId: 'corvin-ashe', relationKeys: [], reason: 'this happened off-screen' }
 			])
 		).toBe(0);
 	});
@@ -100,8 +100,8 @@ describe('rejectPenaltyFor and scoreCandidates', () => {
 	it('penalties from multiple matching rejections accumulate', () => {
 		const target = candidate('corvin-ashe', 1);
 		const history: RejectionRecord[] = [
-			{ targetEntityId: 'corvin-ashe', relationLabels: [], reason: 'wrong' },
-			{ targetEntityId: 'corvin-ashe', relationLabels: [], reason: 'wrong' }
+			{ targetEntityId: 'corvin-ashe', relationKeys: [], reason: 'wrong' },
+			{ targetEntityId: 'corvin-ashe', relationKeys: [], reason: 'wrong' }
 		];
 		expect(rejectPenaltyFor(target, history)).toBe(-2);
 	});

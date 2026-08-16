@@ -27,9 +27,13 @@
 	/>
 {:else}
 	<ul class="space-y-2.5">
-		{#each relations as relation (relation.label + relation.other.id)}
+		{#each relations as relation (relation.key + relation.other.id)}
 			<li class="text-sm">
-				<span class="text-muted">{relation.label}</span>
+				<span class="text-muted">
+					{t.relationTypeLabel(relation.key)?.[
+						relation.direction === 'from' ? 'label' : 'inverseLabel'
+					] ?? relation.label}
+				</span>
 				<a
 					href={resolve(`/w/${universeSlug}/e/${relation.other.slug}`)}
 					class="ml-1 text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"

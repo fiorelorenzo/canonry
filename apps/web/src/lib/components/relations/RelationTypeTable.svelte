@@ -10,22 +10,29 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import type { RelationTypeCatalogueRow } from '@canonry/db';
-	import type { Messages } from '$lib/i18n';
+	import type { Locale, Messages } from '$lib/i18n';
+	import { relationTypeDisplayLabel, relationTypeDisplayInverseLabel } from './types.js';
 
 	let {
 		types,
 		t,
+		relationTypeLabel,
+		locale,
 		shipped,
 		canManage = false,
 		onRename,
-		onWiden
+		onWiden,
+		onTranslate
 	}: {
 		types: RelationTypeCatalogueRow[];
 		t: Messages['universe']['settings']['relations'];
+		relationTypeLabel: Messages['relationTypeLabel'];
+		locale: Locale;
 		shipped: boolean;
 		canManage?: boolean;
 		onRename?: (row: RelationTypeCatalogueRow) => void;
 		onWiden?: (row: RelationTypeCatalogueRow) => void;
+		onTranslate?: (row: RelationTypeCatalogueRow) => void;
 	} = $props();
 </script>
 
@@ -50,14 +57,16 @@
 			{#each types as row (row.id)}
 				<tr class="bg-panel">
 					<td class="px-3 py-2 text-ink">
-						{row.label}
+						{relationTypeDisplayLabel(row, relationTypeLabel, locale)}
 						{#if shipped}
 							<Badge variant="secondary" class="ml-2 text-muted uppercase">
 								{t.shippedBadge}
 							</Badge>
 						{/if}
 					</td>
-					<td class="px-3 py-2 text-ink-2">{row.inverseLabel}</td>
+					<td class="px-3 py-2 text-ink-2">
+						{relationTypeDisplayInverseLabel(row, relationTypeLabel, locale)}
+					</td>
 					<td class="px-3 py-2 text-ink-2">{t.cardinalityLabel(row.cardinality)}</td>
 					<td class="px-3 py-2 text-ink-2">
 						{row.allowedFrom.map((type) => t.entityTypeLabel(type)).join(', ')}
@@ -87,6 +96,15 @@
 										onclick={() => onWiden?.(row)}
 									>
 										{t.widen.trigger}
+									</Button>
+									<Button
+										type="button"
+										variant="link"
+										size="sm"
+										class="h-auto p-0 text-xs"
+										onclick={() => onTranslate?.(row)}
+									>
+										{t.translate.trigger}
 									</Button>
 								</div>
 							{/if}

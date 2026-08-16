@@ -64,10 +64,10 @@ const GRAPH: CandidateGraph = {
 		}
 	],
 	relations: [
-		{ fromId: 'the-ashen-ledger', toId: 'aldric-vane', label: 'employs' },
-		{ fromId: 'iselde-wrenn', toId: 'aldric-vane', label: 'appointed' },
-		{ fromId: 'aldric-vane', toId: 'the-valdoria-watch', label: 'member of' },
-		{ fromId: 'the-gilded-rat', toId: 'mother-sennah', label: 'owned by' }
+		{ fromId: 'the-ashen-ledger', toId: 'aldric-vane', key: 'employs' },
+		{ fromId: 'iselde-wrenn', toId: 'aldric-vane', key: 'appointed' },
+		{ fromId: 'aldric-vane', toId: 'the-valdoria-watch', key: 'member_of' },
+		{ fromId: 'the-gilded-rat', toId: 'mother-sennah', key: 'owned_by' }
 	]
 };
 

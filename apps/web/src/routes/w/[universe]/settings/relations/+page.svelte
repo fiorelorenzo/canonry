@@ -15,6 +15,7 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const t = $derived(messages(data.locale).universe.settings.relations);
+	const relationTypeLabel = $derived(messages(data.locale).relationTypeLabel);
 </script>
 
 <svelte:head><title>{t.headTitle(data.universeName)}</title></svelte:head>
@@ -31,6 +32,13 @@
 	/>
 
 	<div class="mt-8">
-		<RelationCatalogue types={data.types} {t} canManage={data.canManage} form={form ?? undefined} />
+		<RelationCatalogue
+			types={data.types}
+			{t}
+			{relationTypeLabel}
+			locale={data.locale}
+			canManage={data.canManage}
+			form={form ?? undefined}
+		/>
 	</div>
 </div>

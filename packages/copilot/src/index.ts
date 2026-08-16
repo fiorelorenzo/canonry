@@ -113,3 +113,9 @@ export {
 	type ResolveRelationTypeInput,
 	type Embedder
 } from './relation-types.js';
+
+// The shipped relation catalogue's per-locale strings are not re-exported from here on
+// purpose: they live in `@canonry/lang`, which has no dependencies, and `apps/web`'s i18n
+// bundle imports them directly. Re-exporting them through this barrel is what dragged this
+// package's server graph into the client bundle once already (#197), so anything that needs
+// them, including this package, imports `@canonry/lang`.

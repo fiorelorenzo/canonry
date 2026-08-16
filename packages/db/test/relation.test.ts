@@ -2,7 +2,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, relationsFor, type Db } from '../src/index.js';
 import { entity } from '../src/schema/entity.js';
-import { relation, relationType } from '../src/schema/relation.js';
+import { relation, relationType, relationTypeLabel } from '../src/schema/relation.js';
 import { expectConstraintViolation, insertHomebrewUniverse, testDb, unique } from './helpers.js';
 
 describe('relation', () => {
@@ -88,6 +88,7 @@ describe('relation', () => {
 
 		const fromGeneral = await relationsFor(db, general.id);
 		expect(fromGeneral).toContainEqual({
+			key: rt.key,
 			label: 'commands',
 			other: { id: soldier.id, name: soldier.name, type: soldier.type, slug: soldier.slug },
 			direction: 'from'
@@ -95,6 +96,7 @@ describe('relation', () => {
 
 		const fromSoldier = await relationsFor(db, soldier.id);
 		expect(fromSoldier).toContainEqual({
+			key: rt.key,
 			label: 'commanded by',
 			other: { id: general.id, name: general.name, type: general.type, slug: general.slug },
 			direction: 'to'
@@ -132,11 +134,13 @@ describe('relation', () => {
 		const result = await relationsFor(db, general.id);
 		expect(result).toEqual([
 			{
+				key: rt.key,
 				label: 'commands',
 				other: { id: amy.id, name: amy.name, type: amy.type, slug: amy.slug },
 				direction: 'from'
 			},
 			{
+				key: rt.key,
 				label: 'commands',
 				other: { id: zed.id, name: zed.name, type: zed.type, slug: zed.slug },
 				direction: 'from'
@@ -173,6 +177,67 @@ describe('relation', () => {
 				allowedTo: ['character']
 			})
 		).resolves.not.toThrow();
+	});
+
+	// #198: `relationsFor`'s `locale` parameter, the entry panel's own read (a universe's
+	// own type has no i18n catalogue entry, so this is the only translation source it
+	// has - see RelationView's own doc comment).
+	it('without a locale, ignores translations entirely and returns the authored label', async () => {
+		const { u, rt, general, soldier } = await commandsPair();
+		await db.insert(relation).values({
+			universeId: u.id,
+			relationTypeId: rt.id,
+			fromEntityId: general.id,
+			toEntityId: soldier.id,
+			authorKind: 'human'
+		});
+		await db.insert(relationTypeLabel).values({
+			relationTypeId: rt.id,
+			locale: 'it',
+			label: 'comanda',
+			inverseLabel: 'comandato da',
+			authorKind: 'human'
+		});
+
+		const result = await relationsFor(db, general.id);
+		expect(result[0]?.label).toBe('commands');
+	});
+
+	it('with a locale but no saved translation, falls back to the authored label', async () => {
+		const { u, rt, general, soldier } = await commandsPair();
+		await db.insert(relation).values({
+			universeId: u.id,
+			relationTypeId: rt.id,
+			fromEntityId: general.id,
+			toEntityId: soldier.id,
+			authorKind: 'human'
+		});
+
+		const result = await relationsFor(db, general.id, 'it');
+		expect(result[0]?.label).toBe('commands');
+	});
+
+	it('with a locale and a saved translation, resolves it per direction', async () => {
+		const { u, rt, general, soldier } = await commandsPair();
+		await db.insert(relation).values({
+			universeId: u.id,
+			relationTypeId: rt.id,
+			fromEntityId: general.id,
+			toEntityId: soldier.id,
+			authorKind: 'human'
+		});
+		await db.insert(relationTypeLabel).values({
+			relationTypeId: rt.id,
+			locale: 'it',
+			label: 'comanda',
+			inverseLabel: 'comandato da',
+			authorKind: 'human'
+		});
+
+		const fromGeneral = await relationsFor(db, general.id, 'it');
+		expect(fromGeneral[0]?.label).toBe('comanda');
+		const fromSoldier = await relationsFor(db, soldier.id, 'it');
+		expect(fromSoldier[0]?.label).toBe('comandato da');
 	});
 });
 

@@ -19,15 +19,17 @@
 		DialogTitle
 	} from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
-	import type { Messages } from '$lib/i18n';
+	import type { Locale, Messages } from '$lib/i18n';
 	import type { RelationTypeCatalogueRow } from '@canonry/db';
-	import type { MergeActionResult } from './types.js';
+	import { relationTypeDisplayLabel, type MergeActionResult } from './types.js';
 
 	let {
 		open = $bindable(false),
 		own,
 		allTypes,
 		t,
+		relationTypeLabel,
+		locale,
 		form
 	}: {
 		open?: boolean;
@@ -36,6 +38,8 @@
 		/** Either side of the merge may be the target: shipped or the universe's own. */
 		allTypes: RelationTypeCatalogueRow[];
 		t: Messages['universe']['settings']['relations'];
+		relationTypeLabel: Messages['relationTypeLabel'];
+		locale: Locale;
 		form?: MergeActionResult | undefined;
 	} = $props();
 
@@ -84,7 +88,9 @@
 				>
 					<option value="" disabled>{t.merge.pickFromPlaceholder}</option>
 					{#each own as row (row.id)}
-						<option value={row.id}>{row.label}</option>
+						<option value={row.id}
+							>{relationTypeDisplayLabel(row, relationTypeLabel, locale)}</option
+						>
 					{/each}
 				</select>
 			</div>
@@ -101,7 +107,9 @@
 				>
 					<option value="" disabled>{t.merge.pickIntoPlaceholder}</option>
 					{#each intoOptions as row (row.id)}
-						<option value={row.id}>{row.label}</option>
+						<option value={row.id}
+							>{relationTypeDisplayLabel(row, relationTypeLabel, locale)}</option
+						>
 					{/each}
 				</select>
 			</div>
@@ -109,8 +117,15 @@
 			{#if fromType && intoType}
 				<p class="rounded-md border border-line bg-panel-2 px-3 py-2 text-sm text-ink-2">
 					{fromType.usageCount === 0
-						? t.merge.countWarningZero(fromType.label, intoType.label)
-						: t.merge.countWarning(fromType.usageCount, fromType.label, intoType.label)}
+						? t.merge.countWarningZero(
+								relationTypeDisplayLabel(fromType, relationTypeLabel, locale),
+								relationTypeDisplayLabel(intoType, relationTypeLabel, locale)
+							)
+						: t.merge.countWarning(
+								fromType.usageCount,
+								relationTypeDisplayLabel(fromType, relationTypeLabel, locale),
+								relationTypeDisplayLabel(intoType, relationTypeLabel, locale)
+							)}
 				</p>
 			{/if}
 
@@ -119,7 +134,10 @@
 			{/if}
 			{#if form?.action === 'merge' && form.intoLabel && form.movedCount !== undefined}
 				<p class="text-sm text-ink-2">
-					{t.merge.movedToast(form.movedCount, form.intoLabel)}
+					{t.merge.movedToast(
+						form.movedCount,
+						(form.intoKey ? relationTypeLabel(form.intoKey)?.label : undefined) ?? form.intoLabel
+					)}
 				</p>
 			{/if}
 

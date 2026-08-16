@@ -14,7 +14,7 @@
  */
 import { chargeFor, resolveModel, withQuota } from '@canonry/ai';
 import type { Db } from '@canonry/db';
-import { createProposalPlan, recordProposalDiff } from '@canonry/db';
+import { createProposalPlan, recordProposalDiff, relationTypesForUniverse } from '@canonry/db';
 import type { ProposalRow } from '@canonry/db';
 import { canonLanguageFor, type Locale } from '@canonry/lang';
 import { generateObject } from 'ai';
@@ -27,6 +27,7 @@ import { routeModel } from './models.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
 import { requireAiEnabled } from './propagate.js';
 import { canonInstruction, speechInstruction } from './speech.js';
+import { localizedRelationLabel, preferredRelationTypeByKey } from '@canonry/lang';
 
 export interface CompleteEntryInput {
 	db: Db;
@@ -50,11 +51,12 @@ export interface CompleteEntryResult {
 /** Every relation this entity is on either end of, as evidence for what the rest of the
  * universe already knows about it - the same shape `buildCandidatePool`'s relation source
  * uses, one hop, since a completion draws on direct facts rather than the wider 2-hop
- * impact radius propagation searches. */
+ * impact radius propagation searches. `path` carries `relation_type.key` (decision L1,
+ * #195), same as every other relation evidence path - identity, not the display word. */
 function relationEvidence(entityId: string, relations: GraphRelationEdge[]): CandidateEvidence[] {
 	return relations
 		.filter((r) => r.fromId === entityId || r.toId === entityId)
-		.map((r) => ({ kind: 'relation' as const, hops: 1, path: [r.label] }));
+		.map((r) => ({ kind: 'relation' as const, hops: 1, path: [r.key] }));
 }
 
 /** Every sentence in every other entity's body that already names this one - the same
@@ -78,10 +80,19 @@ function mentionEvidence(target: GraphEntity, others: GraphEntity[]): CandidateE
 	return evidence;
 }
 
-function describeEvidence(evidence: CandidateEvidence): string {
+// `evidence.path` is `relation_type.key` now, not the display label (decision L1, #195).
+// This is model input, never shown to a GM directly, but SPEC.md §17 rule two still
+// applies to it (#197): the copilot speaks the interface language in every prompt it
+// builds, so `relationLabel` renders a shipped key in `input.locale`'s catalogue label
+// and a universe's own key in whatever language its GM authored it in - never the raw
+// key, which would read fine to nobody in particular.
+function describeEvidence(
+	evidence: CandidateEvidence,
+	relationLabel: (key: string) => string
+): string {
 	switch (evidence.kind) {
 		case 'relation':
-			return `relation: ${evidence.path.join(' -> ')}`;
+			return `relation: ${evidence.path.map(relationLabel).join(' -> ')}`;
 		case 'mention':
 			return `mentioned elsewhere: "${evidence.sourceSentence}"`;
 		case 'embedding':
@@ -104,7 +115,10 @@ const completeSchema = z.object({
 export async function completeEntry(input: CompleteEntryInput): Promise<CompleteEntryResult> {
 	await requireAiEnabled(input.db, input.universeId);
 
-	const graph = await loadCandidateGraph(input.db, input.universeId);
+	const [graph, relationTypes] = await Promise.all([
+		loadCandidateGraph(input.db, input.universeId),
+		relationTypesForUniverse(input.db, input.universeId)
+	]);
 	const target = graph.entities.find((e) => e.id === input.entityId);
 	if (!target) throw new Error(`completeEntry: unknown entity "${input.entityId}"`);
 	// SPEC.md §17 rule three: no separate "triggering entry" exists for Complete (it is
@@ -117,12 +131,25 @@ export async function completeEntry(input: CompleteEntryInput): Promise<Complete
 	});
 	const others = graph.entities.filter((e) => e.id !== target.id);
 
+	// #197: `relationTypesByKey` backs `relationLabel` below - the interface-locale label
+	// for a shipped key, the authored label outright for a universe's own.
+	// `preferredRelationTypeByKey` resolves the ambiguity when a GM has reused a shipped
+	// label for their own type (its key is then the same text, see that function's own
+	// doc comment).
+	const relationTypesByKey = preferredRelationTypeByKey(relationTypes);
+	const relationLabel = (key: string): string => {
+		const type = relationTypesByKey.get(key);
+		return type ? localizedRelationLabel(type, input.locale) : key;
+	};
+
 	const evidence: CandidateEvidence[] = [
 		...relationEvidence(target.id, graph.relations),
 		...mentionEvidence(target, others)
 	];
 	const evidenceText =
-		evidence.length > 0 ? evidence.map(describeEvidence).join('\n') : '(none found)';
+		evidence.length > 0
+			? evidence.map((e) => describeEvidence(e, relationLabel)).join('\n')
+			: '(none found)';
 
 	const premiumModel = routeModel(
 		await resolveModel(input.db, 'premium'),

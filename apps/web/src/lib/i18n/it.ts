@@ -1,3 +1,4 @@
+import { RELATION_TYPE_CATALOGUE } from '@canonry/lang';
 import { numberFormat, pluralRules } from './intl.js';
 import type { Messages } from './messages.js';
 
@@ -16,7 +17,17 @@ const PROPOSAL_REJECT_REASON_LABELS_IT: Record<string, string> = {
 	prose: 'Prosa'
 };
 
+// #196 (decisione L1) / #197: le dieci chiavi del catalogo di serie (#195, fisse,
+// superficie API dal giorno del rilascio), ciascuna mappata sulla coppia da mostrare.
+// Di proprietà di `packages/copilot/src/relation-catalogue.ts`, non duplicata qui - il
+// resolver (`resolveRelationType`, #197) ha bisogno delle stesse identiche stringhe per
+// far corrispondere un'etichetta proposta in qualunque lingua, quindi esiste un solo
+// letterale per lingua, non due. Un tipo proprio di un universo non ha una voce qui, di
+// proposito - vedi il commento su `Messages.relationTypeLabel`.
+const RELATION_TYPE_CATALOGUE_IT = RELATION_TYPE_CATALOGUE.it;
+
 export const it: Messages = {
+	relationTypeLabel: (key) => RELATION_TYPE_CATALOGUE_IT[key],
 	shell: {
 		skipToContent: 'Vai al contenuto',
 		signedInAs: (name) => `Accesso effettuato come ${name}`,
@@ -1371,6 +1382,18 @@ export const it: Messages = {
 					submit: 'Amplia',
 					noChangeError: 'Seleziona almeno un tipo di entità da aggiungere.',
 					notOwnedError: 'Solo un tipo creato da questo universo può essere ampliato.'
+				},
+				translate: {
+					trigger: 'Aggiungi una traduzione',
+					dialogTitle: (label) => `Traduci "${label}"`,
+					dialogDescription:
+						"Le tue parole, lette in un'altra lingua dell'interfaccia. Lascia una lingua vuota per mostrare l'etichetta esattamente come l'hai scritta anche lì.",
+					labelField: 'Etichetta',
+					inverseLabelField: 'Etichetta inversa',
+					submit: 'Salva',
+					incompletePairError:
+						'Compila entrambi i campi per una lingua, oppure lasciali entrambi vuoti.',
+					notOwnedError: 'Solo un tipo creato da questo universo può essere tradotto.'
 				},
 				merge: {
 					trigger: 'Unisci due tipi',

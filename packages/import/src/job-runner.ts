@@ -540,7 +540,12 @@ interface ResolvedEntityCandidate {
 /** Translates `@canonry/copilot`'s `RelationTypeResolution` into the plain shape
  * `@canonry/db`'s `proposeRelationTypeVocabulary` accepts - `packages/db` stays free of
  * a dependency on `@canonry/copilot` (see import.ts's own comment on that boundary), so
- * this file, which already depends on both, is where the translation happens. */
+ * this file, which already depends on both, is where the translation happens.
+ * `existingTypeId` below is `resolution.type.id`, the row's uuid primary key, on purpose:
+ * this becomes a foreign key write (`relation.relation_type_id` / `proposal.patch`'s
+ * `existingTypeId`), and a foreign key always points at `id`, never at `relation_type.key`
+ * - `key` (decision L1, #195) is for comparing identity across contexts that have no
+ * shared row to join against (evidence paths, the reject signal), which this is not. */
 function toVocabResolutionInput(
 	resolution: Exclude<RelationTypeResolution, { kind: 'existing' }>
 ): RelationTypeVocabResolutionInput {

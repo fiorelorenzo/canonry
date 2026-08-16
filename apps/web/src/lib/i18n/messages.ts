@@ -18,6 +18,20 @@
  * anticipate.
  */
 export interface Messages {
+	/** #196 (decision L1): the ten shipped relation types' catalogue strings, keyed on
+	 * `relation_type.key` (#195) rather than the stored label, with both directions -
+	 * a relation reads as its label from one end and its inverse from the other, exactly
+	 * like `diffCard.entityTypeLabel` is keyed on a fixed enum. One shared definition
+	 * rather than one copy per section (unlike `entityTypeLabel`'s existing duplication):
+	 * every display site - the entry panel, the players' wiki, the settings catalogue and
+	 * its dialogs, the proposal diff card - resolves through this same function, so the
+	 * forty strings are written once. Returns `undefined` for a universe's own type,
+	 * which has no catalogue entry: SPEC.md §17 rule 3 keeps canon in its own language,
+	 * and guardrail 1 forbids a model rewriting a GM's words, so the caller falls back to
+	 * the stored label instead of translating it. Issue #198 is where a GM's own type
+	 * gets a per-locale label of its own to look up here; nothing in this shape
+	 * anticipates that yet. */
+	relationTypeLabel: (key: string) => { label: string; inverseLabel: string } | undefined;
 	shell: {
 		/** The visually-hidden "skip to content" link every page starts with. */
 		skipToContent: string;
@@ -1257,6 +1271,21 @@ export interface Messages {
 					addOption: (typeLabel: string) => string;
 					submit: string;
 					noChangeError: string;
+					notOwnedError: string;
+				};
+				/** #198: the GM-written half of a per-locale reading for a universe's own
+				 * type - one field pair per shipped locale, all in one form. Leaving both
+				 * fields of a locale blank clears that locale's translation back to
+				 * display fallback on the authored label; filling only one of the pair is
+				 * `incompletePairError`, not a silent partial save. */
+				translate: {
+					trigger: string;
+					dialogTitle: (label: string) => string;
+					dialogDescription: string;
+					labelField: string;
+					inverseLabelField: string;
+					submit: string;
+					incompletePairError: string;
 					notOwnedError: string;
 				};
 				merge: {

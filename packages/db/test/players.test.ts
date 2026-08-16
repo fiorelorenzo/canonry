@@ -14,7 +14,7 @@ import {
 import { entity } from '../src/schema/entity.js';
 import { fact } from '../src/schema/fact.js';
 import { mediaAsset } from '../src/schema/media.js';
-import { relation, relationType } from '../src/schema/relation.js';
+import { relation, relationType, relationTypeLabel } from '../src/schema/relation.js';
 import { revision } from '../src/schema/revision.js';
 import { insertHomebrewUniverse, testDb, unique } from './helpers.js';
 
@@ -266,6 +266,79 @@ describe('players', () => {
 			const result = await publicEntityBySlug(db, u.id, aldric.slug);
 			if (result?.status !== 'full') throw new Error('expected a full entity');
 			expect(result.relations).toEqual([]);
+		});
+
+		// #198: `publicEntityBySlug`'s `locale` parameter, the players' wiki's own read.
+		// Needs a relation between two *revealable* entities - `worldFixture`'s
+		// `employsRelation` deliberately points at a gm_only faction for the test above,
+		// so this builds its own pair.
+		it('resolves a saved translation for the requested locale, falling back to the authored label otherwise', async () => {
+			const { u, session } = await worldFixture();
+			const [mentor] = await db
+				.insert(entity)
+				.values({ universeId: u.id, type: 'character', name: 'Mentor', slug: unique('mentor') })
+				.returning();
+			const [pupil] = await db
+				.insert(entity)
+				.values({ universeId: u.id, type: 'character', name: 'Pupil', slug: unique('pupil') })
+				.returning();
+			const [mentors] = await db
+				.insert(relationType)
+				.values({
+					universeId: u.id,
+					label: 'mentors',
+					inverseLabel: 'mentored by',
+					cardinality: 'one_to_many',
+					allowedFrom: ['character'],
+					allowedTo: ['character']
+				})
+				.returning();
+			if (!mentor || !pupil || !mentors) throw new Error('fixture setup failed');
+			const [mentorRelation] = await db
+				.insert(relation)
+				.values({
+					universeId: u.id,
+					relationTypeId: mentors.id,
+					fromEntityId: mentor.id,
+					toEntityId: pupil.id,
+					authorKind: 'human'
+				})
+				.returning();
+			if (!mentorRelation) throw new Error('fixture setup failed');
+			await db.insert(relationTypeLabel).values({
+				relationTypeId: mentors.id,
+				locale: 'it',
+				label: 'fa da mentore',
+				inverseLabel: 'assistito da',
+				authorKind: 'human'
+			});
+			await revealEntityLive(db, {
+				universeId: u.id,
+				entityId: mentor.id,
+				sessionEntityId: session.id
+			});
+			await revealEntityLive(db, {
+				universeId: u.id,
+				entityId: pupil.id,
+				sessionEntityId: session.id
+			});
+			await revealRelationLive(db, {
+				universeId: u.id,
+				relationId: mentorRelation.id,
+				sessionEntityId: session.id
+			});
+
+			const noLocale = await publicEntityBySlug(db, u.id, mentor.slug);
+			if (noLocale?.status !== 'full') throw new Error('expected a full entity');
+			expect(noLocale.relations[0]?.label).toBe('mentors');
+
+			const untranslatedLocale = await publicEntityBySlug(db, u.id, mentor.slug, 'en');
+			if (untranslatedLocale?.status !== 'full') throw new Error('expected a full entity');
+			expect(untranslatedLocale.relations[0]?.label).toBe('mentors');
+
+			const translatedLocale = await publicEntityBySlug(db, u.id, mentor.slug, 'it');
+			if (translatedLocale?.status !== 'full') throw new Error('expected a full entity');
+			expect(translatedLocale.relations[0]?.label).toBe('fa da mentore');
 		});
 
 		it('only a published image ever appears, never an unpublished one', async () => {

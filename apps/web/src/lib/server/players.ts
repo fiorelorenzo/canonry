@@ -84,9 +84,10 @@ export interface PublicEntityPageData {
 export async function loadPublicEntity(
 	db: Db,
 	universeId: string,
-	entitySlug: string
+	entitySlug: string,
+	locale?: Locale
 ): Promise<PublicEntityPageData | undefined> {
-	const found = await publicEntityBySlug(db, universeId, entitySlug);
+	const found = await publicEntityBySlug(db, universeId, entitySlug, locale);
 	if (!found) return undefined;
 
 	if (found.status === 'gap') {

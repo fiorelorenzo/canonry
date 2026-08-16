@@ -51,22 +51,23 @@ const REASON_WEIGHT: Record<ReasonChip, number> = {
 
 export interface RejectionRecord {
 	targetEntityId: string;
-	/** Relation labels this past candidate's evidence carried (see `RelationEvidence.path`
-	 * in candidates.ts), empty for a mention/embedding-only candidate. */
-	relationLabels: string[];
+	/** `relation_type.key` values this past candidate's evidence carried (see
+	 * `RelationEvidence.path` in candidates.ts) - identity, not the display label
+	 * (decision L1, #195). Empty for a mention/embedding-only candidate. */
+	relationKeys: string[];
 	reason: string | null;
 }
 
 /** 1 for the exact same entity rejected before, 0.5 for a candidate that only resembles it
- * (arrived via a shared relation label), 0 for no resemblance at all. "Resembling", not
+ * (arrived via a shared relation key), 0 for no resemblance at all. "Resembling", not
  * "identical to", is the word issue #56 uses. */
 function resemblance(candidate: CandidateEntry, record: RejectionRecord): number {
 	if (candidate.entityId === record.targetEntityId) return 1;
-	if (record.relationLabels.length === 0) return 0;
-	const candidateLabels = candidate.evidence.flatMap((evidence) =>
+	if (record.relationKeys.length === 0) return 0;
+	const candidateKeys = candidate.evidence.flatMap((evidence) =>
 		evidence.kind === 'relation' ? evidence.path : []
 	);
-	return record.relationLabels.some((label) => candidateLabels.includes(label)) ? 0.5 : 0;
+	return record.relationKeys.some((key) => candidateKeys.includes(key)) ? 0.5 : 0;
 }
 
 /** The reason-weighted score for one candidate against the universe's reject history.

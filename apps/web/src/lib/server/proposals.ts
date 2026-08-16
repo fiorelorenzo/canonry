@@ -251,6 +251,10 @@ export interface EntitySummary {
 
 export interface RelationTypeSummary {
 	id: string;
+	/** #196 (decision L1): the shipped-catalogue lookup key (#195) - `ProposalDiffCard`
+	 * resolves the display word from this, falling back to `label` for a universe's own
+	 * type, which has no catalogue entry. */
+	key: string;
 	label: string;
 	inverseLabel: string;
 }
@@ -279,6 +283,10 @@ export interface RelationVocabWaitingRelation {
  * pair rather than half of one. */
 export interface RelationVocabCandidate {
 	kind: 'relation_type_reuse' | 'relation_type_widen' | 'relation_type_new';
+	/** #196: the existing type's key for reuse/widen, null for `relation_type_new` -
+	 * there is no row yet, so the model's own proposed words are always what renders,
+	 * exactly as guardrail 1 requires. */
+	key: string | null;
 	label: string;
 	inverseLabel: string;
 	cardinality: RelationCardinality | null;
@@ -367,7 +375,12 @@ export async function resolveCandidates(db: Db, rows: ProposalRow[]): Promise<Pr
 		const targetEntity = targetRow ? summarize(targetRow) : null;
 		const relatedEntity = relatedRow ? summarize(relatedRow) : null;
 		const relationTypeSummary = relTypeRow
-			? { id: relTypeRow.id, label: relTypeRow.label, inverseLabel: relTypeRow.inverseLabel }
+			? {
+					id: relTypeRow.id,
+					key: relTypeRow.key,
+					label: relTypeRow.label,
+					inverseLabel: relTypeRow.inverseLabel
+				}
 			: null;
 		const relationVocab = isRelationTypeProposalKind(row.kind)
 			? relationVocabFor(row.patch as RelationTypeVocabPatch, relTypeRow ?? null, entityById)
@@ -417,6 +430,7 @@ function relationVocabFor(
 	if (patch.kind === 'relation_type_new') {
 		return {
 			kind: patch.kind,
+			key: null,
 			label: patch.label,
 			inverseLabel: patch.inverseLabel,
 			cardinality: patch.cardinality,
@@ -429,7 +443,9 @@ function relationVocabFor(
 		};
 	}
 
+	const key = existingTypeRow?.key ?? null;
 	const label = existingTypeRow?.label ?? '?';
+
 	const inverseLabel = existingTypeRow?.inverseLabel ?? '?';
 	const cardinality = existingTypeRow?.cardinality ?? null;
 	const allowedFrom = existingTypeRow?.allowedFrom ?? [];
@@ -438,6 +454,7 @@ function relationVocabFor(
 	if (patch.kind === 'relation_type_reuse') {
 		return {
 			kind: patch.kind,
+			key,
 			label,
 			inverseLabel,
 			cardinality,
@@ -460,6 +477,7 @@ function relationVocabFor(
 	const fallbackTo = first ? (entityById.get(first.toEntityId)?.type ?? null) : null;
 	return {
 		kind: patch.kind,
+		key,
 		label,
 		inverseLabel,
 		cardinality,
@@ -497,6 +515,7 @@ export interface DiffCandidateWaitingRelation {
  * exactly like the rest of this file's evidence handling. */
 export interface DiffCandidateRelationVocab {
 	kind: 'relation_type_reuse' | 'relation_type_widen' | 'relation_type_new';
+	key: string | null;
 	label: string;
 	inverseLabel: string;
 	cardinality: RelationCardinality | null;
@@ -522,6 +541,9 @@ export interface DiffCandidate {
 	targetSlug: string | null;
 	relatedName: string | null;
 	relationLabel: string | null;
+	/** #196: `relationType.key` - null for anything that is not a plain `relation`
+	 * proposal, mirroring `relationLabel`'s own null case. */
+	relationKey: string | null;
 	diff: FactChange[];
 	diffLayout: DiffLayout;
 	evidenceViews: EvidenceView[];
@@ -549,6 +571,7 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 	const relationVocab: DiffCandidateRelationVocab | null = candidate.relationVocab
 		? {
 				kind: candidate.relationVocab.kind,
+				key: candidate.relationVocab.key,
 				label: candidate.relationVocab.label,
 				inverseLabel: candidate.relationVocab.inverseLabel,
 				cardinality: candidate.relationVocab.cardinality,
@@ -584,6 +607,7 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 		targetSlug: candidate.targetEntity?.slug ?? null,
 		relatedName: candidate.relatedEntity?.name ?? null,
 		relationLabel: candidate.relationType?.label ?? null,
+		relationKey: candidate.relationType?.key ?? null,
 		diff,
 		diffLayout: diffLayoutFor(diff),
 		evidenceViews: views,

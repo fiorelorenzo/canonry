@@ -32,7 +32,11 @@ export interface GraphEntity {
 export interface GraphRelationEdge {
 	fromId: string;
 	toId: string;
-	label: string;
+	/** `relation_type.key` (decision L1, #195) - stable identity, not the display label.
+	 * A model proposes words; nothing here compares against them once a proposal exists,
+	 * only K1's resolver (relation-types.ts) still matches on the raw label, because that
+	 * is the one place a proposed word actually needs reconciling against the catalogue. */
+	key: string;
 }
 
 /** An in-memory snapshot of one universe's canon graph, small enough to hold in memory
@@ -46,7 +50,8 @@ export interface CandidateGraph {
 export interface RelationEvidence {
 	kind: 'relation';
 	hops: number;
-	/** Relation labels travelled from the edited entity to this candidate, one per hop. */
+	/** `relation_type.key` values travelled from the edited entity to this candidate, one
+	 * per hop - identity, not the display label (decision L1, #195). */
 	path: string[];
 }
 
@@ -86,24 +91,24 @@ const EMBEDDING_WEIGHT = 0.6;
 
 function buildAdjacency(
 	relations: GraphRelationEdge[]
-): Map<string, Array<{ toId: string; label: string }>> {
-	const adjacency = new Map<string, Array<{ toId: string; label: string }>>();
-	const add = (fromId: string, toId: string, label: string): void => {
+): Map<string, Array<{ toId: string; key: string }>> {
+	const adjacency = new Map<string, Array<{ toId: string; key: string }>>();
+	const add = (fromId: string, toId: string, key: string): void => {
 		const edges = adjacency.get(fromId);
-		if (edges) edges.push({ toId, label });
-		else adjacency.set(fromId, [{ toId, label }]);
+		if (edges) edges.push({ toId, key });
+		else adjacency.set(fromId, [{ toId, key }]);
 	};
 	for (const rel of relations) {
 		// Relations are undirected for reachability purposes here - candidate-finding cares
 		// whether two entities are connected at all, not which end declared the relation.
-		add(rel.fromId, rel.toId, rel.label);
-		add(rel.toId, rel.fromId, rel.label);
+		add(rel.fromId, rel.toId, rel.key);
+		add(rel.toId, rel.fromId, rel.key);
 	}
 	return adjacency;
 }
 
 /** BFS to `maxHops`, shortest path only: the first time a node is reached fixes its hop
- * count and the label path travelled, exactly as SPEC.md §5.1's "2 hops" is meant to be
+ * count and the key path travelled, exactly as SPEC.md §5.1's "2 hops" is meant to be
  * read (fewest relations away, not every walk of length 2). Exported for `audit.ts`:
  * SPEC.md §5.2's "sub-graph touched by recent edits" is propagation's own impact radius,
  * not a second one audit should compute differently. */
@@ -122,7 +127,7 @@ export function graphNeighbors(
 		for (const node of frontier) {
 			for (const edge of adjacency.get(node.id) ?? []) {
 				if (visited.has(edge.toId)) continue;
-				const path = [...node.path, edge.label];
+				const path = [...node.path, edge.key];
 				visited.set(edge.toId, { hops: hop, path });
 				next.push({ id: edge.toId, path });
 			}

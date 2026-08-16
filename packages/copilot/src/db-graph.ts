@@ -29,7 +29,10 @@ export async function loadCandidateGraph(db: Db, universeId: string): Promise<Ca
 			.select({
 				fromId: relation.fromEntityId,
 				toId: relation.toEntityId,
-				label: relationType.label
+				// Decision L1, #195: identity, not the display word - candidates.ts and
+				// everything downstream of it (propagate.ts, reject-signal.ts) compares this
+				// against other keys, never against a label a translated UI might show.
+				key: relationType.key
 			})
 			.from(relation)
 			.innerJoin(relationType, eq(relationType.id, relation.relationTypeId))

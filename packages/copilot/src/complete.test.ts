@@ -3,8 +3,8 @@
  * fake model: proposes missing content for a deliberately thin entry and lands it as a
  * normal pending `update` proposal, so it goes through the same accept flow as any other.
  */
-import { closeDb, eq, type Db } from '@canonry/db';
-import { modelCall } from '@canonry/db/schema';
+import { and, closeDb, eq, isNull, type Db } from '@canonry/db';
+import { modelCall, relationType } from '@canonry/db/schema';
 import { MockLanguageModelV4 } from 'ai/test';
 import type { LanguageModel } from 'ai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -19,7 +19,8 @@ import {
 	insertRelation,
 	insertRelationType,
 	insertUser,
-	systemPromptOf
+	systemPromptOf,
+	userPromptOf
 } from './test-helpers.js';
 import { openTestDb } from './test-db.js';
 
@@ -229,6 +230,56 @@ describe('completeEntry (issue #54, SPEC.md §5)', () => {
 			before: '',
 			after: draftedBody
 		});
+	});
+
+	it("issue #197: an Italian-locale GM's completion prompt carries the shipped relation's Italian label, not its English key", async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, { ownerUserId: owner.id });
+		const ledger = await insertEntity(db, universe.id, {
+			type: 'faction',
+			name: 'The Ashen Ledger',
+			body: 'A merchant bank.'
+		});
+		const thin = await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Corvin Ashe',
+			body: ''
+		});
+		// The *shipped* "employs" type (no `insertRelationType` call) - `relationEvidence`
+		// carries its key, "employs", and the prompt has to render that key as "impiega"
+		// (its Italian catalogue label) for an Italian-locale caller.
+		const [shippedEmploys] = await db
+			.select()
+			.from(relationType)
+			.where(and(isNull(relationType.universeId), eq(relationType.key, 'employs')));
+		if (!shippedEmploys) throw new Error('shipped "employs" relation type not seeded');
+		await insertRelation(db, universe.id, {
+			relationTypeId: shippedEmploys.id,
+			fromEntityId: ledger.id,
+			toEntityId: thin.id
+		});
+
+		let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+		const model = capturingScriptedModel(
+			{ summary: 'Annota il suo datore di lavoro.', after: 'A factor.' },
+			(options) => {
+				captured = options;
+			}
+		);
+
+		await completeEntry({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			entityId: thin.id,
+			locale: 'it',
+			modelFactory: modelFactoryFor(model),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		const user = userPromptOf(captured!);
+		expect(user).toContain('relation: impiega');
+		expect(user).not.toContain('relation: employs');
 	});
 
 	it('and the reverse: an English-locale GM completing an entry recorded as Italian gets an English summary but an Italian drafted body', async () => {

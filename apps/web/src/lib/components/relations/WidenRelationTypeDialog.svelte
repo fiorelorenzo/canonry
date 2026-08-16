@@ -17,10 +17,10 @@
 		DialogTitle
 	} from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
-	import type { Messages } from '$lib/i18n';
+	import type { Locale, Messages } from '$lib/i18n';
 	import type { RelationTypeCatalogueRow } from '@canonry/db';
 	import type { EntityType } from '@canonry/db/schema';
-	import type { WidenActionResult } from './types.js';
+	import { relationTypeDisplayLabel, type WidenActionResult } from './types.js';
 
 	const ALL_ENTITY_TYPES: EntityType[] = [
 		'character',
@@ -34,11 +34,15 @@
 	let {
 		type,
 		t,
+		relationTypeLabel,
+		locale,
 		form,
 		onClose
 	}: {
 		type: RelationTypeCatalogueRow;
 		t: Messages['universe']['settings']['relations'];
+		relationTypeLabel: Messages['relationTypeLabel'];
+		locale: Locale;
 		form?: WidenActionResult | undefined;
 		onClose: () => void;
 	} = $props();
@@ -59,7 +63,11 @@
 <Dialog bind:open>
 	<DialogContent closeLabel={t.close}>
 		<DialogHeader>
-			<DialogTitle>{t.widen.dialogTitle(type.label)}</DialogTitle>
+			<DialogTitle
+				>{t.widen.dialogTitle(
+					relationTypeDisplayLabel(type, relationTypeLabel, locale)
+				)}</DialogTitle
+			>
 			<DialogDescription>{t.widen.dialogDescription}</DialogDescription>
 		</DialogHeader>
 		<form

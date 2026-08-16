@@ -34,7 +34,7 @@ import type { EntityType, MediaKind, RevelationKind } from '../schema/enums.js';
 import { fact } from '../schema/fact.js';
 import { mediaAsset } from '../schema/media.js';
 import { revelation } from '../schema/players.js';
-import { relation, relationType } from '../schema/relation.js';
+import { relation, relationType, relationTypeLabel } from '../schema/relation.js';
 import { revision } from '../schema/revision.js';
 
 // -----------------------------------------------------------------------------------------
@@ -268,6 +268,14 @@ export interface PublicFactRow {
 }
 
 export interface PublicRelationRow {
+	/** Stable identity (decision L1, #195) - display keys off this plus `direction`, never
+	 * off `label`. */
+	key: string;
+	/** Perspective-resolved display word: the authored text, or #198's saved translation
+	 * for the locale `publicEntityBySlug` was called with, when one exists - see this
+	 * file's own comment on that function. The shipped ten still repaint from the i18n
+	 * bundle by `key` regardless (#196); this field only carries the final word for a
+	 * universe's own type. */
 	label: string;
 	direction: 'from' | 'to';
 	other: { id: string; name: string; type: EntityType; slug: string; status: 'full' | 'gap' };
@@ -310,7 +318,8 @@ const sessionEntity = alias(entity, 'players_session_entity');
 export async function publicEntityBySlug(
 	db: Db,
 	universeId: string,
-	slug: string
+	slug: string,
+	locale?: string
 ): Promise<PublicEntity | undefined> {
 	const [row] = await db
 		.select()
@@ -370,9 +379,16 @@ export async function publicEntityBySlug(
 			and inner_rev.kind = 'entity'
 			and inner_rev.confirmed_at is not null
 	)`;
-	const relationRows = await db
+	const ownLabel = sql`case when ${relation.fromEntityId} = ${row.id} then ${relationType.label} else ${relationType.inverseLabel} end`;
+	const translatedLabel = sql`case when ${relation.fromEntityId} = ${row.id} then ${relationTypeLabel.label} else ${relationTypeLabel.inverseLabel} end`;
+	const relationLabel =
+		locale === undefined
+			? sql<string>`${ownLabel}`
+			: sql<string>`coalesce(${translatedLabel}, ${ownLabel})`;
+	let relationQuery = db
 		.select({
-			label: sql<string>`case when ${relation.fromEntityId} = ${row.id} then ${relationType.label} else ${relationType.inverseLabel} end`,
+			key: relationType.key,
+			label: relationLabel,
 			direction: sql<
 				'from' | 'to'
 			>`case when ${relation.fromEntityId} = ${row.id} then 'from' else 'to' end`,
@@ -398,6 +414,17 @@ export async function publicEntityBySlug(
 			otherEntity,
 			sql`${otherEntity.id} = case when ${relation.fromEntityId} = ${row.id} then ${relation.toEntityId} else ${relation.fromEntityId} end`
 		)
+		.$dynamic();
+	if (locale !== undefined) {
+		relationQuery = relationQuery.leftJoin(
+			relationTypeLabel,
+			and(
+				eq(relationTypeLabel.relationTypeId, relationType.id),
+				eq(relationTypeLabel.locale, locale)
+			)
+		);
+	}
+	const relationRows = await relationQuery
 		.where(
 			and(
 				or(eq(relation.fromEntityId, row.id), eq(relation.toEntityId, row.id)),
@@ -423,6 +450,7 @@ export async function publicEntityBySlug(
 		revealedInSession: revealRow.sessionName ?? null,
 		facts: factRows,
 		relations: relationRows.map((r) => ({
+			key: r.key,
 			label: r.label,
 			direction: r.direction,
 			other: { ...r.other, status: r.otherRevealedAt ? 'full' : 'gap' }

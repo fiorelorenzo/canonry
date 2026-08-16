@@ -8,12 +8,13 @@
 import { generateObject } from 'ai';
 import { chargeFor, withQuota } from '@canonry/ai';
 import { z } from 'zod';
-import type { Db } from '@canonry/db';
+import { relationTypesForUniverse, type Db } from '@canonry/db';
 import type { Locale } from '@canonry/lang';
 import { canonInstruction, speechInstruction } from './speech.js';
 import type { CandidateEvidence } from './candidates.js';
 import type { FactChange } from './diff.js';
 import type { RoutedModel } from './models.js';
+import { localizedRelationLabel, preferredRelationTypeByKey } from '@canonry/lang';
 
 /** Shape of `proposal.patch` this package writes for an 'update' proposal - `proposals.ts`
  * in `@canonry/db` reads exactly these three fields when accepting one. `before` is a
@@ -60,10 +61,19 @@ const diffSchema = z.object({
 	after: z.string().min(1)
 });
 
-function describeEvidence(evidence: CandidateEvidence): string {
+// `evidence.path` is `relation_type.key` now, not the display label (decision L1, #195).
+// This is model input, never shown to a GM directly, but SPEC.md §17 rule two still
+// applies to it (#197): the copilot speaks the interface language in every prompt it
+// builds, so `relationLabel` renders a shipped key in `input.locale`'s catalogue label
+// and a universe's own key in whatever language its GM authored it in - never the raw
+// key, which would read fine to nobody in particular.
+function describeEvidence(
+	evidence: CandidateEvidence,
+	relationLabel: (key: string) => string
+): string {
 	switch (evidence.kind) {
 		case 'relation':
-			return `${evidence.hops}-hop relation path: ${evidence.path.join(' -> ')}`;
+			return `${evidence.hops}-hop relation path: ${evidence.path.map(relationLabel).join(' -> ')}`;
 		case 'mention':
 			return `${evidence.direction} mention ("${evidence.matchedText}") in: "${evidence.sourceSentence}"`;
 		case 'embedding':
@@ -77,7 +87,18 @@ function describeEvidence(evidence: CandidateEvidence): string {
  * it has nothing else to draw the new text from. */
 export async function writeEntityDiff(input: WriteEntityDiffInput): Promise<WrittenDiff> {
 	const changesText = input.diff.map((c) => `${c.kind}: ${c.statement}`).join('\n');
-	const evidenceText = input.evidence.map(describeEvidence).join('\n');
+	// #197: `relationLabel` backs the interface-locale label for a shipped key, or the
+	// authored label outright for a universe's own - see `describeEvidence`'s own comment.
+	// `preferredRelationTypeByKey` resolves the ambiguity when a GM has reused a shipped
+	// label for their own type (its key is then the same text, see that function's own
+	// doc comment).
+	const relationTypes = await relationTypesForUniverse(input.db, input.universeId);
+	const relationTypesByKey = preferredRelationTypeByKey(relationTypes);
+	const relationLabel = (key: string): string => {
+		const type = relationTypesByKey.get(key);
+		return type ? localizedRelationLabel(type, input.locale) : key;
+	};
+	const evidenceText = input.evidence.map((e) => describeEvidence(e, relationLabel)).join('\n');
 	const [result, price] = await Promise.all([
 		withQuota(
 			input.db,

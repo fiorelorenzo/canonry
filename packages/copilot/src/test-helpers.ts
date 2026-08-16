@@ -158,3 +158,23 @@ export function systemPromptOf(options: {
 	const message = options.prompt.find((m) => m.role === 'system');
 	return typeof message?.content === 'string' ? message.content : '';
 }
+
+/** `systemPromptOf`'s counterpart for the `role: 'user'` message - the AI SDK folds a
+ * plain `prompt: string` param into `[{ type: 'text', text }]` content parts rather than
+ * keeping it a bare string the way it does for `system` (verified against a real
+ * `MockLanguageModelV4` call, not assumed), so this is what a test asserting on evidence
+ * text actually sent (#197: a localised relation label reaching the model) reads. */
+export function userPromptOf(options: {
+	prompt: Array<{ role: string; content: unknown }>;
+}): string {
+	const message = options.prompt.find((m) => m.role === 'user');
+	const content = message?.content;
+	if (!Array.isArray(content)) return '';
+	return content
+		.filter(
+			(part): part is { type: 'text'; text: string } =>
+				typeof part === 'object' && part !== null && 'type' in part && part.type === 'text'
+		)
+		.map((part) => part.text)
+		.join('');
+}
