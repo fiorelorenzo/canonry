@@ -8,7 +8,15 @@
 
 export interface ProposalSummary {
 	id: string;
-	kind: 'create' | 'update' | 'relation' | 'draft_entity' | 'flag';
+	kind:
+		| 'create'
+		| 'update'
+		| 'relation'
+		| 'draft_entity'
+		| 'flag'
+		| 'relation_type_reuse'
+		| 'relation_type_widen'
+		| 'relation_type_new';
 	patch: unknown;
 	rationale: string;
 	outcome: 'pending' | 'accepted' | 'rejected' | 'superseded';

@@ -33,6 +33,13 @@
  *   #160): a document that names an entity a document earlier in this job already
  *   introduced folds into that pending proposal instead of writing a second, colliding
  *   one - `materializeDocumentProposals`'s own comment has the detail.
+ * - **Relation vocabulary** (decision K1, issue #190): every relation's label is
+ *   resolved through `@canonry/copilot`'s `resolveRelationType` before it becomes a
+ *   `proposal` row - only its `'existing'` outcome may be used without a human
+ *   (guardrail 1: a relation type is content, not configuration). The other three
+ *   outcomes never write a `relation_type` row from here; they become a vocabulary
+ *   proposal a GM accepts, one per distinct question per job rather than one per
+ *   relation - `proposeRelationTypeVocabulary`'s own comment has the detail.
  *
  * One deliberate scope boundary, stated rather than hidden: a relation whose endpoint is
  * a brand-new (not yet accepted) entity cannot be written as a `proposal` row under the
@@ -45,6 +52,7 @@
  */
 import { createHash } from 'node:crypto';
 import {
+	acceptAnyImportProposal as dbAcceptAnyImportProposal,
 	acceptImportProposal as dbAcceptImportProposal,
 	admitImportJob,
 	candidateEntitiesForMatching,
@@ -52,13 +60,14 @@ import {
 	createImportJob,
 	createProposalPlan,
 	findEntityBySourceRef,
-	findOrCreateRelationType,
 	foldEntitySightingIntoPendingProposal,
 	getBalance,
 	getImportJob,
 	importQuotaForUser,
 	importUsageForUser,
+	isRelationTypeProposalKind,
 	pendingEntityProposalsForJob,
+	proposeRelationTypeVocabulary,
 	queuePositionFor,
 	recordProposalDiff,
 	settleImportJob,
@@ -71,8 +80,10 @@ import {
 	type Db,
 	type ImportJobRow,
 	type MatchCandidateRow,
-	type ProposalRow
+	type ProposalRow,
+	type RelationTypeVocabResolutionInput
 } from '@canonry/db';
+import { resolveRelationType, type Embedder, type RelationTypeResolution } from '@canonry/copilot';
 import { chargeFor } from '@canonry/ai';
 import type {
 	DocumentStatus,
@@ -245,6 +256,10 @@ export interface RunImportJobParams {
 	budget: JobBudget;
 	similarity: SimilarityFn;
 	thresholds: MatchThresholds;
+	/** Issue #189/#190, decision K1: the embedder `resolveRelationType` uses for its
+	 * semantic rung, injected exactly like `similarity` above rather than imported, so
+	 * this stays testable without a real gateway credential. */
+	embedRelationLabel: Embedder;
 	/** issue #26: this job cancels itself once this many milliseconds of wall clock pass,
 	 * independent of whatever HTTP request or browser tab started it. */
 	timeoutMs: number;
@@ -522,6 +537,42 @@ interface ResolvedEntityCandidate {
 	patch: unknown;
 }
 
+/** Translates `@canonry/copilot`'s `RelationTypeResolution` into the plain shape
+ * `@canonry/db`'s `proposeRelationTypeVocabulary` accepts - `packages/db` stays free of
+ * a dependency on `@canonry/copilot` (see import.ts's own comment on that boundary), so
+ * this file, which already depends on both, is where the translation happens. */
+function toVocabResolutionInput(
+	resolution: Exclude<RelationTypeResolution, { kind: 'existing' }>
+): RelationTypeVocabResolutionInput {
+	switch (resolution.kind) {
+		case 'reuse-proposed':
+			return {
+				kind: 'relation_type_reuse',
+				existingTypeId: resolution.type.id,
+				proposedLabel: resolution.proposedLabel,
+				why: resolution.why
+			};
+		case 'widen-proposed':
+			return {
+				kind: 'relation_type_widen',
+				existingTypeId: resolution.type.id,
+				addFrom: resolution.addFrom ?? null,
+				addTo: resolution.addTo ?? null,
+				why: resolution.why
+			};
+		case 'new-proposed':
+			return {
+				kind: 'relation_type_new',
+				label: resolution.label,
+				inverseLabel: resolution.inverseLabel,
+				cardinality: resolution.cardinality,
+				fromType: resolution.from,
+				toType: resolution.to,
+				why: resolution.why
+			};
+	}
+}
+
 /**
  * SPEC.md §6.1's "match against what already exists, merge, resolve conflicts - a
  * deterministic engine, this is where damage would happen, so no model decides it." Runs
@@ -672,29 +723,53 @@ async function materializeDocumentProposals(
 		// is nothing a GM could usefully accept about an entity relating to itself.
 		if (fromEntityId === toEntityId) continue;
 
-		const type = await findOrCreateRelationType(db, {
-			universeId: params.universeId,
-			label: relationPayload.label,
-			inverseLabel: relationPayload.inverseLabel,
-			cardinality: relationPayload.cardinality,
-			allowedFrom: fromType,
-			allowedTo: toType
-		});
-		relationCandidates.push({
-			candidate: {
-				kind: 'relation',
-				targetEntityId: fromEntityId,
-				relationTypeId: type.id,
-				relatedEntityId: toEntityId,
-				rationale: `Re-imported from "${relationPayload.sourceRef.path}".`,
-				evidence: {
-					documentId,
-					sourceRef: relationPayload.sourceRef,
-					evidenceSpan: relationPayload.evidenceSpan
+		const resolution = await resolveRelationType(
+			{ db, embed: params.embedRelationLabel },
+			{
+				universeId: params.universeId,
+				label: relationPayload.label,
+				inverseLabel: relationPayload.inverseLabel,
+				cardinality: relationPayload.cardinality,
+				fromType,
+				toType
+			}
+		);
+
+		const rationale = `Re-imported from "${relationPayload.sourceRef.path}".`;
+		const evidence = {
+			documentId,
+			sourceRef: relationPayload.sourceRef,
+			evidenceSpan: relationPayload.evidenceSpan
+		};
+
+		if (resolution.kind === 'existing') {
+			relationCandidates.push({
+				candidate: {
+					kind: 'relation',
+					targetEntityId: fromEntityId,
+					relationTypeId: resolution.type.id,
+					relatedEntityId: toEntityId,
+					rationale,
+					evidence,
+					rank: resolved.length + relationCandidates.length
 				},
-				rank: resolved.length + relationCandidates.length
-			},
-			patch: {}
+				patch: {}
+			});
+			continue;
+		}
+
+		// Decision K1, issue #190: reuse-proposed/widen-proposed/new-proposed never write
+		// a relation_type row or a relation row from here - each becomes (or folds into)
+		// one vocabulary proposal this job's own review queue shows, and only a GM's
+		// accept on that proposal unblocks this relation into its own pending `relation`
+		// proposal. See proposeRelationTypeVocabulary's own comment for the fold shape.
+		await proposeRelationTypeVocabulary(db, {
+			universeId: params.universeId,
+			importJobId: params.dbJobId,
+			resolution: toVocabResolutionInput(resolution),
+			relation: { fromEntityId, toEntityId, rationale, evidence },
+			provider: 'import',
+			modelId: params.playbook.id
 		});
 	}
 
@@ -767,7 +842,13 @@ function matchEvidence(
 // Accept + source-ref bookkeeping, re-exported for review flows (issue #36): the review
 // UI's accept action should call this rather than @canonry/db's bare acceptImportProposal
 // so entity_source_ref always lands with the same call that writes the entity.
+// acceptAnyImportProposal (issue #190) dispatches by kind first - a relation-type
+// vocabulary proposal never touches entity_source_ref, an entity/relation one always
+// goes through acceptImportProposal exactly as before - so a review flow only ever has
+// to call the one function regardless of what kind the job happened to produce.
 // ---------------------------------------------------------------------------
 
 export type { AcceptImportProposalInput };
 export const acceptImportProposal = dbAcceptImportProposal;
+export const acceptAnyImportProposal = dbAcceptAnyImportProposal;
+export { isRelationTypeProposalKind };

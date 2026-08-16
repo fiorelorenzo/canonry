@@ -68,8 +68,9 @@
   options are drawn rather than described because half of these questions cannot be
   answered from a paragraph: density, marking, diff layout and phone ergonomics are
   decided by looking.</p>
-  <p><b>All five rounds are decided:</b> 62 answers, the first 49 on 2026-08-13, H1 and H2 on
-  2026-08-14, and round four's ten plus round five's one on 2026-08-15, recorded in
+  <p><b>All six rounds are decided:</b> 63 answers, the first 49 on 2026-08-13, H1 and H2 on
+  2026-08-14, round four's ten and round five's one on 2026-08-15, and round six's one on
+  2026-08-16, recorded in
   <a href="DECISIONS.md">DECISIONS.md</a> and in the register below, so a page you open shows
   what was chosen at the top and keeps its options and its rejected section underneath. Five of
   those answers went against what the artifact recommended, which is the set working rather
@@ -89,6 +90,13 @@
   hypothetical: what the top-level URL segments mean. That is J1, recorded directly in
   <a href="DECISIONS.md">DECISIONS.md</a> rather than drawn as options first, filed as epic
   <a href="https://github.com/fiorelorenzo/canonry/issues/156">#156</a>.</p>
+  <p><b>Round six has no artifact either.</b> The product had already answered "are relation
+  types fixed or free" twice in code, and differently: free in the schema and the import
+  tool, fixed in the shipped catalogue and the migrations that keep extending it, invisible
+  in the UI either way. That is K1, free labels reconciled by a resolver before anything
+  writes and a human on the write, recorded directly in
+  <a href="DECISIONS.md">DECISIONS.md</a>, filed as epic
+  <a href="https://github.com/fiorelorenzo/canonry/issues/188">#188</a>.</p>
   <ol class="steps">
     <li>Every page in the register shows what was chosen at the top, and keeps its options
     and its rejected section underneath, because the reasoning behind an option that lost
@@ -164,6 +172,8 @@
         <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/145">#145</a></td><td class="gate">A2 B1 &middot; I7</td></tr>
       <tr><td><b>Relation editing</b></td><td>One row, two labels, cardinality, allowed types</td>
         <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/16">#16</a></td><td class="gate">B3</td></tr>
+      <tr><td><b>Relation catalogue</b></td><td>Every type a universe can use, shipped and its own, with a real usage count; rename, merge, widen</td>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/192">#192</a></td><td class="gate">K1</td></tr>
       <tr><td><b>Type and alias confirmation</b></td><td>Inferred, confirmed with one click, never a form</td>
         <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/15">#15</a></td><td class="gate">B3</td></tr>
       <tr><td><b>Facts and spans</b></td><td>The extracted layer, and how much of it the GM ever sees</td>

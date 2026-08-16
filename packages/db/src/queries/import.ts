@@ -18,7 +18,11 @@ import { userBilling } from '../schema/billing.js';
 import { ensureBilling } from './billing.js';
 import {
 	acceptProposal,
+	createProposalPlan,
 	readEntityCreatePatch,
+	recordProposalDiff,
+	ProposalAlreadyDecidedError,
+	ProposalNotFoundError,
 	type AcceptProposalInput,
 	type ProposalRow
 } from './proposals.js';
@@ -710,53 +714,6 @@ export async function missingEntitySourceRefsForJob(
 }
 
 // ---------------------------------------------------------------------------
-// Relation types (issue #36/#37's relation half): a proposed relation names a label,
-// inverse label and cardinality (driver.ts's `RelationProposalPayload`), never a
-// `relation_type` id, because the model has no way to know one. This resolves that
-// name into a real catalogue row, creating it once per (universe, label).
-// ---------------------------------------------------------------------------
-
-export interface FindOrCreateRelationTypeInput {
-	universeId: string;
-	label: string;
-	inverseLabel: string;
-	cardinality: RelationCardinality;
-	allowedFrom: EntityType;
-	allowedTo: EntityType;
-}
-
-export async function findOrCreateRelationType(
-	db: Db,
-	input: FindOrCreateRelationTypeInput
-): Promise<typeof relationType.$inferSelect> {
-	const [inserted] = await db
-		.insert(relationType)
-		.values({
-			universeId: input.universeId,
-			label: input.label,
-			inverseLabel: input.inverseLabel,
-			cardinality: input.cardinality,
-			allowedFrom: [input.allowedFrom],
-			allowedTo: [input.allowedTo]
-		})
-		.onConflictDoNothing({ target: [relationType.universeId, relationType.label] })
-		.returning();
-	if (inserted) return inserted;
-
-	const [existing] = await db
-		.select()
-		.from(relationType)
-		.where(and(eq(relationType.universeId, input.universeId), eq(relationType.label, input.label)))
-		.limit(1);
-	if (!existing) {
-		throw new Error(
-			`findOrCreateRelationType: no row for universe "${input.universeId}" label "${input.label}" after insert raced`
-		);
-	}
-	return existing;
-}
-
-// ---------------------------------------------------------------------------
 // Accept + source-ref bookkeeping together (issue #36): the exclusive proposal writer
 // (proposals.ts's acceptProposal) has no reason to know about entity_source_ref, so
 // this wraps the two into one call for a review flow that wants both to land together.
@@ -817,4 +774,490 @@ export async function acceptImportProposal(
 	);
 
 	return accepted;
+}
+
+// ---------------------------------------------------------------------------
+// Relation-type vocabulary proposals (decision K1, issue #190): the three
+// non-'existing' outcomes of @canonry/copilot's resolveRelationType (issue #189) -
+// reuse-proposed, widen-proposed, new-proposed - never write a relation_type row or a
+// relation row by themselves. Each becomes exactly one proposal per distinct
+// vocabulary question per job, not one per relation - "twelve relations that all
+// wanted 'works for' are one question, not twelve" - carrying every relation waiting
+// on the answer in its own patch. Accepting is the only path an import ever creates
+// or widens a relation_type row through (guardrail 1: a relation type is content, not
+// configuration); it never writes a relation row directly either, it unblocks the
+// waiting relation(s) into their own pending 'relation' proposals, so each still gets
+// its own accept and #191's allowed_from/allowed_to check on that accept path rather
+// than a side door around it.
+//
+// This module stays free of @canonry/copilot (db is the lower layer) - job-runner.ts
+// translates a RelationTypeResolution into the plain RelationTypeVocabResolutionInput
+// shapes below before ever calling in here.
+// ---------------------------------------------------------------------------
+
+export interface RelationTypeWaitingRelation {
+	fromEntityId: string;
+	toEntityId: string;
+	rationale: string;
+	/** The same shape a plain 'relation' proposal's evidence already carries
+	 * ({ documentId, sourceRef, evidenceSpan } - job-runner.ts's own comment on
+	 * materializeDocumentProposals) - this relation becomes exactly that proposal,
+	 * unchanged, the moment the vocabulary question it is waiting on is accepted. */
+	evidence: unknown;
+}
+
+export type RelationTypeVocabResolutionInput =
+	| {
+			kind: 'relation_type_reuse';
+			existingTypeId: string;
+			proposedLabel: string;
+			why: string;
+	  }
+	| {
+			kind: 'relation_type_widen';
+			existingTypeId: string;
+			addFrom: EntityType | null;
+			addTo: EntityType | null;
+			why: string;
+	  }
+	| {
+			kind: 'relation_type_new';
+			label: string;
+			inverseLabel: string;
+			cardinality: RelationCardinality;
+			fromType: EntityType;
+			toType: EntityType;
+			why: string;
+	  };
+
+export type RelationTypeVocabPatch =
+	| {
+			kind: 'relation_type_reuse';
+			dedupKey: string;
+			existingTypeId: string;
+			proposedLabel: string;
+			relations: RelationTypeWaitingRelation[];
+	  }
+	| {
+			kind: 'relation_type_widen';
+			dedupKey: string;
+			existingTypeId: string;
+			addFrom: EntityType | null;
+			addTo: EntityType | null;
+			relations: RelationTypeWaitingRelation[];
+	  }
+	| {
+			kind: 'relation_type_new';
+			dedupKey: string;
+			label: string;
+			inverseLabel: string;
+			cardinality: RelationCardinality;
+			allowedFrom: EntityType[];
+			allowedTo: EntityType[];
+			relations: RelationTypeWaitingRelation[];
+	  };
+
+const RELATION_TYPE_PROPOSAL_KINDS: Record<string, true> = {
+	relation_type_reuse: true,
+	relation_type_widen: true,
+	relation_type_new: true
+};
+
+export function isRelationTypeProposalKind(kind: string): kind is RelationTypeVocabPatch['kind'] {
+	return RELATION_TYPE_PROPOSAL_KINDS[kind] === true;
+}
+
+/** Grouping key for "the same vocabulary question" within one job - case/whitespace
+ * normalisation only, never the semantic step (that already happened once, inside
+ * resolveRelationType; this only asks "did a later document in this same job just ask
+ * the identical question a moment ago"). */
+function normalizeLabelKey(label: string): string {
+	return label.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function dedupKeyFor(resolution: RelationTypeVocabResolutionInput): string {
+	switch (resolution.kind) {
+		case 'relation_type_reuse':
+			return `${resolution.existingTypeId}::${normalizeLabelKey(resolution.proposedLabel)}`;
+		case 'relation_type_widen':
+			return `${resolution.existingTypeId}::${resolution.addFrom ?? '-'}::${resolution.addTo ?? '-'}`;
+		case 'relation_type_new':
+			return normalizeLabelKey(resolution.label);
+	}
+}
+
+function initialPatchFor(
+	resolution: RelationTypeVocabResolutionInput,
+	dedupKey: string,
+	relation: RelationTypeWaitingRelation
+): RelationTypeVocabPatch {
+	switch (resolution.kind) {
+		case 'relation_type_reuse':
+			return {
+				kind: 'relation_type_reuse',
+				dedupKey,
+				existingTypeId: resolution.existingTypeId,
+				proposedLabel: resolution.proposedLabel,
+				relations: [relation]
+			};
+		case 'relation_type_widen':
+			return {
+				kind: 'relation_type_widen',
+				dedupKey,
+				existingTypeId: resolution.existingTypeId,
+				addFrom: resolution.addFrom,
+				addTo: resolution.addTo,
+				relations: [relation]
+			};
+		case 'relation_type_new':
+			return {
+				kind: 'relation_type_new',
+				dedupKey,
+				label: resolution.label,
+				inverseLabel: resolution.inverseLabel,
+				cardinality: resolution.cardinality,
+				allowedFrom: [resolution.fromType],
+				allowedTo: [resolution.toType],
+				relations: [relation]
+			};
+	}
+}
+
+function vocabSummaryFor(resolution: RelationTypeVocabResolutionInput): string {
+	switch (resolution.kind) {
+		case 'relation_type_reuse':
+			return `Import: relation vocabulary - reuse an existing type for "${resolution.proposedLabel}".`;
+		case 'relation_type_widen':
+			return 'Import: relation vocabulary - widen an existing type.';
+		case 'relation_type_new':
+			return `Import: relation vocabulary - new type "${resolution.label}".`;
+	}
+}
+
+export interface PendingRelationTypeProposalMatch {
+	id: string;
+	patch: RelationTypeVocabPatch;
+}
+
+/** Finds this job's own still-pending vocabulary proposal asking the same question
+ * (same kind and dedup key), so a later document's sighting folds into it instead of
+ * asking again - the "ask once, not per relation" shape (issue #190, D6's shape
+ * applied to relation vocabulary). Scoped to importJobId, never across jobs: two
+ * different imports asking the same question get their own proposals, since accepting
+ * one has no bearing on whether the other job's GM has seen it yet. */
+export async function pendingRelationTypeProposalForJob(
+	db: Db,
+	importJobId: string,
+	kind: RelationTypeVocabPatch['kind'],
+	dedupKey: string
+): Promise<PendingRelationTypeProposalMatch | null> {
+	const [row] = await db
+		.select({ id: proposal.id, patch: proposal.patch })
+		.from(proposal)
+		.innerJoin(proposalPlan, eq(proposal.planId, proposalPlan.id))
+		.where(
+			and(
+				eq(proposalPlan.importJobId, importJobId),
+				eq(proposal.kind, kind),
+				eq(proposal.outcome, 'pending'),
+				sql`${proposal.patch} ->> 'dedupKey' = ${dedupKey}`
+			)
+		)
+		.limit(1);
+	return row ? { id: row.id, patch: row.patch as RelationTypeVocabPatch } : null;
+}
+
+/** Appends a repeat sighting to an already-pending vocabulary proposal rather than
+ * asking a second time. A 'relation_type_new' proposal also grows its own accumulated
+ * allowedFrom/allowedTo union as more sightings arrive across documents in the same
+ * job - #191's "narrower than the world needs" bug (a type invented from one sighting)
+ * fixed at the source: the type this proposal will create on accept is sized to every
+ * relation actually waiting on it, never just the first one seen. `newTypePair` is
+ * only meaningful (and only ever passed) for a 'relation_type_new' fold. */
+export async function foldRelationIntoPendingRelationTypeProposal(
+	db: Db,
+	proposalId: string,
+	relation: RelationTypeWaitingRelation,
+	newTypePair?: { fromType: EntityType; toType: EntityType }
+): Promise<void> {
+	await db.transaction(async (tx) => {
+		const [row] = await tx
+			.select({ patch: proposal.patch })
+			.from(proposal)
+			.where(eq(proposal.id, proposalId))
+			.for('update')
+			.limit(1);
+		if (!row) {
+			throw new Error(
+				`foldRelationIntoPendingRelationTypeProposal: proposal "${proposalId}" not found`
+			);
+		}
+		const patch = row.patch as RelationTypeVocabPatch;
+		const relations = [...patch.relations, relation];
+		const nextPatch: RelationTypeVocabPatch =
+			patch.kind === 'relation_type_new' && newTypePair
+				? {
+						...patch,
+						relations,
+						allowedFrom: patch.allowedFrom.includes(newTypePair.fromType)
+							? patch.allowedFrom
+							: [...patch.allowedFrom, newTypePair.fromType],
+						allowedTo: patch.allowedTo.includes(newTypePair.toType)
+							? patch.allowedTo
+							: [...patch.allowedTo, newTypePair.toType]
+					}
+				: { ...patch, relations };
+		await tx.update(proposal).set({ patch: nextPatch }).where(eq(proposal.id, proposalId));
+	});
+}
+
+export interface ProposeRelationTypeVocabularyInput {
+	universeId: string;
+	importJobId: string;
+	resolution: RelationTypeVocabResolutionInput;
+	relation: RelationTypeWaitingRelation;
+	/** Threaded straight to recordProposalDiff, same as every entity/relation diff this
+	 * job writes (job-runner.ts's own `provider: 'import', modelId: params.playbook.id`) -
+	 * a vocabulary proposal's diff is attributed to the same playbook run as everything
+	 * else it produced. */
+	provider: string;
+	modelId: string;
+}
+
+export interface ProposeRelationTypeVocabularyResult {
+	proposalId: string;
+	created: boolean;
+}
+
+/** The single entry point job-runner.ts calls for every relation whose
+ * resolveRelationType outcome was not 'existing': folds into this job's own
+ * still-pending vocabulary proposal for the same question if one exists, otherwise
+ * creates it fresh. */
+export async function proposeRelationTypeVocabulary(
+	db: Db,
+	input: ProposeRelationTypeVocabularyInput
+): Promise<ProposeRelationTypeVocabularyResult> {
+	const dedupKey = dedupKeyFor(input.resolution);
+	const existing = await pendingRelationTypeProposalForJob(
+		db,
+		input.importJobId,
+		input.resolution.kind,
+		dedupKey
+	);
+	if (existing) {
+		await foldRelationIntoPendingRelationTypeProposal(
+			db,
+			existing.id,
+			input.relation,
+			input.resolution.kind === 'relation_type_new'
+				? { fromType: input.resolution.fromType, toType: input.resolution.toType }
+				: undefined
+		);
+		return { proposalId: existing.id, created: false };
+	}
+
+	const patch = initialPatchFor(input.resolution, dedupKey, input.relation);
+	const { proposals } = await createProposalPlan(db, {
+		universeId: input.universeId,
+		trigger: 'import',
+		importJobId: input.importJobId,
+		summary: vocabSummaryFor(input.resolution),
+		candidateCap: 1,
+		estimatedCredits: 0,
+		candidates: [
+			{
+				kind: input.resolution.kind,
+				targetEntityId: null,
+				relationTypeId:
+					input.resolution.kind === 'relation_type_new' ? null : input.resolution.existingTypeId,
+				relatedEntityId: null,
+				rationale: input.resolution.why,
+				evidence: {},
+				rank: 0
+			}
+		]
+	});
+	const created = proposals[0];
+	if (!created) throw new Error('proposeRelationTypeVocabulary: no proposal row returned');
+	await recordProposalDiff(db, {
+		proposalId: created.id,
+		patch,
+		provider: input.provider,
+		modelId: input.modelId,
+		credits: 0
+	});
+	return { proposalId: created.id, created: true };
+}
+
+export interface AcceptRelationTypeProposalInput {
+	proposalId: string;
+	decidedBy?: string | null;
+}
+
+export interface AcceptRelationTypeProposalResult {
+	proposal: ProposalRow;
+	relationTypeId: string;
+	unblockedProposalIds: string[];
+}
+
+/** Guardrail 1's boundary for a relation-type vocabulary proposal (issue #190's half of
+ * K1): the only place an import's reuse-proposed/widen-proposed/new-proposed
+ * resolution reaches canon. One transaction: resolve or write the relation_type row
+ * (nothing for reuse; insert, racing safely, for new; a JS-side union of
+ * allowed_from/allowed_to for widen, inlined here rather than calling
+ * relation-types.ts's own widenRelationType - that function takes a `Db`, and `Db`'s
+ * `$client` member is not present on this transaction's own handle, so it cannot be
+ * called from inside one), then unblock every relation that was waiting into its own
+ * pending 'relation' proposal - never a direct relation write, so each one still gets
+ * its own accept and #191's allowed_from/allowed_to check on that accept path. */
+export async function acceptRelationTypeProposal(
+	db: Db,
+	input: AcceptRelationTypeProposalInput
+): Promise<AcceptRelationTypeProposalResult> {
+	return db.transaction(async (tx) => {
+		const [existing] = await tx
+			.select()
+			.from(proposal)
+			.where(eq(proposal.id, input.proposalId))
+			.for('update')
+			.limit(1);
+		if (!existing) throw new ProposalNotFoundError(input.proposalId);
+		if (!isRelationTypeProposalKind(existing.kind)) {
+			throw new Error(
+				`acceptRelationTypeProposal: proposal "${existing.id}" has kind "${existing.kind}", not a relation-type vocabulary kind`
+			);
+		}
+		if (existing.outcome !== 'pending') {
+			throw new ProposalAlreadyDecidedError(input.proposalId, existing.outcome);
+		}
+
+		const patch = existing.patch as RelationTypeVocabPatch;
+		let relationTypeId: string;
+
+		if (patch.kind === 'relation_type_new') {
+			const [created] = await tx
+				.insert(relationType)
+				.values({
+					universeId: existing.universeId,
+					label: patch.label,
+					inverseLabel: patch.inverseLabel,
+					cardinality: patch.cardinality,
+					allowedFrom: patch.allowedFrom,
+					allowedTo: patch.allowedTo
+				})
+				.onConflictDoNothing({ target: [relationType.universeId, relationType.label] })
+				.returning();
+			if (created) {
+				relationTypeId = created.id;
+			} else {
+				// Lost a race against another accept that created the same (universe, label)
+				// meanwhile - reuse the row that won rather than erroring, the same fallback
+				// the deleted findOrCreateRelationType used to take.
+				const [winner] = await tx
+					.select()
+					.from(relationType)
+					.where(
+						and(
+							eq(relationType.universeId, existing.universeId),
+							eq(relationType.label, patch.label)
+						)
+					)
+					.limit(1);
+				if (!winner) {
+					throw new Error(
+						`acceptRelationTypeProposal: no relation_type row for universe "${existing.universeId}" label "${patch.label}" after insert raced`
+					);
+				}
+				relationTypeId = winner.id;
+			}
+		} else if (patch.kind === 'relation_type_widen') {
+			const [current] = await tx
+				.select()
+				.from(relationType)
+				.where(eq(relationType.id, patch.existingTypeId))
+				.for('update')
+				.limit(1);
+			if (!current) {
+				throw new Error(
+					`acceptRelationTypeProposal: relation_type "${patch.existingTypeId}" not found to widen`
+				);
+			}
+			const allowedFrom =
+				patch.addFrom && !current.allowedFrom.includes(patch.addFrom)
+					? [...current.allowedFrom, patch.addFrom]
+					: current.allowedFrom;
+			const allowedTo =
+				patch.addTo && !current.allowedTo.includes(patch.addTo)
+					? [...current.allowedTo, patch.addTo]
+					: current.allowedTo;
+			await tx
+				.update(relationType)
+				.set({ allowedFrom, allowedTo })
+				.where(eq(relationType.id, patch.existingTypeId));
+			relationTypeId = patch.existingTypeId;
+		} else {
+			relationTypeId = patch.existingTypeId;
+		}
+
+		const unblocked = patch.relations.length
+			? await tx
+					.insert(proposal)
+					.values(
+						patch.relations.map((r, index) => ({
+							universeId: existing.universeId,
+							planId: existing.planId,
+							trigger: 'import' as const,
+							kind: 'relation' as const,
+							targetEntityId: r.fromEntityId,
+							relationTypeId,
+							relatedEntityId: r.toEntityId,
+							patch: {},
+							rationale: r.rationale,
+							evidence: r.evidence,
+							rank: index,
+							outcome: 'pending' as const
+						}))
+					)
+					.returning({ id: proposal.id })
+			: [];
+
+		const [updated] = await tx
+			.update(proposal)
+			.set({
+				outcome: 'accepted',
+				decidedAt: new Date(),
+				decidedBy: input.decidedBy ?? null,
+				appliedRevisionId: null
+			})
+			.where(eq(proposal.id, existing.id))
+			.returning();
+		if (!updated) throw new Error('acceptRelationTypeProposal: update returned no row');
+
+		return {
+			proposal: updated,
+			relationTypeId,
+			unblockedProposalIds: unblocked.map((row) => row.id)
+		};
+	});
+}
+
+/** Dispatches an import proposal's accept by kind - the ripple every consumer of
+ * job-runner.ts's relation-vocabulary proposals shares (the review queue at
+ * apps/web/src/routes/w/[universe]/import/[job]/review and onboarding's own live feed
+ * both accept whatever kind a job happened to produce). A relation-type vocabulary
+ * kind routes to acceptRelationTypeProposal above; everything else keeps going through
+ * acceptImportProposal exactly as before. */
+export async function acceptAnyImportProposal(
+	db: Db,
+	kind: string,
+	input: AcceptImportProposalInput
+): Promise<ProposalRow> {
+	if (isRelationTypeProposalKind(kind)) {
+		const result = await acceptRelationTypeProposal(db, {
+			proposalId: input.proposalId,
+			decidedBy: input.decidedBy ?? null
+		});
+		return result.proposal;
+	}
+	return acceptImportProposal(db, input);
 }

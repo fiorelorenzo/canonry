@@ -28,6 +28,7 @@ import {
 	listProposalsForPlan,
 	getProposalPlan,
 	getProposal,
+	isRelationTypeProposalKind,
 	ProposalNotFoundError,
 	ProposalAlreadyDecidedError,
 	ProposalCannotBeAcceptedError,
@@ -40,7 +41,8 @@ import {
 	type ImportJobRow,
 	type AcceptProposalInput,
 	type RejectProposalInput,
-	type UndoAcceptedProposalInput
+	type UndoAcceptedProposalInput,
+	type RelationTypeVocabPatch
 } from '@canonry/db';
 import {
 	entity,
@@ -49,7 +51,8 @@ import {
 	proposalPlan,
 	relationType,
 	type EntityType,
-	type ProposalKind
+	type ProposalKind,
+	type RelationCardinality
 } from '@canonry/db/schema';
 import { ModelNotConfiguredError, resolveModel } from '@canonry/ai';
 import { semanticDiff, type FactChange } from '@canonry/copilot';
@@ -252,6 +255,41 @@ export interface RelationTypeSummary {
 	inverseLabel: string;
 }
 
+/** One relation waiting on a vocabulary question's answer (issue #190, K1) - the same
+ * two-entity-plus-evidence shape an ordinary `relation` proposal already carries,
+ * resolved here so the card never has to know it is reading a vocab patch's own
+ * `relations` array instead of `targetEntityId`/`relatedEntityId`. */
+export interface RelationVocabWaitingRelation {
+	fromEntity: EntitySummary | null;
+	toEntity: EntitySummary | null;
+	rationale: string;
+	evidence: unknown;
+}
+
+/** A `relation_type_reuse`/`relation_type_widen`/`relation_type_new` candidate's own
+ * data (issue #190, K1), read off `proposal.patch` plus whatever entity/relation-type
+ * rows it references - resolved once here so `ProposalDiffCard` only ever renders
+ * already-looked-up names, never raw ids. `label`/`inverseLabel`/`cardinality`/
+ * `allowedFrom`/`allowedTo` describe the type itself: the existing type's own row for
+ * reuse/widen, the proposed type's own patch fields for `relation_type_new`.
+ * `proposedLabel` (reuse only) is the vocabulary word the model actually used, being
+ * folded into `label`. `addFrom`/`addTo` (widen only) name the full pair accepting
+ * would add, resolved against the first waiting relation's own entity types when the
+ * resolver only needed to widen one side, so the sentence always names a complete
+ * pair rather than half of one. */
+export interface RelationVocabCandidate {
+	kind: 'relation_type_reuse' | 'relation_type_widen' | 'relation_type_new';
+	label: string;
+	inverseLabel: string;
+	cardinality: RelationCardinality | null;
+	allowedFrom: EntityType[];
+	allowedTo: EntityType[];
+	proposedLabel: string | null;
+	addFrom: EntityType | null;
+	addTo: EntityType | null;
+	relations: RelationVocabWaitingRelation[];
+}
+
 export interface ProposalCandidate {
 	proposal: ProposalRow;
 	/** The entry this candidate updates, or the relation's "from" side. Null for a
@@ -260,9 +298,15 @@ export interface ProposalCandidate {
 	/** The relation's "to" side. Null unless `proposal.kind === 'relation'`. */
 	relatedEntity: EntitySummary | null;
 	relationType: RelationTypeSummary | null;
+	/** Set only for the three relation-type vocabulary kinds (issue #190, K1) - null
+	 * for everything else, same convention as `relationType` above. */
+	relationVocab: RelationVocabCandidate | null;
 	/** Derived entry type for D4's filter chips: the target's real type for `update`, the
-	 * patch's declared type for `create`/`draft_entity`, `'relation'` for a relation. */
-	filterType: EntityType | 'relation';
+	 * patch's declared type for `create`/`draft_entity`, `'relation'` for a relation,
+	 * `'relation_type'` for the three vocabulary kinds (`proposals.filterBuckets.relation_type`).
+	 * A vocabulary patch has no `.type` of its own, so this has to be decided before
+	 * `patchType`'s fallback ever runs, or it silently lands in the `character` bucket. */
+	filterType: EntityType | 'relation' | 'relation_type';
 }
 
 function summarize(row: typeof entity.$inferSelect): EntitySummary {
@@ -292,6 +336,12 @@ export async function resolveCandidates(db: Db, rows: ProposalRow[]): Promise<Pr
 		if (row.targetEntityId) entityIds.add(row.targetEntityId);
 		if (row.relatedEntityId) entityIds.add(row.relatedEntityId);
 		if (row.relationTypeId) relationTypeIds.add(row.relationTypeId);
+		if (isRelationTypeProposalKind(row.kind)) {
+			for (const waiting of (row.patch as RelationTypeVocabPatch).relations) {
+				entityIds.add(waiting.fromEntityId);
+				entityIds.add(waiting.toEntityId);
+			}
+		}
 	}
 
 	const entityRows = entityIds.size
@@ -319,9 +369,15 @@ export async function resolveCandidates(db: Db, rows: ProposalRow[]): Promise<Pr
 		const relationTypeSummary = relTypeRow
 			? { id: relTypeRow.id, label: relTypeRow.label, inverseLabel: relTypeRow.inverseLabel }
 			: null;
+		const relationVocab = isRelationTypeProposalKind(row.kind)
+			? relationVocabFor(row.patch as RelationTypeVocabPatch, relTypeRow ?? null, entityById)
+			: null;
 
-		const filterType: EntityType | 'relation' =
-			row.kind === 'relation'
+		const filterType: EntityType | 'relation' | 'relation_type' = isRelationTypeProposalKind(
+			row.kind
+		)
+			? 'relation_type'
+			: row.kind === 'relation'
 				? 'relation'
 				: (targetEntity?.type ?? patchType(row.patch) ?? 'character');
 
@@ -330,9 +386,90 @@ export async function resolveCandidates(db: Db, rows: ProposalRow[]): Promise<Pr
 			targetEntity,
 			relatedEntity,
 			relationType: relationTypeSummary,
+			relationVocab,
 			filterType
 		};
 	});
+}
+
+/** Resolves one vocabulary patch's own data against the already-batched entity/
+ * relation-type maps `resolveCandidates` built above - see `RelationVocabCandidate`'s
+ * own doc comment for what each field means per kind. `existingTypeRow` is the full
+ * `relation_type` row `resolveCandidates` already looked up via `row.relationTypeId`
+ * (`proposeRelationTypeVocabulary` sets that column to `existingTypeId` for reuse/
+ * widen, so no second query is needed here). */
+function relationVocabFor(
+	patch: RelationTypeVocabPatch,
+	existingTypeRow: typeof relationType.$inferSelect | null,
+	entityById: Map<string, typeof entity.$inferSelect>
+): RelationVocabCandidate {
+	const relations: RelationVocabWaitingRelation[] = patch.relations.map((r) => {
+		const fromRow = entityById.get(r.fromEntityId);
+		const toRow = entityById.get(r.toEntityId);
+		return {
+			fromEntity: fromRow ? summarize(fromRow) : null,
+			toEntity: toRow ? summarize(toRow) : null,
+			rationale: r.rationale,
+			evidence: r.evidence
+		};
+	});
+
+	if (patch.kind === 'relation_type_new') {
+		return {
+			kind: patch.kind,
+			label: patch.label,
+			inverseLabel: patch.inverseLabel,
+			cardinality: patch.cardinality,
+			allowedFrom: patch.allowedFrom,
+			allowedTo: patch.allowedTo,
+			proposedLabel: null,
+			addFrom: null,
+			addTo: null,
+			relations
+		};
+	}
+
+	const label = existingTypeRow?.label ?? '?';
+	const inverseLabel = existingTypeRow?.inverseLabel ?? '?';
+	const cardinality = existingTypeRow?.cardinality ?? null;
+	const allowedFrom = existingTypeRow?.allowedFrom ?? [];
+	const allowedTo = existingTypeRow?.allowedTo ?? [];
+
+	if (patch.kind === 'relation_type_reuse') {
+		return {
+			kind: patch.kind,
+			label,
+			inverseLabel,
+			cardinality,
+			allowedFrom,
+			allowedTo,
+			proposedLabel: patch.proposedLabel,
+			addFrom: null,
+			addTo: null,
+			relations
+		};
+	}
+
+	// `relation_type_widen`: the resolver only ever fills in the side(s) that failed
+	// admission (relation-types.ts's own admission check - one, the other, or neither
+	// key present), so the missing side falls back to the first waiting relation's own
+	// entity type - the side that was already fine - so `addFrom`/`addTo` here always
+	// name the complete pair accepting would add, never half of one.
+	const first = patch.relations[0];
+	const fallbackFrom = first ? (entityById.get(first.fromEntityId)?.type ?? null) : null;
+	const fallbackTo = first ? (entityById.get(first.toEntityId)?.type ?? null) : null;
+	return {
+		kind: patch.kind,
+		label,
+		inverseLabel,
+		cardinality,
+		allowedFrom,
+		allowedTo,
+		proposedLabel: null,
+		addFrom: patch.addFrom ?? fallbackFrom,
+		addTo: patch.addTo ?? fallbackTo,
+		relations
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -345,6 +482,30 @@ function readPatchBefore(patch: unknown): string | null {
 	if (typeof patch !== 'object' || patch === null) return null;
 	const value = (patch as Record<string, unknown>).before;
 	return typeof value === 'string' ? value : null;
+}
+
+export interface DiffCandidateWaitingRelation {
+	fromName: string | null;
+	toName: string | null;
+	rationale: string;
+	evidenceViews: EvidenceView[];
+	evidenceForceOpen: boolean;
+}
+
+/** The card-ready mirror of `RelationVocabCandidate` - same fields, entity ids already
+ * resolved to display names by `enrichCandidate` below, evidence already normalised
+ * exactly like the rest of this file's evidence handling. */
+export interface DiffCandidateRelationVocab {
+	kind: 'relation_type_reuse' | 'relation_type_widen' | 'relation_type_new';
+	label: string;
+	inverseLabel: string;
+	cardinality: RelationCardinality | null;
+	allowedFrom: EntityType[];
+	allowedTo: EntityType[];
+	proposedLabel: string | null;
+	addFrom: EntityType | null;
+	addTo: EntityType | null;
+	relations: DiffCandidateWaitingRelation[];
 }
 
 export interface DiffCandidate {
@@ -365,6 +526,7 @@ export interface DiffCandidate {
 	diffLayout: DiffLayout;
 	evidenceViews: EvidenceView[];
 	evidenceForceOpen: boolean;
+	relationVocab: DiffCandidateRelationVocab | null;
 }
 
 /** Turns one resolved candidate into everything `ProposalDiffCard` needs to render,
@@ -384,6 +546,30 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 	}
 	const { views, forceOpen } = normalizeEvidence(p.trigger, p.evidence);
 
+	const relationVocab: DiffCandidateRelationVocab | null = candidate.relationVocab
+		? {
+				kind: candidate.relationVocab.kind,
+				label: candidate.relationVocab.label,
+				inverseLabel: candidate.relationVocab.inverseLabel,
+				cardinality: candidate.relationVocab.cardinality,
+				allowedFrom: candidate.relationVocab.allowedFrom,
+				allowedTo: candidate.relationVocab.allowedTo,
+				proposedLabel: candidate.relationVocab.proposedLabel,
+				addFrom: candidate.relationVocab.addFrom,
+				addTo: candidate.relationVocab.addTo,
+				relations: candidate.relationVocab.relations.map((r) => {
+					const relationEvidence = normalizeEvidence(p.trigger, r.evidence);
+					return {
+						fromName: r.fromEntity?.name ?? null,
+						toName: r.toEntity?.name ?? null,
+						rationale: r.rationale,
+						evidenceViews: relationEvidence.views,
+						evidenceForceOpen: relationEvidence.forceOpen
+					};
+				})
+			}
+		: null;
+
 	return {
 		id: p.id,
 		planId: p.planId,
@@ -401,7 +587,8 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 		diff,
 		diffLayout: diffLayoutFor(diff),
 		evidenceViews: views,
-		evidenceForceOpen: forceOpen
+		evidenceForceOpen: forceOpen,
+		relationVocab
 	};
 }
 

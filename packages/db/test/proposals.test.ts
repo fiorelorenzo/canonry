@@ -17,6 +17,7 @@ import {
 	recordProposalDiff,
 	rejectedProposalsFor,
 	rejectProposal,
+	RelationTypeNotAdmittedError,
 	setRejectReason,
 	undoAcceptedProposal,
 	UndoNotPossibleError,
@@ -539,6 +540,65 @@ describe('proposals', () => {
 				.where(and(eq(relation.fromEntityId, target.id), eq(relation.toEntityId, other.id)));
 			expect(rows).toHaveLength(1);
 			expect(rows[0]?.authorKind).toBe('ai_accepted');
+		});
+
+		it('#191: refuses to accept a relation-kind proposal whose ends the type does not admit, and writes nothing', async () => {
+			const { u, target } = await fixture(); // target.type === 'faction'
+			const [other] = await db
+				.insert(entity)
+				.values({
+					universeId: u.id,
+					type: 'place',
+					name: 'Cairnmouth',
+					slug: unique('cairnmouth')
+				})
+				.returning();
+			const [rt] = await db
+				.insert(relationType)
+				.values({
+					universeId: u.id,
+					label: 'employs',
+					inverseLabel: 'employed by',
+					cardinality: 'one_to_many',
+					allowedFrom: ['faction'],
+					allowedTo: ['character'] // "place" is not admitted on this side
+				})
+				.returning();
+			if (!other || !rt) throw new Error('fixture setup failed');
+
+			const { proposals } = await createProposalPlan(db, {
+				universeId: u.id,
+				trigger: 'save',
+				summary: 'x',
+				candidateCap: 10,
+				estimatedCredits: 1,
+				candidates: [
+					{
+						kind: 'relation',
+						targetEntityId: target.id,
+						relationTypeId: rt.id,
+						relatedEntityId: other.id,
+						rationale: 'They now employ it, apparently.',
+						evidence: [],
+						rank: 0
+					}
+				]
+			});
+			const proposal = proposals[0]!;
+
+			await expect(acceptProposal(db, { proposalId: proposal.id })).rejects.toBeInstanceOf(
+				RelationTypeNotAdmittedError
+			);
+
+			const rows = await db
+				.select()
+				.from(relation)
+				.where(and(eq(relation.fromEntityId, target.id), eq(relation.toEntityId, other.id)));
+			expect(rows).toHaveLength(0);
+
+			// A real error, not a silent drop - the proposal is untouched, still decidable.
+			const stillPending = await getProposal(db, proposal.id);
+			expect(stillPending?.outcome).toBe('pending');
 		});
 
 		it('refuses to accept a flag-kind proposal: an audit flag is a question, not a change (guardrail 7)', async () => {

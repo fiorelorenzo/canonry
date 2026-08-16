@@ -42,10 +42,26 @@ import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { zipSync } from 'fflate';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, closeDb, createDb, eq, type Db } from '@canonry/db';
-import { operationPrice, proposal, proposalPlan, universe, user } from '@canonry/db/schema';
 import {
-	acceptImportProposal,
+	acceptRelationTypeProposal,
+	and,
+	closeDb,
+	createDb,
+	eq,
+	rejectProposal,
+	type Db
+} from '@canonry/db';
+import {
+	entity,
+	operationPrice,
+	proposal,
+	proposalPlan,
+	relationType,
+	universe,
+	user
+} from '@canonry/db/schema';
+import {
+	acceptAnyImportProposal,
 	admitAndCreateImportJob,
 	ArchiveSourceReader,
 	estimateImportJob,
@@ -55,6 +71,7 @@ import {
 	loadBuiltinPlaybook,
 	type SourceReader
 } from '@canonry/import';
+import { hashingEmbedder } from '@canonry/indexing';
 import {
 	DeterministicExtractionDriver,
 	documentsForPlaybook,
@@ -167,42 +184,59 @@ async function countProposals(db: Db, jobId: string): Promise<number> {
 /** Accepts every pending proposal a job produced - `entity_source_ref` is only written
  * on accept, and that row is what the second run's exact-path match reads, exactly like
  * packages/bench/src/e2e/import.ts's own acceptAll. Failures are collected rather than
- * thrown so one bad accept does not hide what the rest of the sweep did. */
+ * thrown so one bad accept does not hide what the rest of the sweep did.
+ *
+ * Issue #190: dispatches by kind (acceptAnyImportProposal), and loops rather than
+ * taking one pass over the set fetched at the start - accepting a relation-type
+ * vocabulary proposal can itself create new pending 'relation' proposals (the
+ * relations that were waiting on it), and "accept everything this job produced" has
+ * to mean everything, including what accepting produces, or this sweep would leave
+ * exactly the newly-unblocked relations pending and defeat the second run's own
+ * idempotency check for no reason a caller could see. A row that fails once is never
+ * retried - it already reported its failure - so the loop still terminates on a
+ * genuine, persistent refusal. */
 async function acceptAll(
 	db: Db,
 	jobId: string,
 	userId: string,
 	sourceSystem: string
 ): Promise<{ accepted: number; failures: Array<{ kind: string; error: string }> }> {
-	const rows = await db
-		.select({ id: proposal.id, kind: proposal.kind, evidence: proposal.evidence })
-		.from(proposal)
-		.innerJoin(proposalPlan, eq(proposal.planId, proposalPlan.id))
-		.where(and(eq(proposalPlan.importJobId, jobId), eq(proposal.outcome, 'pending')));
-
 	let accepted = 0;
 	const failures: Array<{ kind: string; error: string }> = [];
-	for (const row of rows) {
-		const evidence = row.evidence as { sourceRef?: { path?: unknown }; contentHash?: unknown };
-		const externalId =
-			typeof evidence?.sourceRef?.path === 'string' ? evidence.sourceRef.path : null;
-		const contentHash = typeof evidence?.contentHash === 'string' ? evidence.contentHash : '';
-		try {
-			await acceptImportProposal(db, {
-				proposalId: row.id,
-				decidedBy: userId,
-				sourceSystem,
-				externalId,
-				sourceUrl: null,
-				contentHash,
-				importJobId: jobId
-			});
-			accepted++;
-		} catch (error) {
-			failures.push({
-				kind: row.kind,
-				error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
-			});
+	const alreadyFailed = new Set<string>();
+
+	for (let round = 0; round < 10; round++) {
+		const rows = await db
+			.select({ id: proposal.id, kind: proposal.kind, evidence: proposal.evidence })
+			.from(proposal)
+			.innerJoin(proposalPlan, eq(proposal.planId, proposalPlan.id))
+			.where(and(eq(proposalPlan.importJobId, jobId), eq(proposal.outcome, 'pending')));
+		const pending = rows.filter((row) => !alreadyFailed.has(row.id));
+		if (pending.length === 0) break;
+
+		for (const row of pending) {
+			const evidence = row.evidence as { sourceRef?: { path?: unknown }; contentHash?: unknown };
+			const externalId =
+				typeof evidence?.sourceRef?.path === 'string' ? evidence.sourceRef.path : null;
+			const contentHash = typeof evidence?.contentHash === 'string' ? evidence.contentHash : '';
+			try {
+				await acceptAnyImportProposal(db, row.kind, {
+					proposalId: row.id,
+					decidedBy: userId,
+					sourceSystem,
+					externalId,
+					sourceUrl: null,
+					contentHash,
+					importJobId: jobId
+				});
+				accepted++;
+			} catch (error) {
+				failures.push({
+					kind: row.kind,
+					error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+				});
+				alreadyFailed.add(row.id);
+			}
 		}
 	}
 	return { accepted, failures };
@@ -290,6 +324,7 @@ describe('re-import idempotency, per source (issue #161, SPEC.md §6.4)', () => 
 					budget: { maxCredits: 1000 },
 					similarity: importMatchSimilarity,
 					thresholds: MATCH_THRESHOLDS,
+					embedRelationLabel: hashingEmbedder,
 					timeoutMs: 60_000
 				});
 				return admitted.jobId;
@@ -426,6 +461,7 @@ describe('regression: two documents naming the same entity in one job (issue #16
 				budget: { maxCredits: 1000 },
 				similarity: importMatchSimilarity,
 				thresholds: MATCH_THRESHOLDS,
+				embedRelationLabel: hashingEmbedder,
 				timeoutMs: 60_000
 			});
 		}
@@ -582,6 +618,7 @@ describe('one document naming two entities, another repeating one of them (issue
 				budget: { maxCredits: 1000 },
 				similarity: importMatchSimilarity,
 				thresholds: MATCH_THRESHOLDS,
+				embedRelationLabel: hashingEmbedder,
 				timeoutMs: 60_000
 			});
 		}
@@ -612,5 +649,287 @@ describe('one document naming two entities, another repeating one of them (issue
 			{ documentId: 'doc-1', status: 'skipped_unchanged' },
 			{ documentId: 'doc-2', status: 'skipped_unchanged' }
 		]);
+	});
+});
+
+/**
+ * Decision K1, issue #190: the import loop's own half of "relation types are free
+ * labels, reconciled" - an unfamiliar relation label never writes a relation_type row
+ * by itself any more (`packages/db/src/queries/import.ts`'s deleted
+ * `findOrCreateRelationType` did exactly that, with no human in the loop). It becomes
+ * a vocabulary proposal instead, one per distinct question per job rather than one per
+ * relation, and SPEC 6.4's idempotency guarantee extends to the catalogue: re-running
+ * the same import after the question is settled proposes nothing new.
+ *
+ * The labels under test ("mentors", "confides in") are chosen for the same reason the
+ * checked-in kanka fixture's own "leads" and "rival" already exercise this path today
+ * (neither is one of the ten shipped labels - `packages/db/migrations/
+ * 0001_seed_relation_type_catalogue.sql`, `0029_containment_and_protects_relations.sql`):
+ * the network-free `hashingEmbedder` scores each at zero cosine similarity against
+ * every shipped label (single, distinct tokens, no shared trigram buckets), so the
+ * semantic rung reliably misses and the resolution is deterministically 'new-proposed'
+ * rather than depending on a live embedding model's judgement call.
+ */
+describe('relation-type vocabulary proposals, then idempotency (decision K1, issue #190)', () => {
+	let db: Db;
+	let userId: string;
+	let universeId: string;
+
+	beforeAll(async () => {
+		db = createDb(DATABASE_URL, { max: 2 });
+		userId = unique('relvocab-user');
+		await db.insert(user).values({
+			id: userId,
+			name: 'Relation Vocabulary Regression',
+			email: `${userId}@canonry.invalid`
+		});
+		const [row] = await db
+			.insert(universe)
+			.values({
+				ownerUserId: userId,
+				name: 'Relation Vocabulary Regression',
+				slug: unique('relvocab-universe'),
+				kind: 'homebrew'
+			})
+			.returning();
+		if (!row) throw new Error('universe insert did not return a row');
+		universeId = row.id;
+	});
+
+	afterAll(async () => {
+		await db.delete(universe).where(eq(universe.id, universeId));
+		await db.delete(user).where(eq(user.id, userId));
+		await closeDb(db);
+	});
+
+	async function proposalsForJob(jobId: string) {
+		const rows = await db
+			.select({ proposal })
+			.from(proposal)
+			.innerJoin(proposalPlan, eq(proposal.planId, proposalPlan.id))
+			.where(eq(proposalPlan.importJobId, jobId));
+		return rows.map((r) => r.proposal);
+	}
+
+	// materializeDocumentProposals drops a relation whose endpoint is a brand-new,
+	// not-yet-accepted entity (job-runner.ts's own doc comment) - these two characters
+	// have to already exist as real entity rows before the relation between them can
+	// be proposed at all, exactly like reimport-idempotency's own self-relation test
+	// above pre-inserts `existingEntity` for the same structural reason.
+	async function seedCharacter(name: string): Promise<void> {
+		await db.insert(entity).values({
+			universeId,
+			type: 'character',
+			name,
+			slug: `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${randomUUID().slice(0, 6)}`,
+			body: `${name} appears in this export.`
+		});
+	}
+
+	const sameNameSimilarity = (subject: { name: string }, candidate: { name: string }): number =>
+		subject.name === candidate.name ? 1 : 0;
+
+	// entity_source_ref is unique on (source_system, external_id) globally, not scoped
+	// to a job - reusing the same file paths across the two `it` blocks below (which
+	// share one universe) would make the second scenario's own documents collide with
+	// entity_source_ref rows the first scenario's accept already wrote for those exact
+	// paths. `pathPrefix` keeps every scenario's file paths, and so its
+	// entity_source_ref rows, disjoint from every other scenario's.
+	function kankaCharacterFixture(
+		pathPrefix: string,
+		label: string,
+		names: [string, string, string, string]
+	): Record<string, string> {
+		const [ownerA, targetA, ownerB, targetB] = names;
+		return {
+			[`${pathPrefix}-a.json`]: JSON.stringify([
+				{
+					entity_id: '1',
+					entity_type: 'character',
+					name: ownerA,
+					entry: `${ownerA} appears in this export.`,
+					relations: [{ owner_id: '1', target_id: '2', relation: label, attitude: 50 }]
+				},
+				{
+					entity_id: '2',
+					entity_type: 'character',
+					name: targetA,
+					entry: `${targetA} appears in this export.`
+				}
+			]),
+			[`${pathPrefix}-b.json`]: JSON.stringify([
+				{
+					entity_id: '3',
+					entity_type: 'character',
+					name: ownerB,
+					entry: `${ownerB} appears in this export.`,
+					relations: [{ owner_id: '3', target_id: '4', relation: label, attitude: 60 }]
+				},
+				{
+					entity_id: '4',
+					entity_type: 'character',
+					name: targetB,
+					entry: `${targetB} appears in this export.`
+				}
+			])
+		};
+	}
+
+	async function runKankaImport(
+		files: Record<string, string>,
+		artefactPath: string
+	): Promise<string> {
+		const playbook = await loadBuiltinPlaybook('kanka');
+		const reader = new InMemorySourceReader({ files });
+		const documents = await documentsForPlaybook('kanka', reader);
+		const estimate = estimateImportJob({
+			documentCount: documents.length,
+			avgCreditsPerDocument: 1,
+			avgSecondsPerDocument: 1
+		});
+		const admitted = await admitAndCreateImportJob(db, {
+			universeId,
+			createdBy: userId,
+			sourceType: 'kanka',
+			playbook: playbook.id,
+			playbookVersion: playbook.version,
+			artefactPath,
+			artefactBytes: 0,
+			artefactSha256: '0'.repeat(64),
+			documentCount: documents.length,
+			budgetCredits: 1000,
+			estimate,
+			concurrencyLimit: 20
+		});
+		expect(admitted.admitted).toBe(true);
+		const runner = new ImportJobRunner();
+		await runner.run({
+			db,
+			driver: new DeterministicExtractionDriver(),
+			dbJobId: admitted.jobId,
+			universeId,
+			sourceSystem: 'kanka',
+			userId,
+			playbook,
+			documents,
+			sources: reader,
+			images: new InMemoryImageStore(),
+			budget: { maxCredits: 1000 },
+			similarity: sameNameSimilarity,
+			thresholds: MATCH_THRESHOLDS,
+			embedRelationLabel: hashingEmbedder,
+			timeoutMs: 60_000
+		});
+		return admitted.jobId;
+	}
+
+	it('two relations sharing an unfamiliar label fold into one vocabulary proposal; accepting it creates exactly one type and unblocks both; re-importing then proposes nothing new', async () => {
+		const names: [string, string, string, string] = [
+			'Mira Sable',
+			'Corvin Ashe',
+			'Talia Wren',
+			'Bram Ostley'
+		];
+		for (const name of names) await seedCharacter(name);
+		const files = kankaCharacterFixture('accept-characters', 'Mentors', names);
+
+		const firstJobId = await runKankaImport(files, 'test-fixture://relvocab-accept');
+
+		// Nothing under this label exists in the catalogue yet, and the two sightings
+		// asked one question, not two.
+		const typesBefore = await db
+			.select()
+			.from(relationType)
+			.where(and(eq(relationType.universeId, universeId), eq(relationType.label, 'mentors')));
+		expect(typesBefore, 'no relation_type row before any accept').toHaveLength(0);
+
+		let rows = await proposalsForJob(firstJobId);
+		const vocabRows = rows.filter((r) => r.kind === 'relation_type_new');
+		expect(
+			vocabRows,
+			'one vocabulary proposal for the shared "mentors" label, not one per relation'
+		).toHaveLength(1);
+		const vocabProposal = vocabRows[0]!;
+		const patchBefore = vocabProposal.patch as { label: string; relations: unknown[] };
+		expect(patchBefore.label).toBe('mentors');
+		expect(patchBefore.relations, 'both documents folded into the same proposal').toHaveLength(2);
+		expect(
+			rows.filter((r) => r.kind === 'relation'),
+			'both relations are still waiting on the vocabulary question, not independently proposable yet'
+		).toHaveLength(0);
+
+		// Accept it: exactly one relation_type row, and the two waiting relations
+		// unblock into their own pending 'relation' proposals rather than a direct write.
+		const accepted = await acceptRelationTypeProposal(db, {
+			proposalId: vocabProposal.id,
+			decidedBy: userId
+		});
+		expect(accepted.unblockedProposalIds).toHaveLength(2);
+
+		const typesAfter = await db
+			.select()
+			.from(relationType)
+			.where(and(eq(relationType.universeId, universeId), eq(relationType.label, 'mentors')));
+		expect(typesAfter, 'accepting created exactly one type').toHaveLength(1);
+
+		rows = await proposalsForJob(firstJobId);
+		const unblockedRelations = rows.filter((r) => r.kind === 'relation' && r.outcome === 'pending');
+		expect(unblockedRelations).toHaveLength(2);
+		expect(unblockedRelations.every((r) => r.relationTypeId === typesAfter[0]!.id)).toBe(true);
+
+		// Drain the rest of the job (the two now-unblocked relations, plus the entity
+		// updates the same-name match produced) so entity_source_ref exists for every
+		// document - the second run's skip check reads that, not the relation
+		// vocabulary at all.
+		const sweep = await acceptAll(db, firstJobId, userId, 'kanka');
+		expect(
+			sweep.failures,
+			`accept sweep should be clean; got ${JSON.stringify(sweep.failures)}`
+		).toEqual([]);
+
+		// SPEC 6.4's idempotency guarantee, extended to the catalogue (issue #190):
+		// re-running the identical import after the vocabulary question is settled
+		// proposes nothing new - no second vocabulary question and no duplicate relation.
+		const secondJobId = await runKankaImport(files, 'test-fixture://relvocab-accept');
+		expect(
+			await countProposals(db, secondJobId),
+			're-importing the identical export after accepting its vocabulary must propose nothing new'
+		).toBe(0);
+	});
+
+	it('rejecting a new-proposed vocabulary proposal drops the relations that waited on it and leaves the catalogue untouched', async () => {
+		const names: [string, string, string, string] = [
+			'Elowen Vance',
+			'Petra Doyle',
+			'Ines Calder',
+			'Warrick Fenn'
+		];
+		for (const name of names) await seedCharacter(name);
+		const files = kankaCharacterFixture('reject-characters', 'Confides in', names);
+		const jobId = await runKankaImport(files, 'test-fixture://relvocab-reject');
+
+		const rows = await proposalsForJob(jobId);
+		const vocabRows = rows.filter((r) => r.kind === 'relation_type_new');
+		expect(vocabRows).toHaveLength(1);
+		const vocabProposal = vocabRows[0]!;
+
+		const rejected = await rejectProposal(db, {
+			proposalId: vocabProposal.id,
+			reason: null,
+			decidedBy: userId
+		});
+		expect(rejected.outcome).toBe('rejected');
+
+		const types = await db
+			.select()
+			.from(relationType)
+			.where(and(eq(relationType.universeId, universeId), eq(relationType.label, 'confides in')));
+		expect(types, 'rejecting leaves the catalogue untouched').toHaveLength(0);
+
+		const rowsAfter = await proposalsForJob(jobId);
+		expect(
+			rowsAfter.filter((r) => r.kind === 'relation'),
+			'rejecting drops the waiting relations - nothing else was ever written for them'
+		).toHaveLength(0);
 	});
 });

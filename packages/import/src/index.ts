@@ -118,6 +118,8 @@ export {
 	estimateImportJob,
 	admitAndCreateImportJob,
 	acceptImportProposal,
+	acceptAnyImportProposal,
+	isRelationTypeProposalKind,
 	ImportQuotaExceededError,
 	type ImportEstimate,
 	type EstimateImportJobInput,

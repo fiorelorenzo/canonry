@@ -16,13 +16,14 @@ waits for a human, however it is grouped on screen. `AGENTS.md` carries the same
 wording in short form. G6 itself, whether that bucket is informational or reviewable,
 is still open.
 
-**Five rounds, 62 answers.** Round one, 38, and round two, the 11 questions those answers
+**Six rounds, 63 answers.** Round one, 38, and round two, the 11 questions those answers
 opened, were both taken on 2026-08-13; round three's 2 on 2026-08-14; round four's 10 and
-round five's 1, both on 2026-08-15. Rounds one to three answered questions asked before
-there was code. Round four came out of the shipped UI and is recorded further down in this
-file, with its audit in [`product-pass.html`](product-pass.html). Round five has no separate
-audit artifact: it is one question the shipped UI's own bug forced, and it is recorded at
-the bottom of this file.
+round five's 1, both on 2026-08-15; round six's 1 on 2026-08-16. Rounds one to three answered
+questions asked before there was code. Round four came out of the shipped UI and is recorded
+further down in this file, with its audit in [`product-pass.html`](product-pass.html). Rounds
+five and six have no separate audit artifact: each is one question forced by something the
+shipped product already did, not a page of drawn options, and both are recorded at the bottom
+of this file.
 
 To change a decision: edit this file and the `UX_REGISTER` entry in
 `docs/ux/assets/ux.js`, and say so on the issues it blocks. The artifact keeps its
@@ -445,3 +446,70 @@ server code changes shape. And no compatibility redirect from `/u/<slug>`: the p
 launched, canonry.io serves a waiting list, and every link that exists today is ours to
 update. A permanent redirect would also collide with `/u/<handle>` the day #158 ships, which
 is the whole point of freeing the segment deliberately rather than leaving a trap in it.
+
+## Round six, decided 2026-08-16
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| K1 | Are relation types a fixed catalogue or can the Loremaster invent them? | **Free labels, reconciled**: the model may propose any label, a resolver matches it against what exists, and creating a type is a proposal a GM accepts |
+
+**The product already answered this twice, and differently.** `relation_type` is a table,
+not an enum, `label` and `inverse_label` are `text`, unique per universe rather than drawn
+from a fixed list (`packages/db/src/schema/relation.ts:9-22`). The import tool agrees: its
+relation-propose input takes `label: z.string().min(1).max(200)`
+(`packages/import/src/tools.ts:61-74`), and `findOrCreateRelationType` inserts whatever the
+model said, once per label per universe, no accept in between
+(`packages/db/src/queries/import.ts:728-756`, called from
+`packages/import/src/job-runner.ts:675-682`). That is free. Meanwhile the shipped catalogue
+is ten labels seeded by migration (`packages/db/migrations/0001_seed_relation_type_catalogue.sql`,
+extended by `0029_containment_and_protects_relations.sql`), #173 added an eleventh the same
+way, and `RelationsPanel.svelte` renders confirmed relations read-only with no affordance to
+see, create or manage a type at all. That is fixed, and invisible on top of it. K1 does not
+split the difference. It picks free, and spends the rest of the decision on what makes free
+safe to ship.
+
+**Why free wins.** A world's vocabulary belongs to the GM running it, not to a migration
+written before any campaign existed. Ten labels cannot say everything a real campaign
+already wrote down, and the shortfall is not hypothetical: `session` entities can carry no
+relation at all today, because no shipped label admits one on either end, a gap
+`0029_containment_and_protects_relations.sql`'s own notes leave open for lack of real usage
+to design against rather than close by guessing. A fixed catalogue answers a gap like that
+with a migration; free answers it the day a GM's world needs the word.
+
+**Why free needs a reconciliation pass.** Free without reconciliation is not freedom, it is
+noise: relation labels feed the propagation evidence and the reject signal
+(`packages/copilot/src/propagate.ts:131`, prior rejections read back by their relation
+labels), so "employs", "employer of", "works for" and "hires" stored as four separate types
+leave the graph worse off than storing one. The resolver (#189) is the reconciliation
+mechanism, cheapest check first. Normalised exact match against the universe's own types and
+the shipped catalogue: case, whitespace, the obvious morphology. Then a match against a
+type's own `inverse_label`, which resolves to that type with the ends swapped rather than
+minting a second type. Then semantic match through the embedder, above threshold
+`reuse-proposed` and below it `new-proposed`, with no similarity number ever shown to a GM,
+the same rule D6 already settled for entity matching. Then, only once a label has resolved
+to a type, the allowed-type check against this pair of entities, which comes back
+`widen-proposed` rather than a silent write or an outright rejection. That last rung is also
+#191's answer: `allowed_from`/`allowed_to` stop being read by nothing but tests and the seed
+that fills them, and become one real constraint enforced at the write, on the shipped
+catalogue and a universe's own types alike.
+
+**A human sits on the write, because a type is bigger than an edge.** Guardrail 1 already
+says nothing a model produces lands without an explicit accept, and a relation type is
+content, not configuration, so it counts. `findOrCreateRelationType` writing a type mid-import
+is the one place that rule is quietly broken today; #189 replaces it with a resolver that
+only ever proposes, and #190 turns `reuse-proposed`, `new-proposed` and `widen-proposed` into
+something a GM accepts or rejects, in D4's own review queue rather than a new one. #192 gives
+the same accept its other door: a GM reading the catalogue directly can rename, merge or
+widen a universe's own types by hand, and the ten shipped labels stay a migration's to edit,
+not a settings control's.
+
+**What it costs, stated plainly.** An import can now stop to ask a question a fixed
+catalogue never had to: is this word a synonym of something you already have, or a new
+relation altogether? That is an interruption free labels alone would not have produced
+either, since free-without-reconciliation would have just written the row and said nothing.
+It is worth asking only because #190 asks it once per label rather than once per relation,
+twelve relations that all wanted "works for" are one question about vocabulary, not twelve,
+and because the alternative this decision refuses is worse: a GM's world stuck at ten words
+forever, or a product that keeps inventing them with nobody reviewing it, which is the bug
+K1 exists to close.
+

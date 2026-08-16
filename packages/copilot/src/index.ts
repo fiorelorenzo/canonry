@@ -103,3 +103,13 @@ export {
 } from './ask.js';
 
 export { completeEntry, type CompleteEntryInput, type CompleteEntryResult } from './complete.js';
+
+export {
+	resolveRelationType,
+	isInverseMatch,
+	normalizeRelationLabel,
+	type RelationTypeResolution,
+	type ResolveRelationTypeDeps,
+	type ResolveRelationTypeInput,
+	type Embedder
+} from './relation-types.js';

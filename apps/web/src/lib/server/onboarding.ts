@@ -26,7 +26,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { env } from '$env/dynamic/private';
 import {
-	acceptImportProposal as dbAcceptImportProposal,
+	acceptAnyImportProposal as dbAcceptAnyImportProposal,
 	admitAndCreateImportJob,
 	ArchiveSourceReader,
 	DbModelSelector,
@@ -52,11 +52,12 @@ import {
 	type RunImportJobParams,
 	type SourceReader
 } from '@canonry/import';
+import { hashingEmbedder } from '@canonry/indexing';
 import { createLanguageModel, readGatewayCredentials, resolveModel } from '@canonry/ai';
 import { detectLanguage } from '@canonry/lang';
 import { and, desc, eq, type Db } from '@canonry/db';
 import { importJob, proposal, proposalPlan, universe } from '@canonry/db/schema';
-import type { EntityType } from '@canonry/db/schema';
+import type { EntityType, ProposalKind } from '@canonry/db/schema';
 
 export {
 	loadBuiltinPlaybook,
@@ -983,6 +984,11 @@ export function startImportRun(database: Db, input: StartImportRunInput): void {
 				budget: { maxCredits: input.budgetCredits },
 				similarity: importMatchSimilarity,
 				thresholds: MATCH_THRESHOLDS,
+				// Issue #189/#190, decision K1: same network-free default embedder
+				// `@canonry/indexing`'s own pipeline wires in wherever a real gateway
+				// credential is not available, which is exactly this driver's situation
+				// too (`DeterministicExtractionDriver`, this file's own doc comment).
+				embedRelationLabel: hashingEmbedder,
 				timeoutMs: 5 * 60_000
 			};
 			await runner.run(params);
@@ -1022,11 +1028,18 @@ export async function proposalsForImportJob(database: Db, jobId: string): Promis
 	return rows.map((row) => row.proposal);
 }
 
+/** Issue #190: dispatches by kind, same as the full review queue's own accept action -
+ * a relation-type vocabulary proposal (never touches entity_source_ref) routes to
+ * acceptRelationTypeProposal, everything else keeps going through acceptImportProposal
+ * exactly as before. `kind` is read by the caller from the same proposal row it already
+ * fetched to find this proposal in the first place (proposalsForImportJob), never
+ * re-queried here. */
 export async function acceptOnboardingProposal(
 	database: Db,
+	kind: ProposalKind,
 	input: AcceptImportProposalInput
 ): Promise<ProposalRow> {
-	return dbAcceptImportProposal(database, input);
+	return dbAcceptAnyImportProposal(database, kind, input);
 }
 
 /** proposal.evidence is untrusted-shape jsonb (this file's own writer, matchEvidence in

@@ -218,6 +218,13 @@
       "when": 1786839586770,
       "tag": "0030_index_own_canon",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1786862287472,
+      "tag": "0031_relation_type_proposal_kinds",
+      "breakpoints": true
     }
   ]
 }

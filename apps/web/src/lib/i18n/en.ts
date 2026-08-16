@@ -595,7 +595,10 @@ export const en: Messages = {
 					update: 'update',
 					relation: 'relation',
 					draft_entity: 'draft',
-					flag: 'flag'
+					flag: 'flag',
+					relation_type_reuse: 'reuse type',
+					relation_type_widen: 'widen type',
+					relation_type_new: 'new type'
 				};
 				return labels[kind] ?? kind;
 			},
@@ -622,7 +625,34 @@ export const en: Messages = {
 			item: 'Items',
 			event: 'Events',
 			session: 'Sessions',
-			relation: 'Relations'
+			relation: 'Relations',
+			relation_type: 'Vocabulary'
+		},
+
+		relationVocab: {
+			reuseHeading: 'Reuse an existing relation type',
+			widenHeading: 'Widen an existing relation type',
+			newHeading: 'New relation type',
+			askReuse: 'The model said it differently. Here is the type it means.',
+			askWiden: 'This type exists, but cannot currently join these two kinds of thing.',
+			askNew: 'This world does not have this relation type yet.',
+			reuseType: (label, inverseLabel) =>
+				`Reuses your existing type "${label}" / "${inverseLabel}"`,
+			admitsCurrently: (pairs) => `Currently admits ${pairs}.`,
+			widensTo: (fromLabel, toLabel) => `Widens it to also admit ${fromLabel} \u2192 ${toLabel}.`,
+			newType: (label, inverseLabel, cardinality) =>
+				`Creates "${label}" / "${inverseLabel}", ${cardinality}`,
+			newAdmits: (pairs) => `Would admit ${pairs}.`,
+			waitingCount: (count) => `${count} relation${count === 1 ? '' : 's'} waiting on this`,
+			cardinalityLabel: (cardinality) => {
+				const labels: Record<string, string> = {
+					one_to_one: 'one to one',
+					one_to_many: 'one to many',
+					many_to_one: 'many to one',
+					many_to_many: 'many to many'
+				};
+				return labels[cardinality] ?? cardinality;
+			}
 		},
 
 		bulkReject: {
@@ -822,7 +852,10 @@ export const en: Messages = {
 				update: 'update',
 				relation: 'relation',
 				draft_entity: 'draft',
-				flag: 'flag'
+				flag: 'flag',
+				relation_type_reuse: 'reuse type',
+				relation_type_widen: 'widen type',
+				relation_type_new: 'new type'
 			},
 			untitledProposal: 'Untitled proposal',
 			accept: 'Accept',
@@ -1224,6 +1257,117 @@ export const en: Messages = {
 				sourceUrlRequiredError: 'The source page needs a url.',
 				alreadySupersededError: 'This page is already superseded.',
 				missingIdError: 'Missing supersede id.'
+			},
+			relations: {
+				close: 'Close',
+				cardHeading: 'Relation catalogue',
+				cardDescription: (universeName) =>
+					`Every relation type ${universeName} can use, the shipped ten and its own, with how many relations use each one.`,
+				cardCountOwn: (count) => {
+					const form = pluralRules('en').select(count);
+					if (count === 0) return 'No types of its own yet.';
+					return `${count} ${form === 'one' ? 'type' : 'types'} of its own.`;
+				},
+				manageLink: 'Manage relation types',
+				headTitle: (universeName) => `Relation catalogue: ${universeName}`,
+				title: 'Relation catalogue',
+				description: (universeName) =>
+					`Every relation type ${universeName} can use: the shipped catalogue every world starts with, and this universe's own. Rename or widen your own, merge two into one; the shipped ten stay a migration's to change.`,
+				backLink: 'Back to settings',
+				shippedHeading: 'Shipped catalogue',
+				shippedDescription:
+					'The ten labels every universe starts with. Editing one is a migration, not a setting, so this list is read-only.',
+				shippedBadge: 'shipped',
+				ownHeading: "This universe's own types",
+				ownDescription:
+					'Types this universe invented, by hand or through an accepted import proposal.',
+				emptyOwn: 'No relation types of its own yet.',
+				emptyOwnExplanation:
+					'A type appears here the moment a GM adds one, or accepts an import proposal that invents a new label.',
+				table: {
+					label: 'Label',
+					inverseLabel: 'Inverse',
+					cardinality: 'Cardinality',
+					allowedFrom: 'From',
+					allowedTo: 'To',
+					usage: 'In use',
+					actions: 'Actions'
+				},
+				cardinalityLabel: (value) => {
+					const labels: Record<string, string> = {
+						one_to_one: 'one to one',
+						one_to_many: 'one to many',
+						many_to_one: 'many to one',
+						many_to_many: 'many to many'
+					};
+					return labels[value] ?? value;
+				},
+				entityTypeLabel: (type) => {
+					const labels: Record<string, string> = {
+						character: 'character',
+						place: 'place',
+						faction: 'faction',
+						item: 'item',
+						event: 'event',
+						session: 'session'
+					};
+					return labels[type] ?? type;
+				},
+				rename: {
+					trigger: 'Rename',
+					dialogTitle: (label) => `Rename "${label}"`,
+					dialogDescription:
+						'One row holds both labels, so the two sides of the relation can never drift apart.',
+					labelField: 'Label',
+					inverseLabelField: 'Inverse label',
+					submit: 'Save',
+					labelRequiredError: 'The label cannot be empty.',
+					inverseLabelRequiredError: 'The inverse label cannot be empty.',
+					conflictError: 'This universe already has a type with that label.',
+					notOwnedError: 'Only a type this universe created can be renamed.'
+				},
+				widen: {
+					trigger: 'Widen',
+					dialogTitle: (label) => `Widen "${label}"`,
+					dialogDescription:
+						'Add entity types this relation can join. It only ever grows: narrowing it back would risk relations the graph already has.',
+					fromHeading: 'From',
+					toHeading: 'To',
+					currentlyAdmits: 'Currently admits',
+					addOption: (typeLabel) => `Add ${typeLabel}`,
+					submit: 'Widen',
+					noChangeError: 'Check at least one entity type to add.',
+					notOwnedError: 'Only a type this universe created can be widened.'
+				},
+				merge: {
+					trigger: 'Merge two types',
+					dialogTitle: 'Merge two relation types',
+					dialogDescription:
+						'For cleaning up after an import that named the same relation twice. Every relation using the losing type moves to the type it merges into, and the losing type is removed.',
+					fromLabel: 'Merge this type',
+					intoLabel: 'Into this type',
+					pickFromPlaceholder: 'Pick a type this universe owns',
+					pickIntoPlaceholder: 'Pick a type to merge into',
+					countWarning: (count, fromLabel, intoLabel) => {
+						const form = pluralRules('en').select(count);
+						const uses = form === 'one' ? 'relation currently uses' : 'relations currently use';
+						const moves = form === 'one' ? 'it' : 'all of them';
+						return `${count} ${uses} "${fromLabel}". Merging moves ${moves} to "${intoLabel}", and "${fromLabel}" is removed.`;
+					},
+					countWarningZero: (fromLabel, intoLabel) =>
+						`"${fromLabel}" has no relations yet. Merging removes it and leaves "${intoLabel}" as it is.`,
+					sameTypeError: 'Pick two different types.',
+					notOwnedError: 'Only a type this universe created can be merged away.',
+					needsTwoTypesNotice:
+						'This universe needs at least one type of its own before two types can merge.',
+					submit: 'Merge',
+					movedToast: (count, intoLabel) => {
+						const form = pluralRules('en').select(count);
+						if (count === 0) return `Merged into "${intoLabel}".`;
+						return `Moved ${count} ${form === 'one' ? 'relation' : 'relations'} into "${intoLabel}".`;
+					}
+				},
+				viewerForbiddenError: 'Viewers cannot change the relation catalogue.'
 			}
 		}
 	},

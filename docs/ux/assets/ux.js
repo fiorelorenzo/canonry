@@ -243,6 +243,15 @@ const UX_REGISTER = [
     q: 'User profiles are coming rather than hypothetical: what do the top-level URL segments mean, and does that answer #153\'s uniqueness question or just move it?', w: 'now', i: [156, 153, 157, 158], dt: '2026-08-15',
     d: 'D', dn: 'A fourth way: /u/ a person, /w/ a world, /p/ stays the players\' wiki',
     dnote: '#153 was framed as a scoping question, global uniqueness or resolution scoped to the viewer, my own preference going in. J1 answers a different question instead and settles #153 as a side effect: /u/ was always going to mean a person once profiles were real (#158), so the GM-side app moves to /w/<slug> (#157) and world slugs become globally unique because a world\'s URL still carries no owner. No artifact for this one, recorded directly in DECISIONS.md rather than drawn as options first.' },
+
+  /* Round six: the product had already answered this question twice, differently, in code
+     rather than in a decision - free in the schema and the import tool, fixed in the shipped
+     catalogue and invisible in the UI. No drawn options either, so like J1 this points
+     straight at DECISIONS.md rather than an artifact. */
+  { s: 'Round six', id: 'K1', f: 'DECISIONS.md', t: 'Relation types: fixed catalogue or free labels',
+    q: 'Is the relation vocabulary between entities a fixed set the shipped catalogue closes, or can the Loremaster invent one and have it stick?', w: 'now', i: [188, 189, 190, 191, 192], dt: '2026-08-16',
+    d: 'B', dn: 'Free labels, reconciled: propose any label, resolve it against what exists, a human accepts the type',
+    dnote: 'The product was already both answers at once: relation_type is a free-text table scoped per universe and the import tool already lets a model mint one (findOrCreateRelationType, packages/db/src/queries/import.ts:728), while the shipped catalogue is ten migration-seeded labels RelationsPanel.svelte cannot even show. K1 picks free, then spends the decision on what makes free safe: a resolver (#189) that matches a proposed label against the universe\'s own types and the shipped catalogue before anything is written, normalised match first, then a type\'s own inverse label, then semantic with no similarity number ever shown to a GM (D6\'s rule again), then an allowed-type check that answers #191 by making allowed_from/allowed_to a real constraint instead of a column nothing reads. Only an existing-type match may act without a human; everything else is a proposal #190 turns into an import-review question, asked once per label rather than once per relation. #192 gives a GM the same accept by hand: a catalogue page to see every type, rename or merge a universe\'s own, and widen what it admits, with the ten shipped labels staying a migration\'s to change, not a settings control\'s.' },
 ];
 
 const KEY = (id) => `canonry.ux.${id}`;

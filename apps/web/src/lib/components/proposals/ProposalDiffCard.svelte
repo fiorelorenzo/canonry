@@ -16,6 +16,34 @@
 		previousStatement?: string;
 	}
 
+	interface DiffCandidateWaitingRelationView {
+		fromName: string | null;
+		toName: string | null;
+		rationale: string;
+		evidenceViews: EvidenceView[];
+		evidenceForceOpen: boolean;
+	}
+
+	/** The card's own mirror of `$lib/server/proposals.ts`'s `DiffCandidateRelationVocab` -
+	 * set only for the three relation-type vocabulary kinds (issue #190, K1: reuse an
+	 * existing type, widen one, or propose a brand new one), carrying every relation
+	 * waiting on the answer with its own name pair and evidence, the same shape a plain
+	 * `relation` proposal already renders below. */
+	export interface DiffCandidateRelationVocabView {
+		kind: 'relation_type_reuse' | 'relation_type_widen' | 'relation_type_new';
+		label: string;
+		inverseLabel: string;
+		cardinality: string | null;
+		allowedFrom: string[];
+		allowedTo: string[];
+		/** `relation_type_reuse` only: the label the model actually used. */
+		proposedLabel: string | null;
+		/** `relation_type_widen` only: the full pair accepting would add. */
+		addFrom: string | null;
+		addTo: string | null;
+		relations: DiffCandidateWaitingRelationView[];
+	}
+
 	export interface DiffCandidateView {
 		id: string;
 		kind: string;
@@ -31,6 +59,7 @@
 		diffLayout: 'in-place' | 'side-by-side';
 		evidenceViews: EvidenceView[];
 		evidenceForceOpen: boolean;
+		relationVocab: DiffCandidateRelationVocabView | null;
 	}
 
 	let {
@@ -60,10 +89,26 @@
 	let showOld = $state(false);
 
 	let title = $derived(
-		candidate.kind === 'relation'
-			? `${candidate.targetName ?? '?'} \u2192 ${candidate.relatedName ?? '?'}`
-			: (candidate.targetName ?? t.diffCard.newEntry)
+		candidate.relationVocab
+			? `${candidate.relationVocab.label} / ${candidate.relationVocab.inverseLabel}`
+			: candidate.kind === 'relation'
+				? `${candidate.targetName ?? '?'} \u2192 ${candidate.relatedName ?? '?'}`
+				: (candidate.targetName ?? t.diffCard.newEntry)
 	);
+
+	/** Cross product of the two admitted-type arrays, translated and joined - the same
+	 * "character -> character, place -> character" shape `relationVocab.admitsCurrently`/
+	 * `newAdmits` wrap into a full sentence (issue #190, K1). Structured input, formatted
+	 * sentence out, same split every other localized string in this card keeps. */
+	function pairsLabel(allowedFrom: string[], allowedTo: string[]): string {
+		const pairs: string[] = [];
+		for (const from of allowedFrom) {
+			for (const to of allowedTo) {
+				pairs.push(`${t.diffCard.entityTypeLabel(from)} \u2192 ${t.diffCard.entityTypeLabel(to)}`);
+			}
+		}
+		return pairs.join(', ');
+	}
 </script>
 
 <div class="card rounded-lg border border-line bg-panel p-4" data-proposal-id={candidate.id}>
@@ -89,7 +134,7 @@
 						{t.diffCard.entityTypeLabel(candidate.targetType)}
 					</span>
 				{/if}
-				{#if candidate.relationLabel}
+				{#if candidate.relationLabel && !candidate.relationVocab}
 					<span>{candidate.relationLabel}</span>
 				{/if}
 				<span>{candidate.rationale}</span>
@@ -108,7 +153,83 @@
 		{/if}
 	</header>
 
-	{#if candidate.kind === 'relation'}
+	{#if candidate.relationVocab}
+		{@const vocab = candidate.relationVocab}
+		<div class="mb-3 max-w-measure text-sm text-ink-2">
+			<h4 class="mb-1 font-mono text-xs text-muted uppercase">
+				{vocab.kind === 'relation_type_reuse'
+					? t.relationVocab.reuseHeading
+					: vocab.kind === 'relation_type_widen'
+						? t.relationVocab.widenHeading
+						: t.relationVocab.newHeading}
+			</h4>
+			<p class="mb-2">
+				{vocab.kind === 'relation_type_reuse'
+					? t.relationVocab.askReuse
+					: vocab.kind === 'relation_type_widen'
+						? t.relationVocab.askWiden
+						: t.relationVocab.askNew}
+			</p>
+			<div class="rounded-md bg-ai-bg px-3 py-2">
+				{#if vocab.kind === 'relation_type_reuse'}
+					<p class="text-ink">{t.relationVocab.reuseType(vocab.label, vocab.inverseLabel)}</p>
+					{#if vocab.proposedLabel}
+						<p class="mt-1 text-xs text-muted">
+							"{vocab.proposedLabel}" &rarr; "{vocab.label}"
+						</p>
+					{/if}
+				{:else}
+					<p class="font-semibold text-ink">{vocab.label} / {vocab.inverseLabel}</p>
+				{/if}
+				{#if vocab.cardinality}
+					<p class="mt-1 text-xs text-muted">
+						{t.relationVocab.cardinalityLabel(vocab.cardinality)}
+					</p>
+				{/if}
+				{#if vocab.kind === 'relation_type_widen'}
+					<p class="mt-1">
+						{t.relationVocab.admitsCurrently(pairsLabel(vocab.allowedFrom, vocab.allowedTo))}
+					</p>
+					{#if vocab.addFrom && vocab.addTo}
+						<p class="mt-1 text-ink">
+							{t.relationVocab.widensTo(
+								t.diffCard.entityTypeLabel(vocab.addFrom),
+								t.diffCard.entityTypeLabel(vocab.addTo)
+							)}
+						</p>
+					{/if}
+				{:else if vocab.kind === 'relation_type_new'}
+					<p class="mt-1">
+						{t.relationVocab.newAdmits(pairsLabel(vocab.allowedFrom, vocab.allowedTo))}
+					</p>
+				{/if}
+			</div>
+		</div>
+
+		{#if vocab.relations.length > 0}
+			<div class="mb-3">
+				<h4 class="mb-1.5 font-mono text-xs text-muted uppercase">
+					{t.relationVocab.waitingCount(vocab.relations.length)}
+				</h4>
+				<ul class="space-y-1.5">
+					{#each vocab.relations as relation, i (i)}
+						<li class="rounded-md bg-panel-2 px-3 py-2 text-sm text-ink-2">
+							<span class="font-semibold text-ink">{relation.fromName ?? '?'}</span>
+							<span class="mx-1 text-ai">{vocab.label}</span>
+							<span class="font-semibold text-ink">{relation.toName ?? '?'}</span>
+							{#if relation.evidenceViews.length > 0}
+								<EvidencePopover
+									views={relation.evidenceViews}
+									forceOpen={relation.evidenceForceOpen}
+									{locale}
+								/>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
+	{:else if candidate.kind === 'relation'}
 		<p class="mb-3 rounded-md bg-ai-bg px-3 py-2 text-sm text-ink-2">
 			<span class="font-semibold text-ink">{candidate.targetName}</span>
 			<span class="mx-1 text-ai">{candidate.relationLabel}</span>

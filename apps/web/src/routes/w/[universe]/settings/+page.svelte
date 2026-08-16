@@ -4,6 +4,8 @@
 	 * ("Stop writing"), not for AI as a category, because reading keeps working while it
 	 * is on. Decision A2 = A: precedence is visible, not a click away - a derived
 	 * universe's supersede declarations list here, with the source page struck through.
+	 * Decision K1 (DECISIONS.md "Round six"): a card here links to `settings/relations`,
+	 * issue #192's catalogue, rather than inlining a page's worth of tables and dialogs.
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
@@ -15,6 +17,7 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const t = $derived(messages(data.locale).universe.settings);
+	const tRelations = $derived(t.relations);
 
 	let aiEnabled = $derived(form?.aiEnabled ?? data.aiEnabled);
 </script>
@@ -57,6 +60,21 @@
 				{t.aiToggle.offNotice(data.current.name)}
 			</p>
 		{/if}
+	</section>
+
+	<section class="mt-8 rounded-lg border border-line bg-panel p-4">
+		<div class="flex items-center justify-between gap-4">
+			<div>
+				<h2 class="text-sm font-semibold text-ink">{tRelations.cardHeading}</h2>
+				<p class="mt-1 max-w-measure text-sm text-ink-2">
+					{tRelations.cardDescription(data.current.name)}
+				</p>
+				<p class="mt-1 text-xs text-muted">{tRelations.cardCountOwn(data.ownRelationTypeCount)}</p>
+			</div>
+			<Button href={resolve(`/w/${data.current.slug}/settings/relations`)} variant="secondary">
+				{tRelations.manageLink}
+			</Button>
+		</div>
 	</section>
 
 	{#if data.isDerived}

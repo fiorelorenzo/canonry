@@ -16,6 +16,7 @@
 	},
 	"dependencies": {
 		"@canonry/ai": "workspace:*",
+		"@canonry/copilot": "workspace:*",
 		"@canonry/db": "workspace:*",
 		"@canonry/lang": "workspace:*",
 		"ai": "^7.0.65",

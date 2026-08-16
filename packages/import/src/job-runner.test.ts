@@ -39,6 +39,14 @@ import {
 	type RunImportJobParams
 } from './job-runner.js';
 import type { SimilarityFn } from './matching.js';
+import type { Embedder } from '@canonry/copilot';
+
+// Issue #190: resolveRelationType's semantic rung, stubbed deterministically since
+// none of this file's fixtures propose a relation whose label misses rung 1's exact
+// match (the one relation_propose call below hits the self-loop guard first and never
+// reaches resolveRelationType at all) - same-length zero vectors keep cosineSimilarity
+// well-defined (0, not NaN) for any input length, in case that ever changes.
+const stubEmbedRelationLabel: Embedder = async (texts) => texts.map(() => [0, 0, 0]);
 
 function createHashOf(text: string): string {
 	return createHash('sha256').update(text).digest('hex');
@@ -259,6 +267,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			budget: { maxCredits: 1000 },
 			similarity: () => 0,
 			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
 			timeoutMs: 30_000
 		};
 
@@ -386,6 +395,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			images: new InMemoryImageStore(),
 			similarity: () => 0,
 			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
 			timeoutMs: 30_000
 		};
 
@@ -510,6 +520,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			budget: { maxCredits: 1000 },
 			similarity: () => 0,
 			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
 			timeoutMs: 30_000
 		});
 
@@ -617,6 +628,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			budget: { maxCredits: 1000 },
 			similarity: () => 0,
 			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
 			timeoutMs: 30_000
 		});
 
@@ -746,6 +758,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				budget: { maxCredits: 1000 },
 				similarity: exactNameSimilarity,
 				thresholds: MATCH_THRESHOLDS,
+				embedRelationLabel: stubEmbedRelationLabel,
 				timeoutMs: 30_000
 			});
 
@@ -820,6 +833,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				budget: { maxCredits: 1000 },
 				similarity: exactNameSimilarity,
 				thresholds: MATCH_THRESHOLDS,
+				embedRelationLabel: stubEmbedRelationLabel,
 				timeoutMs: 30_000
 			});
 			expect(result.finalStatus).toBe('finished');
@@ -933,6 +947,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			budget: { maxCredits: 1000 },
 			similarity: sameNameSimilarity,
 			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
 			timeoutMs: 30_000
 		});
 
@@ -1054,6 +1069,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				budget: { maxCredits: 1000 },
 				similarity: () => 0,
 				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				embedRelationLabel: stubEmbedRelationLabel,
 				timeoutMs: 30_000,
 				driver: driver1
 			});
@@ -1081,6 +1097,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				budget: { maxCredits: 1000 },
 				similarity: () => 0,
 				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				embedRelationLabel: stubEmbedRelationLabel,
 				timeoutMs: 30_000,
 				driver: driver2
 			});
@@ -1139,6 +1156,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				budget: { maxCredits: 1000 },
 				similarity: () => 0,
 				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				embedRelationLabel: stubEmbedRelationLabel,
 				timeoutMs: 30_000,
 				driver: driver1
 			});
@@ -1165,6 +1183,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				budget: { maxCredits: 1000 },
 				similarity: () => 0,
 				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				embedRelationLabel: stubEmbedRelationLabel,
 				timeoutMs: 30_000,
 				driver: driver2
 			});
@@ -1190,6 +1209,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				budget: { maxCredits: 1000 },
 				similarity: () => 0,
 				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				embedRelationLabel: stubEmbedRelationLabel,
 				timeoutMs: 30_000,
 				driver: driver3
 			});
@@ -1239,6 +1259,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				budget: { maxCredits: 1000 },
 				similarity: () => 0,
 				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				embedRelationLabel: stubEmbedRelationLabel,
 				timeoutMs: 30_000,
 				driver: driver1
 			});
@@ -1272,6 +1293,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				budget: { maxCredits: 0.001 },
 				similarity: () => 0,
 				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				embedRelationLabel: stubEmbedRelationLabel,
 				timeoutMs: 30_000,
 				driver: driver2
 			});
@@ -1323,6 +1345,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				budget: { maxCredits: 1000 },
 				similarity: () => 0,
 				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				embedRelationLabel: stubEmbedRelationLabel,
 				timeoutMs: 30_000,
 				driver: driver1
 			});
@@ -1366,6 +1389,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				budget: { maxCredits: 1000 },
 				similarity: () => 0,
 				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				embedRelationLabel: stubEmbedRelationLabel,
 				timeoutMs: 30_000,
 				driver: cancellingDriver
 			});
@@ -1416,6 +1440,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				budget: { maxCredits: 1000 },
 				similarity: () => 0,
 				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				embedRelationLabel: stubEmbedRelationLabel,
 				timeoutMs: 30_000,
 				driver: driver1
 			});
@@ -1452,6 +1477,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				budget: { maxCredits: 1000 },
 				similarity: () => 0,
 				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				embedRelationLabel: stubEmbedRelationLabel,
 				timeoutMs: 30_000,
 				driver: driver2
 			});

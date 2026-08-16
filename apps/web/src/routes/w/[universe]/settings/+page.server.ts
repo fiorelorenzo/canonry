@@ -14,6 +14,7 @@ import {
 	createSupersede,
 	eq,
 	listDataSourcesForUniverse,
+	listRelationTypesForUniverse,
 	listSupersedesForUniverse,
 	removeSupersede,
 	SupersedeAlreadyExistsError,
@@ -31,9 +32,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!access) error(404, `No universe named "${params.universe}"`);
 	const world = access.universe;
 
-	const [supersedes, baseDataSources] = await Promise.all([
+	const [supersedes, baseDataSources, relationTypes] = await Promise.all([
 		listSupersedesForUniverse(conn, world.id),
-		world.baseUniverseId ? listDataSourcesForUniverse(conn, world.baseUniverseId) : []
+		world.baseUniverseId ? listDataSourcesForUniverse(conn, world.baseUniverseId) : [],
+		listRelationTypesForUniverse(conn, world.id)
 	]);
 
 	const universeEntities = world.baseUniverseId
@@ -48,7 +50,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		isDerived: world.baseUniverseId !== null,
 		supersedes,
 		baseDataSources: baseDataSources.map((source) => ({ id: source.id, name: source.name })),
-		universeEntities
+		universeEntities,
+		ownRelationTypeCount: relationTypes.filter((type) => type.universeId !== null).length
 	};
 };
 

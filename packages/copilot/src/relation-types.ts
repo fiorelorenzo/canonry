@@ -1,0 +1,387 @@
+/**
+ * K1 (#188): resolves a proposed relation label against a universe's own relation types
+ * and the shipped catalogue, instead of `packages/db`'s old `findOrCreateRelationType`
+ * inventing a type mid-import with no human in the loop. Three rungs, cheapest first,
+ * because most labels stop at the first (#189):
+ *
+ *   1. Normalised exact match, forward and against a type's inverse label - "employs" /
+ *      "employ" / "employed by" (the catalogue's own inverse label) are one type, not
+ *      three. A label that matches a type's *inverse* resolves to that type rather than
+ *      becoming a second one - half the synonym sprawl the epic reports is a model saying
+ *      "employed by" where the catalogue already says "employs".
+ *   2. Semantic match over whatever survives rung 1, through an injected `embed` -
+ *      "hires" and "works for" share no letters with "employs" but mean the same thing,
+ *      which no amount of normalisation will catch.
+ *   3. The allowed-type check (#191): whichever type rungs 1/2 landed on, if it does not
+ *      admit this pair of entity types the resolution is `widen-proposed` - never a
+ *      silent write, never a rejection. #173 used to widen the catalogue by hand with a
+ *      migration; this is the product expressing that itself.
+ *
+ * Guardrail 1: only `kind: 'existing'` may be written without a human - creating or
+ * widening a relation type is creating vocabulary for a whole world, a bigger act than
+ * adding one edge. Guardrail 3: `why` is always a sentence a GM can read, never the
+ * similarity number rung 2 computes internally to decide - the same rule D6 already holds
+ * for entity matching (`packages/import/src/matching.ts` never shows a bare confidence
+ * score either).
+ *
+ * Pure decision logic plus one read (`relationTypesForUniverse`) - no writes. Turning a
+ * `new-proposed` / `reuse-proposed` / `widen-proposed` resolution into an actual
+ * `relation_type` row is a human accepting a proposal (#190), never this function -
+ * `resolveRelationType` only ever *reads* `@canonry/db`.
+ *
+ * Lives here rather than in `packages/import` (where the only caller happens to be today)
+ * because the copilot's own propose paths will want this the moment they can create a
+ * relation themselves, and duplicating the reconciliation logic per caller is exactly the
+ * synonym sprawl this issue exists to stop.
+ */
+import type { Db } from '@canonry/db';
+import { relationTypesForUniverse, type RelationTypeRow } from '@canonry/db';
+import type { EntityType, RelationCardinality } from '@canonry/db/schema';
+
+export type RelationTypeResolution =
+	| { kind: 'existing'; type: RelationTypeRow }
+	| { kind: 'reuse-proposed'; type: RelationTypeRow; proposedLabel: string; why: string }
+	| {
+			kind: 'widen-proposed';
+			type: RelationTypeRow;
+			addFrom?: EntityType;
+			addTo?: EntityType;
+			why: string;
+	  }
+	| {
+			kind: 'new-proposed';
+			label: string;
+			inverseLabel: string;
+			cardinality: RelationCardinality;
+			from: EntityType;
+			to: EntityType;
+			why: string;
+	  };
+
+/** Injected exactly like `@canonry/indexing`'s own embedding seam (the same idiom
+ * `packages/copilot/src/ask.ts`'s `QueryEmbedder` already uses), typed locally so this
+ * file does not carry a hard dependency on that package's internal type name. Batches
+ * every text this resolver needs to compare in one call, same as retrieval does. */
+export type Embedder = (texts: string[]) => Promise<number[][]>;
+
+export interface ResolveRelationTypeDeps {
+	db: Db;
+	embed: Embedder;
+}
+
+export interface ResolveRelationTypeInput {
+	universeId: string;
+	/** The label the model proposed, verbatim - never pre-normalised by the caller, this
+	 * function owns that. */
+	label: string;
+	/** The inverse label the model proposed. Only used if this resolves to `new-proposed`
+	 * - an existing type's own `inverseLabel` always wins over a fresh guess once rung 1
+	 * or 2 has matched one, so two callers proposing the same relation differently
+	 * (`employs`/`employed by` vs `employer of`/`employee of`) still converge on one row. */
+	inverseLabel: string;
+	cardinality: RelationCardinality;
+	/** The entity type on the "from" side exactly as the caller means to write it - i.e.
+	 * whatever will become `relation.from_entity_id`'s type if this proceeds. Rung 1's
+	 * inverse-label match and rung 3's allowed-type check both reason about the type's
+	 * own canonical (label) direction internally, but this function never changes which
+	 * side is "from" and which is "to": see `isInverseMatch` below for why that stays the
+	 * caller's decision. */
+	fromType: EntityType;
+	toType: EntityType;
+}
+
+// ---------------------------------------------------------------------------
+// Rung 1: normalised exact match.
+// ---------------------------------------------------------------------------
+
+/** Lowercases, strips diacritics and collapses anything that is not a letter or digit to
+ * single spaces - the same first move `packages/import/src/matching.ts`'s
+ * `normalizeForMatching` makes for entity names, for the same reason (issue #36/#37: cheap,
+ * free, and it is what makes "Employs" / "employs," / "employs" the same string). Then a
+ * deliberately narrow inflection stripper on top, since a *label* additionally needs
+ * "employs" / "employ" / "employed" to collapse - the exact three-way example the epic
+ * names - which a name-matching normaliser has no reason to do. Long-word-only guards
+ * (length checks before stripping "s"/"ed"/"ing") keep this from mangling a short
+ * function word ("as", "of", "is") that happens to end the same way. This is not a real
+ * stemmer and is not meant to be one - it is the "obvious morphology" the issue asks for,
+ * nothing cleverer; anything past this narrow a rule is rung 2's job. */
+export function normalizeRelationLabel(raw: string): string {
+	const normalized = raw
+		.normalize('NFKD')
+		.replace(/\p{Diacritic}/gu, '')
+		.toLowerCase()
+		.replace(/[^\p{L}\p{N}]+/gu, ' ')
+		.trim();
+	if (normalized.length === 0) return normalized;
+	return normalized.split(' ').map(stemWord).join(' ');
+}
+
+function stemWord(word: string): string {
+	if (word.length > 5 && word.endsWith('ing')) return word.slice(0, -3);
+	if (word.length > 4 && word.endsWith('ed')) return word.slice(0, -2);
+	if (word.length > 3 && word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
+	return word;
+}
+
+/** Whether `label` (after normalising) reads as `type`'s *inverse* rather than its
+ * forward label - exported so a caller building the actual `relation` row from a
+ * resolution (#190) can decide whether to swap which entity plays `from_entity_id` and
+ * which plays `to_entity_id`. `resolveRelationType` picks *which type*, and reasons about
+ * both directions internally for the allowed-type check (rung 3), but it never decides
+ * which of the caller's two entities is "from" - that stays the caller's own field
+ * (`ResolveRelationTypeInput.fromType`/`toType` is a fixed, caller-owned direction, not a
+ * suggestion this function is free to flip), so a caller that gets back
+ * `{ kind: 'existing' | 'reuse-proposed' | 'widen-proposed' }` and wants a *correct*
+ * relation row has to make exactly this check before writing one: rung 1's own use of it
+ * below is not special. */
+export function isInverseMatch(type: RelationTypeRow, label: string): boolean {
+	return normalizeRelationLabel(type.inverseLabel) === normalizeRelationLabel(label);
+}
+
+/** A universe's own override of a shipped label wins over the catalogue on an exact tie
+ * (both exist per `relation.test.ts`'s "allows a universe-scoped relation type to reuse a
+ * label from the shipped catalogue") - a GM who deliberately re-defined "employs" for
+ * their world presumably means their own definition, not the shipped default sitting
+ * behind it. */
+function preferUniverseOwned(candidates: RelationTypeRow[], universeId: string): RelationTypeRow[] {
+	return [...candidates].sort((a, b) => {
+		const aOwn = a.universeId === universeId ? 0 : 1;
+		const bOwn = b.universeId === universeId ? 0 : 1;
+		return aOwn - bOwn;
+	});
+}
+
+// ---------------------------------------------------------------------------
+// Rung 3: the allowed-type check (#191).
+// ---------------------------------------------------------------------------
+
+interface AdmissionCheck {
+	admitted: boolean;
+	addFrom?: EntityType;
+	addTo?: EntityType;
+}
+
+/** `fromType`/`toType` here are always the pair in `type`'s own canonical (label)
+ * direction, already swapped by the caller if the match was against an inverse label -
+ * see the two call sites below. */
+function checkAdmission(
+	type: RelationTypeRow,
+	fromType: EntityType,
+	toType: EntityType
+): AdmissionCheck {
+	const fromOk = type.allowedFrom.includes(fromType);
+	const toOk = type.allowedTo.includes(toType);
+	if (fromOk && toOk) return { admitted: true };
+	return {
+		admitted: false,
+		...(fromOk ? {} : { addFrom: fromType }),
+		...(toOk ? {} : { addTo: toType })
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Rung 2: semantic match.
+// ---------------------------------------------------------------------------
+
+/** Real cosine similarity (not an assumption that `embed` already L2-normalises its
+ * output, which the `Embedder` seam does not promise) - 0 for either zero vector rather
+ * than `NaN`, since a zero vector is a legitimate embedder output for an empty string and
+ * "no similarity" is the right answer for it, not a crash. */
+function cosineSimilarity(a: number[], b: number[]): number {
+	let dot = 0;
+	let normA = 0;
+	let normB = 0;
+	for (let i = 0; i < a.length; i++) {
+		const x = a[i] ?? 0;
+		const y = b[i] ?? 0;
+		dot += x * y;
+		normA += x * x;
+		normB += y * y;
+	}
+	if (normA === 0 || normB === 0) return 0;
+	return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+/**
+ * The semantic rung's cutoff - deliberately not retrieval's 0.5 (`packages/indexing/src/
+ * retriever.ts`): that number is a passage-embedding cosine scale (whole chunks of prose,
+ * measured on a 2044-chunk gold corpus), and this is a short-label cosine scale (one to
+ * three words). The two do not share a distribution and retriever.ts's own doc comment
+ * says as much - "a threshold does not transfer between embedding models", and it does
+ * not transfer between text *lengths* either, for the same reason: cosine similarity
+ * between short bags of words concentrates very differently than between long ones.
+ *
+ * What I could actually measure in this environment: this repo's only network-free
+ * embedder, `hashingEmbedder` (`@canonry/indexing`), which every existing test in this
+ * package uses in place of a live model (no AI Gateway credentials are exercised by any
+ * test here - see `ask.test.ts`'s own comment). Measuring it directly disqualifies it as
+ * a source for this number rather than justifying one: at its 256-bucket hash width,
+ * *two entirely unrelated one-word labels* ("commanded" and "member" - opposite
+ * relation concepts, command vs. faction membership) hash-collide into the exact same
+ * bucket and score a perfect 1.0, and two-word phrases sharing only a stopword
+ * ("commanded by" / "employed by", sharing only "by") score 0.5 purely from bag-of-words
+ * term overlap with no semantic content at all. Neither failure mode is a property a real
+ * dense embedding model shares - collisions and stopword-dominated short vectors are
+ * artifacts of hashing raw tokens into 256 buckets - so a number calibrated against them
+ * would be calibrated against noise, not signal.
+ *
+ * So this is not empirically derived, and I am saying so rather than passing off a guess
+ * as a measurement (which is exactly what copying retrieval's 0.5 would have been). It is
+ * set conservatively high on purpose: this rung's two failure modes are not symmetric.
+ * Merging two genuinely different relation concepts under one type (a false "reuse")
+ * silently corrupts the graph - every existing relation of that type now carries a label
+ * that is wrong for some of the edges under it, and nothing flags that it happened. Row
+ * splitting them (a false "new") costs a GM one extra decision, which #192's
+ * `mergeRelationTypes` fixes for free after the fact. A threshold this conservative will
+ * under-merge until it is properly calibrated, and that is the safe direction to be wrong
+ * in until it is.
+ *
+ * The benchmark this actually needs: a gold set of {existing catalogue label, proposed
+ * label, same-type or not} pairs (the epic's own four `employs` synonyms are a start, but
+ * far too small a sample on their own), embedded with the real gateway model
+ * production actually wires in (`createGatewayEmbedder`, `packages/indexing/src/
+ * embedding.ts`), swept for the cutoff that separates them the way `packages/bench`'s
+ * retrieval-sweep did for `retriever.ts`'s own threshold (`pnpm --filter @canonry/bench
+ * retrieval-sweep`, `@canonry/eval`'s `thresholdSweep`) - and re-run whenever the
+ * embedding model changes, for the exact reason retriever.ts's own history documents.
+ */
+const SEMANTIC_REUSE_THRESHOLD = 0.86;
+
+async function bestSemanticMatch(
+	embed: Embedder,
+	label: string,
+	candidates: RelationTypeRow[]
+): Promise<{ type: RelationTypeRow; similarity: number } | null> {
+	if (candidates.length === 0) return null;
+	const vectors = await embed([label, ...candidates.map((c) => c.label)]);
+	const inputVector = vectors[0];
+	if (!inputVector) return null;
+	let best: { type: RelationTypeRow; similarity: number } | null = null;
+	for (let i = 0; i < candidates.length; i++) {
+		const candidate = candidates[i]!;
+		const vector = vectors[i + 1];
+		if (!vector) continue;
+		const similarity = cosineSimilarity(inputVector, vector);
+		if (!best || similarity > best.similarity) best = { type: candidate, similarity };
+	}
+	return best;
+}
+
+// ---------------------------------------------------------------------------
+// The resolver.
+// ---------------------------------------------------------------------------
+
+export async function resolveRelationType(
+	deps: ResolveRelationTypeDeps,
+	input: ResolveRelationTypeInput
+): Promise<RelationTypeResolution> {
+	const candidates = await relationTypesForUniverse(deps.db, input.universeId);
+	const ordered = preferUniverseOwned(candidates, input.universeId);
+
+	// Rung 1a: normalised exact match, forward direction.
+	const normalizedInput = normalizeRelationLabel(input.label);
+	for (const candidate of ordered) {
+		if (normalizeRelationLabel(candidate.label) === normalizedInput) {
+			return resolveAgainstAdmission(
+				candidate,
+				input.fromType,
+				input.toType,
+				`"${input.label}" is the existing type "${candidate.label}".`
+			);
+		}
+	}
+
+	// Rung 1b: normalised exact match against a type's inverse label - reuses the type
+	// with the ends reversed rather than creating a second one (see `isInverseMatch`'s
+	// own comment for what "reversed" obliges the caller to do).
+	for (const candidate of ordered) {
+		if (isInverseMatch(candidate, input.label)) {
+			return resolveAgainstAdmission(
+				candidate,
+				input.toType,
+				input.fromType,
+				`"${input.label}" is the existing type "${candidate.label}"'s inverse label ` +
+					`("${candidate.inverseLabel}"), so this reuses it with the relation's ends ` +
+					`reversed rather than creating a second type.`
+			);
+		}
+	}
+
+	// Rung 2: semantic match over the residue - every candidate, since rung 1 found none.
+	const best = await bestSemanticMatch(deps.embed, input.label, ordered);
+	if (best && best.similarity >= SEMANTIC_REUSE_THRESHOLD) {
+		const admission = checkAdmission(best.type, input.fromType, input.toType);
+		const why =
+			`"${input.label}" reads as the same relation as the existing type "${best.type.label}" ` +
+			`- close enough in meaning to reuse rather than duplicate.`;
+		if (admission.admitted) {
+			return { kind: 'reuse-proposed', type: best.type, proposedLabel: input.label, why };
+		}
+		return resolveAdmissionGap(best.type, input.fromType, input.toType, admission, why);
+	}
+
+	// Nothing matched closely enough at either rung: a genuinely new relation.
+	return {
+		kind: 'new-proposed',
+		label: input.label,
+		inverseLabel: input.inverseLabel,
+		cardinality: input.cardinality,
+		from: input.fromType,
+		to: input.toType,
+		why: `No existing relation type in this universe or the shipped catalogue reads as "${input.label}", so this proposes it as a new type.`
+	};
+}
+
+/** Shared by both rung-1 matches: `fromType`/`toType` are already in `type`'s own
+ * canonical direction (the inverse-match call site above passes them swapped), so this
+ * only has to run the admission check and shape the result. */
+function resolveAgainstAdmission(
+	type: RelationTypeRow,
+	fromType: EntityType,
+	toType: EntityType,
+	matchedWhy: string
+): RelationTypeResolution {
+	const admission = checkAdmission(type, fromType, toType);
+	if (admission.admitted) return { kind: 'existing', type };
+	return resolveAdmissionGap(type, fromType, toType, admission, matchedWhy);
+}
+
+/** Both rung-1 and rung-2 land here once a type is chosen but does not admit the pair.
+ * `widen-proposed` names an *existing row to mutate* (`type`), and #192's admin CRUD
+ * (`packages/db/src/queries/relation-types.ts`'s `widenRelationType`) refuses to touch a
+ * `universe_id`-null row on purpose - the shipped catalogue only changes through a
+ * migration (0001_seed_relation_type_catalogue.sql's own comment). So a gap on a *shipped*
+ * type can never resolve to `widen-proposed`: there is no row an accept could safely
+ * widen. It resolves to `new-proposed` instead, under the shipped type's own canonical
+ * label/inverseLabel/cardinality (not the model's raw phrasing) so the fork still reads as
+ * "the same 'employs', just wider for this universe" rather than inventing a fourth
+ * synonym - #173's migration widened the catalogue globally; this is that same fix, scoped
+ * to one universe instead. A gap on a universe's own type has no such obstacle and widens
+ * in place. */
+function resolveAdmissionGap(
+	type: RelationTypeRow,
+	fromType: EntityType,
+	toType: EntityType,
+	admission: AdmissionCheck,
+	matchedWhy: string
+): RelationTypeResolution {
+	const gap = `${matchedWhy} It does not currently admit ${fromType} -> ${toType}.`;
+	if (type.universeId !== null) {
+		return {
+			kind: 'widen-proposed',
+			type,
+			...(admission.addFrom === undefined ? {} : { addFrom: admission.addFrom }),
+			...(admission.addTo === undefined ? {} : { addTo: admission.addTo }),
+			why: gap
+		};
+	}
+	return {
+		kind: 'new-proposed',
+		label: type.label,
+		inverseLabel: type.inverseLabel,
+		cardinality: type.cardinality,
+		from: fromType,
+		to: toType,
+		why: `${gap} The shipped catalogue only changes through a migration, so this proposes a universe-scoped "${type.label}" that admits it instead.`
+	};
+}

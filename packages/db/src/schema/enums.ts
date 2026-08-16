@@ -89,12 +89,28 @@ export type ProposalTrigger = (typeof proposalTriggerEnum.enumValues)[number];
 // nothing to write to canon. Giving it its own kind rather than storing it as an 'update'
 // with an empty patch means the accept path can refuse it outright, and means the accept
 // rate of §14 does not have to remember to filter by trigger to stay honest.
+//
+// Decision K1 and issue #190: 'relation_type_reuse', 'relation_type_widen' and
+// 'relation_type_new' are the three non-'existing' outcomes of
+// `@canonry/copilot`'s `resolveRelationType` (issue #189). A relation type is
+// vocabulary for a whole world, a bigger act than one edge, so guardrail 1 puts a human
+// on the write - these three kinds are that write's proposal, never the type itself
+// appearing as a side effect of an import. Each carries its patch as one vocabulary
+// question plus the relation(s) waiting on its answer (job-runner.ts's own comment on
+// `materializeDocumentProposals` has the shape); accepting is the only path that ever
+// creates or widens a `relation_type` row from an import, and it never writes a
+// `relation` row directly either - it unblocks the waiting relation(s) into their own
+// pending `relation`-kind proposals, so each still gets its own accept and the
+// allowed_from/allowed_to check on that accept path (issue #191) is never bypassed.
 export const proposalKindEnum = pgEnum('proposal_kind', [
 	'create',
 	'update',
 	'relation',
 	'draft_entity',
-	'flag'
+	'flag',
+	'relation_type_reuse',
+	'relation_type_widen',
+	'relation_type_new'
 ]);
 export type ProposalKind = (typeof proposalKindEnum.enumValues)[number];
 

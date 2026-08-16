@@ -2,6 +2,21 @@ export { closeDb, createDb, ping, type Db } from './client.js';
 export { runMigrations } from './migrate.js';
 export { factWithSource, type FactWithSource } from './queries/facts.js';
 export { relationsFor, type RelationView } from './queries/relations.js';
+export {
+	relationTypesForUniverse,
+	listRelationTypesForUniverse,
+	renameRelationType,
+	widenRelationType,
+	mergeRelationTypes,
+	RelationTypeNotOwnedError,
+	RelationTypeLabelConflictError,
+	type RelationTypeRow,
+	type RelationTypeCatalogueRow,
+	type RenameRelationTypeInput,
+	type WidenRelationTypeInput,
+	type MergeRelationTypesInput,
+	type MergeRelationTypesResult
+} from './queries/relation-types.js';
 export { historyFor } from './queries/revisions.js';
 export {
 	nextEntityLanguage,
@@ -59,6 +74,7 @@ export {
 	ProposalNotAcceptedError,
 	UndoNotPossibleError,
 	EntitySlugCollisionUnresolvedError,
+	RelationTypeNotAdmittedError,
 	type ProposalRow,
 	type ProposalPlanRow,
 	type CreateProposalPlanCandidate,
@@ -218,8 +234,13 @@ export {
 	recordEntitySourceRef,
 	syncMissingEntitySourceRefs,
 	missingEntitySourceRefsForJob,
-	findOrCreateRelationType,
 	acceptImportProposal,
+	acceptAnyImportProposal,
+	acceptRelationTypeProposal,
+	isRelationTypeProposalKind,
+	pendingRelationTypeProposalForJob,
+	foldRelationIntoPendingRelationTypeProposal,
+	proposeRelationTypeVocabulary,
 	ImportJobNotFoundError,
 	type ImportJobRow,
 	type EntitySourceRefRow,
@@ -236,11 +257,18 @@ export {
 	type MatchCandidateRow,
 	type FoldEntitySightingInput,
 	type RecordEntitySourceRefInput,
-	type FindOrCreateRelationTypeInput,
 	type AcceptImportProposalInput,
 	type SyncMissingEntitySourceRefsInput,
 	type SyncMissingEntitySourceRefsResult,
-	type MissingEntitySourceRefRow
+	type MissingEntitySourceRefRow,
+	type RelationTypeWaitingRelation,
+	type RelationTypeVocabResolutionInput,
+	type RelationTypeVocabPatch,
+	type PendingRelationTypeProposalMatch,
+	type ProposeRelationTypeVocabularyInput,
+	type ProposeRelationTypeVocabularyResult,
+	type AcceptRelationTypeProposalInput,
+	type AcceptRelationTypeProposalResult
 } from './queries/import.js';
 export {
 	proposalOutcomesForMetrics,

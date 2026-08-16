@@ -49,7 +49,13 @@ import {
 	loadBuiltinPlaybook,
 	type JobDocument
 } from '@canonry/import';
-import { createGateway, readGatewayCredentials, resolveModel } from '@canonry/ai';
+import { createGatewayEmbedder } from '@canonry/indexing';
+import {
+	createEmbeddingModel,
+	createGateway,
+	readGatewayCredentials,
+	resolveModel
+} from '@canonry/ai';
 import { rejectProposal, undoAcceptedProposal } from '@canonry/db';
 import { dataDir, loadEnv, requireEnv } from '../env.js';
 import { benchFixture, topUpCredits } from '../fixture.js';
@@ -188,6 +194,29 @@ async function runOne(input: RunOneInput): Promise<RunReport> {
 		gateway: (model) => model
 	});
 
+	// K1 (docs/ux/DECISIONS.md round six, issue #189): the import loop resolves a relation
+	// label the model proposed against the vocabulary this world already has, and the last
+	// rung of that resolver is semantic. This harness promises nothing is stubbed, so it
+	// gets the real gateway embedder rather than `hashingEmbedder`: the whole point of
+	// measuring here is to find out what a real model's wording does to a real catalogue,
+	// and #189's own threshold is explicitly waiting on a benchmark run like this one to
+	// stop being a guess.
+	const embeddingModel = await resolveModel(input.db, 'embedding');
+	const embedRelationLabel = createGatewayEmbedder({
+		db: input.db,
+		model: {
+			...embeddingModel,
+			model: createEmbeddingModel(
+				embeddingModel.provider,
+				embeddingModel.modelId,
+				readGatewayCredentials(process.env)
+			)
+		},
+		userId: input.userId,
+		universeId: input.universeId,
+		operation: 'index.embed'
+	});
+
 	const started = Date.now();
 	const runner = new ImportJobRunner();
 	const result = await runner.run({
@@ -204,6 +233,7 @@ async function runOne(input: RunOneInput): Promise<RunReport> {
 		images: new InMemoryImageStore(),
 		similarity: lexicalTrigramSimilarity,
 		thresholds: MATCH_THRESHOLDS,
+		embedRelationLabel,
 		timeoutMs: 20 * 60 * 1000
 	});
 	const seconds = (Date.now() - started) / 1000;

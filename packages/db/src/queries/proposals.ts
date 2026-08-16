@@ -15,7 +15,7 @@ import type {
 } from '../schema/enums.js';
 import { operationPrice } from '../schema/prices.js';
 import { proposal, proposalPlan } from '../schema/proposal.js';
-import { relation } from '../schema/relation.js';
+import { relation, relationType } from '../schema/relation.js';
 import { revision } from '../schema/revision.js';
 
 export type ProposalRow = typeof proposal.$inferSelect;
@@ -82,6 +82,23 @@ export class EntitySlugCollisionUnresolvedError extends Error {
 	constructor(proposalId: string, slug: string) {
 		super(`proposal "${proposalId}" collided on slug "${slug}" but no entity holds that slug`);
 		this.name = 'EntitySlugCollisionUnresolvedError';
+	}
+}
+
+/** #191: `allowed_from`/`allowed_to` is a constraint, not a comment, with one meaning on
+ * both the shipped catalogue and a universe's own types - a relation may only join entity
+ * types the type admits. Enforced right here, where the row is actually written (this
+ * module is the exclusive writer of canon from a proposal), not only checked earlier and
+ * then trusted - a real error, never a silent drop. #189's resolver is what turns "this
+ * pair is not admitted" into a `widen-proposed` a GM can accept instead of a proposal
+ * failing here; this is the backstop for anything that reaches accept without having gone
+ * through it. */
+export class RelationTypeNotAdmittedError extends Error {
+	constructor(proposalId: string, typeLabel: string, fromType: EntityType, toType: EntityType) {
+		super(
+			`proposal "${proposalId}" cannot be accepted: relation type "${typeLabel}" does not admit ${fromType} -> ${toType}`
+		);
+		this.name = 'RelationTypeNotAdmittedError';
 	}
 }
 
@@ -579,6 +596,45 @@ async function acceptProposalTx(db: Db, input: AcceptProposalInput): Promise<Pro
 			if (!existing.relationTypeId || !existing.targetEntityId || !existing.relatedEntityId) {
 				throw new Error(
 					`proposal "${existing.id}" is kind 'relation' but is missing relationTypeId, targetEntityId or relatedEntityId`
+				);
+			}
+			const [type] = await tx
+				.select({
+					label: relationType.label,
+					allowedFrom: relationType.allowedFrom,
+					allowedTo: relationType.allowedTo
+				})
+				.from(relationType)
+				.where(eq(relationType.id, existing.relationTypeId))
+				.limit(1);
+			if (!type) {
+				throw new Error(
+					`proposal "${existing.id}" targets missing relation_type "${existing.relationTypeId}"`
+				);
+			}
+			const [fromEntity] = await tx
+				.select({ type: entity.type })
+				.from(entity)
+				.where(eq(entity.id, existing.targetEntityId))
+				.limit(1);
+			const [toEntity] = await tx
+				.select({ type: entity.type })
+				.from(entity)
+				.where(eq(entity.id, existing.relatedEntityId))
+				.limit(1);
+			if (!fromEntity || !toEntity) {
+				throw new Error(`proposal "${existing.id}" targets a missing entity`);
+			}
+			// #191: allowed_from/allowed_to is a constraint on both the shipped catalogue and
+			// a universe's own types, enforced here where the row is actually written rather
+			// than only checked earlier and trusted - a pair the type does not admit never
+			// reaches the table, whatever proposed it.
+			if (!type.allowedFrom.includes(fromEntity.type) || !type.allowedTo.includes(toEntity.type)) {
+				throw new RelationTypeNotAdmittedError(
+					existing.id,
+					type.label,
+					fromEntity.type,
+					toEntity.type
 				);
 			}
 			await tx.insert(relation).values({

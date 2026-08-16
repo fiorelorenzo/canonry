@@ -602,7 +602,10 @@ export const it: Messages = {
 					update: 'modifica',
 					relation: 'relazione',
 					draft_entity: 'bozza',
-					flag: 'segnalazione'
+					flag: 'segnalazione',
+					relation_type_reuse: 'riusa tipo',
+					relation_type_widen: 'amplia tipo',
+					relation_type_new: 'nuovo tipo'
 				};
 				return labels[kind] ?? kind;
 			},
@@ -629,7 +632,38 @@ export const it: Messages = {
 			item: 'Oggetti',
 			event: 'Eventi',
 			session: 'Sessioni',
-			relation: 'Relazioni'
+			relation: 'Relazioni',
+			relation_type: 'Vocabolario'
+		},
+
+		relationVocab: {
+			reuseHeading: 'Riusa un tipo di relazione esistente',
+			widenHeading: 'Amplia un tipo di relazione esistente',
+			newHeading: 'Nuovo tipo di relazione',
+			askReuse: 'Il modello lo ha chiamato in un altro modo: ecco il tipo a cui si riferisce.',
+			askWiden: 'Questo tipo esiste già, ma non ammette ancora questa coppia di elementi.',
+			askNew: 'Questo mondo non ha ancora questo tipo di relazione.',
+			reuseType: (label, inverseLabel) =>
+				`Riusa il tuo tipo esistente "${label}" / "${inverseLabel}"`,
+			admitsCurrently: (pairs) => `Attualmente ammette ${pairs}.`,
+			widensTo: (fromLabel, toLabel) =>
+				`Lo amplia per ammettere anche ${fromLabel} \u2192 ${toLabel}.`,
+			newType: (label, inverseLabel, cardinality) =>
+				`Crea "${label}" / "${inverseLabel}", ${cardinality}`,
+			newAdmits: (pairs) => `Ammetterebbe ${pairs}.`,
+			waitingCount: (count) => {
+				const form = pluralRules('it').select(count);
+				return `${count} ${form === 'one' ? 'relazione in attesa' : 'relazioni in attesa'} di questo`;
+			},
+			cardinalityLabel: (cardinality) => {
+				const labels: Record<string, string> = {
+					one_to_one: 'uno a uno',
+					one_to_many: 'uno a molti',
+					many_to_one: 'molti a uno',
+					many_to_many: 'molti a molti'
+				};
+				return labels[cardinality] ?? cardinality;
+			}
 		},
 
 		bulkReject: {
@@ -840,7 +874,10 @@ export const it: Messages = {
 				update: 'modifica',
 				relation: 'relazione',
 				draft_entity: 'bozza',
-				flag: 'segnalazione'
+				flag: 'segnalazione',
+				relation_type_reuse: 'riusa tipo',
+				relation_type_widen: 'amplia tipo',
+				relation_type_new: 'nuovo tipo'
 			},
 			untitledProposal: 'Proposta senza titolo',
 			accept: 'Accetta',
@@ -1253,6 +1290,119 @@ export const it: Messages = {
 				sourceUrlRequiredError: 'Alla pagina sorgente serve un url.',
 				alreadySupersededError: 'Questa pagina è già stata soppiantata.',
 				missingIdError: 'Id della sostituzione mancante.'
+			},
+			relations: {
+				close: 'Chiudi',
+				cardHeading: 'Catalogo delle relazioni',
+				cardDescription: (universeName) =>
+					`Ogni tipo di relazione che ${universeName} può usare, i dieci di serie e i propri, con quante relazioni usa ciascuno.`,
+				cardCountOwn: (count) => {
+					const form = pluralRules('it').select(count);
+					if (count === 0) return 'Nessun tipo proprio ancora.';
+					return `${count} ${form === 'one' ? 'tipo proprio' : 'tipi propri'}.`;
+				},
+				manageLink: 'Gestisci i tipi di relazione',
+				headTitle: (universeName) => `Catalogo delle relazioni: ${universeName}`,
+				title: 'Catalogo delle relazioni',
+				description: (universeName) =>
+					`Ogni tipo di relazione che ${universeName} può usare: il catalogo di serie con cui parte ogni mondo, e quello proprio di questo universo. Rinomina o amplia i tuoi, unisci due tipi in uno; i dieci di serie restano cosa di una migrazione.`,
+				backLink: 'Torna alle impostazioni',
+				shippedHeading: 'Catalogo di serie',
+				shippedDescription:
+					"Le dieci etichette con cui parte ogni universo. Modificarne una è una migrazione, non un'impostazione, quindi questo elenco è di sola lettura.",
+				shippedBadge: 'di serie',
+				ownHeading: 'I tipi propri di questo universo',
+				ownDescription:
+					"Tipi inventati da questo universo, a mano o tramite una proposta d'importazione accettata.",
+				emptyOwn: 'Nessun tipo di relazione proprio ancora.',
+				emptyOwnExplanation:
+					"Un tipo compare qui appena un GM ne aggiunge uno, o accetta una proposta d'importazione che inventa una nuova etichetta.",
+				table: {
+					label: 'Etichetta',
+					inverseLabel: 'Inversa',
+					cardinality: 'Cardinalità',
+					allowedFrom: 'Da',
+					allowedTo: 'A',
+					usage: 'In uso',
+					actions: 'Azioni'
+				},
+				cardinalityLabel: (value) => {
+					const labels: Record<string, string> = {
+						one_to_one: 'uno a uno',
+						one_to_many: 'uno a molti',
+						many_to_one: 'molti a uno',
+						many_to_many: 'molti a molti'
+					};
+					return labels[value] ?? value;
+				},
+				entityTypeLabel: (type) => {
+					const labels: Record<string, string> = {
+						character: 'personaggio',
+						place: 'luogo',
+						faction: 'fazione',
+						item: 'oggetto',
+						event: 'evento',
+						session: 'sessione'
+					};
+					return labels[type] ?? type;
+				},
+				rename: {
+					trigger: 'Rinomina',
+					dialogTitle: (label) => `Rinomina "${label}"`,
+					dialogDescription:
+						'Una riga sola contiene entrambe le etichette, così i due lati della relazione non possono mai disallinearsi.',
+					labelField: 'Etichetta',
+					inverseLabelField: 'Etichetta inversa',
+					submit: 'Salva',
+					labelRequiredError: "L'etichetta non può essere vuota.",
+					inverseLabelRequiredError: "L'etichetta inversa non può essere vuota.",
+					conflictError: "Questo universo ha già un tipo con quell'etichetta.",
+					notOwnedError: 'Solo un tipo creato da questo universo può essere rinominato.'
+				},
+				widen: {
+					trigger: 'Amplia',
+					dialogTitle: (label) => `Amplia "${label}"`,
+					dialogDescription:
+						'Aggiungi i tipi di entità che questa relazione può collegare. Cresce soltanto: restringerla rischierebbe relazioni che il grafo ha già.',
+					fromHeading: 'Da',
+					toHeading: 'A',
+					currentlyAdmits: 'Ammette già',
+					addOption: (typeLabel) => `Aggiungi ${typeLabel}`,
+					submit: 'Amplia',
+					noChangeError: 'Seleziona almeno un tipo di entità da aggiungere.',
+					notOwnedError: 'Solo un tipo creato da questo universo può essere ampliato.'
+				},
+				merge: {
+					trigger: 'Unisci due tipi',
+					dialogTitle: 'Unisci due tipi di relazione',
+					dialogDescription:
+						"Per fare ordine dopo un'importazione che ha chiamato la stessa relazione in due modi. Ogni relazione che usa il tipo perdente si sposta sul tipo in cui viene unito, e il tipo perdente viene rimosso.",
+					fromLabel: 'Unisci questo tipo',
+					intoLabel: 'In questo tipo',
+					pickFromPlaceholder: 'Scegli un tipo di questo universo',
+					pickIntoPlaceholder: 'Scegli il tipo in cui unirlo',
+					countWarning: (count, fromLabel, intoLabel) => {
+						const form = pluralRules('it').select(count);
+						const uses = form === 'one' ? 'relazione usa' : 'relazioni usano';
+						const moves = form === 'one' ? 'la sposta' : 'le sposta tutte';
+						return `${count} ${uses} "${fromLabel}". L'unione ${moves} su "${intoLabel}", e "${fromLabel}" viene rimosso.`;
+					},
+					countWarningZero: (fromLabel, intoLabel) =>
+						`"${fromLabel}" non ha ancora relazioni. L'unione lo rimuove e lascia "${intoLabel}" com'è.`,
+					sameTypeError: 'Scegli due tipi diversi.',
+					notOwnedError: 'Solo un tipo creato da questo universo può essere unito e rimosso.',
+					needsTwoTypesNotice:
+						'Questo universo ha bisogno di almeno un tipo proprio prima che due tipi possano unirsi.',
+					submit: 'Unisci',
+					movedToast: (count, intoLabel) => {
+						if (count === 0) return `Unito in "${intoLabel}".`;
+						const suffix = count === 1 ? 'a' : 'e';
+						const noun = count === 1 ? 'relazione' : 'relazioni';
+						return `Spostat${suffix} ${count} ${noun} in "${intoLabel}".`;
+					}
+				},
+				viewerForbiddenError:
+					'Chi ha accesso in sola visualizzazione non può modificare il catalogo delle relazioni.'
 			}
 		}
 	},

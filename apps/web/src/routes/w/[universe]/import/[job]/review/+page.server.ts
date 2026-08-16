@@ -27,7 +27,7 @@
  */
 import { error, fail } from '@sveltejs/kit';
 import { missingEntitySourceRefsForJob, universeAccessBySlug } from '@canonry/db';
-import { acceptImportProposal, type AcceptImportProposalInput } from '@canonry/import';
+import { acceptAnyImportProposal, type AcceptImportProposalInput } from '@canonry/import';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import {
@@ -129,7 +129,7 @@ export const actions: Actions = {
 		const candidate = detail.candidates.find((c) => c.proposal.id === proposalId);
 		if (!candidate) return fail(404, { error: t.proposalNotFound(proposalId) });
 		try {
-			const accepted = await acceptImportProposal(conn, {
+			const accepted = await acceptAnyImportProposal(conn, candidate.proposal.kind, {
 				proposalId,
 				decidedBy: userId,
 				...importAcceptFields(candidate.proposal, detail.job)

@@ -340,6 +340,9 @@ importers:
       '@canonry/ai':
         specifier: workspace:*
         version: link:../ai
+      '@canonry/copilot':
+        specifier: workspace:*
+        version: link:../copilot
       '@canonry/db':
         specifier: workspace:*
         version: link:../db

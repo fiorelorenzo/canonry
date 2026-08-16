@@ -75,7 +75,7 @@ export const actions: Actions = {
 			}
 		}
 
-		await acceptOnboardingProposal(db(), {
+		await acceptOnboardingProposal(db(), target.kind, {
 			proposalId,
 			decidedBy: locals.user!.id,
 			sourceSystem: job.sourceType,

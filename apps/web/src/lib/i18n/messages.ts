@@ -603,6 +603,45 @@ export interface Messages {
 			event: string;
 			session: string;
 			relation: string;
+			/** Decision K1, issue #190: reuse-proposed/widen-proposed/new-proposed all
+			 * share this one chip, distinct from a plain 'relation' proposal - "the type
+			 * filter chips need to be able to show and hide them" as their own kind
+			 * inside the queue, not three separate chips for three outcomes of one
+			 * question. */
+			relation_type: string;
+		};
+		/** Decision K1, issue #190: the three non-'existing' outcomes of
+		 * `resolveRelationType` - reuse-proposed, widen-proposed, new-proposed - shown
+		 * inside the same D4 queue `ProposalDiffCard` renders everything else in.
+		 * `why` is always the resolver's own prose (guardrail 3: never a bare score),
+		 * read straight off `rationale`/diffCard already carries no separate string for
+		 * it here. */
+		relationVocab: {
+			reuseHeading: string;
+			widenHeading: string;
+			newHeading: string;
+			/** The catalogue's one-sentence question this proposal asks, per kind - shown
+			 * above the type block so "one question about vocabulary" (issue #190, D6)
+			 * reads as a sentence before the GM sees the mechanics. */
+			askReuse: string;
+			askWiden: string;
+			askNew: string;
+			/** "Reuses your existing type "employs" / "employed by"". */
+			reuseType: (label: string, inverseLabel: string) => string;
+			/** "Currently admits character -> character, place -> character.". Wraps the
+			 * whole sentence rather than interpolating raw entity-type tokens into a
+			 * pre-built one, since `entityTypeLabel` still has to localize each side. */
+			admitsCurrently: (pairs: string) => string;
+			/** "Widens it to also admit place -> faction.". */
+			widensTo: (fromLabel: string, toLabel: string) => string;
+			/** "Creates "fears" / "feared by", one_to_many, admitting character -> character.". */
+			newType: (label: string, inverseLabel: string, cardinality: string) => string;
+			/** "Would admit character -> character, place -> character." -
+			 * `relation_type_new`'s own admits sentence, worded as a future state since
+			 * the type does not exist until this proposal is accepted. */
+			newAdmits: (pairs: string) => string;
+			waitingCount: (count: number) => string;
+			cardinalityLabel: (cardinality: string) => string;
 		};
 		bulkReject: {
 			rejecting: string;
@@ -757,7 +796,17 @@ export interface Messages {
 		liveFeed: {
 			empty: string;
 			explanation: string;
-			badge: Record<'create' | 'update' | 'relation' | 'draft_entity' | 'flag', string>;
+			badge: Record<
+				| 'create'
+				| 'update'
+				| 'relation'
+				| 'draft_entity'
+				| 'flag'
+				| 'relation_type_reuse'
+				| 'relation_type_widen'
+				| 'relation_type_new',
+				string
+			>;
 			untitledProposal: string;
 			accept: string;
 			accepted: string;
@@ -1153,6 +1202,80 @@ export interface Messages {
 				sourceUrlRequiredError: string;
 				alreadySupersededError: string;
 				missingIdError: string;
+			};
+			/** Issue #192 (K1, DECISIONS.md "Round six"): the relation catalogue - every type a
+			 * universe can use, shipped and its own, with a real usage count, plus rename, merge
+			 * and widen for a universe's own types. The shipped ten stay read-only here on
+			 * purpose; editing them is a migration's job, not a settings control's. */
+			relations: {
+				close: string;
+				cardHeading: string;
+				cardDescription: (universeName: string) => string;
+				cardCountOwn: (count: number) => string;
+				manageLink: string;
+				headTitle: (universeName: string) => string;
+				title: string;
+				description: (universeName: string) => string;
+				backLink: string;
+				shippedHeading: string;
+				shippedDescription: string;
+				shippedBadge: string;
+				ownHeading: string;
+				ownDescription: string;
+				emptyOwn: string;
+				emptyOwnExplanation: string;
+				table: {
+					label: string;
+					inverseLabel: string;
+					cardinality: string;
+					allowedFrom: string;
+					allowedTo: string;
+					usage: string;
+					actions: string;
+				};
+				cardinalityLabel: (value: string) => string;
+				entityTypeLabel: (type: string) => string;
+				rename: {
+					trigger: string;
+					dialogTitle: (label: string) => string;
+					dialogDescription: string;
+					labelField: string;
+					inverseLabelField: string;
+					submit: string;
+					labelRequiredError: string;
+					inverseLabelRequiredError: string;
+					conflictError: string;
+					notOwnedError: string;
+				};
+				widen: {
+					trigger: string;
+					dialogTitle: (label: string) => string;
+					dialogDescription: string;
+					fromHeading: string;
+					toHeading: string;
+					currentlyAdmits: string;
+					addOption: (typeLabel: string) => string;
+					submit: string;
+					noChangeError: string;
+					notOwnedError: string;
+				};
+				merge: {
+					trigger: string;
+					dialogTitle: string;
+					dialogDescription: string;
+					fromLabel: string;
+					intoLabel: string;
+					pickFromPlaceholder: string;
+					pickIntoPlaceholder: string;
+					countWarning: (count: number, fromLabel: string, intoLabel: string) => string;
+					countWarningZero: (fromLabel: string, intoLabel: string) => string;
+					sameTypeError: string;
+					notOwnedError: string;
+					needsTwoTypesNotice: string;
+					submit: string;
+					movedToast: (count: number, intoLabel: string) => string;
+				};
+				viewerForbiddenError: string;
 			};
 		};
 	};

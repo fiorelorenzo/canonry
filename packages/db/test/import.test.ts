@@ -18,7 +18,6 @@ import {
 	recordProposalDiff,
 	type Db,
 	findEntityBySourceRef,
-	findOrCreateRelationType,
 	getImportJob,
 	ImportJobNotFoundError,
 	importQuotaForUser,
@@ -678,29 +677,6 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 			const row = await getProposal(db, character.id);
 			const evidence = row?.evidence as { foldedSources?: unknown[] };
 			expect(evidence.foldedSources).toHaveLength(1);
-		});
-	});
-
-	describe('findOrCreateRelationType', () => {
-		it('creates a relation type once and reuses it on a second call with the same label', async () => {
-			const { universe: u } = await jobFixture();
-			const first = await findOrCreateRelationType(db, {
-				universeId: u.id,
-				label: 'commands',
-				inverseLabel: 'commanded by',
-				cardinality: 'one_to_many',
-				allowedFrom: 'character',
-				allowedTo: 'faction'
-			});
-			const second = await findOrCreateRelationType(db, {
-				universeId: u.id,
-				label: 'commands',
-				inverseLabel: 'commanded by',
-				cardinality: 'one_to_many',
-				allowedFrom: 'character',
-				allowedTo: 'faction'
-			});
-			expect(second.id).toBe(first.id);
 		});
 	});
 
