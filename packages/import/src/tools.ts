@@ -96,6 +96,12 @@ export interface DocumentRunContext {
 	relationCount: number;
 	finished: boolean;
 	finishOutcome: 'completed' | 'skipped' | null;
+	/** issue #169: the most recent `(toolName, arguments)` pair this document called
+	 * and how many times in a row it has repeated - reset the moment a call's tool
+	 * name or arguments differ from the previous one. Read and written only by the
+	 * loop guard below (`registerToolCall`); nothing else needs to know a document is
+	 * looping until the guard decides to end it. */
+	lastToolCall: { key: string; count: number } | null;
 	/** issue #126: this document's own language, detected once by the driver before the
 	 * loop starts (`detectLanguage` over the document's whole text - more signal than any
 	 * one entity's short `summary` alone) and stamped onto every entity this document
@@ -119,6 +125,7 @@ export function createDocumentRunContext(
 		relationCount: 0,
 		finished: false,
 		finishOutcome: null,
+		lastToolCall: null,
 		documentLanguage
 	};
 }
@@ -126,6 +133,99 @@ export function createDocumentRunContext(
 export interface CreateImportToolsDeps {
 	sources: SourceReader;
 	images: ImageStore;
+}
+
+/** issue #169: from the first live end-to-end run, one document called `source_list`
+ * with the same argument fourteen times in a row until the step ceiling stopped it,
+ * on a note whose real work took eight steps. The step ceiling is the right backstop
+ * (SPEC.md §6.1), but a backstop that costs 52 wasted model calls before it fires is
+ * expensive on a large import. Two identical calls in a row are let through
+ * unremarked - checking the same thing twice is not yet a loop - but the third
+ * identical call in a row (same tool, same arguments) gets an error telling it so
+ * instead of the real answer, on the theory that a model that is actually looping
+ * usually breaks out once the answer stops repeating. A fourth identical call in a
+ * row proves it did not: that call ends the document there rather than letting it
+ * grind through the rest of the step budget for nothing. */
+const LOOP_WARN_AT_COUNT = 3;
+const LOOP_END_AT_COUNT = 4;
+
+/** Canonical string for a tool call's arguments, independent of key insertion order,
+ * so the same arguments written in a different key order still compare equal. */
+function canonicalArgs(value: unknown): string {
+	if (Array.isArray(value)) return `[${value.map(canonicalArgs).join(',')}]`;
+	if (value !== null && typeof value === 'object') {
+		const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+			a < b ? -1 : a > b ? 1 : 0
+		);
+		return `{${entries.map(([key, v]) => `${JSON.stringify(key)}:${canonicalArgs(v)}`).join(',')}}`;
+	}
+	return JSON.stringify(value) ?? 'undefined';
+}
+
+/** Advances `ctx.lastToolCall`'s streak for this call and returns the tool result to
+ * hand back instead of running it for real, or `null` if the call should run as
+ * normal. Called from every tool's `execute` (`guardedExecute` below), never
+ * selectively - a document stuck repeating `checkpoint` wastes the budget exactly as
+ * badly as one stuck repeating `source_list`. */
+function registerToolCall(
+	ctx: DocumentRunContext,
+	toolName: string,
+	input: unknown
+): { ok: false; error: string } | null {
+	const key = `${toolName}\u0000${canonicalArgs(input)}`;
+	if (ctx.lastToolCall && ctx.lastToolCall.key === key) {
+		ctx.lastToolCall.count += 1;
+	} else {
+		ctx.lastToolCall = { key, count: 1 };
+	}
+	const count = ctx.lastToolCall.count;
+
+	if (count === LOOP_WARN_AT_COUNT) {
+		return {
+			ok: false,
+			error:
+				`You have called ${toolName} with the exact same arguments ${count} times in a row; ` +
+				'the result will not change. Do something different next, or call job_finish if ' +
+				'this document has nothing left to do.'
+		};
+	}
+
+	if (count >= LOOP_END_AT_COUNT) {
+		if (!ctx.finished) {
+			ctx.finished = true;
+			ctx.pending.push({
+				type: 'progress',
+				jobId: ctx.jobId,
+				documentId: ctx.documentId,
+				step: ctx.step,
+				status: 'stopped_at_ceiling',
+				entityCount: ctx.entityCount,
+				relationCount: ctx.relationCount,
+				detail: `stuck in a loop: ${toolName} was called with identical arguments ${count} times in a row, so this document was ended rather than run to its step ceiling`
+			});
+		}
+		return {
+			ok: false,
+			error: `This document ended because ${toolName} kept repeating the same call.`
+		};
+	}
+
+	return null;
+}
+
+/** Wraps a tool's real `execute` with the loop guard above - every one of the eight
+ * tools goes through this, not just the one the first live run happened to catch
+ * looping. */
+function guardedExecute<Input, Output>(
+	ctx: DocumentRunContext,
+	toolName: string,
+	execute: (input: Input) => Promise<Output>
+): (input: Input) => Promise<Output | { ok: false; error: string }> {
+	return async (input) => {
+		const blocked = registerToolCall(ctx, toolName, input);
+		if (blocked) return blocked;
+		return execute(input);
+	};
 }
 
 /** Builds the eight-tool set for one document's run. `enabled` narrows it to the
@@ -140,16 +240,16 @@ export function createImportTools(
 		source_list: tool({
 			description: "List files under a path in this job's unpacked export.",
 			inputSchema: SOURCE_LIST_INPUT,
-			execute: async (input) => {
+			execute: guardedExecute(ctx, 'source_list', async (input) => {
 				const entries = await deps.sources.list(input.path);
 				return { ok: true as const, entries };
-			}
+			})
 		}),
 
 		source_read: tool({
 			description: "Read one file's text by path from this job's unpacked export.",
 			inputSchema: SOURCE_READ_INPUT,
-			execute: async (input) => {
+			execute: guardedExecute(ctx, 'source_read', async (input) => {
 				try {
 					const result = await deps.sources.read(input.path);
 					return { ok: true as const, ...result };
@@ -159,14 +259,14 @@ export function createImportTools(
 						error: cause instanceof Error ? cause.message : String(cause)
 					};
 				}
-			}
+			})
 		}),
 
 		page_image: tool({
 			description:
 				'Render one page of a PDF to an image so a scanned page can be looked at directly.',
 			inputSchema: PAGE_IMAGE_INPUT,
-			execute: async (input) => {
+			execute: guardedExecute(ctx, 'page_image', async (input) => {
 				try {
 					const rendered = await deps.sources.renderPage(input.path, input.page);
 					return { ok: true as const, ...rendered };
@@ -176,7 +276,7 @@ export function createImportTools(
 						error: cause instanceof Error ? cause.message : String(cause)
 					};
 				}
-			},
+			}),
 			toModelOutput: ({ output }) => {
 				if (!output.ok) return { type: 'json', value: output };
 				return {
@@ -199,7 +299,7 @@ export function createImportTools(
 		image_store: tool({
 			description: 'Store an image found in the export by path and get back an asset id to attach.',
 			inputSchema: IMAGE_STORE_INPUT,
-			execute: async (input) => {
+			execute: guardedExecute(ctx, 'image_store', async (input) => {
 				try {
 					const asset = await deps.sources.readBinary(input.path);
 					const stored = await deps.images.store({
@@ -214,33 +314,33 @@ export function createImportTools(
 						error: cause instanceof Error ? cause.message : String(cause)
 					};
 				}
-			}
+			})
 		}),
 
 		entity_propose: tool({
 			description:
 				'Emit a candidate entity, with the source reference and evidence span that produced it.',
 			inputSchema: ENTITY_PROPOSE_INPUT,
-			execute: async (input) => proposeEntity(ctx, input)
+			execute: guardedExecute(ctx, 'entity_propose', async (input) => proposeEntity(ctx, input))
 		}),
 
 		relation_propose: tool({
 			description:
 				'Emit a candidate relation between two entities already proposed in this document.',
 			inputSchema: RELATION_PROPOSE_INPUT,
-			execute: async (input) => proposeRelation(ctx, input)
+			execute: guardedExecute(ctx, 'relation_propose', async (input) => proposeRelation(ctx, input))
 		}),
 
 		checkpoint: tool({
 			description: 'Record progress on this document so a resumed run does not redo finished work.',
 			inputSchema: CHECKPOINT_INPUT,
-			execute: async (input) => checkpointDocument(ctx, input)
+			execute: guardedExecute(ctx, 'checkpoint', async (input) => checkpointDocument(ctx, input))
 		}),
 
 		job_finish: tool({
 			description: 'Close out this document. Counts are computed by the loop, not reported by you.',
 			inputSchema: JOB_FINISH_INPUT,
-			execute: async (input) => finishDocument(ctx, input)
+			execute: guardedExecute(ctx, 'job_finish', async (input) => finishDocument(ctx, input))
 		})
 	};
 
