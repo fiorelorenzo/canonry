@@ -723,11 +723,14 @@ is the lesson: the 0.5 this section used to state came from an eval over a
 2044-chunk gold corpus at MRR 0.775, and it survived two model changes it was
 never valid across. **A threshold is a property of one model's cosine scale, not a
 constant of this product.** Against `alibaba/qwen3-embedding-4b` the floor is
-0.25, derived from the gold corpus in both languages
-(`packages/indexing/src/retriever.ts` carries the distributions), and 0.55 —
-correct for the model before it — would have discarded most correct hits without
-failing. Re-derive it, from a measurement, whenever the embedding model changes,
-and re-run the retrieval eval in the same breath.
+0.35, derived from the gold corpus in both languages and re-derived a second time
+(issue #168) against the 32-entity bilingual corpus the product's own indexing
+path (issue #164) actually populates, where it costs nothing in recall down to
+0.40 and admits under half the noise 0.25 did
+(`packages/indexing/src/retriever.ts` carries both derivations). 0.55 — correct
+for the model before it — would have discarded most correct hits without
+failing. Re-derive it, from a measurement, whenever the embedding model or the
+corpus changes, and re-run the retrieval eval in the same breath.
 
 ### 11.5 Cost accounting
 

@@ -7,10 +7,10 @@
  * be one runner rather than four. It seeds the world, indexes it into Qdrant with the real
  * embedding model, then exercises each mode against it and writes down what came back:
  *
- * - **retrieval**, first, because everything else is downstream of it. Scored with
- *   `@canonry/eval`'s retrieval harness against the gold corpus, so the number is
- *   comparable with the one SPEC.md §11.4 records and with the threshold that section says
- *   must be re-derived whenever the embedding model changes.
+ * - **retrieval**, first, because everything else is downstream of it. Recall against the
+ *   gold corpus, the same shape SPEC.md §11.4 records; the threshold and top-k that
+ *   section says to re-derive per corpus are swept separately in `retrieval-sweep.ts`,
+ *   which is what runs `@canonry/eval`'s retrieval harness (issue #168).
  * - **ask**, at every detail level and in both languages, including the cross-language
  *   cases that SPEC.md §17 says are a test rather than a hope.
  * - **propagate**, the full two-phase flow: `planPropagation` then `generatePlanDiffs`, with
@@ -35,20 +35,16 @@ import {
 } from '@canonry/copilot';
 import { resolveModel } from '@canonry/ai';
 import { closeDb, createDb, eq, type Db } from '@canonry/db';
-import { entity, proposal, proposalPlan } from '@canonry/db/schema';
-import {
-	createVectorClient,
-	ensureCollection,
-	loreCollectionNameForModel,
-	upsertLoreChunks
-} from '@canonry/vector';
-import { chunkWikiPage, heuristicExtractor, retrieveForUniverse } from '@canonry/indexing';
+import { proposal, proposalPlan } from '@canonry/db/schema';
+import { createVectorClient } from '@canonry/vector';
+import { retrieveForUniverse } from '@canonry/indexing';
 import { detectLanguage } from '@canonry/lang';
 import { dataDir, loadEnv, requireEnv } from '../env.js';
 import { benchEmbedder } from '../embedder.js';
 import { benchFixture, topUpCredits } from '../fixture.js';
 import { benchModelFactory, identityGateway } from '../models/factory.js';
-import { indexOwnCanon } from '../index-canon.js';
+import { indexCorpus } from '../index-corpus.js';
+import { assertCreditAvailable } from '../models/credits.js';
 import { seedWorld } from '../corpus/seed.js';
 import { markdownBody } from '../corpus/types.js';
 import { worldV1 } from '../corpus/valdoria-reach.js';
@@ -146,7 +142,8 @@ async function measureRetrieval(
 	universeId: string,
 	collection: string,
 	chunks: number,
-	vectorSize: number
+	vectorSize: number,
+	idToSlug: Map<string, string>
 ): Promise<RetrievalObservation> {
 	const embedder = await benchEmbedder(db, universeId);
 	const client = createVectorClient();
@@ -164,7 +161,11 @@ async function measureRetrieval(
 			queryText: q.question
 		});
 		const hitEntities = [
-			...new Set(hits.map((h) => String(h.payload.url ?? '').replace('canonry://entity/', '')))
+			...new Set(
+				hits
+					.map((h) => idToSlug.get(String(h.payload.url ?? '').replace('canonry://entity/', '')))
+					.filter((slug): slug is string => slug !== undefined)
+			)
 		];
 		const expected = q.groundedIn;
 		const found = expected.filter((slug) => hitEntities.includes(slug));
@@ -211,6 +212,9 @@ async function main(): Promise<void> {
 	}
 	requireEnv('QDRANT_URL');
 
+	const balance = await assertCreditAvailable();
+	console.log(`gateway balance ${balance.balanceUsd.toFixed(2)} USD`);
+
 	const db = createDb(url, { max: 4, quiet: true });
 	try {
 		const fixture = await benchFixture(db);
@@ -220,13 +224,15 @@ async function main(): Promise<void> {
 		const premium = await resolveModel(db, 'premium');
 		const embedding = await resolveModel(db, 'embedding');
 
-		const indexed = await indexOwnCanon(db, fixture.universeId);
+		const indexed = await indexCorpus(db, fixture.universeId);
+		const idToSlug = new Map([...seeded.idBySlug].map(([slug, id]) => [id, slug]));
 		const retrieval = await measureRetrieval(
 			db,
 			fixture.universeId,
 			indexed.collection,
 			indexed.chunks,
-			indexed.vectorSize
+			indexed.vectorSize,
+			idToSlug
 		);
 
 		const report: LoremasterE2EReport = {

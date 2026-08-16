@@ -14,7 +14,7 @@ import { resolveModel } from '@canonry/ai';
 import { loadEnv, requireEnv } from './env.js';
 import { benchFixture, topUpCredits } from './fixture.js';
 import { seedWorld } from './corpus/seed.js';
-import { indexOwnCanon } from './index-canon.js';
+import { indexCorpus } from './index-corpus.js';
 import { worldV1 } from './corpus/valdoria-reach.js';
 
 async function main(): Promise<void> {
@@ -31,7 +31,7 @@ async function main(): Promise<void> {
 		await topUpCredits(db);
 		const seeded = await seedWorld(db, fixture.universeId, worldV1);
 		const embedding = await resolveModel(db, 'embedding');
-		const indexed = await indexOwnCanon(db, fixture.universeId);
+		const indexed = await indexCorpus(db, fixture.universeId);
 		console.log(
 			`universe ${fixture.universeId}: ${seeded.entities} entities, ${seeded.relations} relations`
 		);
