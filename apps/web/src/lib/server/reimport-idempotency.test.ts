@@ -338,8 +338,16 @@ describe('re-import idempotency, per source (issue #161, SPEC.md §6.4)', () => 
  *   proposals refused" the #175 commit message measured, at fixture scale.
  * - On this branch (#175 applied): one `create`, folded from both sightings, zero
  *   accept failures.
+ *
+ * issue #178: folding stopped the accept-time crash, but the surviving `create`'s own
+ * `evidence.sourceRef` only ever points at the *first* document (doc1.md here) - the one
+ * doc2.md folded into never became its own entity_source_ref row. The test below now
+ * re-imports the same two documents a second time and asserts both are skipped, which
+ * fails without #178: doc1.md skips correctly, doc2.md comes back as a fresh `update`
+ * proposal every time, exactly the "one proposal, not zero" this issue's own Evidence
+ * section measured.
  */
-describe('regression: two documents naming the same entity in one job (issue #160, #175)', () => {
+describe('regression: two documents naming the same entity in one job (issue #160, #175, #178)', () => {
 	let db: Db;
 	let userId: string;
 	let universeId: string;
@@ -381,57 +389,228 @@ describe('regression: two documents naming the same entity in one job (issue #16
 		});
 		const documents = await documentsForPlaybook('obsidian', reader);
 
-		const estimate = estimateImportJob({
-			documentCount: documents.length,
-			avgCreditsPerDocument: 1,
-			avgSecondsPerDocument: 1
-		});
-		const admitted = await admitAndCreateImportJob(db, {
-			universeId,
-			createdBy: userId,
-			sourceType: 'obsidian',
-			playbook: playbook.id,
-			playbookVersion: playbook.version,
-			artefactPath: 'test-fixture://dup-name',
-			artefactBytes: 0,
-			artefactSha256: '0'.repeat(64),
-			documentCount: documents.length,
-			budgetCredits: 1000,
-			estimate,
-			concurrencyLimit: 20
-		});
-		expect(admitted.admitted).toBe(true);
+		async function runOnce() {
+			const estimate = estimateImportJob({
+				documentCount: documents.length,
+				avgCreditsPerDocument: 1,
+				avgSecondsPerDocument: 1
+			});
+			const admitted = await admitAndCreateImportJob(db, {
+				universeId,
+				createdBy: userId,
+				sourceType: 'obsidian',
+				playbook: playbook.id,
+				playbookVersion: playbook.version,
+				artefactPath: 'test-fixture://dup-name',
+				artefactBytes: 0,
+				artefactSha256: '0'.repeat(64),
+				documentCount: documents.length,
+				budgetCredits: 1000,
+				estimate,
+				concurrencyLimit: 20
+			});
+			expect(admitted.admitted).toBe(true);
 
-		const runner = new ImportJobRunner();
-		await runner.run({
-			db,
-			driver: new DeterministicExtractionDriver(),
-			dbJobId: admitted.jobId,
-			universeId,
-			sourceSystem: 'obsidian',
-			userId,
-			playbook,
-			documents,
-			sources: reader,
-			images: new InMemoryImageStore(),
-			budget: { maxCredits: 1000 },
-			similarity: importMatchSimilarity,
-			thresholds: MATCH_THRESHOLDS,
-			timeoutMs: 60_000
-		});
+			const runner = new ImportJobRunner();
+			return runner.run({
+				db,
+				driver: new DeterministicExtractionDriver(),
+				dbJobId: admitted.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents,
+				sources: reader,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: importMatchSimilarity,
+				thresholds: MATCH_THRESHOLDS,
+				timeoutMs: 60_000
+			});
+		}
+
+		const firstRun = await runOnce();
 
 		// The pre-#175 bug: two documents naming "Aldric Voss" produced two `create`
 		// proposals, not one folded proposal.
-		const firstCount = await countProposals(db, admitted.jobId);
+		const firstCount = await countProposals(db, firstRun.jobId);
 		expect(firstCount, 'expected one folded create, not one per document').toBe(1);
 
 		// The pre-#175 bug's own observable: accepting the second `create` for the same
 		// name raises `entity_universe_slug_key`, caught here as a failure rather than a
 		// thrown test error.
-		const sweep = await acceptAll(db, admitted.jobId, userId, 'obsidian');
+		const sweep = await acceptAll(db, firstRun.jobId, userId, 'obsidian');
 		expect(
 			sweep.failures,
 			`accept sweep should be clean; got ${JSON.stringify(sweep.failures)}`
 		).toEqual([]);
+
+		// issue #178: doc2.md's sighting folded into doc1.md's create and never got its
+		// own entity_source_ref row, so it was never skipped on a later import. Re-running
+		// the identical two documents has to skip both, not just doc1.md (the one the
+		// surviving proposal's evidence happened to keep pointing at).
+		const secondRun = await runOnce();
+		expect(
+			await countProposals(db, secondRun.jobId),
+			"a document folded into another one's pending proposal must still be skipped on re-import"
+		).toBe(0);
+		expect(
+			secondRun.documents.map((d) => ({ documentId: d.documentId, status: d.status }))
+		).toEqual([
+			{ documentId: 'doc-1', status: 'skipped_unchanged' },
+			{ documentId: 'doc-2', status: 'skipped_unchanged' }
+		]);
+	});
+});
+
+/**
+ * Issue #178's own harder case: `entity_source_ref` is unique on `(source_system,
+ * external_id)`, `external_id` a single document's path - but a document can name more
+ * than one entity (a Kanka per-type export like the one below routinely does: one
+ * `characters.json` lists several characters) just as one entity can be named by more
+ * than one document (the fold above). This fixture drives both at once: `characters-a.json`
+ * names two entities (Aldric, Mira), `characters-b.json` repeats one of them (Aldric),
+ * folding into `characters-a.json`'s still-pending Aldric create.
+ *
+ * What makes re-import correct here is `entity_source_ref.content_hash`, not which entity
+ * a row happens to point at: accepting Aldric's and Mira's creates in some order both
+ * write to the row keyed on `characters-a.json`'s own path, so that row ends up pointing
+ * at whichever of the two was accepted last - but `ImportJobRunner.run`'s skip check only
+ * ever compares content hashes, never entity ids, so the ambiguity does not defeat the
+ * guarantee for either document. See this PR's description for why that narrower
+ * limitation (an entity's *identity* on a later *changed* re-import, not the skip itself)
+ * was left alone rather than a shape this issue also had to fix.
+ */
+describe('one document naming two entities, another repeating one of them (issue #178)', () => {
+	let db: Db;
+	let userId: string;
+	let universeId: string;
+
+	beforeAll(async () => {
+		db = createDb(DATABASE_URL, { max: 2 });
+		userId = unique('fold-doc-user');
+		await db.insert(user).values({
+			id: userId,
+			name: 'Fold Document Regression',
+			email: `${userId}@canonry.invalid`
+		});
+		const [row] = await db
+			.insert(universe)
+			.values({
+				ownerUserId: userId,
+				name: 'Fold Document Regression',
+				slug: unique('fold-doc-universe'),
+				kind: 'homebrew'
+			})
+			.returning();
+		if (!row) throw new Error('universe insert did not return a row');
+		universeId = row.id;
+	});
+
+	afterAll(async () => {
+		await db.delete(universe).where(eq(universe.id, universeId));
+		await db.delete(user).where(eq(user.id, userId));
+		await closeDb(db);
+	});
+
+	it('skips both documents on an identical re-import', async () => {
+		const playbook = await loadBuiltinPlaybook('kanka');
+		const reader = new InMemorySourceReader({
+			files: {
+				'characters-a.json': JSON.stringify([
+					{
+						entity_id: '1',
+						entity_type: 'character',
+						name: 'Aldric Voss',
+						entry: 'Commands the harbour watch.'
+					},
+					{
+						entity_id: '2',
+						entity_type: 'character',
+						name: 'Mira Sable',
+						entry: 'Holds a seat on the council.'
+					}
+				]),
+				'characters-b.json': JSON.stringify([
+					{
+						entity_id: '3',
+						entity_type: 'character',
+						name: 'Aldric Voss',
+						entry: 'Second sighting of Aldric, worded differently.'
+					}
+				])
+			}
+		});
+		const documents = await documentsForPlaybook('kanka', reader);
+		expect(documents.map((d) => d.sourcePath)).toEqual(['characters-a.json', 'characters-b.json']);
+
+		async function runOnce() {
+			const estimate = estimateImportJob({
+				documentCount: documents.length,
+				avgCreditsPerDocument: 1,
+				avgSecondsPerDocument: 1
+			});
+			const admitted = await admitAndCreateImportJob(db, {
+				universeId,
+				createdBy: userId,
+				sourceType: 'kanka',
+				playbook: playbook.id,
+				playbookVersion: playbook.version,
+				artefactPath: 'test-fixture://fold-doc',
+				artefactBytes: 0,
+				artefactSha256: '0'.repeat(64),
+				documentCount: documents.length,
+				budgetCredits: 1000,
+				estimate,
+				concurrencyLimit: 20
+			});
+			expect(admitted.admitted).toBe(true);
+
+			const runner = new ImportJobRunner();
+			return runner.run({
+				db,
+				driver: new DeterministicExtractionDriver(),
+				dbJobId: admitted.jobId,
+				universeId,
+				sourceSystem: 'kanka',
+				userId,
+				playbook,
+				documents,
+				sources: reader,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: importMatchSimilarity,
+				thresholds: MATCH_THRESHOLDS,
+				timeoutMs: 60_000
+			});
+		}
+
+		const firstRun = await runOnce();
+		// characters-a.json proposes Aldric and Mira as two separate creates;
+		// characters-b.json's own Aldric sighting folds into characters-a.json's still-
+		// pending Aldric create rather than proposing a third.
+		expect(
+			await countProposals(db, firstRun.jobId),
+			'expected two creates - Aldric (folded) and Mira'
+		).toBe(2);
+
+		const sweep = await acceptAll(db, firstRun.jobId, userId, 'kanka');
+		expect(
+			sweep.failures,
+			`accept sweep should be clean; got ${JSON.stringify(sweep.failures)}`
+		).toEqual([]);
+
+		const secondRun = await runOnce();
+		expect(
+			await countProposals(db, secondRun.jobId),
+			'both documents named an entity this job already recorded an entity_source_ref for - re-importing must skip both, not just the one whose path the surviving proposal happened to keep'
+		).toBe(0);
+		expect(
+			secondRun.documents.map((d) => ({ documentId: d.documentId, status: d.status }))
+		).toEqual([
+			{ documentId: 'doc-1', status: 'skipped_unchanged' },
+			{ documentId: 'doc-2', status: 'skipped_unchanged' }
+		]);
 	});
 });
