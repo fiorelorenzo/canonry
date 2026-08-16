@@ -799,3 +799,188 @@ describe('GatewayDriver - schema validation rejects a malformed proposal (issue 
 		expect(logged.some((f) => f.toolName === 'entity_propose' && f.status === 'error')).toBe(true);
 	});
 });
+
+describe('GatewayDriver - a repeated tool call ends the document before the step ceiling (issue #169)', () => {
+	it('runs the first two identical calls for real, errors the third instead of repeating, and ends the document on the fourth', async () => {
+		const sources = new InMemorySourceReader({ files: { 'notes/a.md': 'irrelevant' } });
+		const ctx = createDocumentRunContext('job-1', 'doc-1');
+		const tools = createImportTools(
+			ctx,
+			{ sources, images: new InMemoryImageStore() },
+			new Set(['source_list'])
+		);
+		const options = { toolCallId: 't1', messages: [], context: undefined };
+		const sourceList = tools.source_list;
+		expect(sourceList?.execute).toBeDefined();
+		const call = () =>
+			sourceList?.execute?.({ path: '' }, options) as Promise<{
+				ok: boolean;
+				error?: string;
+			}>;
+
+		const first = await call();
+		expect(first.ok).toBe(true);
+		const second = await call();
+		expect(second.ok).toBe(true);
+		expect(ctx.finished).toBe(false);
+
+		const third = await call();
+		expect(third.ok).toBe(false);
+		expect(third.error).toMatch(/same arguments/);
+		expect(third.error).toMatch(/3 times/);
+		expect(ctx.finished).toBe(false);
+		expect(ctx.pending).toHaveLength(0);
+
+		const fourth = await call();
+		expect(fourth.ok).toBe(false);
+		expect(ctx.finished).toBe(true);
+		expect(ctx.pending).toHaveLength(1);
+		const terminal = ctx.pending[0];
+		expect(terminal).toMatchObject({ type: 'progress', status: 'stopped_at_ceiling' });
+		expect(terminal && terminal.type === 'progress' && terminal.detail).toMatch(/loop/i);
+		expect(terminal && terminal.type === 'progress' && terminal.detail).toMatch(/source_list/);
+
+		// A fifth identical call must not queue a second terminal event - the document
+		// already ended, so the driver's `ctx.pending.splice(0)` after step 4 is the only
+		// place this event is ever read.
+		await call();
+		expect(ctx.pending).toHaveLength(1);
+	});
+
+	it('resets the streak the moment the arguments change, so alternating calls are never mistaken for a loop', async () => {
+		const sources = new InMemorySourceReader({
+			files: { 'notes/a.md': 'irrelevant', 'notes/b.md': 'also irrelevant' }
+		});
+		const ctx = createDocumentRunContext('job-1', 'doc-1');
+		const tools = createImportTools(
+			ctx,
+			{ sources, images: new InMemoryImageStore() },
+			new Set(['source_read'])
+		);
+		const options = { toolCallId: 't1', messages: [], context: undefined };
+		const sourceRead = tools.source_read;
+		for (let i = 0; i < 6; i++) {
+			const path = i % 2 === 0 ? 'notes/a.md' : 'notes/b.md';
+			const result = (await sourceRead?.execute?.({ path }, options)) as { ok: boolean };
+			expect(result.ok).toBe(true);
+		}
+		expect(ctx.finished).toBe(false);
+	});
+
+	it('stops a model that repeats one tool call well before a 20-step ceiling, and names the loop in the terminal detail', async () => {
+		const playbook = loadPlaybook(`---
+id: fixture
+version: 1
+name: Fixture
+description: A playbook with a generous step ceiling, for the loop-guard test (issue #169).
+stepBudget: 20
+---
+
+Read the document, list its siblings, then finish.
+
+## Inputs
+
+One document.
+
+## Tools
+
+- \`source_list\` - list files under a path.
+- \`job_finish\` - close the run.
+
+## Steps
+
+1. List the export root, then finish.
+
+   \`\`\`json
+   { "outcome": "completed" }
+   \`\`\`
+`);
+		const sources = new InMemorySourceReader({ files: { 'notes.md': 'irrelevant text' } });
+
+		let calls = 0;
+		const model = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			// document 5 of 35 from the first live run (issue #169): a model that calls
+			// source_list with the same argument over and over rather than finishing.
+			doGenerate: async () => {
+				calls += 1;
+				return toolCallStep([{ id: `t${calls}`, name: 'source_list', input: { path: '' } }]);
+			}
+		});
+
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+		const job = buildJob({
+			id: 'job-loop',
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes.md' }],
+			sources
+		});
+
+		const { events } = await collect(job, driver);
+
+		// The document ended on the fourth identical call, nowhere near the 20-step
+		// ceiling the playbook allows - the whole point of catching the loop early.
+		expect(calls).toBe(4);
+		const terminal = events.at(-1);
+		expect(terminal).toMatchObject({ type: 'progress', status: 'stopped_at_ceiling' });
+		expect(terminal && terminal.type === 'progress' && terminal.detail).toMatch(/loop/i);
+		expect(terminal && terminal.type === 'progress' && terminal.detail).not.toMatch(
+			/step ceiling was reached/
+		);
+	});
+
+	it('never stops a document doing legitimate repeated work - different reads, different proposals', async () => {
+		const playbook = await loadBuiltinPlaybook('generic');
+		const sources = new InMemorySourceReader({
+			files: {
+				'notes/a.md': 'First note.',
+				'notes/b.md': 'Second note.',
+				'notes/c.md': 'Third note.',
+				'notes/d.md': 'Fourth note.'
+			}
+		});
+		const entity = (n: number) => ({
+			localId: `e${n}`,
+			type: 'character' as const,
+			name: `Entity ${n}`,
+			aliases: [],
+			summary: `The ${n}th entity found in these notes.`,
+			sourceRef: { documentId: 'doc-1', path: `notes/${String.fromCharCode(96 + n)}.md` },
+			evidenceSpan: { start: 0, end: 5 + n }
+		});
+		const model = scriptedModel([
+			toolCallStep([{ id: 'r1', name: 'source_read', input: { path: 'notes/a.md' } }]),
+			toolCallStep([{ id: 'r2', name: 'source_read', input: { path: 'notes/b.md' } }]),
+			toolCallStep([{ id: 'r3', name: 'source_read', input: { path: 'notes/c.md' } }]),
+			toolCallStep([{ id: 'r4', name: 'source_read', input: { path: 'notes/d.md' } }]),
+			toolCallStep([{ id: 'p1', name: 'entity_propose', input: entity(1) }]),
+			toolCallStep([{ id: 'p2', name: 'entity_propose', input: entity(2) }]),
+			toolCallStep([{ id: 'p3', name: 'entity_propose', input: entity(3) }]),
+			toolCallStep([{ id: 'f1', name: 'job_finish', input: { outcome: 'completed' } }])
+		]);
+
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+		const job = buildJob({
+			id: 'job-legitimate-repeats',
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes/a.md' }],
+			sources
+		});
+
+		const { events } = await collect(job, driver);
+
+		expect(model.doGenerateCalls).toHaveLength(8);
+		expect(events.some((e) => e.type === 'progress' && e.status === 'stopped_at_ceiling')).toBe(
+			false
+		);
+		const finished = events.find((e) => e.type === 'progress' && e.status === 'finished');
+		expect(finished).toMatchObject({ type: 'progress', status: 'finished', entityCount: 3 });
+	});
+});
