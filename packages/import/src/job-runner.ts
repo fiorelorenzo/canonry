@@ -63,11 +63,13 @@ import {
 	recordProposalDiff,
 	settleImportJob,
 	spendCredits,
+	syncMissingEntitySourceRefs,
 	updateImportJobCheckpoint,
 	type AcceptImportProposalInput,
 	type CreateImportJobInput,
 	type CreateProposalPlanCandidate,
 	type Db,
+	type ImportJobRow,
 	type MatchCandidateRow,
 	type ProposalRow
 } from '@canonry/db';
@@ -322,6 +324,7 @@ export class ImportJobRunner {
 						: 'no documents to process',
 				proposalsEmitted: 0
 			});
+			await syncMissingAfterSettle(params, settled.job.status, params.dbJobId);
 			return {
 				jobId: params.dbJobId,
 				finalStatus: settled.job.status as 'finished',
@@ -384,14 +387,44 @@ export class ImportJobRunner {
 				: sawStoppedAtCeiling || !everyDocumentSettled
 					? 'stopped_at_ceiling'
 					: 'finished';
-		await settleImportJob(db, params.dbJobId, {
+		const settled = await settleImportJob(db, params.dbJobId, {
 			status: finalStatus,
 			outcomeNote: `${outcomes.length} document(s) processed, ${proposalsEmitted} proposal(s) emitted`,
 			proposalsEmitted
 		});
+		await syncMissingAfterSettle(params, settled.job.status, params.dbJobId);
 
 		return { jobId: params.dbJobId, finalStatus, documents: outcomes, proposalsEmitted };
 	}
+}
+
+/** issue #163, SPEC.md §6.4: only a job whose *authoritative* settled status is
+ * `finished` gets to mark anything missing - "we did not get to it"
+ * (`stopped_at_ceiling`, `cancelled`, `failed`) and "it is gone" are different facts,
+ * and marking on the wrong one tells a GM their canon vanished. Reads `settleImportJob`'s
+ * own returned row rather than this run's locally computed `finalStatus`, so a settle
+ * that lost a race (a concurrent cancel already moved the job to a final status before
+ * this call landed) never marks anything either - "settles exactly once" (issue #26)
+ * protects the job row; this reads that same protection rather than re-deciding on stale
+ * local state.
+ *
+ * `touchedExternalIds` is the run's *full* document list (`params.documents`), not just
+ * the ones this call actually reprocessed - a document a checkpoint resume already
+ * marked `finished` in an earlier partial run is still part of the current export and
+ * must not be treated as vanished. */
+async function syncMissingAfterSettle(
+	params: RunImportJobParams,
+	settledStatus: ImportJobRow['status'],
+	jobId: string
+): Promise<void> {
+	if (settledStatus !== 'finished') return;
+	const touchedExternalIds = [...new Set(params.documents.map((doc) => doc.sourcePath))];
+	await syncMissingEntitySourceRefs(params.db, {
+		universeId: params.universeId,
+		sourceSystem: params.sourceSystem,
+		touchedExternalIds,
+		importJobId: jobId
+	});
 }
 
 interface HandleEventContext {

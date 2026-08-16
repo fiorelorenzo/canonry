@@ -6,7 +6,7 @@
 // acceptProposal - "nothing else in the codebase may write canon from a proposal" holds
 // here too, this file only adds the import-specific bookkeeping (entity_source_ref)
 // around that boundary.
-import { and, count, eq, gte, inArray, lt, sql } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, isNotNull, lt, notInArray, sql } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import { entity } from '../schema/entity.js';
 import type { EntityType, ImportJobStatus, RelationCardinality } from '../schema/enums.js';
@@ -516,6 +516,119 @@ export async function recordEntitySourceRef(
 		.returning();
 	if (!row) throw new Error('recordEntitySourceRef: upsert returned no row');
 	return row;
+}
+
+// ---------------------------------------------------------------------------
+// Missing-in-source bookkeeping (issue #163, SPEC.md §6.4's "entity disappeared from
+// the source" row): never delete, mark `missing_in_source` and let the GM decide. Runs
+// once per successfully *finished* import, never for a partial one (`stopped_at_ceiling`,
+// `cancelled`, `failed`) - job-runner.ts's caller is the only one that decides that, this
+// function trusts the status it is handed and does the set arithmetic.
+// ---------------------------------------------------------------------------
+
+export interface SyncMissingEntitySourceRefsInput {
+	universeId: string;
+	sourceSystem: string;
+	/** Every document `externalId` (source path) this run's export actually carried -
+	 * the full current document list, not only the ones freshly reprocessed, so a
+	 * document a checkpoint resume already marked `finished` earlier still counts as
+	 * present. */
+	touchedExternalIds: string[];
+	importJobId: string;
+}
+
+export interface SyncMissingEntitySourceRefsResult {
+	markedMissing: EntitySourceRefRow[];
+	unmarked: EntitySourceRefRow[];
+}
+
+/** A row with no `externalId` never had an exact-match path to begin with (semantic
+ * matching carried it instead - see `recordEntitySourceRef`'s own comment), so there is
+ * no set of "this run's paths" to compare it against; only rows with a real external id
+ * ever move in or out of `missing_in_source` here. Two symmetric updates, not one: a
+ * row absent from `touchedExternalIds` is newly missing, and a row present in it that
+ * was previously missing has come back - SPEC.md §6.4's row implies both halves, "let
+ * the GM decide" only makes sense if a returning entity un-decides itself. */
+export async function syncMissingEntitySourceRefs(
+	db: Db,
+	input: SyncMissingEntitySourceRefsInput
+): Promise<SyncMissingEntitySourceRefsResult> {
+	return db.transaction(async (tx) => {
+		const universeEntityIds = () =>
+			tx.select({ id: entity.id }).from(entity).where(eq(entity.universeId, input.universeId));
+
+		const markedMissing = await tx
+			.update(entitySourceRef)
+			.set({ missingInSource: true, lastImportJobId: input.importJobId })
+			.where(
+				and(
+					eq(entitySourceRef.sourceSystem, input.sourceSystem),
+					isNotNull(entitySourceRef.externalId),
+					eq(entitySourceRef.missingInSource, false),
+					inArray(entitySourceRef.entityId, universeEntityIds()),
+					notInArray(entitySourceRef.externalId, input.touchedExternalIds)
+				)
+			)
+			.returning();
+
+		const unmarked = await tx
+			.update(entitySourceRef)
+			.set({ missingInSource: false })
+			.where(
+				and(
+					eq(entitySourceRef.sourceSystem, input.sourceSystem),
+					isNotNull(entitySourceRef.externalId),
+					eq(entitySourceRef.missingInSource, true),
+					inArray(entitySourceRef.entityId, universeEntityIds()),
+					inArray(entitySourceRef.externalId, input.touchedExternalIds)
+				)
+			)
+			.returning();
+
+		return { markedMissing, unmarked };
+	});
+}
+
+export interface MissingEntitySourceRefRow {
+	entitySourceRefId: string;
+	entityId: string;
+	name: string;
+	slug: string;
+	type: EntityType;
+	externalId: string | null;
+	lastSeenAt: Date;
+}
+
+/** The review screen's read side (issue #163): every entity this specific job marked
+ * missing, for the "X entities missing from this import" surface. Scoped to
+ * `lastImportJobId` rather than "everything currently missing in this universe" - the
+ * review route is about what *this* run found, and an entity a much earlier run already
+ * marked (and this run left alone because it still was not touched) keeps that earlier
+ * job's id and so is correctly excluded here. */
+export async function missingEntitySourceRefsForJob(
+	db: Db,
+	importJobId: string
+): Promise<MissingEntitySourceRefRow[]> {
+	const rows = await db
+		.select({
+			entitySourceRefId: entitySourceRef.id,
+			entityId: entity.id,
+			name: entity.name,
+			slug: entity.slug,
+			type: entity.type,
+			externalId: entitySourceRef.externalId,
+			lastSeenAt: entitySourceRef.lastSeenAt
+		})
+		.from(entitySourceRef)
+		.innerJoin(entity, eq(entity.id, entitySourceRef.entityId))
+		.where(
+			and(
+				eq(entitySourceRef.lastImportJobId, importJobId),
+				eq(entitySourceRef.missingInSource, true)
+			)
+		)
+		.orderBy(entity.name);
+	return rows;
 }
 
 // ---------------------------------------------------------------------------
