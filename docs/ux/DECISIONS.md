@@ -16,12 +16,13 @@ waits for a human, however it is grouped on screen. `AGENTS.md` carries the same
 wording in short form. G6 itself, whether that bucket is informational or reviewable,
 is still open.
 
-**Six rounds, 63 answers.** Round one, 38, and round two, the 11 questions those answers
+**Seven rounds, 64 answers.** Round one, 38, and round two, the 11 questions those answers
 opened, were both taken on 2026-08-13; round three's 2 on 2026-08-14; round four's 10 and
-round five's 1, both on 2026-08-15; round six's 1 on 2026-08-16. Rounds one to three answered
+round five's 1, both on 2026-08-15; round six's 1 and round seven's 1 on 2026-08-16. Rounds one
+to three answered
 questions asked before there was code. Round four came out of the shipped UI and is recorded
 further down in this file, with its audit in [`product-pass.html`](product-pass.html). Rounds
-five and six have no separate audit artifact: each is one question forced by something the
+five, six and seven have no separate audit artifact: each is one question forced by something the
 shipped product already did, not a page of drawn options, and both are recorded at the bottom
 of this file.
 
@@ -513,3 +514,54 @@ and because the alternative this decision refuses is worse: a GM's world stuck a
 forever, or a product that keeps inventing them with nobody reviewing it, which is the bug
 K1 exists to close.
 
+
+## Round seven, decided 2026-08-16
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| L1 | A relation label reads as interface, so a language switch should change it. Which labels, and how, without making anybody wait? | **Identity moves off the label.** A stable `key` carries identity, the ten shipped labels ship in the i18n bundle in every locale, and a universe's own labels display as authored |
+
+K1 made relation types free. L1 answers what happens to them when the interface changes
+language, and it starts by noticing that the label was doing three jobs and only one of them
+was display.
+
+**Why the naive fix is worse than the bug.** `relation_type.label` was the identity:
+`unique (universe_id, label)` in Postgres, the value inside `proposal.evidence` paths
+(`packages/copilot/src/candidates.ts`), what `reject-signal.ts` compares to decide a
+candidate resembles something the GM already rejected, what `db-graph.ts` builds the
+traversal on, and what the model reads in a prompt (`complete.ts`, `diffs.ts`). Translating
+the display for the reader would have made all four vary by who was looking, which is
+invisible and degrades the copilot's judgement rather than announcing itself. So the label
+stopped being identity: a `key` column carries it, hand-picked for the ten shipped types
+because they are API surface the day they ship, derived from the authored label for a
+universe's own, and untouched by a rename. That last part fixed a bug nobody had filed:
+renaming a type used to rewrite its identity and orphan it from its own history.
+
+**Two kinds of type, opposite treatment, and that is the whole design.** The shipped ten are
+product vocabulary: nobody wrote them, every world has them, and they belong in the i18n
+bundle exactly like entity type names already are. Forty strings, written once by a person.
+A universe's own types are the GM's words in the language their world is written in, so they
+display as authored in every interface language, because SPEC 17 rule 3 keeps canon in its
+own language and guardrail 1 forbids a model rewriting it.
+
+**Nobody waits, because nothing is translated.** The constraint was that a language switch
+must not make a GM wait for a translation, and the answer is not a faster translation, it is
+no translation: the shipped labels repaint from the bundle with every other string on the
+page, and a GM's own labels are already the right words. Where a bilingual GM wants their own
+type in a second language, they write it themselves and it is stored, or the copilot proposes
+one that waits for an accept like everything else. Nothing is computed in a request path, and
+there is no place in the display path where a spinner could appear.
+
+**What it buys beyond the language switch.** An Italian world could not use the shipped
+catalogue at all: its first import proposed Italian labels, matched none of ten English
+strings, and forked eleven duplicates of the catalogue every other world shares. Matching a
+proposed label against every locale's strings fixes that, and it was only possible once the
+labels lived somewhere with locales. Cross-language matching does lean on the embedding model
+being multilingual, which this one is, and which the measurement behind #168 chose it for.
+
+**What it costs.** Every non-display consumer had to move to the key at once, including 29
+evidence rows already written, and the reject signal degrades to no match for a historical
+label that maps to nothing rather than being guessed at. And the shipped keys are now frozen:
+`located_in` cannot be renamed, only relabelled.
+
+Built as epic #194 with #195, #196, #197 and #198.
