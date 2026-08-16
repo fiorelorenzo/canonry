@@ -1,8 +1,18 @@
-# Tag-triggered deploy (issues #94, #95; SPEC.md #12), following the loombox
+# Two triggers, two stacks (issues #94, #95; SPEC.md #12), following the loombox
 # pattern already running on prodbox: build once on a GitHub-hosted runner,
 # deploy on the self-hosted runner that lives on prodbox itself, gate on the
 # served version actually matching what was built, and keep releases
 # immutable so a rollback is a symlink flip plus a container recreate.
+#
+#   main, once CI is green  ->  preview
+#   a vX.Y.Z tag            ->  prod
+#
+# `preview` hangs off `workflow_run` rather than off `push: branches: [main]` on
+# purpose. The gate below refuses a commit whose CI run is not a *completed*
+# success, and a push trigger races CI rather than following it, so every preview
+# deploy would have failed on a run that was still in progress. Waiting for CI
+# from inside this workflow would mean polling and paying for the wait; letting
+# CI's own completion be the trigger costs nothing and cannot race.
 #
 # Job names are written for a human scanning the Actions tab, same reasoning
 # as ci.yml.
@@ -11,6 +21,10 @@ name: Deploy
 on:
   push:
     tags: ['v*.*.*']
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       stack:
@@ -19,20 +33,35 @@ on:
         options: [prod, preview]
         default: prod
       ref:
-        description: Tag to deploy (defaults to the ref this run was triggered on)
+        description: Tag or sha to deploy (defaults to the ref this run was triggered on)
         required: false
+
+# One deploy at a time per stack, and queued rather than cancelled: a release is a
+# symlink flip plus a container recreate on a real box, so two overlapping runs
+# against the same stack is the one thing that can leave it half moved. Two pushes
+# to main in quick succession therefore deploy in order instead of racing.
+concurrency:
+  group: deploy-${{ github.event_name == 'workflow_run' && 'preview' || (inputs.stack || 'prod') }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/canonry-web
 
 jobs:
-  # Refuses to go any further unless the exact commit this tag points at has
-  # a completed, successful run of ci.yml. A tag can be pushed at any commit,
-  # including one CI never saw, so this is not redundant with ci.yml's own
-  # branch-protection role.
+  # Refuses to go any further unless the exact commit being deployed has a
+  # completed, successful run of ci.yml, and decides which stack this run is for.
+  # The check is not redundant with ci.yml's own branch-protection role: a tag can
+  # be pushed at any commit, including one CI never saw. On the `workflow_run`
+  # path the trigger already is a finished CI run, and the check still runs
+  # because it costs one API call and it is what makes the two paths identical.
   verify-ci:
-    name: Refuse a tag without a green CI run
+    name: Resolve the target stack and refuse a commit without a green CI run
+    # A failed or cancelled CI run also completes, and `workflow_run` fires on any
+    # completion, so this is the one guard that keeps a red main off preview.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,21 +69,45 @@ jobs:
     outputs:
       sha: ${{ steps.resolve.outputs.sha }}
       version: ${{ steps.resolve.outputs.version }}
+      stack: ${{ steps.resolve.outputs.stack }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          # `github.ref` on a workflow_run is the default branch, not the commit CI
+          # actually ran on, so that path names its own head sha explicitly.
+          ref: ${{ inputs.ref || github.event.workflow_run.head_sha || github.ref }}
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Resolve the commit this tag points at
+      - name: Resolve the stack, the commit and the version string
         id: resolve
         run: |
-          tag="${{ inputs.ref || github.ref_name }}"
-          sha=$(git rev-parse "${tag}^{commit}")
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "version=$tag" >> "$GITHUB_OUTPUT"
+          if [ -n "${{ inputs.stack }}" ]; then
+            stack="${{ inputs.stack }}"
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            stack=preview
+          else
+            stack=prod
+          fi
+
+          ref="${{ inputs.ref || github.event.workflow_run.head_sha || github.ref_name }}"
+          sha=$(git rev-parse "${ref}^{commit}")
+
+          # A tag is its own version. Anything else is a commit on main, and what a
+          # human wants to read on preview's /healthz is how far past the last
+          # release it is, so `git describe` rather than a bare sha.
+          case "$ref" in
+          v*.*.*) version="$ref" ;;
+          *) version=$(git describe --tags --always "$sha") ;;
+          esac
+
+          {
+            echo "stack=$stack"
+            echo "sha=$sha"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+          echo "deploying $version ($sha) to $stack"
 
       - name: Verify CI is a completed success for that commit
         env:
@@ -118,7 +171,11 @@ jobs:
     name: Deploy to prodbox and gate on the served version
     runs-on: [self-hosted, prodbox]
     needs: [verify-ci, build]
-    environment: ${{ (inputs.stack || 'prod') == 'preview' && 'preview' || 'production' }}
+    # Every stack decision comes from verify-ci's `resolve` step, so there is one
+    # place that answers "which stack is this run for" rather than the same
+    # `inputs.stack || 'prod'` expression repeated in four places and one of them
+    # wrong the first time somebody adds a trigger.
+    environment: ${{ needs.verify-ci.outputs.stack == 'preview' && 'preview' || 'production' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -127,7 +184,7 @@ jobs:
 
       - name: Release
         run: |
-          stack="${{ inputs.stack || 'prod' }}"
+          stack="${{ needs.verify-ci.outputs.stack }}"
           if [ "$stack" = "preview" ]; then port=5296; else port=5196; fi
           base="${{ vars.DEPLOY_BASE_DIR || '/opt/canonry' }}/$stack"
 
@@ -143,7 +200,7 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          stack="${{ inputs.stack || 'prod' }}"
+          stack="${{ needs.verify-ci.outputs.stack }}"
           base="${{ vars.DEPLOY_BASE_DIR || '/opt/canonry' }}/$stack"
           {
             echo "### Deploy to $stack"

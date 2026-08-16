@@ -109,15 +109,40 @@ Everything below happens once per stack. Run as a user with docker access.
 
 ## Triggering a deploy
 
+Two triggers, one per stack, and neither needs a human on the box:
+
 ```
-git tag v1.2.3
+# preview: merge to main. CI runs, and preview deploys when CI goes green.
+git push origin main
+
+# prod: a tag.
+git tag -a v1.2.3 -m "v1.2.3: what changed"
 git push origin v1.2.3
 ```
 
-That is the whole trigger. To redeploy an already-tagged, already-green
-commit (for example, to retry after a prodbox-side problem, or to push the
-same tag to `preview`), use the workflow's manual dispatch with the `stack`
-input and, optionally, a `ref` other than the run's own trigger.
+`preview` hangs off `workflow_run` on CI rather than off a push to `main`, which
+is worth knowing before you edit the workflow and "simplify" it. The gate refuses
+a commit whose CI run is not a *completed* success, and a push trigger races CI
+instead of following it, so every preview deploy would fail on a run still in
+progress. Letting CI's own completion be the trigger costs nothing and cannot
+race. A red main deploys nothing: `workflow_run` fires on any completion, and the
+`if` on the first job is what turns a failed CI into a skipped deploy.
+
+The version string differs between the two, deliberately. A tag is its own
+version, so prod's `/healthz` and `DEPLOYED.json` read `v1.2.3`. A commit on main
+has no tag, so preview reads `git describe`, for example `v0.6.0-7-g1a2b3c4`:
+seven commits past the last release, at that commit. That is the number to quote
+when somebody asks what preview is running.
+
+To redeploy an already-green commit, or to put a tag on `preview` before it goes
+to prod, use the workflow's manual dispatch with the `stack` input and optionally
+a `ref`. Dispatch beats both defaults, so `stack: preview` with `ref: v1.2.3` is
+how a release gets rehearsed on preview first.
+
+Deploys are serialised per stack (`concurrency`, queued rather than cancelled): a
+release is a symlink flip plus a container recreate on a real box, so two
+overlapping runs against one stack is the single thing that can leave it half
+moved. Two merges to main in quick succession deploy in order.
 
 ## Manual rollback
 
