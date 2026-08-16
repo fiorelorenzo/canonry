@@ -657,6 +657,13 @@ export interface Messages {
 			emptyRunningExplanation: string;
 			emptyDone: string;
 			filtering: string;
+			/** Issue #163, SPEC.md §6.4: the entities this job's merge engine found missing
+			 * from the source. A statement of fact, never a proposal - no accept/reject verbs
+			 * belong in this copy. */
+			missing: {
+				heading: (count: number) => string;
+				explanation: string;
+			};
 			errors: {
 				universeNotFound: (slug: string) => string;
 				jobNotFound: (jobId: string, universeName: string) => string;

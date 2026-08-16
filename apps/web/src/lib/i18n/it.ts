@@ -703,6 +703,14 @@ export const it: Messages = {
 				"Le proposte appariranno qui man mano che l'importazione elabora i documenti.",
 			emptyDone: 'Niente da rivedere — questo import non ha prodotto proposte.',
 			filtering: 'Filtro in corso…',
+			missing: {
+				heading: (count) =>
+					count === 1
+						? '1 entità risulta mancante in questo import'
+						: `${count} entità risultano mancanti in questo import`,
+				explanation:
+					'Esistevano dopo un import precedente di questa fonte ma non sono state trovate questa volta. Non è stato cancellato nulla — apri ciascuna e decidi cosa significa.'
+			},
 			errors: {
 				universeNotFound: (slug) => `Nessun universo di nome "${slug}"`,
 				jobNotFound: (jobId, universeName) => `Nessun import "${jobId}" in ${universeName}`,

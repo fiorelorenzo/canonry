@@ -5,9 +5,18 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MockLanguageModelV4 } from 'ai/test';
 import type { LanguageModel } from 'ai';
-import { closeDb, createDb, eq, getImportJob, runMigrations, type Db } from '@canonry/db';
+import {
+	closeDb,
+	createDb,
+	eq,
+	getImportJob,
+	missingEntitySourceRefsForJob,
+	runMigrations,
+	type Db
+} from '@canonry/db';
 import {
 	entity,
+	entitySourceRef,
 	operationPrice,
 	proposal as proposalTable,
 	universe,
@@ -20,7 +29,7 @@ import {
 	type ImportModel,
 	type ModelSelector
 } from './gateway-driver.js';
-import { loadBuiltinPlaybook } from './playbook.js';
+import { loadBuiltinPlaybook, type LoadedPlaybook } from './playbook.js';
 import { InMemorySourceReader } from './sources.js';
 import { InMemoryImageStore } from './images.js';
 import {
@@ -941,5 +950,515 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		expect(rows.some((r) => r.kind === 'relation')).toBe(false);
 		expect(rows.filter((r) => r.kind === 'update')).toHaveLength(2);
 		expect(rows.every((r) => r.targetEntityId === existingEntity.id)).toBe(true);
+	});
+
+	describe('missing_in_source bookkeeping (issue #163, SPEC.md §6.4)', () => {
+		async function admitJob(
+			universeId: string,
+			userId: string,
+			playbook: LoadedPlaybook,
+			documentCount: number,
+			seed: string
+		) {
+			return admitAndCreateImportJob(db, {
+				universeId,
+				createdBy: userId,
+				sourceType: 'obsidian',
+				playbook: playbook.id,
+				playbookVersion: playbook.version,
+				artefactPath: `s3://fixtures/${seed}.zip`,
+				artefactBytes: 100,
+				artefactSha256: seed.repeat(64).slice(0, 64),
+				documentCount,
+				budgetCredits: 1000,
+				estimate: { documentCount, estimatedMinutes: 1, estimatedCredits: documentCount * 10 },
+				concurrencyLimit: 5
+			});
+		}
+
+		/** Accepting every pending proposal is what actually writes `entity_source_ref`
+		 * (SPEC.md §6.4 step 1 only ever matches against entities that exist) - this
+		 * mirrors the review UI's own accept action, resolving each proposal's source path
+		 * from its patch name via the map the test built its fixture from. */
+		async function acceptAllPending(
+			universeId: string,
+			jobId: string,
+			pathByName: Record<string, string>,
+			contentByPath: Record<string, string>
+		) {
+			const rows = await db
+				.select()
+				.from(proposalTable)
+				.where(eq(proposalTable.universeId, universeId));
+			for (const row of rows) {
+				const name = patchName(row.patch);
+				const path = name ? pathByName[name] : undefined;
+				if (!path) throw new Error(`no fixture path for proposal patch name "${String(name)}"`);
+				await acceptImportProposal(db, {
+					proposalId: row.id,
+					sourceSystem: 'obsidian',
+					externalId: path,
+					sourceUrl: null,
+					contentHash: createHashOf(contentByPath[path]!),
+					importJobId: jobId
+				});
+			}
+		}
+
+		async function sourceRefFor(externalId: string) {
+			const [row] = await db
+				.select()
+				.from(entitySourceRef)
+				.where(eq(entitySourceRef.externalId, externalId));
+			return row;
+		}
+
+		it('marks the ref behind a document a shorter re-import no longer carries, leaves the one still present alone, and stamps the marking job', async () => {
+			await priceFixture();
+			const { userId, universeId } = await userAndUniverse();
+			const playbook = await loadBuiltinPlaybook('generic');
+			const docAContent = 'Entity A lives on in the vault.';
+			const docBContent = 'Entity B is an old session log.';
+			const pathByName = { 'Entity A': 'notes/a.md', 'Entity B': 'notes/b.md' };
+			const contentByPath = { 'notes/a.md': docAContent, 'notes/b.md': docBContent };
+			const sourcesV1 = new InMemorySourceReader({ files: contentByPath });
+			const bothDocuments = [
+				{ id: 'doc-a', sourcePath: 'notes/a.md' },
+				{ id: 'doc-b', sourcePath: 'notes/b.md' }
+			];
+
+			const admission1 = await admitJob(universeId, userId, playbook, 2, '1');
+			const runner = new ImportJobRunner();
+			const model1 = scriptedModel([
+				toolCallStep([{ id: 'm1', name: 'source_read', input: { path: 'notes/a.md' } }]),
+				entityStep('m2', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
+				finishStep('m3'),
+				toolCallStep([{ id: 'm4', name: 'source_read', input: { path: 'notes/b.md' } }]),
+				entityStep('m5', 'eb', 'Entity B', 'doc-b', 'notes/b.md'),
+				finishStep('m6')
+			]);
+			const driver1 = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(model1)
+			});
+			const run1 = await runner.run({
+				db,
+				dbJobId: admission1.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents: bothDocuments,
+				sources: sourcesV1,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: () => 0,
+				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				timeoutMs: 30_000,
+				driver: driver1
+			});
+			expect(run1.finalStatus).toBe('finished');
+			await acceptAllPending(universeId, admission1.jobId, pathByName, contentByPath);
+
+			// v2 export: document B is quietly gone, document A's content is unchanged -
+			// the whole run is the "skip everything, nothing to reprocess" early exit.
+			const admission2 = await admitJob(universeId, userId, playbook, 1, '2');
+			const model2 = scriptedModel([finishStep('never')]);
+			const driver2 = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(model2)
+			});
+			const run2 = await runner.run({
+				db,
+				dbJobId: admission2.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents: [{ id: 'doc-a', sourcePath: 'notes/a.md' }],
+				sources: sourcesV1,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: () => 0,
+				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				timeoutMs: 30_000,
+				driver: driver2
+			});
+			expect(run2.finalStatus).toBe('finished');
+			expect(model2.doGenerateCalls).toHaveLength(0);
+
+			const aRow = await sourceRefFor('notes/a.md');
+			expect(aRow?.missingInSource).toBe(false);
+
+			const bRow = await sourceRefFor('notes/b.md');
+			expect(bRow?.missingInSource).toBe(true);
+			expect(bRow?.lastImportJobId).toBe(admission2.jobId);
+
+			const missing = await missingEntitySourceRefsForJob(db, admission2.jobId);
+			expect(missing).toEqual([expect.objectContaining({ name: 'Entity B' })]);
+		});
+
+		it('unmarks a previously missing ref once its document reappears with unchanged content', async () => {
+			await priceFixture();
+			const { userId, universeId } = await userAndUniverse();
+			const playbook = await loadBuiltinPlaybook('generic');
+			const docAContent = 'Entity A lives on in the vault.';
+			const docBContent = 'Session 1: the party makes landfall.';
+			const pathByName = { 'Entity A': 'notes/a.md', 'Session 1': 'notes/b.md' };
+			const contentByPath = { 'notes/a.md': docAContent, 'notes/b.md': docBContent };
+			const sourcesV1 = new InMemorySourceReader({ files: contentByPath });
+			const bothDocuments = [
+				{ id: 'doc-a', sourcePath: 'notes/a.md' },
+				{ id: 'doc-b', sourcePath: 'notes/b.md' }
+			];
+			const runner = new ImportJobRunner();
+
+			const admission1 = await admitJob(universeId, userId, playbook, 2, '3');
+			const model1 = scriptedModel([
+				toolCallStep([{ id: 'r1', name: 'source_read', input: { path: 'notes/a.md' } }]),
+				entityStep('r2', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
+				finishStep('r3'),
+				toolCallStep([{ id: 'r4', name: 'source_read', input: { path: 'notes/b.md' } }]),
+				entityStep('r5', 'eb', 'Session 1', 'doc-b', 'notes/b.md'),
+				finishStep('r6')
+			]);
+			const driver1 = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(model1)
+			});
+			const run1 = await runner.run({
+				db,
+				dbJobId: admission1.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents: bothDocuments,
+				sources: sourcesV1,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: () => 0,
+				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				timeoutMs: 30_000,
+				driver: driver1
+			});
+			expect(run1.finalStatus).toBe('finished');
+			await acceptAllPending(universeId, admission1.jobId, pathByName, contentByPath);
+
+			// v2: session-1 is tidied out of the vault.
+			const admission2 = await admitJob(universeId, userId, playbook, 1, '4');
+			const model2 = scriptedModel([finishStep('never')]);
+			const driver2 = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(model2)
+			});
+			await runner.run({
+				db,
+				dbJobId: admission2.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents: [{ id: 'doc-a', sourcePath: 'notes/a.md' }],
+				sources: sourcesV1,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: () => 0,
+				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				timeoutMs: 30_000,
+				driver: driver2
+			});
+			expect((await sourceRefFor('notes/b.md'))?.missingInSource).toBe(true);
+
+			// v3: the GM restores it, unchanged.
+			const admission3 = await admitJob(universeId, userId, playbook, 2, '5');
+			const model3 = scriptedModel([finishStep('never')]);
+			const driver3 = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(model3)
+			});
+			const run3 = await runner.run({
+				db,
+				dbJobId: admission3.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents: bothDocuments,
+				sources: sourcesV1,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: () => 0,
+				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				timeoutMs: 30_000,
+				driver: driver3
+			});
+			expect(run3.finalStatus).toBe('finished');
+			expect(model3.doGenerateCalls).toHaveLength(0);
+			expect((await sourceRefFor('notes/b.md'))?.missingInSource).toBe(false);
+		});
+
+		it('a job that stops at its credit ceiling marks nothing missing, even though a document is absent from its list', async () => {
+			await priceFixture();
+			const { userId, universeId } = await userAndUniverse();
+			const playbook = await loadBuiltinPlaybook('generic');
+			const docAContent = 'Entity A lives on in the vault.';
+			const docBContent = 'Entity B is an old session log.';
+			const pathByName = { 'Entity A': 'notes/a.md', 'Entity B': 'notes/b.md' };
+			const contentByPath = { 'notes/a.md': docAContent, 'notes/b.md': docBContent };
+			const sourcesV1 = new InMemorySourceReader({ files: contentByPath });
+			const bothDocuments = [
+				{ id: 'doc-a', sourcePath: 'notes/a.md' },
+				{ id: 'doc-b', sourcePath: 'notes/b.md' }
+			];
+			const runner = new ImportJobRunner();
+
+			const admission1 = await admitJob(universeId, userId, playbook, 2, '6');
+			const model1 = scriptedModel([
+				toolCallStep([{ id: 'c1', name: 'source_read', input: { path: 'notes/a.md' } }]),
+				entityStep('c2', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
+				finishStep('c3'),
+				toolCallStep([{ id: 'c4', name: 'source_read', input: { path: 'notes/b.md' } }]),
+				entityStep('c5', 'eb', 'Entity B', 'doc-b', 'notes/b.md'),
+				finishStep('c6')
+			]);
+			const driver1 = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(model1)
+			});
+			const run1 = await runner.run({
+				db,
+				dbJobId: admission1.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents: bothDocuments,
+				sources: sourcesV1,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: () => 0,
+				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				timeoutMs: 30_000,
+				driver: driver1
+			});
+			expect(run1.finalStatus).toBe('finished');
+			await acceptAllPending(universeId, admission1.jobId, pathByName, contentByPath);
+
+			// v2: document A changed (forces reprocessing), document B is genuinely dropped
+			// from the export - but this run's own credit ceiling trips right after
+			// document A's first step, before it (or B) ever reaches a clean finish.
+			const changedDocAContent = 'Entity A, revised for v2.';
+			const sourcesV2 = new InMemorySourceReader({ files: { 'notes/a.md': changedDocAContent } });
+			const admission2 = await admitJob(universeId, userId, playbook, 1, '7');
+			const model2 = scriptedModel([
+				toolCallStep([{ id: 'c7', name: 'source_read', input: { path: 'notes/a.md' } }]),
+				finishStep('never')
+			]);
+			const driver2 = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(model2)
+			});
+			const run2 = await runner.run({
+				db,
+				dbJobId: admission2.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents: [{ id: 'doc-a', sourcePath: 'notes/a.md' }],
+				sources: sourcesV2,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 0.001 },
+				similarity: () => 0,
+				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				timeoutMs: 30_000,
+				driver: driver2
+			});
+
+			expect(run2.finalStatus).toBe('stopped_at_ceiling');
+			expect(model2.doGenerateCalls).toHaveLength(1);
+			expect((await sourceRefFor('notes/b.md'))?.missingInSource).toBe(false);
+			expect(await missingEntitySourceRefsForJob(db, admission2.jobId)).toEqual([]);
+		});
+
+		it('a cancelled job marks nothing missing, even though a document is absent from its list', async () => {
+			await priceFixture();
+			const { userId, universeId } = await userAndUniverse();
+			const playbook = await loadBuiltinPlaybook('generic');
+			const docAContent = 'Entity A lives on in the vault.';
+			const docBContent = 'Entity B is an old session log.';
+			const pathByName = { 'Entity A': 'notes/a.md', 'Entity B': 'notes/b.md' };
+			const contentByPath = { 'notes/a.md': docAContent, 'notes/b.md': docBContent };
+			const sourcesV1 = new InMemorySourceReader({ files: contentByPath });
+			const bothDocuments = [
+				{ id: 'doc-a', sourcePath: 'notes/a.md' },
+				{ id: 'doc-b', sourcePath: 'notes/b.md' }
+			];
+			const runner = new ImportJobRunner();
+
+			const admission1 = await admitJob(universeId, userId, playbook, 2, '8');
+			const model1 = scriptedModel([
+				toolCallStep([{ id: 'k1', name: 'source_read', input: { path: 'notes/a.md' } }]),
+				entityStep('k2', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
+				finishStep('k3'),
+				toolCallStep([{ id: 'k4', name: 'source_read', input: { path: 'notes/b.md' } }]),
+				entityStep('k5', 'eb', 'Entity B', 'doc-b', 'notes/b.md'),
+				finishStep('k6')
+			]);
+			const driver1 = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(model1)
+			});
+			const run1 = await runner.run({
+				db,
+				dbJobId: admission1.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents: bothDocuments,
+				sources: sourcesV1,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: () => 0,
+				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				timeoutMs: 30_000,
+				driver: driver1
+			});
+			expect(run1.finalStatus).toBe('finished');
+			await acceptAllPending(universeId, admission1.jobId, pathByName, contentByPath);
+
+			// v2: document A changed, document B is genuinely dropped from the export - but
+			// the GM cancels mid-document before this run ever settles as finished.
+			const changedDocAContent = 'Entity A, revised for v2.';
+			const sourcesV2 = new InMemorySourceReader({ files: { 'notes/a.md': changedDocAContent } });
+			const admission2 = await admitJob(universeId, userId, playbook, 1, '9');
+			const model2 = scriptedModel([
+				toolCallStep([{ id: 'k7', name: 'source_read', input: { path: 'notes/a.md' } }]),
+				entityStep('k8', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
+				finishStep('never')
+			]);
+			let resolvedSteps = 0;
+			let cancellingDriver: GatewayDriver;
+			const cancellingSelector: ModelSelector = {
+				resolve: async (purpose) => {
+					resolvedSteps += 1;
+					if (resolvedSteps === 2) cancellingDriver.cancel(admission2.jobId);
+					return fixedModelSelector(model2).resolve(purpose);
+				}
+			};
+			cancellingDriver = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: cancellingSelector
+			});
+
+			const run2 = await runner.run({
+				db,
+				dbJobId: admission2.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents: [{ id: 'doc-a', sourcePath: 'notes/a.md' }],
+				sources: sourcesV2,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: () => 0,
+				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				timeoutMs: 30_000,
+				driver: cancellingDriver
+			});
+
+			expect(run2.finalStatus).toBe('cancelled');
+			expect((await sourceRefFor('notes/b.md'))?.missingInSource).toBe(false);
+			expect(await missingEntitySourceRefsForJob(db, admission2.jobId)).toEqual([]);
+		});
+
+		it('a failed job marks nothing missing, even though a document is absent from its list', async () => {
+			await priceFixture();
+			const { userId, universeId } = await userAndUniverse();
+			const playbook = await loadBuiltinPlaybook('generic');
+			const docAContent = 'Entity A lives on in the vault.';
+			const docBContent = 'Entity B is an old session log.';
+			const pathByName = { 'Entity A': 'notes/a.md', 'Entity B': 'notes/b.md' };
+			const contentByPath = { 'notes/a.md': docAContent, 'notes/b.md': docBContent };
+			const sourcesV1 = new InMemorySourceReader({ files: contentByPath });
+			const bothDocuments = [
+				{ id: 'doc-a', sourcePath: 'notes/a.md' },
+				{ id: 'doc-b', sourcePath: 'notes/b.md' }
+			];
+			const runner = new ImportJobRunner();
+
+			const admission1 = await admitJob(universeId, userId, playbook, 2, 'a');
+			const model1 = scriptedModel([
+				toolCallStep([{ id: 'f1', name: 'source_read', input: { path: 'notes/a.md' } }]),
+				entityStep('f2', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
+				finishStep('f3'),
+				toolCallStep([{ id: 'f4', name: 'source_read', input: { path: 'notes/b.md' } }]),
+				entityStep('f5', 'eb', 'Entity B', 'doc-b', 'notes/b.md'),
+				finishStep('f6')
+			]);
+			const driver1 = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(model1)
+			});
+			const run1 = await runner.run({
+				db,
+				dbJobId: admission1.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents: bothDocuments,
+				sources: sourcesV1,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: () => 0,
+				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				timeoutMs: 30_000,
+				driver: driver1
+			});
+			expect(run1.finalStatus).toBe('finished');
+			await acceptAllPending(universeId, admission1.jobId, pathByName, contentByPath);
+
+			// v2: document A changed, document B genuinely dropped - but the model call for
+			// A's first step throws, so this run settles as failed rather than finished.
+			const changedDocAContent = 'Entity A, revised for v2.';
+			const sourcesV2 = new InMemorySourceReader({ files: { 'notes/a.md': changedDocAContent } });
+			const admission2 = await admitJob(universeId, userId, playbook, 1, 'b');
+			const throwingModel = new MockLanguageModelV4({
+				provider: 'test',
+				modelId: 'test-cheap',
+				doGenerate: async () => {
+					throw new Error('synthetic model failure');
+				}
+			});
+			const driver2 = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(throwingModel)
+			});
+
+			const run2 = await runner.run({
+				db,
+				dbJobId: admission2.jobId,
+				universeId,
+				sourceSystem: 'obsidian',
+				userId,
+				playbook,
+				documents: [{ id: 'doc-a', sourcePath: 'notes/a.md' }],
+				sources: sourcesV2,
+				images: new InMemoryImageStore(),
+				budget: { maxCredits: 1000 },
+				similarity: () => 0,
+				thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+				timeoutMs: 30_000,
+				driver: driver2
+			});
+
+			expect(run2.finalStatus).toBe('failed');
+			expect((await sourceRefFor('notes/b.md'))?.missingInSource).toBe(false);
+			expect(await missingEntitySourceRefsForJob(db, admission2.jobId)).toEqual([]);
+		});
 	});
 });
