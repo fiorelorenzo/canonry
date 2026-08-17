@@ -15,3 +15,11 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - '@ai-sdk/gateway@4.0.52'
   - ai@7.0.65
+
+# cookie@0.6.0 accepts out of bounds characters in a cookie name, path or domain
+# (Dependabot alert, low, fixed in 0.7.0). It arrives through @sveltejs/kit@2.70.2,
+# the latest 2.x release, which still depends on cookie@^0.6.0 and is also pulled in
+# by @sveltejs/adapter-node and better-auth, so there is no version bump that removes
+# it. Remove this override once @sveltejs/kit depends on cookie@^0.7.0 or later.
+overrides:
+  cookie: ^0.7.2
