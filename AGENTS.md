@@ -62,6 +62,58 @@ the sample world rendered into every import format. It also carries the end-to-e
 import and the Loremaster. Do not change a `model_config` row without re-running it, and do
 not add a provider to `KNOWN_PROVIDERS` without a measurement to point at.
 
+## Working in a worktree, next to other agents
+
+**The dev services are shared, and safe to share.** `pnpm db:up` starts Postgres on
+`127.0.0.1:55432` and Qdrant on `127.0.0.1:56333` from `docker/compose.dev.yml`, once for
+the machine: every worktree talks to those same two, because isolation happens inside them
+rather than at the service level. The web app runs on the host, so restarting it never
+touches a container.
+
+**Test state is isolated per run, by a suffix.** Every package with a database sets
+`TEST_DB_SUFFIX=$$` in its `test` script, and `packages/db/test/env.ts` turns that into
+`canonry_test_<suffix>`. The suffix is load-bearing: the global setup drops the database,
+recreates it, and terminates every other backend connected to it, so two runs sharing a
+suffix kill each other mid-query, which reads like a `postgres.js` bug and is not one. The
+default is `local`, so two `vitest` runs started by hand in two worktrees do collide unless
+you set it. CI sets `TEST_DATABASE_URL` explicitly and keeps one deterministic name. Qdrant
+needs nothing: each vector test creates a scratch collection under a fresh UUID and drops
+it afterwards.
+
+**`.env` is the compose stack's environment, not the test suite's.** Its `DATABASE_URL` and
+`QDRANT_URL` name the compose services (`postgres:5432`, `qdrant:6333`), which is correct
+inside that network and wrong from the host, so the tests bypass it and default to loopback.
+A fresh worktree therefore needs no `.env` to run `pnpm lint`, `pnpm check` or `pnpm test`;
+it needs the dev services up. It needs the opposite discipline instead: a leftover exported
+`DATABASE_URL` or `TEST_DATABASE_URL` outranks those defaults, so clear it rather than trust
+the file.
+
+**Regenerate the playbooks, or CI will.** `packages/import/src/playbooks.generated.ts` is
+committed because the Docker image builds `apps/web` directly and never runs that package's
+build. Its own `build`, `check` and `test` scripts regenerate it first, and CI runs the
+generator and then `git diff --exit-code` on it, so an edited `playbooks/*.md` with a stale
+generated file is a red PR by itself.
+
+**Scoping a check.** The root scripts are `pnpm -r --sequential`, so they cover every
+package; scope with `pnpm --filter @canonry/<pkg> <script>`, because `pnpm test -- <path>`
+does not scope (the root has no vitest config). `check` is `tsc` and `svelte-check`, which
+read the whole graph and are whole-project by nature. A package whose tests need Postgres
+pays the drop-create-migrate cost even for one test file. CI runs lint, typecheck, tests and
+build, plus a docker-boot job that builds the image and requests every major surface:
+nothing local reproduces that job, so do not report it as verified.
+
+**One migration per wave.** `pnpm --filter @canonry/db generate` numbers the next migration
+sequentially and also writes `migrations/meta/_journal.json` and a snapshot. Two agents
+generating at the same time produce the same number and both edit the journal, and no rebase
+resolves that: the second waits for the first to land, then regenerates instead of
+renumbering by hand.
+
+**Nothing guards `main`.** There is no branch protection and no ruleset, all three merge
+methods are enabled, and `delete_branch_on_merge` is off, so a merged branch stays on the
+remote until you delete it (`git push -d origin <branch>`). The gate is you: a red PR can be
+merged, and a green CI run on `main` deploys preview through `deploy.yml`, so whatever lands
+there reaches a real stack a few minutes later.
+
 ## The UX decisions live in `docs/ux/`
 
 `SPEC.md` says a proposal shows its evidence and never where the evidence sits, and it
