@@ -16,7 +16,7 @@
 	"dependencies": {
 		"@canonry/ai": "workspace:*",
 		"@canonry/db": "workspace:*",
-		"@qdrant/js-client-rest": "^1.16.0"
+		"@qdrant/js-client-rest": "1.19.0"
 	},
 	"devDependencies": {
 		"@types/node": "^22",
