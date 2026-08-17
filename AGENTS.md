@@ -70,15 +70,29 @@ the machine: every worktree talks to those same two, because isolation happens i
 rather than at the service level. The web app runs on the host, so restarting it never
 touches a container.
 
-**Test state is isolated per run, by a suffix.** Every package with a database sets
-`TEST_DB_SUFFIX=$$` in its `test` script, and `packages/db/test/env.ts` turns that into
+**Test state is isolated per run, by a suffix.** `packages/{db,ai,import,vector,indexing,media}`
+set `TEST_DB_SUFFIX=$$` in their `test` script, and `packages/db/test/env.ts` turns that into
 `canonry_test_<suffix>`. The suffix is load-bearing: the global setup drops the database,
 recreates it, and terminates every other backend connected to it, so two runs sharing a
 suffix kill each other mid-query, which reads like a `postgres.js` bug and is not one. The
 default is `local`, so two `vitest` runs started by hand in two worktrees do collide unless
-you set it. CI sets `TEST_DATABASE_URL` explicitly and keeps one deterministic name. Qdrant
-needs nothing: each vector test creates a scratch collection under a fresh UUID and drops
-it afterwards.
+you set it. **`apps/web`, `packages/bench` and `packages/eval` are the three that do not set
+it**, so those are the ones to prefix yourself (`TEST_DB_SUFFIX=w<issue> pnpm --filter web
+test`) whenever anything else is running. CI sets `TEST_DATABASE_URL` explicitly and keeps one
+deterministic name. Qdrant needs nothing: each vector test creates a scratch collection under
+a fresh UUID and drops it afterwards.
+
+**The suffix is per run, not per file, and that is a second race.** Vitest's fork pool runs
+a package's test files concurrently against that one database, so two files that drive the
+same table through delete-all-then-insert clobber each other's rows, and the failure surfaces
+as a flake in whichever file read last rather than as a collision. That is what #193 turned
+out to be: `models.test.ts` and `generate.test.ts` both owning `image_model_config`, one
+failure in 9365 iterations under deliberate load. The in-repo answer is a session-scoped
+advisory lock the files take in `beforeAll` and release in `afterAll`
+(`lockImageModelConfigForFile` in `packages/media/src/test-db.ts`, and the same shape already
+existed for `model_config` in the audio tests), which works because each file's `Db` holds a
+single connection for its whole run. A new test file that writes a table another file already
+owns takes the same lock or inherits the same flake.
 
 **`.env` is the compose stack's environment, not the test suite's.** Its `DATABASE_URL` and
 `QDRANT_URL` name the compose services (`postgres:5432`, `qdrant:6333`), which is correct
@@ -110,9 +124,24 @@ renumbering by hand.
 
 **Nothing guards `main`.** There is no branch protection and no ruleset, all three merge
 methods are enabled, and `delete_branch_on_merge` is off, so a merged branch stays on the
-remote until you delete it (`git push -d origin <branch>`). The gate is you: a red PR can be
-merged, and a green CI run on `main` deploys preview through `deploy.yml`, so whatever lands
-there reaches a real stack a few minutes later.
+remote until you delete it, either with `git push -d origin <branch>` or by passing
+`--delete-branch` to `gh pr merge`, which does remove the remote branch despite the repo
+setting. The gate is you: a red PR can be merged, and a green CI run on `main` deploys
+preview through `deploy.yml`, so whatever lands there reaches a real stack a few minutes
+later. Merging a wave one PR at a time therefore queues one preview deploy per merge, and
+`deploy.yml`'s concurrency group cancels the superseded ones, which is expected rather than a
+failure to chase.
+
+**Two things collide between worktrees that are not the database.** The first is your own file
+tools: a relative path resolves against the session's working directory, not the worktree, and
+in the first parallel wave three agents wrote part of their change into the main checkout that
+way. Use absolute paths under your own worktree for every read and edit, and if it happens
+anyway, say so immediately rather than reverting somebody else's uncommitted work by reflex.
+The second is the dev server: pick a port per worktree and announce it, because `vite` will
+happily take the next free one and then you are reading a sibling's app. A signed-in browser
+check is worse than that and cannot be parallelised at all: cookies are scoped by host and
+path and ignore the port (RFC 6265), so every dev server on `localhost` shares one session and
+whoever signed in last wins. Sequence those, or give each one its own hostname.
 
 ## The UX decisions live in `docs/ux/`
 
