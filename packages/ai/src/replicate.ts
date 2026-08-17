@@ -92,8 +92,8 @@ function isReplicatePrediction(value: unknown): value is ReplicatePrediction {
  * for the result (Replicate's `Prefer: wait` header), recording exactly one
  * `model_call` row - success or failure - and charging the user's balance on
  * success via `withQuota` (issue #88). Pricing is per-image
- * (`params.eurPerImage`), not per-token: a prediction has no token usage to
- * extract.
+ * (`params.pricePerImage`, in whichever currency `params.currency` declares - issue
+ * #132), not per-token: a prediction has no token usage to extract.
  */
 export async function generateImage(params: GenerateImageInput): Promise<ReplicatePrediction> {
 	const endpoint = `${params.baseUrl ?? REPLICATE_API_BASE_URL}/models/${params.model.modelId}/predictions`;

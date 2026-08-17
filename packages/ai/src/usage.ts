@@ -19,6 +19,7 @@
 import type { Db } from '@canonry/db';
 import { modelCall, type ModelCallAgent } from '@canonry/db/schema';
 import type { ModelParams, ResolvedModel } from './models.js';
+import { toEur } from './currency.js';
 import { chargeFor } from './prices.js';
 import { logger as defaultLogger, type Logger } from './logger.js';
 
@@ -68,7 +69,7 @@ export interface UsageCounts {
 	inputTokens: number;
 	outputTokens: number;
 	embeddingTokens: number;
-	/** Non-token unit: one Replicate prediction, priced via `eurPerImage`. */
+	/** Non-token unit: one Replicate prediction, priced via `params.pricePerImage`. */
 	images: number;
 }
 
@@ -84,15 +85,19 @@ export function normalizeUsage(partial: Partial<UsageCounts>): UsageCounts {
 /** Default: 1 credit = EUR 0.01, overridable per model via `params.creditsPerEur`. */
 const DEFAULT_CREDITS_PER_EUR = 100;
 
+/** Turns raw usage plus one model's params into a euro cost and a credit charge - the
+ * only place `model_call.cost_eur` is computed (issue #132), so a price crosses from
+ * whatever currency the provider quotes it in into EUR here and nowhere else. */
 export function computeCost(
 	params: ModelParams,
 	usage: UsageCounts
 ): { credits: number; costEur: number } {
+	const currency = params.currency ?? 'EUR';
 	const costEur =
-		(usage.inputTokens / 1_000_000) * (params.eurPerInputMTok ?? 0) +
-		(usage.outputTokens / 1_000_000) * (params.eurPerOutputMTok ?? 0) +
-		(usage.embeddingTokens / 1_000_000) * (params.eurPerEmbeddingMTok ?? 0) +
-		usage.images * (params.eurPerImage ?? 0);
+		(usage.inputTokens / 1_000_000) * toEur(params.pricePerInputMTok ?? 0, currency) +
+		(usage.outputTokens / 1_000_000) * toEur(params.pricePerOutputMTok ?? 0, currency) +
+		(usage.embeddingTokens / 1_000_000) * toEur(params.pricePerEmbeddingMTok ?? 0, currency) +
+		usage.images * toEur(params.pricePerImage ?? 0, currency);
 	const credits = costEur * (params.creditsPerEur ?? DEFAULT_CREDITS_PER_EUR);
 	return { credits, costEur };
 }

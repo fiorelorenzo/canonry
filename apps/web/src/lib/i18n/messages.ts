@@ -1373,7 +1373,7 @@ export interface Messages {
 			imageIntro2Pre: string;
 			imageTable: {
 				feature: string;
-				eurPerImage: string;
+				pricePerImage: string;
 				active: string;
 				inactive: string;
 			};
@@ -1387,7 +1387,7 @@ export interface Messages {
 				unknownProvider: (provider: string, choices: string) => string;
 				modelIdRequired: string;
 				providerAndModelIdRequired: string;
-				invalidEurPerImage: string;
+				invalidPricePerImage: string;
 			};
 		};
 

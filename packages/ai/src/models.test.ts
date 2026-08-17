@@ -63,7 +63,7 @@ describe('resolveModel', () => {
 			provider: 'openai',
 			modelId: `${TEST_MODEL_ID_PREFIX}multimodal-v1`,
 			active: true,
-			params: { eurPerInputMTok: 1.5 }
+			params: { pricePerInputMTok: 1.5, currency: 'EUR' }
 		});
 
 		const resolved = await resolveModel(db, 'multimodal');
@@ -71,7 +71,7 @@ describe('resolveModel', () => {
 			purpose: 'multimodal',
 			provider: 'openai',
 			modelId: `${TEST_MODEL_ID_PREFIX}multimodal-v1`,
-			params: { eurPerInputMTok: 1.5 }
+			params: { pricePerInputMTok: 1.5, currency: 'EUR' }
 		});
 	});
 

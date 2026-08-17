@@ -66,7 +66,7 @@ const RESOLVED: ResolvedModel = {
 	purpose: 'premium',
 	provider: 'test-provider',
 	modelId: 'test-premium',
-	params: { eurPerInputMTok: 5, eurPerOutputMTok: 15 }
+	params: { pricePerInputMTok: 5, pricePerOutputMTok: 15, currency: 'EUR' }
 };
 
 function routed(languageModel: LanguageModel): RoutedModel {

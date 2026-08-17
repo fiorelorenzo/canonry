@@ -8,15 +8,19 @@
  */
 import { activeImageModelRow, type Db, type ImageModelRow } from '@canonry/db';
 import type { ImageFeature } from '@canonry/db/schema';
-import type { ResolvedModel } from '@canonry/ai';
+import type { Currency, ResolvedModel } from '@canonry/ai';
 
 export type { ImageModelRow };
 
 export interface ImageModelParams {
-	/** Our own cost per image in EUR, kept in image_model_config.params - what we pay the
-	 * provider. Never the user-facing credit price; operation_price owns that (issue
-	 * #113), and the two are deliberately different numbers. */
-	eurPerImage?: number;
+	/** The currency `pricePerImage` is stated in - the provider's own price, never
+	 * pre-converted (issue #132). Defaults to EUR when absent, the same convention
+	 * `@canonry/ai`'s `ModelParams.currency` documents. */
+	currency?: Currency;
+	/** Our own cost per image, in whichever currency `currency` declares - what we pay
+	 * the provider. Never the user-facing credit price; operation_price owns that
+	 * (issue #113), and the two are deliberately different numbers. */
+	pricePerImage?: number;
 	creditsPerEur?: number;
 }
 
@@ -24,7 +28,8 @@ function readImageModelParams(value: unknown): ImageModelParams {
 	if (typeof value !== 'object' || value === null) return {};
 	const record = value as Record<string, unknown>;
 	const params: ImageModelParams = {};
-	if (typeof record.eurPerImage === 'number') params.eurPerImage = record.eurPerImage;
+	if (record.currency === 'EUR' || record.currency === 'USD') params.currency = record.currency;
+	if (typeof record.pricePerImage === 'number') params.pricePerImage = record.pricePerImage;
 	if (typeof record.creditsPerEur === 'number') params.creditsPerEur = record.creditsPerEur;
 	return params;
 }

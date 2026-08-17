@@ -9,6 +9,7 @@
  */
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { toEur } from '@canonry/ai';
 import { dataDir, loadEnv, requireEnv } from '../env.js';
 
 export interface CatalogueModel {
@@ -35,13 +36,14 @@ export interface Catalogue {
 }
 
 /**
- * ECB reference rate, 2026-08-15, the same day and the same rate migration
- * 0024_seed_text_models.sql used to convert Anthropic's list price into the euros
- * `model_config.params` stores. Kept as one constant so a re-run that lands different
- * euro figures does so because the rate moved, visibly, and not because two files
- * disagreed.
+ * EUR figures below cross through `@canonry/ai`'s `toEur`, the one place issue #132 put
+ * the dated FX rate - not a second copy of it here. `setActiveModel` (factory.ts) no
+ * longer needs these at all: it writes `model_config.params` in the gateway's native USD
+ * with `currency: 'USD'` and lets `computeCost` convert at read time, the same as every
+ * other price in the product. `eurPerInputMTok`/`eurPerOutputMTok` below stay EUR-named on
+ * purpose - they are this report's own display figures, computed fresh every time, never
+ * persisted to a jsonb column under a name that could outlive what produced them.
  */
-export const USD_PER_EUR = 1.1567;
 
 const GATEWAY_MODELS_URL = 'https://ai-gateway.vercel.sh/v1/models';
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -131,9 +133,12 @@ export interface ModelPrices {
 }
 
 /**
- * Prices for one slug, in both currencies, rounded the way `model_config.params` stores
- * them. Throws on an unpriced model rather than defaulting to zero: a benchmark whose cost
- * column silently reads 0.00 for one row is worse than one that stops.
+ * Prices for one slug, in both currencies, rounded the way this package's own report
+ * displays them. `model_config.params` no longer stores a pre-converted EUR figure
+ * (issue #132) - `setActiveModel` writes `usdPerInputMTok`/`usdPerOutputMTok` verbatim
+ * with `currency: 'USD'`, and `computeCost` converts at read time. Throws on an unpriced
+ * model rather than defaulting to zero: a benchmark whose cost column silently reads
+ * 0.00 for one row is worse than one that stops.
  */
 export function pricesFor(catalogue: Catalogue, slug: string): ModelPrices {
 	const model = catalogue.models.find((m) => m.id === slug);
@@ -146,8 +151,8 @@ export function pricesFor(catalogue: Catalogue, slug: string): ModelPrices {
 	return {
 		usdPerInputMTok,
 		usdPerOutputMTok,
-		eurPerInputMTok: Number((usdPerInputMTok / USD_PER_EUR).toFixed(4)),
-		eurPerOutputMTok: Number((usdPerOutputMTok / USD_PER_EUR).toFixed(4))
+		eurPerInputMTok: Number(toEur(usdPerInputMTok, 'USD').toFixed(4)),
+		eurPerOutputMTok: Number(toEur(usdPerOutputMTok, 'USD').toFixed(4))
 	};
 }
 

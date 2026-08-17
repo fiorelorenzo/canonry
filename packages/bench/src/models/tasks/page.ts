@@ -26,7 +26,7 @@ import { readFileSync } from 'node:fs';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { ArchiveSourceReader, DEFAULT_ARCHIVE_LIMITS } from '@canonry/import';
-import { resolveModel } from '@canonry/ai';
+import { computeCost, normalizeUsage, resolveModel } from '@canonry/ai';
 import { archivePath } from '../../corpus/build.js';
 import { SCANNED_PAGES } from '../../corpus/render/pdf.js';
 import { slugify } from '../../corpus/slug.js';
@@ -135,11 +135,15 @@ export const pageTask: BenchTask = {
 		const score = 0.35 * accuracy + 0.45 * entityRecall + 0.2 * entityPrecision;
 
 		// The import's own cost accounting does not cover this call (issue #133), so the
-		// price comes from the resolved model's params, which is the same arithmetic
-		// `computeCost` does and the same numbers `model_config` holds.
-		const costEur =
-			((result.usage.inputTokens ?? 0) * (resolved.params.eurPerInputMTok ?? 0)) / 1e6 +
-			((result.usage.outputTokens ?? 0) * (resolved.params.eurPerOutputMTok ?? 0)) / 1e6;
+		// price comes from the resolved model's own params, through the same computeCost
+		// every other call in the product uses - not a second copy of that arithmetic here.
+		const costEur = computeCost(
+			resolved.params,
+			normalizeUsage({
+				inputTokens: result.usage.inputTokens ?? 0,
+				outputTokens: result.usage.outputTokens ?? 0
+			})
+		).costEur;
 
 		return {
 			caseId: page.id,

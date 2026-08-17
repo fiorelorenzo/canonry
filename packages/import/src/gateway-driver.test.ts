@@ -61,7 +61,7 @@ function scriptedModel(steps: ReturnType<typeof toolCallStep>[]): MockLanguageMo
 	return new MockLanguageModelV4({ provider: 'test', modelId: 'test-cheap', doGenerate: steps });
 }
 
-const TEST_PARAMS = { eurPerInputMTok: 1, eurPerOutputMTok: 2, creditsPerEur: 100 };
+const TEST_PARAMS = { pricePerInputMTok: 1, pricePerOutputMTok: 2, creditsPerEur: 100 };
 
 function fixedModelSelector(languageModel: LanguageModel): ModelSelector {
 	const resolved: ImportModel = {
@@ -1049,7 +1049,7 @@ One document.
 		});
 	}
 
-	// TEST_PARAMS (eurPerInputMTok 1, eurPerOutputMTok 2, creditsPerEur 100) prices
+	// TEST_PARAMS (pricePerInputMTok 1, pricePerOutputMTok 2, creditsPerEur 100) prices
 	// TINY_PLAYBOOK's first step's worst case (225-character system prompt + 2 tools'
 	// overhead + the 8192-token output cap) at ~1.68 credits - a budget of 0.5 cannot
 	// fit that even once, but the *first* step of a job always gets tried regardless

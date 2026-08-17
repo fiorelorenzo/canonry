@@ -8,12 +8,12 @@ describe('DbModelSelector (issue #24)', () => {
 			cheap: {
 				provider: 'openai',
 				modelId: 'gpt-4o-mini',
-				params: { eurPerInputMTok: 0.15, eurPerOutputMTok: 0.6, creditsPerEur: 100 }
+				params: { pricePerInputMTok: 0.15, pricePerOutputMTok: 0.6, creditsPerEur: 100 }
 			},
 			premium: {
 				provider: 'anthropic',
 				modelId: 'claude-sonnet',
-				params: { eurPerInputMTok: 3, eurPerOutputMTok: 15, creditsPerEur: 100 }
+				params: { pricePerInputMTok: 3, pricePerOutputMTok: 15, creditsPerEur: 100 }
 			}
 		};
 		const requestedPurposes: string[] = [];

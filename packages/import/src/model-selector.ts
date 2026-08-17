@@ -26,15 +26,18 @@ import type { ImportModelPurpose } from './playbook.js';
 /** What the database read returns for one purpose: provider, model id and the pricing
  * params `@canonry/ai`'s `computeCost` needs. Mirrors `@canonry/ai`'s `ResolvedModel`
  * structurally rather than importing it - this file has no dependency on `@canonry/ai`'s
- * types, only on whatever shape `resolvePurpose` hands back. */
+ * types, only on whatever shape `resolvePurpose` hands back. `currency` mirrors
+ * `ModelParams.currency` (issue #132): the price fields below are stated in whatever
+ * currency it names, converted to EUR only inside `computeCost`. */
 export interface PurposeResolution {
 	provider: string;
 	modelId: string;
 	params: {
-		eurPerInputMTok?: number;
-		eurPerOutputMTok?: number;
-		eurPerEmbeddingMTok?: number;
-		eurPerImage?: number;
+		currency?: 'EUR' | 'USD';
+		pricePerInputMTok?: number;
+		pricePerOutputMTok?: number;
+		pricePerEmbeddingMTok?: number;
+		pricePerImage?: number;
 		creditsPerEur?: number;
 	};
 }

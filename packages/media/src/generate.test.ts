@@ -105,14 +105,14 @@ describe('generateImages (#64-#67, #71)', () => {
 				provider: 'replicate',
 				modelId: 'prunaai/p-image',
 				active: true,
-				params: { eurPerImage: 0.02 }
+				params: { pricePerImage: 0.02, currency: 'EUR' }
 			},
 			{
 				feature: 'variants',
 				provider: 'replicate',
 				modelId: 'black-forest-labs/flux-schnell',
 				active: true,
-				params: { eurPerImage: 0.01 }
+				params: { pricePerImage: 0.01, currency: 'USD' }
 			}
 		]);
 	});
