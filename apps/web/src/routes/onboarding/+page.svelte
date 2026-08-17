@@ -13,7 +13,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { Badge } from '$lib/components/ui/badge';
 	import { PageHeader } from '$lib/components/ui/page-header';
 	import type { PageProps } from './$types';
 
@@ -44,10 +43,7 @@
 
 		<div class="grid gap-4 sm:grid-cols-3">
 			<div class="flex flex-col gap-3 rounded-lg border border-line bg-panel p-4">
-				<div class="flex items-center gap-2">
-					<h2 class="text-sm font-medium text-ink">{t.importCard.heading}</h2>
-					<Badge>{t.importCard.badge}</Badge>
-				</div>
+				<h2 class="text-sm font-medium text-ink">{t.importCard.heading}</h2>
 				<p class="flex-1 text-sm text-ink-2">{t.importCard.description}</p>
 				<Button type="submit" formaction="?/import" class="self-start">
 					{t.importCard.cta}

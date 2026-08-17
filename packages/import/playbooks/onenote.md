@@ -1,6 +1,6 @@
 ---
 id: onenote
-version: 3
+version: 4
 name: OneNote page export
 description: Imports one page from a folder tree of exported OneNote pages, trusting the folder hierarchy for parent/subpage relations.
 modelPurpose: cheap
@@ -163,7 +163,7 @@ its own children.
    	"name": "Flooded Stacks",
    	"aliases": [],
    	"summary": "The lower archive floods every spring tide; the lowest shelves stay permanently underwater.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 40, "end": 220 },
    	"images": []
    }
@@ -183,7 +183,7 @@ its own children.
    	"label": "subpage of",
    	"inverseLabel": "has subpage",
    	"cardinality": "many_to_one",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 63, "end": 92 }
    }
    ```

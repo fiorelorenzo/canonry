@@ -1,6 +1,6 @@
 ---
 id: generic
-version: 3
+version: 4
 name: Generic fallback
 description: Handles any export a source-specific playbook does not recognise yet, one document at a time.
 modelPurpose: cheap
@@ -64,7 +64,7 @@ which document to work on and you cannot switch to another one.
    	"name": "Aldric Voss",
    	"aliases": ["the Grey Captain"],
    	"summary": "A retired mercenary captain who now runs the harbour watch.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 120, "end": 240 }
    }
    ```
@@ -84,7 +84,7 @@ which document to work on and you cannot switch to another one.
    	"label": "commands",
    	"inverseLabel": "serves under",
    	"cardinality": "one_to_many",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 300, "end": 360 }
    }
    ```

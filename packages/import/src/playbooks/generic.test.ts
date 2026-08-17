@@ -37,7 +37,7 @@ describe('generic playbook (issue #44, SPEC.md §6.6)', () => {
 							name: 'Sera Bellweather',
 							aliases: [],
 							summary: 'Runs the Ashgate trading post and keeps the peace herself.',
-							sourceRef: { documentId: 'doc-1', path: NOTES_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: seraSpan,
 							images: []
 						}
@@ -51,7 +51,7 @@ describe('generic playbook (issue #44, SPEC.md §6.6)', () => {
 							name: 'Torvin Hale',
 							aliases: [],
 							summary: 'Delivers supplies to Sera every fortnight and owes her money.',
-							sourceRef: { documentId: 'doc-1', path: NOTES_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: torvinSpan,
 							images: []
 						}
@@ -67,7 +67,7 @@ describe('generic playbook (issue #44, SPEC.md §6.6)', () => {
 							label: 'supplies',
 							inverseLabel: 'supplied by',
 							cardinality: 'one_to_one',
-							sourceRef: { documentId: 'doc-1', path: NOTES_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: torvinSpan
 						}
 					}

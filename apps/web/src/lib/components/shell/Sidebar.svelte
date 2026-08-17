@@ -191,9 +191,15 @@
 	     the real account menu - Docs and Privacy now live as rows inside that menu
 	     (docs/ux/product-pass.html#i6's own mock draws them there), which is also why
 	     there is no longer a standalone Privacy link in this div: one menu, not a menu
-	     plus a leftover link saying the same thing twice. -->
+	     plus a leftover link saying the same thing twice.
+
+	     Issue #201: the meter also needs `universes.length > 0` - an account with no
+	     universe yet (mid-`/onboarding`) can't spend either budget, so the footer
+	     would show two ceilings for things the GM hasn't met. The auth pages need no
+	     equivalent check: AppShell.svelte never mounts this component at all when
+	     `data.user` is null, which is every route under `/auth`. -->
 	<div class="flex flex-col gap-1.5 border-t border-line p-3">
-		{#if quota}
+		{#if quota && universes.length > 0}
 			<QuotaMeter {quota} {locale} />
 		{/if}
 		<ShellUserRow {user} {locale} {quota} />
