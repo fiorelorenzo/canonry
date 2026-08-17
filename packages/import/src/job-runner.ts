@@ -267,6 +267,10 @@ export interface RunImportJobParams {
 
 export interface DocumentOutcome {
 	documentId: string;
+	/** issue #177: `JobDocument.sourcePath`, the file a GM actually wrote and would
+	 * recognise - `outcome_note` names a document by this rather than by `documentId`
+	 * (an opaque `doc-1`) because it is read on a review screen, not a log. */
+	sourcePath: string;
 	status: DocumentStatus | 'skipped_unchanged';
 	entityCount: number;
 	relationCount: number;
@@ -307,8 +311,8 @@ function buildOutcomeNote(
 	const neverStarted = documentsToRun.filter((doc) => !settledIds.has(doc.id));
 
 	const offenders = [
-		...unfinished.map((outcome) => `${outcome.documentId}: ${outcome.detail}`),
-		...neverStarted.map((doc) => `${doc.id}: never started`)
+		...unfinished.map((outcome) => `${outcome.sourcePath}: ${outcome.detail}`),
+		...neverStarted.map((doc) => `${doc.sourcePath}: never started`)
 	];
 	const [first, ...rest] = offenders;
 	if (!first) {
@@ -362,6 +366,7 @@ export class ImportJobRunner {
 			if (existing && existing.contentHash === contentHash) {
 				outcomes.push({
 					documentId: doc.id,
+					sourcePath: doc.sourcePath,
 					status: 'skipped_unchanged',
 					entityCount: 0,
 					relationCount: 0,
@@ -410,6 +415,7 @@ export class ImportJobRunner {
 
 		const timeoutHandle = setTimeout(() => params.driver.cancel(params.dbJobId), params.timeoutMs);
 		const buffers = new Map<string, DocumentBuffer>();
+		const sourcePathByDocument = new Map(documentsToRun.map((doc) => [doc.id, doc.sourcePath]));
 		let proposalsEmitted = 0;
 		let sawStoppedAtCeiling = false;
 		let sawCancelled = false;
@@ -424,6 +430,7 @@ export class ImportJobRunner {
 					buffers,
 					documentPriceCredits: documentPrice.credits,
 					contentHashByDocument,
+					sourcePathByDocument,
 					onDocumentSettled: (outcome) => {
 						outcomes.push(outcome);
 						proposalsEmitted += outcome.proposalsCreated;
@@ -503,6 +510,10 @@ interface HandleEventContext {
 	 * `entity_source_ref.content_hash` without re-reading the source document - the review
 	 * screen has no `SourceReader` and should not need one just to accept a proposal. */
 	contentHashByDocument: Map<string, string>;
+	/** issue #177: `documentsToRun`'s own sourcePath, keyed by documentId - threaded down
+	 * so `onDocumentSettled` can put `DocumentOutcome.sourcePath` on every terminal
+	 * outcome without the driver's own `progress` event needing to carry it. */
+	sourcePathByDocument: Map<string, string>;
 	onDocumentSettled: (outcome: DocumentOutcome) => void;
 }
 
@@ -566,6 +577,7 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 
 	ctx.onDocumentSettled({
 		documentId: event.documentId,
+		sourcePath: ctx.sourcePathByDocument.get(event.documentId) ?? '',
 		status: event.status,
 		entityCount: event.entityCount,
 		relationCount: event.relationCount,

@@ -335,6 +335,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		expect(secondRun.documents).toEqual([
 			{
 				documentId: 'doc-1',
+				sourcePath: 'notes/aldric.md',
 				status: 'skipped_unchanged',
 				entityCount: 0,
 				relationCount: 0,
@@ -431,7 +432,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		// than silently dropped - "prefer naming the first and saying how many others"
 		// (issue #177).
 		expect(jobAfterCeiling.outcomeNote).toBe(
-			"doc-a: this step's worst case would not fit this job's remaining credit budget " +
+			"notes/a.md: this step's worst case would not fit this job's remaining credit budget " +
 				'(and 1 other document(s) that did not finish cleanly)'
 		);
 
@@ -543,7 +544,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 
 		const jobRow = await getImportJob(db, admission.jobId);
 		expect(jobRow.status).toBe('cancelled');
-		expect(jobRow.outcomeNote).toBe('doc-c: cancelled before this step started');
+		expect(jobRow.outcomeNote).toBe('notes/c.md: cancelled before this step started');
 	});
 
 	it('names the document and its detail in outcome_note when a document hits its own step ceiling (issue #177)', async () => {
@@ -627,7 +628,7 @@ One document.
 		expect(model.doGenerateCalls).toHaveLength(2);
 
 		const jobRow = await getImportJob(db, admission.jobId);
-		expect(jobRow.outcomeNote).toBe("doc-d: this document's step ceiling was reached");
+		expect(jobRow.outcomeNote).toBe("notes/d.md: this document's step ceiling was reached");
 	});
 
 	it('names the document and its detail in outcome_note when a document is ended for looping (issue #169)', async () => {
@@ -718,7 +719,7 @@ One document.
 
 		const jobRow = await getImportJob(db, admission.jobId);
 		expect(jobRow.outcomeNote).toBe(
-			'doc-e: stuck in a loop: source_list was called with identical arguments 4 times in a row, ' +
+			'notes/e.md: stuck in a loop: source_list was called with identical arguments 4 times in a row, ' +
 				'so this document was ended rather than run to its step ceiling'
 		);
 	});
@@ -819,7 +820,7 @@ One document.
 
 		const jobRow = await getImportJob(db, admission.jobId);
 		expect(jobRow.outcomeNote).toBe(
-			'doc-f: every tool call in this step failed to parse, most likely truncated by the output limit'
+			'notes/f.md: every tool call in this step failed to parse, most likely truncated by the output limit'
 		);
 	});
 
