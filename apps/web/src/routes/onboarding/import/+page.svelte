@@ -10,6 +10,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
 	import { PageHeader } from '$lib/components/ui/page-header';
+	import PlaybookSelect from '$lib/components/onboarding/PlaybookSelect.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -88,15 +89,11 @@
 				<Label for="playbookId" class="text-sm font-normal text-ink-2"
 					>{t.confirm.playbookLabel}</Label
 				>
-				<select
-					id="playbookId"
-					name="playbookId"
-					class="w-60 rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink"
-				>
-					{#each data.playbookIds as id (id)}
-						<option value={id} selected={id === form.playbookId}>{data.playbookLabels[id]}</option>
-					{/each}
-				</select>
+				<PlaybookSelect
+					playbookId={form.playbookId}
+					playbookIds={data.playbookIds}
+					playbookLabels={data.playbookLabels}
+				/>
 
 				<Button type="submit" class="self-start">
 					{t.confirm.continueButton}

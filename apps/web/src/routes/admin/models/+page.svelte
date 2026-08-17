@@ -5,6 +5,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { PageHeader } from '$lib/components/ui/page-header';
+	import ProviderSelect from '$lib/components/admin/ProviderSelect.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -101,18 +102,12 @@
 								<input type="hidden" name="purpose" value={row.purpose} />
 								<div class="flex flex-col gap-1">
 									<Label class="sr-only" for={providerId}>{t.models.table.provider}</Label>
-									<select
+									<ProviderSelect
 										id={providerId}
-										name="provider"
-										class="w-32 rounded border border-line-2 bg-panel px-2 py-1 text-ink"
-										class:border-danger={!!errorHere}
-									>
-										{#each data.knownProviders as provider (provider)}
-											<option value={provider} selected={providerValue === provider}>
-												{provider}
-											</option>
-										{/each}
-									</select>
+										providers={data.knownProviders}
+										value={providerValue}
+										invalid={!!errorHere}
+									/>
 								</div>
 								<div class="flex flex-col gap-1">
 									<Label class="sr-only" for={modelIdId}>{t.models.table.modelId}</Label>
