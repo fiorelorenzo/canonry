@@ -36,13 +36,19 @@ on:
         description: Tag or sha to deploy (defaults to the ref this run was triggered on)
         required: false
 
-# One deploy at a time per stack, and queued rather than cancelled: a release is a
-# symlink flip plus a container recreate on a real box, so two overlapping runs
-# against the same stack is the one thing that can leave it half moved. Two pushes
-# to main in quick succession therefore deploy in order instead of racing.
+# One deploy at a time per stack, because a release is a symlink flip plus a container
+# recreate on a real box and two overlapping runs against the same stack is the one thing
+# that can leave it half moved.
+#
+# Whether the queue cancels depends on which stack, and the two want opposite things
+# (issue #222). `preview` fires on every green CI run on `main`, so a wave of merges queues
+# one deploy per commit of which only the last one matters: nine runs that exist to be
+# superseded, and enough traffic from this box that the runner started failing to download
+# its own actions with a 429. Superseding them is the correct behaviour there. A `prod` tag
+# or a manual dispatch is a deliberate release, so it is never cancelled by a later one.
 concurrency:
   group: deploy-${{ github.event_name == 'workflow_run' && 'preview' || (inputs.stack || 'prod') }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'workflow_run' }}
 
 env:
   REGISTRY: ghcr.io
@@ -177,10 +183,25 @@ jobs:
     # wrong the first time somebody adds a trigger.
     environment: ${{ needs.verify-ci.outputs.stack == 'preview' && 'preview' || 'production' }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.verify-ci.outputs.sha }}
+      # Deliberately not actions/checkout (issue #222). This job runs on prodbox, where the
+      # runner downloads a marketplace action unauthenticated from codeload.github.com on
+      # every single run, from an IP that also serves loombox's runner: three deploys in a
+      # row died in `Set up job` with a 429 before reaching a line of deploy code. All this
+      # step actually needs is `scripts/deploy/` and `docker/deploy/` at the deployed sha,
+      # which git fetches directly, and canonry is public so it needs no credential to do
+      # it. `--force` plus `clean` because the workspace survives between runs.
+      - name: Check out the deploy scripts at this commit
+        run: |
+          git init -q .
+          git remote get-url origin >/dev/null 2>&1 \
+            || git remote add origin "${{ github.server_url }}/${{ github.repository }}.git"
+          git remote set-url origin "${{ github.server_url }}/${{ github.repository }}.git"
+          git fetch -q --depth 1 origin "${{ needs.verify-ci.outputs.sha }}"
+          git checkout -q --force FETCH_HEAD
+          git clean -qfd
+          test -x scripts/deploy/release.sh
+          test -f docker/deploy/compose.deploy.yml
+          echo "checked out $(git rev-parse HEAD)"
 
       - name: Release
         run: |
