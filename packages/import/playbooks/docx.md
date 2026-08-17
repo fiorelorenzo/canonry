@@ -1,6 +1,6 @@
 ---
 id: docx
-version: 3
+version: 4
 name: DOCX document
 description: Imports a Word document, keeping its structure and dropping its visual styling.
 modelPurpose: cheap
@@ -67,7 +67,7 @@ job's unpacked export are given to you in the first user message.
    	"name": "Warden Iset Nour",
    	"aliases": [],
    	"summary": "Keeper of the eastern gate. Answers only to the Council, not to the garrison commander.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 512, "end": 700 },
    	"images": []
    }
@@ -87,7 +87,7 @@ job's unpacked export are given to you in the first user message.
    	"label": "reports to",
    	"inverseLabel": "commands",
    	"cardinality": "many_to_one",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 700, "end": 760 }
    }
    ```

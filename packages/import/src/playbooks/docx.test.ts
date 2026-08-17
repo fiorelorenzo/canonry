@@ -57,7 +57,7 @@ describe('docx playbook (issue #39, SPEC.md §6.6)', () => {
 							name: 'Warden Iset Nour',
 							aliases: [],
 							summary: 'Keeper of the eastern gate. Answers only to the Council.',
-							sourceRef: { documentId: 'doc-1', path: DOCX_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: wardenSpan,
 							images: []
 						}
@@ -71,7 +71,7 @@ describe('docx playbook (issue #39, SPEC.md §6.6)', () => {
 							name: 'Garrison Commander Vey',
 							aliases: [],
 							summary: 'Reports to the Council, per the chain of command table.',
-							sourceRef: { documentId: 'doc-1', path: DOCX_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: veySpan,
 							images: []
 						}
@@ -85,7 +85,7 @@ describe('docx playbook (issue #39, SPEC.md §6.6)', () => {
 							name: 'The Council',
 							aliases: [],
 							summary: 'The authority both the warden and the garrison commander answer to.',
-							sourceRef: { documentId: 'doc-1', path: DOCX_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: veySpan,
 							images: []
 						}
@@ -101,7 +101,7 @@ describe('docx playbook (issue #39, SPEC.md §6.6)', () => {
 							label: 'reports to',
 							inverseLabel: 'commands',
 							cardinality: 'many_to_one',
-							sourceRef: { documentId: 'doc-1', path: DOCX_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: veySpan
 						}
 					},
@@ -114,7 +114,7 @@ describe('docx playbook (issue #39, SPEC.md §6.6)', () => {
 							label: 'reports to',
 							inverseLabel: 'commands',
 							cardinality: 'many_to_one',
-							sourceRef: { documentId: 'doc-1', path: DOCX_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: veySpan
 						}
 					},
@@ -127,7 +127,7 @@ describe('docx playbook (issue #39, SPEC.md §6.6)', () => {
 							label: 'rival',
 							inverseLabel: 'rival',
 							cardinality: 'one_to_one',
-							sourceRef: { documentId: 'doc-1', path: DOCX_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: rivalSpan
 						}
 					}

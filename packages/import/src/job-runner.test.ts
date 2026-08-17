@@ -134,13 +134,7 @@ function fixedModelSelector(languageModel: LanguageModel): ModelSelector {
 	return { resolve: async () => resolved };
 }
 
-function entityStep(
-	id: string,
-	localId: string,
-	name: string,
-	documentId: string,
-	sourcePath: string
-) {
+function entityStep(id: string, localId: string, name: string, documentId: string) {
 	return toolCallStep([
 		{
 			id,
@@ -151,7 +145,7 @@ function entityStep(
 				name,
 				aliases: [],
 				summary: `${name} appears in this document.`,
-				sourceRef: { documentId, path: sourcePath },
+				sourceRef: { documentId },
 				evidenceSpan: { start: 0, end: 10 }
 			}
 		}
@@ -273,7 +267,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 
 		const model1 = scriptedModel([
 			toolCallStep([{ id: 'r1', name: 'source_read', input: { path: 'notes/aldric.md' } }]),
-			entityStep('r2', 'e1', 'Aldric Voss', 'doc-1', 'notes/aldric.md'),
+			entityStep('r2', 'e1', 'Aldric Voss', 'doc-1'),
 			finishStep('r3')
 		]);
 		const driver1 = new GatewayDriver({
@@ -401,7 +395,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 
 		const modelA = scriptedModel([
 			toolCallStep([{ id: 'a1', name: 'source_read', input: { path: 'notes/a.md' } }]),
-			entityStep('a2', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
+			entityStep('a2', 'ea', 'Entity A', 'doc-a'),
 			finishStep('a3')
 		]);
 		const driverA = new GatewayDriver({
@@ -433,7 +427,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		// finished and must not run again; only document B should call the model.
 		const modelB = scriptedModel([
 			toolCallStep([{ id: 'b1', name: 'source_read', input: { path: 'notes/b.md' } }]),
-			entityStep('b2', 'eb', 'Entity B', 'doc-b', 'notes/b.md'),
+			entityStep('b2', 'eb', 'Entity B', 'doc-b'),
 			finishStep('b3')
 		]);
 		const driverB = new GatewayDriver({
@@ -484,7 +478,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 
 		const model = scriptedModel([
 			toolCallStep([{ id: 'c1', name: 'source_read', input: { path: 'notes/c.md' } }]),
-			entityStep('c2', 'ec', 'Entity C', 'doc-c', 'notes/c.md'),
+			entityStep('c2', 'ec', 'Entity C', 'doc-c'),
 			// A third step the cancel should prevent from ever running.
 			finishStep('c3')
 		]);
@@ -579,7 +573,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 						name: 'The Gilded Rat',
 						aliases: [],
 						summary: gildedRatSummary,
-						sourceRef: { documentId: 'doc-en', path: EN_PATH },
+						sourceRef: { documentId: 'doc-en' },
 						evidenceSpan: { start: 0, end: 10 },
 						images: []
 					}
@@ -597,7 +591,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 						name: 'Capitano Aldric Voss',
 						aliases: [],
 						summary: aldricSummary,
-						sourceRef: { documentId: 'doc-it', path: IT_PATH },
+						sourceRef: { documentId: 'doc-it' },
 						evidenceSpan: { start: 0, end: 10 },
 						images: []
 					}
@@ -729,10 +723,10 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 
 			const model = scriptedModel([
 				toolCallStep([{ id: 'a1', name: 'source_read', input: { path: 'notes/a.md' } }]),
-				entityStep('a2', 'ea', 'Aldric Vane', 'doc-a', 'notes/a.md'),
+				entityStep('a2', 'ea', 'Aldric Vane', 'doc-a'),
 				finishStep('a3'),
 				toolCallStep([{ id: 'b1', name: 'source_read', input: { path: 'notes/b.md' } }]),
-				entityStep('b2', 'eb', 'Aldric Vane', 'doc-b', 'notes/b.md'),
+				entityStep('b2', 'eb', 'Aldric Vane', 'doc-b'),
 				finishStep('b3')
 			]);
 			const driver = new GatewayDriver({
@@ -804,10 +798,10 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 
 			const model = scriptedModel([
 				toolCallStep([{ id: 'c1', name: 'source_read', input: { path: 'notes/a.md' } }]),
-				entityStep('c2', 'ea', 'Aldric Vane', 'doc-a', 'notes/a.md'),
+				entityStep('c2', 'ea', 'Aldric Vane', 'doc-a'),
 				finishStep('c3'),
 				toolCallStep([{ id: 'c4', name: 'source_read', input: { path: 'notes/b.md' } }]),
-				entityStep('c5', 'eb', 'Aldric Vane', 'doc-b', 'notes/b.md'),
+				entityStep('c5', 'eb', 'Aldric Vane', 'doc-b'),
 				finishStep('c6')
 			]);
 			const driver = new GatewayDriver({
@@ -908,8 +902,8 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 
 		const model = scriptedModel([
 			toolCallStep([{ id: 'd1', name: 'source_read', input: { path: 'notes/duplicate.md' } }]),
-			entityStep('d2', 'e1', 'Aldric Vane', 'doc-1', 'notes/duplicate.md'),
-			entityStep('d3', 'e2', 'Aldric Vane', 'doc-1', 'notes/duplicate.md'),
+			entityStep('d2', 'e1', 'Aldric Vane', 'doc-1'),
+			entityStep('d3', 'e2', 'Aldric Vane', 'doc-1'),
 			toolCallStep([
 				{
 					id: 'd4',
@@ -920,7 +914,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 						label: 'reports to',
 						inverseLabel: 'commands',
 						cardinality: 'many_to_one',
-						sourceRef: { documentId: 'doc-1', path: 'notes/duplicate.md' },
+						sourceRef: { documentId: 'doc-1' },
 						evidenceSpan: { start: 0, end: 20 }
 					}
 				}
@@ -1046,10 +1040,10 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			const runner = new ImportJobRunner();
 			const model1 = scriptedModel([
 				toolCallStep([{ id: 'm1', name: 'source_read', input: { path: 'notes/a.md' } }]),
-				entityStep('m2', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
+				entityStep('m2', 'ea', 'Entity A', 'doc-a'),
 				finishStep('m3'),
 				toolCallStep([{ id: 'm4', name: 'source_read', input: { path: 'notes/b.md' } }]),
-				entityStep('m5', 'eb', 'Entity B', 'doc-b', 'notes/b.md'),
+				entityStep('m5', 'eb', 'Entity B', 'doc-b'),
 				finishStep('m6')
 			]);
 			const driver1 = new GatewayDriver({
@@ -1133,10 +1127,10 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			const admission1 = await admitJob(universeId, userId, playbook, 2, '3');
 			const model1 = scriptedModel([
 				toolCallStep([{ id: 'r1', name: 'source_read', input: { path: 'notes/a.md' } }]),
-				entityStep('r2', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
+				entityStep('r2', 'ea', 'Entity A', 'doc-a'),
 				finishStep('r3'),
 				toolCallStep([{ id: 'r4', name: 'source_read', input: { path: 'notes/b.md' } }]),
-				entityStep('r5', 'eb', 'Session 1', 'doc-b', 'notes/b.md'),
+				entityStep('r5', 'eb', 'Session 1', 'doc-b'),
 				finishStep('r6')
 			]);
 			const driver1 = new GatewayDriver({
@@ -1236,10 +1230,10 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			const admission1 = await admitJob(universeId, userId, playbook, 2, '6');
 			const model1 = scriptedModel([
 				toolCallStep([{ id: 'c1', name: 'source_read', input: { path: 'notes/a.md' } }]),
-				entityStep('c2', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
+				entityStep('c2', 'ea', 'Entity A', 'doc-a'),
 				finishStep('c3'),
 				toolCallStep([{ id: 'c4', name: 'source_read', input: { path: 'notes/b.md' } }]),
-				entityStep('c5', 'eb', 'Entity B', 'doc-b', 'notes/b.md'),
+				entityStep('c5', 'eb', 'Entity B', 'doc-b'),
 				finishStep('c6')
 			]);
 			const driver1 = new GatewayDriver({
@@ -1322,10 +1316,10 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			const admission1 = await admitJob(universeId, userId, playbook, 2, '8');
 			const model1 = scriptedModel([
 				toolCallStep([{ id: 'k1', name: 'source_read', input: { path: 'notes/a.md' } }]),
-				entityStep('k2', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
+				entityStep('k2', 'ea', 'Entity A', 'doc-a'),
 				finishStep('k3'),
 				toolCallStep([{ id: 'k4', name: 'source_read', input: { path: 'notes/b.md' } }]),
-				entityStep('k5', 'eb', 'Entity B', 'doc-b', 'notes/b.md'),
+				entityStep('k5', 'eb', 'Entity B', 'doc-b'),
 				finishStep('k6')
 			]);
 			const driver1 = new GatewayDriver({
@@ -1359,7 +1353,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			const admission2 = await admitJob(universeId, userId, playbook, 1, '9');
 			const model2 = scriptedModel([
 				toolCallStep([{ id: 'k7', name: 'source_read', input: { path: 'notes/a.md' } }]),
-				entityStep('k8', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
+				entityStep('k8', 'ea', 'Entity A', 'doc-a'),
 				finishStep('never')
 			]);
 			let resolvedSteps = 0;
@@ -1417,10 +1411,10 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			const admission1 = await admitJob(universeId, userId, playbook, 2, 'a');
 			const model1 = scriptedModel([
 				toolCallStep([{ id: 'f1', name: 'source_read', input: { path: 'notes/a.md' } }]),
-				entityStep('f2', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
+				entityStep('f2', 'ea', 'Entity A', 'doc-a'),
 				finishStep('f3'),
 				toolCallStep([{ id: 'f4', name: 'source_read', input: { path: 'notes/b.md' } }]),
-				entityStep('f5', 'eb', 'Entity B', 'doc-b', 'notes/b.md'),
+				entityStep('f5', 'eb', 'Entity B', 'doc-b'),
 				finishStep('f6')
 			]);
 			const driver1 = new GatewayDriver({
