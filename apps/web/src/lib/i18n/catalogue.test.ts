@@ -16,6 +16,8 @@
  * formatters produce what SPEC.md §17 actually asks for (Italian's decimal comma,
  * correct singular/plural credit counts in both languages).
  */
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it as vitestIt } from 'vitest';
 import { en } from './en.js';
 import { it } from './it.js';
@@ -96,4 +98,55 @@ describe('locale-aware Intl formatters (SPEC.md §17)', () => {
 		expect(dateFormat('en', { dateStyle: 'medium' }).format(date)).toBe('Aug 15, 2026');
 		expect(dateFormat('it', { dateStyle: 'medium' }).format(date)).toBe('15 ago 2026');
 	});
+});
+
+/**
+ * Issue #202: the interface never names a file in this repository, a spec section, a
+ * decision id or an issue number - a GM or a staff member reading a rendered string is
+ * not the audience for a citation aimed at whoever built the screen. That citation
+ * belongs in the code comment above the string, which is this repo's actual home for
+ * provenance (see the doc comments throughout `en.ts`/`it.ts`, still citing freely) -
+ * so the scan below strips comments first and only ever looks at what would render.
+ */
+function catalogueSourceWithoutComments(source: string): string {
+	const commentOrStringLiteral =
+		/\/\/[^\n]*|\/\*[\s\S]*?\*\/|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/g;
+	return source.replace(commentOrStringLiteral, (match) =>
+		match.startsWith('//') || match.startsWith('/*') ? '' : match
+	);
+}
+
+/** The exact shapes the inventory behind issue #202 was built from: a spec file, the
+ * decisions doc, the agents doc, the docs/ux directory, a "§N" section mark or an
+ * "issueN"/"issue #N" reference. Deliberately not a check for the word "spec" alone -
+ * `docs.hub.intro`'s "rather than a spec section" leaked by naming the thing, not by
+ * matching one of these, and was caught and rewritten by hand for that reason. */
+const REPO_REFERENCE_PATTERNS: readonly RegExp[] = [
+	/SPEC\.md/i,
+	/DECISIONS\.md/i,
+	/AGENTS\.md/i,
+	/docs\/ux/i,
+	/§\s*\d/,
+	/issue\s*#?\d/i
+];
+
+describe('catalogue strings never cite this repo at the user (issue #202)', () => {
+	const catalogueSourcePaths: Record<'en' | 'it', string> = {
+		en: fileURLToPath(new URL('./en.ts', import.meta.url)),
+		it: fileURLToPath(new URL('./it.ts', import.meta.url))
+	};
+
+	for (const [locale, path] of Object.entries(catalogueSourcePaths) as Array<
+		['en' | 'it', string]
+	>) {
+		vitestIt(
+			`${locale}.ts has no repo file, spec section, decision id or issue number outside a comment`,
+			() => {
+				const rendered = catalogueSourceWithoutComments(readFileSync(path, 'utf8'));
+				for (const pattern of REPO_REFERENCE_PATTERNS) {
+					expect(rendered).not.toMatch(pattern);
+				}
+			}
+		);
+	}
 });

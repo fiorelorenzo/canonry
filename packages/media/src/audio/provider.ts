@@ -53,7 +53,7 @@ export class MissingElevenLabsEnvError extends Error {
 	constructor() {
 		super(
 			'missing required env var ELEVENLABS_API_KEY: ambient layer generation calls ' +
-				'ElevenLabs directly (SPEC.md §8.2) and cannot authenticate without it.'
+				'ElevenLabs directly and cannot authenticate without it.'
 		);
 		this.name = 'MissingElevenLabsEnvError';
 	}

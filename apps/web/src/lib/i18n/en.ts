@@ -112,7 +112,7 @@ export const en: Messages = {
 		appearance: {
 			title: 'Appearance',
 			description:
-				'This is light or dark for the whole product (G1, docs/ux/DECISIONS.md): it changes the palette everywhere, table mode included. It does not change type size, density or anything else.',
+				'This is light or dark for the whole product: it changes the palette everywhere, table mode included. It does not change type size, density or anything else.',
 			light: 'Light',
 			dark: 'Dark',
 			system: 'Match system',
@@ -123,7 +123,7 @@ export const en: Messages = {
 		language: {
 			title: 'Language',
 			description:
-				'The language the interface and the Loremaster speak to you in (SPEC.md §17). This is a preference on your account, so it follows you to the phone at the table - it is not the language your canon is written in, which stays whatever each entry was written in.',
+				'The language the interface and the Loremaster speak to you in. This is a preference on your account, so it follows you to the phone at the table - it is not the language your canon is written in, which stays whatever each entry was written in.',
 			signInPrompt: 'Sign in to save a language preference to your account.',
 			signInLink: 'Sign in',
 			save: 'Save',
@@ -135,7 +135,7 @@ export const en: Messages = {
 		billing: {
 			title: 'Billing',
 			description:
-				'Included quota with routing between cheap and premium models. No opaque credits, and no plan here is ever called "unlimited" - every plan states a real ceiling (SPEC.md §15).',
+				'Included quota with routing between cheap and premium models. No opaque credits, and no plan here is ever called "unlimited" - every plan states a real ceiling.',
 			signInPrompt: 'Sign in to see your plan and balance.',
 			signInLink: 'Sign in',
 			checkoutCancelled: 'Checkout was cancelled - your plan has not changed.',
@@ -171,7 +171,7 @@ export const en: Messages = {
 			para1Before:
 				'Every entry in a universe becomes one markdown file with YAML frontmatter, flat in one zip, plus a README naming the universe and the export date. ',
 			para1After:
-				' mentions are left exactly as written, because markdown is how Canonry stores canon (SPEC.md §13): what comes out of this zip is what is in the database, nothing rewritten to fit a different layout.',
+				' mentions are left exactly as written, because markdown is how Canonry stores canon: what comes out of this zip is what is in the database, nothing rewritten to fit a different layout.',
 			para2Before:
 				"This is a flat dump, not a typed, git-ready folder: every file sits at the top level of the zip, named after the entry's slug. GM-only entries are included too, with their own ",
 			para2After:
@@ -184,7 +184,7 @@ export const en: Messages = {
 			title: 'API keys',
 			infoPara1Before: 'Bring your own key to use your own provider account instead of ours. ',
 			infoPara1Bold: 'Off by default, for every provider, until you add one',
-			infoPara1After: ' - SPEC.md §15 never makes this the default path.',
+			infoPara1After: '.',
 			infoPara2Bold: 'What changes:',
 			infoPara2After:
 				" a call routed on your key stops drawing on your included quota or your warm budget, and your own provider's rate limits apply instead of ours.",
@@ -1074,7 +1074,7 @@ export const en: Messages = {
 		index: {
 			title: 'Works',
 			description:
-				"A oneshot, a module, a campaign, a story or a novel: an ordered tree of acts, chapters, scenes and encounters, separate from the universe's canon. What happens while writing or playing one flows back as proposals, never as a direct write (SPEC.md §4.3).",
+				"A oneshot, a module, a campaign, a story or a novel: an ordered tree of acts, chapters, scenes and encounters, separate from the universe's canon. What happens while writing or playing one flows back as proposals, never as a direct write.",
 			empty: 'No works yet.',
 			emptyAction: 'New work',
 			createHeading: 'Start a new work',
@@ -1127,7 +1127,7 @@ export const en: Messages = {
 			primaryNavAriaLabel: 'Primary',
 			askTheLoremaster: 'Ask the Loremaster',
 			recentHeading: 'Recent',
-			notBuiltYet: (issue) => `Not built yet, issue #${issue}`
+			notBuiltYet: 'Not built yet.'
 		},
 
 		switcher: {
@@ -1143,7 +1143,7 @@ export const en: Messages = {
 			homebrewEyebrow: 'Homebrew universe',
 			derivedEyebrow: 'Derived universe',
 			derivedNoticeBefore: 'Derived: reads its own canon plus ',
-			derivedNoticeAfter: "'s indexed corpus, read-only. Your canon always wins (SPEC.md 4.1).",
+			derivedNoticeAfter: "'s indexed corpus, read-only. Your canon always wins.",
 			newEntryAction: 'New entry',
 			strip: {
 				collapseLabel: 'Collapse',
@@ -1250,7 +1250,7 @@ export const en: Messages = {
 			precedence: {
 				heading: 'Precedence',
 				description: (universeName) =>
-					`Your canon always wins. A source page an entry here supersedes is marked below, not deleted, and stops coming back from retrieval for ${universeName} (SPEC.md §4.1).`,
+					`Your canon always wins. A source page an entry here supersedes is marked below, not deleted, and stops coming back from retrieval for ${universeName}.`,
 				empty: 'Nothing superseded yet.',
 				supersededBadge: 'superseded',
 				remove: 'remove',
@@ -1401,9 +1401,9 @@ export const en: Messages = {
 			browserTitle: 'Models, Canonry admin',
 			textHeading: 'Text models',
 			textIntro1:
-				'SPEC.md §11.1: the active model per purpose lives in <code class="text-xs">model_config</code>, not in code, and every flow - the Loremaster\'s four modes, propagation, warm generation, indexing, embedding - reads it through <code class="text-xs">resolveModel</code>. A change here takes effect on the very next call, no deploy, no restart. Provider is constrained to what <code class="text-xs">createLanguageModel</code> can actually build; a provider outside that list is not offered.',
+				'The active model per purpose lives in <code class="text-xs">model_config</code>, not in code, and every flow - the Loremaster\'s four modes, propagation, warm generation, indexing, embedding - reads it through <code class="text-xs">resolveModel</code>. A change here takes effect on the very next call, no deploy, no restart. Provider is constrained to what <code class="text-xs">createLanguageModel</code> can actually build; a provider outside that list is not offered.',
 			textIntro2:
-				'SPEC.md §17, issue #125: an Italian question against an English canon has to find the English chunk, so the <strong>embedding</strong> purpose is a deliberate multilingual choice, not a free one. Candidates were compared on published multilingual retrieval benchmarks (MIRACL, MTEB Multilingual) restricted to providers this build can construct - full reasoning and the disqualified/fallback candidates are in <code class="text-xs">packages/indexing/src/models.ts</code>\'s <code class="text-xs">RECOMMENDED_EMBEDDING_MODEL</code>. Recommended: <code class="text-xs">google</code> / <code class="text-xs">gemini-embedding-001</code> (#1 on the MTEB Multilingual leaderboard, ~100 languages). Gap this box cannot close: no live embedding credential exists here to confirm en/it recall specifically - neither MIRACL nor MTEB publish an isolated English&harr;Italian score, so that is a live benchmark still owed once a real credential exists, not a settled number.',
+				'An Italian question against an English canon has to find the English chunk, so the <strong>embedding</strong> purpose is a deliberate multilingual choice, not a free one. Candidates were compared on published multilingual retrieval benchmarks (MIRACL, MTEB Multilingual) restricted to providers this build can construct. Recommended: <code class="text-xs">google</code> / <code class="text-xs">gemini-embedding-001</code> (#1 on the MTEB Multilingual leaderboard, ~100 languages). Gap this box cannot close: no live embedding credential exists here to confirm en/it recall specifically - neither MIRACL nor MTEB publish an isolated English&harr;Italian score, so that is a live benchmark still owed once a real credential exists, not a settled number.',
 			table: {
 				purpose: 'Purpose',
 				currentlyActive: 'Currently active',
@@ -1424,9 +1424,9 @@ export const en: Messages = {
 			saved: 'Saved. Takes effect immediately.',
 			imageHeading: 'Image models',
 			imageIntro1:
-				'SPEC.md §9, issue #64: the active model per feature lives here, not in code, and a change here takes effect on the very next "Generate image" request - no deploy, no restart.',
+				'The active model per feature lives here, not in code, and a change here takes effect on the very next "Generate image" request - no deploy, no restart.',
 			imageIntro2Pre:
-				'Seeded default: <code class="text-xs">prunaai/p-image</code> for a single portrait, <code class="text-xs">black-forest-labs/flux-schnell</code> for the four-variant batch (SPEC.md §9). EUR per image is our own cost bookkeeping, never the credit price a GM sees - that lives in',
+				'Seeded default: <code class="text-xs">prunaai/p-image</code> for a single portrait, <code class="text-xs">black-forest-labs/flux-schnell</code> for the four-variant batch. EUR per image is our own cost bookkeeping, never the credit price a GM sees - that lives in',
 			imageTable: {
 				feature: 'Feature',
 				eurPerImage: 'EUR / image',
@@ -1452,7 +1452,7 @@ export const en: Messages = {
 			browserTitle: 'Metrics, Canonry admin',
 			heading: 'Metrics',
 			intro:
-				'SPEC.md §14 and decision F5: the two numbers that decide whether the copilot works, plus the three that say whether the rest of the product does. Staff only, and deliberately not shown to the GM - a GM optimising their own accept rate is a strange incentive on both sides of the relationship.',
+				'The two numbers that decide whether the copilot works, plus the three that say whether the rest of the product does. Staff only, and deliberately not shown to the GM - a GM optimising their own accept rate is a strange incentive on both sides of the relationship.',
 			table: {
 				produced: 'Produced',
 				accepted: 'Accepted',
@@ -1465,7 +1465,7 @@ export const en: Messages = {
 			accept: {
 				heading: 'Accept rate',
 				intro: (windowDays) =>
-					`Issue #100. <code class="text-xs">proposal.outcome</code>, \`superseded\` and \`pending\` excluded from the denominator - computed by <code class="text-xs">@canonry/eval</code>'s <code class="text-xs">acceptRate</code>, the same function the propagation corpus scores prompt and model changes against. Window: last ${windowDays} days.`,
+					`<code class="text-xs">proposal.outcome</code>, \`superseded\` and \`pending\` excluded from the denominator - computed by <code class="text-xs">@canonry/eval</code>'s <code class="text-xs">acceptRate</code>, the same function the propagation corpus scores prompt and model changes against. Window: last ${windowDays} days.`,
 				noProposalsYet:
 					'No proposals have been produced yet. A 0% accept rate here would be a lie by omission, not an honest reading, so this panel shows nothing until there is something to show.',
 				acceptRateLabel: 'Accept rate (decided proposals)',
@@ -1473,14 +1473,14 @@ export const en: Messages = {
 				byLocale: {
 					heading: 'By interface locale',
 					intro:
-						'Issue #128, SPEC.md §17 "instrumented per locale": <code class="text-xs">proposal.locale</code> - the interface language the proposal\'s speech was produced in, computed by the same <code class="text-xs">acceptRate</code> above. A locale with no proposals yet reads as "no data", never a fabricated 0%.',
+						'<code class="text-xs">proposal.locale</code> - the interface language the proposal\'s speech was produced in, computed by the same <code class="text-xs">acceptRate</code> above. A locale with no proposals yet reads as "no data", never a fabricated 0%.',
 					localeLabel: 'Locale'
 				}
 			},
 			timeToFirstAccept: {
 				heading: 'Time to first accepted proposal',
 				intro:
-					"Issue #101. From an import's start to its first accepted proposal, per universe, as a distribution: one slow outlier is the churn event AGENTS.md worries about, and an average would hide exactly that outlier.",
+					"From an import's start to its first accepted proposal, per universe, as a distribution: one slow outlier is itself a churn risk, and an average would hide exactly that outlier.",
 				noImportsYet: 'No imports have run yet.',
 				noAcceptYet: (count) => {
 					const noun = pluralRules('en').select(count) === 'one' ? 'import' : 'imports';
@@ -1497,7 +1497,7 @@ export const en: Messages = {
 			warmRadius: {
 				heading: 'Warm radius',
 				intro: (thresholdPercent) =>
-					`Issue #102. Warm hit rate - consumed artifacts over generated ones - governs the warm radius automatically: below ${thresholdPercent}% it shrinks from ring 2 to ring 1. This is the same read <code class="text-xs">warmOnConsumption</code> uses to decide how far to reach, not a separate estimate.`,
+					`Warm hit rate - consumed artifacts over generated ones - governs the warm radius automatically: below ${thresholdPercent}% it shrinks from ring 2 to ring 1. This is the same read <code class="text-xs">warmOnConsumption</code> uses to decide how far to reach, not a separate estimate.`,
 				consumed: 'Consumed',
 				generated: 'Generated',
 				hitRate: 'Hit rate',
@@ -1507,7 +1507,7 @@ export const en: Messages = {
 			entropy: {
 				heading: 'Canon entropy',
 				intro:
-					'Issue #103. Entries updated after a session versus created in prep, per universe - the metric that says whether canon entropy was actually solved or whether this is just another place to write things down.',
+					'Entries updated after a session versus created in prep, per universe - the metric that says whether canon entropy was actually solved or whether this is just another place to write things down.',
 				createdInPrep: 'Created in prep',
 				updatedAfterSession: 'Updated after a session'
 			}
@@ -1517,7 +1517,7 @@ export const en: Messages = {
 			browserTitle: 'Operation pricing, Canonry admin',
 			title: 'Operation pricing',
 			intro1:
-				'SPEC.md §15, issue #113: the credit price of every chargeable operation lives here, not in code, and a change here takes effect immediately, not after a cache expiry. A price of <b class="text-ink">zero</b> means the operation is free to the user: that is the whole mechanism behind reading staying free, not a special case bolted on elsewhere.',
+				'The credit price of every chargeable operation lives here, not in code, and a change here takes effect immediately, not after a cache expiry. A price of <b class="text-ink">zero</b> means the operation is free to the user: that is the whole mechanism behind reading staying free, not a special case bolted on elsewhere.',
 			intro2:
 				'Free to the user is not free to us: every call, priced or not, is still recorded in full with its real tokens and euro cost, because the margin question is answered from those rows and nowhere else.',
 			kindLabel: {
@@ -1550,7 +1550,7 @@ export const en: Messages = {
 			browserTitle: 'Docs',
 			title: 'Guides',
 			intro:
-				'Practical guides for getting a world into Canonry and anything else that needs plain instructions rather than a spec section.',
+				'Practical guides for getting a world into Canonry and anything else that needs plain instructions rather than dense reference material.',
 			importHeading: 'Import guides',
 			importIntro:
 				'One page per source, with the export steps to follow before you upload anything: Obsidian, Kanka, World Anvil, OneNote, PDF, DOCX, and the generic path for anything else.',

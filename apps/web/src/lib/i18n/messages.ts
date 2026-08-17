@@ -1086,7 +1086,7 @@ export interface Messages {
 			primaryNavAriaLabel: string;
 			askTheLoremaster: string;
 			recentHeading: string;
-			notBuiltYet: (issue: number) => string;
+			notBuiltYet: string;
 		};
 		switcher: {
 			switchAriaLabel: string;
