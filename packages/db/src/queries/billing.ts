@@ -228,10 +228,12 @@ export interface ChargeResult {
  * margin question ("free to the user is not free to us") is answered from those rows
  * and nowhere else, so none of them may be dropped.
  *
- * For an agent with no model_call row to attach to (SPEC.md §6.7: import attributes
- * tokens to import_job, not model_call - deliberately absent from the model_call_agent
- * enum), use `spendCredits` instead; it does the same balance write without the
- * model_call insert.
+ * For a caller whose credits are not priced per real model call - SPEC.md §6.7's import
+ * extraction charges a flat price per document, not the sum of what the document's
+ * individual model calls actually cost (issue #133) - use `spendCredits` instead; it
+ * does the same balance write without inventing a model_call row no real call produced,
+ * and can still point the resulting credit_transaction row at a real one via its own
+ * `modelCallId` parameter.
  *
  * `userId: null` (migration 0014, a system-attributed call - nightly warming or
  * universe-scoped indexing run for a universe rather than for somebody) skips the
@@ -309,6 +311,14 @@ export interface SpendCreditsInput {
 	operation: string;
 	credits: number;
 	idempotencyKey?: string | null;
+	/** issue #133: the balance move a caller like this often has a real `model_call` row
+	 * sitting next to it - not the row this spend's own token/cost came from (there is no
+	 * single such row for a flat, per-document price like `import.document`; see
+	 * `job-runner.ts`'s handleEvent for which one it picks), but a real one from the same
+	 * document's run all the same, so the credit_transaction row this writes is never left
+	 * pointing at nothing the way an import's spend used to. Omit for a caller with no
+	 * model_call row to attach to at all. */
+	modelCallId?: string | null;
 }
 
 export interface SpendCreditsResult {
@@ -316,13 +326,16 @@ export interface SpendCreditsResult {
 	alreadyCharged: boolean;
 }
 
-/** The balance-only half of recordAndCharge, for a caller whose token/cost record
- * lives somewhere other than model_call - SPEC.md §6.7's import extraction attributes
- * its tokens to import_job (already tracked there), so charging it through
- * recordAndCharge would mean inventing a model_call row with no real call behind it.
- * Same subscription-then-purchased order and idempotency-key retry safety as
- * recordAndCharge; the only difference is that nothing else is written in the same
- * transaction. Also does not throw InsufficientCreditsError, for the same reason
+/** The balance-only half of recordAndCharge, for a caller whose credits are not priced
+ * per model call - SPEC.md §6.7's import extraction charges a flat price per document
+ * (`operation_price('import.document')`), not the sum of what the document's individual
+ * model calls actually cost, so charging it through recordAndCharge would mean inventing
+ * a model_call row with a credits figure no real call produced. `modelCallId` lets the
+ * caller point the resulting credit_transaction row at a real model_call row from the
+ * same unit of work anyway (issue #133), without pretending that row's own credits field
+ * is what got charged. Same subscription-then-purchased order and idempotency-key retry
+ * safety as recordAndCharge; the only difference is that nothing else is written in the
+ * same transaction. Also does not throw InsufficientCreditsError, for the same reason
  * recordAndCharge does not - see its doc comment. */
 export async function spendCredits(db: Db, input: SpendCreditsInput): Promise<SpendCreditsResult> {
 	if (input.credits <= 0) {
@@ -346,7 +359,7 @@ export async function spendCredits(db: Db, input: SpendCreditsInput): Promise<Sp
 			kind: 'spend',
 			credits: -input.credits,
 			operation: input.operation,
-			modelCallId: null,
+			modelCallId: input.modelCallId ?? null,
 			idempotencyKey: input.idempotencyKey ?? null
 		});
 

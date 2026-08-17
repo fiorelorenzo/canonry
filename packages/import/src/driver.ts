@@ -113,6 +113,10 @@ export type JobEvent =
 			outputTokens: number;
 			credits: number;
 			costEur: number;
+			/** issue #133: real wall-clock time of this model call, threaded straight into
+			 * the `model_call` row job-runner.ts writes for it - the same field every other
+			 * agent's `model_call.latency_ms` already carries. */
+			latencyMs: number;
 	  }
 	| {
 			type: 'partial_loss';

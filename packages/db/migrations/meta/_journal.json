@@ -253,6 +253,13 @@
       "when": 1786978265686,
       "tag": "0035_redact_pricing_notes_citations",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1786988912418,
+      "tag": "0036_import_agent_value",
+      "breakpoints": true
     }
   ]
 }

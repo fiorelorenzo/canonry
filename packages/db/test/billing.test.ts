@@ -298,7 +298,7 @@ describe('spendWarmBudget', () => {
 	});
 });
 
-describe('spendCredits - the balance-only half for a caller with no model_call row', () => {
+describe('spendCredits - the balance-only half for a caller not priced per model call', () => {
 	let db: Db;
 
 	beforeAll(() => {
@@ -329,6 +329,35 @@ describe('spendCredits - the balance-only half for a caller with no model_call r
 			.where(eq(creditTransaction.operation, operation));
 		expect(txn?.credits).toBe(-12);
 		expect(txn?.modelCallId).toBeNull();
+	});
+
+	it('points the credit_transaction row at a real model_call row when given one (issue #133)', async () => {
+		const owner = await insertUser(db);
+		const operation = unique('import-doc-op-linked');
+
+		// A real model_call row from the same unit of work, exactly as
+		// packages/import/src/job-runner.ts writes one per model call - at 0 credits,
+		// since it is not itself what gets charged.
+		const { modelCallId } = await recordAndCharge(
+			db,
+			callInput(owner.id, 0, { agent: 'import', operation: unique('import-cheap') })
+		);
+
+		const { balance } = await spendCredits(db, {
+			userId: owner.id,
+			universeId: null,
+			operation,
+			credits: 5,
+			modelCallId
+		});
+
+		expect(balance.subscriptionCredits).toBe(FREE_PLAN_SUBSCRIPTION_CREDITS - 5);
+		const [txn] = await db
+			.select()
+			.from(creditTransaction)
+			.where(eq(creditTransaction.operation, operation));
+		expect(txn?.credits).toBe(-5);
+		expect(txn?.modelCallId).toBe(modelCallId);
 	});
 
 	it('a zero-credit spend never moves the balance', async () => {

@@ -890,10 +890,13 @@ export class DeterministicExtractionDriver implements ImportDriver {
 					};
 				}
 
-				// Informational only (checkpoint bookkeeping for input_tokens/output_tokens on
-				// import_job) - the real per-document charge is job-runner.ts's own chargeFor
-				// call, applied once regardless of what this event reports, so credits here is
-				// always 0 rather than a fabricated second charge.
+				// issue #133: this still drives job-runner.ts's per-call `model_call` write
+				// (agent 'import', operation `import.cheap`, zero tokens and zero cost since
+				// nothing real ran) - a fake extractor gets the same bookkeeping shape a real
+				// gateway call would, rather than a special case. The real per-document charge
+				// stays job-runner.ts's own `chargeFor('import.document')` call, applied once
+				// regardless of what this event reports, so credits here is always 0 rather
+				// than a fabricated second charge.
 				step += 1;
 				yield {
 					type: 'usage',
@@ -906,7 +909,8 @@ export class DeterministicExtractionDriver implements ImportDriver {
 					inputTokens: 0,
 					outputTokens: 0,
 					credits: 0,
-					costEur: 0
+					costEur: 0,
+					latencyMs: FAKE_STEP_DELAY_MS
 				};
 
 				step += 1;

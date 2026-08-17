@@ -6,17 +6,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MockLanguageModelV4 } from 'ai/test';
 import type { LanguageModel } from 'ai';
 import {
+	asc,
 	closeDb,
 	createDb,
 	eq,
+	getBalance,
 	getImportJob,
 	missingEntitySourceRefsForJob,
 	runMigrations,
 	type Db
 } from '@canonry/db';
 import {
+	creditTransaction,
 	entity,
 	entitySourceRef,
+	modelCall,
 	operationPrice,
 	proposal as proposalTable,
 	universe,
@@ -346,6 +350,125 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		]);
 		// The model was never even called for the second job.
 		expect(model2.doGenerateCalls).toHaveLength(0);
+	});
+
+	it('writes one model_call row per model call, agent import, and points the document charge at one of them without charging twice (issue #133)', async () => {
+		await priceFixture();
+		const { userId, universeId } = await userAndUniverse();
+		const playbook = await loadBuiltinPlaybook('generic');
+		const sources = new InMemorySourceReader({
+			files: { 'notes/aldric.md': 'Aldric Voss commands the harbour watch.' }
+		});
+
+		const admission = await admitAndCreateImportJob(db, {
+			universeId,
+			createdBy: userId,
+			sourceType: 'obsidian',
+			playbook: playbook.id,
+			playbookVersion: playbook.version,
+			artefactPath: 's3://fixtures/aldric.zip',
+			artefactBytes: 100,
+			artefactSha256: 'x'.repeat(64),
+			documentCount: 1,
+			budgetCredits: 1000,
+			estimate: { documentCount: 1, estimatedMinutes: 1, estimatedCredits: 10 },
+			concurrencyLimit: 5
+		});
+		expect(admission.admitted).toBe(true);
+
+		const balanceBefore = await getBalance(db, userId);
+
+		const model = scriptedModel([
+			toolCallStep([{ id: 'm1', name: 'source_read', input: { path: 'notes/aldric.md' } }]),
+			entityStep('m2', 'e1', 'Aldric Voss', 'doc-1'),
+			finishStep('m3')
+		]);
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+
+		const runner = new ImportJobRunner();
+		const run = await runner.run({
+			db,
+			dbJobId: admission.jobId,
+			universeId,
+			sourceSystem: 'obsidian',
+			userId,
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes/aldric.md' }],
+			sources,
+			images: new InMemoryImageStore(),
+			budget: { maxCredits: 1000 },
+			similarity: () => 0,
+			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
+			timeoutMs: 30_000,
+			driver
+		});
+
+		expect(run.finalStatus).toBe('finished');
+		expect(run.proposalsEmitted).toBe(1);
+
+		// One model_call row per model call - three scripted steps, three real calls
+		// (source_read, the entity proposal, job_finish), never aggregated per document
+		// or per job.
+		const calls = await db
+			.select()
+			.from(modelCall)
+			.where(eq(modelCall.userId, userId))
+			.orderBy(asc(modelCall.createdAt));
+		expect(calls).toHaveLength(3);
+		for (const call of calls) {
+			expect(call.agent).toBe('import');
+			// The step-identifying operation - the generic playbook's own modelPurpose,
+			// never escalated in this fixture.
+			expect(call.operation).toBe('import.cheap');
+			expect(call.inputTokens).toBe(10);
+			expect(call.outputTokens).toBe(5);
+			// Never charged per call - the flat per-document price below is the only real
+			// spend, so a row here never doubles it.
+			expect(call.credits).toBe(0);
+			// Real cost to us, computed through @canonry/ai's computeCost from the same
+			// TEST_PARAMS every step ran under - never zero, unlike credits above.
+			expect(call.costEur).toBeGreaterThan(0);
+			expect(call.latencyMs).toBeGreaterThanOrEqual(0);
+		}
+
+		// The document's one real charge: still the flat import.document price (the
+		// seeded operation_price row - migration 0004's real catalogue value takes
+		// precedence over priceFixture's onConflictDoNothing insert), still exactly
+		// once, but now pointing at a real model_call row instead of leaving
+		// model_call_id null.
+		const [documentPrice] = await db
+			.select()
+			.from(operationPrice)
+			.where(eq(operationPrice.operation, 'import.document'));
+		if (!documentPrice) throw new Error('expected import.document to be priced');
+		const spends = await db
+			.select()
+			.from(creditTransaction)
+			.where(eq(creditTransaction.userId, userId));
+		expect(spends).toHaveLength(1);
+		const spend = spends[0];
+		if (!spend) throw new Error('expected one credit_transaction row');
+		expect(spend.kind).toBe('spend');
+		expect(spend.operation).toBe('import.document');
+		expect(spend.credits).toBeCloseTo(-documentPrice.credits, 6);
+		expect(spend.modelCallId).not.toBeNull();
+		expect(calls.map((call) => call.id)).toContain(spend.modelCallId);
+
+		// The total the user actually pays is unchanged from before this issue: exactly
+		// the flat per-document price, not the sum of the three calls' real (much
+		// smaller) per-token cost - proof nobody pays twice.
+		const balanceAfter = await getBalance(db, userId);
+		expect(balanceBefore.subscriptionCredits - balanceAfter.subscriptionCredits).toBeCloseTo(
+			documentPrice.credits,
+			6
+		);
+		const realCallCostCredits = calls.reduce((sum, call) => sum + call.costEur, 0) * 100;
+		expect(realCallCostCredits).toBeGreaterThan(0);
+		expect(realCallCostCredits).toBeLessThan(documentPrice.credits);
 	});
 
 	it('stops cleanly at stopped_at_ceiling with its proposals intact, then resumes and finishes the remaining document', async () => {
