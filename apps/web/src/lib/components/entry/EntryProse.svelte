@@ -1,11 +1,17 @@
 <script lang="ts">
 	/** The entry's document, B1 = C. Markdown in, decorated HTML out, via `$lib/markdown.ts`
 	 * - the same renderer the editor's save action and the mention tests use, so the read
-	 * view can never disagree with what a mention resolves to. */
+	 * view can never disagree with what a mention resolves to.
+	 *
+	 * `surface` is required rather than defaulted (#159): the only two current callers are
+	 * the GM entry page and the public `/p/[universe]/[slug]` page, and each has to say
+	 * which one it is rather than this component assuming - assuming is exactly how a
+	 * mention on the public wiki ended up linking to the sign-in-walled GM route. */
 	import {
 		renderMarkdown,
 		renderMarkdownWithHighlight,
 		type FactSpan,
+		type MentionSurface,
 		type MentionTarget
 	} from '$lib/markdown';
 
@@ -13,18 +19,20 @@
 		body,
 		universeSlug,
 		mentionTargets,
+		surface,
 		highlightSpan = null
 	}: {
 		body: string;
 		universeSlug: string;
 		mentionTargets: MentionTarget[];
+		surface: MentionSurface;
 		highlightSpan?: FactSpan | null;
 	} = $props();
 
 	let html = $derived(
 		highlightSpan
-			? renderMarkdownWithHighlight(body, universeSlug, mentionTargets, highlightSpan)
-			: renderMarkdown(body, universeSlug, mentionTargets)
+			? renderMarkdownWithHighlight(body, universeSlug, mentionTargets, highlightSpan, surface)
+			: renderMarkdown(body, universeSlug, mentionTargets, surface)
 	);
 </script>
 
