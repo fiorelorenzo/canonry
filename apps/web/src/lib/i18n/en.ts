@@ -755,8 +755,7 @@ export const en: Messages = {
 				heading: 'Import a world',
 				description:
 					'Notes, a wiki export, or a PDF. Confirm what Canonry detected before anything runs.',
-				cta: 'Import my world',
-				badge: 'Default'
+				cta: 'Import my world'
 			},
 			emptyCard: {
 				heading: 'Start empty',

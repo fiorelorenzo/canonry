@@ -733,7 +733,7 @@ export interface Messages {
 			description: string;
 			nameLabel: string;
 			namePlaceholder: string;
-			importCard: { heading: string; description: string; cta: string; badge: string };
+			importCard: { heading: string; description: string; cta: string };
 			emptyCard: { heading: string; description: string; cta: string };
 			preindexedCard: {
 				heading: (baseName: string) => string;

@@ -778,8 +778,7 @@ export const it: Messages = {
 				heading: 'Importa un mondo',
 				description:
 					'Appunti, un export da un wiki o un PDF. Confermerai cosa Canonry ha rilevato prima che parta qualsiasi cosa.',
-				cta: 'Importa il mio mondo',
-				badge: 'Predefinito'
+				cta: 'Importa il mio mondo'
 			},
 			emptyCard: {
 				heading: 'Parti da zero',
