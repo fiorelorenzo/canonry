@@ -28,7 +28,11 @@ import { AiDisabledError, generateImages } from './generate.js';
 import { FakeImageProvider } from './provider.js';
 import { FilesystemMediaStorage } from './storage.js';
 import type { SimilarityCacheDeps } from './similarity.js';
-import { openTestDb } from './test-db.js';
+import {
+	lockImageModelConfigForFile,
+	openTestDb,
+	unlockImageModelConfigForFile
+} from './test-db.js';
 
 function unique(prefix: string): string {
 	return `${prefix}-${randomUUID().slice(0, 8)}`;
@@ -43,6 +47,11 @@ describe('generateImages (#64-#67, #71)', () => {
 
 	beforeAll(async () => {
 		db = openTestDb();
+		// image_model_config is a global singleton this file and models.test.ts both drive,
+		// and vitest runs the two concurrently against the same database - see
+		// lockImageModelConfigForFile (#193) for why this has to be a lock, not a cleaner
+		// delete/insert.
+		await lockImageModelConfigForFile(db);
 		storageRoot = await mkdtemp(path.join(tmpdir(), 'canonry-media-test-'));
 		similarity = {
 			client: createVectorClient(),
@@ -58,13 +67,16 @@ describe('generateImages (#64-#67, #71)', () => {
 
 	afterAll(async () => {
 		await rm(storageRoot, { recursive: true, force: true });
+		await unlockImageModelConfigForFile(db);
 		await closeDb(db);
 	});
 
 	beforeEach(async () => {
 		// Isolated test database (test-global-setup.ts) migrated fresh, including the seed
-		// migration's real portrait/variants rows - clear them so each test controls its
-		// own model config without fighting the active-per-feature unique index.
+		// migration's real portrait/variants rows - clear them so each test controls its own
+		// model config without fighting the active-per-feature unique index. Safe from
+		// models.test.ts's own image_model_config writes because beforeAll above holds
+		// lockImageModelConfigForFile for this file's whole run (#193).
 		await db.delete(imageModelConfig);
 
 		const [style] = await db

@@ -29,10 +29,14 @@ export interface RecentEntity {
  * warm cache's own separate budget (SPEC.md §15, issue #89) never share a number.
  * `includedTotal`/`warmTotal` are always a real, finite ceiling (guardrail 7 /
  * SPEC.md §15 - "unlimited" is never a value this type can hold).
+ *
+ * `periodEnd` (issue #201) is `Balance.periodEnd`, the same field `/settings/billing`
+ * already renders - both popovers state it rather than recomputing a renewal date.
  */
 export interface ShellQuota {
 	includedRemaining: number;
 	includedTotal: number;
 	warmRemaining: number;
 	warmTotal: number;
+	periodEnd: Date | null;
 }

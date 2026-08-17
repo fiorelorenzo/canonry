@@ -44,14 +44,25 @@ export const en: Messages = {
 		},
 		quota: {
 			includedHeading: 'Included quota',
-			warmHeading: 'Warm budget',
+			// Issue #201: "Table prep" is the label, not the key - `warm_budget_credits`,
+			// `warm_budget_spent`, `spendWarmBudget` and `warmBudgetRemaining` keep their
+			// names everywhere else.
+			warmHeading: 'Table prep',
 			// Same idiom as `settings.billing.creditsCount`: grouped digits, no
 			// fractional credits shown - this is the same `subscriptionCredits`/
 			// `warmBudgetRemaining` figure that page renders, formatted the same way.
 			ratio: (remaining, total) => {
 				const fmt = numberFormat('en', { maximumFractionDigits: 0, useGrouping: 'always' });
 				return `${fmt.format(remaining)} / ${fmt.format(total)}`;
-			}
+			},
+			includedExplainLabel: 'What included quota pays for',
+			includedPopoverBody:
+				"Pays for drafted entries, propagation plans and diffs, Ask answers, images, and an import's extraction. Reading is free: search, mention suggestions, and the retrieval behind an Ask never move this bar.",
+			warmExplainLabel: 'What table prep pays for',
+			warmPopoverBody:
+				'The drafts Canonry prepares before a session so table mode can answer instantly. Canonry spends this on its own, without anyone asking, which is why it has its own limit and never draws on included quota.',
+			renews: (date) => `Renews ${date}`,
+			noRenewalDate: 'No renewal date on record yet.'
 		},
 		door: {
 			createAccount: 'Create an account',
@@ -144,7 +155,7 @@ export const en: Messages = {
 			noRenewalDate: 'No renewal date on record yet.',
 			includedThisPeriod: 'Included this period',
 			purchased: 'Purchased (never expires)',
-			warmBudget: 'Warm budget',
+			warmBudget: 'Table prep',
 			// `maximumFractionDigits: 0`: `subscription_credits` is a NUMERIC(_,4) column
 			// (partial credits accrue from metered usage), but nobody reads "160.4672
 			// credits" as a quota - the original pre-catalogue code rounded to whole
@@ -187,7 +198,7 @@ export const en: Messages = {
 			infoPara1After: ' - SPEC.md §15 never makes this the default path.',
 			infoPara2Bold: 'What changes:',
 			infoPara2After:
-				" a call routed on your key stops drawing on your included quota or your warm budget, and your own provider's rate limits apply instead of ours.",
+				" a call routed on your key stops drawing on your included quota or your table prep, and your own provider's rate limits apply instead of ours.",
 			infoPara3Bold: 'What does not:',
 			infoPara3After:
 				' model routing is unchanged (the same cheap-model-for-candidates, premium-for-diffs split runs on your key exactly as on ours), the call still goes through our gateway so logging and cost accounting stay uniform, and generated content still carries the same authorship marking and the same privacy rules regardless of whose key paid for it.',
@@ -755,8 +766,7 @@ export const en: Messages = {
 				heading: 'Import a world',
 				description:
 					'Notes, a wiki export, or a PDF. Confirm what Canonry detected before anything runs.',
-				cta: 'Import my world',
-				badge: 'Default'
+				cta: 'Import my world'
 			},
 			emptyCard: {
 				heading: 'Start empty',
@@ -1039,7 +1049,7 @@ export const en: Messages = {
 				`Drafted via "+ NPC here" while ${placeName} was the declared context. AI drafting was unavailable (${unavailableReason}), so this is an empty scaffold for the GM to fill in rather than a discarded tap.`,
 			createLocationRationale: (placeName) =>
 				`Created via the child-location quick action while ${placeName} was the declared context.`,
-			warmBudgetUnavailable: 'the warm budget could not cover this draft right now',
+			warmBudgetUnavailable: 'table prep could not cover this draft right now',
 			warmStatusNoProposal: (status) => `warm status "${status}" produced no new proposal`
 		}
 	},

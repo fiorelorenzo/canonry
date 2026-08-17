@@ -111,7 +111,7 @@ describe('a bilingual archive export (issue #126, SPEC.md §17)', () => {
 						name: 'The Gilded Rat',
 						aliases: [],
 						summary: 'The busiest tavern in Port Verity, run by Mirella Fenn for eleven years.',
-						sourceRef: { documentId: 'doc-en', path: EN_PATH },
+						sourceRef: { documentId: 'doc-en' },
 						evidenceSpan: gildedRatSpan,
 						images: []
 					}
@@ -125,7 +125,7 @@ describe('a bilingual archive export (issue #126, SPEC.md §17)', () => {
 						name: 'Mirella Fenn',
 						aliases: ['Widow Fenn'],
 						summary: 'Innkeeper who has run The Gilded Rat for eleven years and forgets nothing.',
-						sourceRef: { documentId: 'doc-en', path: EN_PATH },
+						sourceRef: { documentId: 'doc-en' },
 						evidenceSpan: mirellaSpan,
 						images: []
 					}
@@ -141,7 +141,7 @@ describe('a bilingual archive export (issue #126, SPEC.md §17)', () => {
 						label: 'runs',
 						inverseLabel: 'run by',
 						cardinality: 'one_to_one',
-						sourceRef: { documentId: 'doc-en', path: EN_PATH },
+						sourceRef: { documentId: 'doc-en' },
 						evidenceSpan: mirellaSpan
 					}
 				}
@@ -162,7 +162,7 @@ describe('a bilingual archive export (issue #126, SPEC.md §17)', () => {
 						summary:
 							'Non risponde a nessuno tranne il capitano del porto. Ogni sera lo si trova ' +
 							'nella locanda conosciuta come The Gilded Rat, dove ascolta le voci dei marinai.',
-						sourceRef: { documentId: 'doc-it', path: IT_PATH },
+						sourceRef: { documentId: 'doc-it' },
 						evidenceSpan: aldricSpan,
 						images: []
 					}
@@ -177,7 +177,7 @@ describe('a bilingual archive export (issue #126, SPEC.md §17)', () => {
 						aliases: ['i Guardiani'],
 						summary:
 							'Pattugliano i moli dal tramonto all\u2019alba e non fanno domande a chi paga bene.',
-						sourceRef: { documentId: 'doc-it', path: IT_PATH },
+						sourceRef: { documentId: 'doc-it' },
 						evidenceSpan: guardianiSpan,
 						images: []
 					}
@@ -193,7 +193,7 @@ describe('a bilingual archive export (issue #126, SPEC.md §17)', () => {
 						label: 'comanda',
 						inverseLabel: 'risponde a',
 						cardinality: 'one_to_many',
-						sourceRef: { documentId: 'doc-it', path: IT_PATH },
+						sourceRef: { documentId: 'doc-it' },
 						evidenceSpan: guardianiSpan
 					}
 				}

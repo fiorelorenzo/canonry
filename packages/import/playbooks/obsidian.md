@@ -1,6 +1,6 @@
 ---
 id: obsidian
-version: 3
+version: 4
 name: Obsidian vault
 description: Imports a folder or zip of an Obsidian vault, treating every wikilink as a candidate relation.
 modelPurpose: cheap
@@ -146,7 +146,7 @@ Sable#Council Seat]]`): this is a **typed** candidate relation. Use the field's 
    	"name": "Aldric Voss",
    	"aliases": ["the Grey Captain", "Captain Voss"],
    	"summary": "Commands the harbour watch in Port Verity. Rank: Captain.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 0, "end": 40 },
    	"images": []
    }
@@ -172,7 +172,7 @@ Sable#Council Seat]]`): this is a **typed** candidate relation. Use the field's 
    	"label": "member of",
    	"inverseLabel": "has member",
    	"cardinality": "many_to_one",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 210, "end": 240 }
    }
    ```

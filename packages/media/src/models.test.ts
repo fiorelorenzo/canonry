@@ -7,14 +7,21 @@ import {
 	resolveImageModel,
 	resolveImageModelRow
 } from './models.js';
-import { openTestDb } from './test-db.js';
+import {
+	lockImageModelConfigForFile,
+	openTestDb,
+	unlockImageModelConfigForFile
+} from './test-db.js';
 
 const TEST_MODEL_ID_PREFIX = 'canonry-media-test-';
 
 // This package's tests run against their own isolated database (test-global-setup.ts),
 // migrated fresh for every run - including the seed migration's real portrait/variants
-// rows (SPEC.md §9). Deleting everything rather than a prefix match keeps every test
-// starting from a clean slate without fighting the active-per-feature unique index.
+// rows (SPEC.md §9). Deleting everything rather than a prefix match keeps every test in
+// *this* file starting from a clean slate without fighting the active-per-feature unique
+// index; the lock this file's beforeAll/afterAll hold on image_model_config (see
+// lockImageModelConfigForFile, #193) is what keeps that clean slate from being raced by
+// generate.test.ts, which also drives the same feature rows.
 async function deleteAllRows(db: Db): Promise<void> {
 	await db.delete(imageModelConfig);
 }
@@ -22,12 +29,14 @@ async function deleteAllRows(db: Db): Promise<void> {
 describe('resolveImageModel / resolveImageModelRow (#64)', () => {
 	let db: Db;
 
-	beforeAll(() => {
+	beforeAll(async () => {
 		db = openTestDb();
+		await lockImageModelConfigForFile(db);
 	});
 
 	afterAll(async () => {
 		await deleteAllRows(db);
+		await unlockImageModelConfigForFile(db);
 		await closeDb(db);
 	});
 

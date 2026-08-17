@@ -46,7 +46,7 @@ describe('kanka playbook (issue #38, SPEC.md §6.9)', () => {
 							name: 'Elenya Duskwalker',
 							aliases: [],
 							summary: 'A ranger who has patrolled Duskwood Vale for a decade.',
-							sourceRef: { documentId: 'doc-1', path: CHARACTERS_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: elenyaSpan,
 							images: ['asset-1']
 						}
@@ -60,7 +60,7 @@ describe('kanka playbook (issue #38, SPEC.md §6.9)', () => {
 							name: 'Baron Corvain',
 							aliases: [],
 							summary: 'A corrupt noble who bankrolls a smuggling ring.',
-							sourceRef: { documentId: 'doc-1', path: CHARACTERS_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: corvainSpan,
 							images: []
 						}
@@ -82,7 +82,7 @@ describe('kanka playbook (issue #38, SPEC.md §6.9)', () => {
 							name: 'Duskwood Vale',
 							aliases: [],
 							summary: 'A forested vale on the western border.',
-							sourceRef: { documentId: 'doc-1', path: 'locations.json' },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: valeSpan,
 							images: []
 						}
@@ -96,7 +96,7 @@ describe('kanka playbook (issue #38, SPEC.md §6.9)', () => {
 							name: 'The Ashen Compact',
 							aliases: [],
 							summary: 'A smuggling ring fronted by respectable names.',
-							sourceRef: { documentId: 'doc-1', path: 'organisations.json' },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: compactSpan,
 							images: []
 						}
@@ -112,7 +112,7 @@ describe('kanka playbook (issue #38, SPEC.md §6.9)', () => {
 							label: 'protects',
 							inverseLabel: 'protected by',
 							cardinality: 'one_to_many',
-							sourceRef: { documentId: 'doc-1', path: CHARACTERS_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: protectsSpan
 						}
 					},
@@ -125,7 +125,7 @@ describe('kanka playbook (issue #38, SPEC.md §6.9)', () => {
 							label: 'leads',
 							inverseLabel: 'led by',
 							cardinality: 'one_to_one',
-							sourceRef: { documentId: 'doc-1', path: CHARACTERS_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: leadsSpan
 						}
 					},
@@ -138,7 +138,7 @@ describe('kanka playbook (issue #38, SPEC.md §6.9)', () => {
 							label: 'rival',
 							inverseLabel: 'rival',
 							cardinality: 'one_to_one',
-							sourceRef: { documentId: 'doc-1', path: CHARACTERS_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: rivalSpan
 						}
 					}

@@ -1,6 +1,6 @@
 ---
 id: kanka
-version: 3
+version: 4
 name: Kanka campaign export
 description: Imports a Kanka campaign export (JSON plus images), mapping Kanka's entity types onto ours.
 modelPurpose: cheap
@@ -92,7 +92,7 @@ with no `entry` and nothing else to go on is not worth proposing.
    	"name": "Elenya Duskwalker",
    	"aliases": [],
    	"summary": "A ranger who has patrolled Duskwood Vale for a decade and knows every trail in it.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 0, "end": 180 },
    	"images": []
    }
@@ -133,7 +133,7 @@ with no `entry` and nothing else to go on is not worth proposing.
    	"label": "protects",
    	"inverseLabel": "protected by",
    	"cardinality": "one_to_many",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 0, "end": 180 }
    }
    ```

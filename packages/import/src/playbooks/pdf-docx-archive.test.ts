@@ -117,7 +117,7 @@ describe('ArchiveSourceReader wired to real PDF/DOCX extraction, run through Gat
 						name: 'The Sunken Archive',
 						aliases: [],
 						summary: 'A flooded lower level of the old library, reachable only at low tide.',
-						sourceRef: { documentId: 'doc-1', path: PDF_PATH },
+						sourceRef: { documentId: 'doc-1' },
 						evidenceSpan: archiveSpan,
 						images: []
 					}
@@ -131,7 +131,7 @@ describe('ArchiveSourceReader wired to real PDF/DOCX extraction, run through Gat
 						name: 'Warden Iset Nour',
 						aliases: [],
 						summary: "Keeper of the eastern gate, per the handout's page 2 portrait.",
-						sourceRef: { documentId: 'doc-1', path: PDF_PATH },
+						sourceRef: { documentId: 'doc-1' },
 						evidenceSpan: page2MarkerSpan,
 						images: []
 					}
@@ -220,7 +220,7 @@ describe('ArchiveSourceReader wired to real PDF/DOCX extraction, run through Gat
 						name: 'Warden Iset Nour',
 						aliases: [],
 						summary: 'Keeper of the eastern gate. Answers only to the Council.',
-						sourceRef: { documentId: 'doc-1', path: DOCX_PATH },
+						sourceRef: { documentId: 'doc-1' },
 						evidenceSpan: wardenSpan,
 						images: []
 					}
@@ -234,7 +234,7 @@ describe('ArchiveSourceReader wired to real PDF/DOCX extraction, run through Gat
 						name: 'Garrison Commander Vey',
 						aliases: [],
 						summary: 'Reports to the Council, per the chain of command table.',
-						sourceRef: { documentId: 'doc-1', path: DOCX_PATH },
+						sourceRef: { documentId: 'doc-1' },
 						evidenceSpan: veySpan,
 						images: []
 					}
@@ -250,7 +250,7 @@ describe('ArchiveSourceReader wired to real PDF/DOCX extraction, run through Gat
 						label: 'rival',
 						inverseLabel: 'rival',
 						cardinality: 'one_to_one',
-						sourceRef: { documentId: 'doc-1', path: DOCX_PATH },
+						sourceRef: { documentId: 'doc-1' },
 						evidenceSpan: rivalSpan
 					}
 				}

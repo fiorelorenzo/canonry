@@ -21,13 +21,31 @@
 	 * Colour: `--color-accent` for the included line, `--color-warn` for the warm
 	 * line. Never `--color-ai` - that hue is the copilot's alone (C1), and this is
 	 * not a copilot surface.
+	 *
+	 * Issue #201: each heading is a `Popover.Trigger` button (bits-ui, keyboard
+	 * reachable by construction) saying what that budget pays for in product terms
+	 * - the popover title reuses `includedHeading`/`warmHeading` rather than a third
+	 * copy of the same word, and the shared `popoverFooter` snippet states the
+	 * renewal date from `quota.periodEnd` (the same `balance.periodEnd`
+	 * `/settings/billing` renders) and links there via `shell.accountMenu`'s own
+	 * "Plan and credits" label, not a fourth string naming the same destination.
+	 * `warmHeading`'s value is "Table prep" from this issue on - the label only,
+	 * every `warm_*` identifier stays exactly as it was (#119's split, repeated).
 	 */
-	import { messages, type Locale } from '$lib/i18n';
+	import { resolve } from '$app/paths';
+	import CircleHelpIcon from '@lucide/svelte/icons/circle-help';
+	import { dateFormat, messages, type Locale } from '$lib/i18n';
+	import * as Popover from '$lib/components/ui/popover';
 	import type { ShellQuota } from './types';
 
 	let { quota, locale }: { quota: ShellQuota; locale: Locale } = $props();
 
 	const t = $derived(messages(locale).shell.quota);
+	const accountMenuT = $derived(messages(locale).shell.accountMenu);
+	const periodFormat = $derived(dateFormat(locale, { dateStyle: 'medium' }));
+	const renewalText = $derived(
+		quota.periodEnd ? t.renews(periodFormat.format(new Date(quota.periodEnd))) : t.noRenewalDate
+	);
 
 	function fraction(remaining: number, total: number): number {
 		if (total <= 0) return 0;
@@ -35,10 +53,35 @@
 	}
 </script>
 
+{#snippet popoverFooter()}
+	<p class="text-xs text-muted-foreground">{renewalText}</p>
+	<a
+		href={resolve('/settings/billing')}
+		class="text-xs text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
+	>
+		{accountMenuT.planAndCredits}
+	</a>
+{/snippet}
+
 <div class="flex flex-col gap-2">
 	<div class="flex flex-col gap-1">
 		<div class="flex items-baseline justify-between gap-2 text-xs text-muted">
-			<span>{t.includedHeading}</span>
+			<Popover.Root>
+				<Popover.Trigger
+					class="inline-flex items-center gap-1 rounded-sm hover:text-ink focus-visible:text-ink focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+					aria-label={t.includedExplainLabel}
+				>
+					<span>{t.includedHeading}</span>
+					<CircleHelpIcon class="size-3" aria-hidden="true" />
+				</Popover.Trigger>
+				<Popover.Content align="start">
+					<Popover.Header>
+						<Popover.Title>{t.includedHeading}</Popover.Title>
+						<Popover.Description>{t.includedPopoverBody}</Popover.Description>
+					</Popover.Header>
+					{@render popoverFooter()}
+				</Popover.Content>
+			</Popover.Root>
 			<span class="tabular-nums">{t.ratio(quota.includedRemaining, quota.includedTotal)}</span>
 		</div>
 		<div
@@ -58,7 +101,22 @@
 
 	<div class="flex flex-col gap-1">
 		<div class="flex items-baseline justify-between gap-2 text-xs text-muted">
-			<span>{t.warmHeading}</span>
+			<Popover.Root>
+				<Popover.Trigger
+					class="inline-flex items-center gap-1 rounded-sm hover:text-ink focus-visible:text-ink focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+					aria-label={t.warmExplainLabel}
+				>
+					<span>{t.warmHeading}</span>
+					<CircleHelpIcon class="size-3" aria-hidden="true" />
+				</Popover.Trigger>
+				<Popover.Content align="start">
+					<Popover.Header>
+						<Popover.Title>{t.warmHeading}</Popover.Title>
+						<Popover.Description>{t.warmPopoverBody}</Popover.Description>
+					</Popover.Header>
+					{@render popoverFooter()}
+				</Popover.Content>
+			</Popover.Root>
 			<span class="tabular-nums">{t.ratio(quota.warmRemaining, quota.warmTotal)}</span>
 		</div>
 		<div

@@ -46,7 +46,7 @@ describe('world anvil playbook (issue #43, SPEC.md §6.8)', () => {
 							name: 'Duskwood Vale',
 							aliases: [],
 							summary: 'A forested vale on the western border, prone to fog and smuggling trails.',
-							sourceRef: { documentId: 'doc-1', path: VALE_JSON },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: { start: 0, end: 40 },
 							images: []
 						}
@@ -67,7 +67,7 @@ describe('world anvil playbook (issue #43, SPEC.md §6.8)', () => {
 							name: 'Baron Corvain',
 							aliases: [],
 							summary: 'Steward of Duskwood Vale by title, smuggler by trade.',
-							sourceRef: { documentId: 'doc-1', path: BARON_JSON },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: { start: 0, end: 30 },
 							images: []
 						}
@@ -83,7 +83,7 @@ describe('world anvil playbook (issue #43, SPEC.md §6.8)', () => {
 							label: 'ruled by',
 							inverseLabel: 'rules',
 							cardinality: 'many_to_one',
-							sourceRef: { documentId: 'doc-1', path: VALE_HTML },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: govSpan
 						}
 					}

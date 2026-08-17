@@ -50,7 +50,7 @@ describe('obsidian playbook (issue #41, SPEC.md §6.6)', () => {
 							name: 'Aldric Voss',
 							aliases: ['the Grey Captain', 'Captain Voss'],
 							summary: 'Commands the harbour watch in Port Verity, rank Captain.',
-							sourceRef: { documentId: 'doc-1', path: ALDRIC_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: portraitSpan,
 							images: ['asset-1']
 						}
@@ -73,7 +73,7 @@ describe('obsidian playbook (issue #41, SPEC.md §6.6)', () => {
 							name: 'Port Verity',
 							aliases: [],
 							summary: 'A tidal port city.',
-							sourceRef: { documentId: 'doc-1', path: 'Locations/Port Verity.md' },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: { start: 0, end: 20 },
 							images: []
 						}
@@ -87,7 +87,7 @@ describe('obsidian playbook (issue #41, SPEC.md §6.6)', () => {
 							name: 'Silver Hand',
 							aliases: ['the Hand'],
 							summary: "A merchants' guild that funds harbour security.",
-							sourceRef: { documentId: 'doc-1', path: 'Factions/Silver Hand.md' },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: { start: 0, end: 20 },
 							images: []
 						}
@@ -101,7 +101,7 @@ describe('obsidian playbook (issue #41, SPEC.md §6.6)', () => {
 							name: 'Mira Sable',
 							aliases: [],
 							summary: 'Holds a seat on the Silver Hand council.',
-							sourceRef: { documentId: 'doc-1', path: 'Characters/Mira Sable.md' },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: { start: 0, end: 20 },
 							images: []
 						}
@@ -119,7 +119,7 @@ describe('obsidian playbook (issue #41, SPEC.md §6.6)', () => {
 							label: 'based in',
 							inverseLabel: 'hosts',
 							cardinality: 'many_to_one',
-							sourceRef: { documentId: 'doc-1', path: ALDRIC_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: portVeritySpan
 						}
 					},
@@ -132,7 +132,7 @@ describe('obsidian playbook (issue #41, SPEC.md §6.6)', () => {
 							label: 'member of',
 							inverseLabel: 'has member',
 							cardinality: 'many_to_one',
-							sourceRef: { documentId: 'doc-1', path: ALDRIC_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: factionFieldSpan
 						}
 					},
@@ -145,7 +145,7 @@ describe('obsidian playbook (issue #41, SPEC.md §6.6)', () => {
 							label: 'reports to',
 							inverseLabel: 'commands',
 							cardinality: 'many_to_one',
-							sourceRef: { documentId: 'doc-1', path: ALDRIC_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: reportsFieldSpan
 						}
 					}

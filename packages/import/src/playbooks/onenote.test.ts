@@ -84,7 +84,7 @@ describe('onenote playbook (issue #45, SPEC.md §6.6, §6.10)', () => {
 							aliases: [],
 							summary:
 								'The lower archive floods every spring tide; the lowest shelves stay permanently underwater.',
-							sourceRef: { documentId: 'doc-1', path: FLOODED_STACKS_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: stacksEntitySpan,
 							images: ['asset-1']
 						}
@@ -108,7 +108,7 @@ describe('onenote playbook (issue #45, SPEC.md §6.6, §6.10)', () => {
 							name: 'The Sunken Archive',
 							aliases: [],
 							summary: 'A flooded lower level of the old library, accessible only at low tide.',
-							sourceRef: { documentId: 'doc-1', path: ARCHIVE_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: archiveSpan,
 							images: []
 						}
@@ -125,7 +125,7 @@ describe('onenote playbook (issue #45, SPEC.md §6.6, §6.10)', () => {
 							label: 'subpage of',
 							inverseLabel: 'has subpage',
 							cardinality: 'many_to_one',
-							sourceRef: { documentId: 'doc-1', path: FLOODED_STACKS_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: stacksTitleSpan
 						}
 					}
@@ -142,7 +142,7 @@ describe('onenote playbook (issue #45, SPEC.md §6.6, §6.10)', () => {
 							name: 'Warden Iset Nour',
 							aliases: [],
 							summary: 'Keeper of the eastern gate. Answers only to the Council.',
-							sourceRef: { documentId: 'doc-1', path: WARDEN_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: wardenSpan,
 							images: []
 						}
@@ -158,7 +158,7 @@ describe('onenote playbook (issue #45, SPEC.md §6.6, §6.10)', () => {
 							label: 'watched over by',
 							inverseLabel: 'watches over',
 							cardinality: 'many_to_one',
-							sourceRef: { documentId: 'doc-1', path: FLOODED_STACKS_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: wardenLinkSpan
 						}
 					}

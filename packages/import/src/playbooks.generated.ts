@@ -8,7 +8,7 @@
 export const BUILTIN_PLAYBOOK_SOURCES: Readonly<Record<string, string>> = {
 	"docx": `---
 id: docx
-version: 3
+version: 4
 name: DOCX document
 description: Imports a Word document, keeping its structure and dropping its visual styling.
 modelPurpose: cheap
@@ -75,7 +75,7 @@ job's unpacked export are given to you in the first user message.
    	"name": "Warden Iset Nour",
    	"aliases": [],
    	"summary": "Keeper of the eastern gate. Answers only to the Council, not to the garrison commander.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 512, "end": 700 },
    	"images": []
    }
@@ -95,7 +95,7 @@ job's unpacked export are given to you in the first user message.
    	"label": "reports to",
    	"inverseLabel": "commands",
    	"cardinality": "many_to_one",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 700, "end": 760 }
    }
    \`\`\`
@@ -113,7 +113,7 @@ job's unpacked export are given to you in the first user message.
 `,
 	"generic": `---
 id: generic
-version: 3
+version: 4
 name: Generic fallback
 description: Handles any export a source-specific playbook does not recognise yet, one document at a time.
 modelPurpose: cheap
@@ -177,7 +177,7 @@ which document to work on and you cannot switch to another one.
    	"name": "Aldric Voss",
    	"aliases": ["the Grey Captain"],
    	"summary": "A retired mercenary captain who now runs the harbour watch.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 120, "end": 240 }
    }
    \`\`\`
@@ -197,7 +197,7 @@ which document to work on and you cannot switch to another one.
    	"label": "commands",
    	"inverseLabel": "serves under",
    	"cardinality": "one_to_many",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 300, "end": 360 }
    }
    \`\`\`
@@ -220,7 +220,7 @@ which document to work on and you cannot switch to another one.
 `,
 	"kanka": `---
 id: kanka
-version: 3
+version: 4
 name: Kanka campaign export
 description: Imports a Kanka campaign export (JSON plus images), mapping Kanka's entity types onto ours.
 modelPurpose: cheap
@@ -312,7 +312,7 @@ with no \`entry\` and nothing else to go on is not worth proposing.
    	"name": "Elenya Duskwalker",
    	"aliases": [],
    	"summary": "A ranger who has patrolled Duskwood Vale for a decade and knows every trail in it.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 0, "end": 180 },
    	"images": []
    }
@@ -353,7 +353,7 @@ with no \`entry\` and nothing else to go on is not worth proposing.
    	"label": "protects",
    	"inverseLabel": "protected by",
    	"cardinality": "one_to_many",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 0, "end": 180 }
    }
    \`\`\`
@@ -381,7 +381,7 @@ with no \`entry\` and nothing else to go on is not worth proposing.
 `,
 	"obsidian": `---
 id: obsidian
-version: 3
+version: 4
 name: Obsidian vault
 description: Imports a folder or zip of an Obsidian vault, treating every wikilink as a candidate relation.
 modelPurpose: cheap
@@ -527,7 +527,7 @@ Sable#Council Seat]]\`): this is a **typed** candidate relation. Use the field's
    	"name": "Aldric Voss",
    	"aliases": ["the Grey Captain", "Captain Voss"],
    	"summary": "Commands the harbour watch in Port Verity. Rank: Captain.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 0, "end": 40 },
    	"images": []
    }
@@ -553,7 +553,7 @@ Sable#Council Seat]]\`): this is a **typed** candidate relation. Use the field's
    	"label": "member of",
    	"inverseLabel": "has member",
    	"cardinality": "many_to_one",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 210, "end": 240 }
    }
    \`\`\`
@@ -576,7 +576,7 @@ Sable#Council Seat]]\`): this is a **typed** candidate relation. Use the field's
 `,
 	"onenote": `---
 id: onenote
-version: 3
+version: 4
 name: OneNote page export
 description: Imports one page from a folder tree of exported OneNote pages, trusting the folder hierarchy for parent/subpage relations.
 modelPurpose: cheap
@@ -739,7 +739,7 @@ its own children.
    	"name": "Flooded Stacks",
    	"aliases": [],
    	"summary": "The lower archive floods every spring tide; the lowest shelves stay permanently underwater.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 40, "end": 220 },
    	"images": []
    }
@@ -759,7 +759,7 @@ its own children.
    	"label": "subpage of",
    	"inverseLabel": "has subpage",
    	"cardinality": "many_to_one",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 63, "end": 92 }
    }
    \`\`\`
@@ -790,7 +790,7 @@ its own children.
 `,
 	"pdf": `---
 id: pdf
-version: 3
+version: 4
 name: PDF document
 description: Imports a PDF, reading its text layer first and looking at any page that has none.
 modelPurpose: cheap
@@ -875,7 +875,7 @@ job's unpacked export are given to you in the first user message.
    	"name": "The Sunken Archive",
    	"aliases": [],
    	"summary": "A flooded lower level of the old library, accessible only at low tide.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 420, "end": 610 },
    	"images": []
    }
@@ -883,9 +883,8 @@ job's unpacked export are given to you in the first user message.
 
    For a page you looked at with \`page_image\` rather than read as text, set
    \`evidenceSpan\` to the \`--- page N ---\` marker's own offsets in the text
-   \`source_read\` returned (there is no character range inside an image); the page
-   number in \`sourceRef\`/the evidence is what actually points a reviewer at the right
-   spot.
+   \`source_read\` returned (there is no character range inside an image); that marker's
+   position in the evidence is what actually points a reviewer at the right spot.
 
    If a page carries a diagram or portrait worth keeping as its own image (not just
    as something you looked at to read text off it), call \`image_store\` on the
@@ -900,7 +899,7 @@ job's unpacked export are given to you in the first user message.
    	"label": "guarded by",
    	"inverseLabel": "guards",
    	"cardinality": "one_to_many",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 610, "end": 700 }
    }
    \`\`\`
@@ -919,7 +918,7 @@ job's unpacked export are given to you in the first user message.
 `,
 	"world-anvil": `---
 id: world-anvil
-version: 3
+version: 4
 name: World Anvil Full World Export
 description: Imports a World Anvil Full World Export zip (JSON plus HTML), mapping article templates onto entity types.
 modelPurpose: cheap
@@ -1030,7 +1029,7 @@ by", "born in", "sworn to"); fall back to \`mentions\` / \`mentioned by\` when i
    	"name": "Duskwood Vale",
    	"aliases": [],
    	"summary": "A forested vale on the western border. Governed informally by whoever holds Ashenreach keep.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the json file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 0, "end": 220 },
    	"images": []
    }
@@ -1049,7 +1048,7 @@ by", "born in", "sworn to"); fall back to \`mentions\` / \`mentioned by\` when i
    	"label": "ruled by",
    	"inverseLabel": "rules",
    	"cardinality": "many_to_one",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the html file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 340, "end": 410 }
    }
    \`\`\`
