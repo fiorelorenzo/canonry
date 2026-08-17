@@ -1,5 +1,6 @@
 import { closeDb, eq, and, type Db } from '@canonry/db';
 import { imageModelConfig } from '@canonry/db/schema';
+import { computeCost } from '@canonry/ai';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	ImageModelNotConfiguredError,
@@ -57,14 +58,14 @@ describe('resolveImageModel / resolveImageModelRow (#64)', () => {
 				provider: 'replicate',
 				modelId: `${TEST_MODEL_ID_PREFIX}p-image`,
 				active: true,
-				params: { eurPerImage: 0.02 }
+				params: { pricePerImage: 0.02, currency: 'USD' }
 			},
 			{
 				feature: 'variants',
 				provider: 'replicate',
 				modelId: `${TEST_MODEL_ID_PREFIX}flux-schnell`,
 				active: true,
-				params: { eurPerImage: 0.01 }
+				params: { pricePerImage: 0.01, currency: 'USD' }
 			}
 		]);
 
@@ -73,11 +74,54 @@ describe('resolveImageModel / resolveImageModelRow (#64)', () => {
 			purpose: 'image',
 			provider: 'replicate',
 			modelId: `${TEST_MODEL_ID_PREFIX}p-image`,
-			params: { eurPerImage: 0.02 }
+			params: { pricePerImage: 0.02, currency: 'USD' }
 		});
 
 		const variants = await resolveImageModel(db, 'variants');
 		expect(variants.modelId).toBe(`${TEST_MODEL_ID_PREFIX}flux-schnell`);
+	});
+
+	it('round-trips a USD-stored price and a EUR-stored price to the same real euro cost (issue #132)', async () => {
+		// prunaai/p-image's real Replicate list price, $0.02 - stored as-is, the way
+		// migration 0034 restates it, not pre-converted at seed time.
+		await db.insert(imageModelConfig).values({
+			feature: 'portrait',
+			provider: 'replicate',
+			modelId: `${TEST_MODEL_ID_PREFIX}usd-p-image`,
+			active: true,
+			params: { pricePerImage: 0.02, currency: 'USD' }
+		});
+		const usdModel = await resolveImageModel(db, 'portrait');
+		const usdCost = computeCost(usdModel.params, {
+			inputTokens: 0,
+			outputTokens: 0,
+			embeddingTokens: 0,
+			images: 1
+		}).costEur;
+
+		clearImageModelCache();
+		await db.delete(imageModelConfig);
+
+		// A price already in euros - toEur must leave it exactly alone, not divide it
+		// again by the same rate.
+		await db.insert(imageModelConfig).values({
+			feature: 'portrait',
+			provider: 'replicate',
+			modelId: `${TEST_MODEL_ID_PREFIX}eur-p-image`,
+			active: true,
+			params: { pricePerImage: usdCost, currency: 'EUR' }
+		});
+		const eurModel = await resolveImageModel(db, 'portrait');
+		const eurCost = computeCost(eurModel.params, {
+			inputTokens: 0,
+			outputTokens: 0,
+			embeddingTokens: 0,
+			images: 1
+		}).costEur;
+
+		expect(usdCost).toBeLessThan(0.02);
+		expect(usdCost).toBeCloseTo(0.017291, 5);
+		expect(eurCost).toBe(usdCost);
 	});
 
 	it('an inactive row does not win over no active row', async () => {

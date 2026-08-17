@@ -58,7 +58,11 @@ export const load: PageServerLoad = async () => {
 
 const EUR_PATTERN = /^\d+(\.\d{1,6})?$/;
 
-function parseEurPerImage(raw: FormDataEntryValue | null): number | null {
+/** The admin form asks for the EUR-per-image cost directly (issue #132: the admin's own
+ * cost bookkeeping, always our currency), so this stays EUR-only rather than growing a
+ * currency selector nobody has asked the product to have yet - saved with
+ * `currency: 'EUR'` below. */
+function parsePricePerImage(raw: FormDataEntryValue | null): number | null {
 	if (typeof raw !== 'string') return null;
 	const trimmed = raw.trim();
 	if (!EUR_PATTERN.test(trimmed)) return null;
@@ -138,7 +142,7 @@ export const actions: Actions = {
 		const feature = formData.get('feature');
 		const provider = formData.get('provider');
 		const modelId = formData.get('modelId');
-		const rawEurPerImage = formData.get('eurPerImage');
+		const rawPricePerImage = formData.get('pricePerImage');
 
 		if (
 			(feature !== 'portrait' && feature !== 'variants' && feature !== 'scene') ||
@@ -151,27 +155,32 @@ export const actions: Actions = {
 				feature: typeof feature === 'string' ? feature : null,
 				provider: typeof provider === 'string' ? provider : '',
 				modelId: typeof modelId === 'string' ? modelId : '',
-				eurPerImage: typeof rawEurPerImage === 'string' ? rawEurPerImage : '',
+				pricePerImage: typeof rawPricePerImage === 'string' ? rawPricePerImage : '',
 				saved: false,
 				error: messages(event.locals.locale).admin.models.errors.providerAndModelIdRequired
 			});
 		}
 
-		const eurPerImage = parseEurPerImage(rawEurPerImage);
-		if (eurPerImage === null) {
+		const pricePerImage = parsePricePerImage(rawPricePerImage);
+		if (pricePerImage === null) {
 			return fail(400, {
 				feature,
 				provider,
 				modelId,
-				eurPerImage: typeof rawEurPerImage === 'string' ? rawEurPerImage : '',
+				pricePerImage: typeof rawPricePerImage === 'string' ? rawPricePerImage : '',
 				saved: false,
-				error: messages(event.locals.locale).admin.models.errors.invalidEurPerImage
+				error: messages(event.locals.locale).admin.models.errors.invalidPricePerImage
 			});
 		}
 
-		await upsertImageModel(db(), { feature, provider, modelId, params: { eurPerImage } });
+		await upsertImageModel(db(), {
+			feature,
+			provider,
+			modelId,
+			params: { pricePerImage, currency: 'EUR' }
+		});
 		clearImageModelCache();
 
-		return { feature, provider, modelId, eurPerImage: String(eurPerImage), saved: true };
+		return { feature, provider, modelId, pricePerImage: String(pricePerImage), saved: true };
 	}
 };

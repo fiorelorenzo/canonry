@@ -121,9 +121,10 @@ describe.skipIf(!liveKey)('GatewayEmbeddingProvider against the real gateway (#6
 		expect(call?.provider).toBe(configured.provider);
 		expect(call?.modelId).toBe(configured.modelId);
 		expect(call?.embeddingTokens ?? 0).toBeGreaterThan(0);
-		// Migration 0022 seeds eurPerEmbeddingMTok, so this is a real cost derived from real
-		// tokens, which is the only version of SPEC.md §15's margin question worth asking. What
-		// the *user* pays for a similarity check is separately zero, through operation_price's
+		// The active embedding row prices pricePerEmbeddingMTok in its own currency
+		// (issue #132), so this is a real cost derived from real tokens, which is the only
+		// version of SPEC.md §15's margin question worth asking. What the *user* pays for a
+		// similarity check is separately zero, through operation_price's
 		// media.similarity_check row - the two numbers are deliberately not the same one.
 		expect(Number(call?.costEur)).toBeGreaterThan(0);
 	}, 60_000);

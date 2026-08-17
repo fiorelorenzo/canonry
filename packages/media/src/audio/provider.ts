@@ -97,10 +97,16 @@ export const ELEVENLABS_MODEL_ID = 'eleven_text_to_sound_v2';
  * @canonry/db's previewCharge/recordAndCharge - so the guarantee is identical (refuse
  * before spending, one model_call row either way, never charged on failure) without
  * inventing a purpose that does not exist. costEur is always recorded as 0: ModelParams
- * has eurPerImage but no field for ElevenLabs' own per-request pricing, and even a live
- * call's real `character-cost` response header is denominated in ElevenLabs credits, not
- * EUR - converting it needs the account's plan rate, which nothing here has, so this
- * stays 0 rather than guessing an exchange rate. Tracked by issue #116, not fixed here.
+ * has a currency-aware `pricePerImage` (issue #132) but no per-second-of-audio field yet,
+ * and even a live call's real `character-cost` response header is denominated in
+ * ElevenLabs credits, not a currency `toEur` knows how to convert - that needs the
+ * account's plan rate, which nothing here has, so this stays 0 rather than guessing one.
+ * #132 left room for this: a `pricePerSecond` field plus `currency: 'USD'` (ElevenLabs
+ * quotes in dollars, the same currency this field already handles) fits in
+ * `ModelParams`/whatever table ends up holding it without another migration, and
+ * `computeCost` already knows how to convert whatever currency it declares - #116 is
+ * wiring an audio model config up to that, not inventing a new conversion path. Tracked
+ * by issue #116, not fixed here.
  */
 async function chargeAndRecordLayer<T>(params: {
 	db: Db;

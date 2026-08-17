@@ -22,7 +22,7 @@ const RESOLVED_MODEL: ResolvedModel = {
 	purpose: 'cheap',
 	provider: 'test-provider',
 	modelId: 'test-model-quota',
-	params: { eurPerInputMTok: 2, eurPerOutputMTok: 6, creditsPerEur: 100 }
+	params: { pricePerInputMTok: 2, pricePerOutputMTok: 6, currency: 'EUR', creditsPerEur: 100 }
 };
 
 describe('warmTierOf', () => {

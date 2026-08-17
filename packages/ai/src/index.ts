@@ -18,12 +18,15 @@ export {
 	type ResolvedModel
 } from './models.js';
 
+export { toEur, FX_RATE_DATE, type Currency } from './currency.js';
+
 export { chargeFor, clearPriceCache, type PriceRow } from './prices.js';
 
 export {
 	recordCall,
 	withUsage,
 	computeCost,
+	normalizeUsage,
 	type ModelCallInput,
 	type ModelCallAgent,
 	type UsageCounts,

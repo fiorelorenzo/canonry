@@ -1439,7 +1439,7 @@ export const en: Messages = {
 				'Seeded default: <code class="text-xs">prunaai/p-image</code> for a single portrait, <code class="text-xs">black-forest-labs/flux-schnell</code> for the four-variant batch. EUR per image is our own cost bookkeeping, never the credit price a GM sees - that lives in',
 			imageTable: {
 				feature: 'Feature',
-				eurPerImage: 'EUR / image',
+				pricePerImage: 'EUR / image',
 				active: 'active',
 				inactive: 'inactive'
 			},
@@ -1454,7 +1454,7 @@ export const en: Messages = {
 					`"${provider}" is not a known provider. Choose one of: ${choices}.`,
 				modelIdRequired: 'Model id is required.',
 				providerAndModelIdRequired: 'Provider and model id are required.',
-				invalidEurPerImage: 'Enter a non-negative EUR-per-image cost, up to 6 decimal places.'
+				invalidPricePerImage: 'Enter a non-negative EUR-per-image cost, up to 6 decimal places.'
 			}
 		},
 

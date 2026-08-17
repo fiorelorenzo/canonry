@@ -6,20 +6,29 @@
 import type { Db } from '@canonry/db';
 import { and, eq } from 'drizzle-orm';
 import { modelConfig, type ModelPurpose } from '@canonry/db/schema';
+import { type Currency } from './currency.js';
 
 export type { ModelPurpose };
 
 /**
  * Pricing for one model, read from `model_config.params` (jsonb, opaque to
- * @canonry/db). All fields optional - a missing rate means that dimension is
+ * @canonry/db). All price fields optional - a missing rate means that dimension is
  * free for this model (e.g. an embedding model has no output tokens).
  */
 export interface ModelParams {
-	eurPerInputMTok?: number;
-	eurPerOutputMTok?: number;
-	eurPerEmbeddingMTok?: number;
-	eurPerImage?: number;
-	/** Credits per euro for this model's included-quota accounting (SPEC 15). Defaults to 100 (1 credit = EUR 0.01) when absent. */
+	/** The currency every price field below is stated in - the provider's own price
+	 * list, never pre-converted (issue #132). Defaults to EUR when absent, which is
+	 * honest rather than assumed: every model_config/image_model_config row seeded
+	 * before #132 already ran its provider's price through the same dated rate
+	 * `toEur` uses now, so an absent currency here is the value those rows were
+	 * always in, not a guess. Never mix currencies within one model's params - one
+	 * provider, one price list, one currency. */
+	currency?: Currency;
+	pricePerInputMTok?: number;
+	pricePerOutputMTok?: number;
+	pricePerEmbeddingMTok?: number;
+	pricePerImage?: number;
+	/** Credits per euro for this model's included-quota accounting (SPEC 15). Defaults to 100 (1 credit = EUR 0.01) when absent. Always EUR - this is Canonry's own credit rate, not a provider price. */
 	creditsPerEur?: number;
 }
 
@@ -63,12 +72,14 @@ function readModelParams(value: unknown): ModelParams {
 	if (typeof value !== 'object' || value === null) return {};
 	const record = value as Record<string, unknown>;
 	const params: ModelParams = {};
-	if (typeof record.eurPerInputMTok === 'number') params.eurPerInputMTok = record.eurPerInputMTok;
-	if (typeof record.eurPerOutputMTok === 'number')
-		params.eurPerOutputMTok = record.eurPerOutputMTok;
-	if (typeof record.eurPerEmbeddingMTok === 'number')
-		params.eurPerEmbeddingMTok = record.eurPerEmbeddingMTok;
-	if (typeof record.eurPerImage === 'number') params.eurPerImage = record.eurPerImage;
+	if (record.currency === 'EUR' || record.currency === 'USD') params.currency = record.currency;
+	if (typeof record.pricePerInputMTok === 'number')
+		params.pricePerInputMTok = record.pricePerInputMTok;
+	if (typeof record.pricePerOutputMTok === 'number')
+		params.pricePerOutputMTok = record.pricePerOutputMTok;
+	if (typeof record.pricePerEmbeddingMTok === 'number')
+		params.pricePerEmbeddingMTok = record.pricePerEmbeddingMTok;
+	if (typeof record.pricePerImage === 'number') params.pricePerImage = record.pricePerImage;
 	if (typeof record.creditsPerEur === 'number') params.creditsPerEur = record.creditsPerEur;
 	return params;
 }

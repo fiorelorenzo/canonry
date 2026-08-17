@@ -21,7 +21,7 @@ const IMAGE_MODEL: ResolvedModel = {
 	purpose: 'image',
 	provider: 'replicate',
 	modelId: 'prunaai/p-image',
-	params: { eurPerImage: 0.03, creditsPerEur: 100 }
+	params: { pricePerImage: 0.03, currency: 'EUR', creditsPerEur: 100 }
 };
 
 describe('generateImage', () => {

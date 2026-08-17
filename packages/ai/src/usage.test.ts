@@ -35,10 +35,11 @@ const RESOLVED_MODEL: ResolvedModel = {
 	provider: 'test-provider',
 	modelId: 'test-model-1',
 	params: {
-		eurPerInputMTok: 2,
-		eurPerOutputMTok: 6,
-		eurPerEmbeddingMTok: 0.1,
-		eurPerImage: 0.05,
+		currency: 'EUR',
+		pricePerInputMTok: 2,
+		pricePerOutputMTok: 6,
+		pricePerEmbeddingMTok: 0.1,
+		pricePerImage: 0.05,
 		creditsPerEur: 100
 	}
 };
@@ -62,6 +63,34 @@ describe('computeCost', () => {
 			{ inputTokens: 1_000_000, outputTokens: 0, embeddingTokens: 0, images: 0 }
 		);
 		expect(costEur).toBe(0);
+	});
+
+	it('treats an absent currency as EUR - every price seeded before issue #132 already is', () => {
+		const { costEur } = computeCost(
+			{ pricePerImage: 0.02 },
+			{ inputTokens: 0, outputTokens: 0, embeddingTokens: 0, images: 1 }
+		);
+		expect(costEur).toBe(0.02);
+	});
+
+	it('converts a USD-denominated price at read time (issue #132)', () => {
+		// Replicate's own $0.02/image list price, stored as-is with currency 'USD' -
+		// migration 0034's shape for the portrait row - must convert to real euros here,
+		// not at seed time.
+		const { costEur } = computeCost(
+			{ currency: 'USD', pricePerImage: 0.02 },
+			{ inputTokens: 0, outputTokens: 0, embeddingTokens: 0, images: 1 }
+		);
+		expect(costEur).toBeCloseTo(0.017291, 5);
+		expect(costEur).toBeLessThan(0.02);
+	});
+
+	it('passes a price already stored in euros through unconverted', () => {
+		const { costEur } = computeCost(
+			{ currency: 'EUR', pricePerImage: 0.0173 },
+			{ inputTokens: 0, outputTokens: 0, embeddingTokens: 0, images: 1 }
+		);
+		expect(costEur).toBe(0.0173);
 	});
 });
 

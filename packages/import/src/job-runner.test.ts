@@ -121,7 +121,7 @@ function scriptedModel(steps: ReturnType<typeof toolCallStep>[]): MockLanguageMo
 	return new MockLanguageModelV4({ provider: 'test', modelId: 'test-cheap', doGenerate: steps });
 }
 
-const TEST_PARAMS = { eurPerInputMTok: 1, eurPerOutputMTok: 2, creditsPerEur: 100 };
+const TEST_PARAMS = { pricePerInputMTok: 1, pricePerOutputMTok: 2, creditsPerEur: 100 };
 const IDENTITY_GATEWAY: GatewayWrapper = (model) => model;
 
 function fixedModelSelector(languageModel: LanguageModel): ModelSelector {

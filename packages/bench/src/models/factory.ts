@@ -56,7 +56,10 @@ export function benchModelFactory(resolved: ResolvedModel): LanguageModel {
 /**
  * Points a purpose at one candidate and prices it from the gateway's own list, so the
  * `model_call.cost_eur` rows a run leaves behind are real euros and the bench's cost
- * column and the product's billing column cannot drift apart.
+ * column and the product's billing column cannot drift apart. Writes the gateway's own
+ * USD figures verbatim with `currency: 'USD'` (issue #132) rather than a pre-converted
+ * EUR number - `computeCost` converts at read time, the same as every other price in the
+ * product, so this and a migration's seed can never drift on which rate they used.
  *
  * Deactivates every other row for the purpose first: `model_config_active_purpose_key` is
  * a unique index on `(purpose)` filtered to `active`, so two active rows is not a state
@@ -86,8 +89,9 @@ export async function setActiveModel(
 		)
 		.limit(1);
 	const params = {
-		eurPerInputMTok: prices.eurPerInputMTok,
-		eurPerOutputMTok: prices.eurPerOutputMTok
+		currency: 'USD' as const,
+		pricePerInputMTok: prices.usdPerInputMTok,
+		pricePerOutputMTok: prices.usdPerOutputMTok
 	};
 	const row = existing[0];
 	if (row) {

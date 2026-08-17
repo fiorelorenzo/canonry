@@ -1477,7 +1477,7 @@ export const it: Messages = {
 				'Predefinito iniziale: <code class="text-xs">prunaai/p-image</code> per un singolo ritratto, <code class="text-xs">black-forest-labs/flux-schnell</code> per il lotto da quattro varianti. L\'EUR per immagine è la nostra contabilità dei costi, mai il prezzo in crediti che vede un GM - quello vive in',
 			imageTable: {
 				feature: 'Funzione',
-				eurPerImage: 'EUR / immagine',
+				pricePerImage: 'EUR / immagine',
 				active: 'attivo',
 				inactive: 'inattivo'
 			},
@@ -1492,7 +1492,7 @@ export const it: Messages = {
 					`"${provider}" non è un provider noto. Scegli tra: ${choices}.`,
 				modelIdRequired: "L'ID del modello è obbligatorio.",
 				providerAndModelIdRequired: 'Provider e ID del modello sono obbligatori.',
-				invalidEurPerImage:
+				invalidPricePerImage:
 					'Inserisci un costo in EUR per immagine non negativo, con al massimo 6 cifre decimali.'
 			}
 		},

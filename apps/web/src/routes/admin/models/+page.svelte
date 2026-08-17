@@ -16,9 +16,9 @@
 		dateFormat(data.locale, { dateStyle: 'medium', timeStyle: 'short' })
 	);
 
-	function paramsEurPerImage(params: unknown): string {
+	function paramsPricePerImage(params: unknown): string {
 		if (typeof params !== 'object' || params === null) return '';
-		const value = (params as { eurPerImage?: unknown }).eurPerImage;
+		const value = (params as { pricePerImage?: unknown }).pricePerImage;
 		return typeof value === 'number' ? String(value) : '';
 	}
 
@@ -152,7 +152,7 @@
 					<th class="px-3 py-2 font-normal">{t.models.imageTable.feature}</th>
 					<th class="px-3 py-2 font-normal">{t.models.table.provider}</th>
 					<th class="px-3 py-2 font-normal">{t.models.table.modelId}</th>
-					<th class="px-3 py-2 font-normal">{t.models.imageTable.eurPerImage}</th>
+					<th class="px-3 py-2 font-normal">{t.models.imageTable.pricePerImage}</th>
 					<th class="px-3 py-2 font-normal"></th>
 				</tr>
 			</thead>
@@ -171,12 +171,13 @@
 					{@const modelIdValue =
 						(errorHere ? (fieldOf(forThisRow, 'modelId') as string | undefined) : undefined) ??
 						model.modelId}
-					{@const eurValue =
-						(errorHere ? (fieldOf(forThisRow, 'eurPerImage') as string | undefined) : undefined) ??
-						paramsEurPerImage(model.params)}
+					{@const priceValue =
+						(errorHere
+							? (fieldOf(forThisRow, 'pricePerImage') as string | undefined)
+							: undefined) ?? paramsPricePerImage(model.params)}
 					{@const providerId = `provider-${model.feature}`}
 					{@const modelIdId = `modelId-${model.feature}`}
-					{@const eurId = `eur-${model.feature}`}
+					{@const priceId = `price-${model.feature}`}
 					<tr class="bg-panel align-top">
 						<td class="px-3 py-3 text-ink">
 							{t.models.featureLabel[model.feature as keyof typeof t.models.featureLabel]}
@@ -201,14 +202,14 @@
 									/>
 								</div>
 								<div class="flex flex-col gap-1">
-									<Label class="sr-only" for={eurId}>{t.models.imageTable.eurPerImage}</Label>
+									<Label class="sr-only" for={priceId}>{t.models.imageTable.pricePerImage}</Label>
 									<Input
-										id={eurId}
+										id={priceId}
 										type="number"
-										name="eurPerImage"
+										name="pricePerImage"
 										min="0"
 										step="0.000001"
-										value={eurValue}
+										value={priceValue}
 										class="w-24 tabular-nums"
 									/>
 								</div>
