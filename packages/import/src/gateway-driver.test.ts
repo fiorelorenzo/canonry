@@ -1051,7 +1051,7 @@ One document.
 
 	// TEST_PARAMS (eurPerInputMTok 1, eurPerOutputMTok 2, creditsPerEur 100) prices
 	// TINY_PLAYBOOK's first step's worst case (225-character system prompt + 2 tools'
-	// overhead + the 4096-token output cap) at ~0.86 credits - a budget of 0.5 cannot
+	// overhead + the 8192-token output cap) at ~1.68 credits - a budget of 0.5 cannot
 	// fit that even once, but the *first* step of a job always gets tried regardless
 	// (see the next test), so it is `job_finish`'s step that this test's ceiling catches.
 	it('never starts a step whose worst case does not fit, and spend stays at or under the ceiling', async () => {
@@ -1088,7 +1088,7 @@ One document.
 		expect(terminal && terminal.type === 'progress' && terminal.detail).toMatch(/worst case/);
 	});
 
-	// A budget far below even one step's worst case (0.001 against ~0.86) - under a plain
+	// A budget far below even one step's worst case (0.001 against ~1.68) - under a plain
 	// worst-case gate with no reserve, the very first step would never be allowed to
 	// start and this job would finish having proposed nothing (the production failure
 	// this issue reports: a job that spent its whole ceiling and emitted zero proposals).
@@ -1118,5 +1118,172 @@ One document.
 		// still does not fit, so the job stops at its ceiling rather than finishing clean.
 		const terminal = events.at(-1);
 		expect(terminal).toMatchObject({ type: 'progress', status: 'stopped_at_ceiling' });
+	});
+});
+
+describe('GatewayDriver - a step whose entire output fails to parse ends the document loudly (issue #134)', () => {
+	it('fails the document instead of silently dropping a step where every tool call was invalid', async () => {
+		const playbook = loadPlaybook(`---
+id: fixture
+version: 1
+name: Fixture
+description: A playbook for the invalid-tool-call test.
+stepBudget: 5
+---
+
+Propose one entity then finish.
+
+## Inputs
+
+One document.
+
+## Tools
+
+- \`entity_propose\` - propose an entity.
+- \`job_finish\` - close the run.
+
+## Steps
+
+1. Propose, then finish.
+
+   \`\`\`json
+   { "outcome": "completed" }
+   \`\`\`
+`);
+		const sources = new InMemorySourceReader({ files: { 'notes.md': 'irrelevant text' } });
+
+		// A response `generateText` cannot parse against `entity_propose`'s schema - the
+		// same shape a real truncated-mid-JSON call would take (`STEP_MAX_OUTPUT_TOKENS`
+		// cutting the model off before the closing brace). The AI SDK marks this
+		// `invalid: true` and never runs its `execute`, so nothing is proposed.
+		const model = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			doGenerate: async () => ({
+				content: [
+					{
+						type: 'tool-call' as const,
+						toolCallId: 't1',
+						toolName: 'entity_propose',
+						input: '{"localId":"e1","type":"character","name":"Trunc'
+					}
+				],
+				finishReason: { unified: 'length' as const, raw: undefined },
+				usage: usage(10, 8192),
+				warnings: []
+			})
+		});
+
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+		const job = buildJob({
+			id: 'job-truncated',
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes.md' }],
+			sources
+		});
+
+		const { events } = await collect(job, driver);
+
+		// Nothing this step attempted was usable - no proposal ever reached the stream.
+		expect(events.some((e) => e.type === 'proposal')).toBe(false);
+
+		const terminal = events.at(-1);
+		expect(terminal).toMatchObject({ type: 'progress', status: 'failed' });
+		expect(terminal && terminal.type === 'progress' && terminal.detail).toMatch(/failed to parse/);
+		// The loop never tries a second step once a document has failed loudly.
+		expect(model.doGenerateCalls).toHaveLength(1);
+	});
+
+	it('keeps a step that mixes a valid and an invalid call - the valid proposal survives, the loop continues', async () => {
+		const playbook = loadPlaybook(`---
+id: fixture
+version: 1
+name: Fixture
+description: A playbook for the mixed valid/invalid tool-call test.
+stepBudget: 5
+---
+
+Propose entities then finish.
+
+## Inputs
+
+One document.
+
+## Tools
+
+- \`entity_propose\` - propose an entity.
+- \`job_finish\` - close the run.
+
+## Steps
+
+1. Propose, then finish.
+
+   \`\`\`json
+   { "outcome": "completed" }
+   \`\`\`
+`);
+		const sources = new InMemorySourceReader({ files: { 'notes.md': 'irrelevant text' } });
+
+		let calls = 0;
+		const model = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			doGenerate: async () => {
+				calls += 1;
+				if (calls === 1) {
+					return {
+						content: [
+							{
+								type: 'tool-call' as const,
+								toolCallId: 'ok1',
+								toolName: 'entity_propose',
+								input: JSON.stringify({
+									localId: 'e1',
+									type: 'character',
+									name: 'Entity One',
+									aliases: [],
+									summary: 'The one call in this step that parsed.',
+									sourceRef: { documentId: 'doc-1', path: 'notes.md' },
+									evidenceSpan: { start: 0, end: 5 }
+								})
+							},
+							{
+								type: 'tool-call' as const,
+								toolCallId: 'bad1',
+								toolName: 'entity_propose',
+								input: '{"localId":"e2","type":"character","name":"Trunc'
+							}
+						],
+						finishReason: { unified: 'length' as const, raw: undefined },
+						usage: usage(10, 8192),
+						warnings: []
+					};
+				}
+				return toolCallStep([{ id: 't2', name: 'job_finish', input: { outcome: 'completed' } }]);
+			}
+		});
+
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+		const job = buildJob({
+			id: 'job-mixed',
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes.md' }],
+			sources
+		});
+
+		const { events } = await collect(job, driver);
+
+		const proposals = events.filter((e) => e.type === 'proposal');
+		expect(proposals).toHaveLength(1);
+
+		const finished = events.find((e) => e.type === 'progress' && e.status === 'finished');
+		expect(finished).toBeDefined();
+		expect(events.some((e) => e.type === 'progress' && e.status === 'failed')).toBe(false);
 	});
 });

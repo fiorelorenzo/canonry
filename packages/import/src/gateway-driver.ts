@@ -131,10 +131,22 @@ const CHARS_PER_TOKEN_ESTIMATE = 4;
 
 /** issue #134: caps every step's real output, not just its estimate - `callStep` passes
  * this to `generateText` as `maxOutputTokens`, so a step cannot cost more than this many
- * output tokens because the call is not allowed to produce more. Sized against
- * `ENTITY_PROPOSE_INPUT`'s own ceiling (tools.ts: `summary` maxes at 4000 characters, ~1000
- * tokens), with headroom for a step that batches a few tool calls into one response. */
-const STEP_MAX_OUTPUT_TOKENS = 4096;
+ * output tokens because the call is not allowed to produce more.
+ *
+ * Sized for a step that batches several `entity_propose` calls into one response, not
+ * just one: `ENTITY_PROPOSE_INPUT`'s `summary` alone maxes at 4000 characters (~1000
+ * tokens; tools.ts), and name/aliases/sourceRef/evidenceSpan plus the tool-call envelope
+ * add roughly another 150-200, so one call at its schema ceiling costs ~1150-1200 tokens.
+ * Nothing in the playbooks or the tool surface stops a model from proposing several
+ * entities in a single turn - the loop guard (tools.ts's `registerToolCall`) only catches
+ * *identical* repeated calls, never a burst of different ones - so 8192 buys headroom for
+ * roughly six or seven such calls before truncation risk returns, well above what a normal
+ * paragraph-dense passage should produce. This did not exist as an enforced cap before
+ * issue #134 (the call went out with no `maxOutputTokens` at all, bounded only by
+ * whatever the provider defaults to), so this number is a considered ceiling, not a
+ * measurement of one - `runDocument`'s "every tool call in this step failed to parse"
+ * check below exists precisely because 8192 is a judgment call, not a guarantee. */
+const STEP_MAX_OUTPUT_TOKENS = 8192;
 
 /** Rough, constant-per-tool overhead for the JSON-schema encoding every enabled tool's
  * definition costs on top of the conversation itself. The tool set never changes mid-run,
@@ -451,6 +463,23 @@ async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent>
 				latencyMs: 0,
 				errorName: null
 			});
+		}
+
+		// issue #134: the AI SDK already skips executing an invalid tool call (a response
+		// it could not parse against the tool's schema - most plausibly here, one truncated
+		// mid-JSON by `STEP_MAX_OUTPUT_TOKENS`) without raising - `callStep` never throws
+		// for it, and without this check the only trace would be the `tool_call` log lines
+		// just above, never anything a GM sees. A step that attempted at least one tool
+		// call and got nothing usable back from any of them ends the document loudly
+		// instead of silently losing whatever it was trying to propose.
+		if (outcome.toolCalls.length > 0 && outcome.toolCalls.every((call) => call.invalid)) {
+			yield progressEvent(
+				ctx,
+				step,
+				'failed',
+				'every tool call in this step failed to parse, most likely truncated by the output limit'
+			);
+			return;
 		}
 		nextPurposeIsMultimodal = outcome.toolCalls.some((call) => call.toolName === 'page_image');
 
