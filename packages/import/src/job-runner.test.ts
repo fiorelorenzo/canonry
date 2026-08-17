@@ -376,8 +376,6 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			concurrencyLimit: 5
 		});
 
-		// A tiny job-wide credit budget: document A's steps alone exceed it, so document B
-		// never starts this run.
 		const runner = new ImportJobRunner();
 		const documents = [
 			{ id: 'doc-a', sourcePath: 'notes/a.md' },
@@ -399,26 +397,30 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 			timeoutMs: 30_000
 		};
 
-		const modelA = scriptedModel([
-			toolCallStep([{ id: 'a1', name: 'source_read', input: { path: 'notes/a.md' } }]),
-			entityStep('a2', 'ea', 'Entity A', 'doc-a', 'notes/a.md'),
-			finishStep('a3')
-		]);
+		const modelA = scriptedModel([entityStep('a1', 'ea', 'Entity A', 'doc-a', 'notes/a.md')]);
 		const driverA = new GatewayDriver({
 			gateway: IDENTITY_GATEWAY,
 			models: fixedModelSelector(modelA)
 		});
-		// TEST_PARAMS costs ~0.002 credits/step (usage(10,5) against eurPerInputMTok 1,
-		// eurPerOutputMTok 2, creditsPerEur 100), so document A's 3 steps spend ~0.006 -
-		// a ceiling of 0.005 trips right after document A finishes, before document B
-		// ever starts.
+		// issue #134: the ceiling now prices a step's worst case (known input plus
+		// gateway-driver.ts's STEP_MAX_OUTPUT_TOKENS-capped output) before starting it, so
+		// against the real 'generic' playbook one step's worst case already exceeds a
+		// credit - 0.5 cannot fit a second step from either document. Every job's first
+		// step still gets one grace attempt regardless of how tiny the budget is (the
+		// reservation issue #134 also adds, toward a first proposal), which is what lets
+		// document A's one entity_propose step run before the ceiling closes on everything
+		// after it, document B's own first step included.
 		const firstRun = await runner.run({
 			...paramsBase,
 			driver: driverA,
-			budget: { maxCredits: 0.005 }
+			budget: { maxCredits: 0.5 }
 		});
 
 		expect(firstRun.finalStatus).toBe('stopped_at_ceiling');
+		// Document A's own next step (job_finish) never started either - the model was
+		// asked for exactly the one step that fit.
+		expect(modelA.doGenerateCalls).toHaveLength(1);
+
 		const proposalsAfterCeiling = await db
 			.select()
 			.from(proposalTable)
@@ -429,9 +431,12 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		const jobAfterCeiling = await getImportJob(db, admission.jobId);
 		expect(jobAfterCeiling.status).toBe('stopped_at_ceiling');
 
-		// Resume: same job id, a real budget this time. Document A is already checkpointed
-		// finished and must not run again; only document B should call the model.
+		// Resume: same job id, a real budget this time. Neither document reached
+		// `finished` in the first run, so both are still in `documentsToRun` - document A
+		// picks back up where it stopped (closing out with nothing new to add) and
+		// document B runs for the first time.
 		const modelB = scriptedModel([
+			finishStep('a2'),
 			toolCallStep([{ id: 'b1', name: 'source_read', input: { path: 'notes/b.md' } }]),
 			entityStep('b2', 'eb', 'Entity B', 'doc-b', 'notes/b.md'),
 			finishStep('b3')
@@ -447,7 +452,9 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		});
 
 		expect(resumed.finalStatus).toBe('finished');
-		expect(resumed.documents.map((d) => d.documentId)).toEqual(['doc-b']);
+		expect(resumed.documents.map((d) => d.documentId)).toEqual(['doc-a', 'doc-b']);
+		// Document A's resumed step closes it out without proposing anything new; only
+		// document B's entity_propose is new this run.
 		expect(resumed.proposalsEmitted).toBe(1);
 
 		const jobAfterResume = await getImportJob(db, admission.jobId);
