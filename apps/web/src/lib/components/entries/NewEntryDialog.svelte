@@ -24,6 +24,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
 	import type { EntityType } from '@canonry/db/schema';
 	import type { Messages } from '$lib/i18n';
 
@@ -38,6 +39,11 @@
 		error?: string;
 		t: Messages['universe']['index'];
 	} = $props();
+
+	// Dialog content unmounts on close (bits-ui, no forceMount), so a fresh instance -
+	// and a fresh default - is what a reopen gets, same as the browser resetting a plain
+	// <select> to its first option each time.
+	let entityType = $state<string>(BROWSABLE_TYPES[0]);
 </script>
 
 <Dialog bind:open>
@@ -53,15 +59,18 @@
 			</div>
 			<div class="flex flex-col gap-1.5">
 				<Label for="new-entry-type">{t.newEntryDialog.typeLabel}</Label>
-				<select
-					id="new-entry-type"
-					name="type"
-					class="h-9 rounded-md border border-input bg-transparent px-2.5 py-1 text-sm text-ink shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-				>
-					{#each BROWSABLE_TYPES as type (type)}
-						<option value={type}>{t.filters.typeLabel(type)}</option>
-					{/each}
-				</select>
+				<Select.Root type="single" name="type" bind:value={entityType}>
+					<Select.Trigger id="new-entry-type" class="w-full">
+						{t.filters.typeLabel(entityType)}
+					</Select.Trigger>
+					<Select.Content>
+						{#each BROWSABLE_TYPES as type (type)}
+							<Select.Item value={type} label={t.filters.typeLabel(type)}>
+								{t.filters.typeLabel(type)}
+							</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
 			</div>
 			{#if error}
 				<p class="text-sm text-danger">{error}</p>

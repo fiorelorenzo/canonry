@@ -13,7 +13,7 @@
 </script>
 
 {#if kind === 'human'}
-	<Badge variant="secondary" class="font-mono text-ink-2">{t.entry.history.revisionHuman}</Badge>
+	<Badge variant="secondary" class="font-mono">{t.entry.history.revisionHuman}</Badge>
 {:else}
-	<Badge class="bg-ok-bg font-mono text-ok">{t.entry.history.revisionAiAccepted}</Badge>
+	<Badge variant="ok" class="font-mono">{t.entry.history.revisionAiAccepted}</Badge>
 {/if}

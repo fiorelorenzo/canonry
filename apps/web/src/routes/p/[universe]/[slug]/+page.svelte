@@ -18,6 +18,7 @@
 	import GapNotice from '$lib/components/players/GapNotice.svelte';
 	import PublicFactsList from '$lib/components/players/PublicFactsList.svelte';
 	import PublicRelationsList from '$lib/components/players/PublicRelationsList.svelte';
+	import { Badge } from '$lib/components/ui/badge';
 	import { messages } from '$lib/i18n';
 	import type { PageData } from './$types';
 
@@ -37,9 +38,7 @@
 <div class="mb-6">
 	<h1 class="mb-1 text-3xl font-semibold text-ink">{data.entity.name}</h1>
 	<p class="flex flex-wrap items-center gap-2 text-sm text-muted">
-		<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
-			{data.entity.type}
-		</span>
+		<Badge variant="accent" class="font-mono">{data.entity.type}</Badge>
 		{#if data.entity.status === 'full'}
 			<span>
 				{t.players.revealed}{data.entity.revealedInSession

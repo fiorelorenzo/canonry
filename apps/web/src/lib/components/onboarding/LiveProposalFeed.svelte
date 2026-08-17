@@ -9,6 +9,7 @@
 	import { messages, type Locale } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
+	import { Badge } from '$lib/components/ui/badge';
 	import { proposalBadge, proposalDisplayName, type ProposalSummary } from './proposalView';
 
 	let { proposals, locale }: { proposals: ProposalSummary[]; locale: Locale } = $props();
@@ -44,9 +45,7 @@
 						</Button>
 					</form>
 				{:else if proposal.outcome === 'accepted'}
-					<span class="shrink-0 rounded-full bg-ok-bg px-2 py-0.5 text-xs font-medium text-ok">
-						{t.accepted}
-					</span>
+					<Badge variant="ok" class="shrink-0">{t.accepted}</Badge>
 				{:else}
 					<span class="shrink-0 text-xs text-muted">{t.outcome[proposal.outcome]}</span>
 				{/if}

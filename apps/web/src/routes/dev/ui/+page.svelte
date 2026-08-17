@@ -10,6 +10,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Badge } from '$lib/components/ui/badge';
+	import * as Select from '$lib/components/ui/select';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Popover from '$lib/components/ui/popover';
@@ -36,9 +37,14 @@
 
 	const buttonVariantList = ['default', 'secondary', 'ghost', 'link', 'destructive'] as const;
 	const buttonSizeList = ['sm', 'default', 'lg', 'icon'] as const;
-	const badgeVariantList = ['default', 'secondary', 'destructive'] as const;
+	const badgeVariantList = ['default', 'secondary', 'destructive', 'ok', 'accent'] as const;
+	const selectSampleTypes = ['character', 'place', 'faction'] as const;
 
 	let commandPaletteOpen = $state<Record<string, boolean>>({ light: false, dark: false });
+	let selectValue = $state<Record<string, string>>({
+		light: selectSampleTypes[0],
+		dark: selectSampleTypes[0]
+	});
 </script>
 
 <svelte:head><title>Component gallery: shadcn-svelte control layer (dev only)</title></svelte:head>
@@ -91,6 +97,24 @@
 						<Label for="gallery-note-{pane.theme}">Note</Label>
 						<Textarea id="gallery-note-{pane.theme}" placeholder="A sentence or two." />
 					</div>
+				</div>
+
+				<h3 class="mb-2 text-sm font-semibold text-ink">Select</h3>
+				<div class="mb-6 rounded border border-line bg-panel p-4">
+					<Select.Root
+						type="single"
+						name="gallery-entity-type"
+						bind:value={selectValue[pane.theme]}
+					>
+						<Select.Trigger id="gallery-select-{pane.theme}" class="w-48">
+							{selectValue[pane.theme]}
+						</Select.Trigger>
+						<Select.Content portalProps={inline}>
+							{#each selectSampleTypes as entityType (entityType)}
+								<Select.Item value={entityType} label={entityType}>{entityType}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 				</div>
 
 				<h3 class="mb-2 text-sm font-semibold text-ink">Separator</h3>

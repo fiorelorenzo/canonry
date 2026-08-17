@@ -6,6 +6,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { messages, type Locale } from '$lib/i18n';
+	import { Badge } from '$lib/components/ui/badge';
 	import EvidencePopover from './EvidencePopover.svelte';
 	import RejectChips from './RejectChips.svelte';
 	import type { EvidenceView } from './evidence';
@@ -152,9 +153,9 @@
 					{t.diffCard.kindLabel(candidate.kind)}
 				</span>
 				{#if candidate.targetType}
-					<span class="rounded-full bg-accent-bg px-1.5 py-0.5 font-mono text-accent-ink uppercase">
+					<Badge variant="accent" class="font-mono uppercase">
 						{t.diffCard.entityTypeLabel(candidate.targetType)}
-					</span>
+					</Badge>
 				{/if}
 				{#if candidate.relationLabel && !candidate.relationVocab}
 					<span>{relationLabel}</span>
@@ -163,9 +164,7 @@
 			</p>
 		</div>
 		{#if candidate.outcome === 'accepted'}
-			<span class="rounded-full bg-ok-bg px-2 py-0.5 font-mono text-xs text-ok"
-				>{t.diffCard.accepted}</span
-			>
+			<Badge variant="ok" class="font-mono">{t.diffCard.accepted}</Badge>
 		{:else if candidate.outcome === 'rejected'}
 			<span class="rounded-full bg-danger-bg px-2 py-0.5 font-mono text-xs text-danger">
 				{t.diffCard.rejected}{candidate.rejectReason
