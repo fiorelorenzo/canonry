@@ -1197,7 +1197,7 @@ One document.
 		expect(model.doGenerateCalls).toHaveLength(1);
 	});
 
-	it('keeps a step that mixes a valid and an invalid call - the valid proposal survives, the loop continues', async () => {
+	it('keeps a step that mixes a valid and an invalid call - the valid proposal survives, the loop continues, and the loss reaches the stream (issue #212)', async () => {
 		const playbook = loadPlaybook(`---
 id: fixture
 version: 1
@@ -1285,6 +1285,18 @@ One document.
 		const finished = events.find((e) => e.type === 'progress' && e.status === 'finished');
 		expect(finished).toBeDefined();
 		expect(events.some((e) => e.type === 'progress' && e.status === 'failed')).toBe(false);
+
+		// issue #212: the step's one invalid call is not just silently skipped - it shows
+		// up as its own event, naming the document, the step and how many calls were lost.
+		const partialLoss = events.filter((e) => e.type === 'partial_loss');
+		expect(partialLoss).toHaveLength(1);
+		expect(partialLoss[0]).toMatchObject({
+			jobId: 'job-mixed',
+			documentId: 'doc-1',
+			step: 1,
+			lostToolCallCount: 1
+		});
+		expect(partialLoss[0]?.detail).toMatch(/1 of 2 tool call\(s\).*truncated by the output limit/);
 	});
 });
 

@@ -113,6 +113,19 @@ export type JobEvent =
 			outputTokens: number;
 			credits: number;
 			costEur: number;
+	  }
+	| {
+			type: 'partial_loss';
+			jobId: string;
+			documentId: string;
+			step: number;
+			/** issue #212: how many of this step's tool calls came back invalid - never every
+			 * one of them, since a step that loses all of them yields the `progress`/`failed`
+			 * event above (gateway-driver.ts's issue #134 check) instead of this one. The
+			 * step's other, valid calls already landed as their own `proposal` events before
+			 * this fires, and the document keeps running past it. */
+			lostToolCallCount: number;
+			detail: string;
 	  };
 
 /** A `startJob` return value is a stream, decorated with the id `cancel` addresses -

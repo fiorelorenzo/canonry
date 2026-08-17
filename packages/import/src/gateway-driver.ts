@@ -472,7 +472,8 @@ async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent>
 		// just above, never anything a GM sees. A step that attempted at least one tool
 		// call and got nothing usable back from any of them ends the document loudly
 		// instead of silently losing whatever it was trying to propose.
-		if (outcome.toolCalls.length > 0 && outcome.toolCalls.every((call) => call.invalid)) {
+		const invalidToolCalls = outcome.toolCalls.filter((call) => call.invalid);
+		if (outcome.toolCalls.length > 0 && invalidToolCalls.length === outcome.toolCalls.length) {
 			yield progressEvent(
 				ctx,
 				step,
@@ -480,6 +481,21 @@ async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent>
 				'every tool call in this step failed to parse, most likely truncated by the output limit'
 			);
 			return;
+		}
+		// issue #212: some, but not all, of this step's tool calls came back invalid. The
+		// step's valid calls already landed as their own `proposal` events above, and the
+		// model gets the SDK's synthetic tool-error result for the invalid ones on its next
+		// step so it can retry narrower - the document keeps running. What was silent before
+		// is that a GM had no way to know this step proposed less than the model attempted.
+		if (invalidToolCalls.length > 0) {
+			yield {
+				type: 'partial_loss',
+				jobId,
+				documentId: document.id,
+				step,
+				lostToolCallCount: invalidToolCalls.length,
+				detail: `${invalidToolCalls.length} of ${outcome.toolCalls.length} tool call(s) in this step failed to parse, most likely truncated by the output limit`
+			};
 		}
 		nextPurposeIsMultimodal = outcome.toolCalls.some((call) => call.toolName === 'page_image');
 

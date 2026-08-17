@@ -340,6 +340,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				entityCount: 0,
 				relationCount: 0,
 				proposalsCreated: 0,
+				lostToolCallCount: 0,
 				detail: 'unchanged since the last import'
 			}
 		]);
@@ -821,6 +822,141 @@ One document.
 		const jobRow = await getImportJob(db, admission.jobId);
 		expect(jobRow.outcomeNote).toBe(
 			'notes/f.md: every tool call in this step failed to parse, most likely truncated by the output limit'
+		);
+	});
+
+	it('keeps the valid proposal, reaches the job as an event, and names the loss in outcome_note when a step is only partly truncated (issue #212)', async () => {
+		await priceFixture();
+		const { userId, universeId } = await userAndUniverse();
+		const playbook = loadPlaybook(`---
+id: fixture
+version: 1
+name: Fixture
+description: A playbook for the outcome_note partial-loss test.
+stepBudget: 5
+---
+
+Propose entities then finish.
+
+## Inputs
+
+One document.
+
+## Tools
+
+- \`entity_propose\` - propose an entity.
+- \`job_finish\` - close the run.
+
+## Steps
+
+1. Propose, then finish.
+
+   \`\`\`json
+   { "outcome": "completed" }
+   \`\`\`
+`);
+		const sources = new InMemorySourceReader({ files: { 'notes/g.md': 'irrelevant text' } });
+
+		const admission = await admitAndCreateImportJob(db, {
+			universeId,
+			createdBy: userId,
+			sourceType: 'obsidian',
+			playbook: playbook.id,
+			playbookVersion: playbook.version,
+			artefactPath: 's3://fixtures/one-doc.zip',
+			artefactBytes: 50,
+			artefactSha256: 'g'.repeat(64),
+			documentCount: 1,
+			budgetCredits: 1000,
+			estimate: { documentCount: 1, estimatedMinutes: 1, estimatedCredits: 10 },
+			concurrencyLimit: 5
+		});
+
+		// One step, two entity_propose calls: the first genuinely malformed (the same
+		// truncated-mid-JSON shape issue #134 uses for the total-loss case), the second a
+		// real, schema-valid call. `generateText` skips the invalid one rather than
+		// throwing, so this is not a mocked "invalid" flag - it is a response the AI SDK
+		// itself cannot parse.
+		let calls = 0;
+		const model = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			doGenerate: async () => {
+				calls += 1;
+				if (calls === 1) {
+					return {
+						content: [
+							{
+								type: 'tool-call' as const,
+								toolCallId: 'bad1',
+								toolName: 'entity_propose',
+								input: '{"localId":"e1","type":"character","name":"Trunc'
+							},
+							{
+								type: 'tool-call' as const,
+								toolCallId: 'ok1',
+								toolName: 'entity_propose',
+								input: JSON.stringify({
+									localId: 'e2',
+									type: 'character',
+									name: 'Survives Truncation',
+									aliases: [],
+									summary: 'The one call in this step that parsed.',
+									sourceRef: { documentId: 'doc-g' },
+									evidenceSpan: { start: 0, end: 5 }
+								})
+							}
+						],
+						finishReason: { unified: 'length' as const, raw: undefined },
+						usage: usage(10, 8192),
+						warnings: []
+					};
+				}
+				return toolCallStep([{ id: 't2', name: 'job_finish', input: { outcome: 'completed' } }]);
+			}
+		});
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+		const runner = new ImportJobRunner();
+
+		const result = await runner.run({
+			db,
+			driver,
+			dbJobId: admission.jobId,
+			universeId,
+			sourceSystem: 'obsidian',
+			userId,
+			playbook,
+			documents: [{ id: 'doc-g', sourcePath: 'notes/g.md' }],
+			sources,
+			images: new InMemoryImageStore(),
+			budget: { maxCredits: 1000 },
+			similarity: () => 0,
+			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
+			timeoutMs: 30_000
+		});
+
+		// The document still finishes and its valid proposal still lands - the loss did
+		// not turn into a failure.
+		expect(result.finalStatus).toBe('finished');
+		expect(result.proposalsEmitted).toBe(1);
+		expect(result.documents).toMatchObject([{ documentId: 'doc-g', lostToolCallCount: 1 }]);
+
+		const rows = await db
+			.select()
+			.from(proposalTable)
+			.where(eq(proposalTable.universeId, universeId));
+		expect(rows).toHaveLength(1);
+		expect(patchName(rows[0]?.patch)).toBe('Survives Truncation');
+
+		// What a GM reads: never a bare "finished" that reassures past a real loss.
+		const jobRow = await getImportJob(db, admission.jobId);
+		expect(jobRow.outcomeNote).toBe(
+			'1 document(s) processed, 1 proposal(s) emitted; notes/g.md lost 1 tool call(s) along the way, ' +
+				"most likely truncated by a step's output limit"
 		);
 	});
 
