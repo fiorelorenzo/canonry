@@ -80,13 +80,13 @@
 							const marked = markedSegmentsFor(block, markedSentences);
 							return marked
 								? `<div class="ai-marked-block">${renderAiMarkedParagraph(marked)}</div>`
-								: renderMarkdown(block.raw, universeSlug, mentionTargets);
+								: renderMarkdown(block.raw, universeSlug, mentionTargets, 'gm');
 						})
 						.join('\n');
 				} else {
 					html = local
-						? renderMarkdownWithHighlight(segment.text, universeSlug, mentionTargets, local)
-						: renderMarkdown(segment.text, universeSlug, mentionTargets);
+						? renderMarkdownWithHighlight(segment.text, universeSlug, mentionTargets, local, 'gm')
+						: renderMarkdown(segment.text, universeSlug, mentionTargets, 'gm');
 				}
 
 				if (segment.kind === 'body') return html;
@@ -95,8 +95,11 @@
 			.join('\n')
 	);
 
+	// The public surface, deliberately: this preview's whole point is showing exactly what
+	// the real `/p/**` render produces (this file's own header comment), which means the
+	// same href rule EntryProse.svelte uses there, not the GM route's.
 	let playerHtml = $derived(
-		renderMarkdown(stripSecretsForPlayers(body), universeSlug, mentionTargets)
+		renderMarkdown(stripSecretsForPlayers(body), universeSlug, mentionTargets, 'public')
 	);
 </script>
 

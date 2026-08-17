@@ -26,9 +26,17 @@ export interface MentionTarget {
 	aliases: string[];
 }
 
+/** Which route tree a render call is for. `'gm'` is `/w/**`, session and universe
+ * membership required; `'public'` is `/p/**`, open to anyone with the link. A mention's
+ * href depends on this, because a link built for one surface is either a sign-in wall
+ * (`'gm'` href shown to a signed-out player) or a route that does not exist on the other
+ * (#159, guardrail 6: never a link off a public page into the GM surface). */
+export type MentionSurface = 'gm' | 'public';
+
 interface MentionEnv extends Env {
 	universeSlug: string;
 	targets: MentionTarget[];
+	surface: MentionSurface;
 }
 
 /** Case-insensitive match against an entity's canonical name or any of its aliases.
@@ -89,11 +97,23 @@ md.renderer.rules.mention = (tokens: Token[], idx: number, _options, env) => {
 	const mentionEnv = env as MentionEnv;
 	const label = md.utils.escapeHtml(token.content);
 	if (target) {
-		const href = `/w/${md.utils.escapeHtml(mentionEnv.universeSlug)}/e/${md.utils.escapeHtml(target.slug)}`;
+		const universeSlug = md.utils.escapeHtml(mentionEnv.universeSlug);
+		const slug = md.utils.escapeHtml(target.slug);
+		// `targets` on the public surface is always `publicMentionTargets`'s result
+		// (`$lib/server/players.ts`'s `loadPublicEntity`, `@canonry/db`'s own doc comment
+		// on that query) - the one place "is this entity public" is decided, gm_only
+		// excluded there and nowhere re-checked here. A target present in `targets` at
+		// all is therefore public by construction; this rule never re-derives that.
+		const href =
+			mentionEnv.surface === 'public'
+				? `/p/${universeSlug}/${slug}`
+				: `/w/${universeSlug}/e/${slug}`;
 		return `<a href="${href}" class="mention">${label}</a>`;
 	}
 	// B2: unresolved stays visibly unresolved rather than a dead link, so nobody reads a
-	// missing entity as if it were confirmed canon.
+	// missing entity as if it were confirmed canon. A target excluded from `targets` -
+	// gm_only on the public surface - resolves exactly the same way: no differential
+	// signal that it exists (#159, guardrail 6).
 	return `<span class="mention mention-unresolved" title="No entry named &ldquo;${label}&rdquo; yet">${label}</span>`;
 };
 
@@ -101,9 +121,10 @@ md.renderer.rules.mention = (tokens: Token[], idx: number, _options, env) => {
 export function renderMarkdown(
 	source: string,
 	universeSlug: string,
-	targets: MentionTarget[]
+	targets: MentionTarget[],
+	surface: MentionSurface
 ): string {
-	return md.render(source, { universeSlug, targets } satisfies MentionEnv);
+	return md.render(source, { universeSlug, targets, surface } satisfies MentionEnv);
 }
 
 /** Inline-only render, no block wrapper. Used for the highlight splice below and anywhere
@@ -111,9 +132,10 @@ export function renderMarkdown(
 export function renderMarkdownInline(
 	source: string,
 	universeSlug: string,
-	targets: MentionTarget[]
+	targets: MentionTarget[],
+	surface: MentionSurface
 ): string {
-	return md.renderInline(source, { universeSlug, targets } satisfies MentionEnv);
+	return md.renderInline(source, { universeSlug, targets, surface } satisfies MentionEnv);
 }
 
 /** A fact's span into the body that produced it (`packages/db`'s `factWithSource`, #17). */
@@ -146,9 +168,10 @@ export function renderMarkdownWithHighlight(
 	source: string,
 	universeSlug: string,
 	targets: MentionTarget[],
-	span: FactSpan
+	span: FactSpan,
+	surface: MentionSurface
 ): string {
-	const env: MentionEnv = { universeSlug, targets };
+	const env: MentionEnv = { universeSlug, targets, surface };
 	const tokens = md.parse(source, env);
 	const lineStarts = computeLineStarts(source);
 
@@ -173,9 +196,9 @@ export function renderMarkdownWithHighlight(
 		const closeTag = md.renderer.renderToken(tokens, i + 2, md.options);
 		const highlightedBlock =
 			openTag +
-			renderMarkdownInline(before, universeSlug, targets) +
-			`<mark class="factspan">${renderMarkdownInline(mid, universeSlug, targets)}</mark>` +
-			renderMarkdownInline(after, universeSlug, targets) +
+			renderMarkdownInline(before, universeSlug, targets, surface) +
+			`<mark class="factspan">${renderMarkdownInline(mid, universeSlug, targets, surface)}</mark>` +
+			renderMarkdownInline(after, universeSlug, targets, surface) +
 			closeTag;
 
 		const beforeHtml = md.renderer.render(tokens.slice(0, i), md.options, env);
@@ -183,7 +206,7 @@ export function renderMarkdownWithHighlight(
 		return beforeHtml + highlightedBlock + afterHtml;
 	}
 
-	return renderMarkdown(source, universeSlug, targets);
+	return renderMarkdown(source, universeSlug, targets, surface);
 }
 
 /**
