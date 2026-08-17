@@ -494,7 +494,7 @@ importers:
         specifier: workspace:*
         version: link:../db
       '@qdrant/js-client-rest':
-        specifier: ^1.16.0
+        specifier: 1.19.0
         version: 1.19.0(typescript@6.0.3)
     devDependencies:
       '@types/node':
