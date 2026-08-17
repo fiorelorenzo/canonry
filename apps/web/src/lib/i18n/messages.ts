@@ -63,11 +63,29 @@ export interface Messages {
 		 * figures, per-locale grouping) rather than each line writing its own
 		 * template. Guardrail 7 / SPEC.md §15: both totals passed to `ratio` are
 		 * always a real, finite number - this namespace holds no "unlimited"
-		 * string to reach for. */
+		 * string to reach for.
+		 *
+		 * Issue #201: each line is a button (`includedExplainLabel`/`warmExplainLabel`
+		 * is its accessible name) that opens a popover explaining what that budget
+		 * pays for, in product terms - the popover title reuses `includedHeading`/
+		 * `warmHeading` rather than a third copy of the same word. `warmHeading`'s
+		 * value is "Table prep" in English from this issue on: the label only, every
+		 * `warm_*` identifier in schema and code is untouched (same split #119 settled
+		 * for entry types). `renews`/`noRenewalDate` read `ShellQuota.periodEnd`, the
+		 * same `balance.periodEnd` `/settings/billing` already renders - nothing here
+		 * recomputes it. The popover's own link to that page reuses
+		 * `shell.accountMenu.planAndCredits` rather than a fourth string naming the
+		 * same destination. */
 		quota: {
 			includedHeading: string;
 			warmHeading: string;
 			ratio: (remaining: number, total: number) => string;
+			includedExplainLabel: string;
+			includedPopoverBody: string;
+			warmExplainLabel: string;
+			warmPopoverBody: string;
+			renews: (date: string) => string;
+			noRenewalDate: string;
 		};
 		/** Issue #138 (I1 = B): the signed-out door at `/`. The three outbound links
 		 * reuse `auth.footer` (the same bar shape on the auth pages, #139) rather than

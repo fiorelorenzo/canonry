@@ -44,14 +44,25 @@ export const en: Messages = {
 		},
 		quota: {
 			includedHeading: 'Included quota',
-			warmHeading: 'Warm budget',
+			// Issue #201: "Table prep" is the label, not the key - `warm_budget_credits`,
+			// `warm_budget_spent`, `spendWarmBudget` and `warmBudgetRemaining` keep their
+			// names everywhere else.
+			warmHeading: 'Table prep',
 			// Same idiom as `settings.billing.creditsCount`: grouped digits, no
 			// fractional credits shown - this is the same `subscriptionCredits`/
 			// `warmBudgetRemaining` figure that page renders, formatted the same way.
 			ratio: (remaining, total) => {
 				const fmt = numberFormat('en', { maximumFractionDigits: 0, useGrouping: 'always' });
 				return `${fmt.format(remaining)} / ${fmt.format(total)}`;
-			}
+			},
+			includedExplainLabel: 'What included quota pays for',
+			includedPopoverBody:
+				"Pays for drafted entries, propagation plans and diffs, Ask answers, images, and an import's extraction. Reading is free: search, mention suggestions, and the retrieval behind an Ask never move this bar.",
+			warmExplainLabel: 'What table prep pays for',
+			warmPopoverBody:
+				'The drafts Canonry prepares before a session so table mode can answer instantly. Canonry spends this on its own, without anyone asking, which is why it has its own limit and never draws on included quota.',
+			renews: (date) => `Renews ${date}`,
+			noRenewalDate: 'No renewal date on record yet.'
 		},
 		door: {
 			createAccount: 'Create an account',
