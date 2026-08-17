@@ -7,7 +7,15 @@
 	the GM sees in preview is never a second guess at what the real players' wiki does.
 
 	Self-contained: takes exactly what the GM's existing read view already has in hand
-	(`body`, `universeSlug`, `mentionTargets`), no server round trip, no new load data.
+	(`body`, `universeSlug`, `mentionTargets`, `publicMentionTargets`), no server round trip,
+	no new load data. `publicMentionTargets` is `$lib/server/players.ts`'s
+	`publicMentionTargetsFrom(mentionTargets)` (#220), computed once in the GM route's own
+	`load` alongside the one query that already fetches every entity to resolve mentions
+	against (#105/#15) - so a `gm_only` mention renders exactly as it does on the real `/p/`
+	page instead of resolving against this route's full unfiltered list, and the toggle
+	itself fetches nothing. That filtering has to happen server-side rather than in this
+	component: `publicMentionTargetsFrom` goes through `@canonry/db` (the `postgres` driver
+	included), and this component ships to the browser.
 -->
 <script lang="ts">
 	import {
@@ -30,6 +38,7 @@
 		body,
 		universeSlug,
 		mentionTargets,
+		publicMentionTargets,
 		locale,
 		highlightSpan = null,
 		markedSentences = new Set<string>()
@@ -37,6 +46,7 @@
 		body: string;
 		universeSlug: string;
 		mentionTargets: MentionTarget[];
+		publicMentionTargets: MentionTarget[];
 		locale: Locale;
 		highlightSpan?: FactSpan | null;
 		/** C1 = B, #106: sentences (exact strings, `packages/copilot`'s `semanticDiff`
@@ -97,9 +107,13 @@
 
 	// The public surface, deliberately: this preview's whole point is showing exactly what
 	// the real `/p/**` render produces (this file's own header comment), which means the
-	// same href rule EntryProse.svelte uses there, not the GM route's.
+	// same href rule EntryProse.svelte uses there, not the GM route's - and `publicMention
+	// Targets`, the same list the GM route's own `load` derived from `@canonry/db`'s
+	// `publicMentionTargets` predicate (#220), not this route's full `mentionTargets`. A
+	// `gm_only` mention resolves to nothing here exactly like it does on `/p/**`, with no
+	// extra fetch on toggle: `publicMentionTargets` arrived with the rest of this page's data.
 	let playerHtml = $derived(
-		renderMarkdown(stripSecretsForPlayers(body), universeSlug, mentionTargets, 'public')
+		renderMarkdown(stripSecretsForPlayers(body), universeSlug, publicMentionTargets, 'public')
 	);
 </script>
 

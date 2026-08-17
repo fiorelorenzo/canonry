@@ -24,6 +24,7 @@ import {
 	rejectProposal
 } from '$lib/server/proposals';
 import { openAuditFlagsForEntity } from '$lib/server/auditFlags';
+import { publicMentionTargetsFrom } from '$lib/server/players';
 import type { AuditFlagView } from '$lib/components/audit/AuditFlagsPanel.svelte';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -57,9 +58,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	// Mention resolution needs every entity's name and aliases, not just this one - a body
 	// full of `[[Other Entity]]` has to resolve against the whole universe (#105/#15).
+	// `visibility` rides along too (#220): `publicMentionTargetsFrom` below filters this
+	// same list down to what `publicMentionTargets` (`@canonry/db`) would return, so
+	// `EntryProseWithSecrets.svelte`'s player preview matches the real `/p/` route with no
+	// second query on toggle - one fetch here serves both surfaces.
 	const universeEntities = await conn.query.entity.findMany({
 		where: (entity, { eq }) => eq(entity.universeId, world.id),
-		columns: { name: true, slug: true, aliases: true }
+		columns: { name: true, slug: true, aliases: true, visibility: true }
 	});
 
 	const entityFacts = await conn.query.fact.findMany({
@@ -169,6 +174,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			updatedAt: current.updatedAt
 		},
 		mentionTargets: universeEntities,
+		publicMentionTargets: publicMentionTargetsFrom(universeEntities),
 		proposals: {
 			markedSentences,
 			count: pendingProposals.length,

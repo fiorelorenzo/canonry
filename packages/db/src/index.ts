@@ -160,6 +160,7 @@ export {
 	queueRelationForSessionLog,
 	confirmSessionLog,
 	publicMentionTargets,
+	isPubliclyVisible,
 	listPublicEntities,
 	publicEntityBySlug,
 	type RevelationRow,
