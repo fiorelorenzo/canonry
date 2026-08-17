@@ -189,14 +189,21 @@ jobs:
       # row died in `Set up job` with a 429 before reaching a line of deploy code. All this
       # step actually needs is `scripts/deploy/` and `docker/deploy/` at the deployed sha,
       # which git fetches directly, and canonry is public so it needs no credential to do
-      # it. `--force` plus `clean` because the workspace survives between runs.
+      # it.
+      #
+      # Full history, not a shallow `--depth 1`: release.sh's supersede gate (issue #228)
+      # runs `git merge-base --is-ancestor` against whatever release is currently live for
+      # the stack, which can be any number of commits behind this one, and a shallow clone
+      # would make that check fail outright (missing commit objects) rather than answer it.
+      # `rm -rf .git` first rather than reusing whatever the previous run left behind, so
+      # this is a full, non-shallow history every time regardless of prior runs -- the repo
+      # is small enough that this costs nothing on every deploy.
       - name: Check out the deploy scripts at this commit
         run: |
+          rm -rf .git
           git init -q .
-          git remote get-url origin >/dev/null 2>&1 \
-            || git remote add origin "${{ github.server_url }}/${{ github.repository }}.git"
-          git remote set-url origin "${{ github.server_url }}/${{ github.repository }}.git"
-          git fetch -q --depth 1 origin "${{ needs.verify-ci.outputs.sha }}"
+          git remote add origin "${{ github.server_url }}/${{ github.repository }}.git"
+          git fetch -q origin "${{ needs.verify-ci.outputs.sha }}"
           git checkout -q --force FETCH_HEAD
           git clean -qfd
           test -x scripts/deploy/release.sh

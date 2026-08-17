@@ -27,6 +27,24 @@ Two independent stacks live on prodbox, `prod` and `preview`, each its own
 directory under `/opt/apps/canonry/<stack>`, its own Postgres, its own Qdrant, its
 own secrets, never sharing a compose project.
 
+`release.sh` refuses to deploy a commit that is an ancestor of whatever is
+already live for that stack (issue #228). `preview` hangs off `workflow_run`,
+so during a GitHub incident an older commit's CI run can finish after a
+newer commit's has already deployed, and nothing about that request looks
+different from a normal deploy by the time it reaches `release.sh`. The
+check is `git merge-base --is-ancestor` between the incoming sha and
+`DEPLOYED.json`'s `commit` field, the value `release.sh` already reads
+before touching anything, so there is no second source of truth for what is
+live. A match logs one line naming both shas and exits 0 without touching
+`current`, `DEPLOYED.json` or the containers, because a superseded deploy is
+not a failure and should not page anyone. It never fires for a rollback:
+`rollback.sh` deliberately moves to an older release and never calls
+`release.sh`, it flips `current` and runs compose itself. Redeploying the
+sha that is already live is not treated as superseded -- git considers a
+commit its own ancestor, but the check excludes that case on purpose, so
+whatever `release.sh` already did for that (refusing, because the release
+directory is immutable once written) still happens, unchanged.
+
 ## One-time setup on prodbox
 
 Everything below happens once per stack. Run as a user with docker access.
