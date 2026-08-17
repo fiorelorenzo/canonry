@@ -10,7 +10,8 @@
  * stay exactly as DB-agnostic and independently testable as before - this file is
  * additive, the one place in the package that imports `@canonry/db`.
  *
- * Five responsibilities, one per acceptance criterion of this wave:
+ * Six responsibilities, one per acceptance criterion of this wave (the sixth added by
+ * issue #133):
  *
  * - **Admission** (issue #30): `estimateImportJob` and `admitAndCreateImportJob` check
  *   the queue's global concurrency limit and the per-user quota (jobs, documents,
@@ -40,6 +41,13 @@
  *   outcomes never write a `relation_type` row from here; they become a vocabulary
  *   proposal a GM accepts, one per distinct question per job rather than one per
  *   relation - `proposeRelationTypeVocabulary`'s own comment has the detail.
+ * - **Cost attribution** (issue #133): every `usage` event a driver yields writes its own
+ *   `model_call` row (agent `'import'`, operation naming the step's purpose) via
+ *   `@canonry/ai`'s `recordCall` - real tokens and real euro cost, but zero credits,
+ *   since the user is charged once per document below rather than once per call. The
+ *   one real charge (`spendCredits`, `operation: 'import.document'`, unchanged from
+ *   before this issue) now points its `credit_transaction` row at the document's most
+ *   recent `model_call` row instead of leaving `model_call_id` null.
  *
  * One deliberate scope boundary, stated rather than hidden: a relation whose endpoint is
  * a brand-new (not yet accepted) entity cannot be written as a `proposal` row under the
@@ -84,7 +92,7 @@ import {
 	type RelationTypeVocabResolutionInput
 } from '@canonry/db';
 import { resolveRelationType, type Embedder, type RelationTypeResolution } from '@canonry/copilot';
-import { chargeFor } from '@canonry/ai';
+import { chargeFor, recordCall } from '@canonry/ai';
 import type {
 	DocumentStatus,
 	EntityProposalPayload,
@@ -443,6 +451,7 @@ export class ImportJobRunner {
 		const buffers = new Map<string, DocumentBuffer>();
 		const sourcePathByDocument = new Map(documentsToRun.map((doc) => [doc.id, doc.sourcePath]));
 		const partialLossByDocument = new Map<string, number>();
+		const lastModelCallIdByDocument = new Map<string, string>();
 		let proposalsEmitted = 0;
 		let sawStoppedAtCeiling = false;
 		let sawCancelled = false;
@@ -459,6 +468,7 @@ export class ImportJobRunner {
 					contentHashByDocument,
 					sourcePathByDocument,
 					partialLossByDocument,
+					lastModelCallIdByDocument,
 					onDocumentSettled: (outcome) => {
 						outcomes.push(outcome);
 						proposalsEmitted += outcome.proposalsCreated;
@@ -547,6 +557,13 @@ interface HandleEventContext {
 	 * (a document can lose calls in more than one step) and read once, at the terminal
 	 * `progress` event, onto that document's `DocumentOutcome.lostToolCallCount`. */
 	partialLossByDocument: Map<string, number>;
+	/** issue #133: the id of the most recent `model_call` row written for this document,
+	 * one written per `usage` event as it arrives (real per-call tokens and cost, agent
+	 * 'import', zero credits since the user is charged once per document below, never per
+	 * call). Read once, at the terminal `progress` event, so the flat per-document
+	 * `spendCredits` charge points at a real row from this document's own run instead of
+	 * leaving `credit_transaction.model_call_id` null. */
+	lastModelCallIdByDocument: Map<string, string>;
 	onDocumentSettled: (outcome: DocumentOutcome) => void;
 }
 
@@ -575,6 +592,30 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 			inputTokensDelta: event.inputTokens,
 			outputTokensDelta: event.outputTokens
 		});
+		const modelCallId = await recordCall(ctx.params.db, {
+			userId: ctx.params.userId,
+			universeId: ctx.params.universeId,
+			agent: 'import',
+			// issue #133: identifies which kind of step this call was (the playbook's own
+			// purpose tier - a plain extraction pass, a hard document escalated to premium,
+			// or a page image read multimodally), so the rows this writes are groupable by
+			// step rather than one undifferentiated blob per job.
+			operation: `import.${event.purpose}`,
+			provider: event.provider,
+			modelId: event.modelId,
+			inputTokens: event.inputTokens,
+			outputTokens: event.outputTokens,
+			embeddingTokens: 0,
+			// Never charged individually - see spendCredits's modelCallId doc comment for
+			// why the flat per-document charge below stays the only real spend. Real cost
+			// still lands on costEur, computed the same computeCost path every other agent
+			// uses (gateway-driver.ts), so the margin question stays answerable per call.
+			credits: 0,
+			costEur: event.costEur,
+			latencyMs: event.latencyMs,
+			requestId: null
+		});
+		ctx.lastModelCallIdByDocument.set(event.documentId, modelCallId);
 		return;
 	}
 
@@ -603,7 +644,8 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 				universeId: ctx.params.universeId,
 				operation: 'import.document',
 				credits: ctx.documentPriceCredits,
-				idempotencyKey: `import-document:${ctx.params.dbJobId}:${event.documentId}`
+				idempotencyKey: `import-document:${ctx.params.dbJobId}:${event.documentId}`,
+				modelCallId: ctx.lastModelCallIdByDocument.get(event.documentId) ?? null
 			});
 		}
 	}

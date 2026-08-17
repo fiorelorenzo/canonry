@@ -50,14 +50,21 @@ export type ModelPurpose = (typeof modelPurposeEnum.enumValues)[number];
 // SPEC.md §11.5 lists loremaster, propagate, warm and indexing. 'media' is the fifth and
 // it is not in that list because §11.5 was written about text: a GM pressing Generate is
 // none of the other four, and attributing an image to 'warm' would corrupt the warm hit
-// rate of §14 with calls nobody pre-computed. 'import' is deliberately absent: an import's
-// model calls are attributed to the job, which carries its own tokens and credits (§4.6).
+// rate of §14 with calls nobody pre-computed. 'import' is the sixth (issue #133): every
+// model call an import job makes writes its own model_call row here, one per call rather
+// than a job-level total, so "which playbook step is expensive" stays answerable - see
+// packages/import/src/job-runner.ts's handleEvent. Priced at zero credits regardless of
+// the row's real cost_eur: the user-facing charge for an import stays the flat
+// operation_price('import.document') spend it already was, applied once per document, so
+// writing these rows never charges twice - see spendCredits's modelCallId parameter for
+// how the existing charge now points at one of them.
 export const modelCallAgentEnum = pgEnum('model_call_agent', [
 	'loremaster',
 	'propagate',
 	'warm',
 	'indexing',
-	'media'
+	'media',
+	'import'
 ]);
 export type ModelCallAgent = (typeof modelCallAgentEnum.enumValues)[number];
 

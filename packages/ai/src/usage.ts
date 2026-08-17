@@ -46,22 +46,34 @@ export interface ModelCallInput {
 	requestId: string | null;
 }
 
-export async function recordCall(db: Db, input: ModelCallInput): Promise<void> {
-	await db.insert(modelCall).values({
-		userId: input.userId,
-		universeId: input.universeId,
-		agent: input.agent,
-		operation: input.operation,
-		provider: input.provider,
-		modelId: input.modelId,
-		inputTokens: input.inputTokens,
-		outputTokens: input.outputTokens,
-		embeddingTokens: input.embeddingTokens,
-		credits: input.credits,
-		costEur: input.costEur,
-		latencyMs: input.latencyMs,
-		requestId: input.requestId
-	});
+/** Returns the inserted row's id (issue #133) so a post-hoc caller - one whose call
+ * already ran before it ever reaches this function, e.g. packages/import/src/job-runner.ts
+ * turning a driver's already-finished `usage` event into a row - can attach a later,
+ * differently-shaped charge (`@canonry/db`'s `spendCredits`) to the real model_call row
+ * this wrote, instead of leaving that charge's own row pointing at nothing. `withUsage`
+ * and `withQuota` below still call this the same way as before and simply ignore what it
+ * returns. */
+export async function recordCall(db: Db, input: ModelCallInput): Promise<string> {
+	const [call] = await db
+		.insert(modelCall)
+		.values({
+			userId: input.userId,
+			universeId: input.universeId,
+			agent: input.agent,
+			operation: input.operation,
+			provider: input.provider,
+			modelId: input.modelId,
+			inputTokens: input.inputTokens,
+			outputTokens: input.outputTokens,
+			embeddingTokens: input.embeddingTokens,
+			credits: input.credits,
+			costEur: input.costEur,
+			latencyMs: input.latencyMs,
+			requestId: input.requestId
+		})
+		.returning({ id: modelCall.id });
+	if (!call) throw new Error('recordCall: model_call insert returned no row');
+	return call.id;
 }
 
 /** Raw usage counts pulled out of an AI SDK result (or estimated on error). */

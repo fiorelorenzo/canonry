@@ -445,7 +445,8 @@ async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent>
 			inputTokens: outcome.inputTokens,
 			outputTokens: outcome.outputTokens,
 			credits,
-			costEur
+			costEur,
+			latencyMs
 		};
 
 		for (const event of ctx.pending.splice(0)) yield event;
