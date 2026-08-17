@@ -59,6 +59,7 @@
 			body={data.entity.body}
 			universeSlug={data.universe.slug}
 			mentionTargets={data.mentionTargets}
+			surface="public"
 		/>
 		<PublicFactsList facts={data.entity.facts} locale={data.locale} />
 		<PublicRelationsList

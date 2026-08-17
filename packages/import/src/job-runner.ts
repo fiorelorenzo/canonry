@@ -275,6 +275,11 @@ export interface DocumentOutcome {
 	entityCount: number;
 	relationCount: number;
 	proposalsCreated: number;
+	/** issue #212: tool calls in this document's steps that came back invalid and were
+	 * skipped rather than executed, summed across every `partial_loss` event the run
+	 * emitted for it (gateway-driver.ts, guardrail 3). Zero for a clean run and for
+	 * `skipped_unchanged`, which never ran a step at all. */
+	lostToolCallCount: number;
 	/** issue #177: the settling `progress` event's own `detail` (issue #169 made every
 	 * terminal status specific and legible - "stuck in a loop: source_list was called
 	 * with identical arguments 4 times in a row..." rather than a generic "this
@@ -296,8 +301,25 @@ function buildOutcomeNote(
 	proposalsEmitted: number,
 	finalStatus: RunImportJobResult['finalStatus']
 ): string {
+	// issue #212, guardrail 7: a document can lose tool calls to a step's output limit
+	// without ever becoming one of the "unfinished" documents below - the model still
+	// gets its step budget to retry narrower, and the document usually still finishes.
+	// Computed once, up front, so every branch below can append it instead of only the
+	// branch its author happened to be thinking about staying honest about it.
+	const lossy = outcomes.filter((outcome) => outcome.lostToolCallCount > 0);
+	const [firstLoss, ...restLoss] = lossy.map(
+		(outcome) =>
+			`${outcome.sourcePath} lost ${outcome.lostToolCallCount} tool call(s) along the way, most likely truncated by a step's output limit`
+	);
+	const lossNote = !firstLoss
+		? null
+		: restLoss.length > 0
+			? `${firstLoss} (and ${restLoss.length} other document(s) that lost some too)`
+			: firstLoss;
+
 	if (finalStatus === 'finished') {
-		return `${outcomes.length} document(s) processed, ${proposalsEmitted} proposal(s) emitted`;
+		const base = `${outcomes.length} document(s) processed, ${proposalsEmitted} proposal(s) emitted`;
+		return lossNote ? `${base}; ${lossNote}` : base;
 	}
 
 	const unfinished = outcomes.filter(
@@ -319,11 +341,14 @@ function buildOutcomeNote(
 		// Every branch that sets finalStatus to something other than 'finished' also
 		// puts at least one entry into unfinished or neverStarted, so this is not
 		// reachable - kept honest rather than silent if that ever stops being true.
-		return `stopped before finishing: ${outcomes.length} document(s) settled, ${proposalsEmitted} proposal(s) emitted`;
+		const base = `stopped before finishing: ${outcomes.length} document(s) settled, ${proposalsEmitted} proposal(s) emitted`;
+		return lossNote ? `${base}; ${lossNote}` : base;
 	}
-	return rest.length > 0
-		? `${first} (and ${rest.length} other document(s) that did not finish cleanly)`
-		: first;
+	const offenderNote =
+		rest.length > 0
+			? `${first} (and ${rest.length} other document(s) that did not finish cleanly)`
+			: first;
+	return lossNote ? `${offenderNote}; ${lossNote}` : offenderNote;
 }
 
 export interface RunImportJobResult {
@@ -371,6 +396,7 @@ export class ImportJobRunner {
 					entityCount: 0,
 					relationCount: 0,
 					proposalsCreated: 0,
+					lostToolCallCount: 0,
 					detail: 'unchanged since the last import'
 				});
 				checkpoint.documents[doc.id] = { status: 'finished' };
@@ -416,6 +442,7 @@ export class ImportJobRunner {
 		const timeoutHandle = setTimeout(() => params.driver.cancel(params.dbJobId), params.timeoutMs);
 		const buffers = new Map<string, DocumentBuffer>();
 		const sourcePathByDocument = new Map(documentsToRun.map((doc) => [doc.id, doc.sourcePath]));
+		const partialLossByDocument = new Map<string, number>();
 		let proposalsEmitted = 0;
 		let sawStoppedAtCeiling = false;
 		let sawCancelled = false;
@@ -431,6 +458,7 @@ export class ImportJobRunner {
 					documentPriceCredits: documentPrice.credits,
 					contentHashByDocument,
 					sourcePathByDocument,
+					partialLossByDocument,
 					onDocumentSettled: (outcome) => {
 						outcomes.push(outcome);
 						proposalsEmitted += outcome.proposalsCreated;
@@ -514,6 +542,11 @@ interface HandleEventContext {
 	 * so `onDocumentSettled` can put `DocumentOutcome.sourcePath` on every terminal
 	 * outcome without the driver's own `progress` event needing to carry it. */
 	sourcePathByDocument: Map<string, string>;
+	/** issue #212: running total of tool calls lost to partial parse failures, keyed by
+	 * documentId - accumulated across every `partial_loss` event a document's run emits
+	 * (a document can lose calls in more than one step) and read once, at the terminal
+	 * `progress` event, onto that document's `DocumentOutcome.lostToolCallCount`. */
+	partialLossByDocument: Map<string, number>;
 	onDocumentSettled: (outcome: DocumentOutcome) => void;
 }
 
@@ -542,6 +575,14 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 			inputTokensDelta: event.inputTokens,
 			outputTokensDelta: event.outputTokens
 		});
+		return;
+	}
+
+	if (event.type === 'partial_loss') {
+		ctx.partialLossByDocument.set(
+			event.documentId,
+			(ctx.partialLossByDocument.get(event.documentId) ?? 0) + event.lostToolCallCount
+		);
 		return;
 	}
 
@@ -582,6 +623,7 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 		entityCount: event.entityCount,
 		relationCount: event.relationCount,
 		proposalsCreated,
+		lostToolCallCount: ctx.partialLossByDocument.get(event.documentId) ?? 0,
 		detail: event.detail
 	});
 }

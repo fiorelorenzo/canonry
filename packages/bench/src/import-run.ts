@@ -120,7 +120,7 @@ export async function runImportDocuments(input: RunImportDocumentsInput): Promis
 			result.outputTokens += event.outputTokens;
 			result.costEur += event.costEur;
 			result.credits += event.credits;
-		} else {
+		} else if (event.type === 'progress') {
 			result.status = event.status;
 			result.detail = event.detail;
 		}
