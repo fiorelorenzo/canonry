@@ -69,7 +69,7 @@ describe('pdf playbook (issue #39, SPEC.md §6.6)', () => {
 							name: 'The Sunken Archive',
 							aliases: [],
 							summary: 'A flooded lower level of the old library, reachable only at low tide.',
-							sourceRef: { documentId: 'doc-1', path: PDF_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: archiveSpan,
 							images: []
 						}
@@ -84,7 +84,7 @@ describe('pdf playbook (issue #39, SPEC.md §6.6)', () => {
 							aliases: [],
 							summary:
 								"Keeper of the eastern gate of Port Verity, per the handout's page 2 portrait. Answers only to the Council, never the garrison commander.",
-							sourceRef: { documentId: 'doc-1', path: PDF_PATH },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: page2MarkerSpan,
 							images: []
 						}

@@ -28,9 +28,13 @@ const SPAN_SCHEMA = z
 		message: 'evidenceSpan.end must be greater than evidenceSpan.start'
 	});
 
-const SOURCE_REF_SCHEMA = z
-	.object({ documentId: z.string().min(1), path: z.string().min(1) })
-	.strict();
+/** The model's one assertion of provenance (issue #186: the same argument #166 made
+ * for `job_finish`'s `documentId` - a parameter the loop already knows is a parameter
+ * the model can only get wrong). `path` used to live here too, model-typed and
+ * unchecked; the loop fills it from `DocumentRunContext.sourcePath` instead, in
+ * `proposeEntity`/`proposeRelation` below, so a proposal's evidence always points at
+ * the document that actually produced it. */
+const SOURCE_REF_SCHEMA = z.object({ documentId: z.string().min(1) }).strict();
 
 const ENTITY_TYPE_SCHEMA = z.enum(['character', 'place', 'faction', 'item', 'event', 'session']);
 const RELATION_CARDINALITY_SCHEMA = z.enum([
@@ -86,6 +90,10 @@ const JOB_FINISH_INPUT = z
 export interface DocumentRunContext {
 	jobId: string;
 	documentId: string;
+	/** The document's real path into this job's unpacked export (`ImportJob.documents`'
+	 * own `sourcePath`, issue #186). The only place a proposal's `sourceRef.path` comes
+	 * from - `entity_propose`/`relation_propose` no longer accept one from the model. */
+	sourcePath: string;
 	/** Current step number, set by the driver before each `generateText` call. */
 	step: number;
 	/** Events a tool call produced this step; the driver drains and yields these after
@@ -113,11 +121,13 @@ export interface DocumentRunContext {
 export function createDocumentRunContext(
 	jobId: string,
 	documentId: string,
+	sourcePath: string,
 	documentLanguage: Locale | null = null
 ): DocumentRunContext {
 	return {
 		jobId,
 		documentId,
+		sourcePath,
 		step: 0,
 		pending: [],
 		localIds: new Set(),
@@ -368,7 +378,7 @@ function proposeEntity(ctx: DocumentRunContext, input: z.infer<typeof ENTITY_PRO
 		name: input.name,
 		aliases: input.aliases,
 		summary: input.summary,
-		sourceRef: input.sourceRef,
+		sourceRef: { documentId: input.sourceRef.documentId, path: ctx.sourcePath },
 		evidenceSpan: input.evidenceSpan,
 		images: input.images,
 		language: ctx.documentLanguage
@@ -409,7 +419,7 @@ function proposeRelation(ctx: DocumentRunContext, input: z.infer<typeof RELATION
 		label: input.label,
 		inverseLabel: input.inverseLabel,
 		cardinality: input.cardinality,
-		sourceRef: input.sourceRef,
+		sourceRef: { documentId: input.sourceRef.documentId, path: ctx.sourcePath },
 		evidenceSpan: input.evidenceSpan
 	};
 	ctx.pending.push({

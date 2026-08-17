@@ -122,7 +122,7 @@ describe('GatewayDriver - bounded loop against a fake model (issue #22, #32)', (
 						name: 'Aldric Voss',
 						aliases: [],
 						summary: 'Commands the harbour watch.',
-						sourceRef: { documentId: 'doc-1', path: 'notes/aldric.md' },
+						sourceRef: { documentId: 'doc-1' },
 						evidenceSpan: { start: 0, end: 24 }
 					}
 				},
@@ -135,7 +135,7 @@ describe('GatewayDriver - bounded loop against a fake model (issue #22, #32)', (
 						name: 'Mira Sable',
 						aliases: [],
 						summary: 'Aldric reports to her.',
-						sourceRef: { documentId: 'doc-1', path: 'notes/aldric.md' },
+						sourceRef: { documentId: 'doc-1' },
 						evidenceSpan: { start: 25, end: 60 }
 					}
 				}
@@ -150,7 +150,7 @@ describe('GatewayDriver - bounded loop against a fake model (issue #22, #32)', (
 						label: 'reports to',
 						inverseLabel: 'commands',
 						cardinality: 'many_to_one',
-						sourceRef: { documentId: 'doc-1', path: 'notes/aldric.md' },
+						sourceRef: { documentId: 'doc-1' },
 						evidenceSpan: { start: 25, end: 60 }
 					}
 				}
@@ -245,7 +245,7 @@ One document.
 							name: `Entity ${calls}`,
 							aliases: [],
 							summary: 'Never stops proposing.',
-							sourceRef: { documentId: 'doc-1', path: 'notes.md' },
+							sourceRef: { documentId: 'doc-1' },
 							evidenceSpan: { start: 0, end: 5 }
 						}
 					}
@@ -291,7 +291,7 @@ One document.
 						name: 'Document A place',
 						aliases: [],
 						summary: 'From A.',
-						sourceRef: { documentId: 'doc-a', path: 'a.md' },
+						sourceRef: { documentId: 'doc-a' },
 						evidenceSpan: { start: 0, end: 8 }
 					}
 				}
@@ -329,7 +329,7 @@ One document.
 						name: 'Document B place',
 						aliases: [],
 						summary: 'From B.',
-						sourceRef: { documentId: 'doc-b', path: 'b.md' },
+						sourceRef: { documentId: 'doc-b' },
 						evidenceSpan: { start: 0, end: 8 }
 					}
 				}
@@ -372,7 +372,7 @@ One document.
 						name: 'First',
 						aliases: [],
 						summary: 'First entity.',
-						sourceRef: { documentId: 'doc-1', path: 'notes.md' },
+						sourceRef: { documentId: 'doc-1' },
 						evidenceSpan: { start: 0, end: 5 }
 					}
 				}
@@ -387,7 +387,7 @@ One document.
 						name: 'Second',
 						aliases: [],
 						summary: 'Second entity.',
-						sourceRef: { documentId: 'doc-1', path: 'notes.md' },
+						sourceRef: { documentId: 'doc-1' },
 						evidenceSpan: { start: 6, end: 11 }
 					}
 				}
@@ -496,7 +496,7 @@ describe('GatewayDriver - prompt injection changes nothing (issue #33)', () => {
 
 	it("returns a not-found result for a path outside this job's own export, at the tool layer directly", async () => {
 		const sources = new InMemorySourceReader({ files: { 'compromised.md': 'irrelevant' } });
-		const ctx = createDocumentRunContext('job-1', 'doc-1');
+		const ctx = createDocumentRunContext('job-1', 'doc-1', 'notes.md');
 		const tools = createImportTools(
 			ctx,
 			{ sources, images: new InMemoryImageStore() },
@@ -518,7 +518,7 @@ describe('GatewayDriver - prompt injection changes nothing (issue #33)', () => {
 describe('job_finish/checkpoint no longer take a documentId (issue #166)', () => {
 	it('closes the document without being told which document it is, and computes counts from ctx alone', async () => {
 		const sources = new InMemorySourceReader({ files: { 'notes.md': 'irrelevant' } });
-		const ctx = createDocumentRunContext('job-1', 'doc-1');
+		const ctx = createDocumentRunContext('job-1', 'doc-1', 'notes.md');
 		const tools = createImportTools(
 			ctx,
 			{ sources, images: new InMemoryImageStore() },
@@ -539,7 +539,7 @@ describe('job_finish/checkpoint no longer take a documentId (issue #166)', () =>
 
 	it('records a checkpoint without being told which document it is', async () => {
 		const sources = new InMemorySourceReader({ files: { 'notes.md': 'irrelevant' } });
-		const ctx = createDocumentRunContext('job-1', 'doc-1');
+		const ctx = createDocumentRunContext('job-1', 'doc-1', 'notes.md');
 		const tools = createImportTools(
 			ctx,
 			{ sources, images: new InMemoryImageStore() },
@@ -558,7 +558,7 @@ describe('job_finish/checkpoint no longer take a documentId (issue #166)', () =>
 	});
 
 	it("no longer accepts documentId on job_finish's input schema, and no longer requires it", () => {
-		const ctx = createDocumentRunContext('job-1', 'doc-1');
+		const ctx = createDocumentRunContext('job-1', 'doc-1', 'notes.md');
 		const tools = createImportTools(
 			ctx,
 			{ sources: new InMemorySourceReader({ files: {} }), images: new InMemoryImageStore() },
@@ -573,7 +573,7 @@ describe('job_finish/checkpoint no longer take a documentId (issue #166)', () =>
 	});
 
 	it("no longer accepts documentId on checkpoint's input schema, and no longer requires it", () => {
-		const ctx = createDocumentRunContext('job-1', 'doc-1');
+		const ctx = createDocumentRunContext('job-1', 'doc-1', 'notes.md');
 		const tools = createImportTools(
 			ctx,
 			{ sources: new InMemorySourceReader({ files: {} }), images: new InMemoryImageStore() },
@@ -607,7 +607,7 @@ describe('GatewayDriver - metadata-only logging under a real run (issue #31)', (
 						name: secret,
 						aliases: [],
 						summary: `The document said: ${secret}`,
-						sourceRef: { documentId: 'doc-1', path: 'notes.md' },
+						sourceRef: { documentId: 'doc-1' },
 						evidenceSpan: { start: 0, end: 5 }
 					}
 				}
@@ -772,7 +772,7 @@ describe('GatewayDriver - schema validation rejects a malformed proposal (issue 
 						name: 'Aldric Voss',
 						aliases: [],
 						summary: 'Commands the harbour watch.',
-						sourceRef: { documentId: 'doc-1', path: 'notes.md' }
+						sourceRef: { documentId: 'doc-1' }
 						// evidenceSpan intentionally omitted.
 					}
 				}
@@ -803,7 +803,7 @@ describe('GatewayDriver - schema validation rejects a malformed proposal (issue 
 describe('GatewayDriver - a repeated tool call ends the document before the step ceiling (issue #169)', () => {
 	it('runs the first two identical calls for real, errors the third instead of repeating, and ends the document on the fourth', async () => {
 		const sources = new InMemorySourceReader({ files: { 'notes/a.md': 'irrelevant' } });
-		const ctx = createDocumentRunContext('job-1', 'doc-1');
+		const ctx = createDocumentRunContext('job-1', 'doc-1', 'notes/a.md');
 		const tools = createImportTools(
 			ctx,
 			{ sources, images: new InMemoryImageStore() },
@@ -851,7 +851,7 @@ describe('GatewayDriver - a repeated tool call ends the document before the step
 		const sources = new InMemorySourceReader({
 			files: { 'notes/a.md': 'irrelevant', 'notes/b.md': 'also irrelevant' }
 		});
-		const ctx = createDocumentRunContext('job-1', 'doc-1');
+		const ctx = createDocumentRunContext('job-1', 'doc-1', 'notes/a.md');
 		const tools = createImportTools(
 			ctx,
 			{ sources, images: new InMemoryImageStore() },
@@ -949,7 +949,7 @@ One document.
 			name: `Entity ${n}`,
 			aliases: [],
 			summary: `The ${n}th entity found in these notes.`,
-			sourceRef: { documentId: 'doc-1', path: `notes/${String.fromCharCode(96 + n)}.md` },
+			sourceRef: { documentId: 'doc-1' },
 			evidenceSpan: { start: 0, end: 5 + n }
 		});
 		const model = scriptedModel([
@@ -982,5 +982,194 @@ One document.
 		);
 		const finished = events.find((e) => e.type === 'progress' && e.status === 'finished');
 		expect(finished).toMatchObject({ type: 'progress', status: 'finished', entityCount: 3 });
+	});
+});
+
+describe('entity_propose/relation_propose fill sourceRef.path from the document actually processed, never the model (issue #186)', () => {
+	it("stamps every proposal with the run's real document.sourcePath, and never lets a mismatched document's path bleed into another's proposal", async () => {
+		const playbook = await loadBuiltinPlaybook('generic');
+		const sourcesA = new InMemorySourceReader({
+			files: { 'real/a.md': 'Aldric Voss commands the harbour watch.' }
+		});
+		const sourcesB = new InMemorySourceReader({
+			files: { 'real/b.md': 'Mira Sable holds a seat.' }
+		});
+
+		const modelA = scriptedModel([
+			toolCallStep([{ id: 'sa1', name: 'source_read', input: { path: 'real/a.md' } }]),
+			toolCallStep([
+				{
+					id: 'sa2',
+					name: 'entity_propose',
+					input: {
+						localId: 'e1',
+						type: 'character',
+						name: 'Aldric Voss',
+						aliases: [],
+						summary: 'Commands the harbour watch.',
+						sourceRef: { documentId: 'doc-a' },
+						evidenceSpan: { start: 0, end: 24 }
+					}
+				}
+			]),
+			toolCallStep([{ id: 'sa3', name: 'job_finish', input: { outcome: 'completed' } }])
+		]);
+		const runA = await collect(
+			buildJob({
+				id: 'job-path-a',
+				playbook,
+				documents: [{ id: 'doc-a', sourcePath: 'real/a.md' }],
+				sources: sourcesA
+			}),
+			new GatewayDriver({ gateway: IDENTITY_GATEWAY, models: fixedModelSelector(modelA) })
+		);
+
+		const modelB = scriptedModel([
+			toolCallStep([{ id: 'sb1', name: 'source_read', input: { path: 'real/b.md' } }]),
+			toolCallStep([
+				{
+					id: 'sb2',
+					name: 'entity_propose',
+					input: {
+						localId: 'e1',
+						type: 'character',
+						name: 'Mira Sable',
+						aliases: [],
+						summary: 'Holds a seat.',
+						sourceRef: { documentId: 'doc-b' },
+						evidenceSpan: { start: 0, end: 24 }
+					}
+				}
+			]),
+			toolCallStep([{ id: 'sb3', name: 'job_finish', input: { outcome: 'completed' } }])
+		]);
+		const runB = await collect(
+			buildJob({
+				id: 'job-path-b',
+				playbook,
+				documents: [{ id: 'doc-b', sourcePath: 'real/b.md' }],
+				sources: sourcesB
+			}),
+			new GatewayDriver({ gateway: IDENTITY_GATEWAY, models: fixedModelSelector(modelB) })
+		);
+
+		const proposalA = runA.events.find((e) => e.type === 'proposal');
+		const proposalB = runB.events.find((e) => e.type === 'proposal');
+		expect(
+			proposalA?.type === 'proposal' && proposalA.proposal.kind === 'entity'
+				? proposalA.proposal.payload.sourceRef
+				: null
+		).toEqual({ documentId: 'doc-a', path: 'real/a.md' });
+		expect(
+			proposalB?.type === 'proposal' && proposalB.proposal.kind === 'entity'
+				? proposalB.proposal.payload.sourceRef
+				: null
+		).toEqual({ documentId: 'doc-b', path: 'real/b.md' });
+	});
+
+	it("no longer accepts path on entity_propose's or relation_propose's sourceRef, so a model can no longer influence it", () => {
+		const ctx = createDocumentRunContext('job-1', 'doc-1', 'real/path.md');
+		const tools = createImportTools(
+			ctx,
+			{ sources: new InMemorySourceReader({ files: {} }), images: new InMemoryImageStore() },
+			new Set(['entity_propose', 'relation_propose'])
+		);
+		const entitySchema = tools.entity_propose?.inputSchema as {
+			safeParse: (input: unknown) => { success: boolean };
+		};
+		const relationSchema = tools.relation_propose?.inputSchema as {
+			safeParse: (input: unknown) => { success: boolean };
+		};
+		const entityInput = {
+			localId: 'e1',
+			type: 'character',
+			name: 'Aldric Voss',
+			aliases: [],
+			summary: 'Commands the harbour watch.',
+			sourceRef: { documentId: 'doc-1' },
+			evidenceSpan: { start: 0, end: 24 }
+		};
+		const relationInput = {
+			fromLocalId: 'e1',
+			toLocalId: 'e2',
+			label: 'reports to',
+			inverseLabel: 'commands',
+			cardinality: 'many_to_one',
+			sourceRef: { documentId: 'doc-1' },
+			evidenceSpan: { start: 0, end: 24 }
+		};
+
+		expect(entitySchema.safeParse(entityInput).success).toBe(true);
+		expect(
+			entitySchema.safeParse({
+				...entityInput,
+				sourceRef: { documentId: 'doc-1', path: 'attacker-chosen.md' }
+			}).success
+		).toBe(false);
+
+		expect(relationSchema.safeParse(relationInput).success).toBe(true);
+		expect(
+			relationSchema.safeParse({
+				...relationInput,
+				sourceRef: { documentId: 'doc-1', path: 'attacker-chosen.md' }
+			}).success
+		).toBe(false);
+	});
+
+	it('fills sourceRef.path from ctx.sourcePath directly at the tool layer, for both entity_propose and relation_propose', async () => {
+		const ctx = createDocumentRunContext('job-1', 'doc-1', 'real/path.md');
+		const tools = createImportTools(
+			ctx,
+			{ sources: new InMemorySourceReader({ files: {} }), images: new InMemoryImageStore() },
+			new Set(['entity_propose', 'relation_propose'])
+		);
+		const options = { toolCallId: 't1', messages: [], context: undefined };
+
+		await tools.entity_propose?.execute?.(
+			{
+				localId: 'e1',
+				type: 'character',
+				name: 'Aldric Voss',
+				aliases: [],
+				summary: 'Commands the harbour watch.',
+				sourceRef: { documentId: 'doc-1' },
+				evidenceSpan: { start: 0, end: 24 }
+			},
+			options
+		);
+		await tools.entity_propose?.execute?.(
+			{
+				localId: 'e2',
+				type: 'character',
+				name: 'Mira Sable',
+				aliases: [],
+				summary: 'Holds a council seat.',
+				sourceRef: { documentId: 'doc-1' },
+				evidenceSpan: { start: 0, end: 24 }
+			},
+			options
+		);
+		await tools.relation_propose?.execute?.(
+			{
+				fromLocalId: 'e1',
+				toLocalId: 'e2',
+				label: 'reports to',
+				inverseLabel: 'commands',
+				cardinality: 'many_to_one',
+				sourceRef: { documentId: 'doc-1' },
+				evidenceSpan: { start: 0, end: 24 }
+			},
+			options
+		);
+
+		expect(ctx.pending).toHaveLength(3);
+		for (const event of ctx.pending) {
+			const sourceRef =
+				event.type === 'proposal' &&
+				(event.proposal.kind === 'entity' || event.proposal.kind === 'relation')
+					? event.proposal.payload.sourceRef
+					: undefined;
+			expect(sourceRef).toEqual({ documentId: 'doc-1', path: 'real/path.md' });
+		}
 	});
 });

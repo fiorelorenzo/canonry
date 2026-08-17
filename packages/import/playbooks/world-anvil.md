@@ -1,6 +1,6 @@
 ---
 id: world-anvil
-version: 3
+version: 4
 name: World Anvil Full World Export
 description: Imports a World Anvil Full World Export zip (JSON plus HTML), mapping article templates onto entity types.
 modelPurpose: cheap
@@ -111,7 +111,7 @@ by", "born in", "sworn to"); fall back to `mentions` / `mentioned by` when it do
    	"name": "Duskwood Vale",
    	"aliases": [],
    	"summary": "A forested vale on the western border. Governed informally by whoever holds Ashenreach keep.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the json file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 0, "end": 220 },
    	"images": []
    }
@@ -130,7 +130,7 @@ by", "born in", "sworn to"); fall back to `mentions` / `mentioned by` when it do
    	"label": "ruled by",
    	"inverseLabel": "rules",
    	"cardinality": "many_to_one",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the html file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 340, "end": 410 }
    }
    ```

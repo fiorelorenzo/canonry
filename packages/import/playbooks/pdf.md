@@ -1,6 +1,6 @@
 ---
 id: pdf
-version: 3
+version: 4
 name: PDF document
 description: Imports a PDF, reading its text layer first and looking at any page that has none.
 modelPurpose: cheap
@@ -85,7 +85,7 @@ job's unpacked export are given to you in the first user message.
    	"name": "The Sunken Archive",
    	"aliases": [],
    	"summary": "A flooded lower level of the old library, accessible only at low tide.",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 420, "end": 610 },
    	"images": []
    }
@@ -93,9 +93,8 @@ job's unpacked export are given to you in the first user message.
 
    For a page you looked at with `page_image` rather than read as text, set
    `evidenceSpan` to the `--- page N ---` marker's own offsets in the text
-   `source_read` returned (there is no character range inside an image); the page
-   number in `sourceRef`/the evidence is what actually points a reviewer at the right
-   spot.
+   `source_read` returned (there is no character range inside an image); that marker's
+   position in the evidence is what actually points a reviewer at the right spot.
 
    If a page carries a diagram or portrait worth keeping as its own image (not just
    as something you looked at to read text off it), call `image_store` on the
@@ -110,7 +109,7 @@ job's unpacked export are given to you in the first user message.
    	"label": "guarded by",
    	"inverseLabel": "guards",
    	"cardinality": "one_to_many",
-   	"sourceRef": { "documentId": "<this document's id>", "path": "<the file you read>" },
+   	"sourceRef": { "documentId": "<this document's id>" },
    	"evidenceSpan": { "start": 610, "end": 700 }
    }
    ```

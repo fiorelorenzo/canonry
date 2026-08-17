@@ -169,7 +169,7 @@ async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent>
 	} catch {
 		documentLanguage = null;
 	}
-	const ctx = createDocumentRunContext(jobId, document.id, documentLanguage);
+	const ctx = createDocumentRunContext(jobId, document.id, document.sourcePath, documentLanguage);
 	const enabledTools = new Set<string>(playbook.tools);
 	const tools = createImportTools(
 		ctx,
