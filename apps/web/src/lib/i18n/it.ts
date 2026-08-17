@@ -126,7 +126,7 @@ export const it: Messages = {
 		appearance: {
 			title: 'Aspetto',
 			description:
-				'Chiaro o scuro per tutto il prodotto (G1, docs/ux/DECISIONS.md): cambia la palette ovunque, modalità tavolo inclusa. Non cambia la dimensione del testo, la densità o altro.',
+				'Chiaro o scuro per tutto il prodotto: cambia la palette ovunque, modalità tavolo inclusa. Non cambia la dimensione del testo, la densità o altro.',
 			light: 'Chiaro',
 			dark: 'Scuro',
 			system: 'Segui il sistema',
@@ -137,7 +137,7 @@ export const it: Messages = {
 		language: {
 			title: 'Lingua',
 			description:
-				"La lingua in cui l'interfaccia e il Loremaster ti parlano (SPEC.md §17). È una preferenza legata al tuo account, quindi ti segue anche sul telefono al tavolo - non è la lingua in cui è scritto il tuo canone, che resta quella di ogni singola voce.",
+				"La lingua in cui l'interfaccia e il Loremaster ti parlano. È una preferenza legata al tuo account, quindi ti segue anche sul telefono al tavolo - non è la lingua in cui è scritto il tuo canone, che resta quella di ogni singola voce.",
 			signInPrompt: 'Accedi per salvare una lingua preferita sul tuo account.',
 			signInLink: 'Accedi',
 			save: 'Salva',
@@ -149,7 +149,7 @@ export const it: Messages = {
 		billing: {
 			title: 'Fatturazione',
 			description:
-				'Quota inclusa con instradamento tra modelli economici e premium. Nessun credito opaco, e nessun piano qui è mai chiamato "illimitato": ogni piano indica un tetto reale (SPEC.md §15).',
+				'Quota inclusa con instradamento tra modelli economici e premium. Nessun credito opaco, e nessun piano qui è mai chiamato "illimitato": ogni piano indica un tetto reale.',
 			signInPrompt: 'Accedi per vedere il tuo piano e il saldo.',
 			signInLink: 'Accedi',
 			checkoutCancelled: 'Il pagamento è stato annullato - il tuo piano non è cambiato.',
@@ -177,7 +177,7 @@ export const it: Messages = {
 			para1Before:
 				"Ogni voce di un universo diventa un file markdown con frontmatter YAML, tutte insieme in un unico zip, più un README che indica l'universo e la data dell'esportazione. Le menzioni ",
 			para1After:
-				" restano scritte esattamente come sono, perché il markdown è il modo in cui Canonry conserva il canone (SPEC.md §13): quello che esce da questo zip è quello che c'è nel database, senza riscritture per adattarlo a un altro formato.",
+				" restano scritte esattamente come sono, perché il markdown è il modo in cui Canonry conserva il canone: quello che esce da questo zip è quello che c'è nel database, senza riscritture per adattarlo a un altro formato.",
 			para2Before:
 				'Questo è un dump piatto, non una cartella tipizzata pronta per git: ogni file sta al livello più alto dello zip, con il nome dello slug della voce. Anche le voci riservate al GM sono incluse, con la propria ',
 			para2After:
@@ -191,7 +191,7 @@ export const it: Messages = {
 			infoPara1Before:
 				'Usa la tua chiave per collegare il tuo account presso il provider invece del nostro. ',
 			infoPara1Bold: 'Disattivata di default, per ogni provider, finché non ne aggiungi una',
-			infoPara1After: ' - SPEC.md §15 non rende mai questa la via predefinita.',
+			infoPara1After: '.',
 			infoPara2Bold: 'Cosa cambia:',
 			infoPara2After:
 				' una chiamata instradata sulla tua chiave smette di consumare la quota inclusa o la preparazione al tavolo, e si applicano i limiti del tuo provider invece dei nostri.',
@@ -1118,7 +1118,7 @@ export const it: Messages = {
 		index: {
 			title: 'Opere',
 			description:
-				"Un'avventura singola, un modulo, una campagna, una storia o un romanzo: un albero ordinato di atti, capitoli, scene e incontri, separato dal canone dell'universo. Quello che succede scrivendo o giocando un'opera torna indietro come proposte, mai come scrittura diretta (SPEC.md §4.3).",
+				"Un'avventura singola, un modulo, una campagna, una storia o un romanzo: un albero ordinato di atti, capitoli, scene e incontri, separato dal canone dell'universo. Quello che succede scrivendo o giocando un'opera torna indietro come proposte, mai come scrittura diretta.",
 			empty: "Nessun'opera ancora.",
 			emptyAction: 'Nuova opera',
 			createHeading: 'Inizia una nuova opera',
@@ -1171,7 +1171,7 @@ export const it: Messages = {
 			primaryNavAriaLabel: 'Principale',
 			askTheLoremaster: 'Chiedi al Loremaster',
 			recentHeading: 'Recenti',
-			notBuiltYet: (issue) => `Non ancora disponibile, issue #${issue}`
+			notBuiltYet: 'Non ancora disponibile.'
 		},
 
 		switcher: {
@@ -1187,7 +1187,7 @@ export const it: Messages = {
 			homebrewEyebrow: 'Universo homebrew',
 			derivedEyebrow: 'Universo derivato',
 			derivedNoticeBefore: 'Derivato: legge il proprio canone più il corpus indicizzato di ',
-			derivedNoticeAfter: ', in sola lettura. Il tuo canone vince sempre (SPEC.md 4.1).',
+			derivedNoticeAfter: ', in sola lettura. Il tuo canone vince sempre.',
 			newEntryAction: 'Nuova voce',
 			strip: {
 				collapseLabel: 'Comprimi',
@@ -1294,7 +1294,7 @@ export const it: Messages = {
 			precedence: {
 				heading: 'Precedenza',
 				description: (universeName) =>
-					`Il tuo canone vince sempre. Una pagina sorgente che una voce qui soppianta viene segnata sotto, non cancellata, e smette di comparire nel recupero per ${universeName} (SPEC.md §4.1).`,
+					`Il tuo canone vince sempre. Una pagina sorgente che una voce qui soppianta viene segnata sotto, non cancellata, e smette di comparire nel recupero per ${universeName}.`,
 				empty: 'Nessuna sostituzione ancora.',
 				supersededBadge: 'soppiantata',
 				remove: 'rimuovi',
@@ -1448,9 +1448,9 @@ export const it: Messages = {
 			browserTitle: 'Modelli, Canonry admin',
 			textHeading: 'Modelli di testo',
 			textIntro1:
-				'SPEC.md §11.1: il modello attivo per ciascuno scopo vive in <code class="text-xs">model_config</code>, non nel codice, e ogni flusso - le quattro modalità del Loremaster, la propagazione, la generazione a caldo, l\'indicizzazione, l\'embedding - lo legge tramite <code class="text-xs">resolveModel</code>. Una modifica qui ha effetto dalla chiamata successiva, senza deploy né riavvio. Il provider è vincolato a ciò che <code class="text-xs">createLanguageModel</code> può effettivamente costruire; un provider fuori da questo elenco non è proposto.',
+				'Il modello attivo per ciascuno scopo vive in <code class="text-xs">model_config</code>, non nel codice, e ogni flusso - le quattro modalità del Loremaster, la propagazione, la generazione a caldo, l\'indicizzazione, l\'embedding - lo legge tramite <code class="text-xs">resolveModel</code>. Una modifica qui ha effetto dalla chiamata successiva, senza deploy né riavvio. Il provider è vincolato a ciò che <code class="text-xs">createLanguageModel</code> può effettivamente costruire; un provider fuori da questo elenco non è proposto.',
 			textIntro2:
-				'SPEC.md §17, issue #125: una domanda in italiano su un canone in inglese deve trovare il blocco inglese, quindi lo scopo <strong>embedding</strong> è una scelta multilingue deliberata, non gratuita. I candidati sono stati confrontati sui benchmark di retrieval multilingue pubblicati (MIRACL, MTEB Multilingual), limitati ai provider che questa build può costruire - il ragionamento completo e i candidati scartati/di riserva sono in <code class="text-xs">packages/indexing/src/models.ts</code>, nella costante <code class="text-xs">RECOMMENDED_EMBEDDING_MODEL</code>. Consigliato: <code class="text-xs">google</code> / <code class="text-xs">gemini-embedding-001</code> (#1 nella classifica MTEB Multilingual, ~100 lingue). Lacuna che questo riquadro non può colmare: qui non esiste una credenziale di embedding attiva per confermare il recall en/it nello specifico - né MIRACL né MTEB pubblicano un punteggio isolato inglese&harr;italiano, quindi resta un benchmark ancora da fare una volta disponibile una credenziale reale, non un dato consolidato.',
+				'Una domanda in italiano su un canone in inglese deve trovare il blocco inglese, quindi lo scopo <strong>embedding</strong> è una scelta multilingue deliberata, non gratuita. I candidati sono stati confrontati sui benchmark di retrieval multilingue pubblicati (MIRACL, MTEB Multilingual), limitati ai provider che questa build può costruire. Consigliato: <code class="text-xs">google</code> / <code class="text-xs">gemini-embedding-001</code> (#1 nella classifica MTEB Multilingual, ~100 lingue). Lacuna che questo riquadro non può colmare: qui non esiste una credenziale di embedding attiva per confermare il recall en/it nello specifico - né MIRACL né MTEB pubblicano un punteggio isolato inglese&harr;italiano, quindi resta un benchmark ancora da fare una volta disponibile una credenziale reale, non un dato consolidato.',
 			table: {
 				purpose: 'Scopo',
 				currentlyActive: 'Attualmente attivo',
@@ -1472,9 +1472,9 @@ export const it: Messages = {
 			saved: 'Salvato. Ha effetto immediatamente.',
 			imageHeading: 'Modelli immagine',
 			imageIntro1:
-				'SPEC.md §9, issue #64: il modello attivo per ciascuna funzione vive qui, non nel codice, e una modifica qui ha effetto dalla prossima richiesta di "Genera immagine" - senza deploy né riavvio.',
+				'Il modello attivo per ciascuna funzione vive qui, non nel codice, e una modifica qui ha effetto dalla prossima richiesta di "Genera immagine" - senza deploy né riavvio.',
 			imageIntro2Pre:
-				'Predefinito iniziale: <code class="text-xs">prunaai/p-image</code> per un singolo ritratto, <code class="text-xs">black-forest-labs/flux-schnell</code> per il lotto da quattro varianti (SPEC.md §9). L\'EUR per immagine è la nostra contabilità dei costi, mai il prezzo in crediti che vede un GM - quello vive in',
+				'Predefinito iniziale: <code class="text-xs">prunaai/p-image</code> per un singolo ritratto, <code class="text-xs">black-forest-labs/flux-schnell</code> per il lotto da quattro varianti. L\'EUR per immagine è la nostra contabilità dei costi, mai il prezzo in crediti che vede un GM - quello vive in',
 			imageTable: {
 				feature: 'Funzione',
 				eurPerImage: 'EUR / immagine',
@@ -1501,7 +1501,7 @@ export const it: Messages = {
 			browserTitle: 'Metriche, Canonry admin',
 			heading: 'Metriche',
 			intro:
-				'SPEC.md §14 e decisione F5: i due numeri che decidono se il copilota funziona, più i tre che dicono se il resto del prodotto funziona. Solo per lo staff, e volutamente non mostrati al GM - un GM che ottimizza il proprio tasso di accettazione è un incentivo strano per entrambe le parti del rapporto.',
+				'I due numeri che decidono se il copilota funziona, più i tre che dicono se il resto del prodotto funziona. Solo per lo staff, e volutamente non mostrati al GM - un GM che ottimizza il proprio tasso di accettazione è un incentivo strano per entrambe le parti del rapporto.',
 			table: {
 				produced: 'Prodotte',
 				accepted: 'Accettate',
@@ -1514,7 +1514,7 @@ export const it: Messages = {
 			accept: {
 				heading: 'Tasso di accettazione',
 				intro: (windowDays) =>
-					`Issue #100. <code class="text-xs">proposal.outcome</code>, \`superseded\` e \`pending\` esclusi dal denominatore - calcolato dalla funzione <code class="text-xs">acceptRate</code> di <code class="text-xs">@canonry/eval</code>, la stessa che valuta il corpus di propagazione per le modifiche a prompt e modello. Finestra: ultimi ${windowDays} giorni.`,
+					`<code class="text-xs">proposal.outcome</code>, \`superseded\` e \`pending\` esclusi dal denominatore - calcolato dalla funzione <code class="text-xs">acceptRate</code> di <code class="text-xs">@canonry/eval</code>, la stessa che valuta il corpus di propagazione per le modifiche a prompt e modello. Finestra: ultimi ${windowDays} giorni.`,
 				noProposalsYet:
 					"Nessuna proposta è stata ancora prodotta. Un tasso di accettazione dello 0% qui sarebbe una bugia per omissione, non una lettura onesta, quindi questo pannello non mostra nulla finché non c'è qualcosa da mostrare.",
 				acceptRateLabel: 'Tasso di accettazione (proposte decise)',
@@ -1522,14 +1522,14 @@ export const it: Messages = {
 				byLocale: {
 					heading: "Per lingua dell'interfaccia",
 					intro:
-						'Issue #128, SPEC.md §17 "misurato per lingua": <code class="text-xs">proposal.locale</code> - la lingua dell\'interfaccia in cui è stata prodotta la proposta, calcolata dalla stessa <code class="text-xs">acceptRate</code> qui sopra. Una lingua senza ancora proposte compare come "nessun dato", mai come uno 0% inventato.',
+						'<code class="text-xs">proposal.locale</code> - la lingua dell\'interfaccia in cui è stata prodotta la proposta, calcolata dalla stessa <code class="text-xs">acceptRate</code> qui sopra. Una lingua senza ancora proposte compare come "nessun dato", mai come uno 0% inventato.',
 					localeLabel: 'Lingua'
 				}
 			},
 			timeToFirstAccept: {
 				heading: 'Tempo alla prima proposta accettata',
 				intro:
-					"Issue #101. Dall'inizio di un import alla sua prima proposta accettata, per universo, come distribuzione: un singolo valore anomalo e lento è l'evento di churn che preoccupa AGENTS.md, e una media nasconderebbe esattamente quell'anomalia.",
+					"Dall'inizio di un import alla sua prima proposta accettata, per universo, come distribuzione: un singolo valore anomalo e lento è di per sé un rischio di churn, e una media nasconderebbe esattamente quell'anomalia.",
 				noImportsYet: 'Nessun import è ancora stato eseguito.',
 				noAcceptYet: (count) => `${count} import, nessuno con una proposta accettata finora.`,
 				summary: (accepted, total, median) =>
@@ -1541,7 +1541,7 @@ export const it: Messages = {
 			warmRadius: {
 				heading: 'Raggio di precalcolo',
 				intro: (thresholdPercent) =>
-					`Issue #102. Il tasso di successo a caldo - artefatti consumati sul totale generato - governa automaticamente il raggio di precalcolo: sotto il ${thresholdPercent}% si restringe dall'anello 2 all'anello 1. È la stessa lettura che <code class="text-xs">warmOnConsumption</code> usa per decidere quanto estendersi, non una stima separata.`,
+					`Il tasso di successo a caldo - artefatti consumati sul totale generato - governa automaticamente il raggio di precalcolo: sotto il ${thresholdPercent}% si restringe dall'anello 2 all'anello 1. È la stessa lettura che <code class="text-xs">warmOnConsumption</code> usa per decidere quanto estendersi, non una stima separata.`,
 				consumed: 'Consumati',
 				generated: 'Generati',
 				hitRate: 'Tasso di successo',
@@ -1551,7 +1551,7 @@ export const it: Messages = {
 			entropy: {
 				heading: 'Entropia del canone',
 				intro:
-					"Issue #103. Voci aggiornate dopo una sessione rispetto a quelle create in preparazione, per universo - la metrica che dice se l'entropia del canone è stata davvero risolta o se questo è solo un altro posto dove annotarla.",
+					"Voci aggiornate dopo una sessione rispetto a quelle create in preparazione, per universo - la metrica che dice se l'entropia del canone è stata davvero risolta o se questo è solo un altro posto dove annotarla.",
 				createdInPrep: 'Create in preparazione',
 				updatedAfterSession: 'Aggiornate dopo una sessione'
 			}
@@ -1561,7 +1561,7 @@ export const it: Messages = {
 			browserTitle: 'Prezzi delle operazioni, Canonry admin',
 			title: 'Prezzi delle operazioni',
 			intro1:
-				"SPEC.md §15, issue #113: il prezzo in crediti di ogni operazione a pagamento vive qui, non nel codice, e una modifica qui ha effetto immediato, non dopo la scadenza di una cache. Un prezzo pari a <b class=\"text-ink\">zero</b> significa che l'operazione è gratuita per l'utente: è l'intero meccanismo dietro alla lettura che resta gratuita, non un caso speciale aggiunto altrove.",
+				"Il prezzo in crediti di ogni operazione a pagamento vive qui, non nel codice, e una modifica qui ha effetto immediato, non dopo la scadenza di una cache. Un prezzo pari a <b class=\"text-ink\">zero</b> significa che l'operazione è gratuita per l'utente: è l'intero meccanismo dietro alla lettura che resta gratuita, non un caso speciale aggiunto altrove.",
 			intro2:
 				"Gratis per l'utente non è gratis per noi: ogni chiamata, a pagamento o no, viene comunque registrata per intero con i suoi token reali e il suo costo in euro, perché la domanda sul margine trova risposta solo in quelle righe, in nessun altro posto.",
 			kindLabel: {
@@ -1594,7 +1594,7 @@ export const it: Messages = {
 			browserTitle: 'Documentazione',
 			title: 'Guide',
 			intro:
-				'Guide pratiche per portare un mondo dentro Canonry, e tutto ciò che ha bisogno di istruzioni concrete invece di una sezione della spec.',
+				'Guide pratiche per portare un mondo dentro Canonry, e tutto ciò che ha bisogno di istruzioni concrete invece di materiale di riferimento tecnico.',
 			importHeading: "Guide all'importazione",
 			importIntro:
 				'Una pagina per ciascuna fonte, con i passaggi di esportazione da seguire prima di caricare qualsiasi cosa: Obsidian, Kanka, World Anvil, OneNote, PDF, DOCX, e il percorso generico per tutto il resto.',
