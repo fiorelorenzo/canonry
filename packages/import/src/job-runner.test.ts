@@ -29,7 +29,7 @@ import {
 	type ImportModel,
 	type ModelSelector
 } from './gateway-driver.js';
-import { loadBuiltinPlaybook, type LoadedPlaybook } from './playbook.js';
+import { loadBuiltinPlaybook, loadPlaybook, type LoadedPlaybook } from './playbook.js';
 import { InMemorySourceReader } from './sources.js';
 import { InMemoryImageStore } from './images.js';
 import {
@@ -281,6 +281,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 
 		const jobAfterFirst = await getImportJob(db, admission.jobId);
 		expect(jobAfterFirst.status).toBe('finished');
+		expect(jobAfterFirst.outcomeNote).toBe('1 document(s) processed, 1 proposal(s) emitted');
 
 		// Simulate the GM reviewing and accepting the proposal - this is what actually
 		// creates the entity and its entity_source_ref (SPEC.md §6.4 step 1 only ever
@@ -334,10 +335,12 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		expect(secondRun.documents).toEqual([
 			{
 				documentId: 'doc-1',
+				sourcePath: 'notes/aldric.md',
 				status: 'skipped_unchanged',
 				entityCount: 0,
 				relationCount: 0,
-				proposalsCreated: 0
+				proposalsCreated: 0,
+				detail: 'unchanged since the last import'
 			}
 		]);
 		// The model was never even called for the second job.
@@ -424,6 +427,14 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 
 		const jobAfterCeiling = await getImportJob(db, admission.jobId);
 		expect(jobAfterCeiling.status).toBe('stopped_at_ceiling');
+		// doc-a's own ceiling event carries the real detail; doc-b never even started
+		// (gateway-driver.ts's outer loop budget check, before runDocument), named rather
+		// than silently dropped - "prefer naming the first and saying how many others"
+		// (issue #177).
+		expect(jobAfterCeiling.outcomeNote).toBe(
+			"notes/a.md: this step's worst case would not fit this job's remaining credit budget " +
+				'(and 1 other document(s) that did not finish cleanly)'
+		);
 
 		// Resume: same job id, a real budget this time. Neither document reached
 		// `finished` in the first run, so both are still in `documentsToRun` - document A
@@ -533,6 +544,284 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 
 		const jobRow = await getImportJob(db, admission.jobId);
 		expect(jobRow.status).toBe('cancelled');
+		expect(jobRow.outcomeNote).toBe('notes/c.md: cancelled before this step started');
+	});
+
+	it('names the document and its detail in outcome_note when a document hits its own step ceiling (issue #177)', async () => {
+		await priceFixture();
+		const { userId, universeId } = await userAndUniverse();
+		const playbook = loadPlaybook(`---
+id: fixture
+version: 1
+name: Fixture
+description: A playbook with a tiny step ceiling, for the outcome_note step-ceiling test.
+stepBudget: 2
+---
+
+Read the document, propose whatever you find, then finish.
+
+## Inputs
+
+One document.
+
+## Tools
+
+- \`source_read\` - read the document.
+- \`entity_propose\` - propose an entity.
+- \`job_finish\` - close the run.
+
+## Steps
+
+1. Propose entities forever.
+
+   \`\`\`json
+   { "outcome": "completed" }
+   \`\`\`
+`);
+		const sources = new InMemorySourceReader({ files: { 'notes/d.md': 'Entity D lives here.' } });
+
+		const admission = await admitAndCreateImportJob(db, {
+			universeId,
+			createdBy: userId,
+			sourceType: 'obsidian',
+			playbook: playbook.id,
+			playbookVersion: playbook.version,
+			artefactPath: 's3://fixtures/one-doc.zip',
+			artefactBytes: 50,
+			artefactSha256: 'd'.repeat(64),
+			documentCount: 1,
+			budgetCredits: 1000,
+			estimate: { documentCount: 1, estimatedMinutes: 1, estimatedCredits: 10 },
+			concurrencyLimit: 5
+		});
+
+		// Never calls job_finish - the step ceiling, not the model, has to stop it.
+		const model = scriptedModel([
+			entityStep('s1', 'ed1', 'Entity D1', 'doc-d'),
+			entityStep('s2', 'ed2', 'Entity D2', 'doc-d')
+		]);
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+		const runner = new ImportJobRunner();
+
+		const result = await runner.run({
+			db,
+			driver,
+			dbJobId: admission.jobId,
+			universeId,
+			sourceSystem: 'obsidian',
+			userId,
+			playbook,
+			documents: [{ id: 'doc-d', sourcePath: 'notes/d.md' }],
+			sources,
+			images: new InMemoryImageStore(),
+			budget: { maxCredits: 1000 },
+			similarity: () => 0,
+			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
+			timeoutMs: 30_000
+		});
+
+		expect(result.finalStatus).toBe('stopped_at_ceiling');
+		expect(model.doGenerateCalls).toHaveLength(2);
+
+		const jobRow = await getImportJob(db, admission.jobId);
+		expect(jobRow.outcomeNote).toBe("notes/d.md: this document's step ceiling was reached");
+	});
+
+	it('names the document and its detail in outcome_note when a document is ended for looping (issue #169)', async () => {
+		await priceFixture();
+		const { userId, universeId } = await userAndUniverse();
+		const playbook = loadPlaybook(`---
+id: fixture
+version: 1
+name: Fixture
+description: A playbook with a generous step ceiling, for the outcome_note loop test.
+stepBudget: 20
+---
+
+Read the document, list its siblings, then finish.
+
+## Inputs
+
+One document.
+
+## Tools
+
+- \`source_list\` - list files under a path.
+- \`job_finish\` - close the run.
+
+## Steps
+
+1. List the export root, then finish.
+
+   \`\`\`json
+   { "outcome": "completed" }
+   \`\`\`
+`);
+		const sources = new InMemorySourceReader({ files: { 'notes/e.md': 'irrelevant text' } });
+
+		const admission = await admitAndCreateImportJob(db, {
+			universeId,
+			createdBy: userId,
+			sourceType: 'obsidian',
+			playbook: playbook.id,
+			playbookVersion: playbook.version,
+			artefactPath: 's3://fixtures/one-doc.zip',
+			artefactBytes: 50,
+			artefactSha256: 'e'.repeat(64),
+			documentCount: 1,
+			budgetCredits: 1000,
+			estimate: { documentCount: 1, estimatedMinutes: 1, estimatedCredits: 10 },
+			concurrencyLimit: 5
+		});
+
+		let calls = 0;
+		const model = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			// A model stuck calling source_list with the same argument, never finishing -
+			// the loop guard (issue #169) has to end the document long before the 20-step
+			// ceiling.
+			doGenerate: async () => {
+				calls += 1;
+				return toolCallStep([{ id: `t${calls}`, name: 'source_list', input: { path: '' } }]);
+			}
+		});
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+		const runner = new ImportJobRunner();
+
+		const result = await runner.run({
+			db,
+			driver,
+			dbJobId: admission.jobId,
+			universeId,
+			sourceSystem: 'obsidian',
+			userId,
+			playbook,
+			documents: [{ id: 'doc-e', sourcePath: 'notes/e.md' }],
+			sources,
+			images: new InMemoryImageStore(),
+			budget: { maxCredits: 1000 },
+			similarity: () => 0,
+			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
+			timeoutMs: 30_000
+		});
+
+		expect(result.finalStatus).toBe('stopped_at_ceiling');
+		expect(calls).toBe(4);
+
+		const jobRow = await getImportJob(db, admission.jobId);
+		expect(jobRow.outcomeNote).toBe(
+			'notes/e.md: stuck in a loop: source_list was called with identical arguments 4 times in a row, ' +
+				'so this document was ended rather than run to its step ceiling'
+		);
+	});
+
+	it('names the document and its detail in outcome_note when a document fails (issue #134 truncated output)', async () => {
+		await priceFixture();
+		const { userId, universeId } = await userAndUniverse();
+		const playbook = loadPlaybook(`---
+id: fixture
+version: 1
+name: Fixture
+description: A playbook for the outcome_note failed-document test.
+stepBudget: 5
+---
+
+Propose one entity then finish.
+
+## Inputs
+
+One document.
+
+## Tools
+
+- \`entity_propose\` - propose an entity.
+- \`job_finish\` - close the run.
+
+## Steps
+
+1. Propose, then finish.
+
+   \`\`\`json
+   { "outcome": "completed" }
+   \`\`\`
+`);
+		const sources = new InMemorySourceReader({ files: { 'notes/f.md': 'irrelevant text' } });
+
+		const admission = await admitAndCreateImportJob(db, {
+			universeId,
+			createdBy: userId,
+			sourceType: 'obsidian',
+			playbook: playbook.id,
+			playbookVersion: playbook.version,
+			artefactPath: 's3://fixtures/one-doc.zip',
+			artefactBytes: 50,
+			artefactSha256: 'f'.repeat(64),
+			documentCount: 1,
+			budgetCredits: 1000,
+			estimate: { documentCount: 1, estimatedMinutes: 1, estimatedCredits: 10 },
+			concurrencyLimit: 5
+		});
+
+		// A response generateText cannot parse against entity_propose's schema - the same
+		// shape a real truncated-mid-JSON call would take (issue #134's
+		// STEP_MAX_OUTPUT_TOKENS cutting the model off before the closing brace).
+		const model = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			doGenerate: async () => ({
+				content: [
+					{
+						type: 'tool-call' as const,
+						toolCallId: 't1',
+						toolName: 'entity_propose',
+						input: '{"localId":"e1","type":"character","name":"Trunc'
+					}
+				],
+				finishReason: { unified: 'length' as const, raw: undefined },
+				usage: usage(10, 8192),
+				warnings: []
+			})
+		});
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+		const runner = new ImportJobRunner();
+
+		const result = await runner.run({
+			db,
+			driver,
+			dbJobId: admission.jobId,
+			universeId,
+			sourceSystem: 'obsidian',
+			userId,
+			playbook,
+			documents: [{ id: 'doc-f', sourcePath: 'notes/f.md' }],
+			sources,
+			images: new InMemoryImageStore(),
+			budget: { maxCredits: 1000 },
+			similarity: () => 0,
+			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
+			timeoutMs: 30_000
+		});
+
+		expect(result.finalStatus).toBe('failed');
+		expect(model.doGenerateCalls).toHaveLength(1);
+
+		const jobRow = await getImportJob(db, admission.jobId);
+		expect(jobRow.outcomeNote).toBe(
+			'notes/f.md: every tool call in this step failed to parse, most likely truncated by the output limit'
+		);
 	});
 
 	it("carries each document's own detected language into the persisted proposal, and preserves the untranslated proper noun in the Italian summary (issue #126, SPEC.md §17)", async () => {

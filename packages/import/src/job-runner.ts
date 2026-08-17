@@ -267,10 +267,63 @@ export interface RunImportJobParams {
 
 export interface DocumentOutcome {
 	documentId: string;
+	/** issue #177: `JobDocument.sourcePath`, the file a GM actually wrote and would
+	 * recognise - `outcome_note` names a document by this rather than by `documentId`
+	 * (an opaque `doc-1`) because it is read on a review screen, not a log. */
+	sourcePath: string;
 	status: DocumentStatus | 'skipped_unchanged';
 	entityCount: number;
 	relationCount: number;
 	proposalsCreated: number;
+	/** issue #177: the settling `progress` event's own `detail` (issue #169 made every
+	 * terminal status specific and legible - "stuck in a loop: source_list was called
+	 * with identical arguments 4 times in a row..." rather than a generic "this
+	 * document's step ceiling was reached") - threaded up so the job's own
+	 * `outcomeNote` can name why a document did not finish cleanly instead of only
+	 * counting it. `skipped_unchanged` never went through the driver, so it carries a
+	 * literal note rather than a driver-authored one. */
+	detail: string;
+}
+
+/** issue #177, guardrail 7 ("the product says what did not add up, it never
+ * certifies that anything is fine"): a job that did not finish cleanly names the
+ * document(s) that stopped it, not only a count. Several outstanding documents
+ * name the first and say how many others there were, rather than an unbounded
+ * sentence - `outcome_note` is one line on a review screen, not a log. */
+function buildOutcomeNote(
+	documentsToRun: JobDocument[],
+	outcomes: DocumentOutcome[],
+	proposalsEmitted: number,
+	finalStatus: RunImportJobResult['finalStatus']
+): string {
+	if (finalStatus === 'finished') {
+		return `${outcomes.length} document(s) processed, ${proposalsEmitted} proposal(s) emitted`;
+	}
+
+	const unfinished = outcomes.filter(
+		(outcome) => outcome.status !== 'finished' && outcome.status !== 'skipped_unchanged'
+	);
+	// A job-wide credit ceiling can stop the driver's outer loop before the next
+	// document is even started (gateway-driver.ts's `startJob` checks the ceiling
+	// between documents, not just within one), so nothing terminal is ever reported
+	// for it - named here as "never started" instead of silently dropped from the note.
+	const settledIds = new Set(outcomes.map((outcome) => outcome.documentId));
+	const neverStarted = documentsToRun.filter((doc) => !settledIds.has(doc.id));
+
+	const offenders = [
+		...unfinished.map((outcome) => `${outcome.sourcePath}: ${outcome.detail}`),
+		...neverStarted.map((doc) => `${doc.sourcePath}: never started`)
+	];
+	const [first, ...rest] = offenders;
+	if (!first) {
+		// Every branch that sets finalStatus to something other than 'finished' also
+		// puts at least one entry into unfinished or neverStarted, so this is not
+		// reachable - kept honest rather than silent if that ever stops being true.
+		return `stopped before finishing: ${outcomes.length} document(s) settled, ${proposalsEmitted} proposal(s) emitted`;
+	}
+	return rest.length > 0
+		? `${first} (and ${rest.length} other document(s) that did not finish cleanly)`
+		: first;
 }
 
 export interface RunImportJobResult {
@@ -313,10 +366,12 @@ export class ImportJobRunner {
 			if (existing && existing.contentHash === contentHash) {
 				outcomes.push({
 					documentId: doc.id,
+					sourcePath: doc.sourcePath,
 					status: 'skipped_unchanged',
 					entityCount: 0,
 					relationCount: 0,
-					proposalsCreated: 0
+					proposalsCreated: 0,
+					detail: 'unchanged since the last import'
 				});
 				checkpoint.documents[doc.id] = { status: 'finished' };
 				continue;
@@ -360,6 +415,7 @@ export class ImportJobRunner {
 
 		const timeoutHandle = setTimeout(() => params.driver.cancel(params.dbJobId), params.timeoutMs);
 		const buffers = new Map<string, DocumentBuffer>();
+		const sourcePathByDocument = new Map(documentsToRun.map((doc) => [doc.id, doc.sourcePath]));
 		let proposalsEmitted = 0;
 		let sawStoppedAtCeiling = false;
 		let sawCancelled = false;
@@ -374,6 +430,7 @@ export class ImportJobRunner {
 					buffers,
 					documentPriceCredits: documentPrice.credits,
 					contentHashByDocument,
+					sourcePathByDocument,
 					onDocumentSettled: (outcome) => {
 						outcomes.push(outcome);
 						proposalsEmitted += outcome.proposalsCreated;
@@ -404,7 +461,7 @@ export class ImportJobRunner {
 					: 'finished';
 		const settled = await settleImportJob(db, params.dbJobId, {
 			status: finalStatus,
-			outcomeNote: `${outcomes.length} document(s) processed, ${proposalsEmitted} proposal(s) emitted`,
+			outcomeNote: buildOutcomeNote(documentsToRun, outcomes, proposalsEmitted, finalStatus),
 			proposalsEmitted
 		});
 		await syncMissingAfterSettle(params, settled.job.status, params.dbJobId);
@@ -453,6 +510,10 @@ interface HandleEventContext {
 	 * `entity_source_ref.content_hash` without re-reading the source document - the review
 	 * screen has no `SourceReader` and should not need one just to accept a proposal. */
 	contentHashByDocument: Map<string, string>;
+	/** issue #177: `documentsToRun`'s own sourcePath, keyed by documentId - threaded down
+	 * so `onDocumentSettled` can put `DocumentOutcome.sourcePath` on every terminal
+	 * outcome without the driver's own `progress` event needing to carry it. */
+	sourcePathByDocument: Map<string, string>;
 	onDocumentSettled: (outcome: DocumentOutcome) => void;
 }
 
@@ -516,10 +577,12 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 
 	ctx.onDocumentSettled({
 		documentId: event.documentId,
+		sourcePath: ctx.sourcePathByDocument.get(event.documentId) ?? '',
 		status: event.status,
 		entityCount: event.entityCount,
 		relationCount: event.relationCount,
-		proposalsCreated
+		proposalsCreated,
+		detail: event.detail
 	});
 }
 
