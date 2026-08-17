@@ -14,10 +14,16 @@
  * never sees - a side channel `stripSecretsForPlayers` was supposed to close.
  */
 import { randomUUID } from 'node:crypto';
-import { closeDb, createDb, eq, revealEntityLive, type Db } from '@canonry/db';
+import { closeDb, createDb, eq, isPubliclyVisible, revealEntityLive, type Db } from '@canonry/db';
 import { entity, universe, user } from '@canonry/db/schema';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { loadPublicEntity, type PublicEntityPageData } from './players.js';
+import { renderMarkdown } from '$lib/markdown';
+import {
+	loadPublicEntity,
+	publicMentionTargetsFrom,
+	type GmMentionTarget,
+	type PublicEntityPageData
+} from './players.js';
 
 const DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
@@ -42,6 +48,60 @@ const ITALIAN_SECRET =
 	"Il vero motivo del suo silenzio è che l'oste stesso ha rubato la metà di quella " +
 	'somma, e la nasconde sotto una tavola del pavimento nella cantina della locanda.';
 
+describe('publicMentionTargetsFrom (#220)', () => {
+	// The GM route's own mention-target list: every entity in the universe, `visibility`
+	// included, exactly what `/w/[universe]/e/[slug]/+page.server.ts`'s `universeEntities`
+	// selects and this module's own `publicMentionTargetsFrom` filters before it ever
+	// reaches `EntryProseWithSecrets.svelte`.
+	const GM_TARGETS: GmMentionTarget[] = [
+		{ name: 'Captain Reyes', slug: 'captain-reyes', aliases: [], visibility: 'revealable' },
+		{ name: 'The Cinder Cabal', slug: 'the-cinder-cabal', aliases: [], visibility: 'gm_only' }
+	];
+
+	it('keeps a revealable target and drops a gm_only one, agreeing with isPubliclyVisible', () => {
+		const filtered = publicMentionTargetsFrom(GM_TARGETS);
+		expect(filtered.map((t) => t.slug)).toEqual(
+			GM_TARGETS.filter((t) => isPubliclyVisible(t.visibility)).map((t) => t.slug)
+		);
+		expect(filtered.map((t) => t.slug)).toEqual(['captain-reyes']);
+	});
+
+	// Acceptance (#220): render the same body through both paths and compare. The real
+	// `/p/` route only ever sees `publicMentionTargets`'s own result (`@canonry/db`) -
+	// stood in for here by filtering `GM_TARGETS` with `isPubliclyVisible` directly, the
+	// exact predicate that query's own WHERE clause is built from (see
+	// `packages/db/test/players.test.ts`'s test that the real query agrees with it). The
+	// GM's player preview calls this module's own `publicMentionTargetsFrom` - the same
+	// function `+page.server.ts` calls before `EntryProseWithSecrets.svelte` ever sees the
+	// data - on the unfiltered list. If the two ever disagreed, this fails.
+	it('renders a gm_only mention exactly as the public route does: unresolved, no link', () => {
+		const body = 'He reports to [[Captain Reyes]], who answers to [[The Cinder Cabal]] in secret.';
+		const publicRouteTargets = GM_TARGETS.filter((t) => isPubliclyVisible(t.visibility)).map(
+			({ name, slug, aliases }) => ({ name, slug, aliases })
+		);
+		const publicRouteHtml = renderMarkdown(body, 'valdoria-reach', publicRouteTargets, 'public');
+		const previewHtml = renderMarkdown(
+			body,
+			'valdoria-reach',
+			publicMentionTargetsFrom(GM_TARGETS),
+			'public'
+		);
+
+		expect(previewHtml).toBe(publicRouteHtml);
+		expect(previewHtml).toContain('class="mention mention-unresolved"');
+		expect(previewHtml).not.toContain('/p/valdoria-reach/the-cinder-cabal');
+		expect(previewHtml).toContain(
+			'<a href="/p/valdoria-reach/captain-reyes" class="mention">Captain Reyes</a>'
+		);
+
+		// Without the filter (the bug #220 fixes): renderMarkdown's own doc comment says a
+		// target present in `targets` at all is public by construction, so the unfiltered
+		// GM list resolves the gm_only mention too.
+		const unfilteredHtml = renderMarkdown(body, 'valdoria-reach', GM_TARGETS, 'public');
+		expect(unfilteredHtml).toContain('/p/valdoria-reach/the-cinder-cabal');
+		expect(unfilteredHtml).not.toBe(previewHtml);
+	});
+});
 describe('loadPublicEntity language detection (#127)', () => {
 	let db: Db;
 	let universeId: string;

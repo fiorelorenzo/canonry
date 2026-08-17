@@ -30,7 +30,7 @@ import type { PgColumn } from 'drizzle-orm/pg-core';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Db } from '../client.js';
 import { entity } from '../schema/entity.js';
-import type { EntityType, MediaKind, RevelationKind } from '../schema/enums.js';
+import type { EntityType, EntityVisibility, MediaKind, RevelationKind } from '../schema/enums.js';
 import { fact } from '../schema/fact.js';
 import { mediaAsset } from '../schema/media.js';
 import { revelation } from '../schema/players.js';
@@ -196,6 +196,20 @@ export interface PublicMentionTarget {
 	aliases: string[];
 }
 
+/** The one definition of "is this entity's mention public". `publicMentionTargets`'s own
+ * WHERE clause below is built from this constant rather than a second `'gm_only'` literal,
+ * and `apps/web`'s `EntryProseWithSecrets.svelte` (#220, via `publicMentionTargetsFrom` in
+ * `apps/web/src/lib/components/players/playerPreview.ts`) filters the GM route's own
+ * unfiltered mention-target list through this same exported function before rendering its
+ * player preview. One predicate instead of two rules that happen to agree today: a third
+ * `entity_visibility` value would need this file to change once, not the GM route's query
+ * and this query independently and hopefully in step. */
+const GM_ONLY_VISIBILITY = 'gm_only' satisfies EntityVisibility;
+
+export function isPubliclyVisible(visibility: EntityVisibility): boolean {
+	return visibility !== GM_ONLY_VISIBILITY;
+}
+
 /** Every mention target a player-facing render is allowed to resolve against: every
  * `revealable` entity, gap or full alike (E7: a mention inside revealed prose is always a
  * real link, whether its destination fills in or not). `gm_only` entities are never in this
@@ -208,7 +222,7 @@ export async function publicMentionTargets(
 	return db
 		.select({ name: entity.name, slug: entity.slug, aliases: entity.aliases })
 		.from(entity)
-		.where(and(eq(entity.universeId, universeId), ne(entity.visibility, 'gm_only')));
+		.where(and(eq(entity.universeId, universeId), ne(entity.visibility, GM_ONLY_VISIBILITY)));
 }
 
 export interface RevealedEntityListItem {

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	closeDb,
 	confirmSessionLog,
+	isPubliclyVisible,
 	listPublicEntities,
 	publicEntityBySlug,
 	publicMentionTargets,
@@ -192,6 +193,24 @@ describe('players', () => {
 			const targets = await publicMentionTargets(db, u.id);
 			expect(targets.map((t) => t.slug)).toContain(aldric.slug);
 			expect(targets.map((t) => t.slug)).not.toContain(ledger.slug);
+		});
+
+		// #220's root cause: the GM route's own mention-target query used to decide
+		// "is this public" on its own, independently of this one. Proving this query's
+		// result equals `isPubliclyVisible` applied to every entity in the universe is what
+		// lets the GM route reuse that exported predicate instead of a second copy of the
+		// `gm_only` rule - see `apps/web/src/lib/components/players/playerPreview.ts`.
+		it('agrees with isPubliclyVisible for every entity in the universe', async () => {
+			const { u } = await worldFixture();
+			const all = await db.query.entity.findMany({
+				where: (row, { eq }) => eq(row.universeId, u.id)
+			});
+			const expectedSlugs = all
+				.filter((row) => isPubliclyVisible(row.visibility))
+				.map((row) => row.slug)
+				.sort();
+			const targets = await publicMentionTargets(db, u.id);
+			expect(targets.map((t) => t.slug).sort()).toEqual(expectedSlugs);
 		});
 	});
 

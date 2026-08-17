@@ -136,6 +136,7 @@
 			body={data.entity.body}
 			universeSlug={data.universe.slug}
 			mentionTargets={data.mentionTargets}
+			publicMentionTargets={data.publicMentionTargets}
 			locale={data.locale}
 			{highlightSpan}
 			markedSentences={new Set(data.proposals.markedSentences)}

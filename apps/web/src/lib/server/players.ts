@@ -10,6 +10,7 @@
  * get right, not one in the route and a second one somewhere else that could drift from it.
  */
 import {
+	isPubliclyVisible,
 	listPublicEntities,
 	publicEntityBySlug,
 	publicMentionTargets,
@@ -19,6 +20,7 @@ import {
 	type PublicGapEntity,
 	type RevealedEntityListItem
 } from '@canonry/db';
+import type { EntityVisibility } from '@canonry/db/schema';
 import { detectLanguage, type Locale } from '@canonry/lang';
 import { stripSecretsForPlayers } from '$lib/markdown-secrets';
 
@@ -51,6 +53,24 @@ export interface PublicMentionTarget {
 	name: string;
 	slug: string;
 	aliases: string[];
+}
+
+/** #220: the GM route's own mention-target query (`/w/[universe]/e/[slug]/+page.server.ts`)
+ * already fetches every entity in the universe to resolve `[[Name]]` mentions against
+ * (#105/#15), so it costs nothing to carry `visibility` along too. `EntryProseWithSecrets
+ * .svelte`'s player preview needs exactly what `publicMentionTargets` above would return
+ * for the same universe - this filters the one already-fetched list down to that, with
+ * `isPubliclyVisible` (the predicate `publicMentionTargets`'s own WHERE clause is built
+ * from) deciding, not a second copy of the `gm_only` rule. Runs here, server-side, in the
+ * same `load` that already ran the one query: no second round trip, and this module (under
+ * `$lib/server/`) never ships to the client, so `@canonry/db`'s runtime - the `postgres`
+ * driver included - never has to either. */
+export interface GmMentionTarget extends PublicMentionTarget {
+	visibility: EntityVisibility;
+}
+
+export function publicMentionTargetsFrom(targets: GmMentionTarget[]): PublicMentionTarget[] {
+	return targets.filter((target) => isPubliclyVisible(target.visibility));
 }
 
 /**
