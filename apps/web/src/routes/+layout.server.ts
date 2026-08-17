@@ -86,7 +86,8 @@ export const load: LayoutServerLoad = async ({ cookies, locals, url }) => {
 			includedRemaining: summary.balance.subscriptionCredits,
 			includedTotal,
 			warmRemaining: summary.balance.warmBudgetRemaining,
-			warmTotal: summary.balance.warmBudgetCredits
+			warmTotal: summary.balance.warmBudgetCredits,
+			periodEnd: summary.balance.periodEnd
 		};
 	}
 

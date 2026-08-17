@@ -48,7 +48,10 @@ export const it: Messages = {
 		},
 		quota: {
 			includedHeading: 'Quota inclusa',
-			warmHeading: 'Budget di precalcolo',
+			// Issue #201: "Preparazione al tavolo" è l'etichetta, non la chiave -
+			// `warm_budget_credits`, `warm_budget_spent`, `spendWarmBudget` e
+			// `warmBudgetRemaining` mantengono il loro nome ovunque nel codice.
+			warmHeading: 'Preparazione al tavolo',
 			// Stesso idioma di `settings.billing.creditsCount`: cifre raggruppate,
 			// nessun credito frazionario mostrato - lo stesso numero che quella
 			// pagina mostra (`subscriptionCredits`/`warmBudgetRemaining`), formattato
@@ -56,7 +59,15 @@ export const it: Messages = {
 			ratio: (remaining, total) => {
 				const fmt = numberFormat('it', { maximumFractionDigits: 0, useGrouping: 'always' });
 				return `${fmt.format(remaining)} / ${fmt.format(total)}`;
-			}
+			},
+			includedExplainLabel: 'A cosa serve la quota inclusa',
+			includedPopoverBody:
+				"Paga le voci redatte, i piani di propagazione e i diff, le risposte di Ask, le immagini e l'estrazione di un'importazione. Leggere è gratis: la ricerca, i suggerimenti di menzione e il recupero dietro un Ask non toccano mai questa barra.",
+			warmExplainLabel: 'A cosa serve la preparazione al tavolo',
+			warmPopoverBody:
+				"Le bozze che Canonry prepara prima di una sessione, così la modalità tavolo risponde all'istante. Canonry la spende da sé, senza che nessuno la richieda: per questo ha un limite proprio e non intacca mai la quota inclusa.",
+			renews: (date) => `Si rinnova il ${date}`,
+			noRenewalDate: 'Nessuna data di rinnovo registrata.'
 		},
 		door: {
 			createAccount: 'Crea un account',
@@ -147,7 +158,7 @@ export const it: Messages = {
 			noRenewalDate: 'Nessuna data di rinnovo registrata.',
 			includedThisPeriod: 'Incluso in questo periodo',
 			purchased: 'Acquistato (non scade)',
-			warmBudget: 'Budget di precalcolo',
+			warmBudget: 'Preparazione al tavolo',
 			creditsCount: (count) => {
 				const n = numberFormat('it', { maximumFractionDigits: 0, useGrouping: 'always' }).format(
 					count
@@ -183,7 +194,7 @@ export const it: Messages = {
 			infoPara1After: ' - SPEC.md §15 non rende mai questa la via predefinita.',
 			infoPara2Bold: 'Cosa cambia:',
 			infoPara2After:
-				' una chiamata instradata sulla tua chiave smette di consumare la quota inclusa o il budget di precalcolo, e si applicano i limiti del tuo provider invece dei nostri.',
+				' una chiamata instradata sulla tua chiave smette di consumare la quota inclusa o la preparazione al tavolo, e si applicano i limiti del tuo provider invece dei nostri.',
 			infoPara3Bold: 'Cosa non cambia:',
 			infoPara3After:
 				" l'instradamento dei modelli resta invariato (la stessa suddivisione modello economico per i candidati, premium per i diff funziona sulla tua chiave esattamente come sulla nostra), la chiamata passa comunque dal nostro gateway quindi log e conteggio dei costi restano uniformi, e i contenuti generati portano comunque la stessa marcatura di autore e le stesse regole sulla privacy, indipendentemente da quale chiave l'ha pagata.",
@@ -1071,7 +1082,7 @@ export const it: Messages = {
 			createLocationRationale: (placeName) =>
 				`Creato tramite l\u2019azione rapida del luogo figlio mentre ${placeName} era il contesto dichiarato.`,
 			warmBudgetUnavailable:
-				'il budget di precalcolo non poteva coprire questa bozza in questo momento',
+				'la preparazione al tavolo non poteva coprire questa bozza in questo momento',
 			warmStatusNoProposal: (status) =>
 				`lo stato di precalcolo "${status}" non ha prodotto una nuova proposta`
 		}
