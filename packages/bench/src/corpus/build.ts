@@ -26,6 +26,7 @@ import { renderDocx } from './render/docx.js';
 import { renderGeneric } from './render/generic.js';
 import { renderOneNote } from './render/onenote.js';
 import { worldV1, worldV2 } from './valdoria-reach.js';
+import { rendererFingerprint } from './fingerprint.js';
 import type { DocumentExpectation, Renderer, World } from './types.js';
 
 /** Keyed by the directory the export lands in, which is also how every downstream runner
@@ -47,6 +48,10 @@ export interface CorpusManifest {
 	fileCount: number;
 	totalBytes: number;
 	documents: DocumentExpectation[];
+	/** sha256 over the renderer's own source and its shared dependencies
+	 * (fingerprint.ts), present only for sources a test cannot render itself (pdf, docx):
+	 * `detect.test.ts` recomputes it and refuses a built corpus whose hash disagrees. */
+	rendererFingerprint?: string;
 }
 
 export const corpusRoot = path.join(dataDir, 'corpus');
@@ -87,13 +92,15 @@ async function buildOne(
 	// these are fixtures read once by a test, not something anyone downloads.
 	writeFileSync(archivePath(source, revision), zipSync(zipEntries, { level: 0 }));
 
+	const fingerprint = rendererFingerprint(source);
 	const manifest: CorpusManifest = {
 		source,
 		revision,
 		playbook: rendered.playbook,
 		fileCount: rendered.files.length,
 		totalBytes,
-		documents: rendered.documents
+		documents: rendered.documents,
+		...(fingerprint !== undefined ? { rendererFingerprint: fingerprint } : {})
 	};
 	writeFileSync(manifestPath(source, revision), JSON.stringify(manifest, null, '\t'));
 	return manifest;
