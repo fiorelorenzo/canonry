@@ -155,7 +155,7 @@ export const en: Messages = {
 			noRenewalDate: 'No renewal date on record yet.',
 			includedThisPeriod: 'Included this period',
 			purchased: 'Purchased (never expires)',
-			warmBudget: 'Warm budget',
+			warmBudget: 'Table prep',
 			// `maximumFractionDigits: 0`: `subscription_credits` is a NUMERIC(_,4) column
 			// (partial credits accrue from metered usage), but nobody reads "160.4672
 			// credits" as a quota - the original pre-catalogue code rounded to whole
@@ -198,7 +198,7 @@ export const en: Messages = {
 			infoPara1After: ' - SPEC.md §15 never makes this the default path.',
 			infoPara2Bold: 'What changes:',
 			infoPara2After:
-				" a call routed on your key stops drawing on your included quota or your warm budget, and your own provider's rate limits apply instead of ours.",
+				" a call routed on your key stops drawing on your included quota or your table prep, and your own provider's rate limits apply instead of ours.",
 			infoPara3Bold: 'What does not:',
 			infoPara3After:
 				' model routing is unchanged (the same cheap-model-for-candidates, premium-for-diffs split runs on your key exactly as on ours), the call still goes through our gateway so logging and cost accounting stay uniform, and generated content still carries the same authorship marking and the same privacy rules regardless of whose key paid for it.',
@@ -1050,7 +1050,7 @@ export const en: Messages = {
 				`Drafted via "+ NPC here" while ${placeName} was the declared context. AI drafting was unavailable (${unavailableReason}), so this is an empty scaffold for the GM to fill in rather than a discarded tap.`,
 			createLocationRationale: (placeName) =>
 				`Created via the child-location quick action while ${placeName} was the declared context.`,
-			warmBudgetUnavailable: 'the warm budget could not cover this draft right now',
+			warmBudgetUnavailable: 'table prep could not cover this draft right now',
 			warmStatusNoProposal: (status) => `warm status "${status}" produced no new proposal`
 		}
 	},
