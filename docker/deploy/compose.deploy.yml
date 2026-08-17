@@ -115,7 +115,16 @@ services:
       retries: 10
 
   qdrant:
-    image: qdrant/qdrant:v1.12.4
+    # Matches the client `packages/vector` pins and the dev and CI servers (issue #182). The
+    # jump from v1.12.4 skips the storage compatibility Qdrant guarantees one minor at a time,
+    # and v1.17.0 dropped RocksDB, so a volume holding collections written by v1.12.4 panics on
+    # boot with an unknown `on_disk` variant in segment.json and has to be walked one minor at
+    # a time instead (issue #219, done on the dev volume). Both deployed volumes were empty of
+    # collections when this landed, 24 KB of `raft_state.json` and empty directories, so this
+    # one is a direct jump, rehearsed first by restoring preview's own volume from a tar into a
+    # scratch volume and booting v1.19.0 on it. A future stateful bump does not get to assume
+    # that: check for collections first.
+    image: qdrant/qdrant:v1.19.0
     restart: unless-stopped
     ports:
       - '127.0.0.1:${QDRANT_PORT:-6333}:6333'
