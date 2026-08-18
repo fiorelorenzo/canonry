@@ -27,9 +27,10 @@ import {
 } from '@canonry/db';
 import { modelPurposeEnum, type ModelPurpose } from '@canonry/db/schema';
 import { clearImageModelCache } from '@canonry/media';
-import { isKnownProvider, KNOWN_PROVIDERS, clearModelCache } from '@canonry/ai';
+import { isKnownProvider, KNOWN_PROVIDERS, CURRENCIES, clearModelCache } from '@canonry/ai';
 import { db } from '$lib/server/db';
 import { requireAdmin } from '$lib/server/admin';
+import { parseCurrency, parsePricePerImage } from './image-price.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export interface TextModelPurposeRow {
@@ -53,22 +54,8 @@ export const load: PageServerLoad = async () => {
 		active: activeByPurpose.get(purpose) ?? null
 	}));
 
-	return { images, textModels, knownProviders: KNOWN_PROVIDERS };
+	return { images, textModels, knownProviders: KNOWN_PROVIDERS, currencies: CURRENCIES };
 };
-
-const EUR_PATTERN = /^\d+(\.\d{1,6})?$/;
-
-/** The admin form asks for the EUR-per-image cost directly (issue #132: the admin's own
- * cost bookkeeping, always our currency), so this stays EUR-only rather than growing a
- * currency selector nobody has asked the product to have yet - saved with
- * `currency: 'EUR'` below. */
-function parsePricePerImage(raw: FormDataEntryValue | null): number | null {
-	if (typeof raw !== 'string') return null;
-	const trimmed = raw.trim();
-	if (!EUR_PATTERN.test(trimmed)) return null;
-	const value = Number(trimmed);
-	return Number.isFinite(value) ? value : null;
-}
 
 function isModelPurpose(value: string): value is ModelPurpose {
 	return (modelPurposeEnum.enumValues as readonly string[]).includes(value);
@@ -143,6 +130,7 @@ export const actions: Actions = {
 		const provider = formData.get('provider');
 		const modelId = formData.get('modelId');
 		const rawPricePerImage = formData.get('pricePerImage');
+		const rawCurrency = formData.get('currency');
 
 		if (
 			(feature !== 'portrait' && feature !== 'variants' && feature !== 'scene') ||
@@ -156,6 +144,7 @@ export const actions: Actions = {
 				provider: typeof provider === 'string' ? provider : '',
 				modelId: typeof modelId === 'string' ? modelId : '',
 				pricePerImage: typeof rawPricePerImage === 'string' ? rawPricePerImage : '',
+				currency: typeof rawCurrency === 'string' ? rawCurrency : '',
 				saved: false,
 				error: messages(event.locals.locale).admin.models.errors.providerAndModelIdRequired
 			});
@@ -168,19 +157,43 @@ export const actions: Actions = {
 				provider,
 				modelId,
 				pricePerImage: typeof rawPricePerImage === 'string' ? rawPricePerImage : '',
+				currency: typeof rawCurrency === 'string' ? rawCurrency : '',
 				saved: false,
 				error: messages(event.locals.locale).admin.models.errors.invalidPricePerImage
 			});
 		}
 
+		const currency = parseCurrency(rawCurrency);
+		if (currency === null) {
+			return fail(400, {
+				feature,
+				provider,
+				modelId,
+				pricePerImage: String(pricePerImage),
+				currency: typeof rawCurrency === 'string' ? rawCurrency : '',
+				saved: false,
+				error: messages(event.locals.locale).admin.models.errors.invalidCurrency
+			});
+		}
+
+		// No conversion here (issue #221) - `pricePerImage` is stored exactly as typed, in
+		// the currency just chosen. `computeCost` (@canonry/ai/usage.ts) is the only place
+		// this ever becomes euros.
 		await upsertImageModel(db(), {
 			feature,
 			provider,
 			modelId,
-			params: { pricePerImage, currency: 'EUR' }
+			params: { pricePerImage, currency }
 		});
 		clearImageModelCache();
 
-		return { feature, provider, modelId, pricePerImage: String(pricePerImage), saved: true };
+		return {
+			feature,
+			provider,
+			modelId,
+			pricePerImage: String(pricePerImage),
+			currency,
+			saved: true
+		};
 	}
 };

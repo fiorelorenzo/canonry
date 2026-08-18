@@ -8,7 +8,7 @@
  */
 import { activeImageModelRow, type Db, type ImageModelRow } from '@canonry/db';
 import type { ImageFeature } from '@canonry/db/schema';
-import type { Currency, ResolvedModel } from '@canonry/ai';
+import { isCurrency, type Currency, type ResolvedModel } from '@canonry/ai';
 
 export type { ImageModelRow };
 
@@ -28,7 +28,8 @@ function readImageModelParams(value: unknown): ImageModelParams {
 	if (typeof value !== 'object' || value === null) return {};
 	const record = value as Record<string, unknown>;
 	const params: ImageModelParams = {};
-	if (record.currency === 'EUR' || record.currency === 'USD') params.currency = record.currency;
+	if (typeof record.currency === 'string' && isCurrency(record.currency))
+		params.currency = record.currency;
 	if (typeof record.pricePerImage === 'number') params.pricePerImage = record.pricePerImage;
 	if (typeof record.creditsPerEur === 'number') params.creditsPerEur = record.creditsPerEur;
 	return params;

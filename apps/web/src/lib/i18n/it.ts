@@ -1474,10 +1474,11 @@ export const it: Messages = {
 			imageIntro1:
 				'Il modello attivo per ciascuna funzione vive qui, non nel codice, e una modifica qui ha effetto dalla prossima richiesta di "Genera immagine" - senza deploy né riavvio.',
 			imageIntro2Pre:
-				'Predefinito iniziale: <code class="text-xs">prunaai/p-image</code> per un singolo ritratto, <code class="text-xs">black-forest-labs/flux-schnell</code> per il lotto da quattro varianti. L\'EUR per immagine è la nostra contabilità dei costi, mai il prezzo in crediti che vede un GM - quello vive in',
+				'Predefinito iniziale: <code class="text-xs">prunaai/p-image</code> per un singolo ritratto, <code class="text-xs">black-forest-labs/flux-schnell</code> per il lotto da quattro varianti. Il prezzo per immagine è la nostra contabilità dei costi, nella valuta in cui lo quota il provider, mai il prezzo in crediti che vede un GM - quello vive in',
 			imageTable: {
 				feature: 'Funzione',
-				pricePerImage: 'EUR / immagine',
+				pricePerImage: 'Prezzo / immagine',
+				currency: 'Valuta',
 				active: 'attivo',
 				inactive: 'inattivo'
 			},
@@ -1493,7 +1494,8 @@ export const it: Messages = {
 				modelIdRequired: "L'ID del modello è obbligatorio.",
 				providerAndModelIdRequired: 'Provider e ID del modello sono obbligatori.',
 				invalidPricePerImage:
-					'Inserisci un costo in EUR per immagine non negativo, con al massimo 6 cifre decimali.'
+					'Inserisci un prezzo per immagine non negativo, con al massimo 6 cifre decimali.',
+				invalidCurrency: 'Scegli una delle valute elencate.'
 			}
 		},
 

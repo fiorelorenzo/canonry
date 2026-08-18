@@ -1374,6 +1374,7 @@ export interface Messages {
 			imageTable: {
 				feature: string;
 				pricePerImage: string;
+				currency: string;
 				active: string;
 				inactive: string;
 			};
@@ -1388,6 +1389,7 @@ export interface Messages {
 				modelIdRequired: string;
 				providerAndModelIdRequired: string;
 				invalidPricePerImage: string;
+				invalidCurrency: string;
 			};
 		};
 

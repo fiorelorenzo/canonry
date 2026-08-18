@@ -11,7 +11,21 @@
  * EUR here, at read time, through `computeCost` - the single place `model_call.cost_eur`
  * gets computed. A provider's price list is the durable fact; the exchange rate is not.
  */
-export type Currency = 'EUR' | 'USD';
+/** Every currency `toEur` can actually convert - the only source of truth for what a
+ * currency selector may offer (the admin image-price form, issue #221), so offering one
+ * this function cannot handle can never happen. Add a currency here and to `toEur` in the
+ * same change; nowhere else hardcodes the set. */
+export const CURRENCIES = ['EUR', 'USD'] as const;
+
+export type Currency = (typeof CURRENCIES)[number];
+
+/** Narrows an arbitrary string (a form field, a `model_config`/`image_model_config` row
+ * written before a currency was removed) to one this build can actually convert - the
+ * same shape composition.ts's `isKnownProvider` uses for providers. */
+export function isCurrency(value: string): value is Currency {
+	const known: readonly string[] = CURRENCIES;
+	return known.includes(value);
+}
 
 /** ECB reference rate this conversion was pinned to. Update this alongside USD_PER_EUR
  * when the rate is refreshed - nothing else reads a rate, so nothing else needs to change. */

@@ -1436,10 +1436,11 @@ export const en: Messages = {
 			imageIntro1:
 				'The active model per feature lives here, not in code, and a change here takes effect on the very next "Generate image" request - no deploy, no restart.',
 			imageIntro2Pre:
-				'Seeded default: <code class="text-xs">prunaai/p-image</code> for a single portrait, <code class="text-xs">black-forest-labs/flux-schnell</code> for the four-variant batch. EUR per image is our own cost bookkeeping, never the credit price a GM sees - that lives in',
+				'Seeded default: <code class="text-xs">prunaai/p-image</code> for a single portrait, <code class="text-xs">black-forest-labs/flux-schnell</code> for the four-variant batch. Price per image is our own cost bookkeeping, in whichever currency the provider quotes it, never the credit price a GM sees - that lives in',
 			imageTable: {
 				feature: 'Feature',
-				pricePerImage: 'EUR / image',
+				pricePerImage: 'Price / image',
+				currency: 'Currency',
 				active: 'active',
 				inactive: 'inactive'
 			},
@@ -1454,7 +1455,8 @@ export const en: Messages = {
 					`"${provider}" is not a known provider. Choose one of: ${choices}.`,
 				modelIdRequired: 'Model id is required.',
 				providerAndModelIdRequired: 'Provider and model id are required.',
-				invalidPricePerImage: 'Enter a non-negative EUR-per-image cost, up to 6 decimal places.'
+				invalidPricePerImage: 'Enter a non-negative price per image, up to 6 decimal places.',
+				invalidCurrency: 'Choose one of the listed currencies.'
 			}
 		},
 

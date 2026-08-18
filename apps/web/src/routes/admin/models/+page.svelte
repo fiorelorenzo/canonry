@@ -6,6 +6,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { PageHeader } from '$lib/components/ui/page-header';
 	import ProviderSelect from '$lib/components/admin/ProviderSelect.svelte';
+	import CurrencySelect from '$lib/components/admin/CurrencySelect.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -20,6 +21,12 @@
 		if (typeof params !== 'object' || params === null) return '';
 		const value = (params as { pricePerImage?: unknown }).pricePerImage;
 		return typeof value === 'number' ? String(value) : '';
+	}
+
+	function paramsCurrency(params: unknown): string | undefined {
+		if (typeof params !== 'object' || params === null) return undefined;
+		const value = (params as { currency?: unknown }).currency;
+		return typeof value === 'string' ? value : undefined;
 	}
 
 	/** SvelteKit's `ActionData` is a union across both named actions' fail()/success shapes
@@ -175,9 +182,13 @@
 						(errorHere
 							? (fieldOf(forThisRow, 'pricePerImage') as string | undefined)
 							: undefined) ?? paramsPricePerImage(model.params)}
+					{@const currencyValue =
+						(errorHere ? (fieldOf(forThisRow, 'currency') as string | undefined) : undefined) ??
+						paramsCurrency(model.params)}
 					{@const providerId = `provider-${model.feature}`}
 					{@const modelIdId = `modelId-${model.feature}`}
 					{@const priceId = `price-${model.feature}`}
+					{@const currencyId = `currency-${model.feature}`}
 					<tr class="bg-panel align-top">
 						<td class="px-3 py-3 text-ink">
 							{t.models.featureLabel[model.feature as keyof typeof t.models.featureLabel]}
@@ -211,6 +222,15 @@
 										step="0.000001"
 										value={priceValue}
 										class="w-24 tabular-nums"
+									/>
+								</div>
+								<div class="flex flex-col gap-1">
+									<Label class="sr-only" for={currencyId}>{t.models.imageTable.currency}</Label>
+									<CurrencySelect
+										id={currencyId}
+										currencies={data.currencies}
+										value={currencyValue}
+										invalid={!!errorHere}
 									/>
 								</div>
 								<Button type="submit" size="sm">

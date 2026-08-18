@@ -6,7 +6,7 @@
 import type { Db } from '@canonry/db';
 import { and, eq } from 'drizzle-orm';
 import { modelConfig, type ModelPurpose } from '@canonry/db/schema';
-import { type Currency } from './currency.js';
+import { isCurrency, type Currency } from './currency.js';
 
 export type { ModelPurpose };
 
@@ -72,7 +72,8 @@ function readModelParams(value: unknown): ModelParams {
 	if (typeof value !== 'object' || value === null) return {};
 	const record = value as Record<string, unknown>;
 	const params: ModelParams = {};
-	if (record.currency === 'EUR' || record.currency === 'USD') params.currency = record.currency;
+	if (typeof record.currency === 'string' && isCurrency(record.currency))
+		params.currency = record.currency;
 	if (typeof record.pricePerInputMTok === 'number')
 		params.pricePerInputMTok = record.pricePerInputMTok;
 	if (typeof record.pricePerOutputMTok === 'number')

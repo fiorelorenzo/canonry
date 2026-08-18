@@ -18,7 +18,7 @@ export {
 	type ResolvedModel
 } from './models.js';
 
-export { toEur, FX_RATE_DATE, type Currency } from './currency.js';
+export { toEur, FX_RATE_DATE, CURRENCIES, isCurrency, type Currency } from './currency.js';
 
 export { chargeFor, clearPriceCache, type PriceRow } from './prices.js';
 
