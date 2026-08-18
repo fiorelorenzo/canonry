@@ -76,7 +76,7 @@ while [ $# -gt 0 ]; do
 done
 
 require_env stack base sha version image
-require_cmd docker jq curl find python3
+require_cmd docker jq curl find python3 git
 
 compose_src="${compose_src:-$script_dir/../../docker/deploy/compose.deploy.yml}"
 secrets_file="${secrets_file:-$base/shared/secrets.env}"
@@ -95,6 +95,18 @@ if [ -f "$deployed_json" ]; then
 	prev_version=$(jq -r '.version // empty' "$deployed_json")
 	prev_commit=$(jq -r '.commit // empty' "$deployed_json")
 	prev_image=$(jq -r '.image // empty' "$deployed_json")
+fi
+
+# The requeued-CI incident this guards against (issue #228): a workflow_run
+# for an older commit that gets requeued during a GitHub incident can
+# finish, and therefore reach here, after a newer commit's run already
+# deployed -- unchecked, that flips `current` backwards with nothing to
+# retry it. This only guards a forward deploy: rollback.sh never calls
+# release.sh, it flips `current` and runs compose itself, so a deliberate
+# rollback to an older release never reaches this check.
+if is_superseded_deploy "$sha" "$prev_commit"; then
+	log "release $sha is superseded by the live release $prev_commit for stack $stack -- an older commit's deploy reached this run after a newer one already went out, skipping rather than deploying backwards"
+	exit 0
 fi
 
 new_dir="$(release_dir "$base" "$sha")"

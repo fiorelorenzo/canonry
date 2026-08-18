@@ -5,6 +5,12 @@
 # rehearsal this script's own test run performs, and the command a 3am
 # incident reaches for (docs/deploy.md).
 #
+# Deliberately does not call release.sh. Rolling back means moving to an
+# older release on purpose, which is exactly what release.sh's supersede
+# gate (issue #228) refuses to do for a forward deploy, so this script
+# flips `current` and runs compose itself instead of going through that
+# path -- there is no gate here to bypass, and no flag needed for it.
+#
 # Usage:
 #   rollback.sh --stack prod --base /opt/canonry/prod [--to SHA] \
 #     [--port 5196] [--timeout 60] [--interval 3] [--deployed-by STRING]

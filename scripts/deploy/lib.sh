@@ -88,6 +88,37 @@ current_release() {
 	fi
 }
 
+# --- supersede gate ------------------------------------------------------
+# is_superseded_deploy SHA LIVE_COMMIT -> exit 0 if SHA is a strict, proper
+# ancestor of LIVE_COMMIT (the commit currently live for this stack) -- a
+# deploy that arrived after a newer one already went out, most often a CI
+# run for an older commit that got requeued and finished last (issue #228).
+# Exit 1 otherwise: a normal forward deploy, an unrelated commit, nothing
+# live yet (LIVE_COMMIT empty), or SHA itself already being live. That last
+# case is deliberate: git considers a commit its own ancestor, but
+# redeploying what is already live is not a backwards deploy, it is how a
+# stack gets recreated after someone changes a container by hand, and
+# release.sh already has its own guard for that ("release already exists"),
+# so this function stays out of its way instead of turning it into a silent
+# no-op skip. `git merge-base --is-ancestor` exiting anything other than 0
+# or 1 means it could not answer the question at all -- most likely a
+# checkout too shallow to hold LIVE_COMMIT's history -- and that is treated
+# as a hard failure rather than a reason to guess.
+is_superseded_deploy() {
+	sha="$1"
+	live_commit="$2"
+
+	[ -z "$live_commit" ] && return 1
+	[ "$sha" = "$live_commit" ] && return 1
+
+	git merge-base --is-ancestor "$sha" "$live_commit" && status=0 || status=$?
+	case "$status" in
+	0) return 0 ;;
+	1) return 1 ;;
+	*) die "could not determine whether $sha is an ancestor of $live_commit (git merge-base --is-ancestor exited $status) -- checkout may be missing history" ;;
+	esac
+}
+
 # lock_release DIR - make a release directory and its files read-only, so
 # nothing (including this script run again by mistake) can mutate a release
 # after it has been published. Reversed by unlock_release before deletion.
