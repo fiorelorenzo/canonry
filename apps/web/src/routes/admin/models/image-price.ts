@@ -28,3 +28,9 @@ export function parsePricePerImage(raw: FormDataEntryValue | null): number | nul
 export function parseCurrency(raw: FormDataEntryValue | null): string | null {
 	return typeof raw === 'string' && isCurrency(raw) ? raw : null;
 }
+
+/** The only `params` keys the image price form renders and therefore owns (issue
+ * #235) - passed as `upsertImageModel`'s `paramKeys` so every other key already on the
+ * row (`imagesPerRequest`, seeded by migration 0011 and rendered by nothing here)
+ * survives a save through this form untouched. */
+export const IMAGE_PRICE_PARAM_KEYS = ['pricePerImage', 'currency'] as const;
