@@ -257,8 +257,26 @@ export const en: Messages = {
 			signOutEverywhereInProgress: 'Signing out everywhere…',
 			signOutEverywhereFailedFallback: 'Could not sign out every session.',
 			deleteHeading: 'Delete account',
-			deleteUnavailable:
-				'Account deletion is not turned on for this deployment yet, so there is no button here that would fail quietly - ask whoever runs this deployment to enable it in Better Auth\u2019s own configuration.'
+			deleteIntro:
+				'This closes the account for good. There is no recovery once the confirmation mail is followed.',
+			deleteImpact: (impact) => {
+				const universes = impact.universes === 1 ? '1 universe' : `${impact.universes} universes`;
+				const entities = impact.entities === 1 ? '1 entity' : `${impact.entities} entities`;
+				const revisions = impact.revisions === 1 ? '1 revision' : `${impact.revisions} revisions`;
+				const proposals = impact.proposals === 1 ? '1 proposal' : `${impact.proposals} proposals`;
+				const images = impact.images === 1 ? '1 image' : `${impact.images} images`;
+				return `Deleting this account takes ${universes}, ${entities}, ${revisions}, ${proposals} and ${images} with it.`;
+			},
+			deleteExportPrompt: 'Export what is worth keeping before asking for the confirmation link.',
+			deleteExportLink: 'Go to export',
+			deletePasswordLabel: 'Current password',
+			deleteButton: 'Email me a confirmation link',
+			deleteSending: 'Sending…',
+			deletePasswordRequired: 'Enter the current password to request the confirmation link.',
+			deleteWrongPassword: 'That password is not correct.',
+			deleteSendFailed: 'The confirmation mail could not be sent. Nothing was deleted; try again.',
+			deleteRequested:
+				'Check the inbox: the link in that mail is what actually deletes the account, and it expires in 24 hours.'
 		}
 	},
 
@@ -313,6 +331,12 @@ export const en: Messages = {
 			success: 'Password updated. Sign in with your new password.',
 			signInLink: 'Sign in'
 		},
+		accountDeleted: {
+			title: 'Account deleted',
+			subtitle: 'Gone, universes included.',
+			body: 'The account and everything it owned are gone. Signing in with those credentials will not work any more.',
+			homeLink: 'Back to Canonry'
+		},
 		languageSwitcher: {
 			label: 'Language'
 		},
@@ -346,6 +370,16 @@ export const en: Messages = {
 			expiryNotice: 'This link expires in one hour.',
 			ignoreNotice:
 				"If you didn't request this, you can ignore this email and your password will stay the same."
+		},
+		deleteAccount: {
+			subject: 'Confirm deleting your Canonry account',
+			heading: 'Confirm account deletion',
+			body: 'Someone asked to delete this account. Clicking the link below permanently deletes the account and every universe, entity, revision, proposal and image it owns. This cannot be undone.',
+			button: 'Delete my account',
+			linkFallback: 'Or paste this link into your browser:',
+			expiryNotice: 'This link expires in 24 hours.',
+			ignoreNotice:
+				"If you didn't request this, ignore this email and the account will stay exactly as it is."
 		}
 	},
 

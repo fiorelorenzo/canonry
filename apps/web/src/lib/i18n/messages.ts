@@ -269,11 +269,11 @@ export interface Messages {
 		 * before this issue. Name and password go through Better Auth's own client API
 		 * (`authClient.updateUser`/`authClient.changePassword`) rather than a form
 		 * action, so their failure text comes back from Better Auth at request time -
-		 * only labels, confirmations and fallbacks live here. `deleteUnavailable`
-		 * replaces a delete button rather than shipping one that always fails: Better
-		 * Auth's `deleteUser` endpoint 404s until `user.deleteUser.enabled` is set in
-		 * `lib/server/auth.ts`, which this deployment does not set (checked against the
-		 * installed better-auth 1.6.27 source, not assumed). */
+		 * only labels, confirmations and fallbacks live here. Issue #154: deletion is a
+		 * server action instead (`?/requestDeletion`), because only the server can tell
+		 * "the confirmation mail failed to send" apart from "it sent", the same
+		 * distinction `auth/forgot-password`'s own action exists for - so its errors
+		 * are catalogued here too, never Better Auth's own request-time text. */
 		account: {
 			title: string;
 			description: string;
@@ -299,7 +299,27 @@ export interface Messages {
 			signOutEverywhereInProgress: string;
 			signOutEverywhereFailedFallback: string;
 			deleteHeading: string;
-			deleteUnavailable: string;
+			/** One-time framing above the count, before the numbers. */
+			deleteIntro: string;
+			/** Issue #154 acceptance: counted, not a generic warning - every table
+			 * `universe.owner_user_id`'s `ON DELETE CASCADE` takes with it
+			 * (`accountDeletionImpact`, `@canonry/db`). */
+			deleteImpact: (impact: {
+				universes: number;
+				entities: number;
+				revisions: number;
+				proposals: number;
+				images: number;
+			}) => string;
+			deleteExportPrompt: string;
+			deleteExportLink: string;
+			deletePasswordLabel: string;
+			deleteButton: string;
+			deleteSending: string;
+			deletePasswordRequired: string;
+			deleteWrongPassword: string;
+			deleteSendFailed: string;
+			deleteRequested: string;
 		};
 	};
 
@@ -358,6 +378,15 @@ export interface Messages {
 			success: string;
 			signInLink: string;
 		};
+		/** Issue #154: where Better Auth's `/delete-user/callback` redirects after the
+		 * emailed link actually deletes the account - the account no longer exists by
+		 * the time this page renders, so it carries no form and no session check. */
+		accountDeleted: {
+			title: string;
+			subtitle: string;
+			body: string;
+			homeLink: string;
+		};
 		/** The compact switcher on the sign-in/sign-up pages (there is no account yet to
 		 * hold a preference, so it sets the cookie instead - SPEC.md §17). Lives in the
 		 * footer rule on both pages (I2, #139), not the top right. */
@@ -388,12 +417,23 @@ export interface Messages {
 	};
 
 	/** #151: the one caller of `$lib/server/mail`'s `MailTransport.send` today - the
-	 * transport itself is generic (it will carry email verification, a shared-universe
-	 * invitation and an import-finished notice later), but the interface never gets a
-	 * method per use, so the strings for each mail live here, one namespace per use, added
-	 * as each one actually gets wired up rather than stubbed ahead of a caller. */
+	 * transport itself is generic (it will carry a shared-universe invitation and an
+	 * import-finished notice later), but the interface never gets a method per use, so
+	 * the strings for each mail live here, one namespace per use, added as each one
+	 * actually gets wired up rather than stubbed ahead of a caller. `deleteAccount` is
+	 * #154's second caller, the account-deletion confirmation Better Auth's
+	 * `deleteUser.sendDeleteAccountVerification` sends. */
 	mail: {
 		passwordReset: {
+			subject: string;
+			heading: string;
+			body: string;
+			button: string;
+			linkFallback: string;
+			expiryNotice: string;
+			ignoreNotice: string;
+		};
+		deleteAccount: {
 			subject: string;
 			heading: string;
 			body: string;

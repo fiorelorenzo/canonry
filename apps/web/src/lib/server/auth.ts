@@ -26,6 +26,7 @@ import { account, session, user, verification } from '@canonry/db/schema';
 import { db } from './db';
 import { buildMailTransport } from './mail/transport.js';
 import { makeSendResetPassword } from './mail/reset-password.js';
+import { makeSendDeleteAccountVerification } from './mail/delete-account.js';
 
 interface SocialProviderEnvVars {
 	idVar: string;
@@ -103,6 +104,24 @@ export const auth = betterAuth({
 		// loud-vs-silent-failure handling lives in ./mail/reset-password.ts's own doc
 		// comment, not here - this line only wires the transport in.
 		sendResetPassword: makeSendResetPassword({ db: db(), transport: buildMailTransport(env) })
+	},
+	// #154: turns on Better Auth's /delete-user with the emailed-confirmation path -
+	// off by default, because a signed-in session could otherwise destroy an account,
+	// and every universe under it (`universe.owner_user_id` is `ON DELETE CASCADE`),
+	// with one click and no way back. The loud-vs-silent-failure handling lives in
+	// ./mail/delete-account.ts's own doc comment, same reasoning as sendResetPassword
+	// above. `settings/account/+page.server.ts`'s requestDeletion action also passes
+	// the account's current password on this same call, which Better Auth verifies
+	// before it ever sends the mail (issue #154's own decision: a hijacked session
+	// with neither the password nor the inbox gets neither step).
+	user: {
+		deleteUser: {
+			enabled: true,
+			sendDeleteAccountVerification: makeSendDeleteAccountVerification({
+				db: db(),
+				transport: buildMailTransport(env)
+			})
+		}
 	},
 	socialProviders: buildSocialProviders(env),
 	databaseHooks: {

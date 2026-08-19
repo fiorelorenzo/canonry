@@ -8,11 +8,14 @@
 	 * `{ error }` with Better Auth's own message, which is not catalogued (it is
 	 * request-time text from a library, not interface copy this app authors).
 	 *
-	 * No delete-account control: Better Auth's `/delete-user` 404s until
-	 * `user.deleteUser.enabled` is set in `lib/server/auth.ts` (checked against the
-	 * installed better-auth 1.6.27 source), which this deployment does not set. A
-	 * button that always fails is worse than no button, so this pane says why instead.
+	 * Deletion (#154) is the one control on this page that is a server action instead,
+	 * `?/requestDeletion` - only the server can tell "the confirmation mail failed to
+	 * send" apart from "it sent" (`$lib/server/mail/delete-account.ts`'s own doc
+	 * comment), the same reason `/auth/forgot-password` uses a form action rather than
+	 * `authClient.forgetPassword`. `data.deletionImpact` (`+page.server.ts`'s `load`)
+	 * is what makes the count real rather than a generic warning.
 	 */
+	import { enhance } from '$app/forms';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { authClient } from '$lib/auth-client';
@@ -21,9 +24,9 @@
 	import { Label } from '$lib/components/ui/label';
 	import { PageHeader } from '$lib/components/ui/page-header';
 	import { messages } from '$lib/i18n';
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const t = $derived(messages(data.locale).settings.account);
 
@@ -95,6 +98,8 @@
 		await invalidateAll();
 		await goto(resolve('/'));
 	}
+
+	let deleteSending = $state(false);
 </script>
 
 <svelte:head>
@@ -187,6 +192,47 @@
 
 	<section class="mt-10 max-w-md">
 		<h2 class="text-sm font-semibold text-danger">{t.deleteHeading}</h2>
-		<p class="mt-1 text-sm text-ink-2">{t.deleteUnavailable}</p>
+		<p class="mt-1 text-sm text-ink-2">{t.deleteIntro}</p>
+		<p class="mt-2 text-sm text-ink-2">{t.deleteImpact(data.deletionImpact)}</p>
+		<p class="mt-3 text-sm text-ink-2">
+			{t.deleteExportPrompt}
+			<a href={resolve('/settings/export')} class="text-accent hover:underline"
+				>{t.deleteExportLink}</a
+			>
+		</p>
+
+		{#if form?.deleteRequested}
+			<p class="mt-4 text-sm text-ink-2">{t.deleteRequested}</p>
+		{:else}
+			<form
+				method="POST"
+				action="?/requestDeletion"
+				class="mt-4 flex flex-col gap-3"
+				use:enhance={() => {
+					deleteSending = true;
+					return async ({ update }) => {
+						await update();
+						deleteSending = false;
+					};
+				}}
+			>
+				<div class="flex flex-col gap-1.5">
+					<Label for="delete-password">{t.deletePasswordLabel}</Label>
+					<Input
+						id="delete-password"
+						type="password"
+						name="password"
+						autocomplete="current-password"
+						required
+					/>
+				</div>
+				<Button type="submit" variant="destructive" disabled={deleteSending} class="w-fit">
+					{deleteSending ? t.deleteSending : t.deleteButton}
+				</Button>
+				{#if form?.deleteError}
+					<p role="alert" class="text-sm text-danger">{form.deleteError}</p>
+				{/if}
+			</form>
+		{/if}
 	</section>
 {/if}
