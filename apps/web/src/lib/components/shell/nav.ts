@@ -24,7 +24,16 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-	{ id: 'entries', label: 'Entries', href: (slug) => `/w/${slug}`, built: true, issue: 104 },
+	// O1 = C (#283): `/w/<slug>` is the world home now and the browser lives one level down, so
+	// this item points at the table and the world switcher keeps the home. Both used to point
+	// here, which was fine while the two were the same page and is a fork in the road now.
+	{
+		id: 'entries',
+		label: 'Entries',
+		href: (slug) => `/w/${slug}/entries`,
+		built: true,
+		issue: 283
+	},
 	{ id: 'works', label: 'Works', href: (slug) => `/w/${slug}/works`, built: true, issue: 20 },
 	{
 		id: 'proposals',

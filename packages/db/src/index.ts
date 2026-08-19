@@ -23,6 +23,13 @@ export {
 } from './queries/relation-types.js';
 export { historyFor } from './queries/revisions.js';
 export {
+	recentActivity,
+	type ActivityItem,
+	type RevisionActivity,
+	type RelationActivity,
+	type WorkActivity
+} from './queries/activity.js';
+export {
 	nextEntityLanguage,
 	saveEntityBody,
 	setEntityLanguage,
@@ -31,6 +38,7 @@ export {
 	createEntity,
 	listEntitiesForUniverse,
 	entityCountsByType,
+	entityBrowserPage,
 	setEntityCover,
 	type EntityLanguageState,
 	type StoredEntityLanguage,
@@ -39,7 +47,11 @@ export {
 	type EntityRow,
 	type CreateEntityInput,
 	type EntityBrowserRow,
-	type ListEntitiesOptions
+	type ListEntitiesOptions,
+	type EntityBrowserSort,
+	type EntityBrowserPage,
+	type EntityBrowserPageOptions,
+	type EntityBrowserPageRow
 } from './queries/entities.js';
 export {
 	universeForExport,
@@ -307,7 +319,6 @@ export {
 	usesForNode,
 	scenesUsingEntity,
 	moveWorkNode,
-	mostRecentWorkNode,
 	type WorkRow,
 	type WorkNodeRow,
 	type WorkNodeTreeItem,
@@ -317,8 +328,7 @@ export {
 	type WorkNodeUse,
 	type SceneUsingEntity,
 	type MoveWorkNodeDirection,
-	type MoveWorkNodeResult,
-	type CurrentWorkSignal
+	type MoveWorkNodeResult
 } from './queries/works.js';
 export {
 	listSupersedesForUniverse,

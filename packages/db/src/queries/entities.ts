@@ -16,10 +16,12 @@
  * off to the real editor at `/e/[slug]/edit`, which already calls `saveEntityBody` and
  * `scheduleCanonSaveJob` on its own first save - no second write path invented here.
  */
-import { count, eq } from 'drizzle-orm';
+import { count, eq, sql } from 'drizzle-orm';
 import { detectLanguage, toLocale, type Locale } from '@canonry/lang';
 import type { Db } from '../client.js';
 import { entity } from '../schema/entity.js';
+import { fact } from '../schema/fact.js';
+import { relation } from '../schema/relation.js';
 import { revision } from '../schema/revision.js';
 import type { EntityType, LanguageSource } from '../schema/enums.js';
 
@@ -78,6 +80,9 @@ export interface EntityBrowserRow {
 	slug: string;
 	excerpt: string;
 	updatedAt: Date;
+	/** O2 (#284), read by O1's home cards (#283): the entry's chosen cover, or null. A
+	 * caller turns it into `/w/<slug>/e/<entry>/media/<id>`; nothing here knows a URL. */
+	coverAssetId: string | null;
 }
 
 export interface ListEntitiesOptions {
@@ -111,7 +116,15 @@ export async function listEntitiesForUniverse(
 				: eqOp(row.universeId, universeId),
 		orderBy: (row, { desc }) => desc(row.updatedAt),
 		limit: opts?.limit ?? 500,
-		columns: { id: true, name: true, slug: true, type: true, body: true, updatedAt: true }
+		columns: {
+			id: true,
+			name: true,
+			slug: true,
+			type: true,
+			body: true,
+			updatedAt: true,
+			coverAssetId: true
+		}
 	});
 	return rows.map((row) => ({
 		id: row.id,
@@ -119,8 +132,129 @@ export async function listEntitiesForUniverse(
 		type: row.type,
 		slug: row.slug,
 		excerpt: browserExcerpt(row.body),
-		updatedAt: row.updatedAt
+		updatedAt: row.updatedAt,
+		coverAssetId: row.coverAssetId
 	}));
+}
+
+/** O1 = C (#283): which column the entry table is sorted by. Exactly the five columns the
+ * table draws, so a header is the only thing that can order it - a hidden sixth order
+ * (search relevance, say) would make the caret in the header a lie about what a reader is
+ * looking at. */
+export type EntityBrowserSort = 'name' | 'type' | 'relations' | 'facts' | 'changed';
+
+export interface EntityBrowserPageOptions {
+	type?: EntityType;
+	/** Narrows by name or alias, the same substring predicate `searchEntitiesByNameOrAlias`
+	 * uses. It filters and never reorders: see `EntityBrowserSort`. */
+	query?: string;
+	sort?: EntityBrowserSort;
+	direction?: 'asc' | 'desc';
+	/** Page size. */
+	limit?: number;
+	offset?: number;
+}
+
+export interface EntityBrowserPageRow extends EntityBrowserRow {
+	/** Both directions of `relation`, which is how the relations panel counts them too:
+	 * one stored row is one relationship, read from either end. */
+	relationCount: number;
+	factCount: number;
+}
+
+export interface EntityBrowserPage {
+	rows: EntityBrowserPageRow[];
+	/** Rows matching `type` and `query`, ignoring `limit`/`offset` - the denominator the
+	 * table's footer divides into pages. Counted rather than inferred from `rows.length`,
+	 * so an offset past the end still reports the true total instead of zero. */
+	total: number;
+}
+
+const ORDER_BY: Record<EntityBrowserSort, { asc: string; desc: string }> = {
+	// Ordering on the output alias rather than repeating each expression: Postgres allows
+	// it, and the alternative is writing the two count subqueries twice each.
+	name: { asc: 'lower(e.name) asc', desc: 'lower(e.name) desc' },
+	type: { asc: 'e.type asc', desc: 'e.type desc' },
+	relations: { asc: 'relation_count asc', desc: 'relation_count desc' },
+	facts: { asc: 'fact_count asc', desc: 'fact_count desc' },
+	changed: { asc: 'e.updated_at asc', desc: 'e.updated_at desc' }
+};
+
+/**
+ * O1 = C (#283): the entry browser at `/w/<slug>/entries`, with the pagination the flat
+ * list never had. The page this replaces took up to 500 rows and drew no pages, which was
+ * already wrong for a world bigger than the sample one and becomes a visible lie the moment
+ * a footer says "page 1 of 3".
+ *
+ * The two counts are correlated subqueries rather than joins: a `group by` over a join to
+ * `relation` and `fact` at once multiplies the rows of one by the other before counting,
+ * and getting that right needs two separate aggregates anyway. Both read an indexed column
+ * (`relation`'s unique index on the type/from/to triple and `fact_entity_id_...`'s fk).
+ */
+export async function entityBrowserPage(
+	db: Db,
+	universeId: string,
+	opts?: EntityBrowserPageOptions
+): Promise<EntityBrowserPage> {
+	const q = opts?.query?.trim() ?? '';
+	const typeFilter = opts?.type ? sql`and e.type = ${opts.type}` : sql``;
+	const queryFilter = q
+		? sql`and (
+				e.name ilike ${'%' + q + '%'}
+				or exists (select 1 from unnest(e.aliases) a where a ilike ${'%' + q + '%'})
+			)`
+		: sql``;
+	const where = sql`where e.universe_id = ${universeId} ${typeFilter} ${queryFilter}`;
+	const order = ORDER_BY[opts?.sort ?? 'changed'][opts?.direction ?? 'desc'];
+	const limit = opts?.limit ?? 25;
+	const offset = opts?.offset ?? 0;
+
+	const [rows, totals] = await Promise.all([
+		db.execute<{
+			id: string;
+			name: string;
+			type: EntityType;
+			slug: string;
+			body: string;
+			// `db.execute`'s raw sql tag skips the query builder's type mapping, so
+			// timestamptz comes back as text and the counts as strings (bigint).
+			updated_at: string;
+			cover_asset_id: string | null;
+			relation_count: string;
+			fact_count: string;
+		}>(sql`
+			select
+				e.id, e.name, e.type, e.slug, e.body, e.updated_at, e.cover_asset_id,
+				(
+					select count(*) from ${relation} r
+					where r.from_entity_id = e.id or r.to_entity_id = e.id
+				) as relation_count,
+				(select count(*) from ${fact} f where f.entity_id = e.id) as fact_count
+			from ${entity} e
+			${where}
+			order by ${sql.raw(order)}, lower(e.name) asc, e.id asc
+			limit ${limit} offset ${offset}
+		`),
+		db.execute<{ total: string }>(sql`
+			select count(*) as total from ${entity} e
+			${where}
+		`)
+	]);
+
+	return {
+		rows: rows.map((row) => ({
+			id: row.id,
+			name: row.name,
+			type: row.type,
+			slug: row.slug,
+			excerpt: browserExcerpt(row.body),
+			updatedAt: new Date(row.updated_at),
+			coverAssetId: row.cover_asset_id,
+			relationCount: Number(row.relation_count),
+			factCount: Number(row.fact_count)
+		})),
+		total: Number(totals[0]?.total ?? 0)
+	};
 }
 
 /** The filter row's "real counts", per entity type actually present - never a hardcoded

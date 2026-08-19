@@ -1,9 +1,9 @@
 /**
- * Issue #145 (I7 = C): the browser's "changed 2d ago" column and the overview strip's
- * "what changed" line both need the same bucket-to-word mapping, so it lives once here
- * rather than once per component (`PinnedCards.svelte`'s local `relativeTime` is the
- * precedent this follows, extended with day/week/month buckets - table mode's pinned
- * cards only ever show something warmed this session, so it never needed them).
+ * One bucket-to-word mapping for every "changed 2d ago" in this directory: the entry table's
+ * Changed column, the world home's Continue cards and its activity feed all read the same
+ * buckets rather than each rounding a duration its own way (`PinnedCards.svelte`'s local
+ * `relativeTime` is the precedent this follows, extended with day/week/month buckets - table
+ * mode's pinned cards only ever show something warmed this session, so it never needed them).
  */
 import type { Messages } from '$lib/i18n';
 
