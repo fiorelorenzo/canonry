@@ -91,6 +91,23 @@ That last part was wrong in this file for a day, and the way it was wrong is wor
 wrote to the dev database believing they were isolated. A convention a package ignores without
 saying so is worse than no convention, which is why the app now reads the suffix too.
 
+**Nothing drops the suffix database afterwards, so a janitor does.** The global setup
+drops and recreates the database it is about to use, but on purpose never drops it when
+the run ends, because a failed run's database is the debugging the suffix convention
+exists to enable. Left alone that means every test run in every worktree leaves a
+`canonry_test_<suffix>` database behind forever, which by 2026-08-19 was 920 of them on
+the shared dev Postgres. `scripts/test-db-janitor.sh` cleans that up on a schedule
+instead: it drops a `canonry_test_*` database only once it has no live connection and its
+data directory (`/var/lib/postgresql/data/base/<oid>` inside the container, the mtime of
+which moves on every write and is the closest thing Postgres has to a per-database "last
+used" signal) has not been written to in 3 days by default (`--days N` to change it,
+`--dry-run` to preview). The `canonry_test_` prefix is the only thing it will ever touch:
+`canonry`, `canonry_demo` and the rest of the hand-named databases in the section above,
+plus every `canonry_w<issue>_demo` a worktree is using, do not match it and are never
+candidates, not by a live-connection check but structurally. It runs from a cron entry
+for the `dev` user on this box (`crontab -l -u dev`), once a day; nothing about it runs
+in CI or touches a worktree's own database.
+
 **The suffix is per run, not per file, and that is a second race.** Vitest's fork pool runs
 a package's test files concurrently against that one database, so two files that drive the
 same table through delete-all-then-insert clobber each other's rows, and the failure surfaces

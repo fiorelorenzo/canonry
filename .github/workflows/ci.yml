@@ -222,13 +222,13 @@ jobs:
         if: always()
         run: docker rm -f canonry-web-ci || true
 
-  # No node toolchain needed here: scripts/deploy/*.sh are plain bash with no
-  # pnpm package of their own, so `pnpm lint` never reaches them and this is
-  # the only place that does. Independent of the `test` job on purpose, so a
-  # shell issue here never blocks or waits on the node/postgres/qdrant setup
-  # above.
+  # No node toolchain needed here: scripts/deploy/*.sh and the top-level scripts/*.sh
+  # are plain bash with no pnpm package of their own, so `pnpm lint` never reaches
+  # them and this is the only place that does. Independent of the `test` job on
+  # purpose, so a shell issue here never blocks or waits on the node/postgres/qdrant
+  # setup above.
   deploy-scripts:
-    name: Shellcheck and test the deploy scripts
+    name: Shellcheck and test the shell scripts
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -239,6 +239,16 @@ jobs:
           cd scripts/deploy
           bash -n *.sh
           shellcheck -x *.sh
+
+      # Issue #266: the test-db janitor lives at the top level of scripts/, not under
+      # scripts/deploy, because it is not a deploy script. Checked separately, and not
+      # folded into the glob above, so a future non-bash file at the top of scripts/
+      # (there is already build-demo-corpus.mjs) never breaks this step by accident.
+      - name: Shellcheck top-level scripts
+        run: |
+          cd scripts
+          bash -n demo-reset.sh test-db-janitor.sh
+          shellcheck -x demo-reset.sh test-db-janitor.sh
 
       # Issue #228: the supersede gate that keeps a superseded CI run from
       # deploying backwards. Builds its own throwaway git repo and stack
