@@ -85,8 +85,14 @@ export interface PlanPropagationInput {
 	oldBody: string;
 	newBody: string;
 	triggerRevisionId?: string | null;
-	/** Base cap before issue #56's "too much" adjustment (SPEC.md §5.1: "~10"). */
-	cap?: number;
+	/** Base cap before issue #56's "too much" adjustment (decision C3 amendment,
+	 * SPEC.md §5.1). Three states, not two: `undefined` means the caller has not read a
+	 * universe setting at all and falls back to `DEFAULT_CAP` (mainly a test/tooling
+	 * convenience - `canon-save.ts`'s real caller always passes one explicitly);
+	 * `null` is the GM's own explicit "no limit" and skips capping entirely, never
+	 * `DEFAULT_CAP`; a number is the universe's own setting, applied as-is before
+	 * `effectiveCap`'s "too much" tightening. */
+	cap?: number | null;
 	modelFactory: ModelFactory;
 	gateway: GatewayWrapper;
 	embeddingMatches?: EmbeddingMatch[];
@@ -105,7 +111,13 @@ export interface PlanPropagationResult {
 	diff: FactChange[];
 }
 
-const DEFAULT_CAP = 10;
+/** Fallback only for a caller that passes no `cap` at all (`input.cap === undefined`) -
+ * `canon-save.ts`'s real caller always reads `universe.propagation_cap` and passes it,
+ * so this exists for direct callers (tests, future tooling) rather than production
+ * traffic. Kept in sync with that column's own default by hand, same 25, same
+ * arithmetic: see `packages/db/src/schema/universe.ts`'s column comment for the
+ * credit math this number is derived from. */
+export const DEFAULT_CAP = 25;
 
 /** SPEC.md §5.1 steps 1-3: semantic diff, candidate set, readable plan. Charges
  * `propagate.plan` once (issue #52's cheap model) and nothing else - the per-entry
@@ -135,12 +147,14 @@ export async function planPropagation(
 		}));
 
 	const ranked = scoreCandidates(pool, history);
-	const baseCap = input.cap ?? DEFAULT_CAP;
+	const baseCap = input.cap === undefined ? DEFAULT_CAP : input.cap;
 	const cap = effectiveCap(
 		baseCap,
 		rejectedRows.slice(0, 20).map((row) => row.reason)
 	);
-	const capped = ranked.slice(0, cap);
+	// `cap === null` is decision C3's "no limit": every ranked candidate survives, not a
+	// slice bounded by some very large number standing in for infinity.
+	const capped = cap === null ? ranked : ranked.slice(0, cap);
 
 	const entityById = new Map(graph.entities.map((e) => [e.id, e]));
 	const cheapModel = routeModel(

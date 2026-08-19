@@ -1,3 +1,20 @@
+import type { OutcomeNoteOffenderReason } from '@canonry/import';
+
+/** `detectSource`'s (`$lib/server/onboarding.ts`) per-request detection detail, issue
+ * #263: composed server-side but never stored, so it travels as data rather than as an
+ * already-English sentence and is rendered in the reader's locale here, exactly like
+ * every other string on the upload/confirm screen. One variant per `detectSource`
+ * branch. */
+export type DetectedDetail =
+	| { kind: 'obsidian'; notes: number }
+	| { kind: 'obsidian-unsure'; markdownFiles: number }
+	| { kind: 'kanka'; jsonFiles: number }
+	| { kind: 'world-anvil' }
+	| { kind: 'onenote'; pages: number }
+	| { kind: 'pdf' }
+	| { kind: 'docx' }
+	| { kind: 'generic'; files: number };
+
 /**
  * The one shape `en.ts` and `it.ts` both have to satisfy, written down explicitly rather
  * than inferred from either of them. That is what makes a missing key a typecheck
@@ -735,8 +752,9 @@ export interface Messages {
 			headingFromPropagation: string;
 		};
 		checklist: {
-			/** Text after the bold "kept" count: " of {total} kept · cap {cap}". */
-			keptSuffix: (total: number, cap: number) => string;
+			/** Text after the bold "kept" count: " of {total} kept · cap {cap}", or "· no
+			 * cap" when the GM turned the limit off - never "cap null". */
+			keptSuffix: (total: number, cap: number | null) => string;
 			/** Wraps the bold, pre-formatted credits figure: "Est. **1.00** credits...". */
 			estimatedCredits: (credits: number) => { prefix: string; suffix: string };
 			drop: string;
@@ -901,6 +919,32 @@ export interface Messages {
 				missingFilterType: string;
 			};
 		};
+		/** issue #263: `import_job.outcome_note` renders as a stable machine-readable
+		 * payload (`parseOutcomeNote`, `@canonry/import`) at display time rather than as
+		 * an English sentence written at settle time - `$lib/import/outcome-note.ts`'s
+		 * `renderOutcomeNote` is the one place that walks the payload and calls into
+		 * this. `offenderReason` covers `DocumentOutcome.detail`'s closed set;
+		 * `legacy` never appears here because a legacy note's raw English text is
+		 * shown as-is, with no catalogue lookup, as the honest fallback for a row
+		 * written before this issue. */
+		outcomeNote: {
+			finished: (documents: number, proposals: number) => string;
+			noDocuments: string;
+			unchanged: (documents: number) => string;
+			stoppedNoOffender: (documents: number, proposals: number) => string;
+			offenderReason: Record<
+				Exclude<OutcomeNoteOffenderReason, 'model_call_failed' | 'loop_guard' | 'other'>,
+				string
+			> & {
+				model_call_failed: (errorName: string) => string;
+				loop_guard: (toolName: string, count: number) => string;
+				other: (text: string) => string;
+			};
+			offender: (path: string, reasonText: string) => string;
+			offenderWithOthers: (base: string, othersCount: number) => string;
+			lossy: (path: string, count: number) => string;
+			lossyWithOthers: (base: string, othersCount: number) => string;
+		};
 		start: {
 			headTitle: string;
 			heading: string;
@@ -928,6 +972,9 @@ export interface Messages {
 				uploadedSummary: (fileName: string, kilobytes: string) => string;
 				detected: (label: string) => string;
 				notDetected: (label: string) => string;
+				/** Renders `DetectedDetail` above - the confirm screen's secondary line under
+				 * "Detected: <playbook>". */
+				detail: (detail: DetectedDetail) => string;
 				playbookLabel: string;
 				continueButton: string;
 			};
@@ -1383,6 +1430,21 @@ export interface Messages {
 				stopWriting: string;
 				resumeWriting: string;
 				offNotice: (universeName: string) => string;
+			};
+			/** Decision C3 amendment (docs/ux/DECISIONS.md "Round nine"): the per-universe
+			 * propagation cap, in the same visual language as `aiToggle` above it. */
+			propagationCap: {
+				heading: string;
+				description: (universeName: string) => string;
+				capLabel: string;
+				noLimitLabel: string;
+				save: string;
+				/** "Capped at **10** entries per plan." Split like `checklist.estimatedCredits`
+				 * so the number can be rendered bold without the whole sentence being one
+				 * un-styleable string. */
+				capNotice: (cap: number) => { prefix: string; suffix: string };
+				noLimitNotice: string;
+				invalidCapError: string;
 			};
 			precedence: {
 				heading: string;

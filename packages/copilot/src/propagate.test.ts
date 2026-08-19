@@ -18,7 +18,7 @@ import type { LanguageModel } from 'ai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ResolvedModel } from '@canonry/ai';
 import type { GatewayWrapper, ModelFactory } from './models.js';
-import { AiDisabledError, generatePlanDiffs, planPropagation } from './propagate.js';
+import { AiDisabledError, DEFAULT_CAP, generatePlanDiffs, planPropagation } from './propagate.js';
 import {
 	insertEntity,
 	insertHomebrewUniverse,
@@ -112,7 +112,29 @@ describe('propagation pipeline against the real database', () => {
 		return { owner, universe };
 	}
 
-	it('a save produces a plan capped at ten, with a reason on every entry', async () => {
+	/** Inserts `count` character entities, each related to `edited` via `rt`, so a test
+	 * can build a candidate pool bigger than whatever cap it is checking against. */
+	async function insertNeighbours(
+		universeId: string,
+		edited: { id: string },
+		rt: { id: string },
+		count: number
+	): Promise<void> {
+		for (let i = 0; i < count; i++) {
+			const neighbour = await insertEntity(db, universeId, {
+				type: 'character',
+				name: `Contact ${i}`,
+				body: 'An unremarkable local.'
+			});
+			await insertRelation(db, universeId, {
+				relationTypeId: rt.id,
+				fromEntityId: edited.id,
+				toEntityId: neighbour.id
+			});
+		}
+	}
+
+	it('a universe-set cap truncates the plan to exactly that number', async () => {
 		const { owner, universe } = await baseUniverse();
 		const edited = await insertEntity(db, universe.id, {
 			type: 'character',
@@ -123,20 +145,9 @@ describe('propagation pipeline against the real database', () => {
 			label: 'knows',
 			inverseLabel: 'known by'
 		});
-		// Twelve direct neighbours - more than the ~10 cap (SPEC.md §5.1) - so the plan has
-		// to actually cut candidates, not merely happen to fit under it.
-		for (let i = 0; i < 12; i++) {
-			const neighbour = await insertEntity(db, universe.id, {
-				type: 'character',
-				name: `Contact ${i}`,
-				body: 'An unremarkable local.'
-			});
-			await insertRelation(db, universe.id, {
-				relationTypeId: rt.id,
-				fromEntityId: edited.id,
-				toEntityId: neighbour.id
-			});
-		}
+		// Twelve direct neighbours - more than the cap under test - so the plan has to
+		// actually cut candidates, not merely happen to fit under it.
+		await insertNeighbours(universe.id, edited, rt, 12);
 
 		const result = await planPropagation({
 			db,
@@ -147,6 +158,7 @@ describe('propagation pipeline against the real database', () => {
 			oldBody: edited.body,
 			newBody: `${edited.body} Word of it reached the harbourmaster within the hour.`,
 			locale: 'en',
+			cap: 10,
 			modelFactory: modelFactoryFor(dynamicRankingModel(), fixedDiffModel('unused')),
 			gateway: IDENTITY_GATEWAY
 		});
@@ -160,6 +172,75 @@ describe('propagation pipeline against the real database', () => {
 			expect(proposal.outcome).toBe('pending');
 			expect(proposal.kind).toBe('update');
 		}
+	});
+
+	it('the cap defaults to DEFAULT_CAP when the caller reads no universe setting', async () => {
+		const { owner, universe } = await baseUniverse();
+		const edited = await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Branwen Solt',
+			body: 'A harbour clerk with too many friends.'
+		});
+		const rt = await insertRelationType(db, universe.id, {
+			label: 'knows',
+			inverseLabel: 'known by'
+		});
+		// More neighbours than DEFAULT_CAP, so the default actually has to cut
+		// candidates rather than happen to fit under it.
+		await insertNeighbours(universe.id, edited, rt, DEFAULT_CAP + 2);
+
+		const result = await planPropagation({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			editedEntityId: edited.id,
+			editedEntityName: edited.name,
+			oldBody: edited.body,
+			newBody: `${edited.body} Word reached the docks by evening.`,
+			locale: 'en',
+			modelFactory: modelFactoryFor(dynamicRankingModel(), fixedDiffModel('unused')),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		expect(result).not.toBeNull();
+		expect(result!.plan.candidateCap).toBe(DEFAULT_CAP);
+		expect(result!.proposals).toHaveLength(DEFAULT_CAP);
+	});
+
+	it('cap: null produces every ranked candidate, with no truncation', async () => {
+		const { owner, universe } = await baseUniverse();
+		const edited = await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Old Hettie',
+			body: 'Runs the harbour tavern.'
+		});
+		const rt = await insertRelationType(db, universe.id, {
+			label: 'knows',
+			inverseLabel: 'known by'
+		});
+		// More neighbours than DEFAULT_CAP would allow through - "no limit" is only
+		// proven if every one of them survives, since fewer surviving would look the
+		// same as a real numeric cap that happened not to bind.
+		const count = DEFAULT_CAP + 5;
+		await insertNeighbours(universe.id, edited, rt, count);
+
+		const result = await planPropagation({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			editedEntityId: edited.id,
+			editedEntityName: edited.name,
+			oldBody: edited.body,
+			newBody: `${edited.body} A round on the house tonight.`,
+			locale: 'en',
+			cap: null,
+			modelFactory: modelFactoryFor(dynamicRankingModel(), fixedDiffModel('unused')),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		expect(result).not.toBeNull();
+		expect(result!.plan.candidateCap).toBeNull();
+		expect(result!.proposals).toHaveLength(count);
 	});
 
 	it('dropping an entry from the plan reduces the estimate', async () => {

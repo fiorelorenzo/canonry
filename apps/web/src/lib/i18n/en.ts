@@ -703,7 +703,8 @@ export const en: Messages = {
 		},
 
 		checklist: {
-			keptSuffix: (total, cap) => ` of ${total} kept \u00b7 cap ${cap}`,
+			keptSuffix: (total, cap) =>
+				cap === null ? ` of ${total} kept \u00b7 no cap` : ` of ${total} kept \u00b7 cap ${cap}`,
 			estimatedCredits: (credits) => {
 				const form = pluralRules('en').select(credits);
 				return {
@@ -889,6 +890,38 @@ export const en: Messages = {
 			}
 		},
 
+		outcomeNote: {
+			finished: (documents, proposals) =>
+				`${documents} document${documents === 1 ? '' : 's'} processed, ${proposals} proposal${proposals === 1 ? '' : 's'} emitted`,
+			noDocuments: 'No documents to process.',
+			unchanged: (documents) =>
+				`Nothing changed: all ${documents} document${documents === 1 ? '' : 's'} matched what was already imported.`,
+			stoppedNoOffender: (documents, proposals) =>
+				`Stopped before finishing: ${documents} document${documents === 1 ? '' : 's'} settled, ${proposals} proposal${proposals === 1 ? '' : 's'} emitted`,
+			offenderReason: {
+				step_ceiling: "this document's step ceiling was reached",
+				cancelled_before_step: 'cancelled before this step started',
+				cancelled_mid_step: 'cancelled mid-step',
+				tool_calls_unparseable:
+					'every tool call in this step failed to parse, most likely truncated by the output limit',
+				step_worst_case_exceeds_budget:
+					"this step's worst case would not fit this job's remaining credit budget",
+				job_budget_exhausted: "this job's credit budget is exhausted",
+				never_started: 'never started',
+				model_call_failed: (errorName) => `model call failed: ${errorName}`,
+				loop_guard: (toolName, count) =>
+					`stuck in a loop: ${toolName} was called with identical arguments ${count} time${count === 1 ? '' : 's'} in a row, so this document was ended rather than run to its step ceiling`,
+				other: (text) => text
+			},
+			offender: (path, reasonText) => `${path}: ${reasonText}`,
+			offenderWithOthers: (base, othersCount) =>
+				`${base} (and ${othersCount} other document${othersCount === 1 ? '' : 's'} that did not finish cleanly)`,
+			lossy: (path, count) =>
+				`${path} lost ${count} tool call${count === 1 ? '' : 's'} along the way, most likely truncated by a step's output limit`,
+			lossyWithOthers: (base, othersCount) =>
+				`${base} (and ${othersCount} other document${othersCount === 1 ? '' : 's'} that lost some too)`
+		},
+
 		start: {
 			headTitle: 'New universe · Canonry',
 			heading: 'Name your universe',
@@ -929,6 +962,26 @@ export const en: Messages = {
 				uploadedSummary: (fileName, kilobytes) => `${fileName} uploaded, ${kilobytes} KB`,
 				detected: (label) => `Detected: ${label}`,
 				notDetected: (label) => `Couldn't confidently detect a format: ${label}`,
+				detail: (d) => {
+					switch (d.kind) {
+						case 'obsidian':
+							return `${d.notes} note${d.notes === 1 ? '' : 's'}, .obsidian folder found`;
+						case 'obsidian-unsure':
+							return `${d.markdownFiles} Markdown file${d.markdownFiles === 1 ? '' : 's'}, no .obsidian folder found`;
+						case 'kanka':
+							return `${d.jsonFiles} JSON file${d.jsonFiles === 1 ? '' : 's'}, entity_type field found`;
+						case 'world-anvil':
+							return 'json/ and html/ folders found, matching a Full World Export';
+						case 'onenote':
+							return `${d.pages} exported page${d.pages === 1 ? '' : 's'}, sibling _files/ folder found`;
+						case 'pdf':
+							return 'one PDF file';
+						case 'docx':
+							return 'one DOCX file';
+						case 'generic':
+							return `${d.files} file${d.files === 1 ? '' : 's'}, no known export schema`;
+					}
+				},
 				playbookLabel: 'Playbook to run',
 				continueButton: 'Confirm and continue'
 			},
@@ -1400,6 +1453,24 @@ export const en: Messages = {
 				resumeWriting: 'Resume writing',
 				offNotice: (universeName) =>
 					`Writing is off for ${universeName}. Search and mention suggestions still spend from your included quota like any other request; they simply cost nothing, on or off.`
+			},
+			propagationCap: {
+				heading: 'Propagation cap',
+				description: (universeName) =>
+					`How many entries a save's plan may propose for ${universeName}. Every entry the copilot drafts a diff for costs a credit, so raising this is agreeing to spend more each time you save.`,
+				capLabel: 'Cap',
+				noLimitLabel: 'No limit',
+				save: 'Save',
+				capNotice: (cap) => {
+					const form = pluralRules('en').select(cap);
+					return {
+						prefix: 'Capped at ',
+						suffix: form === 'one' ? ' entry per plan.' : ' entries per plan.'
+					};
+				},
+				noLimitNotice:
+					'No limit: every candidate the copilot finds gets a diff. You still confirm the spend before diffs are generated.',
+				invalidCapError: 'Enter a number of 1 or more, or turn the limit off.'
 			},
 			precedence: {
 				heading: 'Precedence',

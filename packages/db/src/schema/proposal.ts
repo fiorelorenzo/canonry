@@ -63,9 +63,12 @@ export const proposalPlan = pgTable(
 		estimatedCredits: numeric('estimated_credits', { precision: 12, scale: 4, mode: 'number' })
 			.notNull()
 			.default(0),
-		// SPEC.md §5.1: "Cap: ~10 entries per plan", because without a ceiling the copilot
-		// becomes noise. Stored per plan so the cap is auditable rather than implicit.
-		candidateCap: integer('candidate_cap').notNull().default(10),
+		// SPEC.md §5.1: what capped this plan when it was made, so the cap is auditable
+		// rather than implicit. Null mirrors `universe.propagation_cap`'s own null: the GM
+		// had no limit set for this plan, not "the cap was zero" or some sentinel number -
+		// `dropCandidateFromPlan`/`PlanChecklist.svelte` both have to treat it as "no cap",
+		// never coerce it back to a default.
+		candidateCap: integer('candidate_cap').default(10),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},
 	(t) => [index('proposal_plan_universe_created_idx').on(t.universeId, t.createdAt)]

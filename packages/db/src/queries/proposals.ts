@@ -132,7 +132,7 @@ export interface CreateProposalPlanInput {
 	 * any other trigger. */
 	importJobId?: string | null;
 	summary: string;
-	candidateCap: number;
+	candidateCap: number | null;
 	estimatedCredits: number;
 	/** SPEC.md §17: the interface language the plan's own speech was written in, applied to every
 	 * proposal in it, because one plan has one caller and therefore one reader. This is not the

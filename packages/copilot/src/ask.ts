@@ -8,10 +8,15 @@
  *    over their own canon" (H1: "reading is free"), and it is the layer that stays up
  *    when generation is switched off: `runAsk` never gates this half on `aiEnabled`.
  * 2. **Indexed / derived corpus** - real retrieval through `@canonry/indexing`'s
- *    `retrieveForUniverse` against a real Qdrant collection (top-k 8, threshold 0.5,
- *    SPEC.md §11.4's own numbers), for a universe's own indexed wiki or, for a `derived`
- *    universe, its base universe's collection (SPEC.md §4.1: "the user's canon always
- *    wins", so this layer is additive, never a replacement for layer 1).
+ *    `retrieveForUniverse` against a real Qdrant collection. Top-k and threshold are not
+ *    restated here as numbers on purpose (see `retriever.ts`'s own `DEFAULT_TOP_K`/
+ *    `DEFAULT_THRESHOLD` comment for what is actually shipped and why): this file used to
+ *    quote SPEC.md §11.4's original "top-k 8, threshold 0.5" here too, and that copy went
+ *    stale the moment issue #168 re-derived the threshold to 0.35 for the current
+ *    embedding model - a second place stating the number is a second place that can be
+ *    wrong. For a universe's own indexed wiki or, for a `derived` universe, its base
+ *    universe's collection (SPEC.md §4.1: "the user's canon always wins", so this layer
+ *    is additive, never a replacement for layer 1).
  *
  * A synthesized answer (layer 3) sits on top of both, streamed from a premium model and
  * charged `ask.answer` - the one part of Ask that is generation and needs `aiEnabled`.
@@ -92,7 +97,18 @@ export type AskSource = OwnCanonSource | IndexedSource;
  */
 export type QueryEmbedder = (texts: string[]) => Promise<number[][]>;
 
-const OWN_CANON_LIMIT = 3;
+// Bounds three things at once: what's shown in the UI, what the model is given in the
+// prompt, and what entry_propose/entry_edit_propose ground their drafts on (all three
+// read the same `ownCanon` array runAsk computes once). The cost of raising it is prompt
+// tokens and a taller source list on screen, never correctness - own-canon retrieval is
+// free and deterministic. 3 was hiding a real fourth citation (the Aldric Vane demo
+// question has four relevant sentences across its sources, and guardrail 3 says every
+// proposal shows its evidence, not "shows up to three"). Kept as one number rather than
+// split per consumer: the UI list is a plain flex column with no fixed-height clip (it
+// scrolls with the page), so there's no rendering reason for the UI to want fewer than
+// the model gets, and nothing here has ever measured a token-cost or relevance cliff
+// that would justify giving the model and the screen different limits.
+const OWN_CANON_LIMIT = 6;
 
 /** Layer 1, SPEC.md §5's "search over their own canon": every sentence in every entity's
  * current body, scored against the question by word overlap, best sentence per entity,
@@ -206,14 +222,19 @@ async function searchIndexed(input: {
 
 /** Deterministic follow-ups from what was actually retrieved (never a second billed
  * call): one per distinct entity/page a source names, excluding none of them (the GM
- * asked about one thing; every source is a legitimate "tell me more"), capped at 2. */
+ * asked about one thing; every source is a legitimate "tell me more"). Capped at 4,
+ * raised from 2: these cost nothing but vertical space (no model call, no tokens), and
+ * `OWN_CANON_LIMIT`'s own rise to 6 means more distinct entities routinely come back for
+ * a multi-entity question, so a cap of 2 was throwing away follow-ups the same change
+ * just started producing. Left well short of `OWN_CANON_LIMIT` itself - a row of buttons
+ * is a different UI element than a source list and nobody has asked for six of them. */
 function deriveFollowUps(locale: Locale, sources: AskSource[]): string[] {
 	const names: string[] = [];
 	for (const source of sources) {
 		const name = source.kind === 'own_canon' ? source.entityName : source.pageTitle;
 		if (!names.includes(name)) names.push(name);
 	}
-	return names.slice(0, 2).map((name) => TELL_ME_MORE[locale](name));
+	return names.slice(0, 4).map((name) => TELL_ME_MORE[locale](name));
 }
 
 /** SPEC.md §5 fixes five detail levels but not what distinguishes them, and no
@@ -547,7 +568,20 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 							}
 						})
 					},
-					stopWhen: stepCountIs(4)
+					// A step is one model turn (the AI SDK's own "step (LLM call)"), and the stop
+					// condition doesn't require the last step to be a text step - hit the cap on a
+					// tool-call step and the loop ends with proposals written but nothing ever told
+					// to the GM, silently breaking the system prompt's own "tell the GM what you
+					// proposed" instruction above. `recordFailure` never retries on the model's
+					// behalf, but nothing stops the model from retrying a failed drafting call itself
+					// (see this file's own toolCallThenTextModel-style regression test), and a GM
+					// request that legitimately proposes two entries where one needs a retry already
+					// spends propose-fail, retry-ok per entry - 2 tool-call steps each - before the
+					// closing text step: 2*2+1 = 5, one over the old cap of 4. 6 covers that with one
+					// step of headroom (e.g. a second retry) without making this an effectively
+					// uncapped loop: the tools only ever write a pending `proposal` (guardrail 1), so
+					// a longer loop still can't do more than draft more proposals for review.
+					stopWhen: stepCountIs(6)
 				});
 				let text = '';
 				// Full stream, not just `textStream`: draining it is what drives the tool-call

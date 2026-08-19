@@ -1121,8 +1121,8 @@ One document.
 	});
 });
 
-describe('GatewayDriver - a step whose entire output fails to parse ends the document loudly (issue #134)', () => {
-	it('fails the document instead of silently dropping a step where every tool call was invalid', async () => {
+describe('GatewayDriver - a step whose entire output fails to parse ends the document loudly (issue #134, retried per issue #273)', () => {
+	it('retries a step whose tool calls are all invalid up to the bound, then fails the document exactly as before', async () => {
 		const playbook = loadPlaybook(`---
 id: fixture
 version: 1
@@ -1155,7 +1155,9 @@ One document.
 		// A response `generateText` cannot parse against `entity_propose`'s schema - the
 		// same shape a real truncated-mid-JSON call would take (`STEP_MAX_OUTPUT_TOKENS`
 		// cutting the model off before the closing brace). The AI SDK marks this
-		// `invalid: true` and never runs its `execute`, so nothing is proposed.
+		// `invalid: true` and never runs its `execute`, so nothing is proposed - and this
+		// mock never varies, so every retry issue #273 buys this step fails exactly the
+		// same way as the first attempt.
 		const model = new MockLanguageModelV4({
 			provider: 'test',
 			modelId: 'test-cheap',
@@ -1187,14 +1189,19 @@ One document.
 
 		const { events } = await collect(job, driver);
 
-		// Nothing this step attempted was usable - no proposal ever reached the stream.
+		// Nothing any attempt made was usable - no proposal ever reached the stream.
 		expect(events.some((e) => e.type === 'proposal')).toBe(false);
 
 		const terminal = events.at(-1);
 		expect(terminal).toMatchObject({ type: 'progress', status: 'failed' });
 		expect(terminal && terminal.type === 'progress' && terminal.detail).toMatch(/failed to parse/);
-		// The loop never tries a second step once a document has failed loudly.
-		expect(model.doGenerateCalls).toHaveLength(1);
+
+		// issue #273: one original attempt plus STEP_PARSE_RETRY_LIMIT (3) retries, each a
+		// real model call - the document only gives up once every one of them has failed.
+		expect(model.doGenerateCalls).toHaveLength(4);
+		// Every one of those four calls is charged, retries included - nothing here spends
+		// outside what a normal step would already cost.
+		expect(events.filter((e) => e.type === 'usage')).toHaveLength(4);
 	});
 
 	it('keeps a step that mixes a valid and an invalid call - the valid proposal survives, the loop continues, and the loss reaches the stream (issue #212)', async () => {
@@ -1297,6 +1304,193 @@ One document.
 			lostToolCallCount: 1
 		});
 		expect(partialLoss[0]?.detail).toMatch(/1 of 2 tool call\(s\).*truncated by the output limit/);
+	});
+});
+
+describe("GatewayDriver - a step's retry after an all-invalid parse asks for less, not the same thing again (issue #273)", () => {
+	const RETRY_PLAYBOOK = loadPlaybook(`---
+id: fixture
+version: 1
+name: Fixture
+description: A playbook for issue #273's retry tests.
+stepBudget: 5
+---
+
+Propose one entity then finish.
+
+## Inputs
+
+One document.
+
+## Tools
+
+- \`entity_propose\` - propose an entity.
+- \`job_finish\` - close the run.
+
+## Steps
+
+1. Propose, then finish.
+
+   \`\`\`json
+   { "outcome": "completed" }
+   \`\`\`
+`);
+
+	it("lets the document continue once a retry succeeds - the failed attempt's own output is never resent, the retry asks for less, and both calls are charged and logged", async () => {
+		const sources = new InMemorySourceReader({ files: { 'notes.md': 'irrelevant text' } });
+
+		let calls = 0;
+		const model = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			doGenerate: async () => {
+				calls += 1;
+				if (calls === 1) {
+					// Every tool call in the first attempt fails to parse - the guardrail this
+					// retry sits behind.
+					return {
+						content: [
+							{
+								type: 'tool-call' as const,
+								toolCallId: 't1',
+								toolName: 'entity_propose',
+								input: '{"localId":"e1","type":"character","name":"Trunc'
+							}
+						],
+						finishReason: { unified: 'length' as const, raw: undefined },
+						usage: usage(10, 8192),
+						warnings: []
+					};
+				}
+				if (calls === 2) {
+					return toolCallStep([
+						{
+							id: 't2',
+							name: 'entity_propose',
+							input: {
+								localId: 'e1',
+								type: 'character',
+								name: 'Entity One',
+								aliases: [],
+								summary: 'Proposed on the retry, after the first attempt truncated.',
+								sourceRef: { documentId: 'doc-1' },
+								evidenceSpan: { start: 0, end: 5 }
+							}
+						}
+					]);
+				}
+				return toolCallStep([{ id: 't3', name: 'job_finish', input: { outcome: 'completed' } }]);
+			}
+		});
+
+		const logged: LoopLogFields[] = [];
+		const logger = createLoopLogger((fields) => logged.push(fields));
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model),
+			logger
+		});
+		const job = buildJob({
+			id: 'job-retry-succeeds',
+			playbook: RETRY_PLAYBOOK,
+			documents: [{ id: 'doc-1', sourcePath: 'notes.md' }],
+			sources
+		});
+
+		const { events } = await collect(job, driver);
+
+		// The document never failed - the retry rescued the step.
+		expect(events.some((e) => e.type === 'progress' && e.status === 'failed')).toBe(false);
+		const finished = events.find((e) => e.type === 'progress' && e.status === 'finished');
+		expect(finished).toBeDefined();
+
+		// The proposal from the successful retry landed.
+		const proposals = events.filter((e) => e.type === 'proposal');
+		expect(proposals).toHaveLength(1);
+
+		// Three real model calls: the failed attempt, the retry that rescued it, and the
+		// next step's job_finish - every one of them charged, retries included.
+		expect(model.doGenerateCalls).toHaveLength(3);
+		expect(events.filter((e) => e.type === 'usage')).toHaveLength(3);
+
+		// The retry is logged as a retry, distinct from an ordinary step.
+		expect(logged.some((entry) => entry.event === 'step_retry' && entry.status === 'ok')).toBe(
+			true
+		);
+
+		// The retry's own prompt asks for less - and never resends the failed attempt's
+		// own (unusable) output, which would only have grown the prompt for nothing: no
+		// assistant turn appears between the original instruction and the retry's own
+		// "propose fewer" nudge.
+		const retryPrompt = model.doGenerateCalls[1]?.prompt ?? [];
+		expect(retryPrompt.some((message) => message.role === 'assistant')).toBe(false);
+		const lastMessage = retryPrompt.at(-1);
+		expect(lastMessage?.role).toBe('user');
+		const lastText =
+			lastMessage && lastMessage.role === 'user'
+				? lastMessage.content
+						.filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+						.map((part) => part.text)
+						.join(' ')
+				: '';
+		expect(lastText).toMatch(/fewer/i);
+	});
+
+	it("does not retry past what the job's remaining budget can afford, and still ends in the same failed shape as a retry bounded by count alone", async () => {
+		// A budget that fits the first (real, worst-case-priced) attempt but not a second
+		// call at the same worst case - `wouldExceedCeiling`'s reserve grace already went
+		// to this attempt (nothing has been proposed yet), so a retry gets no further
+		// grace and the step must settle without one.
+		const sources = new InMemorySourceReader({ files: { 'notes.md': 'irrelevant text' } });
+		const model = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			doGenerate: async () => ({
+				content: [
+					{
+						type: 'tool-call' as const,
+						toolCallId: 't1',
+						toolName: 'entity_propose',
+						input: '{"localId":"e1","type":"character","name":"Trunc'
+					}
+				],
+				finishReason: { unified: 'length' as const, raw: undefined },
+				usage: usage(10, 8192),
+				warnings: []
+			})
+		});
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+		const job = buildJob({
+			id: 'job-retry-budget',
+			playbook: RETRY_PLAYBOOK,
+			documents: [{ id: 'doc-1', sourcePath: 'notes.md' }],
+			sources,
+			// Priced deliberately far below what a real step costs (TEST_PARAMS against
+			// RETRY_PLAYBOOK's own prompt length) - big enough that the reserve lets the
+			// very first attempt through, too small for the second call `wouldExceedCeiling`
+			// would otherwise gate a retry behind.
+			budget: { maxCredits: 0.001 }
+		});
+
+		const { events } = await collect(job, driver);
+
+		// Never spent more than the job was admitted with plus one step's real cost - the
+		// reserve bought the one attempt that ran (10 input / 8192 output tokens per
+		// `usage(10, 8192)` above, ~1.64 credits at TEST_PARAMS), nothing more.
+		const totalSpend = events
+			.filter((e): e is Extract<JobEvent, { type: 'usage' }> => e.type === 'usage')
+			.reduce((sum, e) => sum + e.credits, 0);
+		expect(totalSpend).toBeLessThan(3);
+
+		// The budget could not afford a retry, so the step settled without one - the
+		// document fails exactly as it would have with no retry mechanism at all.
+		expect(model.doGenerateCalls).toHaveLength(1);
+		const terminal = events.at(-1);
+		expect(terminal).toMatchObject({ type: 'progress', status: 'failed' });
+		expect(terminal && terminal.type === 'progress' && terminal.detail).toMatch(/failed to parse/);
 	});
 });
 

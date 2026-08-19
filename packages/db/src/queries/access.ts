@@ -58,6 +58,26 @@ export async function universesForUser(
 	return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Decision C3 amendment (docs/ux/DECISIONS.md "Round nine"): the per-universe
+ * propagation cap, read by itself. `runPropagationEngine`
+ * (apps/web/src/lib/server/jobs/canon-save.ts) only carries a durable job row's
+ * `universeId` through the queue, not the whole universe row, and a save's plan needs
+ * nothing else about the universe - selecting one column avoids pulling the rest of a
+ * row this call has no use for. Null is returned exactly as stored: it means the GM
+ * turned the limit off, and `planPropagation` is what decides what that means, not
+ * this read. */
+export async function propagationCapForUniverse(
+	db: Db,
+	universeId: string
+): Promise<number | null> {
+	const [row] = await db
+		.select({ propagationCap: universe.propagationCap })
+		.from(universe)
+		.where(eq(universe.id, universeId))
+		.limit(1);
+	return row?.propagationCap ?? null;
+}
+
 /** Issue #141: the shell's account-level switcher needs an entry count per universe
  * on every route, not only inside one, and a per-universe `SELECT count(*)` in that
  * root layout would turn into an N+1 on every page in the app. One grouped query for

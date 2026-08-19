@@ -265,6 +265,15 @@ const UX_REGISTER = [
     w: 'now', i: [151, 154], dt: '2026-08-19',
     d: 'A', dn: 'A door, not a waiting list',
     dnote: 'F6 and G10 both still hold, the demo stays the hero and the export sentence stays under it: what changed is that there is now a product behind them. app.canonry.io serves the whole thing on a tagged release, so a page collecting addresses in front of it asks people to wait for something they could be using. The order is the part on the record rather than the layout: there is no password recovery and no account deletion yet, both blocked on a mail transport that is now bought and verified, so the sign-up call to action ships after those and the first version can point at a published players wiki, which is a real public surface a stranger can read without an account. And the waiting list becomes its own decision rather than a leftover, because waitlist_signup records an address and a timestamp and nothing about what was agreed, so it either becomes a named newsletter opt-in with consent recorded at the moment it is given, or it is retired: what it cannot do is quietly become a marketing list, since the people on it asked to be told when Canonry launched.' },
+
+  /* Round nine: the propagation cap was a hardcoded ~10 in SPEC.md with no arithmetic
+     behind it. No drawn options, like J1/K1/L1/M1, so this points straight at
+     DECISIONS.md rather than an artifact. */
+  { s: 'Round nine', id: 'N1', f: 'DECISIONS.md', t: 'The propagation cap becomes a per-universe setting',
+    q: 'SPEC 5.1\'s cap was a hardcoded ~10 with no arithmetic behind it - does it become a per-universe setting, and what happens at its edges: no limit, and a GM who already said a plan was "too much"?',
+    w: 'now', i: [50, 56], dt: '2026-08-19',
+    d: 'A', dn: 'A per-universe setting, 25 by default, with an explicit no-limit option',
+    dnote: 'universe.propagation_cap is a nullable integer rather than a sentinel: 0 collides with the state effectiveCap\'s own floor already refuses to produce, and a very large number lies about what "no limit" means the moment somebody reads the column, so null is the only value that means the same thing everywhere it is read. 25 is not a guess: propagate.plan costs 1 credit and propagate.diff costs 1 credit per surviving candidate (migration 0004), so a cap of 25 bounds one save\'s worst case at 26 credits, 0.52% of the included tier\'s 5,000 credits per period - generous enough that a real two-hop neighbourhood rarely gets truncated, still a real ceiling. The old 10 bounded the same worst case at 11 credits, 0.22% of a period, conservative enough that nobody had ever checked it against anything. effectiveCap keeps tightening a numeric cap by one per recent "too much", floored at 3, but a null cap has nothing to tighten and the floor never resurrects a limit the GM explicitly turned off - effectiveCap(null, ...) returns null, not 3. proposal_plan.candidate_cap drops its NOT NULL for the same reason: it records the cap actually in effect when a plan was written, and a plan written with no limit has to be able to say so.' },
 ];
 
 const KEY = (id) => `canonry.ux.${id}`;

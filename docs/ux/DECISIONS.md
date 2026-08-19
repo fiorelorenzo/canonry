@@ -16,15 +16,14 @@ waits for a human, however it is grouped on screen. `AGENTS.md` carries the same
 wording in short form. G6 itself, whether that bucket is informational or reviewable,
 is still open.
 
-**Eight rounds, 65 answers.** Round one, 38, and round two, the 11 questions those answers
+**Nine rounds, 66 answers.** Round one, 38, and round two, the 11 questions those answers
 opened, were both taken on 2026-08-13; round three's 2 on 2026-08-14; round four's 10 and
 round five's 1, both on 2026-08-15; round six's 1 and round seven's 1 on 2026-08-16; round
-eight's 1 on 2026-08-19. Rounds one
-to three answered
+eight's 1 and round nine's 1, both on 2026-08-19. Rounds one to three answered
 questions asked before there was code. Round four came out of the shipped UI and is recorded
 further down in this file, with its audit in [`product-pass.html`](product-pass.html). Rounds
-five to eight have no separate audit artifact: each is one question forced by something the
-shipped product already did, not a page of drawn options, and all four are recorded at the
+five to nine have no separate audit artifact: each is one question forced by something the
+shipped product already did, not a page of drawn options, and all five are recorded at the
 bottom of this file.
 
 To change a decision: edit this file and the `UX_REGISTER` entry in
@@ -608,3 +607,58 @@ selling than when you are explaining.
 
 Tracked as `canonry-landing#9`, with `canonry-landing#8` for the consent record, and gated on
 #151 and #154 in this repository.
+
+## Round nine, decided 2026-08-19
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| N1 | The propagation cap was a hardcoded ~10 with no arithmetic behind it. Does it become a per-universe setting, and what happens at the edges - no limit, and a GM who already said a plan was "too much"? | **A per-universe setting, 25 by default, with an explicit no-limit option.** Null means no limit, a real value rather than a sentinel, and the reject signal's floor of 3 never applies once the limit is off |
+
+**The old number was a guess, and I could tell because nobody could point at the
+arithmetic behind it.** SPEC 5.1 has said "~10 entries per plan" since the first draft,
+cited only to the suggestion-fatigue research (`07`), which argues for *some* ceiling
+and says nothing about which one. The right number depends on how connected a world is
+and how much a GM wants to review in one sitting, which is what a setting is for rather
+than a constant every universe inherits whether it fits or not.
+
+**Nullable, not a sentinel.** `universe.propagation_cap` is a nullable integer: null
+means no limit. I considered 0 and a very large number first, and both are worse. 0
+collides with "cap the plan at nothing", a state `effectiveCap`'s own floor already
+refuses to produce, so 0 could never safely mean two different things at once. A very
+large number is a lie the moment somebody reads the column and asks what it means, and
+it leaks into `planPropagation`'s `ranked.slice(0, cap)` as a real slice bound that
+happens to never bind, rather than no slice at all - a distinction that matters the day
+a candidate pool legitimately grows past whatever number was chosen as "basically
+infinite". Null costs one extra branch everywhere the cap is read and buys a real value
+for "no limit" that means the same thing in the column, in `effectiveCap`, in the
+stored plan's own `candidate_cap`, and on screen.
+
+**25, from what a plan actually costs.** `propagate.plan` is 1 credit, `propagate.diff`
+is 1 credit per surviving candidate (migration 0004), so a plan is really a statement
+about how many diffs the GM is agreeing to pay for if they generate all of them: a cap
+of 25 bounds one save's worst case at 26 credits. Against the included tier's 5,000
+credits per period (`packages/db/src/queries/subscriptions.ts`), that is 0.52% of a
+period for the single largest plan one save could produce - generous enough that a
+well-connected entity's real two-hop neighbourhood rarely gets truncated, and still a
+real ceiling rather than a number nobody will ever hit. The old 10 bounded the same
+worst case at 11 credits, 0.22% of a period: conservative enough that it was never
+checked against anything, which is what made it a guess rather than a decision.
+
+**The reject signal's floor stops applying when there is no cap.** `effectiveCap`
+tightens the cap by one for each recent "too much", down to a floor of 3, so a plan
+gets smaller as a GM says the copilot is too noisy but never disappears entirely. That
+floor is a floor on tightening a real cap, not a minimum plan size the product owes
+every GM regardless of what they asked for: a GM who explicitly turned the limit off
+does not silently get three candidates back because they also rejected a few plans as
+"too much" in the past. `effectiveCap(null, ...)` returns null, and `planPropagation`
+reads that as no truncation at all, never a fallback number.
+
+**What it costs.** The GM now sees a control that previously was not a control at all,
+so a wrong number becomes a support conversation instead of a line in `SPEC.md`
+somebody edits. `proposal_plan.candidate_cap` drops its `NOT NULL` for the same reason
+`universe.propagation_cap` is nullable: it records the cap that was actually in effect
+when a plan was written, and a plan written with no limit has to be able to say so
+rather than lying with a number. `PlanChecklist.svelte`'s "3 of 3 kept, cap 10" becomes
+"3 of 3 kept, no cap" rather than "cap null" when the setting is off.
+
+Touches #50 and #56, and the migration is `packages/db/migrations/0038_special_enchantress.sql`.

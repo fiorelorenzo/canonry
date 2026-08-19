@@ -105,3 +105,37 @@ export const NO_CANON_EVIDENCE_NOTE: Record<Locale, string> = {
 	en: 'Drafted from your own instruction, not from existing canon.',
 	it: 'Redatto dalla tua istruzione, non dal canone esistente.'
 };
+
+/** issue #263: `job-runner.ts`'s per-proposal `rationale` (the sentence a proposal card
+ * shows by default, `packages/import`'s own analogue of `writePlanRationale`'s output) -
+ * generated deterministically, no model call, same reasoning as `EMPTY_PLAN_SUMMARY`
+ * above for why that still needs a locale. `proposal.locale` records which one this was
+ * written in, exactly like every other row this package writes speech into. */
+export const IMPORT_RATIONALE_EXTRACTED: Record<Locale, (path: string) => string> = {
+	en: (path) => `Extracted from "${path}" as a new entity.`,
+	it: (path) => `Estratto da "${path}" come nuova voce.`
+};
+
+/** The `create` candidate's rationale when the match is ambiguous rather than clean -
+ * `job-runner.ts`'s `ask` outcome, `count` existing entities the GM has to choose
+ * between. */
+export const IMPORT_RATIONALE_AMBIGUOUS: Record<Locale, (path: string, count: number) => string> = {
+	en: (path, count) =>
+		`Extracted from "${path}" - ambiguous match against ${count} existing entities, needs a human decision.`,
+	it: (path, count) =>
+		`Estratto da "${path}": corrispondenza ambigua con ${count} ${count === 1 ? 'voce esistente' : 'voci esistenti'}, serve una decisione umana.`
+};
+
+/** The `update` candidate's rationale - a re-import that matched an entity already in
+ * the universe. */
+export const IMPORT_RATIONALE_MATCHED: Record<Locale, (path: string) => string> = {
+	en: (path) => `Re-imported from "${path}" - matched an existing entity.`,
+	it: (path) => `Reimportato da "${path}": corrisponde a una voce già esistente.`
+};
+
+/** A relation proposal's rationale - always a re-import in the sense that the relation
+ * itself carries no "new vs matched" distinction the way an entity does. */
+export const IMPORT_RATIONALE_RELATION: Record<Locale, (path: string) => string> = {
+	en: (path) => `Re-imported from "${path}".`,
+	it: (path) => `Reimportato da "${path}".`
+};

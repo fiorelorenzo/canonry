@@ -29,50 +29,73 @@ landed in this same branch to get there and a fourth is still open (#273), so th
 Obsidian archive for the run and the OneNote archive to show detection. The "Import" beat
 below says which numbers to trust.
 
-## Before the day
+## Where the demo runs
 
-Two dependencies, both shared machine-wide and both already running most of the time:
+**On preview, `https://preview.canonry.io`.** It is the rehearsal stack for exactly this, it
+runs whatever is green on `main`, and it already carries every credential the beats need: the
+gateway, Replicate, ElevenLabs and Resend. `STAFF_EMAILS` there is `fiorelorenzo.fl@gmail.com`,
+so `/admin/metrics` and `/admin/models` open for that account and nobody else.
+
+Check what it is running before you trust it, because a deploy takes a few minutes after a
+merge and the version is the honest answer:
+
+```bash
+curl -s https://preview.canonry.io/healthz | jq .
+# {"status":"ok","version":"v0.8.0-3-g1eebef2","commit":"1eebef2...","db":true,"qdrant":true}
+```
+
+Three things about that account, all verified on 2026-08-19:
+
+- It signs in with **email and password only.** `GOOGLE_CLIENT_ID` and `GITHUB_CLIENT_ID` are
+  present in preview's secrets but empty, so the sign-in page offers no Google button, which
+  is the code behaving correctly rather than a fault. A gmail address is not a Google login
+  here.
+- **Password reset now works, and did not until today.** `RESEND_API_KEY` and `MAIL_FROM` were
+  never passed to the deployed web container, so the reset endpoint answered "check your email"
+  while the send threw in the background. Fixed, with a CI guard so it cannot come back
+  quietly. If you need the password, use Forgot password on preview and it will arrive from
+  `noreply@canonry.io`. The response still lies when a send genuinely fails, which is #277.
+- **Valdoria Reach is seeded there and owned by that account**: 14 entries, plus an empty
+  Forgotten Realms and Sword Coast (ours) derived from it, the same fixture the local runbook
+  uses. Preview had no universes at all before this.
+
+The account is on the free plan: 200 credits, 50 of warm budget. A full run through the beats
+below spends roughly 45, so two runs fit and a third is tight once images are involved. Check
+what is left in the shell at the bottom of the sidebar before you start, and if a rehearsal
+has eaten the balance, rehearse locally instead and keep preview for the real thing.
+
+## Rehearsing locally
+
+Use this to practise, so preview's credits stay for the day itself.
 
 ```bash
 cd /home/dev/.paseo/worktrees/17xput9h/puny-fox
 pnpm db:up                       # Postgres 127.0.0.1:55432, Qdrant 127.0.0.1:56333
-```
 
-The demo runs against its own database, `canonry_demo`, never the shared `canonry` dev
-database, because another session's `apps/web` tests write to that one.
-
-Start the app on a port nobody else is using, and pass `STAFF_EMAILS` in the environment:
-
-```bash
 STAFF_EMAILS=lorenzo@canonry.invalid \
 DATABASE_URL=postgres://canonry:canonry@127.0.0.1:55432/canonry_demo \
 pnpm --filter web dev --port 5196 --host 127.0.0.1 --strictPort
+
+scripts/demo-reset.sh            # about ten seconds, and a fresh 200 credits
 ```
 
-`STAFF_EMAILS` has to be exported rather than only written into `.env`: in `pnpm dev` the
-value in the file is ignored and `/admin/**` answers 404, which is indistinguishable from
-the gate working (#265). `DATABASE_URL` from `.env` is honoured, but passing it here too
-costs nothing and removes the question.
+The local demo runs against its own database, `canonry_demo`, never the shared `canonry` dev
+database, because another session's `apps/web` tests write to that one. `scripts/demo-reset.sh`
+drops and recreates it, migrates, seeds, creates the account through the app's real sign-up
+endpoint and gives it ownership. It refuses any database whose name does not end in `_demo`.
+Dropping the database takes the dev server down with it, which is expected: the script waits
+for it to come back, so run it under a supervisor or restart it in another window. Sign in at
+`http://127.0.0.1:5196/auth/sign-in` as `lorenzo@canonry.invalid`, password
+`canonry-demo-2026`.
 
-Then reset to a known state:
+`STAFF_EMAILS` has to be exported locally rather than only written into `.env`: under
+`pnpm dev` the value in the file is ignored and `/admin/**` answers 404, which is
+indistinguishable from the gate working (#265). Preview does not have this problem.
 
-```bash
-scripts/demo-reset.sh            # about ten seconds
-```
-
-That drops and recreates `canonry_demo`, migrates, seeds Valdoria Reach, creates the demo
-account through the app's real sign-up endpoint, and gives it ownership of the seeded
-universes. It refuses to run against any database whose name does not end in `_demo`.
-Dropping the database takes the dev server down with it, which is expected: the script
-waits for it to come back, so run it under a supervisor or restart it in another window.
-
-Sign in at `http://127.0.0.1:5196/auth/sign-in` as `lorenzo@canonry.invalid`, password
-`canonry-demo-2026`. You land on three universes: Valdoria Reach with 14 entries, an empty
-Forgotten Realms, and Sword Coast (ours) derived from it.
-
-**Walk every screen once before the audience arrives.** The first request to any route in
-dev compiles it, and that took 8.3 seconds on a cold server. Every subsequent visit is
-under a second.
+**Walk every screen once before the audience arrives**, on whichever environment you are
+using. Locally the first request to a route compiles it and that took 8.3 seconds cold.
+Preview serves a built image, so it is fast from the first click, but a cold container still
+pays for its first database connection.
 
 ## Traps worth knowing
 

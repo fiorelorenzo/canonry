@@ -40,6 +40,7 @@ import {
 	acceptImportProposal,
 	admitAndCreateImportJob,
 	ImportJobRunner,
+	parseOutcomeNote,
 	type RunImportJobParams
 } from './job-runner.js';
 import type { SimilarityFn } from './matching.js';
@@ -285,7 +286,12 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 
 		const jobAfterFirst = await getImportJob(db, admission.jobId);
 		expect(jobAfterFirst.status).toBe('finished');
-		expect(jobAfterFirst.outcomeNote).toBe('1 document(s) processed, 1 proposal(s) emitted');
+		expect(parseOutcomeNote(jobAfterFirst.outcomeNote)).toEqual({
+			v: 1,
+			kind: 'finished',
+			documents: 1,
+			proposals: 1
+		});
 
 		// Simulate the GM reviewing and accepting the proposal - this is what actually
 		// creates the entity and its entity_source_ref (SPEC.md §6.4 step 1 only ever
@@ -350,6 +356,68 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		]);
 		// The model was never even called for the second job.
 		expect(model2.doGenerateCalls).toHaveLength(0);
+	});
+
+	it("routes a proposal's rationale through the reader's locale (issue #263) - stored on proposal.locale too", async () => {
+		await priceFixture();
+		const { userId, universeId } = await userAndUniverse();
+		const playbook = await loadBuiltinPlaybook('generic');
+		const sources = new InMemorySourceReader({
+			files: { 'notes/millbrook.md': 'Millbrook is a quiet river town.' }
+		});
+
+		const admission = await admitAndCreateImportJob(db, {
+			universeId,
+			createdBy: userId,
+			sourceType: 'obsidian',
+			playbook: playbook.id,
+			playbookVersion: playbook.version,
+			artefactPath: 's3://fixtures/millbrook.zip',
+			artefactBytes: 100,
+			artefactSha256: 'y'.repeat(64),
+			documentCount: 1,
+			budgetCredits: 1000,
+			estimate: { documentCount: 1, estimatedMinutes: 1, estimatedCredits: 10 },
+			concurrencyLimit: 5
+		});
+		expect(admission.admitted).toBe(true);
+
+		const model = scriptedModel([
+			toolCallStep([{ id: 'r1', name: 'source_read', input: { path: 'notes/millbrook.md' } }]),
+			entityStep('r2', 'e1', 'Millbrook', 'doc-1'),
+			finishStep('r3')
+		]);
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+		const runner = new ImportJobRunner();
+		await runner.run({
+			db,
+			driver,
+			dbJobId: admission.jobId,
+			universeId,
+			sourceSystem: 'obsidian',
+			userId,
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes/millbrook.md' }],
+			sources,
+			images: new InMemoryImageStore(),
+			budget: { maxCredits: 1000 },
+			similarity: () => 0,
+			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
+			timeoutMs: 30_000,
+			locale: 'it'
+		});
+
+		const [row] = await db
+			.select()
+			.from(proposalTable)
+			.where(eq(proposalTable.universeId, universeId));
+		if (!row) throw new Error('expected one proposal');
+		expect(row.rationale).toBe('Estratto da "notes/millbrook.md" come nuova voce.');
+		expect(row.locale).toBe('it');
 	});
 
 	it('writes one model_call row per model call, agent import, and points the document charge at one of them without charging twice (issue #133)', async () => {
@@ -555,10 +623,11 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 		// (gateway-driver.ts's outer loop budget check, before runDocument), named rather
 		// than silently dropped - "prefer naming the first and saying how many others"
 		// (issue #177).
-		expect(jobAfterCeiling.outcomeNote).toBe(
-			"notes/a.md: this step's worst case would not fit this job's remaining credit budget " +
-				'(and 1 other document(s) that did not finish cleanly)'
-		);
+		expect(parseOutcomeNote(jobAfterCeiling.outcomeNote)).toEqual({
+			v: 1,
+			kind: 'offender',
+			offender: { path: 'notes/a.md', reason: 'step_worst_case_exceeds_budget', othersCount: 1 }
+		});
 
 		// Resume: same job id, a real budget this time. Neither document reached
 		// `finished` in the first run, so both are still in `documentsToRun` - document A
@@ -668,7 +737,11 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 
 		const jobRow = await getImportJob(db, admission.jobId);
 		expect(jobRow.status).toBe('cancelled');
-		expect(jobRow.outcomeNote).toBe('notes/c.md: cancelled before this step started');
+		expect(parseOutcomeNote(jobRow.outcomeNote)).toEqual({
+			v: 1,
+			kind: 'offender',
+			offender: { path: 'notes/c.md', reason: 'cancelled_before_step', othersCount: 0 }
+		});
 	});
 
 	it('names the document and its detail in outcome_note when a document hits its own step ceiling (issue #177)', async () => {
@@ -752,7 +825,11 @@ One document.
 		expect(model.doGenerateCalls).toHaveLength(2);
 
 		const jobRow = await getImportJob(db, admission.jobId);
-		expect(jobRow.outcomeNote).toBe("notes/d.md: this document's step ceiling was reached");
+		expect(parseOutcomeNote(jobRow.outcomeNote)).toEqual({
+			v: 1,
+			kind: 'offender',
+			offender: { path: 'notes/d.md', reason: 'step_ceiling', othersCount: 0 }
+		});
 	});
 
 	it('names the document and its detail in outcome_note when a document is ended for looping (issue #169)', async () => {
@@ -842,10 +919,17 @@ One document.
 		expect(calls).toBe(4);
 
 		const jobRow = await getImportJob(db, admission.jobId);
-		expect(jobRow.outcomeNote).toBe(
-			'notes/e.md: stuck in a loop: source_list was called with identical arguments 4 times in a row, ' +
-				'so this document was ended rather than run to its step ceiling'
-		);
+		expect(parseOutcomeNote(jobRow.outcomeNote)).toEqual({
+			v: 1,
+			kind: 'offender',
+			offender: {
+				path: 'notes/e.md',
+				reason: 'loop_guard',
+				othersCount: 0,
+				toolName: 'source_list',
+				loopCount: 4
+			}
+		});
 	});
 
 	it('names the document and its detail in outcome_note when a document fails (issue #134 truncated output)', async () => {
@@ -940,12 +1024,153 @@ One document.
 		});
 
 		expect(result.finalStatus).toBe('failed');
-		expect(model.doGenerateCalls).toHaveLength(1);
+		// issue #273: one original attempt plus STEP_PARSE_RETRY_LIMIT (3) retries, each
+		// asking for less and each a real, charged model call - this mock never varies, so
+		// every one of them fails the same way and the document only gives up once all
+		// four have run.
+		expect(model.doGenerateCalls).toHaveLength(4);
 
 		const jobRow = await getImportJob(db, admission.jobId);
-		expect(jobRow.outcomeNote).toBe(
-			'notes/f.md: every tool call in this step failed to parse, most likely truncated by the output limit'
-		);
+		expect(parseOutcomeNote(jobRow.outcomeNote)).toEqual({
+			v: 1,
+			kind: 'offender',
+			offender: { path: 'notes/f.md', reason: 'tool_calls_unparseable', othersCount: 0 }
+		});
+	});
+
+	it('retries a step whose tool calls are all invalid, lets the document finish once the retry succeeds, and writes one model_call row per attempt including the retry (issue #273)', async () => {
+		await priceFixture();
+		const { userId, universeId } = await userAndUniverse();
+		const playbook = loadPlaybook(`---
+id: fixture
+version: 1
+name: Fixture
+description: A playbook for the issue #273 retry-then-succeed test.
+stepBudget: 5
+---
+
+Propose one entity then finish.
+
+## Inputs
+
+One document.
+
+## Tools
+
+- \`entity_propose\` - propose an entity.
+- \`job_finish\` - close the run.
+
+## Steps
+
+1. Propose, then finish.
+
+   \`\`\`json
+   { "outcome": "completed" }
+   \`\`\`
+`);
+		const sources = new InMemorySourceReader({ files: { 'notes/h.md': 'irrelevant text' } });
+
+		const admission = await admitAndCreateImportJob(db, {
+			universeId,
+			createdBy: userId,
+			sourceType: 'obsidian',
+			playbook: playbook.id,
+			playbookVersion: playbook.version,
+			artefactPath: 's3://fixtures/one-doc.zip',
+			artefactBytes: 50,
+			artefactSha256: 'h'.repeat(64),
+			documentCount: 1,
+			budgetCredits: 1000,
+			estimate: { documentCount: 1, estimatedMinutes: 1, estimatedCredits: 10 },
+			concurrencyLimit: 5
+		});
+
+		// First attempt: every tool call fails to parse, same shape as the failing test
+		// above. Second attempt (the retry): a real, schema-valid entity_propose. Third:
+		// job_finish.
+		let calls = 0;
+		const model = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			doGenerate: async () => {
+				calls += 1;
+				if (calls === 1) {
+					return {
+						content: [
+							{
+								type: 'tool-call' as const,
+								toolCallId: 't1',
+								toolName: 'entity_propose',
+								input: '{"localId":"e1","type":"character","name":"Trunc'
+							}
+						],
+						finishReason: { unified: 'length' as const, raw: undefined },
+						usage: usage(10, 8192),
+						warnings: []
+					};
+				}
+				if (calls === 2) {
+					return entityStep('t2', 'e1', 'Entity Rescued By Retry', 'doc-h');
+				}
+				return toolCallStep([{ id: 't3', name: 'job_finish', input: { outcome: 'completed' } }]);
+			}
+		});
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+		const runner = new ImportJobRunner();
+
+		const result = await runner.run({
+			db,
+			driver,
+			dbJobId: admission.jobId,
+			universeId,
+			sourceSystem: 'obsidian',
+			userId,
+			playbook,
+			documents: [{ id: 'doc-h', sourcePath: 'notes/h.md' }],
+			sources,
+			images: new InMemoryImageStore(),
+			budget: { maxCredits: 1000 },
+			similarity: () => 0,
+			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
+			timeoutMs: 30_000
+		});
+
+		expect(result.finalStatus).toBe('finished');
+		expect(result.proposalsEmitted).toBe(1);
+		expect(model.doGenerateCalls).toHaveLength(3);
+
+		// issue #273: every attempt is a real model call - the failed one and the retry
+		// that rescued it both wrote their own model_call row, exactly like the ordinary
+		// third step did. None of them charged credits directly (the flat per-document
+		// price below is the only real spend), but every one priced a real cost.
+		const calls_ = await db
+			.select()
+			.from(modelCall)
+			.where(eq(modelCall.userId, userId))
+			.orderBy(asc(modelCall.createdAt));
+		expect(calls_).toHaveLength(3);
+		for (const row of calls_) {
+			expect(row.agent).toBe('import');
+			expect(row.credits).toBe(0);
+			expect(row.costEur).toBeGreaterThan(0);
+		}
+
+		// The document's proposal, from the retry that rescued the step, still landed and
+		// was still charged exactly once, the same as any clean run.
+		const proposalRows = await db
+			.select()
+			.from(proposalTable)
+			.where(eq(proposalTable.universeId, universeId));
+		expect(proposalRows).toHaveLength(1);
+		const transactions = await db
+			.select()
+			.from(creditTransaction)
+			.where(eq(creditTransaction.userId, userId));
+		expect(transactions.filter((t) => t.operation === 'import.document')).toHaveLength(1);
 	});
 
 	it('keeps the valid proposal, reaches the job as an event, and names the loss in outcome_note when a step is only partly truncated (issue #212)', async () => {
@@ -1077,10 +1302,13 @@ One document.
 
 		// What a GM reads: never a bare "finished" that reassures past a real loss.
 		const jobRow = await getImportJob(db, admission.jobId);
-		expect(jobRow.outcomeNote).toBe(
-			'1 document(s) processed, 1 proposal(s) emitted; notes/g.md lost 1 tool call(s) along the way, ' +
-				"most likely truncated by a step's output limit"
-		);
+		expect(parseOutcomeNote(jobRow.outcomeNote)).toEqual({
+			v: 1,
+			kind: 'finished',
+			documents: 1,
+			proposals: 1,
+			lossy: { path: 'notes/g.md', count: 1, othersCount: 0 }
+		});
 	});
 
 	it("carries each document's own detected language into the persisted proposal, and preserves the untranslated proper noun in the Italian summary (issue #126, SPEC.md §17)", async () => {

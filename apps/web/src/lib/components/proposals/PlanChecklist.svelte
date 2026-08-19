@@ -25,7 +25,7 @@
 	}: {
 		rows: ChecklistRow[];
 		estimatedCredits: number;
-		candidateCap: number;
+		candidateCap: number | null;
 		locale: Locale;
 	} = $props();
 

@@ -93,6 +93,7 @@ export {
 	normalizeForMatching,
 	nameOverlapScore,
 	preFilterCandidates,
+	MATCH_THRESHOLDS,
 	type MatchCandidate,
 	type MatchSubject,
 	type MatchDecision,
@@ -122,6 +123,7 @@ export {
 	acceptAnyImportProposal,
 	isRelationTypeProposalKind,
 	ImportQuotaExceededError,
+	parseOutcomeNote,
 	type ImportEstimate,
 	type EstimateImportJobInput,
 	type AdmitAndCreateImportJobInput,
@@ -130,7 +132,12 @@ export {
 	type RunImportJobParams,
 	type RunImportJobResult,
 	type DocumentOutcome,
-	type AcceptImportProposalInput
+	type AcceptImportProposalInput,
+	type OutcomeNotePayload,
+	type ParsedOutcomeNote,
+	type OutcomeNoteOffender,
+	type OutcomeNoteOffenderReason,
+	type OutcomeNoteLossy
 } from './job-runner.js';
 
 export {

@@ -74,6 +74,13 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       STAFF_EMAILS: ${STAFF_EMAILS}
+      # Issue #247's password reset and #250's account deletion both send mail, and both
+      # shipped without these two ever being added here, so on every deployed stack the
+      # reset endpoint answered 200 with "check your email" while the send threw
+      # MissingResendEnvError in the background. Found on preview on 2026-08-19 by asking
+      # for a reset and then reading the container log.
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      MAIL_FROM: ${MAIL_FROM}
       # Both default to `.data/` under the working directory, which in this image is `/app` and
       # is not writable under `USER canonry`: an import upload answered 500 with EACCES on
       # /app/.data, so imports could not run in production at all. They also have to persist,

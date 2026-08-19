@@ -48,6 +48,7 @@ import {
 	admitAndCreateImportJob,
 	lexicalTrigramSimilarity,
 	loadBuiltinPlaybook,
+	MATCH_THRESHOLDS,
 	type JobDocument
 } from '@canonry/import';
 import { createGatewayEmbedder } from '@canonry/indexing';
@@ -63,10 +64,6 @@ import { benchFixture, topUpCredits } from '../fixture.js';
 import { universeForSource } from './universe.js';
 import { archivePath, manifestPath, type CorpusManifest } from '../corpus/build.js';
 import { CHANGE_MANIFEST } from '../corpus/valdoria-reach.js';
-
-/** Matches `apps/web/src/lib/server/onboarding.ts`'s own thresholds, which is the point:
- * the "ask the user" band is a product decision and the bench must not widen it. */
-const MATCH_THRESHOLDS = { matchAbove: 0.85, newBelow: 0.5 };
 
 export interface SourceReport {
 	source: string;

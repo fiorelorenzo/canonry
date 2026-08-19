@@ -94,6 +94,28 @@ export interface MatchThresholds {
 	newBelow: number;
 }
 
+/** The product's current shipped default for `MatchThresholds`. `apps/web/src/lib/
+ * server/onboarding.ts`'s `startImportRun` passes this straight into `ImportJobRunner
+ * .run` for every real import job, so this is not a bench-only number - it is the band
+ * SPEC.md §6.4 describes ("above a high similarity it is a match, below a low one a new
+ * entity, in between the user is asked"), with real numbers in it.
+ *
+ * It is still a chosen value, not a measured one: SPEC.md §16's open decision #3 says
+ * matching thresholds stay open "until the benchmark exists, which is the point: they
+ * are measured, not chosen", and `matching-benchmark.ts` is that benchmark - built, but
+ * nothing wires its sweep back into this constant yet, and no labelled corpus run has
+ * produced a number to replace this one with. 0.85/0.5 leaves a wide ask band on
+ * purpose, the same asymmetry `packages/copilot/src/relation-types.ts`'s
+ * `SEMANTIC_REUSE_THRESHOLD` reasons about for the sibling relation-type decision: a
+ * false "new" costs the GM one merge, a false "match" silently folds two entities into
+ * one.
+ *
+ * Exported once, here, so `onboarding.ts` and `packages/bench`'s end-to-end harness
+ * import the same binding instead of each hand-copying the literal - the shape issue
+ * #272 named for the budget constants: a private copy has no way to notice when the
+ * value it is supposed to mirror changes. */
+export const MATCH_THRESHOLDS: MatchThresholds = { matchAbove: 0.85, newBelow: 0.5 };
+
 export type SimilarityFn = (
 	subject: MatchSubject,
 	candidate: MatchCandidate

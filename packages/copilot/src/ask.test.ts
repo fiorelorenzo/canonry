@@ -192,6 +192,86 @@ function toolCallThenTextModel(input: {
 	}) as unknown as LanguageModel;
 }
 
+/** Two creates, each failing its first drafting attempt and succeeding on a model-driven
+ * retry - five steps total (propose-fail, propose-retry-ok, per entity, then closing
+ * text), one more than the old `stepCountIs(4)` cap could ever reach. `doStream` scripts
+ * `runAsk`'s own outer tool-call loop; `doGenerate` scripts the nested `generateObject`
+ * call each `entry_propose` execution makes inside `ask-propose.ts`, throwing on the
+ * first attempt for each entity (the same failure shape `toolCallThenTextModel` exercises
+ * above) and returning a valid draft on the second. */
+function twoCreatesWithRetriesModel(): LanguageModel {
+	let step = 0;
+	let draftCall = 0;
+	const toolStep = (toolCallId: string, name: string) => ({
+		stream: new ReadableStream({
+			start(controller) {
+				controller.enqueue({ type: 'stream-start', warnings: [] });
+				controller.enqueue({
+					type: 'tool-call',
+					toolCallId,
+					toolName: 'entry_propose',
+					input: JSON.stringify({ name, instruction: `Make a card for ${name}.` })
+				});
+				controller.enqueue({
+					type: 'finish',
+					finishReason: { unified: 'tool-calls', raw: undefined },
+					usage: usage(80, 20)
+				});
+				controller.close();
+			}
+		})
+	});
+	return new MockLanguageModelV4({
+		provider: 'test',
+		modelId: 'test-premium',
+		doStream: async () => {
+			step += 1;
+			if (step === 1 || step === 2) return toolStep(`t${step}`, 'Blacksmith');
+			if (step === 3 || step === 4) return toolStep(`t${step}`, 'Herbalist');
+			const text = 'Proposed a blacksmith and a herbalist, both pending review.';
+			return {
+				stream: new ReadableStream({
+					start(controller) {
+						controller.enqueue({ type: 'stream-start', warnings: [] });
+						controller.enqueue({ type: 'text-start', id: '5' });
+						controller.enqueue({ type: 'text-delta', id: '5', delta: text });
+						controller.enqueue({ type: 'text-end', id: '5' });
+						controller.enqueue({
+							type: 'finish',
+							finishReason: { unified: 'stop', raw: undefined },
+							usage: usage(100, 40)
+						});
+						controller.close();
+					}
+				})
+			};
+		},
+		doGenerate: async () => {
+			draftCall += 1;
+			if (draftCall % 2 === 1) throw new Error('synthetic drafting failure');
+			const name = draftCall <= 2 ? 'Blacksmith' : 'Herbalist';
+			return {
+				content: [
+					{
+						type: 'text',
+						text: JSON.stringify({
+							type: 'character',
+							name,
+							aliases: [],
+							body: `${name} works the trade quietly and well.`,
+							summary: `A ${name.toLowerCase()} drafted from the GM's instruction.`,
+							usedSources: []
+						})
+					}
+				],
+				finishReason: { unified: 'stop', raw: undefined },
+				usage: usage(60, 20),
+				warnings: []
+			};
+		}
+	}) as unknown as LanguageModel;
+}
+
 const IDENTITY_GATEWAY: GatewayWrapper = (model) => model;
 
 function modelFactoryFor(model: LanguageModel): ModelFactory {
@@ -567,5 +647,138 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 			.from(proposal)
 			.where(eq(proposal.universeId, universe.id));
 		expect(tableProposals.filter((p) => p.trigger === 'table')).toHaveLength(0);
+	});
+
+	it("SPEC.md §7/guardrail 3 (issue #270): more than three relevant entities all cite, not just OWN_CANON_LIMIT's old cap of three", async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, {
+			ownerUserId: owner.id,
+			name: 'Watch Reach'
+		});
+		// Five entities, each sharing several words with the question below, so layer 1's
+		// Jaccard search scores all five above zero - the fixture the demo question ("why
+		// was Aldric Vane dismissed, and who put him back?") actually hit, generalised to
+		// more than OWN_CANON_LIMIT's old value of 3 so the assertion below is meaningful.
+		await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Aldric Vane',
+			body: 'Dismissed from the watch after the Sable Winter, he now answers to the Ashen Ledger.'
+		});
+		await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Bryn Oswald',
+			body: 'Bryn Oswald commands the watch now, having replaced Aldric Vane after his dismissal.'
+		});
+		await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Corwin Ashe',
+			body: 'Corwin Ashe once served the watch and was dismissed alongside Aldric Vane.'
+		});
+		await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Dessa Marlow',
+			body: 'Dessa Marlow now oversees who commands the city watch.'
+		});
+		await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Elyan Voss',
+			body: 'Elyan Voss was dismissed from the watch long before Aldric Vane arrived.'
+		});
+		await db
+			.update(universeTable)
+			.set({ aiEnabled: false })
+			.where(eq(universeTable.id, universe.id));
+
+		const result = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Why was Aldric Vane dismissed from the watch, and who commands it now?',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(streamingModel('should never be called')),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		const ownCanonSources = result.sources.filter((s) => s.kind === 'own_canon');
+		expect(ownCanonSources.length).toBeGreaterThan(3);
+	});
+
+	it('issue #270 follow-up: more than three relevant entities produce more than two follow-ups', async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, {
+			ownerUserId: owner.id,
+			name: 'Watch Reach Two'
+		});
+		await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Aldric Vane',
+			body: 'Dismissed from the watch after the Sable Winter, he now answers to the Ashen Ledger.'
+		});
+		await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Bryn Oswald',
+			body: 'Bryn Oswald commands the watch now, having replaced Aldric Vane after his dismissal.'
+		});
+		await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Corwin Ashe',
+			body: 'Corwin Ashe once served the watch and was dismissed alongside Aldric Vane.'
+		});
+		await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Dessa Marlow',
+			body: 'Dessa Marlow now oversees who commands the city watch.'
+		});
+		await db
+			.update(universeTable)
+			.set({ aiEnabled: false })
+			.where(eq(universeTable.id, universe.id));
+
+		const result = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Why was Aldric Vane dismissed from the watch, and who commands it now?',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(streamingModel('should never be called')),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		expect(result.followUps.length).toBeGreaterThan(2);
+	});
+
+	it('stepCountIs(6): two proposals, each needing a model-driven retry after a failed drafting call, both still land - five steps, one more than the old cap of four could reach', async () => {
+		const { owner, universe } = await fixture();
+		const proposalEvents: unknown[] = [];
+
+		const result = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Create a card for a blacksmith and one for a herbalist.',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(twoCreatesWithRetriesModel()),
+			gateway: IDENTITY_GATEWAY,
+			onProposal: (p) => proposalEvents.push(p)
+		});
+
+		// Both entities made it through despite each needing a retry - four tool-call
+		// steps plus the closing text step the old cap of 4 had no room left for.
+		expect(result.proposals).toHaveLength(2);
+		expect(proposalEvents).toHaveLength(2);
+		expect(result.proposals.map((p) => p.entityName).sort()).toEqual(['Blacksmith', 'Herbalist']);
+		// The closing text step actually ran and reached the GM - the failure mode this
+		// cap exists to avoid is the loop stopping on step 4 (a tool-call step) with
+		// proposals written but nothing ever said about them.
+		expect(result.answer).toBe('Proposed a blacksmith and a herbalist, both pending review.');
 	});
 });

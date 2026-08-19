@@ -18,6 +18,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
+	import { renderOutcomeNote } from '$lib/import/outcome-note';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
 	import ProposalQueue from '$lib/components/proposals/ProposalQueue.svelte';
@@ -43,13 +44,14 @@
 	);
 	let activeLabel = $derived(data.buckets.find((b) => b.type === selectedType)?.label ?? null);
 
+	let renderedOutcomeNote = $derived(renderOutcomeNote(data.locale, data.job.outcomeNote));
 	let issueNote = $derived(
 		data.job.status === 'stopped_at_ceiling'
-			? t.statusNote.stoppedAtCeiling(data.job.outcomeNote || null)
+			? t.statusNote.stoppedAtCeiling(renderedOutcomeNote)
 			: data.job.status === 'cancelled'
-				? t.statusNote.cancelled(data.job.outcomeNote || null)
+				? t.statusNote.cancelled(renderedOutcomeNote)
 				: data.job.status === 'failed'
-					? t.statusNote.failed(data.job.outcomeNote || null)
+					? t.statusNote.failed(renderedOutcomeNote)
 					: null
 	);
 

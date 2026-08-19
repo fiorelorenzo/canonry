@@ -285,7 +285,7 @@
 				</button>
 			{/each}
 		</div>
-		<div class="mt-2 flex gap-2">
+		<div class="mt-2 flex flex-wrap gap-2">
 			<Button
 				type="button"
 				size="sm"

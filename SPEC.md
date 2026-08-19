@@ -200,9 +200,15 @@ On save (debounced), in the background:
 5. **Accept, per entry.** Rejection asks for a one-word reason, which is training
    signal for the ranking, not a survey.
 
-**Cap: ~10 entries per plan**, ordered by relevance. Without a ceiling the copilot
-becomes noise, and suggestion fatigue is the documented way copilots lose their
-users (`07`).
+**Cap: a per-universe setting (`universe.propagation_cap`), 25 by default, with an
+explicit no-limit option.** A plan is truncated to that many ranked entries; null
+means every candidate reaches the plan untouched. The default is a real number, not
+"unlimited", because without a ceiling the copilot becomes noise, and suggestion
+fatigue is the documented way copilots lose their users (`07`) - that risk does not
+go away just because the number moved into a settings page. The setting exists
+because the right ceiling is a function of how connected a world is and how much a
+GM wants to read in one sitting, not a constant this file can pick once for every
+universe; a GM who wants everything can ask for it explicitly.
 
 **Model routing is a requirement, not an optimisation**: a cheap model finds and
 ranks candidates, a premium model writes the diffs. That is the difference between

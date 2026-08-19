@@ -246,3 +246,13 @@ jobs:
       # and no real stack, unlike the deploy job itself.
       - name: Run the deploy script tests
         run: scripts/deploy/test-release-supersede.sh
+
+      # Every credential .env.example documents has to reach the deployed web container.
+      # #247's password reset and #250's account deletion both shipped unable to send a
+      # single mail on any stack, because compose.deploy.yml enumerates the web service's
+      # environment and nobody added RESEND_API_KEY or MAIL_FROM to that list. Nothing in
+      # CI could see it: the unit tests inject their own environment, and the docker-boot
+      # job checks that surfaces render rather than that a background job can do its work.
+      # Compares two lists of names, so it needs no docker, no secrets and no network.
+      - name: Check the deployed environment carries what .env.example promises
+        run: scripts/deploy/test-deploy-env.sh

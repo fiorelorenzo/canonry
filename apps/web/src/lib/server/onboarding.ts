@@ -38,6 +38,7 @@ import {
 	InMemoryImageStore,
 	lexicalTrigramSimilarity,
 	loadBuiltinPlaybook,
+	MATCH_THRESHOLDS,
 	type AcceptImportProposalInput,
 	type EntityProposalPayload,
 	type GatewayWrapper,
@@ -54,7 +55,8 @@ import {
 } from '@canonry/import';
 import { hashingEmbedder } from '@canonry/indexing';
 import { createLanguageModel, readGatewayCredentials, resolveModel } from '@canonry/ai';
-import { detectLanguage } from '@canonry/lang';
+import { detectLanguage, type Locale } from '@canonry/lang';
+import type { DetectedDetail } from '$lib/i18n';
 import { eq, type Db } from '@canonry/db';
 import { importJob, proposal, proposalPlan, universe } from '@canonry/db/schema';
 import type { EntityType, ProposalKind } from '@canonry/db/schema';
@@ -247,7 +249,7 @@ export const FAKE_DRIVER_SUPPORTED_PLAYBOOKS: ReadonlySet<KnownPlaybookId> = new
 export interface DetectedSource {
 	playbookId: KnownPlaybookId;
 	confident: boolean;
-	detail: string;
+	detail: DetectedDetail;
 }
 
 async function walkAllPaths(reader: SourceReader, prefix = ''): Promise<string[]> {
@@ -292,7 +294,7 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 		return {
 			playbookId: 'obsidian',
 			confident: true,
-			detail: `${notes} note(s), .obsidian folder found`
+			detail: { kind: 'obsidian', notes }
 		};
 	}
 
@@ -301,7 +303,7 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 		return {
 			playbookId: 'kanka',
 			confident: true,
-			detail: `${jsonPaths.length} JSON file(s), entity_type field found`
+			detail: { kind: 'kanka', jsonFiles: jsonPaths.length }
 		};
 	}
 
@@ -311,7 +313,7 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 		return {
 			playbookId: 'world-anvil',
 			confident: true,
-			detail: 'json/ and html/ folders found, matching a Full World Export'
+			detail: { kind: 'world-anvil' }
 		};
 	}
 
@@ -330,7 +332,7 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 			return {
 				playbookId: 'onenote',
 				confident: true,
-				detail: `${htmlPaths.length} exported page(s), sibling _files/ folder(s) found`
+				detail: { kind: 'onenote', pages: htmlPaths.length }
 			};
 		}
 	}
@@ -340,21 +342,21 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 		return {
 			playbookId: 'obsidian',
 			confident: false,
-			detail: `${mdPaths.length} Markdown file(s), no .obsidian folder found`
+			detail: { kind: 'obsidian-unsure', markdownFiles: mdPaths.length }
 		};
 	}
 
 	if (paths.length === 1 && paths[0]!.toLowerCase().endsWith('.pdf')) {
-		return { playbookId: 'pdf', confident: true, detail: 'one PDF file' };
+		return { playbookId: 'pdf', confident: true, detail: { kind: 'pdf' } };
 	}
 	if (paths.length === 1 && paths[0]!.toLowerCase().endsWith('.docx')) {
-		return { playbookId: 'docx', confident: true, detail: 'one DOCX file' };
+		return { playbookId: 'docx', confident: true, detail: { kind: 'docx' } };
 	}
 
 	return {
 		playbookId: 'generic',
 		confident: false,
-		detail: `${paths.length} file(s), no known export schema`
+		detail: { kind: 'generic', files: paths.length }
 	};
 }
 
@@ -488,7 +490,12 @@ export function resolveImportDriver(database: Db): { driver: ImportDriver; isFak
  * the driver one above rather than the same env-var check. */
 export const importMatchSimilarity = lexicalTrigramSimilarity;
 
-export const MATCH_THRESHOLDS = { matchAbove: 0.85, newBelow: 0.5 };
+/** The literal used to live here, hand-copied into `packages/bench/src/e2e/import.ts`
+ * too - the exact shape issue #272 flagged for the budget constants, a private copy
+ * with no way to notice a drift. `@canonry/import`'s `matching.ts` now owns the one
+ * value; this just re-exports it so `./onboarding.js`'s existing importers (this
+ * file's own tests) keep working under the same name. */
+export { MATCH_THRESHOLDS };
 
 // ---------------------------------------------------------------------------------------
 // DeterministicExtractionDriver: implements packages/import's ImportDriver directly - the
@@ -914,6 +921,7 @@ export interface StartImportRunInput {
 	documents: JobDocument[];
 	artefactPath: string;
 	budgetCredits: number;
+	locale?: Locale;
 }
 
 /** Loads the archive back off disk into a fresh ArchiveSourceReader - the same reader an
@@ -952,7 +960,8 @@ export function startImportRun(database: Db, input: StartImportRunInput): void {
 				// credential is not available, which is exactly this driver's situation
 				// too (`DeterministicExtractionDriver`, this file's own doc comment).
 				embedRelationLabel: hashingEmbedder,
-				timeoutMs: 5 * 60_000
+				timeoutMs: 5 * 60_000,
+				locale: input.locale
 			};
 			await runner.run(params);
 		} catch (err) {

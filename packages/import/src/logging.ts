@@ -17,6 +17,7 @@ export type LoopLogStatus = 'ok' | 'error';
 
 export type LoopLogEvent =
 	| 'step'
+	| 'step_retry'
 	| 'tool_call'
 	| 'checkpoint'
 	| 'document_finished'
