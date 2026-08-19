@@ -1766,6 +1766,8 @@ export const en: Messages = {
 				feature: 'Feature',
 				pricePerImage: 'Price / image',
 				currency: 'Currency',
+				aspectRatio: 'Shape',
+				aspectRatioNotSet: 'model default',
 				active: 'active',
 				inactive: 'inactive'
 			},
@@ -1781,7 +1783,11 @@ export const en: Messages = {
 				modelIdRequired: 'Model id is required.',
 				providerAndModelIdRequired: 'Provider and model id are required.',
 				invalidPricePerImage: 'Enter a non-negative price per image, up to 6 decimal places.',
-				invalidCurrency: 'Choose one of the listed currencies.'
+				invalidCurrency: 'Choose one of the listed currencies.',
+				aspectRatioUnsupported: (modelId, aspectRatio, accepted) =>
+					`This feature generates at ${aspectRatio}, and "${modelId}" does not accept that shape. It accepts: ${accepted}. Pick a model that offers ${aspectRatio}, or change the shape on the row first.`,
+				aspectRatioModelUnknown: (modelId, aspectRatio) =>
+					`This feature generates at ${aspectRatio}, and nobody has recorded which shapes "${modelId}" accepts, so saving it would mean guessing. Read the model's aspect_ratio enum from its provider and add it to IMAGE_MODEL_ASPECT_RATIOS in @canonry/media first.`
 			}
 		},
 

@@ -29,6 +29,16 @@
 		return typeof value === 'string' ? value : undefined;
 	}
 
+	/** #332: read-only, unlike the two fields above. The shape a feature generates at is a
+	 * product decision that lives on the row so a model swap cannot drop it, and the save
+	 * refuses a model whose own schema does not offer it, so an admin choosing a model needs
+	 * to see the constraint they are being held to. */
+	function paramsAspectRatio(params: unknown): string | undefined {
+		if (typeof params !== 'object' || params === null) return undefined;
+		const value = (params as { aspectRatio?: unknown }).aspectRatio;
+		return typeof value === 'string' ? value : undefined;
+	}
+
 	/** SvelteKit's `ActionData` is a union across both named actions' fail()/success shapes
 	 * (`text` and `image`), and they share no discriminant TypeScript can narrow on cleanly -
 	 * same problem and same fix as /settings/keys/+page.svelte's own doc comment. */
@@ -194,6 +204,12 @@
 							{t.models.featureLabel[model.feature as keyof typeof t.models.featureLabel]}
 							<div class="text-xs text-muted">
 								{model.active ? t.models.imageTable.active : t.models.imageTable.inactive}
+							</div>
+							<div class="text-xs text-muted">
+								{t.models.imageTable.aspectRatio}:
+								<span class="font-mono"
+									>{paramsAspectRatio(model.params) ?? t.models.imageTable.aspectRatioNotSet}</span
+								>
 							</div>
 						</td>
 						<td colspan="3" class="px-3 py-3">

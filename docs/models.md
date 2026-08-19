@@ -390,6 +390,39 @@ separate 0.94 from 0.91, and `adherence` is a judged number even though `shape` 
 not. One image per case, no seeds fixed, so a case is one sample of a distribution and not a
 verdict on it.
 
+## The shape each image is generated at (issue #332)
+
+Which model runs a feature is one decision and what shape it renders is another, and until
+#332 the second one was never made: `prunaai/p-image` defaults to `aspect_ratio: "16:9"`,
+`ReplicateImageProvider` sent only `prompt` and `num_outputs`, so every portrait this product
+ever generated came back a landscape. Measured on the product's own path on 2026-08-19,
+before and after: 1344x768 (1.75) with nothing sent, 1216x832 (1.462, p-image rounds to
+multiples of 64) asking for 3:2.
+
+The shape now lives on the `image_model_config` row, in `params.aspectRatio` (migration
+0045), rather than in code, because an admin swapping a model at /admin/models is exactly the
+moment a constant in the provider would go missing. `packages/media/src/aspect-ratio.ts`
+carries each model's own `aspect_ratio` enum, read from its Replicate schema, and both the
+save and the submission refuse a value the target model does not list rather than letting
+Replicate fall back to its default, which is the failure this issue is.
+
+| feature | model | shape | why |
+| --- | --- | --- | --- |
+| `portrait` | prunaai/p-image | `3:2` | the shape the cover band crops a character and an item to (`COVER_RATIO`, #284) |
+| `variants` | black-forest-labs/flux-schnell | `3:2` | four alternates of what `portrait` produces, so it has to match |
+| `scene` | bytedance/seedream-4 | `16:9` | measured: every arm of the #258 sweep rendered at 16:9 |
+
+**`portrait`'s 3:2 is a decision and not a measurement, unlike everything else in this file.**
+It follows the display: `COVER_RATIO` puts a character and an item at 3/2, a faction at 16/9
+and a place, an event and a session at 21/9, so a 3:2 source is exact for the two types whose
+picture is a subject and a top-and-bottom crop for the wider four, which is what
+`COVER_POSITION` was written for. 16:9 was the opposite, wider than every band but a place's,
+so a character's cover lost 14 per cent of its width at the sides and `COVER_POSITION`'s
+`center top` for a character could not do anything at all. The tighter shapes #332 floats,
+3:4 and 1:1, are a composition question rather than a cropping one and want the judged sweep
+that issue describes: at 3:4 a place's 21/9 band keeps 32 per cent of the height, so that
+trade needs a number behind it. That sweep is still owed.
+
 ## Re-running this
 
 ```bash

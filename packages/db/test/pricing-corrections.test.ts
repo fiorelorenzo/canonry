@@ -79,11 +79,17 @@ describe('seeded image prices (issue #333)', () => {
 		// (read 2026-08-19), against the 0.02 migrations 0011 and 0034 carried. The whole row is
 		// asserted rather than the price alone: `imagesPerRequest` is what makes a variant batch
 		// four images rather than one, and the correction had to leave it untouched.
+		//
+		// `aspectRatio` is the fourth key because migration 0045 (#332) adds it after this
+		// correction, with a jsonb merge rather than a restatement, which is what lets the two
+		// migrations touch the same row without either losing the other's key. Asserting the
+		// whole object is what makes that composition visible here rather than only in review.
 		expect(portrait?.modelId).toBe('prunaai/p-image');
 		expect(portrait?.params).toEqual({
 			pricePerImage: 0.005,
 			imagesPerRequest: 1,
-			currency: 'USD'
+			currency: 'USD',
+			aspectRatio: '3:2'
 		});
 	});
 
@@ -95,12 +101,15 @@ describe('seeded image prices (issue #333)', () => {
 
 		// USD 0.003, "$3 per thousand output images" on black-forest-labs/flux-schnell's model
 		// page (read 2026-08-19), against the 0.01 that was seeded. Four of these is what one
-		// variants call costs, which is where the overstatement was largest.
+		// variants call costs, which is where the overstatement was largest. `aspectRatio` is
+		// migration 0045's, and it is 3:2 here because a variant batch is four alternates of
+		// what `portrait` produces and has to be offered at the shape the chosen one will have.
 		expect(variants?.modelId).toBe('black-forest-labs/flux-schnell');
 		expect(variants?.params).toEqual({
 			pricePerImage: 0.003,
 			imagesPerRequest: 4,
-			currency: 'USD'
+			currency: 'USD',
+			aspectRatio: '3:2'
 		});
 	});
 });

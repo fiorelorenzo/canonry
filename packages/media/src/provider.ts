@@ -6,6 +6,7 @@
  */
 import { generateImage, type ModelCallAgent, type ResolvedModel } from '@canonry/ai';
 import type { Db } from '@canonry/db';
+import { assertAspectRatioSupported } from './aspect-ratio.js';
 import { ProviderLimiter } from './concurrency.js';
 
 export interface GeneratedImage {
@@ -20,9 +21,10 @@ export interface ImageGenerateInput {
 	userId: string;
 	universeId: string;
 	operation: string;
-	/** Replicate's own `aspect_ratio` value, when the feature has a shape of its own
-	 * (#258: `scene` asks for 16:9). Omitted means "leave the model's default alone",
-	 * which is what `portrait` and `variants` still do. */
+	/** Replicate's own `aspect_ratio` value. Comes from the feature's `image_model_config`
+	 * row (`params.aspectRatio`, #332), except in the bench, which sweeps one arm per shape
+	 * and passes its own. Omitted means "leave the model's default alone"; supplied, it is
+	 * checked against the model's own enum before submission and never quietly dropped. */
 	aspectRatio?: string;
 	/** Retry safety (SPEC.md §15/#88): threaded through to generateImage/withQuota so a
 	 * retried submission is charged once. Omit when there is no retry path. */
@@ -61,6 +63,12 @@ export interface ReplicateImageProviderDeps {
 	replicateApiToken: string;
 	limiter: ProviderLimiter;
 	agent: ModelCallAgent;
+	/** Test-only override of the Replicate API host, pointed at a local HTTP double, and
+	 * threaded straight through to `generateImage`, which documents the same seam. Production
+	 * never sets it. It exists because what this class is responsible for is the shape of the
+	 * prediction input, and the only honest way to assert what it sends is to read the request
+	 * body off the wire (#332: a provider that silently drops `aspect_ratio` is this bug). */
+	baseUrl?: string;
 }
 
 /**
@@ -78,6 +86,12 @@ export class ReplicateImageProvider implements ImageProvider {
 	constructor(private readonly deps: ReplicateImageProviderDeps) {}
 
 	async generate(input: ImageGenerateInput): Promise<GeneratedImage[]> {
+		// Before the slot, before the charge: a ratio the model does not accept is a
+		// configuration error, and the alternative to throwing is Replicate falling back to
+		// its own default and returning a picture of the wrong shape that nothing flags
+		// (#332). Costs nothing to check and cannot be reached by a retry loop.
+		assertAspectRatioSupported(input.model.modelId, input.aspectRatio);
+
 		const prediction = await this.deps.limiter.run('replicate', () =>
 			generateImage({
 				db: this.deps.db,
@@ -92,7 +106,8 @@ export class ReplicateImageProvider implements ImageProvider {
 				universeId: input.universeId,
 				agent: this.deps.agent,
 				operation: input.operation,
-				...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {})
+				...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
+				...(this.deps.baseUrl ? { baseUrl: this.deps.baseUrl } : {})
 			})
 		);
 

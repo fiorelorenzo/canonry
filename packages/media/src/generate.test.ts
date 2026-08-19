@@ -110,21 +110,25 @@ describe('generateImages (#64-#67, #71)', () => {
 				provider: 'replicate',
 				modelId: 'prunaai/p-image',
 				active: true,
-				params: { pricePerImage: 0.02, currency: 'EUR' }
+				// The params the real row carries after migrations 0044 and 0045: #333's
+				// corrected USD price and, added by a merge on top of it rather than a
+				// restatement, the shape (#332). A test that seeds the row without the shape is
+				// testing a row the product does not have.
+				params: { pricePerImage: 0.005, currency: 'USD', aspectRatio: '3:2' }
 			},
 			{
 				feature: 'variants',
 				provider: 'replicate',
 				modelId: 'black-forest-labs/flux-schnell',
 				active: true,
-				params: { pricePerImage: 0.01, currency: 'USD' }
+				params: { pricePerImage: 0.003, currency: 'USD', aspectRatio: '3:2' }
 			},
 			{
 				feature: 'scene',
 				provider: 'replicate',
 				modelId: 'prunaai/p-image',
 				active: true,
-				params: { pricePerImage: 0.005, currency: 'USD' }
+				params: { pricePerImage: 0.005, currency: 'USD', aspectRatio: '16:9' }
 			}
 		]);
 	});
@@ -189,10 +193,11 @@ describe('generateImages (#64-#67, #71)', () => {
 
 		expect(images.calls).toHaveLength(1);
 		expect(images.calls[0]?.count).toBe(1);
-		// #258 added a per-feature aspect ratio, and a portrait is the feature that must not
-		// have one: sending `aspect_ratio` here would silently reshape every existing
-		// portrait, so the absence is the assertion.
-		expect(images.calls[0]?.aspectRatio).toBeUndefined();
+		// #332: a portrait is generated at the shape the cover band crops it to (#284's
+		// COVER_RATIO puts a character at 3/2), and the value comes off the model row this
+		// test seeded rather than out of a table in generate.ts, which is what makes it
+		// survive a model swap from /admin/models.
+		expect(images.calls[0]?.aspectRatio).toBe('3:2');
 	});
 
 	it('generates four variants for the batch feature', async () => {
@@ -216,6 +221,9 @@ describe('generateImages (#64-#67, #71)', () => {
 		expect(result.assets.every((a) => a.credits > 0)).toBe(true);
 		expect(result.assets.reduce((sum, a) => sum + a.credits, 0)).toBeCloseTo(4, 6); // image.variants' real price
 		expect(images.calls[0]?.count).toBe(4);
+		// #332: four alternates of the picture `portrait` produces, so the chooser has to
+		// offer them at the shape the chosen one will be displayed at.
+		expect(images.calls[0]?.aspectRatio).toBe('3:2');
 	});
 
 	// #258: the three things a scene is that a portrait is not, in one test, because they

@@ -1778,6 +1778,11 @@ export interface Messages {
 				feature: string;
 				pricePerImage: string;
 				currency: string;
+				/** #332: the shape the feature asks its model for, read-only here. It is a
+				 * product decision stored on the row (`params.aspectRatio`), not a field an
+				 * admin retypes, but a swap can invalidate it so the page has to show it. */
+				aspectRatio: string;
+				aspectRatioNotSet: string;
 				active: string;
 				inactive: string;
 			};
@@ -1793,6 +1798,8 @@ export interface Messages {
 				providerAndModelIdRequired: string;
 				invalidPricePerImage: string;
 				invalidCurrency: string;
+				aspectRatioUnsupported: (modelId: string, aspectRatio: string, accepted: string) => string;
+				aspectRatioModelUnknown: (modelId: string, aspectRatio: string) => string;
 			};
 		};
 

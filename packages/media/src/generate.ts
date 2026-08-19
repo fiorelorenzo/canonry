@@ -34,7 +34,7 @@ import {
 import type { ImageFeature } from '@canonry/db/schema';
 import { composePrompt, composeRegeneratePrompt } from './prompt.js';
 import { resolveStyle } from './style.js';
-import { resolveImageModel } from './models.js';
+import { imageModelFromRow, readImageModelParams, resolveImageModelRow } from './models.js';
 import { findSimilarMedia, recordMediaVector, type SimilarityCacheDeps } from './similarity.js';
 import type { EmbeddingProvider } from './embedding.js';
 import type { ImageProvider } from './provider.js';
@@ -98,21 +98,12 @@ const IMAGE_COUNT_BY_FEATURE: Partial<Record<ImageFeature, number>> = {
 };
 
 /**
- * The shape of the image, per feature (#258). Only `scene` states one: a body image is a
- * landscape, and 16:9 is what the bench measured every candidate at (docs/models.md).
- * `portrait` and `variants` deliberately state nothing, so both keep whatever their own
- * model defaults to and nothing about either changes because this table exists.
- *
- * Sent as Replicate's own `aspect_ratio` input key, which is the name nine of the ten models
- * whose schemas I read while measuring #258 use, including all four that were measured
- * (`stability-ai/sdxl` is the exception and takes `width`/`height` instead). A model that
- * does not declare the key is not a failure: Replicate ignores an input key its schema does
- * not carry, which is not a guess - `prunaai/p-image` has no `num_outputs` in its schema and
- * has been receiving one from this package since #66.
+ * The shape of the image is no longer decided here (#332). It lives on the
+ * `image_model_config` row, in `params.aspectRatio`, next to the model that has to honour
+ * it: a table in this file could not survive an /admin/models model swap, and a swap that
+ * silently drops the shape is exactly the defect #332 describes. models.ts reads the key,
+ * aspect-ratio.ts holds each model's own enum, and migration 0045 seeds all three rows.
  */
-const ASPECT_RATIO_BY_FEATURE: Partial<Record<ImageFeature, string>> = {
-	scene: '16:9'
-};
 
 export function operationForFeature(feature: ImageFeature): string {
 	const operation = OPERATION_BY_FEATURE[feature];
@@ -167,11 +158,13 @@ export async function generateImages(input: GenerateImagesInput): Promise<Genera
 	const count = imageCountForFeature(input.feature);
 	const instruction = input.instruction?.trim() || undefined;
 
-	const [model, style, priorAsset] = await Promise.all([
-		resolveImageModel(input.db, input.feature),
+	const [modelRow, style, priorAsset] = await Promise.all([
+		resolveImageModelRow(input.db, input.feature),
 		resolveStyle(input.db, input.entity.id),
 		input.fromAssetId ? mediaAssetById(input.db, input.fromAssetId) : Promise.resolve(undefined)
 	]);
+	const model = imageModelFromRow(modelRow);
+	const modelParams = readImageModelParams(modelRow.params);
 
 	if (input.fromAssetId) {
 		if (!priorAsset || priorAsset.universeId !== input.universeId) {
@@ -217,7 +210,6 @@ export async function generateImages(input: GenerateImagesInput): Promise<Genera
 		}
 	}
 
-	const aspectRatio = ASPECT_RATIO_BY_FEATURE[input.feature];
 	const generated = await input.images.generate({
 		prompt,
 		model,
@@ -225,7 +217,7 @@ export async function generateImages(input: GenerateImagesInput): Promise<Genera
 		userId: input.userId,
 		universeId: input.universeId,
 		operation,
-		...(aspectRatio ? { aspectRatio } : {})
+		...(modelParams.aspectRatio ? { aspectRatio: modelParams.aspectRatio } : {})
 	});
 
 	const price = await chargeFor(input.db, operation);
