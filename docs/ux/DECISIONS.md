@@ -16,15 +16,16 @@ waits for a human, however it is grouped on screen. `AGENTS.md` carries the same
 wording in short form. G6 itself, whether that bucket is informational or reviewable,
 is still open.
 
-**Nine rounds, 66 answers.** Round one, 38, and round two, the 11 questions those answers
-opened, were both taken on 2026-08-13; round three's 2 on 2026-08-14; round four's 10 and
-round five's 1, both on 2026-08-15; round six's 1 and round seven's 1 on 2026-08-16; round
-eight's 1 and round nine's 1, both on 2026-08-19. Rounds one to three answered
+**Nine rounds, 66 answers, and a tenth round still open.** Round one, 38, and round two, the 11
+questions those answers opened, were both taken on 2026-08-13; round three's 2 on 2026-08-14;
+round four's 10 and round five's 1, both on 2026-08-15; round six's 1 and round seven's 1 on
+2026-08-16; round eight's 1 and round nine's 1, both on 2026-08-19. Rounds one to three answered
 questions asked before there was code. Round four came out of the shipped UI and is recorded
 further down in this file, with its audit in [`product-pass.html`](product-pass.html). Rounds
 five to nine have no separate audit artifact: each is one question forced by something the
 shipped product already did, not a page of drawn options, and all five are recorded at the
-bottom of this file.
+bottom of this file. Round ten, at the very bottom, is four questions with drawn options and no
+answers yet.
 
 To change a decision: edit this file and the `UX_REGISTER` entry in
 `docs/ux/assets/ux.js`, and say so on the issues it blocks. The artifact keeps its
@@ -275,10 +276,15 @@ do not, and the eighteen are every screen a new account meets before it has a un
 | I4 | Creating a universe | **B, one creation surface**: `/onboarding` absorbs `/u/new` and offers three starts |
 | I5 | Where the language switch lives | **B, a row in the account menu**, endonyms, with the settings page behind it |
 | I6 | The account, and five settings pages with no home | **B, an account menu in the shell plus one two-pane settings page**, with a real Account pane |
-| I7 | The universe home, and the entry browser that was never built | **C, one page two modes**: the browser, with a collapsible overview strip above it |
+| I7 | The universe home, and the entry browser that was never built | **C, one page two modes**: the browser, with a collapsible overview strip above it. **Superseded by O1 on 2026-08-19**: two surfaces, a home at `/w/<slug>` and the browser at `/w/<slug>/entries` |
 | I8 | Nine empty states, nine hand-written sentences | **A, one component, three variants**: cold start, settled, derived absence |
 | I9 | Who owns the controls | **C, shadcn-svelte as the control layer**, with components of our own only where it has no answer |
 | I10 | The phone | **B, one responsive shell**, E4's bottom tabs generalised past table mode |
+
+**I7 no longer holds.** It is the only answer in round four that the shipped version of itself
+argued out of: one page in two modes was more than the zero the product had, and having used it,
+the strip is too small to be a home and the list is too plain to be a browser. O1 in round ten
+replaces it with two surfaces. The rest of round four stands as taken.
 
 ### Where round four went against the recommendation
 
@@ -662,3 +668,125 @@ rather than lying with a number. `PlanChecklist.svelte`'s "3 of 3 kept, cap 10" 
 "3 of 3 kept, no cap" rather than "cap null" when the setting is off.
 
 Touches #50 and #56, and the migration is `packages/db/migrations/0038_special_enchantress.sql`.
+
+## Round ten, decided 2026-08-19
+
+Same direction as round four, from the shipped product back to the decisions rather than the
+other way: I opened the preview, disliked four things, and drew the options instead of settling
+any of them inside a component. Drawn in the morning, answered the same day, which is the whole
+argument for drawing them.
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| O1 | The world home is four small cells over a flat list. Is it big editorial sections, a browser that grows up, or two surfaces? | **C, two surfaces, honestly split.** A world home at `/w/<slug>`, and the browser as a dense table at `/w/<slug>/entries` |
+| O2 | An entry has no cover image and a five-tab aside that clips its own last label at 256px. Where does the cover live, and what carries the structured layer? | **A, a cover band above the title, and the aside loses its tabs** for stacked collapsible sections |
+| O3 | Ask has three doors, all of which navigate away, and it remembers nothing. Does the copilot get a floating composer on every page, and what does the dedicated page become? | **A, a floating pill that expands in place.** Amended: the theme's own colours rather than the copilot's violet, and an icon to close rather than the word |
+| O4 | Which control replaces a native select, and does one control fit both a two-option toggle and every entity in the world? | **B, three controls, chosen by what the list is** |
+
+**Every one of the four took the recommendation**, which has not happened in any earlier round
+and is worth reading as evidence about the questions rather than about the answers: these were
+four surfaces I had already used and disliked, so the options were drawn knowing what was wrong
+with what shipped, where rounds one to three were drawn before there was anything to be wrong.
+
+### O1 amends I7, and this is where that is written down
+
+I7 = C said the universe home is one page in two modes, the entry browser with a collapsible
+overview strip above it. That is **no longer the decision.** `/w/<slug>` becomes a world home,
+the browser moves to `/w/<slug>/entries`, and I7's row in round four now reads as superseded
+rather than as taken. The reason is not that I7 was wrong on its own terms: it was answered
+when there was no browser at all and one page was more than zero. Having used it, the strip is
+too small to be a home and the list is too plain to be a browser, and the compromise landed as
+neither.
+
+Three things follow, and none of them is optional:
+
+- **The sidebar and the world switcher have to pick a target.** Today's `Entries` item and the
+  switcher both point at `/w/<slug>`, which now means the home. `Entries` points at
+  `/w/<slug>/entries` and the switcher keeps the home, so a world switch lands on the home.
+- **The table needs real pagination**, which the loader does not have: `+page.server.ts:76`
+  takes up to 500 entries with no pages behind it. That is already a bug for a real world and it
+  becomes a visible one the moment the page draws a footer that says "page 1 of 3".
+- **The home's card thumbnails wait on O2.** They read `entity.cover_asset_id`, so the home
+  ships its sections before its thumbnails if O2's migration has not landed yet, rather than
+  inventing a second way to pick an image.
+
+### O2, and the two amendments the artifact already carried
+
+A as recommended, so the amendments in its own recommendation stand: the band is capped so it
+never takes more than about a fifth of the first screenful, there is **no dashed placeholder**
+for somebody who cannot write to that world, and the crop ratio follows the entity type the way
+option B drew it, wide for a place, closer to square for a person, positioned rather than
+stretched.
+
+**The column is `entity.cover_asset_id`, nullable, `on delete set null`**, and not a `role`
+column on `media_asset`. One cover per entity is a single fact about the entity, and a role
+column invites two rows claiming it at once with nothing in the schema to stop them. The Images
+panel grows a **use as cover** action, and that action is the accept: a generated image becomes
+a cover because a person clicked something that says so, which is guardrail 1 holding without a
+second mechanism. `published_to_players` still gates whether the cover appears on `/p/<slug>`,
+because guardrail 6 has no exception for images and a cover is not a special case of one.
+
+**The aside stops being a tab strip.** Five collapsible sections, each with its count in the
+header, Relations open and Facts closed per B4, the column sticky with its own scroll. The
+clipping at `EntryTabs.svelte:92-96` is fixed by there being no strip to clip, rather than by a
+`truncate` that would still depend on how long a translated word happens to be. B1 = C is not
+amended: the page is still a document plus a switching right column, and what changes is the
+switch.
+
+### O3, taken with four amendments from the recommendation and two of Lorenzo's own
+
+The four the artifact recommended stand. **The pill mounts the palette's own input in a docked
+placement**, so there is one input implementation with two positions rather than a second
+composer beside A3 = C's one box; #149 grows that placement as a requirement and O3 is not built
+by copying the palette's input into a new component. **It hides in table mode**, where E3 = C's
+two-tier dock owns that corner. **It becomes a tab in the phone's bottom bar**, which E4 = A and
+I10 = B already ship, rather than a circle drawn over the content. And **"keep" is the only
+write**, which is what lets the dedicated page be called a history honestly: everything typed
+and abandoned stays abandoned, exactly as closing the palette already loses it.
+
+The two added on the pick are both about how it looks, and one of them cuts against a
+convention, so it is written here rather than left to a component:
+
+- **The pill and its panel wear the theme's own colours, not the copilot's violet.** The mock
+  drew them in `--ai`, `--ai-bg` and `--ai-line`, and in the warm paper of the reading room that
+  reads as a cold purple blob stuck to the corner. Warm paper, `--line`, `--ink`, umber accent,
+  in both palettes per G1. **This does not repeal C1.** Violet stays reserved for AI text that
+  nobody has accepted yet, and the answer streaming inside the panel keeps its violet marking:
+  what loses the violet is the furniture, the button and the panel chrome, which was never AI
+  text in the first place. The cost is real and accepted: the launcher no longer announces
+  itself as the copilot by colour, so the name and the icon carry that job alone. Nobody should
+  "fix" this back to violet later without reading this paragraph first.
+- **An icon closes the panel, not the word "Close".** The mock's text button is the only control
+  in that corner competing with the answer for attention, and a close affordance is the one
+  control a reader never needs a label for. It keeps an accessible name, so the label moves to
+  `aria-label` rather than disappearing.
+
+**What O3 still does not answer**, and what is therefore filed separately: what a kept answer is
+stored in, how long it is kept, and what the guardrail 5 sentence beside it says. There is no
+ask, answer or conversation table anywhere in `packages/db/src/schema` today, and
+`ask/+server.ts:42-87` streams an answer and writes none of it, so "history" is new persistence
+rather than a move. The word does not appear in any label until that issue lands.
+
+### O4, and the rule that replaces a threshold
+
+B, and the boundary is drawn by **what the list is rather than how long it is**, which is what
+kills the argument before it starts: a binary or ternary state gets a segmented control, a
+vocabulary the product itself ships gets a Select, and a list drawn from the GM's own data gets
+a Combobox with search. No number to argue about at a review, and the unbounded case, the quick
+note target and the precedence entry behind it, actually gets solved rather than surviving as
+the worst call site under a nicer skin.
+
+It is more code than one control everywhere, and the extra code is exactly where the pain is
+today. Two obligations ride along: each of the ten call sites decides explicitly whether it
+keeps working without JS or stops being progressive, since a native `<select>` posts and a
+popover does not, and all three controls arrive with their dark pass (G1) rather than after it.
+This closes #155's select half rather than opening a new direction, because I9 = C already made
+shadcn-svelte the control layer.
+
+### Where round ten lands
+
+Epic [#282](https://github.com/fiorelorenzo/canonry/issues/282), with #283 (O1), #284 (O2),
+#285 (O3), #286 (O4) rewritten from questions into tasks now that each has an answer, and #290
+filed for the persistence O3 deliberately did not settle. The artifacts keep their options and
+their rejected sections, as every artifact in this set does, because the reasoning behind an
+option that lost is what stops it being reopened in six months.

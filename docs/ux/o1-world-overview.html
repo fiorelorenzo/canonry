@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  /* Scoped to this page: o1- prefix throughout. */
+  .o1-cover {
+    height: 64px; border-radius: 6px;
+    background: repeating-linear-gradient(45deg, var(--line-2) 0 6px, var(--panel-2) 6px 12px);
+    border: 1px solid var(--line-2);
+  }
+  .o1-cover.sm { height: 40px; width: 56px; flex: none; border-radius: 5px; }
+  .o1-cover.band { height: 88px; border-radius: 0; border: 0; border-bottom: 1px solid var(--line-2); }
+
+  /* ux.css stacks cards with `.card + .card { margin-top: 10px }`, which is right for a
+     column and wrong inside a row or a grid: it offsets every card after the first. */
+  .o1-cardrow .card + .card, .o1-tgrid .card + .card, .o1-cgrid .card + .card { margin-top: 0; }
+
+  .o1-cardrow { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 2px; }
+  .o1-cardrow .card { flex: 0 0 168px; padding: 0; overflow: hidden; }
+  .o1-cardrow .card .o1-cover { border-radius: 0; }
+  .o1-cardrow .card .o1-body { padding: 10px 11px 11px; }
+  .o1-cardrow .card .o1-name { font: 600 13px var(--sans); color: var(--ink); display: block; margin-bottom: 3px; }
+  .o1-cardrow .card .o1-excerpt { font-size: 11.5px; color: var(--muted); line-height: 1.4; margin: 4px 0 0; }
+
+  .o1-sec { margin-bottom: 26px; }
+  .o1-sec:last-child { margin-bottom: 0; }
+  .o1-sec > h3 { font: 600 13px var(--sans); color: var(--ink); margin-bottom: 10px; }
+  .o1-sec > .cap { font-size: 11.5px; color: var(--muted); margin: -6px 0 10px; }
+
+  .o1-typeblock { margin-bottom: 16px; }
+  .o1-typeblock:last-child { margin-bottom: 0; }
+  .o1-typeblock > .th { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .o1-typeblock > .th b { font: 600 12.5px var(--sans); color: var(--ink); }
+  .o1-typeblock > .th .n { font: 11px var(--mono); color: var(--muted); }
+  .o1-typeblock > .th a { margin-left: auto; font: 500 11px var(--sans); color: var(--accent-ink); text-decoration: none; }
+  .o1-tgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .o1-tgrid .card { padding: 8px 9px; display: flex; gap: 8px; align-items: center; }
+  .o1-tgrid .o1-name { font: 600 12px var(--sans); display: block; }
+
+  .o1-waitrow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .o1-waitrow:last-child { border-bottom: 0; }
+  .o1-waitrow .sp { flex: 1; }
+  .o1-waitrow a.go { font: 500 11.5px var(--sans); color: var(--accent-ink); text-decoration: none; }
+
+  /* B: masthead with tabular figures, G2. */
+  .o1-mast { }
+  .o1-mtext { padding: 16px 20px 14px; }
+  .o1-mtext h1 { font: 600 21px var(--serif); margin-bottom: 10px; }
+  .o1-stats { display: flex; gap: 26px; flex-wrap: wrap; }
+  .o1-stats > div { display: flex; flex-direction: column; gap: 2px; }
+  .o1-stats .v { font: 600 19px var(--serif); font-variant-numeric: tabular-nums; color: var(--ink); }
+  .o1-stats .l { font: 500 10.5px var(--sans); color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .o1-filterbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 9px 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    background: var(--panel-2); position: sticky; top: 0;
+  }
+  .o1-chip {
+    font: 500 11.5px var(--sans); padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--line-2); color: var(--ink-2); white-space: nowrap;
+  }
+  .o1-chip.on { background: var(--ink); border-color: var(--ink); color: var(--panel); }
+  .o1-filterbar .sp { flex: 1; }
+  .o1-sortbtn { font: 500 11.5px var(--sans); padding: 5px 10px; border: 1px solid var(--line-2); border-radius: 6px; background: var(--panel); color: var(--ink-2); display: inline-flex; gap: 5px; align-items: center; }
+  .o1-search { font: 12.5px var(--sans); padding: 5px 10px; border: 1px solid var(--line-2); border-radius: 6px; background: var(--panel); color: var(--muted); width: 150px; }
+  .o1-note { font-size: 10.5px; color: var(--muted); width: 100%; margin-top: 2px; }
+
+  .o1-cgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 16px 20px; }
+  .o1-cgrid .card { padding: 0; overflow: hidden; }
+  .o1-cgrid .o1-body { padding: 10px 11px 11px; }
+  .o1-cgrid .o1-name { font: 600 12.5px var(--sans); display: block; margin-bottom: 3px; }
+  .o1-cgrid .o1-meta { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+  .o1-cgrid .o1-excerpt { font-size: 11px; color: var(--muted); line-height: 1.4; margin: 0; }
+  .o1-cgrid .o1-when { font-size: 10.5px; color: var(--muted); margin-top: 6px; display: block; }
+
+  /* C: two figures inside one option. */
+  .o1-surfacelbl { font: 600 11px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 20px 0; }
+  .o1-actrow { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .o1-actrow:last-child { border-bottom: 0; }
+  .o1-actrow .sp { flex: 1; color: var(--ink-2); }
+  .o1-actrow .when { color: var(--muted); font-size: 11px; }
+
+  table.o1-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; font-family: var(--serif); }
+  table.o1-tbl th {
+    text-align: left; font: 600 10.5px var(--sans); color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.04em; padding: 7px 10px; border-bottom: 1px solid var(--line-2);
+  }
+  table.o1-tbl th .car { font-family: var(--sans); margin-left: 3px; color: var(--line-2); }
+  table.o1-tbl td { padding: 7px 10px; border-bottom: 1px solid var(--line); }
+  table.o1-tbl tr:last-child td { border-bottom: 0; }
+  table.o1-tbl td.num { font-variant-numeric: tabular-nums; text-align: right; }
+  table.o1-tbl td.id { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  table.o1-tbl tr:nth-child(2) td { background: var(--accent-bg); }
+  .o1-pageft {
+    display: flex; align-items: center; gap: 12px; padding: 8px 10px; font-size: 11.5px; color: var(--muted);
+    border-top: 1px solid var(--line);
+  }
+  .o1-pageft .sp { flex: 1; }
+  .o1-pageft kbd.k { margin-right: 3px; }
+</style>
+</head>
+<body data-decision="O1">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">Today <code>/w/[universe]</code> is one thing wearing two hats.
+  <code>apps/web/src/routes/w/[universe]/+page.svelte:67-137</code> renders an
+  <code>OverviewStrip</code>, then a <code>TypeFilterRow</code>, then a bare search
+  <code>&lt;form method="GET"&gt;</code>, then a flat <code>&lt;ul class="mt-4 flex flex-col
+  divide-y divide-line"&gt;</code> of every entry: a name link, a type badge, an excerpt, a
+  right-aligned "changed 3h ago". <code>+page.server.ts:76</code> backs it with a loader that
+  takes up to 500 entries with no pagination and hands back per-type counts, <code>totalCount</code>,
+  <code>selectedType</code>, <code>query</code>, <code>stripCollapsed</code> from a cookie,
+  <code>pendingReview</code>, <code>quota {used, total}</code>, <code>currentWork</code> and
+  <code>whatChanged</code>. <code>OverviewStrip.svelte:83-135</code> turns four of those into four
+  small cells in one row: What changed, Waiting for review, Quota, Current work, collapsible and
+  remembered in a cookie. That whole shape is I7 = C, one page, the browser with a collapsible
+  strip above it, taken on purpose over a separate home.</p>
+  <p>I opened the deployed preview against Valdoria Reach and it does not read as either thing
+  it is trying to be. It is not a home: the four cells are numbers, not a first destination, and
+  the eye lands on the list underneath them within a second. It is not a browser either: a
+  browser's job is finding one entry among many, and the first thing on the page is four cells
+  that are not that. The compromise reads as neither, which is exactly the risk of building "one
+  page, two modes" and never separately drawing what either mode alone would look like. This
+  question does that drawing, so I can tell whether the compromise was the mistake or the four
+  cells were.</p>
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 1</span> propose, never apply, one accept per entry. The
+    "Waiting for review" cell is one of the four numbers on this page, and every option below has
+    to keep it a pointer into the existing proposal inbox, never a second place that can accept or
+    reject something. A home page that grows its own review buttons has quietly built a second
+    surface guardrail 1 already forbids on the first one.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Big sections on one page</h3></header>
+      <p class="sub">The strip is gone. In its place, three full-width sections with real
+      headings: Continue, the last changed entries as a row of cards with a cover slot, their
+      type and one line of excerpt; Waiting for you, the pending proposals and any running
+      import, each row a quiet path to review it, never a modal, per C2; The world, one block
+      per type, a small grid capped with a "see all" link. Search moves into the palette.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side">
+              <div class="uni"><span class="dot"></span> Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Entries <span class="n">14</span></a>
+                <a href="#">Works <span class="n">1</span></a>
+                <a href="#">Proposals <span class="n">1</span></a>
+                <a href="#">Table</a>
+                <a href="#">Players</a>
+                <a href="#">Import</a>
+                <a href="#">Settings</a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb">Valdoria Reach</span></div>
+              <div style="padding:20px 20px 4px">
+
+                <div class="o1-sec">
+                  <h3>Continue</h3>
+                  <div class="o1-cardrow">
+                    <div class="card">
+                      <div class="o1-cover"></div>
+                      <div class="o1-body">
+                        <span class="o1-name">Aldric Vane</span>
+                        <span class="badge">character</span>
+                        <p class="o1-excerpt">Dismissed from the watch in the thaw after the Sable Winter.</p>
+                      </div>
+                    </div>
+                    <div class="card">
+                      <div class="o1-cover"></div>
+                      <div class="o1-body">
+                        <span class="o1-name">The Gilded Rat</span>
+                        <span class="badge">place</span>
+                        <p class="o1-excerpt">Inn in the Lantern Quarter, aliases the Gilded Rat Tavern.</p>
+                      </div>
+                    </div>
+                    <div class="card">
+                      <div class="o1-cover"></div>
+                      <div class="o1-body">
+                        <span class="o1-name">The Ashen Ledger</span>
+                        <span class="badge">faction</span>
+                        <p class="o1-excerpt">Merchant bank that lends at knife point.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="o1-sec">
+                  <h3>Waiting for you</h3>
+                  <div class="o1-waitrow">
+                    <span class="sp">Iselde Wrenn &middot; relation <code>appointed</code> should be <code>dismissed</code></span>
+                    <span class="badge later">1 of 7</span>
+                    <a href="#" class="go">review &rarr;</a>
+                  </div>
+                  <div class="o1-waitrow">
+                    <span class="sp muted">No import running.</span>
+                  </div>
+                </div>
+
+                <div class="o1-sec">
+                  <h3>The world</h3>
+                  <div class="o1-typeblock">
+                    <div class="th"><b>Character</b><span class="n">4</span><a href="#">see all 4</a></div>
+                    <div class="o1-tgrid">
+                      <div class="card"><div class="o1-cover sm"></div><span class="o1-name">Aldric Vane</span></div>
+                      <div class="card"><div class="o1-cover sm"></div><span class="o1-name">Mother Sennah</span></div>
+                      <div class="card"><div class="o1-cover sm"></div><span class="o1-name">Corvin Ashe</span></div>
+                    </div>
+                  </div>
+                  <div class="o1-typeblock">
+                    <div class="th"><b>Place</b><span class="n">3</span></div>
+                    <div class="o1-tgrid">
+                      <div class="card"><div class="o1-cover sm"></div><span class="o1-name">Valdoria</span></div>
+                      <div class="card"><div class="o1-cover sm"></div><span class="o1-name">The Gilded Rat</span></div>
+                      <div class="card"><div class="o1-cover sm"></div><span class="o1-name">Cairnmouth</span></div>
+                    </div>
+                  </div>
+                  <div class="o1-typeblock">
+                    <div class="th"><b>Faction</b><span class="n">4</span><a href="#">see all 4</a></div>
+                    <div class="o1-tgrid">
+                      <div class="card"><div class="o1-cover sm"></div><span class="o1-name">The Ashen Ledger</span></div>
+                      <div class="card"><div class="o1-cover sm"></div><span class="o1-name">The Valdoria Watch</span></div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Valdoria Reach at 14 entries (4 character, 3 place, 4 faction, 1 event, 1
+        item); the block already needs a "see all" link for character and faction. Not shown:
+        Event and Item, one card each, and the search box, which the palette owns now. At 214
+        entries every block needs its link, and the block itself has to decide how many rows
+        sit above it, more than three and it starts looking like the browser it is avoiding
+        being.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Reads as a home: first glance value, big and warm, every section a real destination.</li>
+          <li>"Waiting for you" is a genuine pointer, not a number, so the proposal inbox gets found rather than counted.</li>
+          <li>A cover thumbnail gives the world a face for the first time; today's route loads no media at all.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Browsing past the cap needs a list this page does not have, so there end up being two ways to reach the same entries.</li>
+          <li>The loader grows a media query it does not run today, and O2's cover answer has to land before this ships.</li>
+          <li>A world with 4 of a type looks padded here; one with 400 looks truncated the same way, on the same layout.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>The browser grows up, one page</h3></header>
+      <p class="sub">I7 kept, evolved rather than replaced. A masthead panel (world name, an
+      optional cover band, the four strip numbers as large tabular figures per G2), a sticky
+      filter bar (the type rail with counts on the left, a sort control, the search box), and
+      the flat list becomes a card grid: cover thumbnail, type, excerpt, changed time.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side">
+              <div class="uni"><span class="dot"></span> Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Entries <span class="n">14</span></a>
+                <a href="#">Works <span class="n">1</span></a>
+                <a href="#">Proposals <span class="n">1</span></a>
+                <a href="#">Table</a>
+                <a href="#">Players</a>
+                <a href="#">Import</a>
+                <a href="#">Settings</a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="o1-mast">
+                <div class="o1-cover band"></div>
+                <div class="o1-mtext">
+                  <h1>Valdoria Reach</h1>
+                  <div class="o1-stats">
+                    <div><span class="v">14</span><span class="l">Entries</span></div>
+                    <div><span class="v">1</span><span class="l">Waiting review</span></div>
+                    <div><span class="v">197&#8202;/&#8202;200</span><span class="l">Quota</span></div>
+                    <div><span class="v" style="font-size:14px">Scene&nbsp;3</span><span class="l">Current work</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="o1-filterbar">
+                <span class="o1-chip on">All 14</span>
+                <span class="o1-chip">Character 4</span>
+                <span class="o1-chip">Place 3</span>
+                <span class="o1-chip">Faction 4</span>
+                <span class="o1-chip">Event 1</span>
+                <span class="o1-chip">Item 1</span>
+                <span class="o1-note">+1 session entry, no chip: <code>+page.server.ts:36-42</code> keeps it out of the browsable five.</span>
+                <span class="sp"></span>
+                <span class="o1-sortbtn">Recently changed <span>&#9662;</span></span>
+                <span class="o1-search">Search&hellip;</span>
+              </div>
+              <div class="o1-cgrid">
+                <div class="card">
+                  <div class="o1-cover"></div>
+                  <div class="o1-body">
+                    <span class="o1-name">Aldric Vane</span>
+                    <div class="o1-meta"><span class="badge">character</span></div>
+                    <p class="o1-excerpt">Dismissed from the watch in the thaw after the Sable Winter, now on the Ashen Ledger's payroll.</p>
+                    <span class="o1-when">changed 3h ago</span>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="o1-cover"></div>
+                  <div class="o1-body">
+                    <span class="o1-name">Iselde Wrenn</span>
+                    <div class="o1-meta"><span class="badge">character</span></div>
+                    <p class="o1-excerpt">Harbour magistrate, appointed Aldric and then broke him.</p>
+                    <span class="o1-when">changed 4h ago</span>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="o1-cover"></div>
+                  <div class="o1-body">
+                    <span class="o1-name">The Gilded Rat</span>
+                    <div class="o1-meta"><span class="badge">place</span></div>
+                    <p class="o1-excerpt">Inn in the Lantern Quarter, aliases the Gilded Rat Tavern.</p>
+                    <span class="o1-when">changed 1d ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Fourteen entries, three of six rows shown. Not shown: what a fourth column
+        does to the excerpt, which is the first thing a card loses when a grid narrows, before
+        the cover ever does. At 500 entries (the loader's own cap, still no pagination) this
+        grid is the only way in and it scrolls for a very long time.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>I7 stays intact: one page, one place to browse, no new route, the smallest diff of the three.</li>
+          <li>The grid is honest about being a browser, which the flat list undersold with no thumbnails at all.</li>
+          <li>Filter, sort and search sit together where a GM's eye already goes first.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Still a browser with a hat on: the copilot's whole state is a row of four small numbers, same as today.</li>
+          <li>No pagination the loader does not have; a card grid at 500 entries is a worse version of that problem than a flat list, since each row is now taller.</li>
+          <li>The excerpt is the first thing a narrow card loses, so "one line of excerpt" is a promise this layout cannot always keep.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">C</span><h3>Two surfaces, honestly split</h3></header>
+      <p class="sub"><code>/w/&lt;slug&gt;</code> becomes a world home: masthead with a cover
+      band, the same three big sections A draws, plus a recent activity feed. The browser moves
+      to <code>/w/&lt;slug&gt;/entries</code>, a dense functional table: name, type, relations
+      count, facts count, changed, sortable columns, tabular figures per G2, pagination, and
+      <kbd class="k">j</kbd>/<kbd class="k">k</kbd> row movement inside it, the same bare-key
+      vocabulary G3 already granted a focused review surface.</p>
+
+      <p class="o1-surfacelbl">Surface 1 &middot; /w/valdoria-reach</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side">
+              <div class="uni"><span class="dot"></span> Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Home</a>
+                <a href="#">Entries <span class="n">14</span></a>
+                <a href="#">Works <span class="n">1</span></a>
+                <a href="#">Proposals <span class="n">1</span></a>
+                <a href="#">Table</a>
+                <a href="#">Players</a>
+                <a href="#">Import</a>
+                <a href="#">Settings</a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="o1-mast">
+                <div class="o1-cover band"></div>
+                <div class="o1-mtext" style="padding-bottom:6px">
+                  <h1>Valdoria Reach</h1>
+                  <div class="o1-stats">
+                    <div><span class="v">14</span><span class="l">Entries</span></div>
+                    <div><span class="v">1</span><span class="l">Waiting review</span></div>
+                    <div><span class="v">197&#8202;/&#8202;200</span><span class="l">Quota</span></div>
+                  </div>
+                </div>
+              </div>
+              <div style="padding:6px 20px 4px">
+                <div class="o1-sec">
+                  <h3>Continue</h3>
+                  <div class="o1-cardrow">
+                    <div class="card">
+                      <div class="o1-cover"></div>
+                      <div class="o1-body">
+                        <span class="o1-name">Aldric Vane</span>
+                        <span class="badge">character</span>
+                      </div>
+                    </div>
+                    <div class="card">
+                      <div class="o1-cover"></div>
+                      <div class="o1-body">
+                        <span class="o1-name">The Gilded Rat</span>
+                        <span class="badge">place</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="o1-sec">
+                  <h3>Waiting for you</h3>
+                  <div class="o1-waitrow">
+                    <span class="sp">Iselde Wrenn &middot; relation <code>appointed</code> should be <code>dismissed</code></span>
+                    <a href="#" class="go">review &rarr;</a>
+                  </div>
+                </div>
+                <div class="o1-sec">
+                  <h3>Recent activity</h3>
+                  <div class="o1-actrow"><span class="sp">Rewrote Aldric Vane's opening paragraph</span><span class="when">4m</span></div>
+                  <div class="o1-actrow"><span class="sp">Added relation: The Ashen Ledger employs Aldric Vane</span><span class="when">1h</span></div>
+                  <div class="o1-actrow"><span class="sp">Session 7 logged against Debts of Valdoria</span><span class="when">3d</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>The home. Not shown: the full three-column "The world" section A draws in
+        full, trimmed here to fit next to the activity feed; the quota's exact spend breakdown
+        stays behind Settings, this page only ever shows the two headline numbers.</figcaption>
+      </figure>
+
+      <p class="o1-surfacelbl">Surface 2 &middot; /w/valdoria-reach/entries</p>
+      <figure class="mock">
+        <div class="frame">
+          <div class="app">
+            <div class="side">
+              <div class="uni"><span class="dot"></span> Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#">Home</a>
+                <a href="#" class="on">Entries <span class="n">14</span></a>
+                <a href="#">Works <span class="n">1</span></a>
+                <a href="#">Proposals <span class="n">1</span></a>
+                <a href="#">Table</a>
+                <a href="#">Players</a>
+                <a href="#">Import</a>
+                <a href="#">Settings</a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb">Entries</span></div>
+              <div class="o1-filterbar" style="border-top:0">
+                <span class="o1-chip on">All 14</span>
+                <span class="o1-chip">Character 4</span>
+                <span class="o1-chip">Place 3</span>
+                <span class="o1-chip">Faction 4</span>
+                <span class="o1-chip">Event 1</span>
+                <span class="o1-chip">Item 1</span>
+                <span class="sp"></span>
+                <span class="o1-search">Search&hellip;</span>
+              </div>
+              <table class="o1-tbl">
+                <thead>
+                  <tr><th>Name</th><th>Type</th><th>Relations<span class="car">&#9662;</span></th><th>Facts</th><th>Changed</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Aldric Vane</td><td class="id">character</td><td class="num">3</td><td class="num">6</td><td class="num">3h</td></tr>
+                  <tr><td>Iselde Wrenn</td><td class="id">character</td><td class="num">2</td><td class="num">4</td><td class="num">4h</td></tr>
+                  <tr><td>The Gilded Rat</td><td class="id">place</td><td class="num">2</td><td class="num">5</td><td class="num">1d</td></tr>
+                  <tr><td>The Ashen Ledger</td><td class="id">faction</td><td class="num">4</td><td class="num">7</td><td class="num">2d</td></tr>
+                  <tr><td>Corvin Ashe</td><td class="id">character</td><td class="num">3</td><td class="num">5</td><td class="num">2d</td></tr>
+                  <tr><td>The Sable Winter</td><td class="id">event</td><td class="num">3</td><td class="num">3</td><td class="num">6d</td></tr>
+                </tbody>
+              </table>
+              <div class="o1-pageft">
+                <span><kbd class="k">j</kbd><kbd class="k">k</kbd> move</span>
+                <span><kbd class="k">&#9166;</kbd> open</span>
+                <span class="sp"></span>
+                <span>1&ndash;6 of 14 &middot; page 1 of 3</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Second row focused, mid-scan. Not shown: the sort control's own affordance
+        on desktop versus touch, that is O4's question, not this one. At 500 entries this is the
+        shape that scales; the loader still needs real pages behind it, the table draws the
+        footer, the query behind it does not exist yet.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Each surface does one job well: the home answers "what's going on", the table answers "find one entry".</li>
+          <li>A table scales to 2,000 entries the way a card grid never will, with the same six columns doing the work regardless of count.</li>
+          <li>The home can carry the copilot's numbers and the quiet inbox pointer without competing with a list for the same pixels.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Amends I7, which means editing DECISIONS.md and the register alongside shipping the route.</li>
+          <li>Two clicks to a list instead of zero: Home, then Entries, for a GM who only ever wants the list.</li>
+          <li>The sidebar's "Entries" item and the world switcher both now have to decide which of the two surfaces they mean.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>A world health or coherence score on the home</h3>
+    <p>"98% coherent" or "3 contradictions resolved" is the single most tempting thing to put at
+    the top of a world home, because it looks like exactly the kind of number a dashboard wants.
+    <span class="guardref">Guardrail 7</span> forbids it outright: the product says what does not
+    add up and never certifies that a canon is coherent, and contradiction detection runs at an
+    F1 around 52% besides, so any such number would be confidently wrong close to half the time
+    it disagreed with a GM's own read of their world.</p>
+  </div>
+  <div class="callout rejected mt24">
+    <h3>A Loremaster-written summary of the world, generated on load</h3>
+    <p>Opening the home on a paragraph the copilot wrote about the state of the world reads well
+    in a mockup and breaks two guardrails at once in the shipped product: it is AI text nobody
+    accepted, which <span class="guardref">Guardrail 1</span> forbids outright, and it spends
+    credits the instant the page loads rather than when a GM asks for something, which is exactly
+    what G11's "confirm every paid action" exists to prevent. A summary the GM asked for and can
+    see the cost of first is a different, smaller feature, and it is not this one.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>C, because the two jobs really are different</h3>
+    <p>Take <b>C</b>. Every session at this page proves the same thing: I open it wanting either
+    "what happened while I was away" or "find this one entry", never both at once, and I have
+    been reading past four small cells to get to whichever one it actually was. A and B both keep
+    trying to answer both questions on one page; A tilts the page toward the first question and
+    loses the list, B tilts it toward the second and keeps the copilot as four numbers. Only C
+    lets each surface be built for the job it is actually doing, and only C's table has anywhere
+    to grow toward 2,000 entries without the home growing with it.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: ship the home first, with today's flat list
+    still sitting under it exactly as it does now, before building the dedicated table at all. Then
+    watch whether I ever click through to the list on purpose. If the home answers everything I
+    actually came for, B was enough all along and the table is a route nobody visits; if I keep
+    reaching past the home for the list, that is the signal to build the real table next.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#283</b> and <b>#282</b> take the shape of whichever option ships; C's version
+      splits the issue into a home and a table rather than one page.</li>
+      <li>A card or a row with a thumbnail depends on O2's cover answer: <code>media_asset</code>
+      (<code>packages/db/src/schema/media.ts:68-98</code>) has no primary, cover or role column
+      today, so O1 cannot ship any grid with a thumbnail before O2 is decided.</li>
+      <li>The loader needs real pagination the moment any list becomes a table: 500 entries with
+      no pages is already a bug waiting for a real world, and C's table makes that debt due on
+      day one instead of postponing it again.</li>
+      <li>Any "waiting for you" section, in every option, is a pointer into the existing proposal
+      inbox and never a second review surface: C2 already decided the inbox is quiet and never a
+      modal, and guardrail 1 does not get a second exception just because the pointer sits on a
+      prettier page.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

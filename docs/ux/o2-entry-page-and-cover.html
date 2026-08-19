@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  /* Scoped to this page only, prefix o2-. */
+
+  /* the shipped bug, redrawn at its real width */
+  .o2-bugwrap { display: flex; flex-wrap: wrap; gap: 22px; padding: 22px; }
+  .o2-bugcol { display: flex; flex-direction: column; gap: 7px; }
+  .o2-buglabel { font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .o2-bugbox { width: 256px; border: 1px solid var(--line-2); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
+  .o2-tabrow { display: flex; border-bottom: 1px solid var(--line); }
+  .o2-tab { flex: 1 1 auto; white-space: nowrap; padding: 9px 7px; text-align: center; font: 600 11.5px/1.3 var(--sans); color: var(--ink-2); text-decoration: none; border-right: 1px solid var(--line); }
+  .o2-tab:last-child { border-right: 0; }
+  .o2-tab:hover { background: var(--panel-2); }
+  .o2-bugmeasure { font: 12px/1.5 var(--mono); color: var(--muted); padding: 8px 2px 0; }
+
+  /* option app shells widen the aside where the option calls for it */
+  .app.o2-256 { grid-template-columns: 208px minmax(0, 1fr) 256px; }
+  .app.o2-320 { grid-template-columns: 208px minmax(0, 1fr) 320px; }
+
+  /* A: cover band above the title */
+  .o2-band { height: 130px; background: repeating-linear-gradient(135deg, var(--line) 0 10px, var(--panel-2) 10px 20px); position: relative; }
+  .o2-bandtag { position: absolute; right: 12px; bottom: 10px; font: 600 11px/1 var(--mono); color: var(--muted); background: var(--panel); padding: 3px 7px; border-radius: 5px; border: 1px solid var(--line-2); }
+
+  /* A: five collapsible sections instead of a tab strip */
+  .o2-secs { max-height: 460px; overflow-y: auto; position: sticky; top: 0; }
+  .o2-sec { border-bottom: 1px solid var(--line); padding: 10px 0; }
+  .o2-sec:last-child { border-bottom: 0; }
+  .o2-sec > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; font: 600 12px/1.4 var(--sans); color: var(--ink); }
+  .o2-sec > summary::-webkit-details-marker { display: none; }
+  .o2-sec > summary::before { content: '\25B8'; color: var(--muted); font-size: 10px; display: inline-block; transition: transform 0.15s; }
+  .o2-sec[open] > summary::before { transform: rotate(90deg); }
+  .o2-sec > summary .n { margin-left: auto; color: var(--muted); font: 11px var(--mono); }
+  .o2-sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+  .o2-sec > .rel, .o2-sec > .rows { margin-top: 8px; }
+
+  /* B: portrait card and a one-control picker, aside held at the real 256px */
+  .o2-portrait { aspect-ratio: 3 / 4; width: 100%; border-radius: 8px; margin-bottom: 12px; background: repeating-linear-gradient(135deg, var(--line) 0 9px, var(--panel-2) 9px 18px); position: relative; }
+  .o2-portraittag { position: absolute; left: 8px; bottom: 8px; font: 600 11px/1 var(--mono); color: var(--muted); background: var(--panel); padding: 3px 7px; border-radius: 5px; border: 1px solid var(--line-2); }
+  .o2-picker { width: 100%; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .o2-caret { color: var(--muted); }
+
+  /* C: header object and an icon rail */
+  .o2-ho { position: relative; height: 190px; overflow: hidden; background: repeating-linear-gradient(135deg, var(--line) 0 10px, var(--panel-2) 10px 20px); }
+  .o2-hoscrim { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(20,16,10,0.74) 0%, rgba(20,16,10,0) 58%); display: flex; align-items: flex-end; padding: 16px; }
+  .o2-hoscrim h1 { color: #fdf9f0; }
+  .o2-hoscrim .badge { background: rgba(253,249,240,0.16); color: #fdf9f0; border-color: rgba(253,249,240,0.32); }
+  .o2-hoactions { position: absolute; top: 14px; right: 14px; display: flex; gap: 8px; }
+  .o2-hoflat { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; background: var(--panel-2); border-bottom: 1px solid var(--line); }
+  .o2-railwrap { display: flex; gap: 12px; }
+  .o2-rail { display: flex; flex-direction: column; gap: 4px; }
+  .o2-railbtn { position: relative; width: 34px; height: 34px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); font-size: 15px; cursor: pointer; line-height: 1; }
+  .o2-railbtn.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .o2-railpanel { flex: 1; min-width: 0; }
+  .o2-tip { position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); white-space: nowrap; background: var(--ink); color: #f3efe8; font: 11px/1.4 var(--sans); padding: 5px 9px; border-radius: 6px; z-index: 4; }
+
+  .o2-rejectstack { display: flex; flex-direction: column; gap: 14px; }
+</style>
+</head>
+<body data-decision="O2">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">An entry today has no photograph anywhere in the payload, and the one place
+  the structured layer already lives, the aside, breaks on its own account of it.
+  <code>apps/web/src/lib/components/entry/EntryTabs.svelte:88</code> fixes that column at
+  <code>md:w-64</code>, 256px, and the five-label strip at <code>:92-93</code>
+  (<code>class="flex border-b border-line"</code>) has no overflow handling at all; each tab at
+  <code>:96</code> is <code>flex-1</code> with neither <code>truncate</code> nor
+  <code>min-w-0</code>, so the row is wider than its own column and the last label hangs off the
+  edge. In English "Audit" is short enough to survive; in Italian "Verifica" is not, which is
+  the tell: the layout depends on how long a translated word happens to be, not on a rule that
+  holds for any label.</p>
+  <p>Nothing about a cover fixes itself either. <code>apps/web/src/routes/w/[universe]/e/[slug]/+page.server.ts:139-164</code>
+  lists exactly what the page reads: entity fields, relations, facts, history, mentions,
+  proposals, audit flags, media assets, style, generate, and nothing named cover among them.
+  <code>packages/db/src/schema/media.ts:68-98</code> explains why: <code>media_asset</code> has
+  no primary, cover or role column, so a portrait, a map and three ambient shots an entry might
+  own are all equal rows, returned in creation order by <code>mediaAssetsForEntity</code>
+  (<code>packages/db/src/queries/media.ts:136-142</code>). B1 = C decided the page is a document
+  plus a switching right column, and that is still the right shape for what it was asked to hold.
+  What it never had to answer is a cover, because there were no images when it was drawn, and
+  what it got wrong in the build is a tab strip narrower than its own labels.</p>
+
+  <figure class="mock">
+    <div class="frame">
+      <div class="o2-bugwrap">
+        <div class="o2-bugcol">
+          <span class="o2-buglabel">English, as shipped</span>
+          <div class="o2-bugbox">
+            <div class="o2-tabrow">
+              <a href="#" class="o2-tab">Relations</a>
+              <a href="#" class="o2-tab">Facts</a>
+              <a href="#" class="o2-tab">Images</a>
+              <a href="#" class="o2-tab">History</a>
+              <a href="#" class="o2-tab">Audit</a>
+            </div>
+          </div>
+          <span class="o2-bugmeasure">"Audit" clips its last letter, survives being short</span>
+        </div>
+        <div class="o2-bugcol">
+          <span class="o2-buglabel">Italian, same component, same 256px</span>
+          <div class="o2-bugbox">
+            <div class="o2-tabrow">
+              <a href="#" class="o2-tab">Relazioni</a>
+              <a href="#" class="o2-tab">Fatti</a>
+              <a href="#" class="o2-tab">Immagini</a>
+              <a href="#" class="o2-tab">Cronologia</a>
+              <a href="#" class="o2-tab">Verifica</a>
+            </div>
+          </div>
+          <span class="o2-bugmeasure">"Verifica" never appears at all, no partial word, nothing</span>
+        </div>
+      </div>
+    </div>
+    <figcaption>Both boxes are exactly 256px, EntryTabs.svelte:88's own <code>md:w-64</code>, with
+    no other change than the label text. Not showing: any fix. This is the bug rendered with the
+    real component's own rules, five <code>flex-1</code> items and no <code>min-w-0</code>.</figcaption>
+  </figure>
+
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 1</span> propose, never apply, one accept per entry. A
+    cover is not exempt from it: whichever surface ends up holding it, an image only becomes the
+    entry's cover the moment a person clicks something that says so, the same rule that already
+    governs every proposal on this page.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>Cover band, aside loses its tabs</h3></header>
+      <p class="sub">A capped band sits above the title, and the aside stops being a tab strip
+      at all: five collapsible sections stacked instead, each carrying its own count, Relations
+      open by default and Facts closed per B4.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app aside3">
+            <div class="side">
+              <div class="uni"><span class="dot"></span> Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Entries <span class="n">214</span></a>
+                <a href="#">Works <span class="n">2</span></a>
+                <a href="#">Proposals <span class="n">3</span></a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb">Entries / character / <b>Aldric Vane</b></span></div>
+              <div class="o2-band"><span class="o2-bandtag">would-be portrait, &asymp;4:1 crop, capped at 130px</span></div>
+              <div class="entry" style="padding-top:18px">
+                <h1 class="title">Aldric Vane</h1>
+                <div class="kicker"><span class="badge">character</span><span class="badge now">audit flag</span><span>also: Captain Vane, the broken captain</span></div>
+                <div class="rowflex" style="margin-bottom:14px"><button class="btn sm">Complete the entry</button><button class="btn sm pri">Edit</button></div>
+                <div class="prose">
+                  <p>Dismissed from the watch in the thaw after <a href="#" class="men t-fact">the Sable Winter</a>,
+                  he now answers to <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at
+                  <a href="#" class="men t-place">the Gilded Rat</a>.</p>
+                </div>
+              </div>
+            </div>
+            <div class="aside">
+              <div class="o2-secs">
+                <details class="o2-sec" open>
+                  <summary>Relations <span class="n">3</span></summary>
+                  <div class="rel"><span class="lbl">employed by</span> <a href="#" class="men">The Ashen Ledger</a><span class="inv">inv: employs</span></div>
+                  <div class="rel"><span class="lbl">dismissed by</span> <a href="#" class="men">Iselde Wrenn</a><span class="inv">inv: dismissed</span></div>
+                  <div class="rel"><span class="lbl">drinks at</span> <a href="#" class="men">The Gilded Rat</a></div>
+                </details>
+                <details class="o2-sec">
+                  <summary>Facts <span class="n">1</span></summary>
+                  <div class="rows"><div class="r"><span class="sp">Dismissed from the watch in the thaw after
+                    <span class="ev"><span class="q">the Sable Winter</span><span class="pop">Source sentence, paragraph 1.<span class="src">entry:aldric-vane &middot; chars 0&ndash;54</span></span></span>.</span></div></div>
+                </details>
+                <details class="o2-sec">
+                  <summary>Images <span class="n">1</span></summary>
+                  <div class="rows"><div class="r"><span class="sp">Portrait, ink and wash</span><span class="badge ok">cover</span></div></div>
+                </details>
+                <details class="o2-sec">
+                  <summary>History <span class="n">2</span></summary>
+                  <div class="rows">
+                    <div class="r"><span class="sp">Rewrote opening paragraph</span><span class="badge">human &middot; 4m</span></div>
+                    <div class="r"><span class="sp">Added relation: employed by</span><span class="badge ai">ai_accepted &middot; 1d</span></div>
+                  </div>
+                </details>
+                <details class="o2-sec">
+                  <summary>Audit <span class="n">1</span></summary>
+                  <div class="rows"><div class="r"><span class="sp">Disagrees with Cairnmouth's account of who led the watch through the second freeze</span></div></div>
+                </details>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Cover present: the band is capped at 130px so it cannot own the first
+        screenful, and the Images section already shows the accepted portrait carrying the
+        "cover" badge. The sections are native <code>&lt;details&gt;</code>, no JS, so
+        <code>#facts</code> is a real anchor and the disclosure still works if the script never
+        loads.</figcaption>
+      </figure>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app aside3">
+            <div class="side">
+              <div class="uni"><span class="dot"></span> Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Entries <span class="n">214</span></a>
+                <a href="#">Works <span class="n">2</span></a>
+                <a href="#">Proposals <span class="n">3</span></a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb">Entries / character / <b>Aldric Vane</b></span></div>
+              <div class="entry">
+                <h1 class="title">Aldric Vane</h1>
+                <div class="kicker"><span class="badge">character</span><span class="badge now">audit flag</span><span>also: Captain Vane, the broken captain</span></div>
+                <div class="rowflex" style="margin-bottom:14px"><button class="btn sm">Complete the entry</button><button class="btn sm pri">Edit</button></div>
+                <div class="prose">
+                  <p>Dismissed from the watch in the thaw after <a href="#" class="men t-fact">the Sable Winter</a>,
+                  he now answers to <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at
+                  <a href="#" class="men t-place">the Gilded Rat</a>.</p>
+                </div>
+              </div>
+            </div>
+            <div class="aside">
+              <div class="o2-secs">
+                <details class="o2-sec" open>
+                  <summary>Relations <span class="n">3</span></summary>
+                  <div class="rel"><span class="lbl">employed by</span> <a href="#" class="men">The Ashen Ledger</a><span class="inv">inv: employs</span></div>
+                  <div class="rel"><span class="lbl">dismissed by</span> <a href="#" class="men">Iselde Wrenn</a><span class="inv">inv: dismissed</span></div>
+                  <div class="rel"><span class="lbl">drinks at</span> <a href="#" class="men">The Gilded Rat</a></div>
+                </details>
+                <details class="o2-sec">
+                  <summary>Facts <span class="n">1</span></summary>
+                  <div class="rows"><div class="r"><span class="sp">Dismissed from the watch in the thaw after the Sable Winter.</span></div></div>
+                </details>
+                <details class="o2-sec">
+                  <summary>Images <span class="n">0</span></summary>
+                  <p class="small muted mt0">No portrait yet.</p>
+                  <button class="btn sm">Generate a portrait</button>
+                </details>
+                <details class="o2-sec">
+                  <summary>History <span class="n">2</span></summary>
+                  <div class="rows">
+                    <div class="r"><span class="sp">Rewrote opening paragraph</span><span class="badge">human &middot; 4m</span></div>
+                    <div class="r"><span class="sp">Added relation: employed by</span><span class="badge ai">ai_accepted &middot; 1d</span></div>
+                  </div>
+                </details>
+                <details class="o2-sec">
+                  <summary>Audit <span class="n">1</span></summary>
+                  <div class="rows"><div class="r"><span class="sp">Disagrees with Cairnmouth's account of who led the watch through the second freeze</span></div></div>
+                </details>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Cover absent, which is Aldric's real state today, media.assets is empty. No
+        band, no dashed placeholder either: the document just starts at the title, so a thin
+        entry does not carry an empty rectangle above it.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The clipping bug is fixed by construction, not by truncation: there is no strip left to clip.</li>
+          <li>Each section becomes linkable, <code>#facts</code>, which a tab strip never was.</li>
+          <li>A cover reads as the entry's identity the way a banner does, and the sections keep working at 256px in every language.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>The aside gets long: on a fuller entry, History is a scroll away rather than a click away.</li>
+          <li>A band steals vertical space above the prose on every entry, including the thin ones, unless it is capped.</li>
+          <li>One aspect ratio cannot flatter both a person and a coastline, at least not as drawn here.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">B</span><h3>Portrait card, tabs become one control</h3></header>
+      <p class="sub">The cover sits at the top of the 256px column, ratio chosen by entity type.
+      The five tabs collapse into a single picker showing the active panel and its count, which
+      is a shadcn-svelte Select per I9 and O4's control to draw, not mine.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app aside3 o2-256">
+            <div class="side">
+              <div class="uni"><span class="dot"></span> Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Entries <span class="n">214</span></a>
+                <a href="#">Works <span class="n">2</span></a>
+                <a href="#">Proposals <span class="n">3</span></a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb">Entries / character / <b>Aldric Vane</b></span></div>
+              <div class="entry">
+                <h1 class="title">Aldric Vane</h1>
+                <div class="kicker"><span class="badge">character</span><span class="badge now">audit flag</span><span>also: Captain Vane, the broken captain</span></div>
+                <div class="rowflex" style="margin-bottom:14px"><button class="btn sm">Complete the entry</button><button class="btn sm pri">Edit</button></div>
+                <div class="prose">
+                  <p>Dismissed from the watch in the thaw after <a href="#" class="men t-fact">the Sable Winter</a>,
+                  he now answers to <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at
+                  <a href="#" class="men t-place">the Gilded Rat</a>, in the corner seat nobody asks him to leave.</p>
+                  <h2>Standing in the city</h2>
+                  <p>Three hundred and forty sworn used to take his word. Forty of them still would.</p>
+                </div>
+              </div>
+            </div>
+            <div class="aside">
+              <div class="o2-portrait"><span class="o2-portraittag">3:4, type: character</span></div>
+              <button class="btn sm o2-picker" type="button">Relations <span class="n">3</span><span class="o2-caret">&#8964;</span></button>
+              <div class="rel"><span class="lbl">employed by</span> <a href="#" class="men">The Ashen Ledger</a><span class="inv">inv: employs</span></div>
+              <div class="rel"><span class="lbl">dismissed by</span> <a href="#" class="men">Iselde Wrenn</a><span class="inv">inv: dismissed</span></div>
+              <div class="rel"><span class="lbl">drinks at</span> <a href="#" class="men">The Gilded Rat</a></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Cover present, aside literally at 256px, EntryTabs.svelte:88's own
+        <code>md:w-64</code>, the true width the strip clips in today. Not showing: the select's
+        own open state, that belongs to O4. Prose keeps its full measure and the first
+        screenful, nothing moved to make room for the portrait.</figcaption>
+      </figure>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app aside3 o2-256">
+            <div class="side">
+              <div class="uni"><span class="dot"></span> Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Entries <span class="n">214</span></a>
+                <a href="#">Works <span class="n">2</span></a>
+                <a href="#">Proposals <span class="n">3</span></a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb">Entries / character / <b>Aldric Vane</b></span></div>
+              <div class="entry">
+                <h1 class="title">Aldric Vane</h1>
+                <div class="kicker"><span class="badge">character</span><span class="badge now">audit flag</span><span>also: Captain Vane, the broken captain</span></div>
+                <div class="rowflex" style="margin-bottom:14px"><button class="btn sm">Complete the entry</button><button class="btn sm pri">Edit</button></div>
+                <div class="prose">
+                  <p>Dismissed from the watch in the thaw after <a href="#" class="men t-fact">the Sable Winter</a>,
+                  he now answers to <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at
+                  <a href="#" class="men t-place">the Gilded Rat</a>, in the corner seat nobody asks him to leave.</p>
+                  <h2>Standing in the city</h2>
+                  <p>Three hundred and forty sworn used to take his word. Forty of them still would.</p>
+                </div>
+              </div>
+            </div>
+            <div class="aside">
+              <button class="btn sm o2-picker" type="button">Relations <span class="n">3</span><span class="o2-caret">&#8964;</span></button>
+              <div class="rel"><span class="lbl">employed by</span> <a href="#" class="men">The Ashen Ledger</a><span class="inv">inv: employs</span></div>
+              <div class="rel"><span class="lbl">dismissed by</span> <a href="#" class="men">Iselde Wrenn</a><span class="inv">inv: dismissed</span></div>
+              <div class="rel"><span class="lbl">drinks at</span> <a href="#" class="men">The Gilded Rat</a></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Cover absent: the portrait card is simply not there, the picker sits at the
+        top of the column instead of under it. Still 256px, still one control, no strip left to
+        clip.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The document loses nothing vertically: the portrait sits beside the sentences that describe it.</li>
+          <li>One control cannot clip, and it survives a sixth panel the way five tabs would not.</li>
+          <li>The type-driven ratio, 3:4 for a character, 16:9 for a place, 1:1 for a faction sigil or an item, is the honest answer to a person versus a place.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A picker hides four panels behind a click where tabs showed five at a glance, worse discoverability, and B4's "on demand" does not cover picking one option to hide the rest.</li>
+          <li>256px is a small cover, especially once the portrait sits above three relation lines and nothing else.</li>
+          <li>A wide landscape image, a place, is cramped at that width.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>Header object with an icon rail</h3></header>
+      <p class="sub">The cover, title, badges and actions compose into one header block, a band
+      with a scrim carrying the title bottom-left and actions top-right. The aside keeps all
+      five panels, moved onto a vertical icon rail, widened to 320px.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app aside3 o2-320">
+            <div class="side">
+              <div class="uni"><span class="dot"></span> Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Entries <span class="n">214</span></a>
+                <a href="#">Works <span class="n">2</span></a>
+                <a href="#">Proposals <span class="n">3</span></a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb">Entries / character / <b>Aldric Vane</b></span></div>
+              <div class="o2-ho">
+                <div class="o2-hoscrim"><h1 class="title">Aldric Vane</h1><span class="badge">character</span></div>
+                <div class="o2-hoactions"><button class="btn sm">Complete the entry</button><button class="btn sm pri">Edit</button></div>
+              </div>
+              <div class="entry" style="padding-top:18px">
+                <div class="kicker"><span class="badge now">audit flag</span><span>also: Captain Vane, the broken captain</span></div>
+                <div class="prose">
+                  <p>Dismissed from the watch in the thaw after <a href="#" class="men t-fact">the Sable Winter</a>,
+                  he now answers to <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at
+                  <a href="#" class="men t-place">the Gilded Rat</a>.</p>
+                </div>
+              </div>
+            </div>
+            <div class="aside">
+              <div class="o2-railwrap">
+                <div class="o2-rail">
+                  <button class="o2-railbtn on" type="button" title="Relations">&#8644;</button>
+                  <button class="o2-railbtn" type="button" title="Facts">&#9636;</button>
+                  <button class="o2-railbtn" type="button" title="Images">&#9638;</button>
+                  <button class="o2-railbtn" type="button" title="History">&#8635;</button>
+                  <button class="o2-railbtn" type="button" title="Audit">&#9650;<span class="o2-tip">Audit? reads as a warning icon too</span></button>
+                </div>
+                <div class="o2-railpanel">
+                  <div class="rel"><span class="lbl">employed by</span> <a href="#" class="men">The Ashen Ledger</a><span class="inv">inv: employs</span></div>
+                  <div class="rel"><span class="lbl">dismissed by</span> <a href="#" class="men">Iselde Wrenn</a><span class="inv">inv: dismissed</span></div>
+                  <div class="rel"><span class="lbl">drinks at</span> <a href="#" class="men">The Gilded Rat</a></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Cover present: title and badge sit on a scrim over the image's lower left,
+        actions top right, one object rather than four stacked rows. Rail widened to 320px, 64px
+        more than today's 256, and the Audit glyph's tooltip is left open on purpose: it reads as
+        a plausible warning icon just as easily, which is the ambiguity the cost below names.</figcaption>
+      </figure>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app aside3 o2-320">
+            <div class="side">
+              <div class="uni"><span class="dot"></span> Valdoria Reach <span class="caret">&#9662;</span></div>
+              <nav class="nav">
+                <a href="#" class="on">Entries <span class="n">214</span></a>
+                <a href="#">Works <span class="n">2</span></a>
+                <a href="#">Proposals <span class="n">3</span></a>
+              </nav>
+            </div>
+            <div class="main">
+              <div class="tbar"><span class="crumb">Entries / character / <b>Aldric Vane</b></span></div>
+              <div class="o2-hoflat">
+                <div>
+                  <h1 class="title" style="margin-bottom:6px">Aldric Vane</h1>
+                  <div class="kicker" style="margin-bottom:0"><span class="badge">character</span><span class="badge now">audit flag</span></div>
+                </div>
+                <div class="rowflex" style="margin-bottom:0"><button class="btn sm">Complete the entry</button><button class="btn sm pri">Edit</button></div>
+              </div>
+              <div class="entry" style="padding-top:18px">
+                <div class="kicker"><span>also: Captain Vane, the broken captain</span></div>
+                <div class="prose">
+                  <p>Dismissed from the watch in the thaw after <a href="#" class="men t-fact">the Sable Winter</a>,
+                  he now answers to <a href="#" class="men t-place">the Ashen Ledger</a>. He still drinks at
+                  <a href="#" class="men t-place">the Gilded Rat</a>.</p>
+                </div>
+              </div>
+            </div>
+            <div class="aside">
+              <div class="o2-railwrap">
+                <div class="o2-rail">
+                  <button class="o2-railbtn on" type="button" title="Relations">&#8644;</button>
+                  <button class="o2-railbtn" type="button" title="Facts">&#9636;</button>
+                  <button class="o2-railbtn" type="button" title="Images">&#9638;</button>
+                  <button class="o2-railbtn" type="button" title="History">&#8635;</button>
+                  <button class="o2-railbtn" type="button" title="Audit">&#9650;</button>
+                </div>
+                <div class="o2-railpanel">
+                  <div class="rel"><span class="lbl">employed by</span> <a href="#" class="men">The Ashen Ledger</a><span class="inv">inv: employs</span></div>
+                  <div class="rel"><span class="lbl">dismissed by</span> <a href="#" class="men">Iselde Wrenn</a><span class="inv">inv: dismissed</span></div>
+                  <div class="rel"><span class="lbl">drinks at</span> <a href="#" class="men">The Gilded Rat</a></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Cover absent: the header object flattens to a plain bar, title and actions in
+        a row on the panel background, so nothing pretends to be a photo that isn't there. The
+        rail is unchanged either way, which is the point of moving structure off the cover
+        entirely.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Labels cannot clip because there are none left to clip.</li>
+          <li>The panel gets 64px more room, which Facts and Audit actually need once an entry has more than one of each.</li>
+          <li>A rail scales past five panels the way a strip or a picker both stop doing eventually.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>The product has no icon language yet, so this is I9's Lucide dependency arriving as a design decision rather than a library choice.</li>
+          <li>"Facts" and "Audit" have no obvious glyph, and a wrong icon is worse than a clipped word.</li>
+          <li>A tooltip is not a phone: #148's sheet still has to carry text labels, so the rail buys nothing there.</li>
+          <li>Text over an image needs a scrim that survives both palettes, drawn once here and owed to every entry with a cover under G1.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="o2-rejectstack">
+    <div class="callout rejected">
+      <h3>Generating a cover automatically on create or first view</h3>
+      <p>Tempting because a new entry would never look bare. It breaks
+      <span class="guardref">Guardrail 1</span> the moment the image renders as the entry's face
+      before anyone accepted it, and it breaks G11's confirm-every-paid-action and F1's one
+      action, always confirm the spend: a portrait costs 3 credits per SAMPLE-WORLD.md, and
+      nothing here asked first.</p>
+    </div>
+    <div class="callout rejected">
+      <h3>Keeping five tabs and shrinking the font or the padding until they fit</h3>
+      <p>Not a fix, a delay. A layout that depends on how long a translated word happens to be
+      will clip again the moment a shorter font stack or a longer locale meets it, German
+      compound nouns run long, and the bug demonstrated above returns under a different label.</p>
+    </div>
+    <div class="callout rejected">
+      <h3>Showing a cover on the players' wiki because the entry has one</h3>
+      <p><code>media_asset.published_to_players</code> (<code>packages/db/src/schema/media.ts:68-98</code>)
+      exists precisely so that <span class="guardref">Guardrail 6</span> has no exception for
+      images. A cover the GM never published is still unreviewed content, and the players' wiki
+      does not get to show it just because it happens to sit at the top of the document.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>A, amended twice</h3>
+    <p>I'd take A, amended twice. Cap the band so it never eats more than about a fifth of the
+    first screenful, and don't draw an empty dashed rectangle when an entry has no cover: a slot
+    that's always empty on every thin entry reads worse than no slot at all, so the absent state
+    drawn above is genuinely what ships, not a placeholder waiting for content. Fold in B's rule
+    about the ratio: the band crops to 21:9 for a place and to something closer to square for a
+    person, positioned rather than stretched, so one shape does not have to flatter both a
+    coastline and a face.</p>
+    <p>The schema question is separate from the layout one, and I'd answer it now rather than
+    leave it for whoever builds #284. A nullable <code>entity.cover_asset_id</code> with
+    <code>on delete set null</code>, not a <code>role</code> column on <code>media_asset</code>:
+    one cover is a single fact about the entity, and a role column on the asset table invites two
+    rows both claiming <code>role = 'cover'</code> with nothing stopping it. The Images panel
+    grows one new action, use as cover, and that action is also the accept: an image a proposal
+    generated does not become the entry's face until a person presses it, the same click
+    guardrail 1 already asks for everywhere else on the page.</p>
+    <p>Cheapest way to find out this is wrong: put the capped band on the five entries in the
+    sample world that have no image at all and just read the page. If a capped, empty-safe band
+    still makes a thin entry look unfinished sitting above a short paragraph, the cover belongs
+    in the aside after all, next to the structure rather than above the prose, which is B.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#284</b> and the epic <b>#282</b> stop meaning "fix the clipping bug": they gain a
+      migration, <code>entity.cover_asset_id</code>, nullable, <code>on delete set null</code>,
+      and a loader field the payload at <code>+page.server.ts:139-164</code> does not carry
+      today.</li>
+      <li>O1's card grid depends on that same column existing, so O1's thumbnails cannot ship
+      before this migration lands, whichever of O1's own options wins.</li>
+      <li>The Images panel's new action, use as cover, is the accept step: nothing generated
+      becomes a cover without a human click (guardrail 1), and the same action is where
+      <code>published_to_players</code> gets checked before a cover shows on
+      <code>/p/&lt;slug&gt;</code> (guardrail 6).</li>
+      <li>The aside's five panels keep exactly what they hold today, relations, facts, images,
+      history, audit; only what carries them changes here. B4's on-demand default, C9's badge and
+      B3's one-click typing are not reopened.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+</body>
+</html>

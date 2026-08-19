@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="assets/ux.css">
+<script defer src="assets/ux.js"></script>
+<style>
+  /* Scoped to this page: prefix o4-. Every listbox's own labels (entity and
+     language names) render serif per G2 = C, "no boundary rule"; file:line
+     citations and type tags stay mono, the one carve-out G2 kept. */
+
+  .o4-note { font-size: 13px; color: var(--muted); max-width: 58em; margin: -6px 0 18px; }
+  .o4-note code { font-size: 0.92em; }
+
+  table.o4facts { width: 100%; border-collapse: collapse; font: 14px var(--serif); max-width: none; margin: 4px 0 20px; }
+  table.o4facts th { text-align: left; font: 600 11px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 0 12px 8px 0; border-bottom: 1px solid var(--line-2); }
+  table.o4facts td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--ink-2); }
+  table.o4facts tr:last-child td { border-bottom: 0; }
+  table.o4facts td.num { font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+  table.o4facts code { white-space: nowrap; }
+
+  /* two call sites, side by side, inside every mock */
+  .o4-twin { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; padding: 20px 26px 28px; }
+  @media (max-width: 760px) { .o4-twin { grid-template-columns: 1fr; } }
+
+  .o4-panel-h { font: 600 10px/1.5 var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 10px; }
+  .o4-panel-h b { color: var(--ink-2); font-weight: 600; }
+
+  .o4-entrylike { border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; background: var(--panel); }
+  .o4-entrytitle { font-family: var(--serif); font-size: 19px; margin: 0 0 14px; }
+
+  .o4-lbl { display: block; font: 600 10px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 5px; }
+  .o4-field + .o4-field { margin-top: 14px; }
+  .o4-disclaimer { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+  .o4-fake-note { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font: 13px var(--serif); color: var(--ink-2); background: var(--panel-2); margin-top: 4px; }
+  .o4-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+  /* baseline: the native <select>, deliberately untouched */
+  .o4-native { display: block; width: 100%; box-sizing: border-box; }
+
+  /* shadcn-style Select: button trigger + listbox, real click, real keys */
+  .o4-trigger {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+    box-sizing: border-box; font: 15px var(--serif); padding: 8px 11px; border: 1px solid var(--line-2);
+    border-radius: 8px; background: var(--panel); color: var(--ink); cursor: pointer;
+  }
+  .o4-trigger:hover { border-color: var(--muted); }
+  .o4-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .o4-chev { color: var(--muted); font-size: 11px; flex: none; }
+  .o4-listbox {
+    margin-top: 5px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel);
+    max-height: 176px; overflow-y: auto; padding: 4px;
+  }
+  .o4-listbox[hidden] { display: none; }
+  .o4-opt {
+    display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 6px;
+    font: 15px var(--serif); color: var(--ink-2); cursor: pointer;
+  }
+  .o4-opt:hover { background: var(--accent-bg); color: var(--ink); }
+  .o4-opt:focus, .o4-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--accent-bg); color: var(--ink); }
+  .o4-opt .o4-check { width: 13px; flex: none; color: var(--accent); font-weight: 700; opacity: 0; }
+  .o4-opt[aria-selected="true"] { font-weight: 600; color: var(--ink); }
+  .o4-opt[aria-selected="true"] .o4-check { opacity: 1; }
+  .o4-opt .o4-opt-name { flex: 1; min-width: 0; }
+  .o4-opt[hidden] { display: none; }
+  .o4-opt-more { color: var(--muted); font: italic 13px var(--serif); cursor: default; padding: 7px 9px; }
+  .o4-opt-more:hover { background: none; }
+  .o4-opt-more[hidden] { display: none; }
+
+  /* segmented control: native radios, zero JS, real focus ring */
+  .o4-seg { position: relative; display: flex; flex-wrap: wrap; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; background: var(--panel); width: 100%; }
+  .o4-seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .o4-seg label {
+    flex: 1 1 0; text-align: center; padding: 8px 8px; font: 13.5px var(--serif); color: var(--ink-2);
+    cursor: pointer; border-right: 1px solid var(--line-2);
+  }
+  .o4-seg label:last-of-type { border-right: 0; }
+  .o4-seg input:checked + label { background: var(--accent); color: #fff; }
+  .o4-seg input:focus-visible + label { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+
+  /* combobox: type to filter the listbox live */
+  .o4-combo-input {
+    display: block; width: 100%; box-sizing: border-box; font: 15px var(--serif); padding: 8px 11px;
+    border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel); color: var(--ink);
+  }
+  .o4-combo-input::placeholder { font-family: var(--serif); color: var(--muted); }
+  .o4-combo-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .o4-combo .o4-listbox { margin-top: 5px; }
+
+  /* palette field: a button that hands off to a global overlay */
+  .o4-palette-field .o4-trigger .o4-trigger-val { color: var(--muted); }
+  .o4-palette-overlay {
+    position: fixed; inset: 0; background: rgba(34, 29, 22, 0.45); z-index: 80;
+    display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 0;
+  }
+  .o4-palette-overlay[hidden] { display: none; }
+  .o4-palette-panel { width: 100%; max-width: 460px; }
+  .o4-palette-panel > header { padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--line); display: block; }
+  .o4-palette-panel .o4-combo-input { margin-bottom: 8px; }
+  .o4-prow {
+    all: unset; box-sizing: border-box; display: flex; width: 100%; align-items: center; gap: 10px;
+    padding: 9px 4px; border-bottom: 1px solid var(--line); font: 15px var(--serif); color: var(--ink-2);
+    cursor: pointer;
+  }
+  .o4-prow:last-child { border-bottom: 0; }
+  .o4-prow:hover, .o4-prow:focus-visible { background: var(--accent-bg); color: var(--ink); outline: none; }
+</style>
+</head>
+<body data-decision="O4">
+
+<div class="topline" data-ux-top></div>
+<header class="page-head" data-ux-head></header>
+
+<section>
+  <h2>Why this is a decision</h2>
+  <p class="lede">I opened all ten. They are not the same problem in ten places, they are two
+  different problems that both happen to use the tag <code>&lt;select&gt;</code>.
+  LanguageControl.svelte:79 offers four choices the product itself ships, and
+  QuickNoteForm.svelte:51 exists to name any entity a GM has ever written down. A control sized
+  right for the first is wrong for the second, and a control sized right for the second is a
+  popover doing far more work than a four-item choice ever needs. Whoever converts call site
+  six is going to copy whatever call site one did, which is exactly how the wrong control ends
+  up in the wrong place if I don't say, once, which shape belongs where.</p>
+
+  <table class="o4facts">
+    <thead>
+      <tr><th>Call site</th><th>What the list is</th><th>Roughly how many</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>LanguageControl.svelte:79</code></td><td>the entry's own language: auto-detect, English, Italiano, or "not sure / mixed" (:86&ndash;90)</td><td class="num">4, fixed</td></tr>
+      <tr><td><code>MergeRelationTypesDialog.svelte:79</code></td><td>the losing side of a merge: only this universe's own relation types (:36&ndash;37)</td><td class="num">varies</td></tr>
+      <tr><td><code>MergeRelationTypesDialog.svelte:100</code></td><td>the winning side: shipped or this universe's own types (:38&ndash;39)</td><td class="num">varies</td></tr>
+      <tr><td><code>DeclareContext.svelte:98</code></td><td>this campaign's own logged sessions</td><td class="num">grows per session</td></tr>
+      <tr><td><code>QuickNoteForm.svelte:51</code></td><td>entities pinned to this table session, plus the declared place (table/+page.svelte:215&ndash;222)</td><td class="num">uncapped</td></tr>
+      <tr><td><code>settings/+page.svelte:193</code></td><td>every entity in a derived universe, no filter at all (settings/+page.server.ts:45&ndash;50)</td><td class="num">61, Sword Coast (ours)</td></tr>
+      <tr><td><code>settings/+page.svelte:205</code></td><td>this universe's configured base data sources</td><td class="num">a handful</td></tr>
+      <tr><td><code>works/+page.svelte:69</code></td><td>a work's type: oneshot, module, campaign, story, novel (en.ts:1245&ndash;1250)</td><td class="num">5, fixed</td></tr>
+      <tr><td><code>works/[work]/+page.svelte:34</code></td><td>a work node's kind: act, chapter, scene, encounter (en.ts:1258&ndash;1262)</td><td class="num">4, fixed</td></tr>
+      <tr><td><code>works/[work]/[node]/+page.svelte:96</code></td><td>the same node kind, in the add-child form</td><td class="num">4, fixed</td></tr>
+    </tbody>
+  </table>
+
+  <p>I'm scoping the mocks below to the two extremes: LanguageControl.svelte:79, and
+  QuickNoteForm.svelte:51. That field is filtered to whatever's pinned this session today, but
+  its own sibling one row down in this table, settings/+page.svelte:193, shows the same
+  generic shape with the filter removed entirely: every entity in a derived universe, no cap.
+  Sword Coast (ours) only has 61 (SAMPLE-WORLD.md:13&ndash;14); testing the control at Valdoria
+  Reach's own scale, 214 entries (SAMPLE-WORLD.md:12), is the honest ceiling, not a cherry-picked
+  easy case.</p>
+
+  <div class="callout guard">
+    <p><span class="guardref">Guardrail 1</span> propose, never apply, one accept per entry, the
+    only exception being a field a re-import writes because the source changed and the user
+    never touched it. LanguageControl.svelte:4&ndash;8 already draws exactly that line inside one
+    field: "Auto-detect" hands the entry back to the machine's own detection and re-runs it on
+    the spot, while the other three choices are the only ones that write
+    <code>languageSource: 'human'</code> (:39&ndash;40), a confirmation the entry remembers
+    afterward. Whatever renders that field has to keep "the machine is guessing" and "a person
+    decided" exactly as separable as the plain four-item list already makes them; a control that
+    turns a deliberate four-way choice into one more clickable blob loses the one bit of state
+    this guardrail exists to protect.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Options</h2>
+  <p class="o4-note">One figure first, what ships today, both call sites, then three lettered
+  options, each showing the same two fields. Every listbox's own labels below render serif per
+  G2 = C, no boundary rule; file:line citations and entity/relation type tags stay mono, the one
+  carve-out G2 kept for identifiers.</p>
+
+  <figure class="mock">
+    <div class="frame">
+      <div class="app narrow">
+        <div class="main">
+          <div class="tbar"><span class="crumb">What ships today &middot; both fields are a bare <code>&lt;select&gt;</code></span></div>
+          <div class="o4-twin">
+            <div>
+              <p class="o4-panel-h"><b>LanguageControl.svelte:79</b> &middot; entry header</p>
+              <div class="o4-entrylike">
+                <h4 class="o4-entrytitle">Aldric Vane</h4>
+                <label class="o4-lbl" for="o4-native-lang">Language</label>
+                <select id="o4-native-lang" class="o4-native">
+                  <option>Auto-detect</option>
+                  <option selected>English</option>
+                  <option>Italiano</option>
+                  <option>Not sure / mixed</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <p class="o4-panel-h"><b>QuickNoteForm.svelte:51</b> &middot; table quick-action dock</p>
+              <div class="card">
+                <header><h4>Jot a quick note</h4></header>
+                <p class="o4-disclaimer">Never applied directly, this becomes a pending proposal.</p>
+                <label class="o4-lbl" for="o4-native-note">About</label>
+                <select id="o4-native-note" class="o4-native">
+                  <option>Aldric Vane</option>
+                  <option>Mother Sennah</option>
+                  <option>Corvin Ashe</option>
+                  <option>Iselde Wrenn</option>
+                  <option>Valdoria</option>
+                  <option>The Gilded Rat</option>
+                  <option>Cairnmouth</option>
+                  <option>The Sable Reach</option>
+                  <option>The Ashen Ledger</option>
+                  <option>The Valdoria Watch</option>
+                  <option>The Sable Winter</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>Both fields render the browser's own control: no border radius, no warm paper,
+    no way for our CSS to reach the option list at all. Language offers four choices
+    (LanguageControl.svelte:86&ndash;90); About lists whatever this fixture session has pinned
+    so far, the eleven named entries in SAMPLE-WORLD.md. Not shown: the OS's own open menu, a
+    screenshot can't show what a click does to system chrome, and that gap is the whole
+    complaint.</figcaption>
+  </figure>
+
+  <div class="opts one">
+
+    <div class="opt">
+      <header><span class="ltr">A</span><h3>One control everywhere: the shadcn-svelte Select</h3></header>
+      <p class="sub">All ten call sites take the same button-plus-listbox, no exceptions, no
+      judgment call about which one a given field deserves.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app narrow">
+            <div class="main">
+              <div class="tbar"><span class="crumb">Option A &middot; the same Select, both fields</span></div>
+              <div class="o4-twin">
+                <div>
+                  <p class="o4-panel-h"><b>LanguageControl.svelte:79</b> &middot; entry header</p>
+                  <div class="o4-entrylike">
+                    <h4 class="o4-entrytitle">Aldric Vane</h4>
+                    <label class="o4-lbl" id="o4-a-lang-lbl">Language</label>
+                    <div data-o4-select>
+                      <button type="button" class="o4-trigger" id="o4-a-lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="o4-a-lang-list" aria-labelledby="o4-a-lang-lbl">
+                        <span class="o4-trigger-val">Auto-detect</span>
+                        <span class="o4-chev" aria-hidden="true">&#9662;</span>
+                      </button>
+                      <div class="o4-listbox" role="listbox" id="o4-a-lang-list" aria-labelledby="o4-a-lang-lbl">
+                        <div class="o4-opt" role="option" aria-selected="true" tabindex="-1" data-label="Auto-detect"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Auto-detect</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="English"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">English</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="Italiano"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Italiano</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="Not sure / mixed"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Not sure / mixed</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <p class="o4-panel-h"><b>QuickNoteForm.svelte:51</b> &middot; table quick-action dock</p>
+                  <div class="card">
+                    <header><h4>Jot a quick note</h4></header>
+                    <label class="o4-lbl" id="o4-a-note-lbl">About</label>
+                    <div data-o4-select>
+                      <button type="button" class="o4-trigger" id="o4-a-note-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="o4-a-note-list" aria-labelledby="o4-a-note-lbl">
+                        <span class="o4-trigger-val">Choose an entity&hellip;</span>
+                        <span class="o4-chev" aria-hidden="true">&#9662;</span>
+                      </button>
+                      <div class="o4-listbox" role="listbox" id="o4-a-note-list" aria-labelledby="o4-a-note-lbl">
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="Aldric Vane"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Aldric Vane</span><span class="badge">character</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="Mother Sennah"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Mother Sennah</span><span class="badge">character</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="Corvin Ashe"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Corvin Ashe</span><span class="badge">character</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="Iselde Wrenn"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Iselde Wrenn</span><span class="badge">character</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="Valdoria"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Valdoria</span><span class="badge">place</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="The Gilded Rat"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">The Gilded Rat</span><span class="badge">place</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="Cairnmouth"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Cairnmouth</span><span class="badge">place</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="The Sable Reach"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">The Sable Reach</span><span class="badge">place</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="The Ashen Ledger"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">The Ashen Ledger</span><span class="badge">faction</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="The Valdoria Watch"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">The Valdoria Watch</span><span class="badge">faction</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="The Sable Winter"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">The Sable Winter</span><span class="badge">event</span></div>
+                        <div class="o4-opt-more">+ 203 more of Valdoria Reach's 214 entries, no search, only scroll</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Click either trigger, arrow through the list, Enter picks, Escape closes.
+        Language opens to four rows. About opens to the same listbox, scaled to Valdoria Reach's
+        real count and scrolling under a fixed height, exactly the settings/+page.svelte:193
+        shape with nothing filtered. Not shown: the hidden <code>&lt;input&gt;</code> each of the
+        ten call sites needs so its form still posts without JS, that cost is prose, not
+        pixels.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>One implementation, one keyboard model, to build once and maintain once.</li>
+          <li>Both palettes (G1) checked once, not three separate times over three controls.</li>
+          <li>The OS widget stops appearing in the middle of warm paper, on all ten fields at once.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A two-option choice becomes a popover for no reason it can point to.</li>
+          <li>A list of every entity needs typeahead a plain listbox doesn't have, so the worst
+          call site, the one shown above, stays exactly as bad as the native version.</li>
+          <li>A native <code>&lt;select&gt;</code> inside a progressively enhanced form posts
+          without JS; a popover doesn't, so every one of the ten grows a hidden input, real work,
+          not a detail to wave past.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt rec-opt">
+      <header><span class="ltr">B</span><h3>Three controls, chosen by what the list is</h3></header>
+      <p class="sub">A segmented control for a state, a Select for a vocabulary the product
+      ships, a Combobox with search for anything drawn from the GM's own, unbounded data.</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app narrow">
+            <div class="main">
+              <div class="tbar"><span class="crumb">Option B &middot; a control per kind of list</span></div>
+              <div class="o4-twin">
+                <div>
+                  <p class="o4-panel-h"><b>LanguageControl.svelte:79</b> &middot; entry header, shown in Italian on purpose</p>
+                  <div class="o4-entrylike">
+                    <h4 class="o4-entrytitle">Aldric Vane</h4>
+                    <label class="o4-lbl" id="o4-b-lang-lbl">Lingua</label>
+                    <div class="o4-seg" role="radiogroup" aria-labelledby="o4-b-lang-lbl">
+                      <input type="radio" name="o4-b-lang" id="o4-b-lang-auto" checked>
+                      <label for="o4-b-lang-auto">Rilevamento automatico</label>
+                      <input type="radio" name="o4-b-lang" id="o4-b-lang-en">
+                      <label for="o4-b-lang-en">English</label>
+                      <input type="radio" name="o4-b-lang" id="o4-b-lang-it">
+                      <label for="o4-b-lang-it">Italiano</label>
+                      <input type="radio" name="o4-b-lang" id="o4-b-lang-uns">
+                      <label for="o4-b-lang-uns">Non sicuro / misto</label>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <p class="o4-panel-h"><b>QuickNoteForm.svelte:51</b> &middot; table quick-action dock</p>
+                  <div class="card">
+                    <header><h4>Jot a quick note</h4></header>
+                    <label class="o4-lbl" for="o4-b-note-input">About</label>
+                    <div class="o4-combo" data-o4-combo>
+                      <input type="text" class="o4-combo-input" id="o4-b-note-input" role="combobox" aria-expanded="true" aria-controls="o4-b-note-list" aria-autocomplete="list" placeholder="Search Valdoria Reach&hellip;" autocomplete="off">
+                      <div class="o4-listbox" role="listbox" id="o4-b-note-list" aria-label="Entities">
+                        <div class="o4-opt" role="option" tabindex="-1" data-name="Aldric Vane"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Aldric Vane</span><span class="badge">character</span></div>
+                        <div class="o4-opt" role="option" tabindex="-1" data-name="Mother Sennah"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Mother Sennah</span><span class="badge">character</span></div>
+                        <div class="o4-opt" role="option" tabindex="-1" data-name="Corvin Ashe"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Corvin Ashe</span><span class="badge">character</span></div>
+                        <div class="o4-opt" role="option" tabindex="-1" data-name="Iselde Wrenn"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Iselde Wrenn</span><span class="badge">character</span></div>
+                        <div class="o4-opt" role="option" tabindex="-1" data-name="Valdoria"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Valdoria</span><span class="badge">place</span></div>
+                        <div class="o4-opt" role="option" tabindex="-1" data-name="The Gilded Rat"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">The Gilded Rat</span><span class="badge">place</span></div>
+                        <div class="o4-opt" role="option" tabindex="-1" data-name="Cairnmouth"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Cairnmouth</span><span class="badge">place</span></div>
+                        <div class="o4-opt" role="option" tabindex="-1" data-name="The Sable Reach"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">The Sable Reach</span><span class="badge">place</span></div>
+                        <div class="o4-opt" role="option" tabindex="-1" data-name="The Ashen Ledger"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">The Ashen Ledger</span><span class="badge">faction</span></div>
+                        <div class="o4-opt" role="option" tabindex="-1" data-name="The Valdoria Watch"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">The Valdoria Watch</span><span class="badge">faction</span></div>
+                        <div class="o4-opt" role="option" tabindex="-1" data-name="The Sable Winter"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">The Sable Winter</span><span class="badge">event</span></div>
+                        <div class="o4-opt-more">+ 203 more of Valdoria Reach's 214 entries, type to narrow</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Tab into the segmented control, arrow keys move the selection, no JS
+        anywhere in it. Type into About and the list narrows as you go, try "gil" or "wat".
+        "Rilevamento automatico" and "Non sicuro / misto" are the real Italian strings
+        (it.ts:454&ndash;455; LOCALE_NAMES stay endonyms, locale.ts:27&ndash;30) and they already
+        push the segmented control toward two lines at this width. Not shown: the Select variant,
+        since the merge dialog's own relation-type pickers already look exactly like option A's
+        listbox, just shorter.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>Each control is sized to its list: no oversized popover for a four-item choice,
+          no undersized listbox for two hundred entities.</li>
+          <li>The rule is stated once, about what the list is, not how long it is, so there's no
+          threshold to argue over call site by call site.</li>
+          <li>The unbounded case, the quick note target and the precedence entry behind it,
+          actually gets solved instead of merely surviving.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>Three implementations to restyle and to check across both palettes (G1), not one.</li>
+          <li>A segmented control with long labels wraps badly in a language whose words run
+          longer than English's, shown above with the real Italian strings.</li>
+          <li>The rule needs one sentence in the code review vocabulary or it gets applied by
+          taste, one call site at a time.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <header><span class="ltr">C</span><h3>The palette answers the long lists</h3></header>
+      <p class="sub">Short fixed lists keep a Select. Anything drawn from the GM's own data
+      stops being a field and becomes a button that opens the command palette (#149), scoped to
+      "choose an entry".</p>
+
+      <figure class="mock">
+        <div class="frame">
+          <div class="app narrow">
+            <div class="main">
+              <div class="tbar"><span class="crumb">Option C &middot; About hands off to the palette, click it</span></div>
+              <div class="o4-twin">
+                <div>
+                  <p class="o4-panel-h"><b>LanguageControl.svelte:79</b> &middot; entry header</p>
+                  <div class="o4-entrylike">
+                    <h4 class="o4-entrytitle">Aldric Vane</h4>
+                    <label class="o4-lbl" id="o4-c-lang-lbl">Language</label>
+                    <div data-o4-select>
+                      <button type="button" class="o4-trigger" id="o4-c-lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="o4-c-lang-list" aria-labelledby="o4-c-lang-lbl">
+                        <span class="o4-trigger-val">Auto-detect</span>
+                        <span class="o4-chev" aria-hidden="true">&#9662;</span>
+                      </button>
+                      <div class="o4-listbox" role="listbox" id="o4-c-lang-list" aria-labelledby="o4-c-lang-lbl">
+                        <div class="o4-opt" role="option" aria-selected="true" tabindex="-1" data-label="Auto-detect"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Auto-detect</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="English"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">English</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="Italiano"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Italiano</span></div>
+                        <div class="o4-opt" role="option" aria-selected="false" tabindex="-1" data-label="Not sure / mixed"><span class="o4-check" aria-hidden="true">&#10003;</span><span class="o4-opt-name">Not sure / mixed</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <p class="o4-panel-h"><b>QuickNoteForm.svelte:51</b> &middot; table quick-action dock</p>
+                  <div class="card">
+                    <header><h4>Jot a quick note</h4></header>
+                    <label class="o4-lbl" id="o4-c-note-lbl">About</label>
+                    <div class="o4-palette-field" data-o4-palette>
+                      <button type="button" class="o4-trigger" id="o4-c-note-btn" aria-haspopup="dialog" aria-expanded="false" aria-labelledby="o4-c-note-lbl">
+                        <span class="o4-trigger-val">Choose an entity&hellip;</span>
+                        <span class="o4-chev" aria-hidden="true">&#9662;</span>
+                      </button>
+                      <div class="o4-palette-overlay" hidden>
+                        <div class="card o4-palette-panel" role="dialog" aria-label="Choose an entry">
+                          <header><h4>Choose an entry</h4></header>
+                          <input type="text" class="o4-combo-input" placeholder="Search Valdoria Reach&hellip;" autocomplete="off">
+                          <div class="rows">
+                            <button type="button" class="o4-prow" data-name="Aldric Vane">Aldric Vane<span class="badge">character</span></button>
+                            <button type="button" class="o4-prow" data-name="Mother Sennah">Mother Sennah<span class="badge">character</span></button>
+                            <button type="button" class="o4-prow" data-name="Corvin Ashe">Corvin Ashe<span class="badge">character</span></button>
+                            <button type="button" class="o4-prow" data-name="Iselde Wrenn">Iselde Wrenn<span class="badge">character</span></button>
+                            <button type="button" class="o4-prow" data-name="The Gilded Rat">The Gilded Rat<span class="badge">place</span></button>
+                            <button type="button" class="o4-prow" data-name="The Ashen Ledger">The Ashen Ledger<span class="badge">faction</span></button>
+                          </div>
+                        </div>
+                      </div>
+                      <noscript>
+                        <div class="card o4-palette-panel" style="margin-top:8px;">
+                          <header><h4>Choose an entry</h4></header>
+                          <div class="rows">
+                            <div class="o4-prow" style="cursor:default;">Aldric Vane<span class="badge">character</span></div>
+                            <div class="o4-prow" style="cursor:default;">Mother Sennah<span class="badge">character</span></div>
+                            <div class="o4-prow" style="cursor:default;">Corvin Ashe<span class="badge">character</span></div>
+                            <div class="o4-prow" style="cursor:default;">Iselde Wrenn<span class="badge">character</span></div>
+                            <div class="o4-prow" style="cursor:default;">The Gilded Rat<span class="badge">place</span></div>
+                            <div class="o4-prow" style="cursor:default;">The Ashen Ledger<span class="badge">faction</span></div>
+                          </div>
+                        </div>
+                      </noscript>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Language stays the shadcn-svelte Select from option A, click it, same
+        keyboard model. About is a button; click it and the palette opens over the whole page,
+        past this card's own edges, scoped to "choose an entry". Not shown: the palette used for
+        anything but entities, that scope is the point, not an oversight.</figcaption>
+      </figure>
+
+      <div class="costs">
+        <div><h4>Buys</h4><ul>
+          <li>The hardest call site costs nothing new: the command palette (#149) already has
+          the search, the keyboard model and the fuzzy matching.</li>
+          <li>One search implementation in the whole product, not two competing ones.</li>
+          <li>Genuinely faster for a GM who types rather than one who scrolls.</li>
+        </ul></div>
+        <div><h4>Costs</h4><ul>
+          <li>A form field that opens a global overlay is a surprising interaction, and it takes
+          focus away from the form it belongs to, shown above covering the entire page for one
+          field.</li>
+          <li>The palette grows a scoped "choose an entry" mode, so #149 gets bigger before this
+          gets smaller.</li>
+          <li>Unusable on a phone (I10): a full-screen overlay to fill one field of five is
+          worse than a plain listbox.</li>
+        </ul></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Rejected outright</h2>
+  <div class="callout rejected">
+    <h3>Styling the native select to look like the reading room</h3>
+    <p>Tempting because it costs almost nothing: a CSS reset, our border and radius on the
+    closed state, warm paper behind it. But the option list itself is drawn by the operating
+    system, not by us, and no stylesheet reaches it. The trigger looks right until the moment
+    someone clicks it, and then the browser's own menu opens in its own font, its own light or
+    dark mode, its own scrollbar. That isn't a smaller version of the current complaint, it is
+    the complaint, restated with better paint on the one part that was never the problem.</p>
+  </div>
+  <div class="callout rejected">
+    <h3>Hand-rolling our own listbox from a div and a keydown handler</h3>
+    <p>I9 already settled this once: the hard parts of any of these controls, focus management,
+    typeahead, an escape key that closes exactly one layer and not the whole page, come from
+    bits-ui, and shadcn-svelte's Select, Combobox and radio group sit on top of it. Building our
+    own reopens a decision #155 already flagged as a gap in the layer we picked, not a reason to
+    route around that layer a third time.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What I would take</h2>
+  <div class="callout rec">
+    <h3>B, drawing the line by what the list is</h3>
+    <p>Take B. The boundary isn't how long a list is, it's what kind of thing it holds: a state
+    gets a segmented control, a vocabulary the product ships gets a Select, a list of the GM's
+    own data gets a Combobox with search. That's more code than A, three components to restyle
+    and check in both palettes instead of one, and I'd rather say that plainly than pretend it's
+    free. The extra code is exactly where the current pain already is: QuickNoteForm.svelte:51
+    and settings/+page.svelte:193 are both worse under a plain listbox than under a native
+    select with its OS-level typeahead, and A ships that regression on purpose to save a
+    component.</p>
+    <p><b>Cheapest way to find out this is wrong</b>: convert the quick note target first, at a
+    real table with a world of two hundred entries, because that's the call site where a plain
+    listbox and a searchable one differ by an order of magnitude. If the Combobox isn't
+    obviously better there, once it's actually in front of a GM mid-session, A is enough and the
+    third control isn't worth the maintenance.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What this locks in</h2>
+  <div class="callout locks">
+    <ul>
+      <li><b>#286</b> stops meaning "add a Select": the issue has to say which of the ten call
+      sites gets a segmented control, which gets a Select, which gets a Combobox, using the
+      table above, not "replace select" as one line of work.</li>
+      <li><b>#282</b> and <b>#155</b> both close against three components landing together, not
+      one; #155's own gap, no select shipped with the control layer, is now a gap in three
+      shapes, and the epic has to track all three as one wave, not stagger them.</li>
+      <li>Each converted call site keeps working without JS or explicitly stops being
+      progressive, a decision made per form as it converts, not one global ruling this page can
+      make for all ten at once.</li>
+      <li>The three controls arrive with their dark-palette pass (G1) rather than after it, and
+      the reading room's tokens map into shadcn's own names in one block per I9, so nothing here
+      restyles a component a second time on arrival.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Decision</h2>
+  <div class="decide" data-ux-record></div>
+</section>
+
+<nav class="pagenav" data-ux-nav></nav>
+
+<script>
+(function () {
+  function qsa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+
+  function initSelect(root) {
+    var trigger = root.querySelector('.o4-trigger');
+    var listbox = root.querySelector('.o4-listbox');
+    if (!trigger || !listbox) return;
+    listbox.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+
+    function opts() { return qsa('.o4-opt', listbox); }
+    function selected() { return opts().filter(function (o) { return o.getAttribute('aria-selected') === 'true'; })[0]; }
+
+    function open(focusFirst) {
+      listbox.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+      var list = opts();
+      var target = focusFirst ? list[0] : (selected() || list[0]);
+      if (target) target.focus();
+    }
+    function close(refocus) {
+      listbox.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      if (refocus) trigger.focus();
+    }
+    function choose(opt) {
+      opts().forEach(function (o) { o.setAttribute('aria-selected', o === opt ? 'true' : 'false'); });
+      var val = trigger.querySelector('.o4-trigger-val');
+      if (val) val.textContent = opt.getAttribute('data-label') || opt.textContent.trim();
+      close(true);
+    }
+
+    trigger.addEventListener('click', function () {
+      if (listbox.hidden) open(false); else close(false);
+    });
+    trigger.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); open(true); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(false); }
+    });
+    listbox.addEventListener('keydown', function (e) {
+      var list = opts();
+      var i = list.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown') { e.preventDefault(); var n = list[(i + 1 + list.length) % list.length]; if (n) n.focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); var p = list[(i - 1 + list.length) % list.length]; if (p) p.focus(); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (document.activeElement.classList.contains('o4-opt')) choose(document.activeElement); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(true); }
+      else if (e.key === 'Tab') { close(false); }
+    });
+    listbox.addEventListener('click', function (e) {
+      var opt = e.target.closest ? e.target.closest('.o4-opt') : null;
+      if (opt) choose(opt);
+    });
+    document.addEventListener('click', function (e) {
+      if (!listbox.hidden && !root.contains(e.target)) close(false);
+    });
+  }
+
+  function initCombo(root) {
+    var input = root.querySelector('.o4-combo-input');
+    var listbox = root.querySelector('.o4-listbox');
+    if (!input || !listbox) return;
+    var opts = qsa('.o4-opt', listbox);
+    var more = listbox.querySelector('.o4-opt-more');
+
+    function visible() { return opts.filter(function (o) { return !o.hidden; }); }
+    function filter() {
+      var q = input.value.trim().toLowerCase();
+      opts.forEach(function (o) {
+        var name = (o.getAttribute('data-name') || o.textContent).toLowerCase();
+        o.hidden = q.length > 0 && name.indexOf(q) === -1;
+      });
+      if (more) more.hidden = q.length > 0;
+    }
+    function choose(opt) {
+      input.value = opt.getAttribute('data-name') || opt.textContent.trim();
+      opts.forEach(function (o) { o.hidden = false; });
+      if (more) more.hidden = false;
+      input.focus();
+    }
+    input.addEventListener('input', filter);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); var first = visible()[0]; if (first) first.focus(); }
+      else if (e.key === 'Escape') { input.value = ''; filter(); }
+    });
+    listbox.addEventListener('keydown', function (e) {
+      var list = visible();
+      var i = list.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown') { e.preventDefault(); var n = list[i + 1]; if (n) n.focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); if (i <= 0) input.focus(); else list[i - 1].focus(); }
+      else if (e.key === 'Enter') { e.preventDefault(); if (document.activeElement.classList.contains('o4-opt')) choose(document.activeElement); }
+      else if (e.key === 'Escape') { e.preventDefault(); input.focus(); }
+    });
+    listbox.addEventListener('click', function (e) {
+      var opt = e.target.closest ? e.target.closest('.o4-opt') : null;
+      if (opt) choose(opt);
+    });
+  }
+
+  function initPalette(root) {
+    var trigger = root.querySelector('.o4-trigger');
+    var overlay = root.querySelector('.o4-palette-overlay');
+    if (!trigger || !overlay) return;
+    var input = overlay.querySelector('.o4-combo-input');
+    var rows = qsa('.o4-prow', overlay);
+
+    function open() {
+      overlay.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+      if (input) input.focus();
+    }
+    function close() {
+      overlay.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.focus();
+    }
+    function choose(row) {
+      var val = trigger.querySelector('.o4-trigger-val');
+      if (val) val.textContent = row.getAttribute('data-name') || row.textContent.trim();
+      close();
+    }
+    trigger.addEventListener('click', open);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    overlay.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+    rows.forEach(function (row) { row.addEventListener('click', function () { choose(row); }); });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    qsa('[data-o4-select]').forEach(initSelect);
+    qsa('[data-o4-combo]').forEach(initCombo);
+    qsa('[data-o4-palette]').forEach(initPalette);
+  });
+})();
+</script>
+</body>
+</html>

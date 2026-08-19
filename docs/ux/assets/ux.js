@@ -222,8 +222,9 @@ const UX_REGISTER = [
     q: 'There is no account page and four of the five settings leaves cannot be reached by clicking: what holds them?', w: 'now', i: [143], dt: '2026-08-15',
     d: 'B', dn: 'An account menu plus one two-pane settings page' },
   { s: 'Round four', id: 'I7', f: 'product-pass.html#i7', t: 'The universe home and the entry browser',
-    q: '214 entries, no list, no filter, no search: is the home a dashboard, a browser, or both?', w: 'now', i: [145], dt: '2026-08-15',
-    d: 'C', dn: 'One page, browser with a collapsible overview strip' },
+    q: '214 entries, no list, no filter, no search: is the home a dashboard, a browser, or both?', w: 'now', i: [145, 283], dt: '2026-08-15',
+    d: 'C', dn: 'One page, browser with a collapsible overview strip (superseded by O1)',
+    dnote: 'Superseded by O1 on 2026-08-19, and the only round four answer the shipped version of itself argued out of. One page in two modes was more than the zero the product had at the time; having used it, the strip is too small to be a home and the list is too plain to be a browser. O1 = C splits them: a world home at /w/<slug> and the browser as a dense table at /w/<slug>/entries.' },
   { s: 'Round four', id: 'I8', f: 'product-pass.html#i8', t: 'Empty states, as a pattern',
     q: 'Ten hand-written sentences with no actions: one component, or nine deliberate one-offs?', w: 'now', i: [146], dt: '2026-08-15',
     d: 'A', dn: 'One component, three variants',
@@ -274,6 +275,31 @@ const UX_REGISTER = [
     w: 'now', i: [50, 56], dt: '2026-08-19',
     d: 'A', dn: 'A per-universe setting, 25 by default, with an explicit no-limit option',
     dnote: 'universe.propagation_cap is a nullable integer rather than a sentinel: 0 collides with the state effectiveCap\'s own floor already refuses to produce, and a very large number lies about what "no limit" means the moment somebody reads the column, so null is the only value that means the same thing everywhere it is read. 25 is not a guess: propagate.plan costs 1 credit and propagate.diff costs 1 credit per surviving candidate (migration 0004), so a cap of 25 bounds one save\'s worst case at 26 credits, 0.52% of the included tier\'s 5,000 credits per period - generous enough that a real two-hop neighbourhood rarely gets truncated, still a real ceiling. The old 10 bounded the same worst case at 11 credits, 0.22% of a period, conservative enough that nobody had ever checked it against anything. effectiveCap keeps tightening a numeric cap by one per recent "too much", floored at 3, but a null cap has nothing to tighten and the floor never resurrects a limit the GM explicitly turned off - effectiveCap(null, ...) returns null, not 3. proposal_plan.candidate_cap drops its NOT NULL for the same reason: it records the cap actually in effect when a plan was written, and a plan written with no limit has to be able to say so.' },
+
+  /* Round ten: the other direction again, like round four. I opened the deployed preview
+     and disliked four things about it, so these four were drawn as options first and
+     answered the same day. All four took the recommendation, which no earlier round did.
+     Filed as epic #282. */
+  { s: 'Round ten', id: 'O1', f: 'o1-world-overview.html', t: 'What a world\'s home page is for',
+    q: 'The universe home is four small cells over a flat list. Is it big editorial sections, a browser that grows up, or two surfaces?',
+    w: 'now', i: [283, 282, 145], dt: '2026-08-19',
+    d: 'C', dn: 'Two surfaces, honestly split',
+    dnote: 'Amends I7 = C, which is the part that had to be written down rather than shipped quietly: /w/<slug> becomes a world home, the browser moves to /w/<slug>/entries as a dense sortable table, and I7\'s row in round four now reads as superseded. Three consequences are not optional: the sidebar\'s Entries item points at the table while the world switcher keeps the home, the loader gets real pagination it does not have today (+page.server.ts:76 takes up to 500 entries with no pages), and the home\'s card thumbnails read O2\'s entity.cover_asset_id rather than inventing a second way to pick an image.' },
+  { s: 'Round ten', id: 'O2', f: 'o2-entry-page-and-cover.html', t: 'The entry\'s cover image, and the aside that clips',
+    q: 'An entry has no cover image and a five-tab aside that clips its own last label at 256px. Where does the cover live, and what carries the structured layer?',
+    w: 'now', i: [284, 282, 105, 66], dt: '2026-08-19',
+    d: 'A', dn: 'Cover band, aside loses its tabs',
+    dnote: 'Taken with the two amendments the recommendation already carried: the band is capped at about a fifth of the first screenful, there is no dashed placeholder for somebody who cannot write to that world, and the crop ratio follows the entity type, wide for a place and closer to square for a person. The column is a nullable entity.cover_asset_id with on delete set null, not a role column on media_asset, because one cover per entity is a single fact about the entity and a role column invites two rows claiming it. The Images panel\'s "use as cover" is the accept, so guardrail 1 holds without a second mechanism, and published_to_players still gates the cover on /p/<slug> (guardrail 6). The aside\'s five collapsible sections fix EntryTabs.svelte:92-96 by having no strip to clip, rather than by a truncate that would still depend on how long a translated word is. B1 = C is not amended: what changes is the switch, not the document.' },
+  { s: 'Round ten', id: 'O3', f: 'o3-loremaster-quick-ask.html', t: 'The copilot\'s front door',
+    q: 'Ask has three doors, all of which navigate away, and it remembers nothing. Does the copilot get a floating composer on every page, and what does the dedicated page become?',
+    w: 'now', i: [285, 282, 290, 149], dt: '2026-08-19',
+    d: 'A', dn: 'A floating pill that expands in place',
+    dnote: 'Six amendments, four from the recommendation and two taken on the pick. From the recommendation: the pill mounts the palette\'s own input in a docked placement so A3 = C keeps one box rather than growing a sibling (#149 grows that placement), it hides in table mode where E3\'s dock owns the corner, it becomes a tab in the phone\'s bottom bar rather than a circle over the content (E4, I10), and "keep" is the only write, which is what lets the dedicated page be a history rather than a transcript. Taken on the pick: the pill and its panel wear the theme\'s own colours instead of the copilot\'s violet, and an icon closes the panel instead of the word. That second pair does not repeal C1: violet stays reserved for AI text nobody has accepted, and the answer streaming inside the panel keeps its marking, so what loses the violet is the furniture. The cost is accepted rather than argued away, the launcher stops announcing itself as the copilot by colour and the name and icon carry that alone. The close control keeps its accessible name in aria-label. What O3 does not settle is what a kept answer is stored in, for how long, and what the guardrail 5 sentence says: nothing in packages/db/src/schema holds a question today, so that is #290 and the word "history" appears in no label until it lands.' },
+  { s: 'Round ten', id: 'O4', f: 'o4-select-control.html', t: 'Ten controls that still open the browser\'s own select',
+    q: 'Which control replaces a native select, and does one control fit both a two-option toggle and every entity in the world?',
+    w: 'soon', i: [286, 282, 155], dt: '2026-08-19',
+    d: 'B', dn: 'Three controls, chosen by what the list is',
+    dnote: 'The boundary is what the list is rather than how long it is, which removes the threshold nobody could have defended at a review: a binary or ternary state gets a segmented control, a vocabulary the product ships gets a Select, and a list drawn from the GM\'s own data gets a Combobox with search. It is more code than one control everywhere and the extra code is exactly where the pain is. Two obligations ride along: every one of the ten call sites decides explicitly whether it keeps working without JS, since a native select posts and a popover does not, and all three controls arrive with their dark pass rather than after it (G1). Closes the select half of #155 rather than opening a direction, because I9 = C already made shadcn-svelte the control layer.' },
 ];
 
 const KEY = (id) => `canonry.ux.${id}`;
