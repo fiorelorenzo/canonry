@@ -28,6 +28,20 @@ function buildZip(files: Record<string, Uint8Array | string>): Uint8Array {
 	return zipSync(zippable, {});
 }
 
+function utf8Bom(text: string): Uint8Array {
+	return Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(text, 'utf8')]);
+}
+
+function utf16le(text: string): Uint8Array {
+	return Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(text, 'utf16le')]);
+}
+
+function utf16be(text: string): Uint8Array {
+	const swapped = Buffer.from(text, 'utf16le');
+	swapped.swap16();
+	return Buffer.concat([Buffer.from([0xfe, 0xff]), swapped]);
+}
+
 async function loadHandoutPdf(): Promise<Uint8Array> {
 	return new Uint8Array(await readFile(`${PDF_FIXTURE_ROOT}handout.pdf`));
 }
@@ -318,5 +332,69 @@ describe('ArchiveSourceReader.read scopes the strip to .htm/.html entries only (
 		const reader = ArchiveSourceReader.open(data);
 		const { content } = await reader.read('notes/aldric.md');
 		expect(content).toBe(markdown);
+	});
+});
+
+describe('ArchiveSourceReader.read honours a byte order mark (issue #311)', () => {
+	const TEXT = 'Aldric Voss commands the harbour watch. Cafe au lait, forty gold.';
+
+	it('decodes plain UTF-8 with no BOM exactly as before', async () => {
+		const reader = ArchiveSourceReader.open(buildZip({ 'notes/aldric.md': TEXT }));
+		expect(await reader.read('notes/aldric.md')).toEqual({ content: TEXT, truncated: false });
+	});
+
+	it('decodes UTF-8 with a BOM and strips it from the returned content', async () => {
+		const reader = ArchiveSourceReader.open(buildZip({ 'notes/aldric.md': utf8Bom(TEXT) }));
+		expect(await reader.read('notes/aldric.md')).toEqual({ content: TEXT, truncated: false });
+	});
+
+	it('decodes a UTF-16LE entry with its BOM, what a Windows "Unicode" text save produces', async () => {
+		const reader = ArchiveSourceReader.open(buildZip({ 'notes/aldric.md': utf16le(TEXT) }));
+		expect(await reader.read('notes/aldric.md')).toEqual({ content: TEXT, truncated: false });
+	});
+
+	it('decodes a UTF-16BE entry with its BOM', async () => {
+		const reader = ArchiveSourceReader.open(buildZip({ 'notes/aldric.md': utf16be(TEXT) }));
+		expect(await reader.read('notes/aldric.md')).toEqual({ content: TEXT, truncated: false });
+	});
+
+	it('honours a UTF-16LE BOM on an .htm entry too, before stripHtmlPresentationNoise ever runs', async () => {
+		const html = '<html><body><p>See <a href="a.htm">A</a></p></body></html>';
+		const reader = ArchiveSourceReader.open(buildZip({ 'notes/page.htm': utf16le(html) }));
+		const read = await reader.read('notes/page.htm');
+		expect(read.content).toContain('<a href="a.htm">A</a>');
+		expect(read.content).not.toContain('\u0000');
+	});
+
+	it('truncates a UTF-8 entry at the byte cap and reports it, unchanged from before this fix', async () => {
+		const limits: ArchiveLimits = { ...DEFAULT_ARCHIVE_LIMITS, maxTextReadBytes: 10 };
+		const reader = ArchiveSourceReader.open(buildZip({ 'big.md': '0123456789ABCDEF' }), limits);
+		expect(await reader.read('big.md')).toEqual({ content: '0123456789', truncated: true });
+	});
+
+	it('truncates a UTF-16LE entry at the byte cap, a dangling code unit dropped rather than replaced', async () => {
+		// BOM (2 bytes) + an 11-byte cap leaves 9 body bytes: four whole 2-byte code
+		// units plus one dangling byte, which Buffer.toString('utf16le') drops rather
+		// than turning into U+FFFD - so the content is exactly '0123', not '0123' plus a
+		// replacement character that would make this look like a binary file.
+		const limits: ArchiveLimits = { ...DEFAULT_ARCHIVE_LIMITS, maxTextReadBytes: 11 };
+		const reader = ArchiveSourceReader.open(
+			buildZip({ 'big.md': utf16le('0123456789ABCDEF') }),
+			limits
+		);
+		const read = await reader.read('big.md');
+		expect(read).toEqual({ content: '0123', truncated: true });
+		expect(read.content).not.toContain('\ufffd');
+	});
+
+	it('truncates a UTF-16BE entry at the byte cap the same way, the dangling byte dropped before the swap', async () => {
+		const limits: ArchiveLimits = { ...DEFAULT_ARCHIVE_LIMITS, maxTextReadBytes: 11 };
+		const reader = ArchiveSourceReader.open(
+			buildZip({ 'big.md': utf16be('0123456789ABCDEF') }),
+			limits
+		);
+		const read = await reader.read('big.md');
+		expect(read).toEqual({ content: '0123', truncated: true });
+		expect(read.content).not.toContain('\ufffd');
 	});
 });
