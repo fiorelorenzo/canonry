@@ -135,6 +135,8 @@ export {
 	type EmbeddingSimilarityDeps
 } from './embedding-similarity.js';
 
+export { bandedSimilarity, type BandedSimilarity } from './similarity.js';
+
 export {
 	ImportJobRunner,
 	estimateImportJob,

@@ -236,6 +236,11 @@ async function main(): Promise<void> {
 
 		let embedCalls = 0;
 		let embedTexts = 0;
+		// `createEmbeddingSimilarity` directly rather than `bandedSimilarity`, which is the one
+		// place in the repo that should not use the pairing: this run has to score the embedding
+		// scorer against the *lexical* band to show that band is unreachable for it, and a
+		// function whose whole job is to refuse that combination cannot express it. Everything
+		// downstream of a measurement uses the pairing; the measurement that produced it cannot.
 		const embeddingSimilarity = createEmbeddingSimilarity({
 			vectorSize,
 			embed: async (texts) => {

@@ -29,7 +29,7 @@ import {
 	acceptAnyImportProposal as dbAcceptAnyImportProposal,
 	admitAndCreateImportJob,
 	ArchiveSourceReader,
-	createEmbeddingSimilarity,
+	bandedSimilarity,
 	DbModelSelector,
 	DEFAULT_ARCHIVE_LIMITS,
 	EMBEDDING_MATCH_THRESHOLDS,
@@ -38,10 +38,10 @@ import {
 	ImportJobRunner,
 	ImportQuotaExceededError,
 	InMemoryImageStore,
-	lexicalTrigramSimilarity,
 	loadBuiltinPlaybook,
 	MATCH_THRESHOLDS,
 	type AcceptImportProposalInput,
+	type BandedSimilarity,
 	type EntityProposalPayload,
 	type GatewayWrapper,
 	type ImportDriver,
@@ -50,11 +50,9 @@ import {
 	type JobDocument,
 	type JobEvent,
 	type LoadedPlaybook,
-	type MatchThresholds,
 	type ModelSelector,
 	type RelationProposalPayload,
 	type RunImportJobParams,
-	type SimilarityFn,
 	type SourceReader
 } from '@canonry/import';
 import { createGatewayEmbedder, embeddingDimensionsFor, hashingEmbedder } from '@canonry/indexing';
@@ -515,13 +513,14 @@ export function resolveImportDriver(database: Db): { driver: ImportDriver; isFak
  *    call through `withUsage` and a shared instance would bill one user's embeddings to
  *    whoever booted it (the same reason `queryEmbedderFor` and `embeddingProviderFor` are
  *    built per request rather than memoised);
- *  - it hands back a `MatchThresholds` beside the scorer, because a threshold is a property
- *    of the score's distribution rather than of the decision, and cosine and trigram Jaccard
- *    do not share one. Issue #279's own measurement is why this is not a detail:
- *    `MATCH_THRESHOLDS`'s `newBelow: 0.5` is *below* the lowest cosine the corpus produced,
- *    so reusing it would have made the "new" outcome unreachable and turned every unmatched
- *    entity into a question. `EMBEDDING_MATCH_THRESHOLDS` carries the measured band and the
- *    numbers behind it.
+ *  - it hands back a `MatchThresholds` beside the scorer rather than only the scorer, because
+ *    a threshold is a property of the score's distribution rather than of the decision, and
+ *    cosine and trigram Jaccard do not share one. Issue #279's own measurement is why this is
+ *    not a detail: `MATCH_THRESHOLDS`'s `newBelow: 0.5` is *below* the lowest cosine the
+ *    corpus produced, so reusing it would have made the "new" outcome unreachable and turned
+ *    every unmatched entity into a question. The pairing itself is `@canonry/import`'s
+ *    `bandedSimilarity`, not this file's: `packages/bench` resolves a scorer for the same
+ *    corpus and would otherwise hold a second copy of the same knowledge.
  *
  * The fallback on a resolution failure is noisy on purpose, for `$lib/server/copilot`'s
  * reason: matching that has silently dropped back to token overlap looks exactly like
@@ -535,14 +534,8 @@ export interface ImportSimilarityContext {
 export async function resolveImportSimilarity(
 	database: Db,
 	context: ImportSimilarityContext
-): Promise<{ similarity: SimilarityFn; thresholds: MatchThresholds; isLexical: boolean }> {
-	if (!hasLiveGatewayCredentials()) {
-		return {
-			similarity: lexicalTrigramSimilarity,
-			thresholds: MATCH_THRESHOLDS,
-			isLexical: true
-		};
-	}
+): Promise<BandedSimilarity> {
+	if (!hasLiveGatewayCredentials()) return bandedSimilarity(null);
 	const credentials = readGatewayCredentials(env as NodeJS.ProcessEnv);
 	let model: ResolvedModel;
 	let vectorSize: number;
@@ -556,11 +549,7 @@ export async function resolveImportSimilarity(
 			} Entity matching in this process scores character-trigram overlap, so a translated ` +
 				`or reworded name (SPEC.md §6.4's own example) will not match. ***`
 		);
-		return {
-			similarity: lexicalTrigramSimilarity,
-			thresholds: MATCH_THRESHOLDS,
-			isLexical: true
-		};
+		return bandedSimilarity(null);
 	}
 	const embed = createGatewayEmbedder({
 		db: database,
@@ -577,11 +566,7 @@ export async function resolveImportSimilarity(
 		// label. Issue #309 carries the dedicated `import.match.embed` row.
 		operation: 'index.embed'
 	});
-	return {
-		similarity: createEmbeddingSimilarity({ embed, vectorSize }),
-		thresholds: EMBEDDING_MATCH_THRESHOLDS,
-		isLexical: false
-	};
+	return bandedSimilarity({ embed, vectorSize });
 }
 
 /** The literal used to live here, hand-copied into `packages/bench/src/e2e/import.ts`
