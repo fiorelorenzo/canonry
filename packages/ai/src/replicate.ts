@@ -62,6 +62,26 @@ export class ReplicateRequestError extends Error {
 	}
 }
 
+/** Replicate throttles prediction creation hard while an account holds under $5 in
+ * credit (issue #334) - its 429 answers with a `Retry-After` header and a `retry_after`
+ * field in the body, both the same number of seconds in every response seen so far
+ * ("Your rate limit resets in ~10s"). Thrown once `submitPrediction` below has honoured
+ * that as far as its bound allows and Replicate is still throttling, or when a 429
+ * carries no usable `retry_after` to honour at all - either way this is the caller's
+ * signal that the account is throttled, not that one particular request was rejected. */
+export class ReplicateThrottledError extends Error {
+	constructor(
+		public readonly attempts: number,
+		public readonly waitedMs: number
+	) {
+		super(
+			`Replicate throttled prediction creation (429) after ${attempts} attempt` +
+				`${attempts === 1 ? '' : 's'} and ${Math.round(waitedMs / 1000)}s of retrying`
+		);
+		this.name = 'ReplicateThrottledError';
+	}
+}
+
 export interface GenerateImageInput {
 	db: Db;
 	/** A resolved `model_config` row for purpose 'image' (SPEC 9). */
@@ -128,6 +148,88 @@ export class ReplicatePredictionTimeoutError extends Error {
 const POLL_BUDGET_MS = 180_000;
 const POLL_INTERVAL_MS = 2_000;
 
+/** How much total waiting a throttled submission gets before generateImage gives up and
+ * surfaces ReplicateThrottledError, and the ceiling on how many 429s in a row it will
+ * honour getting there (issue #334). Budgeted in *waited* time rather than a fixed
+ * attempt count, because retry_after is Replicate's own number for how long its window
+ * takes to reopen: the observed shape is one ~10s wait clearing the throttle (the bench
+ * paces submissions 11s apart for the same reason - packages/bench/src/media/scene.ts),
+ * so 30 seconds covers a couple of unlucky retries without turning a GM's "Generating..."
+ * into a minutes-long silent hang. The attempt cap is the cheaper backstop for the one
+ * case the time budget alone cannot catch - Replicate answering `retry_after: 0` - since
+ * a real throttle always costs at least the wait to clear. */
+const THROTTLE_BUDGET_MS = 30_000;
+const MAX_THROTTLE_ATTEMPTS = 6;
+
+/** Reads how long Replicate wants this submission to wait before trying again: the
+ * `Retry-After` header first (the generic HTTP shape), the JSON body's own `retry_after`
+ * field as a fallback (what issue #334's captured response carried on both, in
+ * lockstep). Null means Replicate gave no usable number to honour. */
+function parseRetryAfterMs(response: Response, bodyText: string): number | null {
+	const headerSeconds = Number.parseFloat(response.headers.get('retry-after') ?? '');
+	if (Number.isFinite(headerSeconds) && headerSeconds >= 0) return headerSeconds * 1000;
+	try {
+		const parsed = JSON.parse(bodyText) as { retry_after?: unknown };
+		if (typeof parsed.retry_after === 'number' && Number.isFinite(parsed.retry_after)) {
+			return Math.max(0, parsed.retry_after) * 1000;
+		}
+	} catch {
+		// Body wasn't JSON, or had no retry_after - nothing left to fall back to.
+	}
+	return null;
+}
+
+/** Submits the prediction, retrying in place on a 429 (issue #334) rather than handing
+ * one straight to `withQuota` as a failure. This runs entirely inside `generateImage`'s
+ * `withQuota` callback - the same place #258's poll loop already lives - on purpose: a
+ * submission that gets through on its second or third try is still exactly one
+ * `model_call` row and one charge. A row per retry would make the metrics lie about how
+ * many generations were actually attempted; retrying outside `withQuota` (a fresh
+ * `generateImage` call per attempt) would do exactly that. It also runs inside the
+ * caller's `ProviderLimiter` slot, for the same reason #258's poll does: the slot caps
+ * how many Replicate submissions this process has in flight at once, and a throttled
+ * submission that has not gotten through yet is still one of those, not a finished call
+ * waiting on something unrelated the way the CDN download after it is. */
+async function submitPrediction(
+	endpoint: string,
+	token: string,
+	input: Record<string, unknown>
+): Promise<unknown> {
+	let waitedMs = 0;
+	for (let attempt = 1; attempt <= MAX_THROTTLE_ATTEMPTS; attempt++) {
+		const response = await fetch(endpoint, {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				authorization: `Bearer ${token}`,
+				prefer: 'wait'
+			},
+			body: JSON.stringify({ input })
+		});
+		if (response.ok) return response.json();
+
+		// Body may echo request input back; never let it reach the logger or an error
+		// message, only its length and (for a 429) its retry_after field do.
+		const bodyText = await response.text();
+		if (response.status !== 429) {
+			throw new ReplicateRequestError(response.status, `${bodyText.length} byte body`);
+		}
+		const retryAfterMs = parseRetryAfterMs(response, bodyText);
+		if (
+			retryAfterMs === null ||
+			waitedMs + retryAfterMs > THROTTLE_BUDGET_MS ||
+			attempt === MAX_THROTTLE_ATTEMPTS
+		) {
+			throw new ReplicateThrottledError(attempt, waitedMs);
+		}
+		await sleep(retryAfterMs);
+		waitedMs += retryAfterMs;
+	}
+	// Unreachable - the loop above always returns or throws before falling off the end,
+	// but TS can't see that from a `for` loop alone.
+	throw new ReplicateThrottledError(MAX_THROTTLE_ATTEMPTS, waitedMs);
+}
+
 /**
  * Submits one Replicate prediction directly to api.replicate.com and waits for the result,
  * recording exactly one `model_call` row - success or failure - and charging the user's
@@ -143,6 +245,11 @@ const POLL_INTERVAL_MS = 2_000;
  * possible reading of a slow queue, so the callback now polls to a terminal state and
  * throws on anything that is not `succeeded`, which is what keeps the charge and the image
  * in step.
+ *
+ * Submission itself retries in place on a 429 (issue #334, see `submitPrediction`
+ * above): Replicate throttles prediction creation hard under $5 of account credit, and
+ * without this a GM who clicks Generate while throttled just sees a failed generation
+ * with no hint that waiting ten seconds was the whole fix.
  */
 export async function generateImage(params: GenerateImageInput): Promise<ReplicatePrediction> {
 	const endpoint = `${params.baseUrl ?? REPLICATE_API_BASE_URL}/models/${params.model.modelId}/predictions`;
@@ -158,22 +265,7 @@ export async function generateImage(params: GenerateImageInput): Promise<Replica
 			...(params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : {})
 		},
 		async () => {
-			const response = await fetch(endpoint, {
-				method: 'POST',
-				headers: {
-					'content-type': 'application/json',
-					authorization: `Bearer ${params.replicateApiToken}`,
-					prefer: 'wait'
-				},
-				body: JSON.stringify({ input: params.input })
-			});
-			if (!response.ok) {
-				// Body may echo request input back; never let it reach the logger,
-				// only the status code and a truncated length do.
-				const bodyText = await response.text();
-				throw new ReplicateRequestError(response.status, `${bodyText.length} byte body`);
-			}
-			const json: unknown = await response.json();
+			const json = await submitPrediction(endpoint, params.replicateApiToken, params.input);
 			if (!isReplicatePrediction(json)) {
 				throw new Error('Replicate response did not look like a prediction');
 			}
