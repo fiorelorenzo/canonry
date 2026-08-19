@@ -4,6 +4,16 @@
 	 * own tree-plus-editor page; the create form only asks for what the schema requires
 	 * to start (`name`, `type`) since a summary, a status and the first act all belong to
 	 * the work's own page, not to a wizard here.
+	 *
+	 * Issue #286 names this field as one of the two the segmented control takes (decision
+	 * O4 = B). It is five fixed values rather than the two or three that phrasing leads
+	 * with, and it still belongs here rather than in a Select: the five are the whole
+	 * answer to "what kind of thing am I starting", short enough to read at once, and
+	 * seeing all five is what tells a GM this product has a "novel" at all.
+	 *
+	 * **Without JavaScript this form keeps working.** The segmented control is a group of
+	 * native radios, so `type` posts with no hidden input and no fallback behind it, the
+	 * same as the `<select>` it replaces.
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
@@ -11,10 +21,18 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { Segmented } from '$lib/components/ui/segmented';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let t = $derived(messages(data.locale));
+
+	// `t.works.types` is the product's own vocabulary, keyed by the column's enum values,
+	// so the segments come from the catalogue rather than being restated here.
+	const typeOptions = $derived(
+		Object.entries(t.works.types).map(([value, label]) => ({ value, label }))
+	);
+	let workType = $state('oneshot');
 </script>
 
 <svelte:head><title>{t.works.index.title}: {data.current.name}</title></svelte:head>
@@ -64,17 +82,16 @@
 			{t.works.index.nameLabel}
 			<Input id="work-create-name" name="name" required />
 		</label>
-		<label class="flex flex-col gap-1 text-sm text-ink-2">
-			{t.works.index.typeLabel}
-			<select
+		<div class="flex flex-col gap-1 text-sm text-ink-2">
+			<span id="work-create-type-label">{t.works.index.typeLabel}</span>
+			<Segmented
 				name="type"
-				class="rounded-md border border-line-2 bg-panel px-3 py-1.5 text-sm text-ink"
-			>
-				{#each Object.entries(t.works.types) as [value, label] (value)}
-					<option {value}>{label}</option>
-				{/each}
-			</select>
-		</label>
+				bind:value={workType}
+				options={typeOptions}
+				labelledby="work-create-type-label"
+				class="w-fit"
+			/>
+		</div>
 		<label class="flex flex-col gap-1 text-sm text-ink-2">
 			{t.works.index.summaryLabel} <span class="text-muted">{t.works.index.summaryOptional}</span>
 			<Textarea name="summary" rows={2} />

@@ -8,6 +8,17 @@
 	 * reports any relation that already existed under the target label separately, so
 	 * "never lose one silently" holds even when two relations turn out to describe the
 	 * same fact once merged.
+	 *
+	 * Issue #286, decision O4 = B: a relation type is a vocabulary rather than the GM's
+	 * own free data, ten shipped keys plus whatever this universe has added, so both
+	 * fields are the Select. The list is short and closed, and a combobox would put a
+	 * search box in front of six rows.
+	 *
+	 * **Without JavaScript this form stops being progressive, and it always was.** The
+	 * whole form lives inside a bits-ui dialog, which no reader with scripting off can
+	 * open, so there is nothing here for a `<noscript>` fallback to rescue: the two
+	 * `Select.Root name=...` hidden inputs are the only value carriers, which is correct
+	 * because JavaScript is the only way to reach this markup at all.
 	 */
 	import { enhance } from '$app/forms';
 	import {
@@ -19,6 +30,7 @@
 		DialogTitle
 	} from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
+	import * as Select from '$lib/components/ui/select';
 	import type { Locale, Messages } from '$lib/i18n';
 	import type { RelationTypeCatalogueRow } from '@canonry/db';
 	import { relationTypeDisplayLabel, type MergeActionResult } from './types.js';
@@ -76,42 +88,48 @@
 		>
 			<div class="flex flex-col gap-1.5">
 				<label class="text-sm font-medium text-ink" for="merge-from">{t.merge.fromLabel}</label>
-				<select
-					id="merge-from"
+				<Select.Root
+					type="single"
 					name="fromTypeId"
 					required
 					bind:value={fromTypeId}
-					onchange={() => {
-						if (intoTypeId === fromTypeId) intoTypeId = '';
+					onValueChange={(next) => {
+						if (intoTypeId === next) intoTypeId = '';
 					}}
-					class="h-9 rounded-md border border-input bg-transparent px-2.5 py-1 text-sm text-ink shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 				>
-					<option value="" disabled>{t.merge.pickFromPlaceholder}</option>
-					{#each own as row (row.id)}
-						<option value={row.id}
-							>{relationTypeDisplayLabel(row, relationTypeLabel, locale)}</option
-						>
-					{/each}
-				</select>
+					<Select.Trigger id="merge-from" class="w-full">
+						{#if fromType}
+							{relationTypeDisplayLabel(fromType, relationTypeLabel, locale)}
+						{:else}
+							<span class="text-muted-foreground">{t.merge.pickFromPlaceholder}</span>
+						{/if}
+					</Select.Trigger>
+					<Select.Content>
+						{#each own as row (row.id)}
+							{@const label = relationTypeDisplayLabel(row, relationTypeLabel, locale)}
+							<Select.Item value={row.id} {label}>{label}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
 			</div>
 
 			<div class="flex flex-col gap-1.5">
 				<label class="text-sm font-medium text-ink" for="merge-into">{t.merge.intoLabel}</label>
-				<select
-					id="merge-into"
-					name="intoTypeId"
-					required
-					bind:value={intoTypeId}
-					disabled={!fromTypeId}
-					class="h-9 rounded-md border border-input bg-transparent px-2.5 py-1 text-sm text-ink shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
-				>
-					<option value="" disabled>{t.merge.pickIntoPlaceholder}</option>
-					{#each intoOptions as row (row.id)}
-						<option value={row.id}
-							>{relationTypeDisplayLabel(row, relationTypeLabel, locale)}</option
-						>
-					{/each}
-				</select>
+				<Select.Root type="single" name="intoTypeId" required bind:value={intoTypeId}>
+					<Select.Trigger id="merge-into" class="w-full" disabled={!fromTypeId}>
+						{#if intoType}
+							{relationTypeDisplayLabel(intoType, relationTypeLabel, locale)}
+						{:else}
+							<span class="text-muted-foreground">{t.merge.pickIntoPlaceholder}</span>
+						{/if}
+					</Select.Trigger>
+					<Select.Content>
+						{#each intoOptions as row (row.id)}
+							{@const label = relationTypeDisplayLabel(row, relationTypeLabel, locale)}
+							<Select.Item value={row.id} {label}>{label}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
 			</div>
 
 			{#if fromType && intoType}

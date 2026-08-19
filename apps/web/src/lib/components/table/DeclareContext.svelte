@@ -7,9 +7,23 @@
 	 * lock-in). Filtering the place list is a client-side substring match over the small,
 	 * already-loaded candidate set - genuinely zero milliseconds, faster than the instant
 	 * lane's own 100 ms budget, because there is no round trip at all until submit.
+	 *
+	 * Issue #286, decision O4 = B: the session field is the campaign's own logged
+	 * sessions, the GM's data, so it becomes the combobox. The place field above it is
+	 * left alone on purpose: it is already a search box over a filtered list, which is
+	 * what the combobox is, and #73's lock-in names that surfaced-from-a-context-chip
+	 * autocomplete specifically. Folding it into the shared control would be a second
+	 * change to a surface this issue was not asked to touch, so it is filed rather than
+	 * done here.
+	 *
+	 * **Without JavaScript this form does nothing, on purpose, and that has not changed.**
+	 * Like `QuickNoteForm.svelte` next to it, it has no `action`: `onsubmit` cancels the
+	 * event and the table page declares the context over `fetch`. No `<noscript>`
+	 * fallback, because there is no server action for one to post to.
 	 */
 	import { messages, type Locale } from '$lib/i18n';
 	import { Input } from '$lib/components/ui/input';
+	import { Combobox } from '$lib/components/ui/combobox';
 	import { Button } from '$lib/components/ui/button';
 	import type { EntityRef } from './types';
 
@@ -32,10 +46,19 @@
 	} = $props();
 
 	const t = $derived(messages(locale).table.declareContext);
+	const tControls = $derived(messages(locale).controls);
+
+	// "No session" stays a real row rather than a cleared field: it is an answer a GM
+	// gives on purpose, the same way the old <select>'s first <option> was.
+	const NO_SESSION = '';
+	const sessionOptions = $derived([
+		{ value: NO_SESSION, label: t.noSessionOption },
+		...sessions.map((session) => ({ value: session.id, label: session.name }))
+	]);
 
 	let placeQuery = $state('');
 	let selectedPlaceId = $state(initialPlaceId);
-	let selectedSessionId = $state(initialSessionId);
+	let selectedSessionId = $state(initialSessionId ?? NO_SESSION);
 
 	const filteredPlaces = $derived(
 		placeQuery.trim().length === 0
@@ -45,7 +68,7 @@
 
 	function submit(event: SubmitEvent) {
 		event.preventDefault();
-		onDeclare({ placeEntityId: selectedPlaceId, sessionEntityId: selectedSessionId });
+		onDeclare({ placeEntityId: selectedPlaceId, sessionEntityId: selectedSessionId || null });
 	}
 </script>
 
@@ -95,16 +118,14 @@
 		<label for="table-session" class="font-mono text-[10px] tracking-wide text-muted uppercase">
 			{t.sessionLabel}
 		</label>
-		<select
+		<Combobox
 			id="table-session"
 			bind:value={selectedSessionId}
-			class="rounded-md border border-line-2 bg-panel px-2.5 py-1.5 text-sm text-ink"
-		>
-			<option value={null}>{t.noSessionOption}</option>
-			{#each sessions as session (session.id)}
-				<option value={session.id}>{session.name}</option>
-			{/each}
-		</select>
+			options={sessionOptions}
+			placeholder={t.noSessionOption}
+			searchPlaceholder={tControls.search}
+			emptyText={tControls.noMatch}
+		/>
 	</div>
 
 	<div class="flex justify-end gap-2">

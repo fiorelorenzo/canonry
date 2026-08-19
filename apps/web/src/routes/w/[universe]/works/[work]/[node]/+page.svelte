@@ -4,6 +4,12 @@
 	 * its "Uses" aside. The uses list is read-only - a fresh dot and a link to the entry,
 	 * "nothing more" (B5's own guardrail callout): accepting whatever changed happens on
 	 * the entry itself, never here.
+	 *
+	 * Issue #286, decision O4 = B: the add-child form's `kind` is the same shipped
+	 * vocabulary as the tree page's own, so it takes the same Select and the same
+	 * `<noscript>` fallback. **Without JavaScript this form keeps working**: the
+	 * `<details>` around it is native, and `ui/native-fallback` posts the value the
+	 * popover cannot.
 	 */
 	import { resolve } from '$app/paths';
 	import { dateFormat, messages } from '$lib/i18n';
@@ -11,6 +17,8 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import * as Select from '$lib/components/ui/select';
+	import { NativeFallback } from '$lib/components/ui/native-fallback';
 	import MarkdownEditor from '$lib/components/entry/MarkdownEditor.svelte';
 	import type { ActionData, PageData } from './$types';
 
@@ -21,6 +29,14 @@
 	let title = $state(data.node.title);
 	// svelte-ignore state_referenced_locally
 	let body = $state(data.node.body);
+
+	const kindOptions = $derived(
+		Object.entries(t.works.kinds).map(([value, label]) => ({ value, label }))
+	);
+	let childKind = $state('act');
+	const childKindLabel = $derived(
+		kindOptions.find((option) => option.value === childKind)?.label ?? childKind
+	);
 
 	function formatWhen(value: string | Date): string {
 		const date = typeof value === 'string' ? new Date(value) : value;
@@ -91,17 +107,27 @@
 					{t.works.node.titleLabel}
 					<Input name="title" required />
 				</label>
-				<label class="flex flex-col gap-1 text-sm text-ink-2">
-					{t.works.node.kindLabel}
-					<select
+				<div class="flex flex-col gap-1 text-sm text-ink-2">
+					<label for="work-child-kind">{t.works.node.kindLabel}</label>
+					<div data-js-only>
+						<Select.Root type="single" bind:value={childKind}>
+							<Select.Trigger id="work-child-kind" class="w-full">{childKindLabel}</Select.Trigger>
+							<Select.Content>
+								{#each kindOptions as option (option.value)}
+									<Select.Item value={option.value} label={option.label}>
+										{option.label}
+									</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
+					<NativeFallback
 						name="kind"
-						class="rounded-md border border-line-2 bg-panel px-3 py-1.5 text-sm text-ink"
-					>
-						{#each Object.entries(t.works.kinds) as [value, label] (value)}
-							<option {value}>{label}</option>
-						{/each}
-					</select>
-				</label>
+						value={childKind}
+						options={kindOptions}
+						label={t.works.node.kindLabel}
+					/>
+				</div>
 				<Button type="submit" variant="secondary" size="sm">
 					{t.works.node.addNodeButton}
 				</Button>
