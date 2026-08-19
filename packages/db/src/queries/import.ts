@@ -365,7 +365,24 @@ export interface MatchCandidateRow {
 	id: string;
 	name: string;
 	aliases: string[];
+	/** The entity's own type (issue #310). The pool is already filtered to one type, so this
+	 * is never what narrows it: it is context the matcher embeds, and it is on the row rather
+	 * than taken from the caller's filter argument so a pending-proposal row read back out of
+	 * a patch reports what the patch actually said. */
+	type: EntityType;
+	/** The head of `entity.body`, capped in SQL rather than read whole (issue #310). The
+	 * matcher wants one line to tell a father from his son and reads the first sentence out of
+	 * this; a pool is up to 200 rows wide, and shipping 200 full entity bodies over the wire
+	 * to use the first sentence of each would be the expensive way to get the same string.
+	 * Empty for an entity with no body yet, which is a real state: a `draft_entity` proposal
+	 * accepted before anybody wrote its prose. */
+	bodyLead: string;
 }
+
+/** How much of `entity.body` `candidateEntitiesForMatching` reads. Comfortably more than
+ * one sentence, so the sentence split has something to split, and far short of a whole
+ * entry. */
+const BODY_LEAD_CHARS = 400;
 
 /** The semantic step's candidate pool (SPEC.md §6.4 step 2): existing entities in the
  * same universe and of the same type as the proposed one, narrowed no further here -
@@ -378,7 +395,13 @@ export async function candidateEntitiesForMatching(
 	limit = 200
 ): Promise<MatchCandidateRow[]> {
 	return db
-		.select({ id: entity.id, name: entity.name, aliases: entity.aliases })
+		.select({
+			id: entity.id,
+			name: entity.name,
+			aliases: entity.aliases,
+			type: entity.type,
+			bodyLead: sql<string>`left(${entity.body}, ${BODY_LEAD_CHARS})`
+		})
 		.from(entity)
 		.where(and(eq(entity.universeId, universeId), eq(entity.type, type)))
 		.limit(limit);
@@ -422,7 +445,17 @@ export async function pendingEntityProposalsForJob(
 		try {
 			const patch = readEntityCreatePatch(row.patch);
 			if (patch.type === type)
-				candidates.push({ id: row.id, name: patch.name, aliases: patch.aliases });
+				candidates.push({
+					id: row.id,
+					name: patch.name,
+					aliases: patch.aliases,
+					type: patch.type,
+					// issue #310: the patch's own body, capped here to the same budget the
+					// committed-canon pool caps in SQL, so a pending create and a real entity give
+					// the matcher the same shape of context. Written by this same job minutes ago,
+					// so it is the proposed summary rather than prose a GM has edited.
+					bodyLead: patch.body.slice(0, BODY_LEAD_CHARS)
+				});
 		} catch {
 			// patch: {} before recordProposalDiff ran, or a genuinely malformed row - either
 			// way, not a candidate, and not a reason to fail the import over.

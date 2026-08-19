@@ -86,10 +86,21 @@ pnpm --filter @canonry/bench loop-cost
 pnpm --filter @canonry/bench loop-cost -- --source onenote
 pnpm --filter @canonry/bench loop-cost -- --source kanka --documents all
 
-# re-derive MATCH_THRESHOLDS / EMBEDDING_MATCH_THRESHOLDS from the labelled corpus.
-# One embedMany call of ~33 short strings, so this one is cheap enough to run on every
+# re-derive MATCH_THRESHOLDS / EMBEDDING_MATCH_THRESHOLDS from the labelled corpus. It scores
+# four combinations over the same 24 pairs in one process: trigram and cosine, names only and
+# names plus the MatchContext issue #310 added, so the before is measured against the same
+# model at the same moment rather than remembered from a previous run.
+#
+# --runs is not a refinement. Cosines from this model move by a few thousandths between calls
+# on identical input, and issue #279 came within one run of setting newBelow on the wrong side
+# of SPEC.md §6.4's own example. The sweep reports each pair's spread across the runs and
+# refuses to recommend a band that jitter could push into or out of an error, so one run
+# answers a weaker question than the default nine.
+#
+# One embedMany call per run, about 2k embedding tokens a run, cheap enough to do on every
 # change to the matcher or to the embedding model, which is what SPEC.md §6.4 asks for
 pnpm --filter @canonry/bench matching-sweep
+pnpm --filter @canonry/bench matching-sweep -- --runs=9
 ```
 
 Everything is written to `.data/`, which is gitignored: a run is evidence for an afternoon,

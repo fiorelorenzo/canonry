@@ -74,6 +74,99 @@ describe('matchTextFor', () => {
 	it('drops blank aliases rather than embedding a dangling separator', () => {
 		expect(matchTextFor({ name: 'Aldric Voss', aliases: ['', '   '] })).toBe('Aldric Voss');
 	});
+
+	it('leaves a context-free side byte-identical to what it embedded before issue #310', () => {
+		// Load-bearing, not cosmetic: `matching-sweep`'s "names only" column is the baseline the
+		// context change is measured against, and a first line that shifted would make that
+		// comparison meaningless.
+		expect(matchTextFor({ name: 'the Gilded Rat', aliases: ['Gilded Rat Tavern'] })).toBe(
+			'the Gilded Rat / Gilded Rat Tavern'
+		);
+	});
+
+	it('adds one labelled line per piece of context that is present (issue #310)', () => {
+		expect(
+			matchTextFor({
+				name: 'the Gilded Rat',
+				aliases: [],
+				context: {
+					type: 'place',
+					summary: 'An inn off the Lantern Quarter.',
+					sourceSentence: 'The Gilded Rat stands three doors down the only lit street.'
+				}
+			})
+		).toBe(
+			'the Gilded Rat\ntype: place\nsummary: An inn off the Lantern Quarter.\n' +
+				'source: The Gilded Rat stands three doors down the only lit street.'
+		);
+	});
+
+	it('omits an absent field instead of emitting an empty line', () => {
+		// A candidate read from committed canon has no source sentence to quote, so this is the
+		// shape of every already-imported side of a comparison rather than an edge case.
+		expect(
+			matchTextFor({
+				id: 'inn-gilded-rat',
+				name: 'Il Ratto Dorato',
+				aliases: [],
+				context: { type: 'place', summary: 'Una locanda.', sourceSentence: null }
+			})
+		).toBe('Il Ratto Dorato\ntype: place\nsummary: Una locanda.');
+
+		expect(
+			matchTextFor({
+				name: 'Aldric Voss',
+				aliases: [],
+				context: { type: null, summary: '   ', sourceSentence: null }
+			})
+		).toBe('Aldric Voss');
+	});
+
+	it('clips a context field rather than letting a whole body drown the name', () => {
+		const text = matchTextFor({
+			name: 'Thornwick College',
+			aliases: [],
+			context: { type: null, summary: 'x'.repeat(500), sourceSentence: null }
+		});
+
+		expect(text.startsWith('Thornwick College\nsummary: ')).toBe(true);
+		expect(text.endsWith('...')).toBe(true);
+		expect(text.length).toBeLessThan(300);
+	});
+
+	it('separates two entities the name alone cannot, which is the whole point', async () => {
+		// The father-and-son pair SPEC.md §6.4 calls "two characters collapsed into one". The
+		// token-axis embedder is not semantic, so this asserts the mechanism rather than the
+		// model: identical names plus differing context produce a lower score than identical
+		// names alone, which is the ordering change #310 is about.
+		const embed = tokenAxisEmbedder(256);
+		const similarity = createEmbeddingSimilarity({ embed, vectorSize: 256 });
+		const father: MatchSubject = { name: 'Aldric Voss', aliases: [] };
+		const son: MatchCandidate = { id: 'char-junior', name: 'Aldric Voss', aliases: [] };
+
+		const onNames = await similarity(father, son);
+		const onContext = await similarity(
+			{
+				...father,
+				context: {
+					type: 'character',
+					summary: 'Dismissed captain of the Valdoria Watch.',
+					sourceSentence: null
+				}
+			},
+			{
+				...son,
+				context: {
+					type: 'character',
+					summary: 'A harbour clerk of nineteen who has never held a commission.',
+					sourceSentence: null
+				}
+			}
+		);
+
+		expect(onNames).toBe(1);
+		expect(onContext).toBeLessThan(onNames);
+	});
 });
 
 describe('createEmbeddingSimilarity', () => {

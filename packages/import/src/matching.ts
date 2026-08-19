@@ -14,15 +14,83 @@
  * read is (model-selector.ts).
  */
 
-export interface MatchCandidate {
-	id: string;
-	name: string;
-	aliases: string[];
+/**
+ * What each side of a comparison carries beyond its name (issue #310).
+ *
+ * `MatchSubject` and `MatchCandidate` used to carry `name` and `aliases` and nothing else,
+ * which meant `matchTextFor` had a bare name to embed and the embedding scorer had almost
+ * nothing to be semantic about. Issue #279's measurement is the evidence: mean cosine 0.912
+ * over the corpus's true pairs against 0.853 over its false ones, a separation of 0.059
+ * where the trigram scorer got 0.225, because two unrelated proper nouns of the same shape
+ * ("Aldric Voss", "Seraphine Duval") read alike to an embedding model when that is all it is
+ * given. No threshold pair anywhere on the grid fixes an ordering, so the band had to be
+ * wide enough to ask about 20 of 24 pairs.
+ *
+ * Every field here was already sitting in the job runner where candidates are built and was
+ * thrown away at this seam. Each one separates a pair the name alone cannot: the type tells
+ * an office from a place, the summary tells a father from his son, and the source sentence
+ * tells an inn in Port Kessin from an inn in Harrowgate. Those are three of the five
+ * negatives the corpus could not distinguish.
+ *
+ * Optional in the type and null-tolerant in every field, because it genuinely is absent in
+ * places: a re-import that only knows an external id, a candidate read from a pending
+ * proposal whose patch carries no body yet, an already-imported entity that has no source
+ * document text to quote. A missing field drops out of the embedded text rather than
+ * becoming an empty line, so a side with two fields and a side with three still compare on
+ * what they both have.
+ */
+export interface MatchContext {
+	/** `entity.type` for a candidate, `EntityProposalPayload.type` for a subject. The
+	 * candidate pool is already filtered to one type, so this never *decides* a match within
+	 * a pool; it is context the model reads, which is why it is a plain string here rather
+	 * than an enum imported from a package this file does not depend on. */
+	type: string | null;
+	/** One line describing the entity: the proposed `summary` for a subject, the first
+	 * sentence of `entity.body` for a candidate. Never the whole body - see
+	 * `matchTextFor`'s own note on length. */
+	summary: string | null;
+	/** The sentence of the source document the subject was extracted from, sliced from
+	 * `evidenceSpan`. Null on a candidate: an already-imported entity has no source text
+	 * kept anywhere to quote, and inventing one from its body would make the two sides look
+	 * symmetrical while carrying the same fact twice. */
+	sourceSentence: string | null;
 }
 
 export interface MatchSubject {
 	name: string;
 	aliases: string[];
+	/** Absent means "this caller has no context to give", which is a real answer and not a
+	 * defect: the lexical scorer never reads it, and the embedding scorer degrades to what
+	 * it scored before issue #310. */
+	context?: MatchContext;
+}
+
+export interface MatchCandidate extends MatchSubject {
+	id: string;
+}
+
+/**
+ * The "one line" of `MatchContext.summary` and `MatchContext.sourceSentence`, from a longer
+ * piece of text: its first sentence, or a hard cut when it has no sentence end inside the
+ * budget.
+ *
+ * Deliberately blunt about what a sentence is. This feeds an embedding and never a GM's
+ * screen, so a heading cut mid-clause costs a slightly noisier vector and nothing else,
+ * which is not worth a sentence tokeniser or the dependency one would add. Markdown
+ * structure is flattened to spaces first, because an entity body's first line is often
+ * `## Rivalry` followed by the prose that matters, and a context line reading "##" is worse
+ * than no context line.
+ */
+export function oneLineSummary(text: string | null | undefined, maxChars = 200): string | null {
+	const flattened = (text ?? '')
+		.replace(/\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g, '$1')
+		.replace(/[#*_`>]+/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+	if (flattened.length === 0) return null;
+	const sentence = /^.*?[.!?](?=\s|$)/.exec(flattened)?.[0]?.trim();
+	const chosen = sentence && sentence.length > 0 ? sentence : flattened;
+	return chosen.length > maxChars ? `${chosen.slice(0, maxChars).trimEnd()}...` : chosen;
 }
 
 /** SPEC.md §6.4: "normalised names and aliases stay in the loop as a cheap pre-filter and
@@ -107,8 +175,18 @@ export interface MatchThresholds {
  * and 11 not, false merges weighted 5x. On the trigram scorer 0.85/0.50 costs 2 false merges
  * and 4 false splits, and the sweep's own optimum is 0.70/0.45 at 2 false merges and 4 false
  * splits with recall up from 0.308 to 0.538. Two false merges is the floor either way: two
- * negative pairs in the corpus are byte-identical as text (an office whose holder changed, a
- * generic guard title reused in two settlements) and no name-based scorer can separate them.
+ * negative pairs are byte-identical *as this scorer reads them* (an office whose holder
+ * changed, a generic guard title reused in two settlements), because it reads names and
+ * aliases and those two pairs share both.
+ *
+ * **Unchanged by issue #310, measured rather than assumed.** #310 gave both sides of a
+ * comparison a `MatchContext` and it fixed the embedding scorer's ordering; scored on this one
+ * over the same corpus it makes it worse, exactly the way character trigrams predict. Two
+ * exports of one entity word their summaries differently, so the union of trigrams grows
+ * faster than the intersection: separation falls from 0.225 to 0.133, and at this band the
+ * scorer decides 0 of 13 true pairs and produces 12 false splits against the present 4. So the
+ * lexical text stays names and aliases, this band stays the band measured for exactly that,
+ * and `matching-sweep` reports both texts on every run so the claim stays arguable.
  *
  * So the whole gain on offer is decisive-match recall, and buying it means dropping
  * `matchAbove` by 0.15 - loosening the expensive direction, on the evidence of a 24-pair
@@ -134,46 +212,54 @@ export const MATCH_THRESHOLDS: MatchThresholds = { matchAbove: 0.85, newBelow: 0
  * thrown away most correct hits, silently"), and matching is the same trap with the sign
  * flipped.
  *
- * **Measured, issue #279**, same 24-pair corpus and same run as `MATCH_THRESHOLDS` above,
- * with `alibaba/qwen3-embedding-4b` at 2560 dimensions. What that run found, in the order it
- * matters:
+ * **Re-derived for issue #310, and the old value would now be wrong.** #279 measured this band
+ * over a cosine of bare names and got 0.96/0.70. #310 gave both sides of the comparison the
+ * `MatchContext` above, which changes the distribution the band is a property of, so it was
+ * measured again rather than carried across: `packages/bench`'s `matching-sweep --runs=9`,
+ * same 24-pair corpus, same `alibaba/qwen3-embedding-4b` at 2560 dimensions, nine runs so the
+ * jitter is visible instead of assumed. Carrying 0.96/0.70 over costs 3 false splits on the
+ * new distribution, because 0.96 now sits above every score the corpus produces at all.
  *
- *  1. **Reusing 0.85/0.50 would have been broken, not merely suboptimal.** The lowest cosine
- *     any pair in the corpus reached was 0.642 (two entities with nothing whatsoever in
- *     common), so `newBelow: 0.50` is below the floor: the "new" outcome becomes unreachable
- *     and every unmatched entity turns into a question. At 0.85/0.50 the embedding scorer
- *     also produced 5 false merges against the trigram scorer's 2.
- *  2. **0.96 is where the expensive error stops.** The highest-scoring negative pair that a
- *     name can actually distinguish is "Aldric Voss" against "Aldric Voss the Younger" at
- *     0.953 - literally §6.4's "two characters collapsed into one". Above 0.96 the only
- *     false merges left are the two byte-identical pairs no scorer can separate, which is
- *     the floor. It costs almost nothing on the case that matters most in practice: an
- *     unchanged name between two exports is byte-identical text, and
- *     `createEmbeddingSimilarity` short-circuits that to exactly 1.
- *  3. **0.70, and not the boundary the corpus appears to offer.** SPEC.md §6.4's own example,
- *     "the Gilded Rat" against "Il Ratto Dorato", scores about 0.80, and the lowest true pair
- *     in the corpus, "Brackwater Mire" against "Brackwater", scores 0.782 with the highest
- *     negative underneath it at 0.777. That is a five-thousandth-wide gap, and two runs of
- *     this same sweep against this same model scored the bilingual pair 0.802 and 0.799, so a
- *     `newBelow` placed inside that gap decides by noise rather than by similarity. (The
- *     jitter is the same one `packages/indexing/src/models.ts` measured from the other side:
- *     repeated calls for one text return vectors with cosine self-similarity 0.99989.) 0.70
- *     sits clear of every true pair by 0.08, so it can only ever fire on a pair the model put
- *     nowhere near a match.
+ * What the nine runs found, in the order it matters:
  *
- * What this band buys and what it costs, stated rather than implied: it holds false merges at
- * the floor and false splits at zero, and it pays for both by asking. On this corpus the
- * embedding scorer decides 1 of 13 true pairs outright and asks about 20 of 24 pairs, where
- * the trigram scorer decides 4 and asks about 7. Two facts make that the right side of §6.4's
- * weighting rather than a good result: the case that dominates a real re-import is an
- * unchanged name, which is byte-identical text and short-circuits to exactly 1 without ever
- * reaching a threshold; and a question is what §6.4 asks for in the in-between band, while a
- * false merge is the error it calls expensive. The reason the band has to be this wide is
- * that a cosine over bare proper nouns has very little to work with - two unrelated personal
- * names of the same shape already sit at 0.843 - and the fix for that is to embed more than
- * the bare name, which is issue #310 rather than a threshold.
+ *  1. **The ordering is fixed, which is what #279 could not do with a threshold.** Names only:
+ *     mean cosine 0.912 over true pairs against 0.853 over false ones, separation 0.059, and
+ *     the best false pair at 1.000 because two negatives were byte-identical text. Names plus
+ *     context: 0.779 against 0.508, separation **0.272**, best false pair 0.703, worst true
+ *     pair 0.613. Over same-type pairs only, which is the shape a real candidate pool has,
+ *     separation is 0.252. Nothing is byte-identical any more.
+ *  2. **0.75 is where the expensive error stops.** The highest-scoring negative is the generic
+ *     guard title reused in two settlements at 0.703, and the father-and-son pair §6.4 names
+ *     as "two characters collapsed into one" has fallen from 0.953 to 0.553. 0.75 clears the
+ *     highest negative by 0.047, which is thirteen times the largest run-to-run spread any
+ *     pair showed (0.0037), so a false merge here would take a different model rather than a
+ *     different run. It still costs nothing on the case that dominates a real re-import: an
+ *     unchanged name and body is byte-identical text and `createEmbeddingSimilarity`
+ *     short-circuits it to exactly 1 without reaching a threshold.
+ *  3. **0.60, with its headroom stated rather than implied.** The lowest true pair is the
+ *     retitle §6.4 opens with, "the Gilded Rat" against "Gilded Rat Tavern", at 0.613, and the
+ *     highest negative below the bound is 0.589. 0.613 sits 0.013 above 0.60: three and a half
+ *     times the largest spread observed anywhere in nine runs, and thirteen times that pair's
+ *     own (0.0037), which clears the "treat any bound within about 0.01 of a score as
+ *     undecided" rule #279 wrote into this constant. It is the tightest bound in the band and
+ *     the only one where a drift would make an error rather than a question, so the
+ *     conservative alternative is recorded for the next run to argue with: 0.75/0.55 has the
+ *     same zero errors with 0.061 of headroom instead of 0.013, and costs two extra questions,
+ *     both of them on negatives. If a wider corpus ever puts a true pair between 0.55 and
+ *     0.60, that is the value to move to.
+ *
+ * What this band buys: **0 false merges and 0 false splits on the corpus, asking about 8 of 24
+ * pairs where the 0.96/0.70 band over bare names asked about 20 and still made 2 false merges.**
+ * Decisive-match recall goes from 0.077 to 0.615 at precision 1.000. The remaining 8 questions
+ * are the in-between band SPEC.md §6.4 asks for and not a residual failure: 3 of them are
+ * negatives the model put near the true pairs (an office whose holder changed, a tavern name
+ * reused in another town) and 5 are true pairs it put just under the match bound, which is
+ * exactly the population a GM should be asked about once.
+ *
+ * SPEC.md §16's open decision #3 stays open: this cites a real run, but 24 hand-written pairs
+ * are still not the "labelled corpus of real export pairs" §6.4 describes.
  */
-export const EMBEDDING_MATCH_THRESHOLDS: MatchThresholds = { matchAbove: 0.96, newBelow: 0.7 };
+export const EMBEDDING_MATCH_THRESHOLDS: MatchThresholds = { matchAbove: 0.75, newBelow: 0.6 };
 
 export type SimilarityFn = (
 	subject: MatchSubject,

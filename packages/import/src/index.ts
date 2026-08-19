@@ -100,11 +100,13 @@ export {
 export {
 	resolveMatch,
 	normalizeForMatching,
+	oneLineSummary,
 	nameOverlapScore,
 	preFilterCandidates,
 	EMBEDDING_MATCH_THRESHOLDS,
 	MATCH_THRESHOLDS,
 	type MatchCandidate,
+	type MatchContext,
 	type MatchSubject,
 	type MatchDecision,
 	type MatchThresholds,
@@ -123,7 +125,7 @@ export {
 
 export { SAMPLE_WORLD_MATCHING_CORPUS } from './matching-benchmark-corpus.js';
 
-export { lexicalTrigramSimilarity } from './lexical-similarity.js';
+export { createLexicalTrigramSimilarity, lexicalTrigramSimilarity } from './lexical-similarity.js';
 
 export {
 	createEmbeddingSimilarity,

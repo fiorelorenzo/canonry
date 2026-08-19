@@ -43,7 +43,7 @@ import {
 	parseOutcomeNote,
 	type RunImportJobParams
 } from './job-runner.js';
-import type { SimilarityFn } from './matching.js';
+import type { MatchCandidate, MatchSubject, SimilarityFn } from './matching.js';
 import type { Embedder } from '@canonry/copilot';
 
 // Issue #190: resolveRelationType's semantic rung, stubbed deterministically since
@@ -1748,6 +1748,98 @@ One document.
 		expect(rows.some((r) => r.kind === 'relation')).toBe(false);
 		expect(rows.filter((r) => r.kind === 'update')).toHaveLength(2);
 		expect(rows.every((r) => r.targetEntityId === existingEntity.id)).toBe(true);
+	});
+
+	it('hands the matcher the type, the summary and the source sentence of both sides (issue #310)', async () => {
+		await priceFixture();
+		const { userId, universeId } = await userAndUniverse();
+		const [existingEntity] = await db
+			.insert(entity)
+			.values({
+				universeId,
+				type: 'character',
+				name: 'Aldric Vane',
+				slug: `aldric-vane-${randomUUID().slice(0, 8)}`,
+				body: 'Dismissed captain of the Valdoria Watch. He drinks in the Lantern Quarter now.'
+			})
+			.returning();
+		if (!existingEntity) throw new Error('fixture setup failed');
+
+		const playbook = await loadBuiltinPlaybook('generic');
+		const sources = new InMemorySourceReader({
+			files: { 'notes/aldric.md': 'Aldric Vane commands the harbour watch, for now.' }
+		});
+
+		const admission = await admitAndCreateImportJob(db, {
+			universeId,
+			createdBy: userId,
+			sourceType: 'obsidian',
+			playbook: playbook.id,
+			playbookVersion: playbook.version,
+			artefactPath: 's3://fixtures/match-context.zip',
+			artefactBytes: 100,
+			artefactSha256: 'c'.repeat(64),
+			documentCount: 1,
+			budgetCredits: 1000,
+			estimate: { documentCount: 1, estimatedMinutes: 1, estimatedCredits: 10 },
+			concurrencyLimit: 5
+		});
+		expect(admission.admitted).toBe(true);
+
+		// The seam this test exists for: before #310 both of these arrived carrying `name` and
+		// `aliases` and nothing else, so `matchTextFor` had a bare name to embed and no threshold
+		// could recover the ordering. Capturing rather than asserting inside the scorer, because
+		// a throw in a `SimilarityFn` surfaces as a failed import rather than as a failed test.
+		const seen: Array<{ subject: MatchSubject; candidate: MatchCandidate }> = [];
+		const capturing: SimilarityFn = (subject, candidate) => {
+			seen.push({ subject, candidate });
+			return 0;
+		};
+
+		const model = scriptedModel([
+			toolCallStep([{ id: 'c1', name: 'source_read', input: { path: 'notes/aldric.md' } }]),
+			entityStep('c2', 'e1', 'Aldric Vane', 'doc-1'),
+			finishStep('c3')
+		]);
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+
+		const result = await new ImportJobRunner().run({
+			db,
+			driver,
+			dbJobId: admission.jobId,
+			universeId,
+			sourceSystem: 'obsidian',
+			userId,
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes/aldric.md' }],
+			sources,
+			images: new InMemoryImageStore(),
+			budget: { maxCredits: 1000 },
+			similarity: capturing,
+			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
+			timeoutMs: 30_000
+		});
+
+		expect(result.finalStatus).toBe('finished');
+		const scored = seen.find(({ candidate }) => candidate.id === existingEntity.id);
+		if (!scored) throw new Error('the existing entity was never scored as a candidate');
+
+		// The proposed side: its own type, its extracted summary, and the sentence behind
+		// `evidenceSpan` sliced out of the document the driver read.
+		expect(scored.subject.context?.type).toBe('character');
+		expect(scored.subject.context?.summary).toBe('Aldric Vane appears in this document.');
+		expect(scored.subject.context?.sourceSentence).toBe('Aldric Van');
+
+		// The already-existing side: its type, and the first sentence of its body rather than the
+		// whole body. No source sentence, because nothing keeps the text an imported entity came
+		// from.
+		expect(scored.candidate.context?.type).toBe('character');
+		expect(scored.candidate.context?.summary).toBe('Dismissed captain of the Valdoria Watch.');
+		expect(scored.candidate.context?.sourceSentence).toBeNull();
 	});
 
 	describe('missing_in_source bookkeeping (issue #163, SPEC.md §6.4)', () => {

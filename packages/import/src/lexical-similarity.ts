@@ -31,21 +31,57 @@ function trigrams(text: string): Set<string> {
 	return grams;
 }
 
-function subjectText(subject: MatchSubject): string {
-	return normalizeForMatching([subject.name, ...subject.aliases].join(' '));
+/** The lexical text for one side. Names and aliases only when `includeContext` is false,
+ * which is what `lexicalTrigramSimilarity` ships as - see its own comment for the numbers
+ * that decided it. */
+function lexicalText(entity: MatchSubject | MatchCandidate, includeContext: boolean): string {
+	const parts = [entity.name, ...entity.aliases];
+	if (includeContext && entity.context) {
+		const { type, summary, sourceSentence } = entity.context;
+		for (const field of [type, summary, sourceSentence]) if (field) parts.push(field);
+	}
+	return normalizeForMatching(parts.join(' '));
 }
 
-function candidateText(candidate: MatchCandidate): string {
-	return normalizeForMatching([candidate.name, ...candidate.aliases].join(' '));
+/**
+ * Jaccard similarity of character trigrams, in [0, 1], of whichever text `includeContext`
+ * selects.
+ *
+ * The option exists because issue #310 had to answer "does the context that helps the
+ * embedding scorer hurt this one" with a measurement rather than an assumption, and
+ * `packages/bench`'s `matching-sweep` scores both instances over the same corpus to do it.
+ * A factory rather than two copies of the trigram loop: the thing being compared is the text
+ * each side is reduced to, and reimplementing the metric beside it would compare two
+ * implementations instead.
+ */
+export function createLexicalTrigramSimilarity(
+	options: { includeContext: boolean } = { includeContext: false }
+): SimilarityFn {
+	return (subject, candidate) => {
+		const a = trigrams(lexicalText(subject, options.includeContext));
+		const b = trigrams(lexicalText(candidate, options.includeContext));
+		if (a.size === 0 || b.size === 0) return 0;
+		let intersection = 0;
+		for (const gram of a) if (b.has(gram)) intersection += 1;
+		const union = a.size + b.size - intersection;
+		return union === 0 ? 0 : intersection / union;
+	};
 }
 
-/** Jaccard similarity of character trigrams, in [0, 1]. */
-export const lexicalTrigramSimilarity: SimilarityFn = (subject, candidate) => {
-	const a = trigrams(subjectText(subject));
-	const b = trigrams(candidateText(candidate));
-	if (a.size === 0 || b.size === 0) return 0;
-	let intersection = 0;
-	for (const gram of a) if (b.has(gram)) intersection += 1;
-	const union = a.size + b.size - intersection;
-	return union === 0 ? 0 : intersection / union;
-};
+/**
+ * The shipped lexical scorer: names and aliases, no `MatchContext`.
+ *
+ * **Measured, not assumed (issue #310).** The context change that fixed the embedding
+ * scorer's ordering was scored on this one too, over the same 24 pairs, and it makes it
+ * worse in exactly the way character trigrams predict: two exports of one entity word their
+ * summaries differently, so the union of trigrams grows faster than the intersection and every
+ * true pair's score falls. Separation drops from 0.225 to 0.133, and at `MATCH_THRESHOLDS` the
+ * scorer stops deciding anything at all: 0 of 13 true pairs matched and 12 false splits,
+ * against 4 matched and 4 false splits on names alone. `matching-sweep` scores both texts on
+ * every run, so this stays arguable rather than settled by this comment.
+ *
+ * So the fallback a box with no credentials resolves to is unchanged in both text and
+ * behaviour, and `MATCH_THRESHOLDS` needs no re-derivation: it is still the band measured
+ * for exactly this scorer.
+ */
+export const lexicalTrigramSimilarity: SimilarityFn = createLexicalTrigramSimilarity();

@@ -102,8 +102,28 @@ export class EmbeddingBatchSizeError extends Error {
 	}
 }
 
+/** Cap on each context field's contribution to the embedded text (issue #310). The name is
+ * the signal a match is fundamentally about and the context exists to disambiguate it, so a
+ * caller that hands over a whole entity body must not be allowed to drown the name in it -
+ * and an embedding call's cost is linear in text length, which a matching pass makes once
+ * per candidate set. 200 characters is about two sentences, which is what the two callers
+ * actually pass (`EntityProposalPayload.summary`, and the first sentence of `entity.body`),
+ * so this is a guard against a future caller rather than a trim of the present ones. */
+const MAX_CONTEXT_FIELD_CHARS = 200;
+
+function contextLine(label: string, value: string | null | undefined): string | null {
+	const trimmed = value?.trim();
+	if (!trimmed) return null;
+	const clipped =
+		trimmed.length > MAX_CONTEXT_FIELD_CHARS
+			? `${trimmed.slice(0, MAX_CONTEXT_FIELD_CHARS).trimEnd()}...`
+			: trimmed;
+	return `${label}: ${clipped}`;
+}
+
 /**
- * The text one side of a pair is embedded as: the name, then any aliases, joined by ` / `.
+ * The text one side of a pair is embedded as: the name and any aliases on the first line,
+ * then one labelled line per piece of `MatchContext` that is present.
  *
  * Deliberately the raw strings rather than `normalizeForMatching`'s output. Normalisation
  * exists to make a *lexical* comparison work and throws away case and diacritics doing it;
@@ -112,12 +132,31 @@ export class EmbeddingBatchSizeError extends Error {
  * are included because SPEC.md §6.4 keeps them "in the loop", and because the corpus's
  * hardest true positives are the ones where the name and the alias swap places between
  * exports.
+ *
+ * **The first line is exactly what this function returned before issue #310**, and a side
+ * with no context produces a byte-identical string to the one it produced then. That is not
+ * a coincidence to preserve for its own sake: it is what makes "the same corpus, names only"
+ * a real baseline the sweep can measure the context change against, and it is what a caller
+ * with nothing to add still gets.
+ *
+ * The labels are English on content that may be Italian, which is correct rather than a
+ * lapse: "type"/"summary"/"source" are metadata the model reads as structure, not canon
+ * prose, and SPEC.md §17's rule is about text that lands *inside* an entry. Absent fields
+ * are omitted rather than emitted empty, so a subject carrying three lines and a candidate
+ * carrying two still compare on the two they share.
  */
 export function matchTextFor(entity: MatchSubject | MatchCandidate): string {
-	return [entity.name, ...entity.aliases]
+	const names = [entity.name, ...entity.aliases]
 		.map((part) => part.trim())
 		.filter((part) => part.length > 0)
 		.join(' / ');
+	const lines = [
+		names,
+		contextLine('type', entity.context?.type),
+		contextLine('summary', entity.context?.summary),
+		contextLine('source', entity.context?.sourceSentence)
+	];
+	return lines.filter((line): line is string => line !== null && line.length > 0).join('\n');
 }
 
 /** Cosine of two equal-length vectors, in [-1, 1]. Zero for a zero vector, which has no

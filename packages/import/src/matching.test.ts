@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	nameOverlapScore,
 	normalizeForMatching,
+	oneLineSummary,
 	preFilterCandidates,
 	resolveMatch,
 	type MatchCandidate,
@@ -15,6 +16,37 @@ describe('normalizeForMatching (issue #36/#37)', () => {
 		expect(normalizeForMatching('The Gilded Rat!')).toBe('the gilded rat');
 		expect(normalizeForMatching('Il Ratto Dorato')).toBe('il ratto dorato');
 		expect(normalizeForMatching('Café-du-Roi')).toBe('cafe du roi');
+	});
+});
+
+describe('oneLineSummary (issue #310)', () => {
+	it('takes the first sentence of a body, which is the one line a candidate contributes', () => {
+		expect(
+			oneLineSummary(
+				'A college of seven towers built into a cliff. Half its library is older than the kingdom.'
+			)
+		).toBe('A college of seven towers built into a cliff.');
+	});
+
+	it('flattens markdown and wikilinks, so a heading does not become the context line', () => {
+		// An entity body's first line is very often `## Rivalry` followed by the prose that
+		// matters, and a context line reading "##" is worse than no context line.
+		expect(
+			oneLineSummary('## Rivalry\n\nIts oldest rivalry runs through [[Blackmere College]].')
+		).toBe('Rivalry Its oldest rivalry runs through Blackmere College.');
+	});
+
+	it('falls back to a hard cut when there is no sentence end inside the budget', () => {
+		const summary = oneLineSummary('x'.repeat(400), 50);
+		expect(summary).toBe(`${'x'.repeat(50)}...`);
+	});
+
+	it('answers null for nothing to summarise, which is a real state and not a defect', () => {
+		// A `draft_entity` proposal accepted before anybody wrote its prose has an empty body.
+		expect(oneLineSummary('')).toBeNull();
+		expect(oneLineSummary('   \n  ')).toBeNull();
+		expect(oneLineSummary(null)).toBeNull();
+		expect(oneLineSummary(undefined)).toBeNull();
 	});
 });
 
