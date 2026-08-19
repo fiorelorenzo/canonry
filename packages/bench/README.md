@@ -2,7 +2,7 @@
 
 The credentialed half of the evaluation story. `packages/eval` holds the pure harnesses,
 which never call a model or a database on purpose; this package is the one that spends real
-money against a real gateway, a real Postgres and a real Qdrant, and answers three
+money against a real gateway, a real Postgres and a real Qdrant, and answers four
 questions nothing else in the repo can:
 
 1. **Which model runs which purpose** (`docs/models.md`), measured by running the product's
@@ -10,6 +10,9 @@ questions nothing else in the repo can:
 2. **Does an import work end to end**, for every source format SPEC.md §6.6 lists, including
    the re-import guarantees of §6.4.
 3. **Does the Loremaster work end to end**: retrieval, ask, propagate, audit, complete.
+4. **What a document's steps cost, and where in the resent transcript the money is**
+   (`docs/loop-cost.md`, issue #271), measured per step through `GatewayDriver`'s optional
+   profiler rather than inferred from a job's total.
 
 Nothing here ships. It is not imported by `apps/web`, and it may not be.
 
@@ -74,6 +77,11 @@ pnpm --filter @canonry/bench loremaster-e2e
 
 # re-render a report from results already on disk, free
 pnpm --filter @canonry/bench rerender -- .data/models-premium.json premium
+
+# issue #271: per-step transcript cost, one job per document, profiler on
+pnpm --filter @canonry/bench loop-cost
+pnpm --filter @canonry/bench loop-cost -- --source onenote
+pnpm --filter @canonry/bench loop-cost -- --source kanka --documents all
 ```
 
 Everything is written to `.data/`, which is gitignored: a run is evidence for an afternoon,

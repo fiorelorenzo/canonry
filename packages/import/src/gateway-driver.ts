@@ -43,6 +43,12 @@ import type { SourceReader } from './sources.js';
 import type { ImageStore } from './images.js';
 import { createDocumentRunContext, createImportTools, type DocumentRunContext } from './tools.js';
 import { loopLogger, type LoopLogger } from './logging.js';
+import {
+	profileStep,
+	toolSchemaChars,
+	type StepProfile,
+	type StepProfiler
+} from './transcript-profile.js';
 
 /**
  * Structural shape of `@canonry/ai`'s `AiGateway` (from `ai-gateway-provider`): call it
@@ -204,6 +210,12 @@ interface StepOutcome {
 	responseMessages: ModelMessage[];
 	inputTokens: number;
 	outputTokens: number;
+	/** issue #271: how much of `inputTokens` the provider served from its own prompt cache.
+	 * Read but not priced: `computeCost` has no cached-input rate, so billing is unchanged
+	 * by this and only the profiler looks at it. It is here because "is the gateway already
+	 * discounting the part of the transcript that never changes" is the first question any
+	 * fix for #271 has to answer, and nothing in this repo was recording the answer. */
+	cachedInputTokens: number;
 	toolCalls: Array<{ toolName: string; invalid: boolean }>;
 }
 
@@ -227,6 +239,7 @@ async function callStep(
 		responseMessages: result.responseMessages,
 		inputTokens: result.usage.inputTokens ?? 0,
 		outputTokens: result.usage.outputTokens ?? 0,
+		cachedInputTokens: result.usage.inputTokenDetails?.cacheReadTokens ?? 0,
 		toolCalls: result.toolCalls.map((call) => ({
 			toolName: call.toolName,
 			invalid: 'invalid' in call && call.invalid === true
@@ -263,6 +276,10 @@ interface RunDocumentParams {
 	logger: LoopLogger;
 	abortSignal: AbortSignal;
 	budget: BudgetTracker;
+	/** issue #271: absent in production and in every existing test, in which case nothing
+	 * in this file profiles anything. Attached by `packages/bench`'s `loop-cost` runner to
+	 * record what each step's input was built from. */
+	profiler?: StepProfiler;
 }
 
 /** issue #273: how many extra attempts one step gets, each asking for less, after every
@@ -335,6 +352,10 @@ async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent>
 		enabledTools
 	);
 	const toolCount = Object.keys(tools).length;
+	// issue #271: the real serialized size of the tool surface, computed once because the
+	// tool set never changes mid-run, and only when someone is listening - an unprofiled
+	// run does not pay for a zod-to-JSON-Schema conversion it will not read.
+	const schemaChars = params.profiler ? toolSchemaChars(tools) : 0;
 
 	let messages: ModelMessage[] = [
 		{
@@ -395,6 +416,19 @@ async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent>
 			// resent.
 			const stepMessages =
 				retryCount === 0 ? messages : [...messages, retryWithSmallerAskMessage()];
+
+			// issue #271: what this exact request is built from, split into the buckets the
+			// issue names, captured before the call so the sample can be paired with the
+			// provider's own reported token count below.
+			const profile: StepProfile | null = params.profiler
+				? profileStep({
+						step,
+						attempt: retryCount,
+						systemPrompt: playbook.systemPrompt,
+						messages: stepMessages,
+						toolSchemaChars: schemaChars
+					})
+				: null;
 
 			// issue #134: price this step's worst case before calling the model at all - known
 			// input (the system prompt, the conversation so far, the tools on offer) plus the
@@ -507,6 +541,22 @@ async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent>
 				images: 0
 			});
 			params.budget.spend(credits);
+			if (params.profiler && profile) {
+				params.profiler({
+					...profile,
+					jobId,
+					documentId: document.id,
+					playbookId: playbook.id,
+					playbookVersion: playbook.version,
+					purpose,
+					provider: resolved.provider,
+					modelId: resolved.modelId,
+					reportedInputTokens: outcome.inputTokens,
+					cachedInputTokens: outcome.cachedInputTokens,
+					reportedOutputTokens: outcome.outputTokens,
+					credits
+				});
+			}
 			// issue #134: once this job has proposed anything, `wouldExceedCeiling`'s reserve
 			// grace is no longer needed - its whole purpose was making sure a job did not end at
 			// zero proposals, and that has already happened.
@@ -645,7 +695,15 @@ export class GatewayDriver implements ImportDriver {
 	private readonly controllers = new Map<string, AbortController>();
 
 	constructor(
-		private readonly deps: { gateway: GatewayWrapper; models: ModelSelector; logger?: LoopLogger }
+		private readonly deps: {
+			gateway: GatewayWrapper;
+			models: ModelSelector;
+			logger?: LoopLogger;
+			/** issue #271: opt-in per-step transcript profiling. Omitted everywhere in the
+			 * product; `packages/bench`'s `loop-cost` runner is the one caller that passes
+			 * one, and with it omitted this driver does no profiling work at all. */
+			profiler?: StepProfiler;
+		}
 	) {}
 
 	startJob(job: ImportJob): JobStream {
@@ -655,6 +713,7 @@ export class GatewayDriver implements ImportDriver {
 		const gateway = this.deps.gateway;
 		const models = this.deps.models;
 		const controllers = this.controllers;
+		const profiler = this.deps.profiler;
 
 		async function* run(): AsyncGenerator<JobEvent> {
 			const budget = createBudgetTracker(job.budget.maxCredits);
@@ -671,7 +730,8 @@ export class GatewayDriver implements ImportDriver {
 						gateway,
 						logger,
 						abortSignal: controller.signal,
-						budget
+						budget,
+						...(profiler !== undefined ? { profiler } : {})
 					});
 				}
 			} finally {

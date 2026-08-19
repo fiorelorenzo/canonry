@@ -25,7 +25,8 @@ import {
 	type JobDocument,
 	type JobEvent,
 	type LoadedPlaybook,
-	type RelationProposalPayload
+	type RelationProposalPayload,
+	type StepSample
 } from '@canonry/import';
 import { createGateway, readGatewayCredentials, resolveModel } from '@canonry/ai';
 import type { Db } from '@canonry/db';
@@ -44,6 +45,9 @@ export interface ImportRunResult {
 	detail: string;
 	/** Every step and tool call the loop logged, captured rather than printed. */
 	loopLog: Array<Record<string, unknown>>;
+	/** issue #271: every model call's transcript breakdown, when `profile` asked for it.
+	 * Empty otherwise, because the driver does no profiling work without a profiler. */
+	stepProfile: StepSample[];
 }
 
 /** The `LanguageModelFactory` `DbModelSelector` needs. Same bypass as `benchModelFactory`
@@ -63,6 +67,9 @@ export interface RunImportDocumentsInput {
 	documents: JobDocument[];
 	jobId: string;
 	maxCredits?: number;
+	/** issue #271: record what each step's input was built from. Off by default: the
+	 * driver's profiling path only runs when someone is listening. */
+	profile?: boolean;
 }
 
 export async function runImportDocuments(input: RunImportDocumentsInput): Promise<ImportRunResult> {
@@ -72,6 +79,7 @@ export async function runImportDocuments(input: RunImportDocumentsInput): Promis
 	const createLanguageModel = gatewayLanguageModelFactory();
 
 	const loopLog: Array<Record<string, unknown>> = [];
+	const stepProfile: StepSample[] = [];
 	const driver = new GatewayDriver({
 		models: new DbModelSelector({
 			resolvePurpose: async (purpose) => resolveModel(input.db, purpose),
@@ -83,7 +91,8 @@ export async function runImportDocuments(input: RunImportDocumentsInput): Promis
 		// The default logger writes a JSON line per step and per tool call to stdout, which
 		// is right in a server and unreadable in a sweep of twelve candidates. Captured
 		// instead, and handed back so a case that went wrong can be read afterwards.
-		logger: createLoopLogger((fields) => loopLog.push({ ...fields }))
+		logger: createLoopLogger((fields) => loopLog.push({ ...fields })),
+		...(input.profile === true ? { profiler: (sample) => stepProfile.push(sample) } : {})
 	});
 
 	const result: ImportRunResult = {
@@ -97,7 +106,8 @@ export async function runImportDocuments(input: RunImportDocumentsInput): Promis
 		steps: 0,
 		status: 'running',
 		detail: '',
-		loopLog
+		loopLog,
+		stepProfile
 	};
 
 	const stream = driver.startJob({
