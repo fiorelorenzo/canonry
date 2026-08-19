@@ -16,15 +16,16 @@ waits for a human, however it is grouped on screen. `AGENTS.md` carries the same
 wording in short form. G6 itself, whether that bucket is informational or reviewable,
 is still open.
 
-**Nine rounds, 66 answers.** Round one, 38, and round two, the 11 questions those answers
-opened, were both taken on 2026-08-13; round three's 2 on 2026-08-14; round four's 10 and
-round five's 1, both on 2026-08-15; round six's 1 and round seven's 1 on 2026-08-16; round
-eight's 1 and round nine's 1, both on 2026-08-19. Rounds one to three answered
+**Nine rounds, 66 answers, and a tenth round still open.** Round one, 38, and round two, the 11
+questions those answers opened, were both taken on 2026-08-13; round three's 2 on 2026-08-14;
+round four's 10 and round five's 1, both on 2026-08-15; round six's 1 and round seven's 1 on
+2026-08-16; round eight's 1 and round nine's 1, both on 2026-08-19. Rounds one to three answered
 questions asked before there was code. Round four came out of the shipped UI and is recorded
 further down in this file, with its audit in [`product-pass.html`](product-pass.html). Rounds
 five to nine have no separate audit artifact: each is one question forced by something the
 shipped product already did, not a page of drawn options, and all five are recorded at the
-bottom of this file.
+bottom of this file. Round ten, at the very bottom, is four questions with drawn options and no
+answers yet.
 
 To change a decision: edit this file and the `UX_REGISTER` entry in
 `docs/ux/assets/ux.js`, and say so on the issues it blocks. The artifact keeps its
@@ -662,3 +663,42 @@ rather than lying with a number. `PlanChecklist.svelte`'s "3 of 3 kept, cap 10" 
 "3 of 3 kept, no cap" rather than "cap null" when the setting is off.
 
 Touches #50 and #56, and the migration is `packages/db/migrations/0038_special_enchantress.sql`.
+
+## Round ten, open as of 2026-08-19
+
+The first round with nothing decided in it. Same direction as round four, from the shipped
+product back to the decisions rather than the other way: I opened the preview, disliked four
+things, and drew the options instead of settling any of them inside a component.
+
+| Id | Question | Artifact |
+| --- | --- | --- |
+| O1 | The world home is four small cells over a flat list. Is it big editorial sections, a browser that grows up, or two surfaces? | [`o1-world-overview.html`](o1-world-overview.html) |
+| O2 | An entry has no cover image and a five-tab aside that clips its own last label at 256px. Where does the cover live, and what carries the structured layer? | [`o2-entry-page-and-cover.html`](o2-entry-page-and-cover.html) |
+| O3 | Ask has three doors, all of which navigate away, and it remembers nothing. Does the copilot get a floating composer on every page, and what does the dedicated page become? | [`o3-loremaster-quick-ask.html`](o3-loremaster-quick-ask.html) |
+| O4 | Which control replaces a native select, and does one control fit both a two-option toggle and every entity in the world? | [`o4-select-control.html`](o4-select-control.html) |
+
+**Two of the four carry a defect rather than a preference.** `EntryTabs.svelte:88` sizes the
+aside at `md:w-64`, 256px, and the strip at `:92-96` is a plain flex of `flex-1` tabs with no
+truncation, so five labels do not fit and the last one is cut in half: in Italian that is
+"Verifica", in English "Audit" survives by being short, which is the tell that the layout
+depends on how long a translated word is rather than on a rule. And a cover image has nowhere
+to live at all: `media_asset` (`packages/db/src/schema/media.ts:68-98`) has no primary, cover
+or role column, so every image an entry owns is equal and O2 is a schema question as much as a
+layout one. Whatever wins there has to respect `published_to_players` before a cover appears
+on `/p/<slug>`, because guardrail 6 has no exception for images.
+
+**One of the four is a question about a decision, not a screen.** O1's third option amends
+I7: the universe home stops being one page in two modes and becomes a home plus a dense entry
+table. If that is the answer, this file and the register change with it rather than the route
+quietly disagreeing with a decision that is still written down as taken.
+
+**And O3 asks for something that does not exist yet.** Keeping the dedicated Ask page "for
+the history" reads like a move and is not one: `ask/+server.ts` streams an answer and stores
+nothing, and there is no ask, answer or conversation table anywhere in `packages/db/src/schema`.
+So a history is new persistence, which drags a retention answer and a guardrail 5 sentence
+behind it, and the shape of the answer decides how much of it: a log of everything anybody
+typed is a chat transcript, and a list of answers somebody chose to keep is a record.
+
+Filed as epic [#282](https://github.com/fiorelorenzo/canonry/issues/282) with #283, #284,
+#285 and #286, all four `Todo` on the board because none of them is buildable until its
+artifact has an answer.

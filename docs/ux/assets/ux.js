@@ -274,6 +274,23 @@ const UX_REGISTER = [
     w: 'now', i: [50, 56], dt: '2026-08-19',
     d: 'A', dn: 'A per-universe setting, 25 by default, with an explicit no-limit option',
     dnote: 'universe.propagation_cap is a nullable integer rather than a sentinel: 0 collides with the state effectiveCap\'s own floor already refuses to produce, and a very large number lies about what "no limit" means the moment somebody reads the column, so null is the only value that means the same thing everywhere it is read. 25 is not a guess: propagate.plan costs 1 credit and propagate.diff costs 1 credit per surviving candidate (migration 0004), so a cap of 25 bounds one save\'s worst case at 26 credits, 0.52% of the included tier\'s 5,000 credits per period - generous enough that a real two-hop neighbourhood rarely gets truncated, still a real ceiling. The old 10 bounded the same worst case at 11 credits, 0.22% of a period, conservative enough that nobody had ever checked it against anything. effectiveCap keeps tightening a numeric cap by one per recent "too much", floored at 3, but a null cap has nothing to tighten and the floor never resurrects a limit the GM explicitly turned off - effectiveCap(null, ...) returns null, not 3. proposal_plan.candidate_cap drops its NOT NULL for the same reason: it records the cap actually in effect when a plan was written, and a plan written with no limit has to be able to say so.' },
+
+  /* Round ten: the other direction again, like round four. I opened the deployed preview
+     and disliked four things about it, so these four are drawn as options rather than
+     recorded as answers: they are the first entries in this register with no decision on
+     them since the set was written. Filed as epic #282. */
+  { s: 'Round ten', id: 'O1', f: 'o1-world-overview.html', t: 'What a world\'s home page is for',
+    q: 'The universe home is four small cells over a flat list. Is it big editorial sections, a browser that grows up, or two surfaces?',
+    w: 'now', i: [283, 282, 145] },
+  { s: 'Round ten', id: 'O2', f: 'o2-entry-page-and-cover.html', t: 'The entry\'s cover image, and the aside that clips',
+    q: 'An entry has no cover image and a five-tab aside that clips its own last label at 256px. Where does the cover live, and what carries the structured layer?',
+    w: 'now', i: [284, 282, 105, 66] },
+  { s: 'Round ten', id: 'O3', f: 'o3-loremaster-quick-ask.html', t: 'The copilot\'s front door',
+    q: 'Ask has three doors, all of which navigate away, and it remembers nothing. Does the copilot get a floating composer on every page, and what does the dedicated page become?',
+    w: 'now', i: [285, 282, 53, 149] },
+  { s: 'Round ten', id: 'O4', f: 'o4-select-control.html', t: 'Ten controls that still open the browser\'s own select',
+    q: 'Which control replaces a native select, and does one control fit both a two-option toggle and every entity in the world?',
+    w: 'soon', i: [286, 282, 155] },
 ];
 
 const KEY = (id) => `canonry.ux.${id}`;
