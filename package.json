@@ -20,6 +20,6 @@
 		"db:down": "docker compose -f docker/compose.dev.yml down"
 	},
 	"devDependencies": {
-		"typescript": "^6.0.3"
+		"typescript": "^7.0.2"
 	}
 }
