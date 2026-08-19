@@ -315,6 +315,7 @@ export interface Messages {
 			signUpLink: string;
 			orDivider: string;
 			continueWith: (provider: string) => string;
+			forgotPasswordLink: string;
 		};
 		signUp: {
 			title: string;
@@ -328,6 +329,34 @@ export interface Messages {
 			signInLink: string;
 			orDivider: string;
 			continueWith: (provider: string) => string;
+		};
+		/** #151: the request-a-reset screen linked from `signIn.forgotPasswordLink`, and the
+		 * screen the mail's link lands on. Both follow the same reading room shell as
+		 * sign-in/sign-up (I2, #139) rather than inventing a second visual language for two
+		 * screens that exist only because a password was forgotten. */
+		forgotPassword: {
+			title: string;
+			subtitle: string;
+			emailLabel: string;
+			emailRequired: string;
+			submit: string;
+			submitting: string;
+			success: string;
+			sendFailed: string;
+			backToSignIn: string;
+		};
+		resetPassword: {
+			title: string;
+			subtitle: string;
+			newPasswordLabel: string;
+			confirmPasswordLabel: string;
+			submit: string;
+			submitting: string;
+			passwordMismatch: string;
+			invalidToken: string;
+			requestNewLink: string;
+			success: string;
+			signInLink: string;
 		};
 		/** The compact switcher on the sign-in/sign-up pages (there is no account yet to
 		 * hold a preference, so it sets the cookie instead - SPEC.md §17). Lives in the
@@ -355,6 +384,23 @@ export interface Messages {
 			waitingBadge: string;
 			evidence: string;
 			disclaimer: string;
+		};
+	};
+
+	/** #151: the one caller of `$lib/server/mail`'s `MailTransport.send` today - the
+	 * transport itself is generic (it will carry email verification, a shared-universe
+	 * invitation and an import-finished notice later), but the interface never gets a
+	 * method per use, so the strings for each mail live here, one namespace per use, added
+	 * as each one actually gets wired up rather than stubbed ahead of a caller. */
+	mail: {
+		passwordReset: {
+			subject: string;
+			heading: string;
+			body: string;
+			button: string;
+			linkFallback: string;
+			expiryNotice: string;
+			ignoreNotice: string;
 		};
 	};
 

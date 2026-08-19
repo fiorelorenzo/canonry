@@ -273,7 +273,8 @@ export const en: Messages = {
 			noAccount: 'No account yet?',
 			signUpLink: 'Sign up',
 			orDivider: 'or',
-			continueWith: (provider) => `Continue with ${provider}`
+			continueWith: (provider) => `Continue with ${provider}`,
+			forgotPasswordLink: 'Forgotten password?'
 		},
 		signUp: {
 			title: 'Sign up',
@@ -287,6 +288,30 @@ export const en: Messages = {
 			signInLink: 'Sign in',
 			orDivider: 'or',
 			continueWith: (provider) => `Continue with ${provider}`
+		},
+		forgotPassword: {
+			title: 'Reset your password',
+			subtitle: "We'll send a link to the address on your account.",
+			emailLabel: 'Email',
+			emailRequired: 'Enter the email address on your account.',
+			submit: 'Send reset link',
+			submitting: 'Sending…',
+			success: 'If that address has an account, a reset link is on its way. It expires in an hour.',
+			sendFailed: 'The reset link could not be sent. Try again in a moment.',
+			backToSignIn: 'Back to sign in'
+		},
+		resetPassword: {
+			title: 'Set a new password',
+			subtitle: 'Choose a new password for your account.',
+			newPasswordLabel: 'New password',
+			confirmPasswordLabel: 'Confirm password',
+			submit: 'Set new password',
+			submitting: 'Setting password…',
+			passwordMismatch: "Passwords don't match.",
+			invalidToken: 'This link has expired or was already used.',
+			requestNewLink: 'Request a new link',
+			success: 'Password updated. Sign in with your new password.',
+			signInLink: 'Sign in'
 		},
 		languageSwitcher: {
 			label: 'Language'
@@ -308,6 +333,19 @@ export const en: Messages = {
 			evidence: 'Evidence: Aldric Vane, paragraph 1.',
 			disclaimer:
 				'Nothing above was applied. Every line a model writes waits for you to accept it, one entry at a time.'
+		}
+	},
+
+	mail: {
+		passwordReset: {
+			subject: 'Reset your Canonry password',
+			heading: 'Reset your password',
+			body: 'Someone asked to reset the password on this account. If that was you, choose a new one below.',
+			button: 'Reset password',
+			linkFallback: 'Or paste this link into your browser:',
+			expiryNotice: 'This link expires in one hour.',
+			ignoreNotice:
+				"If you didn't request this, you can ignore this email and your password will stay the same."
 		}
 	},
 
