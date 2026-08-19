@@ -467,6 +467,132 @@ describe('players', () => {
 		});
 	});
 
+	// #306, guardrail 6. A fact's span indexes the body of its source revision, and nothing
+	// about a pair of offsets says whether they landed inside a `:::secret` or `:::gmnote`
+	// fence, so this is where the read path proves it refuses to quote one. Each case reveals
+	// the entity and the fact, which is the only state in which an excerpt is served at all,
+	// and then asserts on what `publicEntityBySlug` returns rather than on a helper.
+	describe('publicEntityBySlug: a fact whose evidence sits in a fence (#306)', () => {
+		const FENCED_BODY = [
+			'A merchant bank that lends at knife point.',
+			'',
+			':::secret',
+			'Aldric Vane is now on its payroll.',
+			':::',
+			'',
+			'It keeps better records than the magistrate.',
+			'',
+			':::gmnote',
+			'Play this reveal as her fault circling back.',
+			':::'
+		].join('\n');
+
+		/** Reveals a ledger entry carrying both fences, plus one fact whose span covers
+		 * `[from, to]` in that body, and returns what the players' wiki serves for it. */
+		async function publicFactsForSpan(from: string, to: string) {
+			const u = await insertHomebrewUniverse(db);
+			const [session] = await db
+				.insert(entity)
+				.values({ universeId: u.id, type: 'session', name: 'Session 1', slug: unique('session') })
+				.returning();
+			const [ledger] = await db
+				.insert(entity)
+				.values({
+					universeId: u.id,
+					type: 'faction',
+					name: 'The Ashen Ledger',
+					slug: unique('ledger'),
+					body: FENCED_BODY
+				})
+				.returning();
+			if (!session || !ledger) throw new Error('fixture setup failed');
+			const [rev] = await db
+				.insert(revision)
+				.values({
+					universeId: u.id,
+					entityId: ledger.id,
+					authorKind: 'human',
+					name: ledger.name,
+					body: FENCED_BODY
+				})
+				.returning();
+			if (!rev) throw new Error('fixture setup failed');
+
+			const spanStart = FENCED_BODY.indexOf(from);
+			const spanEnd = FENCED_BODY.indexOf(to) + to.length;
+			if (spanStart < 0 || spanEnd <= spanStart) throw new Error('fixture span is not in body');
+			const [row] = await db
+				.insert(fact)
+				.values({
+					universeId: u.id,
+					entityId: ledger.id,
+					// The statement paraphrases whatever the span covers, which is why a
+					// withheld excerpt has to take its statement with it.
+					statement: FENCED_BODY.slice(spanStart, spanEnd),
+					sourceRevisionId: rev.id,
+					spanStart,
+					spanEnd,
+					authorKind: 'human'
+				})
+				.returning();
+			if (!row) throw new Error('fixture setup failed');
+
+			await revealEntityLive(db, {
+				universeId: u.id,
+				entityId: ledger.id,
+				sessionEntityId: session.id
+			});
+			await revealFactLive(db, { universeId: u.id, factId: row.id, sessionEntityId: session.id });
+
+			const result = await publicEntityBySlug(db, u.id, ledger.slug);
+			if (result?.status !== 'full') throw new Error('expected a full entity');
+			return result;
+		}
+
+		it('serves a fact whose span is entirely outside every fence: the control', async () => {
+			const result = await publicFactsForSpan('A merchant bank', 'lends at knife point.');
+			expect(result.facts).toHaveLength(1);
+			expect(result.facts[0]?.sourceExcerpt).toBe('A merchant bank that lends at knife point.');
+		});
+
+		it('withholds a fact whose span is wholly inside the secret fence', async () => {
+			const result = await publicFactsForSpan('Aldric Vane is now', 'on its payroll.');
+			expect(result.facts).toEqual([]);
+			// Not the excerpt, not the statement, not the id. The assertion is on `facts` and
+			// not on the whole result because `body` here is deliberately the raw markdown,
+			// fences and all: `apps/web`'s own seam strips that, and `p/leak.test.ts` proves it.
+			expect(JSON.stringify(result.facts)).not.toContain('Aldric Vane');
+		});
+
+		it('withholds a fact whose span straddles the opening marker', async () => {
+			const result = await publicFactsForSpan('lends at knife point.', 'Aldric Vane is now');
+			expect(result.facts).toEqual([]);
+			expect(JSON.stringify(result.facts)).not.toContain(':::secret');
+			expect(JSON.stringify(result.facts)).not.toContain('Aldric Vane');
+		});
+
+		it('withholds a fact whose span straddles the closing marker', async () => {
+			const result = await publicFactsForSpan('on its payroll.', 'It keeps better records');
+			expect(result.facts).toEqual([]);
+			expect(JSON.stringify(result.facts)).not.toContain('payroll');
+		});
+
+		it('withholds a fact whose span contains a whole fence in the middle', async () => {
+			const result = await publicFactsForSpan(
+				'A merchant bank',
+				'It keeps better records than the magistrate.'
+			);
+			expect(result.facts).toEqual([]);
+			expect(JSON.stringify(result.facts)).not.toContain('Aldric Vane');
+		});
+
+		it('withholds a fact whose span is inside the gmnote fence, not only the secret one', async () => {
+			const result = await publicFactsForSpan('Play this reveal', 'as her fault circling back.');
+			expect(result.facts).toEqual([]);
+			expect(JSON.stringify(result.facts)).not.toContain('circling back');
+		});
+	});
+
 	describe('publicMediaAssetById (#254)', () => {
 		it('walks every publish/unpublish transition: invisible, visible once published, invisible again once unpublished', async () => {
 			const { u, session, aldric } = await worldFixture();

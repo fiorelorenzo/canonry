@@ -2,9 +2,10 @@
  * Issue #85, guardrail 6: nothing unreviewed is ever published to players. This is the
  * test the issue asks for - it tries to leak, on purpose, against a fixture universe built
  * to contain exactly the things guardrail 6 forbids surfacing: an unrevealed fact, an
- * unrevealed relation, a secret block, a GM note, an unpublished generated image, and a
+ * unrevealed relation, a secret block, a GM note, an unpublished generated image, a
  * `gm_only` entry (with a revelation row on it anyway, simulating the bug the schema
- * comment in `entity.ts` says can never be allowed to matter).
+ * comment in `entity.ts` says can never be allowed to matter), and since #306 three
+ * confirmed facts whose evidence span reaches into one of those fences.
  *
  * Runs against the real dev Postgres, same convention as `lib/server/export.test.ts`: its
  * own uniquely-slugged universe, cleaned up afterwards, never touching the seeded fixture
@@ -104,6 +105,7 @@ describe('players wiki: leak test (#85)', () => {
 	let revealedEntity: { id: string; slug: string };
 	let gmOnlyEntity: { id: string; slug: string };
 	let undiscoveredEntity: { id: string; slug: string };
+	let fencedFactIds: string[] = [];
 
 	beforeAll(async () => {
 		db = createDb(DATABASE_URL, { max: 3 });
@@ -177,8 +179,10 @@ describe('players wiki: leak test (#85)', () => {
 		gmOnlyEntity = gmOnly;
 		undiscoveredEntity = undiscovered;
 
-		// Two facts on the revealed entity: one confirmed (must appear), one never revealed
-		// (must never appear).
+		// Facts on the revealed entity. One confirmed and safely outside every fence (must
+		// appear), one never revealed (must never appear), and three confirmed ones whose
+		// evidence span touches a fence (#306: each must be withheld whole, statement
+		// included, even though the GM did confirm the revelation).
 		const [rev] = await db
 			.insert(revision)
 			.values({
@@ -214,7 +218,49 @@ describe('players wiki: leak test (#85)', () => {
 				authorKind: 'human'
 			})
 			.returning();
-		if (!revealedFact || !unrevealedFact) throw new Error('fact insert failed');
+		// #306. A span is a pair of offsets into `body` above and knows nothing about what it
+		// landed in, so these are the three shapes that used to publish fenced text: inside
+		// the secret, inside the GM note, and straddling the opening marker. Their statements
+		// are the fenced sentence itself, which is what a fact extracted from that sentence
+		// carries in practice, and the reason withholding only the excerpt would still leak.
+		const secretStart = body.indexOf(SECRET_TEXT);
+		const gmnoteStart = body.indexOf(GMNOTE_TEXT);
+		if (secretStart < 0 || gmnoteStart < 0) throw new Error('fixture body lost its fences');
+		const fencedFacts = await db
+			.insert(fact)
+			.values([
+				{
+					universeId: uni.id,
+					entityId: revealed.id,
+					statement: SECRET_TEXT,
+					sourceRevisionId: rev.id,
+					spanStart: secretStart,
+					spanEnd: secretStart + SECRET_TEXT.length,
+					authorKind: 'human'
+				},
+				{
+					universeId: uni.id,
+					entityId: revealed.id,
+					statement: GMNOTE_TEXT,
+					sourceRevisionId: rev.id,
+					spanStart: gmnoteStart,
+					spanEnd: gmnoteStart + GMNOTE_TEXT.length,
+					authorKind: 'human'
+				},
+				{
+					universeId: uni.id,
+					entityId: revealed.id,
+					statement: 'A fact whose evidence starts in public prose and ends in a secret.',
+					sourceRevisionId: rev.id,
+					spanStart: 0,
+					spanEnd: secretStart + SECRET_TEXT.length,
+					authorKind: 'human'
+				}
+			])
+			.returning({ id: fact.id });
+		if (!revealedFact || !unrevealedFact || fencedFacts.length !== 3)
+			throw new Error('fact insert failed');
+		fencedFactIds = fencedFacts.map((f) => f.id);
 
 		// An unrevealed relation from the revealed entity to the gm_only one - must never
 		// surface the gm_only entity's name through the relations list.
@@ -261,8 +307,10 @@ describe('players wiki: leak test (#85)', () => {
 			}
 		]);
 
-		// Reveal the entity and exactly one fact. Then, defense in depth: reveal the
-		// gm_only entity too, simulating a bug - it must still never surface.
+		// Reveal the entity, the one safe fact, and every fenced fact (#306: a confirmed
+		// revelation is exactly the state the defect needed, so the test has to be in it).
+		// Then, defense in depth: reveal the gm_only entity too, simulating a bug - it must
+		// still never surface.
 		await revealEntityLive(db, {
 			universeId: uni.id,
 			entityId: revealed.id,
@@ -273,6 +321,9 @@ describe('players wiki: leak test (#85)', () => {
 			factId: revealedFact.id,
 			sessionEntityId: session.id
 		});
+		for (const factId of fencedFactIds) {
+			await revealFactLive(db, { universeId: uni.id, factId, sessionEntityId: session.id });
+		}
 		await revealEntityLive(db, {
 			universeId: uni.id,
 			entityId: gmOnly.id,
@@ -350,6 +401,33 @@ describe('players wiki: leak test (#85)', () => {
 		// The fence markers themselves must not survive either - not just their content.
 		expect(result.entity.body).not.toContain(':::secret');
 		expect(result.entity.body).not.toContain(':::gmnote');
+	});
+
+	it('a confirmed fact whose evidence span sits in a secret or GM-note fence is not in what the entry page serves (#306)', async () => {
+		const layoutData = await loadUniverseLayout();
+		const raw = await loadEntity({
+			params: { universe: universeRow.slug, slug: revealedEntity.slug },
+			parent: async () => layoutData
+		} as Parameters<typeof loadEntity>[0]);
+		const result = raw as PublicEntityPageData;
+		if (result.entity.status !== 'full') throw new Error('expected a full entity');
+
+		// All three fenced facts carry a confirmed revelation, so the only thing keeping them
+		// off this page is the span filter. Withheld whole: no id to key a list item off, no
+		// statement, no excerpt.
+		const served = result.entity.facts.map((f) => f.id);
+		for (const factId of fencedFactIds) expect(served).not.toContain(factId);
+		expect(result.entity.facts).toHaveLength(1);
+		expect(result.entity.facts[0]?.sourceExcerpt).toBe('A merchant');
+
+		// The payload, which is what SvelteKit serialises into the HTML: neither the fenced
+		// sentences nor the markers themselves, in an excerpt or in a statement.
+		const payload = JSON.stringify(result);
+		expect(payload).not.toContain(SECRET_TEXT);
+		expect(payload).not.toContain(GMNOTE_TEXT);
+		expect(payload).not.toContain(':::secret');
+		expect(payload).not.toContain(':::gmnote');
+		expect(payload).not.toContain('now on the Ledger payroll');
 	});
 
 	it('a media asset attached to the revealed entity after the fact still never appears to players, in the payload or the markup (#71 surface guardrail)', async () => {

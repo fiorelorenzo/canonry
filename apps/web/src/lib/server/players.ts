@@ -6,8 +6,10 @@
  *
  * `stripSecretsForPlayers` (decision E6) runs here, once, on the way out of
  * `publicEntityBySlug`'s raw `entity.body`: this is the only place in the request path a
- * secret or GM-note fence is ever removed for a player, so there is exactly one filter to
- * get right, not one in the route and a second one somewhere else that could drift from it.
+ * secret or GM-note fence is ever removed from an entry's prose for a player. It comes from
+ * `@canonry/lang`, which since #306 owns the single definition of what those fences hide, so
+ * the quoted evidence `publicEntityBySlug` withholds one layer down and the prose stripped
+ * here can never disagree about where a secret starts.
  */
 import {
 	isPubliclyVisible,
@@ -22,8 +24,7 @@ import {
 	type RevealedEntityListItem
 } from '@canonry/db';
 import type { EntityVisibility } from '@canonry/db/schema';
-import { detectLanguage, type Locale } from '@canonry/lang';
-import { stripSecretsForPlayers } from '$lib/markdown-secrets';
+import { detectLanguage, stripSecretsForPlayers, type Locale } from '@canonry/lang';
 
 export interface PublicUniverse {
 	id: string;

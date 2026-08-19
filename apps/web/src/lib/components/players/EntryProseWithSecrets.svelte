@@ -24,11 +24,7 @@
 		type FactSpan,
 		type MentionTarget
 	} from '$lib/markdown';
-	import {
-		splitSecretBlocks,
-		stripSecretsForPlayers,
-		type SecretBlockKind
-	} from '$lib/markdown-secrets';
+	import { splitSecretBlocks, stripSecretsForPlayers, type SecretBlockKind } from '@canonry/lang';
 	import { renderAiMarkedParagraph } from '$lib/components/ai/aiMarking';
 	import { Button } from '$lib/components/ui/button';
 	import { splitBodyIntoBlocks, markedSegmentsFor } from '$lib/components/ai/entryMarking';
