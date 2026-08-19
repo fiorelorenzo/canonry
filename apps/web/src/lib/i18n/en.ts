@@ -1493,6 +1493,44 @@ export const en: Messages = {
 					`No entry named ${entityName} exists yet, so this became a proposed new entry instead.`,
 				reviewLink: 'Review in Proposals',
 				failed: (message) => `A proposal attempt failed, and nothing was proposed: ${message}`
+			},
+			keep: {
+				button: 'Keep',
+				keeping: 'Keeping…',
+				kept: 'Kept',
+				failed: 'Could not keep that answer.',
+				invalidRequest: 'That answer cannot be kept as it was sent.',
+				sourceNotInUniverse: 'One of those sources does not belong to this universe.',
+				methodNotAllowed: 'POST an answer to keep it.',
+				noteBefore:
+					'Keeping this stores the question, the answer and the entries it cites, as your own note. ',
+				noteProvider: (provider) => `${provider} wrote the answer from your own canon.`,
+				noteNoProvider:
+					'No model wrote it: writing is off for this universe, so the answer is your own sentences quoted back.',
+				noteAfter:
+					' It stays a note rather than becoming part of any entry, players never see it, and it stays until you delete it. ',
+				noteLinkBefore: 'Which company reads your campaign to answer a question is named in the ',
+				noteLink: 'full policy',
+				historyLink: 'Kept answers'
+			},
+			kept: {
+				headTitle: (universeName) => `Kept answers: ${universeName}`,
+				crumb: (universeName) => `Kept answers · ${universeName}`,
+				heading: 'Kept answers',
+				note: 'These are the answers you chose to keep. Each one is text generated from your own canon and stored as your own note: it never becomes part of an entry without a proposal you accept, players never see it, and nothing removes it but you. Deleting one deletes the row itself, with no copy kept anywhere.',
+				empty:
+					'Nothing kept yet. Ask the Loremaster something, and keep the answer if it is worth keeping.',
+				askLink: 'Ask the Loremaster',
+				askedFrom: 'Asked from',
+				writtenBy: (provider) => `Written by ${provider}`,
+				writtenWithoutModel: 'Read from your own canon, with no model',
+				sourcesLabel: 'Sources',
+				deletedEntry: 'This entry has since been deleted.',
+				delete: 'Delete',
+				deleteConfirmPrompt: 'Delete this permanently?',
+				deleteConfirmCancel: 'Cancel',
+				deleteFailed: 'Could not delete that answer.',
+				deleteNotFound: 'That answer is already gone.'
 			}
 		},
 

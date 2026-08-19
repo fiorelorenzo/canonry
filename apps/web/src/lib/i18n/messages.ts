@@ -1516,6 +1516,52 @@ export interface Messages {
 				 * the model reporting it honestly. */
 				failed: (message: string) => string;
 			};
+			/** #290 (decision O3): "keep" is the Loremaster's only write, so these are the
+			 * strings of the one control that stores anything. The `note*` fields are the
+			 * guardrail 5 sentence in its F3 = C home, shown beside the control at the moment
+			 * the answer is stored rather than left to a policy page nobody opens: split up
+			 * because it names the provider that actually generated the text, reads differently
+			 * when no model wrote it at all, and ends in a link to the full policy.
+			 * `noteLinkBefore`/`noteLink` are reused verbatim by the `kept` history below, which
+			 * needs the same closing sentence and must not carry a second copy of it. */
+			keep: {
+				button: string;
+				keeping: string;
+				kept: string;
+				failed: string;
+				invalidRequest: string;
+				sourceNotInUniverse: string;
+				methodNotAllowed: string;
+				noteBefore: string;
+				noteProvider: (provider: string) => string;
+				noteNoProvider: string;
+				noteAfter: string;
+				noteLinkBefore: string;
+				noteLink: string;
+				historyLink: string;
+			};
+			/** #290: the history of what was kept, which is a history only because keeping is a
+			 * deliberate act. Detail-level names, the source labels and the closing policy link
+			 * come from `levels`, `ownCanonLabel`, `indexedBadge` and `keep.noteLink*` rather
+			 * than being repeated here. */
+			kept: {
+				headTitle: (universeName: string) => string;
+				crumb: (universeName: string) => string;
+				heading: string;
+				note: string;
+				empty: string;
+				askLink: string;
+				askedFrom: string;
+				writtenBy: (provider: string) => string;
+				writtenWithoutModel: string;
+				sourcesLabel: string;
+				deletedEntry: string;
+				delete: string;
+				deleteConfirmPrompt: string;
+				deleteConfirmCancel: string;
+				deleteFailed: string;
+				deleteNotFound: string;
+			};
 		};
 		settings: {
 			headTitle: (universeName: string) => string;

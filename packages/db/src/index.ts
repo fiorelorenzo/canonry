@@ -344,6 +344,20 @@ export {
 	type EntitySearchHit,
 	type SearchEntitiesOptions
 } from './queries/table-search.js';
+export {
+	keepAnswer,
+	listKeptAnswers,
+	keptAnswerById,
+	deleteKeptAnswer,
+	KeptAnswerSourceInvalidError,
+	type KeptAnswerRow,
+	type KeepAnswerInput,
+	type KeepAnswerSourceInput,
+	type KeptAnswerRecord,
+	type KeptAnswerSourceRecord,
+	type ListKeptAnswersInput,
+	type KeptAnswerRefInput
+} from './queries/kept-answers.js';
 
 /**
  * The query operators, re-exported from the one drizzle this workspace installs.

@@ -11,6 +11,7 @@
 import { error, json } from '@sveltejs/kit';
 import { universeAccessBySlug } from '@canonry/db';
 import { runAsk, type AskDetailLevel } from '@canonry/copilot';
+import { ModelNotConfiguredError, resolveModel } from '@canonry/ai';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { identityGateway, modelFactory, queryEmbedderFor, vectorClient } from '$lib/server/copilot';
@@ -77,10 +78,27 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 						send(controller, 'proposal_failed', failure);
 					}
 				});
+				// #290: the `keep` control's guardrail 5 sentence names the provider that wrote
+				// this answer, and only the server knows which one that is. Resolved from the same
+				// `model_config` row `runAsk` itself read a moment ago, and left null on the
+				// reading-only branch, where no model call happened at all.
+				let provider: string | null = null;
+				let modelId: string | null = null;
+				if (result.generated) {
+					try {
+						const model = await resolveModel(conn, 'premium');
+						provider = model.provider;
+						modelId = model.modelId;
+					} catch (err) {
+						if (!(err instanceof ModelNotConfiguredError)) throw err;
+					}
+				}
 				send(controller, 'done', {
 					answer: result.answer,
 					generated: result.generated,
-					credits: result.credits
+					credits: result.credits,
+					provider,
+					modelId
 				});
 			} catch (err) {
 				send(controller, 'error', {

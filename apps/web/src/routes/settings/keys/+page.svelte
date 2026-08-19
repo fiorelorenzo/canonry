@@ -5,25 +5,16 @@
 	import { Input } from '$lib/components/ui/input';
 	import { PageHeader } from '$lib/components/ui/page-header';
 	import { dateFormat, messages } from '$lib/i18n';
+	import { providerLabel } from '$lib/providers';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let t = $derived(messages(data.locale).settings.keys);
 
-	// Provider names (OpenAI, Anthropic, Google, Groq, Mistral) are proper nouns and stay
-	// out of the catalogue.
-	const PROVIDER_LABEL: Record<string, string> = {
-		openai: 'OpenAI',
-		anthropic: 'Anthropic',
-		google: 'Google',
-		groq: 'Groq',
-		mistral: 'Mistral'
-	};
-
-	function labelFor(provider: string): string {
-		return PROVIDER_LABEL[provider] ?? provider;
-	}
+	// Provider names (OpenAI, Anthropic, Google, Groq, Mistral) are proper nouns and stay out
+	// of the catalogue. Shared with #290's keep control and kept-answer history, so the same
+	// company is named the same way on every surface that discloses it.
 
 	let keyDateFormat = $derived(
 		dateFormat(data.locale, { dateStyle: 'medium', timeStyle: 'short' })
@@ -85,7 +76,7 @@
 				: undefined}
 			<section class="rounded-lg border border-line bg-panel p-4">
 				<div class="flex flex-wrap items-center justify-between gap-2">
-					<h2 class="text-base font-semibold text-ink">{labelFor(provider)}</h2>
+					<h2 class="text-base font-semibold text-ink">{providerLabel(provider)}</h2>
 					{#if key}
 						<Badge variant={key.active ? 'default' : 'secondary'}>
 							{key.active ? t.activeBadge : t.offBadge}
@@ -134,7 +125,7 @@
 							type="password"
 							name="apiKey"
 							autocomplete="off"
-							placeholder={t.apiKeyPlaceholder(labelFor(provider))}
+							placeholder={t.apiKeyPlaceholder(providerLabel(provider))}
 						/>
 					</label>
 					<Button type="submit" size="sm">{key ? t.replaceButton : t.saveButton}</Button>
