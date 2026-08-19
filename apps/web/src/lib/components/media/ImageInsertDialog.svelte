@@ -13,6 +13,10 @@
 		entrySlug: string;
 		assets: ExistingAsset[];
 		aiEnabled: boolean;
+		/** #258: what one in-body image costs and which model draws it. `model` is null
+		 * when `image_model_config` has no active `scene` row, which is the only state in
+		 * which the generate button is withheld. */
+		scene: { price: number; model: { provider: string; modelId: string } | null };
 	}
 </script>
 
@@ -36,11 +40,13 @@
 	import { messages, type Locale } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 
-	// Deliberately narrower than `@canonry/db/schema`'s `ImageFeature`: `scene` has no
-	// `image_model_config` row yet (issue #258 owns seeding it), so it is never offered
-	// here, same restriction `media/generate/+server.ts`'s own `isImageFeature` guard
-	// enforces server-side.
-	type InsertableFeature = 'portrait' | 'variants';
+	// #258: a body image is a scene, not a portrait. This dialog used to offer the
+	// `portrait`/`variants` pair because those were the only two features with an
+	// `image_model_config` row, which meant an image about a place was drawn by a model
+	// chosen for a face, at a portrait's aspect ratio. There is one feature here now, and
+	// no radio to choose it with: the choice a GM makes on this surface is "an image of
+	// this entry", and which feature that means is the product's answer, not theirs.
+	const FEATURE = 'scene';
 
 	interface Candidate {
 		id: string;
@@ -53,6 +59,7 @@
 		entrySlug,
 		assets,
 		aiEnabled,
+		scene,
 		onInsert,
 		locale
 	}: {
@@ -61,6 +68,7 @@
 		entrySlug: string;
 		assets: ExistingAsset[];
 		aiEnabled: boolean;
+		scene: ImageInsertContext['scene'];
 		/** Called with the `/media/[id]` URL to write into the body; the dialog closes
 		 * itself right after. */
 		onInsert: (url: string) => void;
@@ -74,7 +82,6 @@
 	}
 
 	let dialogEl: HTMLDialogElement | undefined;
-	let feature = $state<InsertableFeature>('portrait');
 	let generating = $state(false);
 	let inserting = $state(false);
 	let error = $state<string | null>(null);
@@ -112,7 +119,7 @@
 			const res = await fetch(`${base}/generate`, {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ feature })
+				body: JSON.stringify({ feature: FEATURE })
 			});
 			if (!res.ok) {
 				const text = await res.text();
@@ -209,23 +216,19 @@
 			</h4>
 
 			{#if candidates.length === 0}
-				<div
-					class="mt-2 flex items-center gap-3"
-					role="radiogroup"
-					aria-label={t.entry.media.inBody.featureAriaLabel}
-				>
-					<label class="flex items-center gap-1.5 text-sm text-ink-2">
-						<input type="radio" name="in-body-feature" value="portrait" bind:group={feature} />
-						{t.entry.media.inBody.portraitOption}
-					</label>
-					<label class="flex items-center gap-1.5 text-sm text-ink-2">
-						<input type="radio" name="in-body-feature" value="variants" bind:group={feature} />
-						{t.entry.media.inBody.variantsOption}
-					</label>
-				</div>
-				<Button type="button" size="sm" class="mt-2" disabled={generating} onclick={generate}>
-					{generating ? t.entry.media.generating : t.entry.media.inBody.generateButton}
-				</Button>
+				{#if scene.model}
+					<p class="mt-2 text-sm text-ink-2">
+						{t.entry.media.inBody.sceneCost(scene.price)}
+					</p>
+					<p class="text-xs text-muted">
+						{scene.model.provider}/{scene.model.modelId}
+					</p>
+					<Button type="button" size="sm" class="mt-2" disabled={generating} onclick={generate}>
+						{generating ? t.entry.media.generating : t.entry.media.inBody.generateButton}
+					</Button>
+				{:else}
+					<p class="mt-2 text-sm text-ink-2">{t.entry.media.inBody.sceneNotConfigured}</p>
+				{/if}
 			{:else}
 				<div class="mt-2 grid grid-cols-3 gap-2">
 					{#each candidates as candidate (candidate.id)}

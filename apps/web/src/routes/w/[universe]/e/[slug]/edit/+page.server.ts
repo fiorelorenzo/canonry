@@ -3,9 +3,11 @@ import {
 	type Db,
 	historyFor,
 	mediaAssetsForEntity,
+	priceOf,
 	saveEntityBody,
 	universeAccessBySlug
 } from '@canonry/db';
+import { ImageModelNotConfiguredError, resolveImageModel } from '@canonry/media';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { scheduleCanonSaveJob } from '$lib/server/jobs';
@@ -45,6 +47,19 @@ async function mentionTargetsFor(conn: Db, universeId: string) {
 	});
 }
 
+/** Null when nobody has configured an active `image_model_config` row for `scene` yet, so
+ * the dialog can say so rather than offering a button that throws (the same shape the
+ * entry page's own `modelSummary` uses for `portrait` and `variants`). */
+async function sceneModel(conn: Db) {
+	try {
+		const model = await resolveImageModel(conn, 'scene');
+		return { provider: model.provider, modelId: model.modelId };
+	} catch (err) {
+		if (err instanceof ImageModelNotConfiguredError) return null;
+		throw err;
+	}
+}
+
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const { conn, world, current } = await loadUniverseAndEntity(
 		locals,
@@ -56,9 +71,17 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// audio rows - `mediaAssetsForEntity` doesn't filter by kind because its one other
 	// caller (the Images tab) never attaches audio to an entity in the first place, but
 	// this filters explicitly rather than leaning on that being true forever.
-	const imageAssets = (await mediaAssetsForEntity(conn, current.id)).filter(
-		(asset) => asset.kind === 'image'
-	);
+	const [imageAssets, scenePrice, sceneModelSummary] = await Promise.all([
+		mediaAssetsForEntity(conn, current.id).then((assets) =>
+			assets.filter((asset) => asset.kind === 'image')
+		),
+		// #258: the in-body dialog used to show no price on the grounds that the Images tab
+		// already showed one, which stopped being true the moment the body asked for `scene`
+		// instead of borrowing `portrait`. The Images tab prices portraits and variants and
+		// says nothing about a scene, so this is the only surface that can.
+		priceOf(conn, 'image.scene'),
+		sceneModel(conn)
+	]);
 
 	return {
 		universe: { slug: world.slug, name: world.name, aiEnabled: world.aiEnabled },
@@ -76,7 +99,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 				id: asset.id,
 				mimeType: asset.mimeType,
 				generated: asset.generated
-			}))
+			})),
+			scene: { price: scenePrice.credits, model: sceneModelSummary }
 		}
 	};
 };

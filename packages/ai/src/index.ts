@@ -39,6 +39,8 @@ export {
 	readReplicateApiToken,
 	MissingReplicateEnvError,
 	ReplicateRequestError,
+	ReplicatePredictionFailedError,
+	ReplicatePredictionTimeoutError,
 	type GenerateImageInput,
 	type ReplicatePrediction
 } from './replicate.js';

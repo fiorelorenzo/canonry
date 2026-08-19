@@ -691,9 +691,12 @@ export interface Messages {
 				existingHeading: string;
 				emptyExisting: string;
 				generateHeading: string;
-				featureAriaLabel: string;
-				portraitOption: string;
-				variantsOption: string;
+				/** #258: this dialog always asks for `scene`, so there is no feature to pick
+				 * and one price to state. It states it because the Images tab prices
+				 * `portrait` and `variants` only, which leaves this the sole surface where a
+				 * GM can see what an in-body image costs before spending. */
+				sceneCost: (credits: number) => string;
+				sceneNotConfigured: string;
 				generateButton: string;
 				insertThisImage: string;
 				useThisOne: string;

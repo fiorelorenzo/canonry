@@ -5,7 +5,11 @@ import { modelCall, operationPrice, operationPriceChange, user } from '@canonry/
 import { inArray, like } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { ResolvedModel } from './models.js';
-import { generateImage, ReplicateRequestError } from './replicate.js';
+import {
+	generateImage,
+	ReplicatePredictionFailedError,
+	ReplicateRequestError
+} from './replicate.js';
 import { openTestDb } from './test-db.js';
 
 const TEST_OPERATION_PREFIX = 'canonry-ai-test-replicate-';
@@ -15,7 +19,12 @@ const TEST_OPERATION_PREFIX = 'canonry-ai-test-replicate-';
 // realistic number rather than an arbitrary fixture.
 const SUCCESS_PRICE_CREDITS = 3;
 const FAILURE_PRICE_CREDITS = 3;
-const TEST_USER_IDS = ['test-user-replicate-1', 'test-user-replicate-2'];
+const TEST_USER_IDS = [
+	'test-user-replicate-1',
+	'test-user-replicate-2',
+	'test-user-replicate-3',
+	'test-user-replicate-4'
+];
 
 const IMAGE_MODEL: ResolvedModel = {
 	purpose: 'image',
@@ -58,6 +67,18 @@ describe('generateImage', () => {
 			{
 				operation: `${TEST_OPERATION_PREFIX}failure`,
 				label: 'Test replicate failure',
+				credits: FAILURE_PRICE_CREDITS,
+				kind: 'generation'
+			},
+			{
+				operation: `${TEST_OPERATION_PREFIX}queued`,
+				label: 'Test replicate queued then succeeded',
+				credits: SUCCESS_PRICE_CREDITS,
+				kind: 'generation'
+			},
+			{
+				operation: `${TEST_OPERATION_PREFIX}refused`,
+				label: 'Test replicate prediction failed',
 				credits: FAILURE_PRICE_CREDITS,
 				kind: 'generation'
 			}
@@ -155,5 +176,87 @@ describe('generateImage', () => {
 
 		const rows = await db.select().from(modelCall).where(like(modelCall.operation, operation));
 		expect(rows).toHaveLength(1);
+	});
+
+	// #258: Replicate answered `202` with `status: "processing"` and `output: null` after
+	// holding `Prefer: wait` for its full sixty seconds, and the old code returned that as a
+	// success, so `withQuota` charged for an image the caller then could not find. The poll is
+	// inside the quota callback for exactly that reason, and these two tests are the contract:
+	// a queued prediction is followed to its end and charged once, and one that ends badly is
+	// not charged at all.
+	it('polls a queued prediction to its terminal state and charges once (#258)', async () => {
+		let submissions = 0;
+		respond = (req, res) => {
+			res.setHeader('content-type', 'application/json');
+			if (req.method === 'POST') {
+				submissions += 1;
+				res.statusCode = 202;
+				res.end(JSON.stringify({ id: 'pred-queued', status: 'processing', output: null }));
+				return;
+			}
+			res.end(
+				JSON.stringify({
+					id: 'pred-queued',
+					status: 'succeeded',
+					output: ['https://example.invalid/img.png']
+				})
+			);
+		};
+		const operation = `${TEST_OPERATION_PREFIX}queued`;
+
+		const prediction = await generateImage({
+			db,
+			model: IMAGE_MODEL,
+			replicateApiToken: 'replicate-secret',
+			input: { prompt: 'a lighthouse at dusk' },
+			userId: 'test-user-replicate-3',
+			universeId: null,
+			agent: 'warm',
+			operation,
+			baseUrl
+		});
+
+		expect(prediction.status).toBe('succeeded');
+		expect(submissions).toBe(1); // polled, never re-submitted, so never charged twice
+		expect(requests.at(-1)?.url).toBe('/predictions/pred-queued');
+
+		const rows = await db.select().from(modelCall).where(like(modelCall.operation, operation));
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.credits).toBeCloseTo(SUCCESS_PRICE_CREDITS, 6);
+	});
+
+	it('does not charge for a prediction that ends as failed (#258)', async () => {
+		respond = (req, res) => {
+			res.setHeader('content-type', 'application/json');
+			res.statusCode = req.method === 'POST' ? 201 : 200;
+			res.end(
+				JSON.stringify({
+					id: 'pred-refused',
+					status: req.method === 'POST' ? 'starting' : 'failed',
+					output: null,
+					error: 'NSFW content detected'
+				})
+			);
+		};
+		const operation = `${TEST_OPERATION_PREFIX}refused`;
+
+		await expect(
+			generateImage({
+				db,
+				model: IMAGE_MODEL,
+				replicateApiToken: 'replicate-secret',
+				input: { prompt: 'a lighthouse at dusk' },
+				userId: 'test-user-replicate-4',
+				universeId: null,
+				agent: 'warm',
+				operation,
+				baseUrl
+			})
+		).rejects.toBeInstanceOf(ReplicatePredictionFailedError);
+
+		const rows = await db.select().from(modelCall).where(like(modelCall.operation, operation));
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.credits).toBeCloseTo(0, 6);
+		expect(rows[0]?.costEur).toBeCloseTo(0, 6);
 	});
 });

@@ -598,9 +598,9 @@ export const it: Messages = {
 				existingHeading: 'Le immagini di questa voce',
 				emptyExisting: 'Nessuna immagine collegata a questa voce - generane una qui sotto.',
 				generateHeading: 'Generane una nuova',
-				featureAriaLabel: 'Tipo di immagine',
-				portraitOption: 'Ritratto (una sola immagine)',
-				variantsOption: 'Varianti (quattro tra cui scegliere)',
+				sceneCost: (credits) =>
+					`Un\u2019immagine panoramica della scena di questa voce, ${credits} ${credits === 1 ? 'credito' : 'crediti'}.`,
+				sceneNotConfigured: 'Nessun modello di immagini configurato per le scene.',
 				generateButton: 'Genera',
 				insertThisImage: 'Inserisci questa immagine',
 				useThisOne: 'Usa questa',
@@ -697,7 +697,7 @@ export const it: Messages = {
 			unknownLanguage: (choice) => `Lingua sconosciuta "${choice}"`,
 			completeCannotRun: (message) => `Impossibile eseguire il completamento: ${message}`,
 			modifierMustBeString: 'modifier deve essere una stringa',
-			featureInvalid: 'feature deve essere "portrait" o "variants"',
+			featureInvalid: 'feature deve essere "portrait", "variants" o "scene"',
 			generationOff: 'La generazione è disattivata per questo universo.',
 			notEnoughCredits: 'Crediti insufficienti per generare questa immagine.',
 			mediaAssetIdMustBeString: 'mediaAssetId deve essere una stringa',
@@ -1821,7 +1821,7 @@ export const it: Messages = {
 			featureLabel: {
 				portrait: "Ritratto - un'immagine per richiesta",
 				variants: 'Varianti - fino a quattro tra cui scegliere',
-				scene: 'Scena'
+				scene: 'Scena - una sola immagine panoramica per il corpo di una voce'
 			},
 			errors: {
 				unknownPurpose: (purpose) => `"${purpose}" non è uno scopo di modello noto.`,

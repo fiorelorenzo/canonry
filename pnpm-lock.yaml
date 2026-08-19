@@ -214,6 +214,9 @@ importers:
       '@canonry/lang':
         specifier: workspace:*
         version: link:../lang
+      '@canonry/media':
+        specifier: workspace:*
+        version: link:../media
       '@canonry/vector':
         specifier: workspace:*
         version: link:../vector

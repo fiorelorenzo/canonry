@@ -200,6 +200,7 @@
 			entrySlug={imageInsert.entrySlug}
 			assets={imageInsert.assets}
 			aiEnabled={imageInsert.aiEnabled}
+			scene={imageInsert.scene}
 			onInsert={insertImageAtSelection}
 			{locale}
 		/>
