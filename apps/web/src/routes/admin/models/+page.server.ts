@@ -19,6 +19,7 @@
 import { fail } from '@sveltejs/kit';
 import { messages } from '$lib/i18n';
 import {
+	activeImageModelRow,
 	listImageModels,
 	listActiveTextModels,
 	upsertImageModel,
@@ -26,7 +27,11 @@ import {
 	type ModelConfigRow
 } from '@canonry/db';
 import { modelPurposeEnum, type ModelPurpose } from '@canonry/db/schema';
-import { clearImageModelCache } from '@canonry/media';
+import {
+	clearImageModelCache,
+	readImageModelParams,
+	IMAGE_MODEL_ASPECT_RATIOS
+} from '@canonry/media';
 import { isKnownProvider, KNOWN_PROVIDERS, CURRENCIES, clearModelCache } from '@canonry/ai';
 import { db } from '$lib/server/db';
 import { requireAdmin } from '$lib/server/admin';
@@ -182,6 +187,35 @@ export const actions: Actions = {
 				currency: typeof rawCurrency === 'string' ? rawCurrency : '',
 				saved: false,
 				error: messages(event.locals.locale).admin.models.errors.invalidCurrency
+			});
+		}
+
+		// #332: the shape a feature generates at lives on this row (`params.aspectRatio`),
+		// which is what makes it survive a model swap - `paramKeys` below does not include it,
+		// so this form cannot clear it. What a swap can do is point the row at a model whose
+		// own schema does not offer that value, and Replicate answers that by generating at
+		// its default instead, which is the whole of #332. So the save refuses rather than
+		// the generation quietly going wrong later.
+		const configuredAspectRatio = readImageModelParams(
+			(await activeImageModelRow(db(), feature))?.params
+		).aspectRatio;
+		const acceptedAspectRatios = IMAGE_MODEL_ASPECT_RATIOS[modelId];
+		if (configuredAspectRatio && !acceptedAspectRatios?.includes(configuredAspectRatio)) {
+			const errors = messages(event.locals.locale).admin.models.errors;
+			return fail(400, {
+				feature,
+				provider,
+				modelId,
+				pricePerImage: String(pricePerImage),
+				currency,
+				saved: false,
+				error: acceptedAspectRatios
+					? errors.aspectRatioUnsupported(
+							modelId,
+							configuredAspectRatio,
+							acceptedAspectRatios.join(', ')
+						)
+					: errors.aspectRatioModelUnknown(modelId, configuredAspectRatio)
 			});
 		}
 

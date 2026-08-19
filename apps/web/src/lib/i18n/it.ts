@@ -1815,6 +1815,8 @@ export const it: Messages = {
 				feature: 'Funzione',
 				pricePerImage: 'Prezzo / immagine',
 				currency: 'Valuta',
+				aspectRatio: 'Formato',
+				aspectRatioNotSet: 'predefinito del modello',
 				active: 'attivo',
 				inactive: 'inattivo'
 			},
@@ -1831,7 +1833,11 @@ export const it: Messages = {
 				providerAndModelIdRequired: 'Provider e ID del modello sono obbligatori.',
 				invalidPricePerImage:
 					'Inserisci un prezzo per immagine non negativo, con al massimo 6 cifre decimali.',
-				invalidCurrency: 'Scegli una delle valute elencate.'
+				invalidCurrency: 'Scegli una delle valute elencate.',
+				aspectRatioUnsupported: (modelId, aspectRatio, accepted) =>
+					`Questa funzione genera in ${aspectRatio} e "${modelId}" non accetta quel formato. Accetta: ${accepted}. Scegli un modello che offra ${aspectRatio}, oppure cambia prima il formato sulla riga.`,
+				aspectRatioModelUnknown: (modelId, aspectRatio) =>
+					`Questa funzione genera in ${aspectRatio} e nessuno ha annotato quali formati accetta "${modelId}", quindi salvarlo significherebbe tirare a indovinare. Leggi l'enum aspect_ratio del modello dal suo provider e aggiungilo prima a IMAGE_MODEL_ASPECT_RATIOS in @canonry/media.`
 			}
 		},
 

@@ -15,11 +15,19 @@ export {
 export {
 	resolveImageModel,
 	resolveImageModelRow,
+	imageModelFromRow,
+	readImageModelParams,
 	clearImageModelCache,
 	ImageModelNotConfiguredError,
 	type ImageModelRow,
 	type ImageModelParams
 } from './models.js';
+
+export {
+	IMAGE_MODEL_ASPECT_RATIOS,
+	assertAspectRatioSupported,
+	ImageAspectRatioUnsupportedError
+} from './aspect-ratio.js';
 
 export {
 	composePrompt,

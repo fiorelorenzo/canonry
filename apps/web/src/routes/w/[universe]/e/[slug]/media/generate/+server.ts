@@ -21,6 +21,7 @@ import { error, json } from '@sveltejs/kit';
 import { InsufficientCreditsError } from '@canonry/ai';
 import {
 	AiDisabledError,
+	ImageAspectRatioUnsupportedError,
 	ImageModelNotConfiguredError,
 	MediaAssetHasNoPromptError,
 	MediaAssetNotOwnedError,
@@ -115,9 +116,15 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		if (err instanceof MediaAssetHasNoPromptError) {
 			error(400, messages(locals.locale).entry.media.regenerate.sourceHasNoPrompt);
 		}
+		// All three are misconfiguration a GM cannot fix and must not be told to retry: the
+		// feature has no row, no priced operation, or (#332) a shape the configured model does
+		// not accept. The message goes through rather than a generic 500 because it names the
+		// row and the value, which is the whole point of refusing instead of generating at the
+		// model's default.
 		if (
 			err instanceof ImageModelNotConfiguredError ||
-			err instanceof UnsupportedImageFeatureError
+			err instanceof UnsupportedImageFeatureError ||
+			err instanceof ImageAspectRatioUnsupportedError
 		) {
 			error(500, err.message);
 		}

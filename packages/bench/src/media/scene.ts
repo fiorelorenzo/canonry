@@ -72,8 +72,10 @@ const CASE_SLUGS = [
 ] as const;
 
 /** Every arm renders at this ratio, so the shape column measures whether the model obeyed
- * and never which ratio it was asked for. `ASPECT_RATIO_BY_FEATURE` in
- * `@canonry/media/generate.ts` is where production says the same thing. */
+ * and never which ratio it was asked for. Production says the same thing on the `scene`
+ * row of `image_model_config` (`params.aspectRatio`, migration 0045) rather than in code
+ * since #332; the bench keeps its own constant because sweeping is exactly the case where
+ * the arm, and not the row, decides. */
 const SCENE_ASPECT_RATIO = '16:9';
 const TARGET_RATIO = 16 / 9;
 
