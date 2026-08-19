@@ -290,7 +290,7 @@
 		{/if}
 	</section>
 
-	<section class="mt-10 mb-4">
+	<section class="mt-10">
 		<h2 class="text-lg font-semibold text-ink">{t.metrics.entropy.heading}</h2>
 		<p class="mt-1 max-w-measure text-sm text-ink-2">
 			{t.metrics.entropy.intro}
@@ -318,6 +318,46 @@
 								<td class="px-3 py-2 text-ink">{row.universeName}</td>
 								<td class="px-3 py-2 text-ink tabular-nums">{row.entriesCreatedInPrep}</td>
 								<td class="px-3 py-2 text-ink tabular-nums">{row.entriesUpdatedAfterSession}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+	</section>
+
+	<section class="mt-10 mb-4">
+		<h2 class="text-lg font-semibold text-ink">{t.metrics.auditFlags.heading}</h2>
+		<p class="mt-1 max-w-measure text-sm text-ink-2">
+			{t.metrics.auditFlags.intro(data.auditPairCap)}
+		</p>
+
+		{#if data.auditFlagPositions.length === 0}
+			<p class="mt-4 rounded-lg border border-line bg-panel-2 px-4 py-3 text-sm text-muted">
+				{t.metrics.auditFlags.noFlagsYet}
+			</p>
+		{:else}
+			<div class="mt-4 overflow-x-auto rounded-lg border border-line">
+				<table class="w-full border-collapse text-sm">
+					<thead>
+						<tr
+							class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
+						>
+							<th class="px-3 py-2 font-normal">{t.metrics.auditFlags.position}</th>
+							<th class="px-3 py-2 font-normal">{t.metrics.auditFlags.produced}</th>
+							<th class="px-3 py-2 font-normal">{t.metrics.auditFlags.dismissed}</th>
+							<th class="px-3 py-2 font-normal">{t.metrics.auditFlags.stillOpen}</th>
+							<th class="px-3 py-2 font-normal">{t.metrics.auditFlags.dismissalRate}</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-line">
+						{#each data.auditFlagPositions as row (row.position)}
+							<tr class="bg-panel">
+								<td class="px-3 py-2 text-ink tabular-nums">{row.position}</td>
+								<td class="px-3 py-2 text-ink tabular-nums">{row.produced}</td>
+								<td class="px-3 py-2 text-ink tabular-nums">{row.dismissed}</td>
+								<td class="px-3 py-2 text-ink tabular-nums">{row.stillOpen}</td>
+								<td class="px-3 py-2 text-ink tabular-nums">{formatPercent(row.dismissalRate)}</td>
 							</tr>
 						{/each}
 					</tbody>

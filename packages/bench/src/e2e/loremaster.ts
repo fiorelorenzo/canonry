@@ -48,7 +48,12 @@ import { assertCreditAvailable } from '../models/credits.js';
 import { seedWorld } from '../corpus/seed.js';
 import { markdownBody } from '../corpus/types.js';
 import { worldV1 } from '../corpus/valdoria-reach.js';
-import { ASK_QUESTIONS, PROPAGATION_EDITS, THIN_ENTRIES } from '../corpus/gold.js';
+import {
+	ASK_QUESTIONS,
+	isCrossLanguageQuestion,
+	PROPAGATION_EDITS,
+	THIN_ENTRIES
+} from '../corpus/gold.js';
 
 const DETAIL_LEVELS: AskDetailLevel[] = ['1_line', 'short', 'normal', 'detailed', 'full'];
 
@@ -185,13 +190,12 @@ async function measureRetrieval(
 	const scored = questions.filter((q) => q.expectedEntities.length > 0);
 	// The cross-language subset: an Italian question whose answer is in English prose, or
 	// the reverse. SPEC.md §17 makes this the property the embedding model was chosen for,
-	// so it is reported on its own rather than averaged into the rest.
-	const cross = scored.filter((q) => {
-		const answerLanguages = q.expectedEntities.map(
-			(slug) => worldV1.entities.find((e) => e.slug === slug)?.language ?? 'en'
-		);
-		return answerLanguages.some((lang) => lang !== q.language && lang !== 'mixed');
-	});
+	// so it is reported on its own rather than averaged into the rest. Shared with
+	// `retrieval-sweep.ts` through `isCrossLanguageQuestion` rather than defined twice.
+	const crossIds = new Set(
+		ASK_QUESTIONS.filter((q) => isCrossLanguageQuestion(q, worldV1)).map((q) => q.id)
+	);
+	const cross = scored.filter((q) => crossIds.has(q.id));
 
 	return {
 		collection,

@@ -12,7 +12,15 @@ import type { LanguageModel } from 'ai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ResolvedModel } from '@canonry/ai';
 import { AiDisabledError } from './propagate.js';
-import { buildFlagRationale, isGuardrailSafeTopic, runAudit } from './audit.js';
+import {
+	buildFlagRationale,
+	findCandidatePairs,
+	isGuardrailSafeTopic,
+	runAudit,
+	AUDIT_PAIR_CAP
+} from './audit.js';
+import type { CandidateGraph, GraphEntity } from './candidates.js';
+import type { FactChange } from './diff.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
 import {
 	insertEntity,
@@ -245,7 +253,7 @@ describe('runAudit (issue #55, SPEC.md §5.2)', () => {
 			gateway: IDENTITY_GATEWAY
 		});
 
-		expect(result).toEqual({ examined: 0, plan: null, flags: [] });
+		expect(result).toEqual({ examined: 0, available: null, plan: null, flags: [] });
 	});
 
 	it('refuses to run when the universe has generation switched off (guardrail 4)', async () => {
@@ -407,5 +415,113 @@ describe('buildFlagRationale and isGuardrailSafeTopic (guardrail 7)', () => {
 		expect(buildFlagRationale('A', 'B', 'fix this automatically', 'en')).toBe(
 			'A and B do not agree.'
 		);
+	});
+});
+
+describe('findCandidatePairs uncapped, and the pair census (issue #278)', () => {
+	let db: Db;
+
+	beforeAll(async () => {
+		db = openTestDb();
+		try {
+			await insertModelConfig(db, 'cheap');
+		} catch {
+			// Another describe or file in this run already provided the active 'cheap' row.
+		}
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	/** Six entities that all name the one being edited, so the shipped cap of five has
+	 * something to turn away. Every body is real prose rather than filler, because
+	 * `mostSimilarSentence` has to find a topically similar sentence on the other side or
+	 * the pair is dropped before any cap applies. */
+	function crowdedGraph(): CandidateGraph {
+		const edited: GraphEntity = {
+			id: 'watch',
+			type: 'faction',
+			name: 'The Valdoria Watch',
+			aliases: [],
+			body: 'The Valdoria Watch keeps the harbour and answers to the magistrate.',
+			language: 'en'
+		};
+		const others: GraphEntity[] = Array.from({ length: 6 }, (_, i) => ({
+			id: `witness-${i}`,
+			type: 'character',
+			name: `Witness ${i}`,
+			aliases: [],
+			body: `Witness ${i} says The Valdoria Watch has kept the harbour badly since the thaw.`,
+			language: 'en'
+		}));
+		return { entities: [edited, ...others], relations: [] };
+	}
+
+	it('returns everything the search found when the cap is removed, and exactly the cap when it is not', () => {
+		const graph = crowdedGraph();
+		const edited = graph.entities[0]!;
+		const diff: FactChange[] = [
+			{
+				kind: 'added',
+				statement: 'The Valdoria Watch keeps the harbour and answers to the magistrate.'
+			}
+		];
+
+		const capped = findCandidatePairs(graph, edited, edited.body, diff, AUDIT_PAIR_CAP);
+		const uncapped = findCandidatePairs(graph, edited, edited.body, diff, Number.POSITIVE_INFINITY);
+
+		expect(capped).toHaveLength(AUDIT_PAIR_CAP);
+		expect(uncapped.length).toBe(6);
+		// The cap only truncates: what it keeps is a prefix of what the search offered, so a
+		// census can never change which pairs a real run examines.
+		expect(capped.map((p) => p.b.entityId)).toEqual(
+			uncapped.slice(0, AUDIT_PAIR_CAP).map((p) => p.b.entityId)
+		);
+	});
+
+	it('leaves `available` null unless the census env var is set, and never changes what is examined', async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, { ownerUserId: owner.id });
+		const watch = await insertEntity(db, universe.id, {
+			type: 'faction',
+			name: 'The Valdoria Watch',
+			body: 'The Valdoria Watch keeps the harbour.'
+		});
+		for (let i = 0; i < 6; i++) {
+			await insertEntity(db, universe.id, {
+				type: 'character',
+				name: `Witness ${i}`,
+				body: `Witness ${i} says The Valdoria Watch has kept the harbour badly since the thaw.`
+			});
+		}
+
+		const oldBody = 'The Valdoria Watch keeps the harbour.';
+		const newBody = 'The Valdoria Watch keeps the harbour and answers to nobody at all.';
+		const run = () =>
+			runAudit({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				editedEntityId: watch.id,
+				oldBody,
+				newBody,
+				locale: 'en',
+				modelFactory: modelFactoryFor(judgmentModel([{ disagree: false, topic: '' }])),
+				gateway: IDENTITY_GATEWAY
+			});
+
+		const off = await run();
+		expect(off.available).toBeNull();
+		expect(off.examined).toBe(AUDIT_PAIR_CAP);
+
+		process.env.CANONRY_AUDIT_PAIR_CENSUS = '1';
+		try {
+			const on = await run();
+			expect(on.examined).toBe(off.examined);
+			expect(on.available).toBe(6);
+		} finally {
+			delete process.env.CANONRY_AUDIT_PAIR_CENSUS;
+		}
 	});
 });

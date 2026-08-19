@@ -1826,6 +1826,17 @@ export interface Messages {
 				createdInPrep: string;
 				updatedAfterSession: string;
 			};
+			/** #278: the audit-flag-position panel, empty until the audit is used at volume. */
+			auditFlags: {
+				heading: string;
+				intro: (cap: number) => string;
+				position: string;
+				produced: string;
+				dismissed: string;
+				stillOpen: string;
+				dismissalRate: string;
+				noFlagsYet: string;
+			};
 		};
 
 		pricing: {

@@ -20,6 +20,8 @@
  * Italian questions grounded in their own language's prose.
  */
 
+import type { World } from './types.js';
+
 export interface AuditPair {
 	id: string;
 	aEntity: string;
@@ -422,6 +424,22 @@ export const ASK_QUESTIONS: AskQuestion[] = [
 		note: 'Answer lives in Il Molo Vecchio’s "Il traffico" section.'
 	}
 ];
+
+/**
+ * The cross-language subset SPEC.md §17 makes the point of choosing a multilingual
+ * embedding model: an Italian question whose answer lives in English prose, or the reverse.
+ * Reported on its own rather than averaged into the rest, by both `e2e/loremaster.ts` and
+ * `retrieval-sweep.ts`, which is why the definition lives here instead of once in each.
+ *
+ * `'mixed'` is not a mismatch: an entity the detector reads as both languages answers a
+ * question in either without the retrieval having crossed anything.
+ */
+export function isCrossLanguageQuestion(question: AskQuestion, world: World): boolean {
+	return question.groundedIn.some((slug) => {
+		const language = world.entities.find((e) => e.slug === slug)?.language ?? 'en';
+		return language !== question.language && language !== 'mixed';
+	});
+}
 
 // ---------------------------------------------------------------------------------------------
 // PROPAGATION_EDITS - the saves that should touch other entries (SPEC.md §5.1).

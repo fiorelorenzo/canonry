@@ -181,7 +181,7 @@ same accept flow and the same instrumentation.
 
 | Mode | Trigger | Behaviour |
 | --- | --- | --- |
-| **Ask** | any time | RAG over the universe. Retrieval and prompting are lifted from ai-game's loremaster (§11.4): a `query_lore` tool taking 1–5 questions in parallel, top-k 8, similarity threshold 0.5, sources listed rather than cited inline, follow-up questions, SSE streaming, five detail levels |
+| **Ask** | any time | RAG over the universe. Retrieval and prompting are lifted from ai-game's loremaster, with the two retrieval numbers re-derived here rather than inherited (§11.4: top-k 12, threshold 0.35 against the current embedding model): a `query_lore` tool taking 1–5 questions in parallel, sources listed rather than cited inline, follow-up questions, SSE streaming, five detail levels |
 | **Complete** | an entry is thin | proposes the missing fields with evidence |
 | **Propagate** | an entry was saved | plan → per-entry diff → accept |
 | **Audit** | background, over the sub-graph just touched | flags what does not add up |
@@ -723,20 +723,27 @@ cross-universe contamination is a bug.
 
 ### 11.4 Retrieval numbers worth keeping
 
-Top-k 8, keyword boost from the extracted `excerptKeywords`, and a similarity
-threshold that belongs to whichever embedding model is configured. That last part
-is the lesson: the 0.5 this section used to state came from an eval over a
-2044-chunk gold corpus at MRR 0.775, and it survived two model changes it was
-never valid across. **A threshold is a property of one model's cosine scale, not a
-constant of this product.** Against `alibaba/qwen3-embedding-4b` the floor is
-0.35, derived from the gold corpus in both languages and re-derived a second time
-(issue #168) against the 32-entity bilingual corpus the product's own indexing
-path (issue #164) actually populates, where it costs nothing in recall down to
-0.40 and admits under half the noise 0.25 did
-(`packages/indexing/src/retriever.ts` carries both derivations). 0.55 — correct
-for the model before it — would have discarded most correct hits without
-failing. Re-derive it, from a measurement, whenever the embedding model or the
-corpus changes, and re-run the retrieval eval in the same breath.
+Top-k 12, keyword boost from the extracted `excerptKeywords` at 0.03 a match, and a
+similarity threshold that belongs to whichever embedding model is configured. That
+last part is the lesson: the 0.5 this section used to state came from an eval over a
+2044-chunk gold corpus at MRR 0.775, and it survived two model changes it was never
+valid across. **A threshold is a property of one model's cosine scale, not a constant
+of this product.** Against `alibaba/qwen3-embedding-4b` the floor is 0.35, derived
+from the gold corpus in both languages, re-derived against the 32-entity corpus the
+product's own indexing path populates (issue #168), and confirmed a third time
+(issue #278) against 2325 chunks of own canon plus an imported community world, where
+the flat band and the cliff sit exactly where the small corpus put them. 0.55 —
+correct for the model before it — would have discarded most correct hits without
+failing.
+
+Top-k was 8 until that third derivation. Issue #168 measured recall climbing past 8
+and left the number alone on the reasoning that 32 chunks makes top-k 8 a quarter of
+the world; at 2325 chunks, where it is a third of one per cent, recall still climbs,
+so the reasoning did not hold. 12 is where it stops paying: 16 and 24 buy nothing,
+and 12 is where same-language recall reaches its ceiling.
+`packages/indexing/src/retriever.ts` carries all three derivations with their tables.
+Re-derive these, from a measurement, whenever the embedding model or the corpus
+changes, and re-run the retrieval eval in the same breath.
 
 ### 11.5 Cost accounting
 

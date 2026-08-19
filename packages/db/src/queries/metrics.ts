@@ -274,3 +274,55 @@ export async function sessionEntropyMetrics(db: Db): Promise<SessionEntropyRow[]
 		entriesUpdatedAfterSession: Number(row.entries_updated_after_session)
 	}));
 }
+
+// ---------------------------------------------------------------------------------------
+// #278: audit flags by their position in the run that produced them
+// ---------------------------------------------------------------------------------------
+
+export interface AuditFlagOutcomeRow {
+	outcome: ProposalOutcome;
+	/** Zero-based position of the flag inside its own plan (`proposal.rank`, which
+	 * `runAudit` sets from the order the pairs were judged in). Position 0 is the flag the
+	 * plan's own summary sentence is written about. */
+	position: number;
+	createdAt: Date;
+}
+
+/**
+ * Every audit flag ever written, with the position it held in its run. `AUDIT_PAIR_CAP` in
+ * `packages/copilot/src/audit.ts` bounds that position at five, and five is a reading of
+ * SPEC.md §5.2's "a handful" rather than a measurement (issue #278). The measurable half of
+ * the question - whether the search even finds five pairs - is answered by
+ * `packages/bench`'s `audit-pairs`. This is the other half: whether a GM's willingness to
+ * look at a flag falls off with its position, which no amount of offline measurement can
+ * produce and only real use can.
+ *
+ * `kind = 'flag'` is the whole filter: audit is the only producer of that kind, and a flag
+ * is the only proposal kind with no accept path at all (`acceptProposal` refuses it), so
+ * the rate worth reading here is **dismissals over flags produced**, not accepted over
+ * decided. `@canonry/eval`'s `acceptRateByGroup` still computes it, from `rejected` and
+ * `produced` rather than from its `acceptRate` field, which is structurally null or zero
+ * for this kind and would misread as "the GM rejects everything".
+ */
+export async function auditFlagOutcomes(
+	db: Db,
+	opts?: { sinceDays?: number; universeId?: string }
+): Promise<AuditFlagOutcomeRow[]> {
+	const sinceDays = opts?.sinceDays ?? ACCEPT_RATE_DEFAULT_WINDOW_DAYS;
+	const cutoff = sinceDays > 0 ? new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000) : null;
+	const conditions = [
+		eq(proposal.kind, 'flag'),
+		...(cutoff ? [gte(proposal.createdAt, cutoff)] : []),
+		...(opts?.universeId ? [eq(proposal.universeId, opts.universeId)] : [])
+	];
+	const rows = await db
+		.select({
+			outcome: proposal.outcome,
+			position: proposal.rank,
+			createdAt: proposal.createdAt
+		})
+		.from(proposal)
+		.where(and(...conditions))
+		.orderBy(proposal.createdAt);
+	return rows;
+}

@@ -25,7 +25,8 @@
 		"seed": "tsx src/prepare.ts",
 		"rerender": "tsx src/models/rerender.ts",
 		"retrieval-sweep": "tsx src/retrieval-sweep.ts",
-		"matching-sweep": "tsx src/matching-sweep.ts"
+		"matching-sweep": "tsx src/matching-sweep.ts",
+		"audit-pairs": "tsx src/audit-pairs.ts"
 	},
 	"dependencies": {
 		"@canonry/ai": "workspace:*",

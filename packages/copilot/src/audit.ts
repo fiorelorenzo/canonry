@@ -40,15 +40,49 @@ import type { GatewayWrapper, ModelFactory, RoutedModel } from './models.js';
 import { requireAiEnabled } from './propagate.js';
 import { AUDIT_DISAGREEMENT, AUDIT_DISAGREEMENT_BARE, speechInstruction } from './speech.js';
 
-/** SPEC.md §5.2: "at most a handful of flags". 5 is a reading of "a handful", not a
- * measurement of anything - nobody has run audit against a real corpus and counted how
- * many flags a GM actually tolerates before it reads as noise. Left alone rather than
- * raised: raising it costs one real model call per extra pair examined, and the spec's
- * wording is the only evidence either direction, so there is no basis to spend more on a
- * number that already satisfies the words it is implementing. Bounds both the number of
- * candidate pairs examined (so the model is never billed more than a handful of times per
- * audit run) and, transitively, the number of flags a run can ever produce. */
-const AUDIT_PAIR_CAP = 5;
+/**
+ * SPEC.md §5.2: "at most a handful of flags". 5 is a reading of "a handful", not a
+ * measurement, and it bounds two different things: how many candidate pairs one run
+ * examines (so the model is never billed more than a handful of times per audit) and,
+ * transitively, how many flags a run can produce.
+ *
+ * Issue #278 measured the half of the question that needs no GM: whether the search even
+ * finds five pairs, so whether the cap binds at all. `findCandidatePairs` run uncapped over
+ * two worlds, once per simulated single-sentence edit and once per whole-entry write
+ * (`pnpm --filter @canonry/bench audit-pairs`, `docs/eval.md`'s 2026-08-19 entry):
+ *
+ * | world | edit | median pairs | p90 | max | more than 5 |
+ * | --- | --- | --- | --- | --- | --- |
+ * | Valdoria Reach, 32 entries | one sentence | 3 | 8 | 10 | 22.9% |
+ * | Valdoria Reach, 32 entries | whole entry | 5 | 8 | 12 | 43.8% |
+ * | Valdris, 78 community notes | one sentence | 3 | 40 | 71 | 35.6% |
+ * | Valdris, 78 community notes | whole entry | 13 | 45 | 71 | 82.1% |
+ *
+ * **So the cap binds, on roughly a quarter to a third of ordinary edits and on most newly
+ * written entries, and it binds today rather than "once universes grow".** That is the
+ * opposite of what this comment used to guess, and it changes why 5 stays: not because the
+ * number is moot, but because it is load-bearing in both directions. Every pair past the cap
+ * is one more charged `cheap` call, and uncapped the mention search would average 10.9 calls
+ * per edit on a real 78-entry world with a tail at 71, so raising it is a spend decision as
+ * much as a noise one.
+ *
+ * The other half - whether a GM stops reading at flag three - needs accept and dismiss
+ * outcomes keyed by the flag's position in its run, which is `auditFlagOutcomes` in
+ * `packages/db` and the "Audit flags by position" panel on `/admin/metrics`. That panel has
+ * no rows yet, because nobody has used the audit at volume. **That number waits on real use,
+ * and until it exists 5 stays**: the census says the cap matters, and says nothing about
+ * which value is right. */
+export const AUDIT_PAIR_CAP = 5;
+
+/**
+ * Set to `1` to make every audit run also count the pairs it *could* have examined with no
+ * cap, reported as `RunAuditResult.available` (issue #278). Off by default and deliberately
+ * an environment variable rather than a setting: it is a measurement of the cap's own
+ * binding rate, it costs a second uncapped pass over the universe's bodies, and it needs to
+ * be switchable on a deployment without a migration or a UI. Nothing about a flag, a
+ * proposal or a charge changes when it is on.
+ */
+const PAIR_CENSUS_ENV = 'CANONRY_AUDIT_PAIR_CENSUS';
 
 export interface AuditFlagStatement {
 	entityId: string;
@@ -88,6 +122,10 @@ export interface RunAuditResult {
 	/** Candidate pairs actually examined (and charged) - informational, for a caller that
 	 * wants to say "audit ran" even when nothing disagreed. */
 	examined: number;
+	/** Pairs the uncapped search would have found, or `null` when the census is off, which
+	 * is the default. `available > examined` is the cap binding; `available === examined`
+	 * means the cap did nothing on this run. See `PAIR_CENSUS_ENV`. */
+	available: number | null;
 	plan: ProposalPlanRow | null;
 	flags: WrittenAuditFlag[];
 }
@@ -190,8 +228,14 @@ function editedSideFor(
  * One pair per candidate entity (the first evidence found for it wins), ordered by which
  * pass found it, capped at `cap` - "at most a handful" is true before any model is asked
  * anything.
+ *
+ * Exported for the pair census: `Number.POSITIVE_INFINITY` as `cap` yields everything the
+ * search would have offered, which is how `AUDIT_PAIR_CAP`'s binding rate is measured
+ * (issue #278, `packages/bench`'s `audit-pairs`, and the env-gated count in `runAudit`
+ * below). No model is called on this path, so an uncapped census is free apart from the
+ * pass over the bodies.
  */
-function findCandidatePairs(
+export function findCandidatePairs(
 	graph: CandidateGraph,
 	editedEntity: GraphEntity,
 	newBody: string,
@@ -381,7 +425,7 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
 	await requireAiEnabled(input.db, input.universeId);
 
 	const diff = semanticDiff(input.oldBody, input.newBody);
-	if (diff.length === 0) return { examined: 0, plan: null, flags: [] };
+	if (diff.length === 0) return { examined: 0, available: null, plan: null, flags: [] };
 
 	const graph = await loadCandidateGraph(input.db, input.universeId);
 	const editedEntity = graph.entities.find((e) => e.id === input.editedEntityId);
@@ -391,7 +435,14 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
 
 	const cap = input.pairCap ?? AUDIT_PAIR_CAP;
 	const pairs = findCandidatePairs(graph, editedEntity, input.newBody, diff, cap);
-	if (pairs.length === 0) return { examined: 0, plan: null, flags: [] };
+	// The census runs after the capped search, so it can never change which pairs get
+	// examined or charged - it only counts what the cap turned away.
+	const available =
+		process.env[PAIR_CENSUS_ENV] === '1'
+			? findCandidatePairs(graph, editedEntity, input.newBody, diff, Number.POSITIVE_INFINITY)
+					.length
+			: null;
+	if (pairs.length === 0) return { examined: 0, available, plan: null, flags: [] };
 
 	const cheapModel = routeModel(
 		await resolveModel(input.db, 'cheap'),
@@ -418,7 +469,7 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
 		if (judged.disagree) survivors.push({ pair, topic: judged.topic });
 	}
 
-	if (survivors.length === 0) return { examined: pairs.length, plan: null, flags: [] };
+	if (survivors.length === 0) return { examined: pairs.length, available, plan: null, flags: [] };
 
 	const first = survivors[0]!;
 	const { plan, proposals } = await createProposalPlan(input.db, {
@@ -456,5 +507,5 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
 		statements: [survivors[index]!.pair.a, survivors[index]!.pair.b]
 	}));
 
-	return { examined: pairs.length, plan, flags };
+	return { examined: pairs.length, available, plan, flags };
 }

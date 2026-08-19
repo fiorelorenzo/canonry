@@ -1881,6 +1881,18 @@ export const it: Messages = {
 					"Voci aggiornate dopo una sessione rispetto a quelle create in preparazione, per universo - la metrica che dice se l'entropia del canone è stata davvero risolta o se questo è solo un altro posto dove annotarla.",
 				createdInPrep: 'Create in preparazione',
 				updatedAfterSession: 'Aggiornate dopo una sessione'
+			},
+			auditFlags: {
+				heading: 'Segnalazioni della revisione per posizione',
+				intro: (cap: number) =>
+					`Archiviazioni sul totale delle segnalazioni prodotte, divise per la posizione che la segnalazione occupava nella sua revisione. Una revisione scrive al massimo ${cap} segnalazioni, e quel numero è una lettura delle specifiche piuttosto che una misura: se le archiviazioni crescono con la posizione, è già troppo generoso. Una segnalazione non si può accettare, solo archiviare o lasciare stare, quindi qui il rapporto è archiviate su prodotte e non un tasso di accettazione.`,
+				position: 'Posizione nella revisione',
+				produced: 'Segnalazioni prodotte',
+				dismissed: 'Archiviate',
+				stillOpen: 'Lasciate stare',
+				dismissalRate: 'Tasso di archiviazione',
+				noFlagsYet:
+					'Nessuna segnalazione della revisione, per ora. Questo pannello ha bisogno che la revisione abbia girato su modifiche reali prima di dire qualcosa, e una linea tracciata su nessun dato sarebbe peggio di una tabella vuota.'
 			}
 		},
 

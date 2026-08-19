@@ -80,6 +80,8 @@ export { realCandidateSelector } from './eval-adapter.js';
 
 export {
 	runAudit,
+	AUDIT_PAIR_CAP,
+	findCandidatePairs,
 	isGuardrailSafeTopic,
 	buildFlagRationale,
 	judgeStatementPair,

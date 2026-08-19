@@ -19,7 +19,12 @@ import { createVectorClient, dropCollection, queryLore, type QdrantClient } from
 import { heuristicExtractor } from './extraction.js';
 import { hashingEmbedder, type Embedder } from './embedding.js';
 import { indexDataSource } from './pipeline.js';
-import { retrieveForUniverse, scoreLoreHits } from './retriever.js';
+import {
+	keywordMatchCount,
+	retrieveForUniverse,
+	scoreLoreHits,
+	KEYWORD_BOOST_PER_MATCH
+} from './retriever.js';
 import { MediaWikiClient } from './wiki-client.js';
 import {
 	startFixtureWikiServer,
@@ -332,6 +337,64 @@ describe('retrieveForUniverse: exclusion list honoured at retrieval (issue #62)'
 			queryText: 'coastal trading city harbour'
 		});
 		expect(scored.every((hit) => hit.payload.url !== excludedPageUrl)).toBe(true);
+	});
+});
+
+describe('scoreLoreHits: the keyword boost is a parameter, not a baked-in constant (issue #278)', () => {
+	it('scores the same hit lower with no boost than with the shipped one, by the match count times the difference', async () => {
+		const { owner, universe: u } = await insertUniverseWithOwner(db);
+		const source = await createDataSource(db, {
+			universeId: u.id,
+			type: 'wiki',
+			name: 'Boostable Wiki'
+		});
+		await recordLicenceReview(db, {
+			dataSourceId: source.id,
+			licence: 'CC BY-SA 3.0',
+			reviewedBy: owner.id
+		});
+
+		fixture = await startFixtureWikiServer([
+			{
+				title: 'Harbour',
+				wikitext:
+					'The harbour is the busiest harbour on the coast. Every harbour master keeps a ledger, ' +
+					'and the ledger of this harbour is famously incomplete.',
+				updatedAt: '2026-01-01T00:00:00.000Z'
+			}
+		]);
+		const wikiClient = new MediaWikiClient({
+			baseUrl: `${fixture.baseUrl}/api.php`,
+			requestsPerSecond: 1000
+		});
+		const collectionName = scratchCollection();
+		await indexDataSource(
+			{ db, vectorClient, wikiClient, extractor: heuristicExtractor, embedder: hashingEmbedder },
+			{ dataSourceId: source.id, universeId: u.id, collectionName, vectorSize: HASH_VECTOR_SIZE }
+		);
+
+		const queryText = 'harbour ledger';
+		const [queryVector] = await hashingEmbedder([queryText]);
+		const common = {
+			db,
+			vectorClient,
+			collectionName,
+			universeId: u.id,
+			queryVector: queryVector!,
+			queryText
+		};
+
+		const unboosted = await scoreLoreHits({ ...common, keywordBoostPerMatch: 0 });
+		const boosted = await scoreLoreHits(common);
+		expect(unboosted.length).toBeGreaterThan(0);
+
+		const hit = unboosted[0]!;
+		const boostedHit = boosted.find((h) => h.chunkId === hit.chunkId);
+		const matches = keywordMatchCount(queryText, hit.payload.excerptKeywords);
+		// The boost has to actually be doing something on this chunk, or the assertion below
+		// would pass on two identical numbers and prove nothing.
+		expect(matches).toBeGreaterThan(0);
+		expect(boostedHit?.score).toBeCloseTo(hit.score + matches * KEYWORD_BOOST_PER_MATCH, 6);
 	});
 });
 
