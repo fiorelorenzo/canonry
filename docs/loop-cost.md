@@ -312,23 +312,31 @@ Noise, in both directions, which is what a no-op looks like. Pinning the provide
 help either: every one of those calls was served by `vertex` anyway, so the arm that forbade
 the fallback simply removed a fallback.
 
-**The runner itself, three times, and the third run is the one that matters:**
+**The runner itself, four times, and the interesting rows are the third and the fourth:**
 
-| arm | order | calls cached | input served from cache | credits, old pricing |
+| arm | order | calls cached | input served from cache | credits |
 | --- | --- | --- | --- | --- |
-| no cache control | first, cold | 14 of 24 | 46.2% | 2.4766 |
-| `caching: 'auto'` | second | 23 of 26 | 69.3% | 2.7389 |
-| no cache control again | third | 19 of 21 | 73.3% | 2.1428 |
+| no cache control | first, cold | 14 of 24 | 46.2% | 2.4766, old pricing |
+| `caching: 'auto'` | second | 23 of 26 | 69.3% | 2.7389, old pricing |
+| no cache control again | third | 19 of 21 | 73.3% | 2.1428, old pricing |
+| `caching: 'auto'`, cached rate seeded | fourth | 16 of 26 | 47.8% | **1.6800**, against 2.7303 for the same tokens under the old |
 
-Read the middle row on its own and the change looks like it took the loop from half its calls
-to substantially all of them, which is exactly what #313's acceptance asked for. The third row
-is why that reading is wrong: with the change reverted and the cache now warm from two prior
-runs, the same loop gets 19 of 21 and a higher coverage than the arm that asked. What moved
-between the first run and the last is how warm Google's implicit cache was for this system
-prompt, not what the request said. The per-step reads make the same point without the
-aggregate: cold, the first hit on `La Casa dei Mercanti.htm` lands on step 3 and steps 4 and
-11 miss; warm, every step from 2 onward hits and the read is a flat 3,300 to 3,640 tokens,
-which is the fixed block and nothing else.
+Read the second row on its own and the change looks like it took the loop from half its calls
+to substantially all of them, which is exactly what #313's acceptance asked for. The third and
+fourth rows are why that reading is wrong. With the change reverted and the cache warm from two
+prior runs, the same loop gets 19 of 21 and a *higher* coverage than the arm that asked; with
+the change back in place on the fourth run it falls to 16 of 26 and 47.8 per cent, near where
+the cold arm started. Four draws of 46, 69, 73 and 48 per cent, in that order, is not a warm-up
+curve and it is certainly not a lever: it is a provider deciding, per call, whether to serve a
+prefix it already holds. The per-step reads say the same thing without the aggregate, and they
+say it consistently: when a step hits, the read is a flat 3,300 to 3,640 tokens, which is the
+fixed block and nothing else, and the misses are scattered rather than clustered at the start.
+
+The fourth row is also the end-to-end check on the other half of the change. That run is the
+only one with `pricePerCachedInputMTok` actually present on the `cheap` row, and the credits the
+loop charged itself, 1.6800, match a hand recomputation from the recorded token counts to four
+decimal places. Which is the whole point: 38.5 per cent off the same work, from pricing rather
+than from asking.
 
 **And on a provider that does need asking, the same field is the whole difference.** Six
 steps against `anthropic/claude-haiku-4.5`, the model that held the `cheap` row until
@@ -357,13 +365,13 @@ the spike refused to guess it. Neither model is quoted a cache-write rate at all
 neither charges for one; Anthropic does, at 1.25x its input rate for a five-minute entry,
 which is why `ModelParams` carries `pricePerCacheWriteMTok` as well.
 
-Repricing the same tokens with those rates, which is arithmetic on a recorded run rather than
-a new one:
+Repricing, three rows of arithmetic on recorded runs and one row the loop charged itself:
 
 | run | input tokens | served from cache | bill before | bill after | drop |
 | --- | --- | --- | --- | --- | --- |
 | onenote, cold | 104,586 | 46.2% | 2.4766 credits | 1.5578 | 37.1% |
 | onenote, warm | 90,715 | 73.3% | 2.1428 credits | 0.8788 | 59.0% |
+| onenote, fourth arm, **actually billed this way** | 115,610 | 47.8% | 2.7303 credits | 1.6800 | 38.5% |
 | the two full sweeps above, pooled | 1,363,296 | 53.6% | EUR 0.3232 | EUR 0.1843 | 43.0% |
 
 So the band this document guessed at (37 to 57 per cent at a 25 per cent rate, 44 to 69 at 10)
