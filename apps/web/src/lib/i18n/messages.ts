@@ -787,20 +787,25 @@ export interface Messages {
 		title: string;
 		inbox: {
 			empty: string;
-			fromEntity: (entityName: string) => string;
-			/** Raw `proposal_trigger` enum value ('save'/'complete'/'audit'/'import'/'table'),
-			 * shown only when the plan carries no edited-entity name. */
-			fromTrigger: (trigger: string) => string;
+			/** "From: {provenance}", the inbox's own frame around the shared phrase below. */
+			from: (provenance: string) => string;
 			entriesLabel: (total: number) => string;
 			pendingLabel: (count: number) => string;
 			importFrom: (playbook: string) => string;
 			importSummary: (total: number, pending: number) => string;
 			openImportReview: string;
 		};
+		/** Where a plan came from, as one phrase both the inbox and the plan header frame
+		 * (issue #270). `trigger` is the raw `proposal_trigger` enum value
+		 * ('save'/'complete'/'audit'/'import'/'table'/'ask'); `entityName` is the plan's
+		 * `trigger_entity`, null when it has none. One function rather than one per surface,
+		 * because two renderers guessing separately is how the same Ask proposal came to read
+		 * "table mode" in the inbox and "from propagation" on the plan. */
+		provenance: (trigger: string, entityName: string | null) => string;
 		plan: {
 			crumbCurrent: string;
-			headingFromEntity: (entityName: string) => string;
-			headingFromPropagation: string;
+			/** "Plan · from {provenance}". */
+			heading: (provenance: string) => string;
 		};
 		checklist: {
 			/** Text after the bold "kept" count: " of {total} kept · cap {cap}", or "· no
@@ -908,10 +913,14 @@ export interface Messages {
 		evidence: {
 			button: string;
 			embeddingOnly: string;
+			/** The forced-open header for an Ask-originated draft: its strongest link is the
+			 * GM's own request, not anything in canon (issue #270). */
+			instructionOnly: string;
 			close: string;
 			reasonRelation: (path: string, hops: number) => string;
 			reasonMention: (direction: 'forward' | 'reverse', matchedText: string) => string;
 			reasonEmbedding: string;
+			reasonInstruction: string;
 			reasonImportAmbiguous: (path: string | null, count: number) => string;
 			reasonImportMatched: (path: string | null) => string;
 			reasonImportExtracted: (path: string | null) => string;

@@ -1,26 +1,28 @@
 <script lang="ts">
 	/**
 	 * C5 = B: a dotted underline on the changed span; click opens a floating box with the
-	 * quote and the plain-word reason. `forceOpen` renders it already open, un-closeable -
-	 * the guardrail-3 case where the only evidence is embedding similarity, which must
-	 * never be the one thing a skimming GM clicks past.
+	 * quote and the plain-word reason. A `caveat` renders it already open, un-closeable, and
+	 * names the weakness at the top - the guardrail-3 case where the only evidence is
+	 * embedding similarity, or the GM's own request in Ask (issue #270), which must never be
+	 * the one thing a skimming GM clicks past.
 	 */
 	import { messages, type Locale } from '$lib/i18n';
-	import type { EvidenceReason, EvidenceView } from './evidence';
+	import type { EvidenceCaveat, EvidenceReason, EvidenceView } from './evidence';
 
 	let {
 		views,
-		forceOpen,
+		caveat,
 		locale
 	}: {
 		views: EvidenceView[];
-		forceOpen: boolean;
+		caveat: EvidenceCaveat | null;
 		locale: Locale;
 	} = $props();
 
 	let t = $derived(messages(locale).proposals.evidence);
 
-	let open = $state(forceOpen);
+	let forceOpen = $derived(caveat !== null);
+	let open = $state(caveat !== null);
 
 	// `reason` never carries English words (see evidence.ts's own doc comment) - this is
 	// the one place a structured reason becomes the sentence a GM actually reads.
@@ -32,6 +34,8 @@
 				return t.reasonMention(reason.direction, reason.matchedText);
 			case 'embedding':
 				return t.reasonEmbedding;
+			case 'instruction':
+				return t.reasonInstruction;
 			case 'importAmbiguous':
 				return t.reasonImportAmbiguous(reason.path, reason.count);
 			case 'importMatched':
@@ -57,11 +61,11 @@
 			<span
 				class="pop absolute top-full left-0 z-10 mt-1 w-72 rounded-md border border-ai-line bg-panel p-3 text-xs shadow-lg"
 			>
-				{#if forceOpen}
+				{#if caveat !== null}
 					<span
 						class="mb-1.5 block font-mono text-[10px] font-bold tracking-wide text-ai uppercase"
 					>
-						{t.embeddingOnly}
+						{caveat === 'instructionOnly' ? t.instructionOnly : t.embeddingOnly}
 					</span>
 				{/if}
 				{#each views as view, i (i)}

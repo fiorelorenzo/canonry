@@ -60,7 +60,7 @@ option is what stops it being reopened in six months.
 | C2 | Proposal routing | **A, an inbox**, with a quiet arrival signal and never a modal |
 | C3 | The plan | **A, flat checklist** ordered by relevance, entries droppable before any diff is written |
 | C4 | Diff layout | **C, in place with a toggle** |
-| C5 | Evidence | **B, popover on the changed text**, forced open where the only evidence is embedding similarity |
+| C5 | Evidence | **B, popover on the changed text**, forced open where nothing but weak evidence backs the candidate. Amended (#270): weak means embedding similarity, or the GM's own request for a proposal made from Ask, and the popover names which of the two |
 | C6 | Accept and reject | **B, keyboard queue**, `j k a r u`, buttons always visible |
 | C7 | Reject reasons | **A, chips with a free text escape** |
 | C8 | Ask mode | **B, command palette.** Amended: the palette launches the flow, an answer can move into a dedicated page, a source click goes to that entry |

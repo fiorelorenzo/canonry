@@ -519,6 +519,10 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 											modelFactory: input.modelFactory,
 											gateway: input.gateway,
 											sources: ownCanon,
+											// issue #270: the GM's own message, not `toolInput.instruction`, which is
+											// the model's reading of it - the evidence quotes what the GM actually
+											// typed.
+											request: input.question,
 											name: toolInput.name,
 											instruction: toolInput.instruction,
 											requestId: toolCallId
@@ -557,6 +561,7 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 											modelFactory: input.modelFactory,
 											gateway: input.gateway,
 											sources: ownCanon,
+											request: input.question,
 											entityName: toolInput.entityName,
 											instruction: toolInput.instruction,
 											requestId: toolCallId

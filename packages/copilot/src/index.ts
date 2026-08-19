@@ -106,9 +106,11 @@ export {
 export {
 	entryEditPropose,
 	entryPropose,
+	type AskEvidence,
 	type EntryEditProposeInput,
 	type EntryProposeInput,
 	type EvidenceSource,
+	type InstructionEvidence,
 	type ProposeResult
 } from './ask-propose.js';
 

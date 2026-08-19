@@ -18,20 +18,22 @@
  * district" when only "Cairnmouth harbour" exists gets a *new* entry proposed, not a
  * silent edit to Cairnmouth.
  *
- * Guardrail 3's evidence (issue #270): Ask's own layer-1 retrieval (`ask.ts`'s
- * `searchOwnCanon`) is scored against the whole conversational instruction, not a
- * targeted query, so its top-k is not reliably relevant to what gets drafted - a
- * generic sentence at similarity 0.10 is not a citation. Neither drafting call
- * attaches a retrieved sentence as evidence just because it was retrieved: the model
- * is shown every candidate numbered and asked to name, in `usedSources`, only the ones
- * that genuinely informed what it wrote; `selectEvidence` then validates those numbers
- * against what was actually offered before turning them into a `CandidateEvidence[]`
- * (`kind: 'embedding'`, exactly the shape
- * `apps/web/src/lib/components/proposals/evidence.ts` already renders for any
- * non-import trigger, force-opening the popover rather than hiding a weak match behind
- * a click). When nothing is named, `evidence` is the honest empty array, and
- * `NO_CANON_EVIDENCE_NOTE` (speech.ts) says so in the rationale instead of leaving a
- * reviewer to wonder whether the field was simply never filled in.
+ * Guardrail 3's evidence (issue #270): what produced an Ask-originated draft is the GM's
+ * own request, so that is what the evidence carries, verbatim, as an
+ * `InstructionEvidence` item. Ask's layer-1 retrieval (`ask.ts`'s `searchOwnCanon`) is
+ * scored against the whole conversational instruction rather than a targeted query, so
+ * its top-k is context at best and never a citation on its own: a retrieved sentence
+ * becomes evidence only when the drafting model names it in `usedSources` (validated by
+ * `selectEvidence` against the exact numbered list it was handed) *and* the entry it came
+ * from is actually named by the GM's request or by the text this draft produces
+ * (`namesEntityIn`). No similarity floor, because a number cannot do this job: the three
+ * sentences in #270's report scored 0.105, 0.103 and 0.067, so any threshold that keeps
+ * the one real link also keeps the Casa dei Mercanti's bookkeeping rule. What separates
+ * them is that one of them is about an entry the GM named and the other is not.
+ *
+ * When no retrieved sentence clears that, `evidence` carries the instruction alone and
+ * `NO_CANON_EVIDENCE_NOTE` (speech.ts) says so in the rationale, rather than leaving a
+ * reviewer to guess whether the field was simply never filled in.
  */
 import { generateObject } from 'ai';
 import { z } from 'zod';
@@ -49,7 +51,7 @@ import {
 import { entity } from '@canonry/db/schema';
 import type { EntityType } from '@canonry/db/schema';
 import { canonLanguageFor, type Locale } from '@canonry/lang';
-import type { CandidateEvidence } from './candidates.js';
+import { namesEntityIn, type CandidateEvidence } from './candidates.js';
 import type { EntityUpdatePatch } from './diffs.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
 import { routeModel } from './models.js';
@@ -74,14 +76,29 @@ export interface EvidenceSource {
 
 const ENTITY_TYPES = ['character', 'place', 'faction', 'item', 'event', 'session'] as const;
 
+/** The GM's own request, verbatim, as one evidence item: for an entry asked for in a
+ * sentence the instruction *is* the evidence, and it is the only part of an Ask-originated
+ * proposal's provenance that is always true. Kept as its own kind rather than folded into
+ * `MentionEvidence` so the review screen can say which of the two a quote is
+ * (`apps/web/src/lib/components/proposals/evidence.ts`), and deliberately not added to
+ * `CandidateEvidence`: propagation, complete and audit can never produce one, and a dead
+ * branch in their switches would be worse than a second name here. */
+export interface InstructionEvidence {
+	kind: 'instruction';
+	instruction: string;
+}
+
+/** Everything `proposal.evidence` can carry for an Ask-originated proposal. */
+export type AskEvidence = CandidateEvidence | InstructionEvidence;
+
 /** Guardrail 3, storage half: converted straight into the shape
  * `apps/web/src/lib/components/proposals/evidence.ts`'s `normalizeEvidence` already
- * renders for any trigger other than `import` - no change needed there. `kind:
- * 'embedding'` is the honest reading of Ask's own layer-1 retrieval: a Jaccard
- * word-overlap score, not a literal substring mention or a formal graph relation, and
- * that is exactly the "reached only by embedding similarity" case whose evidence the
- * proposal review screen forces open rather than lets a GM skim past. Called only from
- * `selectEvidence` below, never on the full retrieved list - see that function. */
+ * renders for any trigger other than `import`. `kind: 'embedding'` is the honest reading
+ * of Ask's own layer-1 retrieval: a Jaccard word-overlap score, not a literal substring
+ * mention or a formal graph relation, and that is exactly the "reached only by embedding
+ * similarity" case whose evidence the proposal review screen forces open rather than lets
+ * a GM skim past. Called only from `selectEvidence` below, never on the full retrieved
+ * list - see that function. */
 function evidenceFromSources(sources: EvidenceSource[]): CandidateEvidence[] {
 	return sources.map((s) => ({
 		kind: 'embedding' as const,
@@ -90,13 +107,26 @@ function evidenceFromSources(sources: EvidenceSource[]): CandidateEvidence[] {
 	}));
 }
 
-/** issue #270: the drafting model names which of the numbered candidates (1-based,
- * matching `renderSourcesForModel`'s own numbering) it actually drew a fact from -
- * never trusted as free text, only as an index into the exact list it was handed, so a
- * hallucinated or out-of-range number silently drops rather than fabricating a
- * citation. An empty or fully-invalid `usedIndices` is not an error: it is the honest
- * "nothing here actually informed the draft" case `NO_CANON_EVIDENCE_NOTE` exists for. */
-function selectEvidence(sources: EvidenceSource[], usedIndices: number[]): CandidateEvidence[] {
+/** issue #270: two gates, both required, before a retrieved sentence is allowed to read
+ * as a citation.
+ *
+ * First the drafting model names which of the numbered candidates (1-based, matching
+ * `renderSourcesForModel`'s own numbering) it actually drew a fact from - never trusted as
+ * free text, only as an index into the exact list it was handed, so a hallucinated or
+ * out-of-range number silently drops.
+ *
+ * Then `namedIn` has to name the entry that sentence came from: the GM's own request plus
+ * the text this draft produces. That is what tells Mother Sennah's sentence, about the aunt
+ * the GM asked for, apart from the Casa dei Mercanti's bookkeeping rule at a
+ * near-identical similarity - see this module's header comment on why no threshold can.
+ *
+ * Nothing left after both gates is not an error: it is the honest "nothing in canon
+ * actually informed this" case `NO_CANON_EVIDENCE_NOTE` exists for. */
+function selectEvidence(
+	sources: EvidenceSource[],
+	usedIndices: number[],
+	namedIn: string
+): CandidateEvidence[] {
 	const seen = new Set<number>();
 	const selected: EvidenceSource[] = [];
 	for (const index of usedIndices) {
@@ -104,17 +134,26 @@ function selectEvidence(sources: EvidenceSource[], usedIndices: number[]): Candi
 			continue;
 		}
 		seen.add(index);
-		selected.push(sources[index - 1]!);
+		const source = sources[index - 1]!;
+		if (namesEntityIn(namedIn, source.entityName)) selected.push(source);
 	}
 	return evidenceFromSources(selected);
 }
 
+/** The evidence an Ask-originated proposal carries, in reading order: the GM's request
+ * first, because that is what caused the draft, then whatever canon survived
+ * `selectEvidence`'s two gates as supporting context. */
+function askEvidence(request: string, canon: CandidateEvidence[]): AskEvidence[] {
+	return [{ kind: 'instruction', instruction: request.trim() }, ...canon];
+}
+
 /** issue #270: the rationale a reviewer actually reads (`proposal.rationale`, and the
  * plan's own `summary`) says plainly when nothing in canon backs the draft, rather than
- * leaving an empty evidence popover to speak for itself - guardrail 3's "make the
- * surface say that", not just "make the field honestly empty". */
-function rationaleFor(locale: Locale, summary: string, evidence: CandidateEvidence[]): string {
-	return evidence.length > 0 ? summary : `${summary} ${NO_CANON_EVIDENCE_NOTE[locale]}`;
+ * leaving the evidence popover to speak for itself - guardrail 3's "make the surface say
+ * that", not just "make the field honestly empty". Keyed on the canon evidence alone: the
+ * instruction item is always there, so counting it would silence this note forever. */
+function rationaleFor(locale: Locale, summary: string, canon: CandidateEvidence[]): string {
+	return canon.length > 0 ? summary : `${summary} ${NO_CANON_EVIDENCE_NOTE[locale]}`;
 }
 
 /** Guardrail 3, prompt half: richer than what gets persisted (names the source entity,
@@ -204,12 +243,17 @@ interface DraftContext {
 	modelFactory: ModelFactory;
 	gateway: GatewayWrapper;
 	sources: EvidenceSource[];
+	/** The GM's own message to Ask, verbatim (issue #270): the evidence for a draft asked
+	 * for in a sentence, and what `selectEvidence` weighs a retrieved sentence's own entry
+	 * against. Not the model's `instruction` argument, which is the model's reading of that
+	 * message and would be a paraphrase quoted back to the GM as their own words. */
+	request: string;
 	requestId?: string;
 }
 
 export interface ProposeResult {
 	proposal: ProposalRow;
-	evidence: CandidateEvidence[];
+	evidence: AskEvidence[];
 	entityName: string;
 	entitySlug: string;
 	/** Mirrors `proposal.kind` exactly - `'draft_entity'` for a new entry, `'update'` for
@@ -311,21 +355,26 @@ async function draftNewEntity(
 		chargeFor(ctx.db, 'entry.complete')
 	]);
 
-	const evidence = selectEvidence(ctx.sources, result.object.usedSources);
-	const rationale = rationaleFor(ctx.locale, result.object.summary, evidence);
 	const draftedName = result.object.name.trim().length > 0 ? result.object.name : name;
+	// The two texts a cited entry has to be named in: what the GM asked for, and the entry
+	// this draft produces (issue #270). Mother Sennah is named in both when the GM asks for
+	// her nephew; the Casa dei Mercanti is named in neither.
+	const canonEvidence = selectEvidence(
+		ctx.sources,
+		result.object.usedSources,
+		`${ctx.request}\n${draftedName}\n${result.object.body}`
+	);
+	const evidence = askEvidence(ctx.request, canonEvidence);
+	const rationale = rationaleFor(ctx.locale, result.object.summary, canonEvidence);
 	const slug = await uniqueSlug(ctx.db, ctx.universeId, draftedName);
 
 	const { plan, proposals } = await createProposalPlan(ctx.db, {
 		universeId: ctx.universeId,
-		// SPEC.md §5's mode table has no `ask` trigger value yet - `proposal_trigger` is a
-		// closed Postgres enum and this wave adds no migrations (see this issue's report).
-		// `table` is the existing value for "a GM's own explicit, ad hoc request outside
-		// the automatic pipelines" (table/quick-actions.ts's NPC/child-location scaffolds,
-		// table/notes' own free-text append), which is the closest available reading, and
-		// still not an honest one - a real fix needs `ALTER TYPE proposal_trigger ADD
-		// VALUE 'ask'`, a migration, which is its own change (issue #270's report).
-		trigger: 'table',
+		// issue #270: `ask` is this plan's own trigger, added to `proposal_trigger` by
+		// migration 0040 for exactly this. Borrowing `table` made an Ask-originated proposal
+		// indistinguishable from a quick action fired during a session, in a value the
+		// evidence popover, the inbox, the plan header and §14's accept rate all read.
+		trigger: 'ask',
 		// issue #270: never anchor this plan to an entity from `ctx.sources` - that field
 		// means "the entity whose edit started this", and a create has no such entity,
 		// evidenced or not. Anchoring it to a retrieved source's id is what produced "From:
@@ -455,14 +504,24 @@ async function draftEntityUpdate(
 		chargeFor(ctx.db, 'propagate.diff')
 	]);
 
-	const evidence = selectEvidence(ctx.sources, result.object.usedSources);
-	const rationale = rationaleFor(ctx.locale, result.object.summary, evidence);
+	// Same two gates as the create path, over the entry this edit targets and the body it
+	// produces (issue #270).
+	const canonEvidence = selectEvidence(
+		ctx.sources,
+		result.object.usedSources,
+		`${ctx.request}\n${target.name}\n${result.object.after}`
+	);
+	const evidence = askEvidence(ctx.request, canonEvidence);
+	const rationale = rationaleFor(ctx.locale, result.object.summary, canonEvidence);
 
 	const { plan, proposals } = await createProposalPlan(ctx.db, {
 		universeId: ctx.universeId,
-		trigger: 'table',
-		// This one IS honest: `target` really is the entity this edit targets, unlike
-		// `draftNewEntity`'s create path (issue #270).
+		trigger: 'ask',
+		// `target` really is the entity this edit targets, unlike `draftNewEntity`'s create
+		// path, so recording it is honest (issue #270). What it is *not* is an edit the GM
+		// made: with `trigger: 'ask'` the provenance line reads "a question in Ask about
+		// Cairnmouth" rather than "editing Cairnmouth", which is the whole reason the two
+		// renderers now read the trigger before the entity name.
 		triggerEntityId: target.id,
 		summary: rationale,
 		candidateCap: 1,
@@ -515,6 +574,9 @@ export interface EntryProposeInput {
 	/** Ask's own layer-1 retrieval, already computed and already shown to the GM before
 	 * this tool can run (guardrail 3) - see this module's header comment. */
 	sources: EvidenceSource[];
+	/** The GM's own message to Ask, verbatim - the evidence this draft is proposed on
+	 * (issue #270), and never the model's `instruction` paraphrase of it. */
+	request: string;
 	name: string;
 	instruction: string;
 	requestId?: string;
@@ -535,6 +597,7 @@ export async function entryPropose(input: EntryProposeInput): Promise<ProposeRes
 		modelFactory: input.modelFactory,
 		gateway: input.gateway,
 		sources: input.sources,
+		request: input.request,
 		...(input.requestId !== undefined ? { requestId: input.requestId } : {})
 	};
 
@@ -556,6 +619,8 @@ export interface EntryEditProposeInput {
 	modelFactory: ModelFactory;
 	gateway: GatewayWrapper;
 	sources: EvidenceSource[];
+	/** The GM's own message to Ask, verbatim (issue #270) - see `EntryProposeInput`. */
+	request: string;
 	entityName: string;
 	instruction: string;
 	requestId?: string;
@@ -574,6 +639,7 @@ export async function entryEditPropose(input: EntryEditProposeInput): Promise<Pr
 		modelFactory: input.modelFactory,
 		gateway: input.gateway,
 		sources: input.sources,
+		request: input.request,
 		...(input.requestId !== undefined ? { requestId: input.requestId } : {})
 	};
 

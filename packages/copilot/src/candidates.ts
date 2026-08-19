@@ -154,6 +154,18 @@ export interface MentionHit {
 	matchedText: string;
 }
 
+/** True when `text` names `name`, as a `[[wikilink]]` or as a bare case-insensitive
+ * whole-phrase match. The one place that matching rule lives: `mentionsIn` below reads
+ * it per entity name and alias, and `ask-propose.ts` reads it to decide whether a
+ * retrieved sentence's own entry is actually named by what the GM asked for (issue
+ * #270), rather than writing a second, subtly different notion of "names". */
+export function namesEntityIn(text: string, name: string): boolean {
+	const escaped = escapeRegExp(name);
+	const wikilinkRe = new RegExp(`\\[\\[\\s*${escaped}\\s*\\]\\]`, 'i');
+	const plainRe = new RegExp(`(?:^|[^\\w])${escaped}(?:$|[^\\w])`, 'i');
+	return wikilinkRe.test(text) || plainRe.test(text);
+}
+
 /** Every entity from `pool` that `sentence` names, as a `[[wikilink]]` or as a bare
  * case-insensitive whole-phrase match. One hit per entity per sentence is enough evidence,
  * even if both its name and an alias happen to match. Exported for `audit.ts`: a flag's
@@ -163,10 +175,7 @@ export function mentionsIn(sentence: string, pool: GraphEntity[]): MentionHit[] 
 	const results: MentionHit[] = [];
 	for (const entity of pool) {
 		for (const name of namesFor(entity)) {
-			const escaped = escapeRegExp(name);
-			const wikilinkRe = new RegExp(`\\[\\[\\s*${escaped}\\s*\\]\\]`, 'i');
-			const plainRe = new RegExp(`(?:^|[^\\w])${escaped}(?:$|[^\\w])`, 'i');
-			if (wikilinkRe.test(sentence) || plainRe.test(sentence)) {
+			if (namesEntityIn(sentence, name)) {
 				results.push({ entity, matchedText: name });
 				break;
 			}
