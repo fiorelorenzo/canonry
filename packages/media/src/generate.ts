@@ -1,6 +1,8 @@
 /**
- * End-to-end portrait/variant generation (#64-#67, #70, #71). Resolves the active model
- * for the feature, builds the prompt from the entry plus its resolved style, checks the
+ * End-to-end portrait/variant generation (#64-#67, #70, #71) plus regeneration with an
+ * extra instruction (#255). Resolves the active model for the feature, builds the prompt
+ * from the entry plus its resolved style (or, for a regeneration, from the prior
+ * attempt's own stored prompt plus what the user said was wrong with it), checks the
  * similarity cache before spending anything, and otherwise generates through the
  * concurrency-limited provider, stores the files, and inserts unattached media_asset rows
  * for the GM to pick from.
@@ -8,12 +10,29 @@
  * Guardrail 6 / #71: this function never sets `published_to_players`. createMediaAsset's
  * own schema default (false) is the only thing that ever decides that column's value -
  * there is no parameter here for a caller to pass true, on a cache hit or otherwise.
+ *
+ * #255 and untrusted input: `instruction` is a string a universe member typed, and it
+ * ends up inside the prompt sent to the image model. This is not a tool-calling loop -
+ * unlike the import playbooks' SPEC.md §6.5 problem, there is no agent here reading the
+ * instruction and deciding what to do next, so there is no "ignore your instructions and
+ * ..." to fall for. But the same discipline applies for the same reason: the instruction
+ * is treated purely as data appended to a string, never as something our own code parses
+ * or branches on. It cannot choose the operation charged, the feature, the universe, or
+ * whether the result publishes - every one of those still comes from a typed field this
+ * function itself controls. The only thing it can ever do is lengthen the tail of
+ * `prompt`, and composeRegeneratePrompt (prompt.ts) truncates even that.
  */
 import { randomUUID } from 'node:crypto';
 import { chargeFor, type ResolvedModel } from '@canonry/ai';
-import { createMediaAsset, mediaAssetsByIds, type Db, type MediaAssetRow } from '@canonry/db';
+import {
+	createMediaAsset,
+	mediaAssetById,
+	mediaAssetsByIds,
+	type Db,
+	type MediaAssetRow
+} from '@canonry/db';
 import type { ImageFeature } from '@canonry/db/schema';
-import { composePrompt } from './prompt.js';
+import { composePrompt, composeRegeneratePrompt } from './prompt.js';
 import { resolveStyle } from './style.js';
 import { resolveImageModel } from './models.js';
 import { findSimilarMedia, recordMediaVector, type SimilarityCacheDeps } from './similarity.js';
@@ -36,6 +55,30 @@ export class UnsupportedImageFeatureError extends Error {
 	constructor(feature: ImageFeature) {
 		super(`image feature "${feature}" has no priced operation configured yet`);
 		this.name = 'UnsupportedImageFeatureError';
+	}
+}
+
+/** #255: `fromAssetId` names a row that either does not exist or belongs to a different
+ * universe than the one this request is scoped to. Same message either way - which of
+ * the two it is is not this caller's business, exactly like `RelationTypeNotOwnedError`
+ * (packages/db/src/queries/relation-types.ts) never distinguishes "missing" from "not
+ * yours" for a cross-universe id. */
+export class MediaAssetNotOwnedError extends Error {
+	constructor(assetId: string, universeId: string) {
+		super(`media_asset "${assetId}" is not owned by universe "${universeId}"`);
+		this.name = 'MediaAssetNotOwnedError';
+	}
+}
+
+/** #255: `fromAssetId` resolved to a real row in the right universe, but that row has no
+ * stored prompt to build on - true of an imported or uploaded image (#252, #253), which
+ * carry no `prompt` because nothing generated them. There is nothing to append the
+ * instruction to, so this refuses rather than silently falling back to a fresh
+ * entity/style prompt that would ignore `fromAssetId` entirely. */
+export class MediaAssetHasNoPromptError extends Error {
+	constructor(assetId: string) {
+		super(`media_asset "${assetId}" has no stored prompt to regenerate from`);
+		this.name = 'MediaAssetHasNoPromptError';
 	}
 }
 
@@ -77,6 +120,15 @@ export interface GenerateImagesInput {
 	};
 	feature: ImageFeature;
 	userId: string;
+	/** #255: the user's stated fix for the picture named by `fromAssetId` ("older, and
+	 * lose the helmet"). Untrusted user text - see this file's header comment. Blank or
+	 * whitespace-only is treated the same as omitted. */
+	instruction?: string;
+	/** #255: the media_asset id of the attempt being refined. Must belong to
+	 * `universeId` or this throws MediaAssetNotOwnedError. When set, its own stored
+	 * `prompt` replaces the entity+style compose as the base prompt, so round two builds
+	 * on the picture the user actually saw rather than rolling the entity text again. */
+	fromAssetId?: string;
 }
 
 export interface GenerateImagesResult {
@@ -91,31 +143,54 @@ export async function generateImages(input: GenerateImagesInput): Promise<Genera
 
 	const operation = operationForFeature(input.feature);
 	const count = imageCountForFeature(input.feature);
+	const instruction = input.instruction?.trim() || undefined;
 
-	const [model, style] = await Promise.all([
+	const [model, style, priorAsset] = await Promise.all([
 		resolveImageModel(input.db, input.feature),
-		resolveStyle(input.db, input.entity.id)
+		resolveStyle(input.db, input.entity.id),
+		input.fromAssetId ? mediaAssetById(input.db, input.fromAssetId) : Promise.resolve(undefined)
 	]);
 
-	const prompt = composePrompt({
-		name: input.entity.name,
-		description: input.entity.description,
-		styleModifier: style.modifier
-	});
+	if (input.fromAssetId) {
+		if (!priorAsset || priorAsset.universeId !== input.universeId) {
+			throw new MediaAssetNotOwnedError(input.fromAssetId, input.universeId);
+		}
+		if (!priorAsset.prompt) throw new MediaAssetHasNoPromptError(input.fromAssetId);
+	}
+
+	const basePrompt = priorAsset?.prompt
+		? priorAsset.prompt
+		: composePrompt({
+				name: input.entity.name,
+				description: input.entity.description,
+				styleModifier: style.modifier
+			});
+	const prompt = instruction
+		? composeRegeneratePrompt({ priorPrompt: basePrompt, instruction })
+		: basePrompt;
 
 	const vector = await input.embeddings.embed(prompt);
 
-	const hit = await findSimilarMedia(input.similarity, {
-		vector,
-		universeId: input.universeId,
-		feature: input.feature
-	});
-	if (hit) {
-		const assets = await mediaAssetsByIds(input.db, hit.mediaAssetIds);
-		// Every file behind a stale hit may since have been deleted - only trust it when
-		// at least one row is still actually there, otherwise fall through and generate.
-		if (assets.length > 0) {
-			return { assets, reusedFromCache: true, model, prompt };
+	// #255: an instruction is the user deliberately asking for something different from
+	// the attempt they are looking at. Serving a cache hit here would silently hand back
+	// exactly the picture they are trying to move away from, which is worse than a
+	// pointless generation - it looks like the request was ignored. So the lookup itself
+	// is skipped (not just its result discarded) whenever there is an instruction to
+	// honour; a plain repeat request with no instruction still hits the cache exactly as
+	// before (#67).
+	if (!instruction) {
+		const hit = await findSimilarMedia(input.similarity, {
+			vector,
+			universeId: input.universeId,
+			feature: input.feature
+		});
+		if (hit) {
+			const assets = await mediaAssetsByIds(input.db, hit.mediaAssetIds);
+			// Every file behind a stale hit may since have been deleted - only trust it when
+			// at least one row is still actually there, otherwise fall through and generate.
+			if (assets.length > 0) {
+				return { assets, reusedFromCache: true, model, prompt };
+			}
 		}
 	}
 

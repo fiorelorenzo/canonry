@@ -9,6 +9,7 @@ import {
 	ArchiveTooLargeError,
 	DEFAULT_ARCHIVE_LIMITS,
 	PathTraversalError,
+	stripHtmlPresentationNoise,
 	TooManyEntriesError,
 	ZipBombError,
 	type ArchiveLimits
@@ -240,5 +241,82 @@ describe('ArchiveSourceReader - real zip handling (issue #25)', () => {
 	it('rejects garbage that is not a zip file at all with ArchiveParseError', () => {
 		const data = new TextEncoder().encode('this is definitely not a zip file');
 		expect(() => ArchiveSourceReader.open(data)).toThrow(ArchiveParseError);
+	});
+});
+
+describe('stripHtmlPresentationNoise (issue #261): OneNote export noise, deterministically', () => {
+	const ONENOTE_PAGE =
+		'<html xmlns:o="urn:schemas-microsoft-com:office:office">\n' +
+		'<head>\n' +
+		'<meta http-equiv=Content-Type content="text/html; charset=utf-8">\n' +
+		'<title>Sister Harmony Brightbell</title>\n' +
+		'<meta name=Generator content="Microsoft OneNote 15">\n' +
+		'<style>\n' +
+		'p.MsoNormal, li.MsoNormal, div.MsoNormal\n' +
+		'\t{margin:0in;\n' +
+		'\tfont-size:11.0pt;\n' +
+		'\tfont-family:"Calibri",sans-serif;}\n' +
+		'</style>\n' +
+		'</head>\n' +
+		"<body lang=EN-US style='word-wrap:break-word'>\n" +
+		'<div style="position:absolute;left:48px;top:115px;width:576px">\n' +
+		'<p class=MsoNormal><span style=\'font-family:"Calibri",sans-serif;font-size:11.0pt\'>' +
+		'Based near <a href="../Settlements/Millbrook.htm">Millbrook</a>, with a ' +
+		'<img src="Sister Harmony Brightbell_files/portrait.png" width=200 height=300>' +
+		'</span></p>\n' +
+		'</div>\n' +
+		'</body>\n' +
+		'</html>\n';
+
+	it('drops the <style> block and every style/class/lang attribute', () => {
+		const stripped = stripHtmlPresentationNoise(ONENOTE_PAGE);
+		expect(stripped).not.toMatch(/<style/i);
+		expect(stripped).not.toMatch(/font-family/i);
+		expect(stripped).not.toMatch(/\sstyle=/i);
+		expect(stripped).not.toMatch(/\sclass=/i);
+		expect(stripped).not.toMatch(/\slang=/i);
+	});
+
+	it('keeps every <a href>, <img src>, <title> and the tag structure a playbook rule reads', () => {
+		const stripped = stripHtmlPresentationNoise(ONENOTE_PAGE);
+		expect(stripped).toContain('<a href="../Settlements/Millbrook.htm">Millbrook</a>');
+		expect(stripped).toContain('<img src="Sister Harmony Brightbell_files/portrait.png"');
+		expect(stripped).toContain('<title>Sister Harmony Brightbell</title>');
+		expect(stripped).toContain('<body>');
+		expect(stripped).toContain('<div>');
+	});
+
+	it('cuts the byte count meaningfully, since the removed noise was most of the page', () => {
+		const stripped = stripHtmlPresentationNoise(ONENOTE_PAGE);
+		expect(stripped.length).toBeLessThan(ONENOTE_PAGE.length * 0.8);
+	});
+
+	it('is a no-op on a page that never carried style/class/lang or a <style> block', () => {
+		const plain = '<html><body><p><a href="a.htm">A</a></p></body></html>';
+		expect(stripHtmlPresentationNoise(plain)).toBe(plain);
+	});
+});
+
+describe('ArchiveSourceReader.read scopes the strip to .htm/.html entries only (issue #261)', () => {
+	it('strips a .htm entry, leaving its links and title intact', async () => {
+		const data = buildZip({
+			'notebook/Sister Harmony Brightbell.htm':
+				'<html><head><title>Sister Harmony Brightbell</title></head>' +
+				'<body><p class=MsoNormal><span style=\'font-family:"Calibri",sans-serif\'>' +
+				'See <a href="../Millbrook.htm">Millbrook</a></span></p></body></html>'
+		});
+		const reader = ArchiveSourceReader.open(data);
+		const { content } = await reader.read('notebook/Sister Harmony Brightbell.htm');
+		expect(content).not.toMatch(/style=|class=/);
+		expect(content).toContain('<a href="../Millbrook.htm">Millbrook</a>');
+		expect(content).toContain('<title>Sister Harmony Brightbell</title>');
+	});
+
+	it('never touches a non-HTML entry - a Markdown file with a literal "style=" in its prose survives untouched', async () => {
+		const markdown = 'The sign reads style="ye olde inn" in flaking gold leaf, class=1 tavern.';
+		const data = buildZip({ 'notes/aldric.md': markdown });
+		const reader = ArchiveSourceReader.open(data);
+		const { content } = await reader.read('notes/aldric.md');
+		expect(content).toBe(markdown);
 	});
 });

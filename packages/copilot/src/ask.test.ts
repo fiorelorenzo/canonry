@@ -6,7 +6,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { closeDb, eq, type Db } from '@canonry/db';
-import { dataSource, modelCall, universe as universeTable } from '@canonry/db/schema';
+import { dataSource, modelCall, proposal, universe as universeTable } from '@canonry/db/schema';
 import { createDataSource, recordLicenceReview } from '@canonry/db';
 import {
 	collectionExists,
@@ -113,6 +113,81 @@ function capturingStreamingModel(
 					}
 				})
 			};
+		}
+	}) as unknown as LanguageModel;
+}
+
+/** Streams a tool call on the first step, then plain text on the second - the shape a
+ * real multi-step Ask turn takes once a proposal tool fires. `doGenerate` (the nested
+ * `generateObject` call `entryPropose`/`entryEditPropose` make internally) always
+ * throws, standing in for the real-gateway failure this model reproduces: OpenAI's
+ * structured-output mode rejected `ask-propose.ts`'s original `newEntitySchema`
+ * (`z.array(z.string()).default([])` on `aliases`), confirmed against the real gateway
+ * (gpt-5.4/openai) before that schema was fixed - see this file's own regression test
+ * below and `ask-propose.ts`'s comment on `newEntitySchema`. `onSecondStep` captures
+ * the prompt the model actually receives for its second step, which is what proves the
+ * failed tool call reached the model as an explicit result rather than silence. */
+function toolCallThenTextModel(input: {
+	toolName: 'entry_propose' | 'entry_edit_propose';
+	toolInput: Record<string, unknown>;
+	finalText: string;
+	failureMessage: string;
+	onSecondStep?: (options: { prompt: Array<{ role: string; content: unknown }> }) => void;
+}): LanguageModel {
+	let step = 0;
+	return new MockLanguageModelV4({
+		provider: 'test',
+		modelId: 'test-premium',
+		doStream: async (options) => {
+			step += 1;
+			if (step === 1) {
+				return {
+					stream: new ReadableStream({
+						start(controller) {
+							controller.enqueue({ type: 'stream-start', warnings: [] });
+							controller.enqueue({
+								type: 'tool-call',
+								toolCallId: 't1',
+								toolName: input.toolName,
+								input: JSON.stringify(input.toolInput)
+							});
+							controller.enqueue({
+								type: 'finish',
+								finishReason: { unified: 'tool-calls', raw: undefined },
+								usage: usage(80, 20)
+							});
+							controller.close();
+						}
+					})
+				};
+			}
+			input.onSecondStep?.(options);
+			const words = input.finalText.split(' ');
+			return {
+				stream: new ReadableStream({
+					start(controller) {
+						controller.enqueue({ type: 'stream-start', warnings: [] });
+						controller.enqueue({ type: 'text-start', id: '2' });
+						words.forEach((word, i) => {
+							controller.enqueue({
+								type: 'text-delta',
+								id: '2',
+								delta: i === 0 ? word : ` ${word}`
+							});
+						});
+						controller.enqueue({ type: 'text-end', id: '2' });
+						controller.enqueue({
+							type: 'finish',
+							finishReason: { unified: 'stop', raw: undefined },
+							usage: usage(100, 40)
+						});
+						controller.close();
+					}
+				})
+			};
+		},
+		doGenerate: async () => {
+			throw new Error(input.failureMessage);
 		}
 	}) as unknown as LanguageModel;
 }
@@ -431,5 +506,66 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		const detailedPrompt = systemPrompts[levels.indexOf('detailed')]!;
 		expect(fullPrompt).toContain('a "detailed" answer');
 		expect(fullPrompt).not.toBe(detailedPrompt);
+	});
+
+	it('issue #256 real-gateway regression: a tool-call whose drafting call fails never reads as a completed proposal', async () => {
+		const { owner, universe } = await fixture();
+		let secondStepPrompt: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+
+		const model = toolCallThenTextModel({
+			toolName: 'entry_propose',
+			toolInput: { name: 'A new blacksmith', instruction: 'Make them gruff but fair.' },
+			finalText: 'placeholder answer',
+			failureMessage: 'synthetic drafting failure',
+			onSecondStep: (options) => {
+				secondStepPrompt = options;
+			}
+		});
+
+		const proposalEvents: unknown[] = [];
+		const failureEvents: Array<{ tool: string; message: string }> = [];
+
+		const result = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Create a card for a new blacksmith.',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(model),
+			gateway: IDENTITY_GATEWAY,
+			onProposal: (p) => proposalEvents.push(p),
+			onProposalFailure: (f) => failureEvents.push(f)
+		});
+
+		// Neither the result nor the callback ever claims a proposal was created.
+		expect(result.proposals).toHaveLength(0);
+		expect(proposalEvents).toHaveLength(0);
+
+		// The failure reached the caller through both channels the surface can use.
+		expect(result.failures).toEqual([
+			{ tool: 'entry_propose', message: 'synthetic drafting failure' }
+		]);
+		expect(failureEvents).toEqual([
+			{ tool: 'entry_propose', message: 'synthetic drafting failure' }
+		]);
+
+		// The model's own second step actually received an explicit, unambiguous failure
+		// result - not silence, and not a raw thrown error it could disregard - which is
+		// what makes it possible for the system prompt's "ok: false" instruction to work.
+		const secondPromptText = JSON.stringify(secondStepPrompt);
+		expect(secondPromptText).toContain('"ok":false');
+		expect(secondPromptText).toContain('synthetic drafting failure');
+		expect(secondPromptText).toContain('Never say you created or proposed anything');
+
+		// Guardrail 1: nothing reached the database - no proposal, and by construction
+		// (ask-propose.ts never calls acceptProposal) no revision either.
+		const tableProposals = await db
+			.select()
+			.from(proposal)
+			.where(eq(proposal.universeId, universe.id));
+		expect(tableProposals.filter((p) => p.trigger === 'table')).toHaveLength(0);
 	});
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { composePrompt } from './prompt.js';
+import { composePrompt, composeRegeneratePrompt } from './prompt.js';
 
 describe('composePrompt', () => {
 	it('builds the prompt from the entry name, description and style modifier (#65, #66)', () => {
@@ -45,5 +45,33 @@ describe('composePrompt', () => {
 	it('ignores a blank (whitespace-only) style modifier the same as a missing one', () => {
 		const prompt = composePrompt({ name: 'Entry', description: 'Body.', styleModifier: '   ' });
 		expect(prompt).toBe('Entry. Body.');
+	});
+});
+
+describe('composeRegeneratePrompt (#255)', () => {
+	it('appends the instruction to the prior prompt, verbatim', () => {
+		const prompt = composeRegeneratePrompt({
+			priorPrompt: 'Aldric Vane. Lean and grey-coated., ink and wash, muted, cold light',
+			instruction: 'older, and lose the helmet'
+		});
+		expect(prompt).toBe(
+			'Aldric Vane. Lean and grey-coated., ink and wash, muted, cold light. older, and lose the helmet'
+		);
+	});
+
+	it('returns the prior prompt unchanged when the instruction is blank', () => {
+		const prompt = composeRegeneratePrompt({ priorPrompt: 'Aldric Vane.', instruction: '   ' });
+		expect(prompt).toBe('Aldric Vane.');
+	});
+
+	it('truncates a long instruction on a word boundary, the same as a long description', () => {
+		const longWord = 'x'.repeat(400);
+		const prompt = composeRegeneratePrompt({
+			priorPrompt: 'Aldric Vane',
+			instruction: `${longWord} tail`
+		});
+		expect(prompt.startsWith('Aldric Vane. ')).toBe(true);
+		expect(prompt).not.toContain('tail');
+		expect(prompt.length).toBeLessThan(320);
 	});
 });

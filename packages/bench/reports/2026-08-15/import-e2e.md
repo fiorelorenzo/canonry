@@ -1,5 +1,17 @@
 # Import, end to end, 2026-08-15
 
+> **Note added 2026-08-19 (issue #272), the numbers below are unedited.** This run
+> admitted and ran every job under `packages/bench/src/e2e/import.ts`'s own hardcoded
+> `budgetCredits: 400` / `budget: { maxCredits: 400 }` - a budget the product's own
+> onboarding routes never give a job (a three-document job's real derived budget, after
+> #261/#272's fixes, is 18 credits; this report's 35-document Obsidian row ran under
+> roughly twenty times what that same job would now be quoted). The harness has since
+> been fixed to derive its budget the same way the product does
+> (`estimate.ts`'s `deriveJobBudget`, exported from `@canonry/import`), so this report's
+> green rows measured whether the playbooks and the merge engine work under a budget the
+> product does not reproduce - not whether a GM's own import through the UI completes.
+> That question is still open pending a re-run under the fixed harness.
+
 Every source format, three imports each: the export, the same export again, and the export a
 month later. Real `GatewayDriver`, real merge engine, real proposal rows,
 `google/gemini-3.1-flash-lite` on the `cheap` purpose. Numbers read back out of `import_job`

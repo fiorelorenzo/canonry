@@ -17,6 +17,7 @@
 	import EntryProse from '$lib/components/entry/EntryProse.svelte';
 	import GapNotice from '$lib/components/players/GapNotice.svelte';
 	import PublicFactsList from '$lib/components/players/PublicFactsList.svelte';
+	import PublicImages from '$lib/components/players/PublicImages.svelte';
 	import PublicRelationsList from '$lib/components/players/PublicRelationsList.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { messages } from '$lib/i18n';
@@ -65,6 +66,12 @@
 		<PublicRelationsList
 			relations={data.entity.relations}
 			universeSlug={data.universe.slug}
+			locale={data.locale}
+		/>
+		<PublicImages
+			images={data.entity.images}
+			universeSlug={data.universe.slug}
+			entityName={data.entity.name}
 			locale={data.locale}
 		/>
 	</article>

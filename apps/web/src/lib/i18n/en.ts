@@ -394,7 +394,10 @@ export const en: Messages = {
 		gapNoticeBefore: 'You have heard the name. Nobody at the table has learned enough about',
 		gapNoticeAfter: (type) => `for this ${type} page to say more; yet.`,
 		factsHeading: "What's known",
-		relationsHeading: 'Known relations'
+		relationsHeading: 'Known relations',
+		media: {
+			heading: 'Images'
+		}
 	},
 
 	docsLanguages: {
@@ -512,7 +515,6 @@ export const en: Messages = {
 			empty: 'No images yet.',
 			explanation:
 				'Images are generated on request, one click that always confirms the spend first.',
-			privateNote: 'Private - not shown to players until you reveal this entry.',
 			generatedBadge: 'Generated',
 			generateButton: 'Generate image',
 			candidatesSummary: (reusedFromCache, multiple) => {
@@ -552,7 +554,67 @@ export const en: Messages = {
 			privateHint:
 				"The image stays private to you until you insert it here - it never reaches the players' wiki on its own.",
 			generateAction: 'Generate',
-			generating: 'Generating\u2026'
+			generating: 'Generating\u2026',
+			upload: {
+				button: 'Upload image',
+				uploading: 'Uploading\u2026',
+				uploadedBadge: 'Uploaded',
+				noFile: 'Choose a file to upload.',
+				tooLarge: (maxMegabytes) => `Image is larger than the ${maxMegabytes}MB limit.`,
+				unsupportedType: 'Only PNG, JPEG or WEBP images can be uploaded.',
+				typeMismatch: 'The file\u2019s declared type does not match its contents.',
+				genericUploadFailedWithStatus: (status) => `Upload failed (${status})`,
+				genericUploadFailed: 'Upload failed'
+			},
+			inBody: {
+				toolbarLabel: 'Image',
+				toolbarTitle: 'Insert image into the body',
+				dialogTitle: 'Insert an image',
+				existingHeading: "This entry's images",
+				emptyExisting: 'No images attached to this entry yet - generate one below.',
+				generateHeading: 'Generate a new one',
+				featureAriaLabel: 'Image type',
+				portraitOption: 'Portrait (one image)',
+				variantsOption: 'Variants (four to choose from)',
+				generateButton: 'Generate',
+				insertThisImage: 'Insert this image',
+				useThisOne: 'Use this one',
+				generateFailedWithStatus: (status) => `Could not generate an image (${status})`,
+				generateFailed: 'Could not generate an image',
+				attachFailedWithStatus: (status) => `Could not attach the generated image (${status})`,
+				attachFailed: 'Could not attach the generated image'
+			},
+			/** Issue #255: refine a candidate with an instruction instead of a fresh roll. */
+			regenerate: {
+				trigger: 'Refine with instruction',
+				dialogTitle: (entityName) => `Regenerate: ${entityName}`,
+				hint: "Builds on the picture you're looking at, not a fresh roll - keeps the entity and style, and changes only what you ask for.",
+				instructionLabel: "What's wrong with it?",
+				instructionPlaceholder: 'older, and lose the helmet',
+				action: 'Regenerate',
+				regenerating: 'Regenerating\u2026',
+				instructionMustBeString: 'instruction must be a string',
+				fromAssetIdMustBeString: 'fromAssetId must be a string',
+				sourceHasNoPrompt: 'That image has no stored prompt to regenerate from.'
+			},
+			// #254: the per-asset publish/unpublish control and the summary sentence below
+			// the grid. Replaces the old unconditional `privateNote`, which stopped being
+			// true the moment an asset could be published - this stays accurate whether the
+			// grid is all-private, all-published, or a mix of the two.
+			publish: {
+				publishedBadge: 'Published',
+				publishedNote: "Published to the players' wiki.",
+				privateNote: 'Private.',
+				publishLabel: 'Publish',
+				unpublishLabel: 'Unpublish',
+				publishing: 'Publishing\u2026',
+				unpublishing: 'Unpublishing\u2026',
+				explanation:
+					"Publish an image to add it to the players' wiki. Nothing here reaches players on its own.",
+				publishedMustBeBoolean: 'published must be a boolean',
+				genericPublishFailedWithStatus: (status) => `Publishing failed (${status})`,
+				genericPublishFailed: 'Publishing failed'
+			}
 		},
 
 		editor: {
@@ -1307,7 +1369,17 @@ export const en: Messages = {
 			ownCanonLabel: 'your canon',
 			indexedBadge: 'indexed',
 			close: 'Close',
-			loading: 'Loading…'
+			loading: 'Loading…',
+			propose: {
+				badgeCreated: 'Proposed: new entry',
+				badgeEdited: 'Proposed: edit',
+				redirectedToEdit: (entityName) =>
+					`${entityName} already exists, so this became a proposed edit instead.`,
+				redirectedToCreate: (entityName) =>
+					`No entry named ${entityName} exists yet, so this became a proposed new entry instead.`,
+				reviewLink: 'Review in Proposals',
+				failed: (message) => `A proposal attempt failed, and nothing was proposed: ${message}`
+			}
 		},
 
 		settings: {

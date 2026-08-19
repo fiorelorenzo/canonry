@@ -76,6 +76,7 @@ export {
 	UnsupportedCompressionError,
 	ArchiveParseError,
 	ArchiveEntryExtractionError,
+	stripHtmlPresentationNoise,
 	type ArchiveLimits
 } from './archive.js';
 
@@ -131,3 +132,11 @@ export {
 	type DocumentOutcome,
 	type AcceptImportProposalInput
 } from './job-runner.js';
+
+export {
+	PLAYBOOK_COLD_START_ESTIMATE,
+	estimateAveragesForPlaybook,
+	IMPORT_BUDGET_HEADROOM_MULTIPLIER,
+	budgetCreditsForEstimate,
+	deriveJobBudget
+} from './estimate.js';

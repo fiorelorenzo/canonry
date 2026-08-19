@@ -1,5 +1,11 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { type Db, historyFor, saveEntityBody, universeAccessBySlug } from '@canonry/db';
+import {
+	type Db,
+	historyFor,
+	mediaAssetsForEntity,
+	saveEntityBody,
+	universeAccessBySlug
+} from '@canonry/db';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { scheduleCanonSaveJob } from '$lib/server/jobs';
@@ -46,9 +52,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		params.slug
 	);
 	const universeEntities = await mentionTargetsFor(conn, world.id);
+	// The image-insert picker (#253) only ever offers images, never the same table's
+	// audio rows - `mediaAssetsForEntity` doesn't filter by kind because its one other
+	// caller (the Images tab) never attaches audio to an entity in the first place, but
+	// this filters explicitly rather than leaning on that being true forever.
+	const imageAssets = (await mediaAssetsForEntity(conn, current.id)).filter(
+		(asset) => asset.kind === 'image'
+	);
 
 	return {
-		universe: { slug: world.slug, name: world.name },
+		universe: { slug: world.slug, name: world.name, aiEnabled: world.aiEnabled },
 		entity: {
 			id: current.id,
 			type: current.type,
@@ -57,7 +70,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			aliases: current.aliases,
 			body: current.body
 		},
-		mentionTargets: universeEntities
+		mentionTargets: universeEntities,
+		media: {
+			assets: imageAssets.map((asset) => ({
+				id: asset.id,
+				mimeType: asset.mimeType,
+				generated: asset.generated
+			}))
+		}
 	};
 };
 

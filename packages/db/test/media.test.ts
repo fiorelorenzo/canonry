@@ -10,11 +10,18 @@
  * cross-file locking needed - unlike packages/media's own image_model_config tests,
  * which share `portrait`/`variants` across two files and take an advisory lock for it.
  */
+import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { closeDb, upsertImageModel, type Db } from '../src/index.js';
+import {
+	closeDb,
+	createMediaAsset,
+	setMediaAssetPublished,
+	upsertImageModel,
+	type Db
+} from '../src/index.js';
 import { imageModelConfig } from '../src/schema/media.js';
-import { testDb } from './helpers.js';
+import { insertHomebrewUniverse, testDb } from './helpers.js';
 
 const FEATURE = 'scene' as const;
 const IMAGE_PRICE_PARAM_KEYS = ['pricePerImage', 'currency'] as const;
@@ -123,5 +130,43 @@ describe('upsertImageModel (queries/media.ts, issue #235)', () => {
 		});
 
 		expect(updated.params).toEqual({ pricePerImage: 0.09, currency: 'USD', imagesPerRequest: 1 });
+	});
+});
+
+describe('setMediaAssetPublished (queries/media.ts, issue #254)', () => {
+	let db: Db;
+
+	beforeAll(() => {
+		db = testDb();
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	it('flips published_to_players in both directions and touches nothing else on the row', async () => {
+		const u = await insertHomebrewUniverse(db);
+		const created = await createMediaAsset(db, {
+			universeId: u.id,
+			kind: 'image',
+			path: '/media/publish-query-test.png',
+			mimeType: 'image/png',
+			bytes: 128
+		});
+		expect(created.publishedToPlayers).toBe(false);
+
+		const published = await setMediaAssetPublished(db, created.id, true);
+		expect(published.publishedToPlayers).toBe(true);
+		expect(published.path).toBe(created.path);
+		expect(published.mimeType).toBe(created.mimeType);
+		expect(published.entityId).toBe(created.entityId);
+		expect(published.bytes).toBe(created.bytes);
+
+		const unpublished = await setMediaAssetPublished(db, created.id, false);
+		expect(unpublished.publishedToPlayers).toBe(false);
+	});
+
+	it('throws for an id that does not exist, rather than silently doing nothing', async () => {
+		await expect(setMediaAssetPublished(db, randomUUID(), true)).rejects.toThrow();
 	});
 });

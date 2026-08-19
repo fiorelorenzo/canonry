@@ -12,11 +12,13 @@
  * pages, one of them (`The Sunken Archive`) with both its own attachment folder and a
  * subpage folder holding `Flooded Stacks.htm`.
  */
-import { InMemorySourceReader } from '@canonry/import';
-import { describe, expect, it } from 'vitest';
+import { estimateImportJob, InMemorySourceReader } from '@canonry/import';
+import { closeDb, createDb, type Db } from '@canonry/db';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	detectSource,
 	documentsForPlaybook,
+	estimateAveragesFor,
 	KNOWN_PLAYBOOK_IDS,
 	PLAYBOOK_LABELS
 } from './onboarding.js';
@@ -78,5 +80,58 @@ describe('onenote export detection and enumeration (issue #162)', () => {
 		expect(docs.map((d) => d.sourcePath).sort()).toEqual(
 			[WARDEN_PATH, ARCHIVE_PATH, STACKS_PATH].sort()
 		);
+	});
+});
+
+describe('estimateAveragesFor cold start for onenote (issue #261)', () => {
+	const DATABASE_URL =
+		process.env.TEST_DATABASE_URL ??
+		process.env.DATABASE_URL ??
+		'postgres://canonry:canonry@127.0.0.1:55432/canonry';
+	let db: Db;
+
+	beforeAll(() => {
+		db = createDb(DATABASE_URL, { max: 3 });
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	it('is calibrated from the two real jobs #261 measured, not the old flat 0.25-credit guess', async () => {
+		// No onenote import_job row exists in a freshly migrated test database, so this
+		// exercises the cold-start branch (estimateAveragesFor's own "nobody has ever run
+		// this playbook on this deployment yet" case), same as a brand-new deployment.
+		const averages = await estimateAveragesFor(db, 'onenote');
+		// The real jobs behind #261 spent 2.8826 and 2.7496 credits on their first
+		// document - the cold-start average must sit in that neighbourhood, not near the
+		// old 0.25 guess that produced a "4 credits" estimate for fourteen documents.
+		expect(averages.avgCreditsPerDocument).toBeGreaterThan(2.5);
+		expect(averages.avgCreditsPerDocument).toBeLessThan(3.1);
+		expect(averages.avgSecondsPerDocument).toBe(20);
+	});
+
+	it('feeds a fourteen-document job estimate well above the old 4-credit number that stopped the real job', async () => {
+		const averages = await estimateAveragesFor(db, 'onenote');
+		const estimate = estimateImportJob({
+			documentCount: 14,
+			avgCreditsPerDocument: averages.avgCreditsPerDocument,
+			avgSecondsPerDocument: averages.avgSecondsPerDocument
+		});
+		expect(estimate.estimatedCredits).toBeGreaterThan(30);
+	});
+
+	it('issue #272: obsidian is no longer stuck at its old 1-credit-for-three-documents guess', async () => {
+		// The exact failure Main hit driving the real UI: a 3-note Obsidian vault stopped
+		// at the ceiling after one document because only onenote's row had been
+		// recalibrated. Every playbook's cold-start row now comes from
+		// @canonry/import's estimate.ts, not a second private copy.
+		const averages = await estimateAveragesFor(db, 'obsidian');
+		const estimate = estimateImportJob({
+			documentCount: 3,
+			avgCreditsPerDocument: averages.avgCreditsPerDocument,
+			avgSecondsPerDocument: averages.avgSecondsPerDocument
+		});
+		expect(estimate.estimatedCredits).toBeGreaterThan(5);
 	});
 });

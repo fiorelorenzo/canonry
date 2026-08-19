@@ -164,6 +164,7 @@ export {
 	isPubliclyVisible,
 	listPublicEntities,
 	publicEntityBySlug,
+	publicMediaAssetById,
 	type RevelationRow,
 	type RevealEntityInput,
 	type RevealFactInput,
@@ -175,7 +176,8 @@ export {
 	type PublicFactRow,
 	type PublicRelationRow,
 	type PublicImageRow,
-	type PublicEntity
+	type PublicEntity,
+	type PublicMediaAssetRow
 } from './queries/players.js';
 export {
 	getDataSource,
@@ -210,6 +212,7 @@ export {
 	attachMediaAsset,
 	mediaAssetById,
 	mediaAssetsByIds,
+	setMediaAssetPublished,
 	type ImageModelRow,
 	type UpsertImageModelInput,
 	type EntryStyleContext,

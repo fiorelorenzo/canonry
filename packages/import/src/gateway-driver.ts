@@ -145,8 +145,25 @@ const CHARS_PER_TOKEN_ESTIMATE = 4;
  * issue #134 (the call went out with no `maxOutputTokens` at all, bounded only by
  * whatever the provider defaults to), so this number is a considered ceiling, not a
  * measurement of one - `runDocument`'s "every tool call in this step failed to parse"
- * check below exists precisely because 8192 is a judgment call, not a guarantee. */
-const STEP_MAX_OUTPUT_TOKENS = 8192;
+ * check below exists precisely because 8192 is a judgment call, not a guarantee.
+ *
+ * Raised from 8192 to 24576 on 2026-08-19, on measurement rather than on a second guess.
+ * The prediction above, that six or seven proposals in one turn is "well above what a
+ * normal paragraph-dense passage should produce", is wrong for real worldbuilding prose: a
+ * three-note Obsidian vault taken from a real community world produced 24 to 29 proposals
+ * across its documents, and both the OneNote and the Obsidian runs died on their densest
+ * page with exactly the failure this comment anticipated, "every tool call in this step
+ * failed to parse". A region page that names a dozen settlements, ruins and factions is
+ * not an edge case, it is the normal shape of the thing we import.
+ *
+ * Raising it is close to free, which is the other half of why. The same Obsidian job spent
+ * 747,111 input tokens against 5,587 output tokens, a ratio of 134 to 1, because every step
+ * resends the accumulated transcript (#271). An output cap is therefore not where a job's
+ * money goes, and trading a little worst-case output for a document that finishes at all is
+ * plainly worth it. What this does not fix is the underlying fragility: a step whose calls
+ * all truncate still fails its document rather than retrying with a smaller ask, which is
+ * #273. This buys room, it does not make the loop robust. */
+const STEP_MAX_OUTPUT_TOKENS = 24576;
 
 /** Rough, constant-per-tool overhead for the JSON-schema encoding every enabled tool's
  * definition costs on top of the conversation itself. The tool set never changes mid-run,

@@ -334,6 +334,18 @@ function patchType(patch: unknown): EntityType | null {
 	return typeof value === 'string' ? (value as EntityType) : null;
 }
 
+/** The name a `create`/`draft_entity` patch declares. Those two kinds have no target
+ * entity yet, so `targetEntity` is null for them by construction (see
+ * `ProposalCandidate.targetEntity` above) and the queue used to fall back to a generic
+ * "New entry" label, which asked a GM to accept a new entry without ever showing which
+ * one. The name is right there in the patch `acceptProposal` will read, so read it here
+ * too rather than inventing a second source of truth for it. */
+function patchName(patch: unknown): string | null {
+	if (typeof patch !== 'object' || patch === null) return null;
+	const value = (patch as Record<string, unknown>).name;
+	return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
 /** Resolves a flat list of proposal rows into display-ready candidates in one pass: every
  * entity id any of them reference (target or related) is fetched in a single batched
  * query, and every relation type the same way, rather than one query per row. */
@@ -561,7 +573,12 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 	const p = candidate.proposal;
 	let diff: FactChange[] = [];
 	if (p.kind === 'update' || p.kind === 'create' || p.kind === 'draft_entity') {
-		const after = readPatchAfter(p.patch) ?? '';
+		// A `create`/`draft_entity` patch keeps its prose in `body`, not in `after`: that is
+		// the field `readEntityCreatePatch` reads in `packages/db`'s `acceptProposal`, so it
+		// is the field this display path has to read too. Without it the queue rendered an
+		// empty diff for every new entry an import proposed, which meant accepting one with
+		// its body never shown.
+		const after = readPatchAfter(p.patch) ?? readPatchBody(p.patch) ?? '';
 		const before =
 			p.kind === 'update' ? (readPatchBefore(p.patch) ?? candidate.targetEntity?.body ?? '') : '';
 		if (before || after) diff = semanticDiff(before, after);
@@ -602,8 +619,8 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 		rationale: p.rationale,
 		rejectReason: p.rejectReason,
 		credits: p.credits,
-		targetName: candidate.targetEntity?.name ?? null,
-		targetType: candidate.targetEntity?.type ?? null,
+		targetName: candidate.targetEntity?.name ?? patchName(p.patch),
+		targetType: candidate.targetEntity?.type ?? patchType(p.patch),
 		targetSlug: candidate.targetEntity?.slug ?? null,
 		relatedName: candidate.relatedEntity?.name ?? null,
 		relationLabel: candidate.relationType?.label ?? null,
@@ -734,6 +751,12 @@ export async function pendingUpdateProposalsForEntity(
 function readPatchAfter(patch: unknown): string | null {
 	if (typeof patch !== 'object' || patch === null) return null;
 	const value = (patch as Record<string, unknown>).after;
+	return typeof value === 'string' ? value : null;
+}
+
+function readPatchBody(patch: unknown): string | null {
+	if (typeof patch !== 'object' || patch === null) return null;
+	const value = (patch as Record<string, unknown>).body;
 	return typeof value === 'string' ? value : null;
 }
 

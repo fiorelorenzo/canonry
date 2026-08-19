@@ -21,7 +21,12 @@ export {
 	type ImageModelParams
 } from './models.js';
 
-export { composePrompt, type ComposePromptInput } from './prompt.js';
+export {
+	composePrompt,
+	composeRegeneratePrompt,
+	type ComposePromptInput,
+	type ComposeRegeneratePromptInput
+} from './prompt.js';
 
 export {
 	resolveStyle,
@@ -79,6 +84,8 @@ export {
 	imageCountForFeature,
 	AiDisabledError,
 	UnsupportedImageFeatureError,
+	MediaAssetNotOwnedError,
+	MediaAssetHasNoPromptError,
 	type GenerateImagesInput,
 	type GenerateImagesResult
 } from './generate.js';

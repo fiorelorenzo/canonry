@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	applyMentionSelection,
 	findActiveTrigger,
+	insertImage,
 	insertLink,
 	insertMentionTrigger,
 	matchTargets,
@@ -59,6 +60,26 @@ describe('insertLink', () => {
 		expect(result.source).toBe('See the [Rat]().');
 		expect(result.selectionStart).toBe(result.selectionEnd);
 		expect(result.source.slice(0, result.selectionStart)).toBe('See the [Rat](');
+	});
+});
+
+describe('insertImage', () => {
+	it('writes the image markdown with a default alt when the selection is empty', () => {
+		const result = insertImage('See the tavern.', 8, 8, '/w/w1/e/rat/media/a1');
+		expect(result.source).toBe('See the ![image](/w/w1/e/rat/media/a1)tavern.');
+	});
+
+	it('uses a non-empty selection as the alt text', () => {
+		const result = insertImage('See the Rat.', 8, 11, '/w/w1/e/rat/media/a1');
+		expect(result.source).toBe('See the ![Rat](/w/w1/e/rat/media/a1).');
+	});
+
+	it('collapses the caret to just past the inserted markdown', () => {
+		const result = insertImage('See the Rat.', 8, 11, '/w/w1/e/rat/media/a1');
+		const inserted = '![Rat](/w/w1/e/rat/media/a1)';
+		expect(result.selectionStart).toBe(result.selectionEnd);
+		expect(result.selectionStart).toBe(8 + inserted.length);
+		expect(result.source.slice(0, result.selectionStart)).toBe(`See the ${inserted}`);
 	});
 });
 

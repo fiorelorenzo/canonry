@@ -7,13 +7,16 @@
  * side of the line, and §6.5 relies on that: "file handling is deterministic code, so a
  * malicious archive meets a zip reader with limits, not a model with imagination."
  *
- * The real implementation - an actual zip/archive reader with size and path-traversal
- * limits, and a real PDF page renderer - is issue #25. This module only defines the
- * seam and an in-memory double for tests: a job's `SourceReader` is scoped to exactly
- * one unpacked export by construction, which is also how SPEC.md §6.5's "every tool
- * call is checked against the job's universe" holds here - a document from a different
- * job's export is simply not reachable through this interface, there is no path that
- * reaches it.
+ * The real implementation shipped for issue #25: `ArchiveSourceReader` in `archive.ts`,
+ * an actual zip/archive reader with size and path-traversal limits
+ * (`DEFAULT_ARCHIVE_LIMITS`), and a real PDF page renderer. `apps/web/src/routes/
+ * onboarding/import/+page.server.ts` opens it in three places: validating an upload,
+ * detecting its playbook, and enumerating its documents. This module defines the seam
+ * those call sites and the job runner share, plus an in-memory double for tests: a
+ * job's `SourceReader` is scoped to exactly one unpacked export by construction, which
+ * is also how SPEC.md §6.5's "every tool call is checked against the job's universe"
+ * holds here - a document from a different job's export is simply not reachable through
+ * this interface, there is no path that reaches it.
  */
 
 export interface SourceEntry {
@@ -60,9 +63,10 @@ export class SourceNotFoundError extends Error {
 }
 
 /**
- * In-memory test double (issue #25 stands in for the real archive reader). Built from a
- * flat map of path to text content; `list` derives directories from the path prefixes
- * present in the map, so a fixture only has to declare its files.
+ * In-memory test double, kept alongside the real `ArchiveSourceReader` (`archive.ts`)
+ * because a fixture built from a flat map of path to text content is cheaper to write
+ * than a real zip. `list` derives directories from the path prefixes present in the
+ * map, so a fixture only has to declare its files.
  */
 export class InMemorySourceReader implements SourceReader {
 	private readonly files: ReadonlyMap<string, string>;

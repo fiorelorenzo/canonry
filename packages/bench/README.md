@@ -27,7 +27,14 @@ rendered into every source format:
 | `pdf`         | pdf         | an eight-page handout, five pages of text and **three scans with no text layer**: typed, photocopied, handwriting-style                                             |
 | `docx`        | docx        | two pandoc-built Word documents, one English and one Italian                                                                                                        |
 | `generic`     | generic     | a GM's actual notes: several sessions in one file, a bullet list of NPCs, a rambling place description, a housekeeping file that yields nothing, one file with CRLF |
-| `onenote`     | generic     | a OneNote HTML export, which currently imports nothing at all (issue #162)                                                                                          |
+| `onenote`     | onenote     | a folder tree of exported OneNote pages: `notebook/section/page.htm`, a subpage in a folder named after its parent, an attachment in a sibling `_files/` folder     |
+
+The `reports/2026-08-16/import-e2e.md` run is the last full read of every source through
+`import-e2e`: 10 documents and 15 proposals for `onenote`, and re-import came back
+non-idempotent for `onenote`, `obsidian` and `world-anvil`. Read that "no" as dated, not
+current: the cause it names, `entity_propose` never checking the `sourceRef.path` a model
+claims against the document it actually came from (issue #186), was fixed afterwards by
+#205. Nobody has re-run `import-e2e` since to confirm the three sources idempotent now.
 
 Every format ships as `v1` and `v2`, where `v2` is the same world exported a month later:
 six entries changed at the source, one renamed (`The Gilded Rat` becomes `Il Ratto Dorato`,

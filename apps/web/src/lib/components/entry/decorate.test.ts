@@ -31,4 +31,11 @@ describe('decorateMarkdown', () => {
 		expect(html).toContain('##');
 		expect(html).toContain('Standing in the city');
 	});
+
+	it('decorates image markdown like a link, leading ! included', () => {
+		const html = decorateMarkdown('See ![the Rat](/w/w1/e/rat/media/a1) below.', []);
+		expect(html).toContain(
+			'<span class="text-accent-ink underline decoration-line-2">![the Rat](/w/w1/e/rat/media/a1)</span>'
+		);
+	});
 });

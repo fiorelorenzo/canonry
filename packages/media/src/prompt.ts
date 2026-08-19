@@ -8,6 +8,11 @@
 
 const MAX_DESCRIPTION_CHARS = 600;
 
+// #255: how much of the user's regeneration instruction survives into the prompt - same
+// budget-by-truncation idea as MAX_DESCRIPTION_CHARS, just smaller, since an instruction
+// is meant to be a short correction ("older, and lose the helmet"), not a rewrite.
+const MAX_INSTRUCTION_CHARS = 300;
+
 export interface ComposePromptInput {
 	name: string;
 	/** Entry body, already stripped of markdown/mention syntax by the caller. */
@@ -32,4 +37,26 @@ export function composePrompt(input: ComposePromptInput): string {
 	const base = description.length > 0 ? `${input.name}. ${description}` : input.name;
 	const trimmedStyle = input.styleModifier?.trim();
 	return trimmedStyle ? `${base}, ${trimmedStyle}` : base;
+}
+
+export interface ComposeRegeneratePromptInput {
+	/** The prior attempt's own stored `media_asset.prompt` (#255). Used verbatim as the
+	 * base - already built, already truncated, already carrying whatever style it had -
+	 * so a regeneration is a variation on the picture the user is looking at rather than
+	 * a fresh roll from the entry text through composePrompt above. */
+	priorPrompt: string;
+	/** The user's stated fix. Plain appended text: this function has no notion of a
+	 * "command", so there is nothing here for an instruction to do beyond lengthen the
+	 * string that gets sent to the image model - see generate.ts's header comment for the
+	 * full reasoning (SPEC.md §6.5's "treat it as data" pattern, applied to a string
+	 * concatenation instead of a tool-calling loop). */
+	instruction: string;
+}
+
+/** #255: builds the prompt for a regeneration. Truncated on a word boundary the same way
+ * composePrompt truncates a description, so a pasted essay cannot blow the prompt budget
+ * or the provider's own input limit. */
+export function composeRegeneratePrompt(input: ComposeRegeneratePromptInput): string {
+	const instruction = truncate(input.instruction, MAX_INSTRUCTION_CHARS);
+	return instruction ? `${input.priorPrompt}. ${instruction}` : input.priorPrompt;
 }

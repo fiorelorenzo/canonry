@@ -14,8 +14,16 @@
  * never sees - a side channel `stripSecretsForPlayers` was supposed to close.
  */
 import { randomUUID } from 'node:crypto';
-import { closeDb, createDb, eq, isPubliclyVisible, revealEntityLive, type Db } from '@canonry/db';
-import { entity, universe, user } from '@canonry/db/schema';
+import {
+	closeDb,
+	createDb,
+	eq,
+	isPubliclyVisible,
+	revealEntityLive,
+	setMediaAssetPublished,
+	type Db
+} from '@canonry/db';
+import { entity, mediaAsset, universe, user } from '@canonry/db/schema';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { renderMarkdown } from '$lib/markdown';
 import {
@@ -105,6 +113,7 @@ describe('publicMentionTargetsFrom (#220)', () => {
 describe('loadPublicEntity language detection (#127)', () => {
 	let db: Db;
 	let universeId: string;
+	let universeSlug: string;
 	let ownerUserId: string;
 	let sessionEntityId: string;
 
@@ -129,6 +138,7 @@ describe('loadPublicEntity language detection (#127)', () => {
 			.returning();
 		if (!uni) throw new Error('universe insert did not return a row');
 		universeId = uni.id;
+		universeSlug = uni.slug;
 
 		const [session] = await db
 			.insert(entity)
@@ -152,7 +162,7 @@ describe('loadPublicEntity language detection (#127)', () => {
 			.returning({ id: entity.id });
 		if (!row) throw new Error('entity insert did not return a row');
 		await revealEntityLive(db, { universeId, entityId: row.id, sessionEntityId });
-		const result = await loadPublicEntity(db, universeId, slug);
+		const result = await loadPublicEntity(db, universeId, universeSlug, slug);
 		if (!result) throw new Error('loadPublicEntity returned nothing for a revealed entity');
 		return result;
 	}
@@ -198,9 +208,110 @@ describe('loadPublicEntity language detection (#127)', () => {
 		await db
 			.insert(entity)
 			.values({ universeId, type: 'place', name: 'Undiscovered Place', slug, body: ENGLISH_BODY });
-		const result = await loadPublicEntity(db, universeId, slug);
+		const result = await loadPublicEntity(db, universeId, universeSlug, slug);
 		if (!result) throw new Error('loadPublicEntity returned nothing for a gap entity');
 		expect(result.entity.status).toBe('gap');
 		expect('language' in result.entity).toBe(false);
+	});
+});
+
+describe('loadPublicEntity body image resolution (#254)', () => {
+	let db: Db;
+	let universeId: string;
+	let universeSlug: string;
+	let ownerUserId: string;
+	let sessionEntityId: string;
+
+	beforeAll(async () => {
+		db = createDb(DATABASE_URL, { max: 3 });
+		const userId = unique('players-body-image-user');
+		const [owner] = await db
+			.insert(user)
+			.values({ id: userId, name: 'Body Image Test Owner', email: `${userId}@example.test` })
+			.returning();
+		if (!owner) throw new Error('user insert did not return a row');
+		ownerUserId = owner.id;
+
+		const [uni] = await db
+			.insert(universe)
+			.values({
+				ownerUserId: owner.id,
+				name: 'Body Image Test Universe',
+				slug: unique('players-body-image-universe'),
+				kind: 'homebrew'
+			})
+			.returning();
+		if (!uni) throw new Error('universe insert did not return a row');
+		universeId = uni.id;
+		universeSlug = uni.slug;
+
+		const [session] = await db
+			.insert(entity)
+			.values({ universeId, type: 'session', name: 'Session 1', slug: unique('session') })
+			.returning({ id: entity.id });
+		if (!session) throw new Error('session entity insert did not return a row');
+		sessionEntityId = session.id;
+	});
+
+	afterAll(async () => {
+		await db.delete(universe).where(eq(universe.id, universeId));
+		await db.delete(user).where(eq(user.id, ownerUserId));
+		await closeDb(db);
+	});
+
+	it('rewrites a published, visible image to the public route, and strips an unpublished one entirely - not a broken <img>, no leaked filename', async () => {
+		const entrySlug = unique('entry-with-image');
+		const [row] = await db
+			.insert(entity)
+			.values({ universeId, type: 'character', name: 'Body Image Entry', slug: entrySlug })
+			.returning({ id: entity.id });
+		if (!row) throw new Error('entity insert did not return a row');
+		await revealEntityLive(db, { universeId, entityId: row.id, sessionEntityId });
+
+		const [published] = await db
+			.insert(mediaAsset)
+			.values({
+				universeId,
+				entityId: row.id,
+				kind: 'image',
+				path: '/media/body-image-published.png',
+				mimeType: 'image/png',
+				generated: true,
+				publishedToPlayers: false
+			})
+			.returning({ id: mediaAsset.id });
+		if (!published) throw new Error('media asset insert did not return a row');
+		await setMediaAssetPublished(db, published.id, true);
+
+		const [unpublished] = await db
+			.insert(mediaAsset)
+			.values({
+				universeId,
+				entityId: row.id,
+				kind: 'image',
+				path: '/media/body-image-unpublished.png',
+				mimeType: 'image/png',
+				generated: true,
+				publishedToPlayers: false
+			})
+			.returning({ id: mediaAsset.id });
+		if (!unpublished) throw new Error('media asset insert did not return a row');
+
+		const body =
+			`Before the image.\n\n` +
+			`![the published one](/w/${universeSlug}/e/${entrySlug}/media/${published.id})\n\n` +
+			`![the unpublished one](/w/${universeSlug}/e/${entrySlug}/media/${unpublished.id})\n\n` +
+			`After the image.`;
+		await db.update(entity).set({ body }).where(eq(entity.id, row.id));
+
+		const result = await loadPublicEntity(db, universeId, universeSlug, entrySlug);
+		if (!result || result.entity.status !== 'full') throw new Error('expected a full entity');
+
+		expect(result.entity.body).toContain(`/p/${universeSlug}/media/${published.id}`);
+		expect(result.entity.body).not.toContain(`/w/${universeSlug}`);
+		expect(result.entity.body).not.toContain(unpublished.id);
+		expect(result.entity.body).not.toContain('the unpublished one');
+		expect(result.entity.body).toContain('Before the image.');
+		expect(result.entity.body).toContain('After the image.');
 	});
 });

@@ -472,3 +472,59 @@ export async function publicEntityBySlug(
 		images: imageRows
 	};
 }
+
+export interface PublicMediaAssetRow {
+	path: string;
+	mimeType: string;
+}
+
+/** #254's `GET /p/[universe]/media/[id]` route gate, and its own body-image resolver in
+ * `apps/web/src/lib/server/players.ts`. Deliberately built as the same two steps
+ * `publicEntityBySlug` above already takes for its own entity - first the row joined
+ * against `entity.visibility != 'gm_only'`, then a confirmed `'entity'` revelation check
+ * - plus one more leg, `published_to_players`, since publication and visibility are two
+ * independent switches and an image needs both: a GM's publish click is not itself a
+ * revelation, and a revealed entity's images are not published by that reveal (guardrail
+ * 6, issue #71). Undefined for any leg failing: wrong universe, unpublished, gm_only
+ * entity, unrevealed entity, or an asset with no entity at all - a caller renders all of
+ * those identically, the same "nothing here" `publicEntityBySlug`'s own doc comment
+ * describes for its entity lookup. */
+export async function publicMediaAssetById(
+	db: Db,
+	universeId: string,
+	id: string
+): Promise<PublicMediaAssetRow | undefined> {
+	const [row] = await db
+		.select({
+			path: mediaAsset.path,
+			mimeType: mediaAsset.mimeType,
+			entityId: mediaAsset.entityId
+		})
+		.from(mediaAsset)
+		.innerJoin(entity, eq(entity.id, mediaAsset.entityId))
+		.where(
+			and(
+				eq(mediaAsset.id, id),
+				eq(mediaAsset.universeId, universeId),
+				eq(mediaAsset.publishedToPlayers, true),
+				ne(entity.visibility, GM_ONLY_VISIBILITY)
+			)
+		)
+		.limit(1);
+	if (!row) return undefined;
+
+	const [revealRow] = await db
+		.select({ confirmedAt: revelation.confirmedAt })
+		.from(revelation)
+		.where(
+			and(
+				eq(revelation.entityId, row.entityId!),
+				eq(revelation.kind, 'entity'),
+				isNotNull(revelation.confirmedAt)
+			)
+		)
+		.limit(1);
+	if (!revealRow?.confirmedAt) return undefined;
+
+	return { path: row.path, mimeType: row.mimeType };
+}
