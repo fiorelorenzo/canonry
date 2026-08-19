@@ -261,7 +261,10 @@ score as noise rather than as a decision.
 `image_feature` has three values and `image_model_config` had two rows, so `scene` was
 reachable from the type system and dead in the database. This is the measurement that gave it
 a row, and it is the first time any image model in this product has been measured rather than
-cited: `portrait` and `variants` still hold whatever migration 0011 seeded.
+cited. `portrait` and `variants` were still holding whatever migration 0011 seeded when this
+section was written; issue #333 has since corrected both of them to the same list prices the
+table below reads off, which is the one thing this sweep turned up about models it was not
+measuring (migration 0044).
 
 The harness is `packages/bench/src/media/scene.ts`. It runs the product's own
 `composePrompt` with the feature the image will really carry, resolves the model out of

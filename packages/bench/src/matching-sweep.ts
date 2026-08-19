@@ -477,9 +477,9 @@ async function main(): Promise<void> {
 		// Tokens as the provider reported them, never a credit figure. Issue #271's measurement
 		// found `computeCost` prices a cached input token as fresh, so credits currently
 		// overstate spend on any purpose where a provider serves from its own implicit cache.
-		// It does not reach this run - `index.embed` is a zero-credit reading operation and this
-		// script does not bill at all - and reporting the raw count keeps it that way rather
-		// than leaving a reader to wonder which side of #271 the number came from.
+		// It does not reach this run - `import.match.embed` is a zero-credit reading operation
+		// and this script does not bill at all - and reporting the raw count keeps it that way
+		// rather than leaving a reader to wonder which side of #271 the number came from.
 		let embedTokens = 0;
 		const embed = async (texts: string[]): Promise<number[][]> => {
 			embedCalls += 1;

@@ -13,8 +13,10 @@
  * the wiring while spending nothing. A test that skipped itself without credentials would
  * assert nothing at all in CI, which is exactly where the regression would land.
  */
-import { closeDb, createDb, type Db } from '@canonry/db';
+import { closeDb, createDb, priceOf, type Db } from '@canonry/db';
 import { clearModelCache } from '@canonry/ai';
+import type * as Indexing from '@canonry/indexing';
+import type { GatewayEmbedderDeps } from '@canonry/indexing';
 import {
 	EMBEDDING_MATCH_THRESHOLDS,
 	lexicalTrigramSimilarity,
@@ -27,11 +29,27 @@ import { resolveImportSimilarity } from './onboarding.js';
  * file, so its factory runs while `./onboarding.js` is being loaded, which is before a
  * normal top-level `const` has initialised. Mutating this object per test is the whole
  * point - the two branches differ only in whether `AI_GATEWAY_API_KEY` is set. */
-const { gatewayEnv } = vi.hoisted(() => ({
-	gatewayEnv: {} as Record<string, string | undefined>
+const { gatewayEnv, embedderDeps } = vi.hoisted(() => ({
+	gatewayEnv: {} as Record<string, string | undefined>,
+	embedderDeps: [] as Array<{ operation?: string }>
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: gatewayEnv }));
+
+/** Wraps `createGatewayEmbedder` rather than replacing it, so every other test in this file
+ * runs against the real one and only the arguments become observable. Which `operation_price`
+ * row a matching embed is attributed to is decided here, at the composition root, and it is
+ * decided by one string that nothing else in the codebase reads (issue #309). */
+vi.mock('@canonry/indexing', async (importActual) => {
+	const actual = await importActual<typeof Indexing>();
+	return {
+		...actual,
+		createGatewayEmbedder: (deps: GatewayEmbedderDeps) => {
+			embedderDeps.push({ operation: deps.operation });
+			return actual.createGatewayEmbedder(deps);
+		}
+	};
+});
 
 const DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
@@ -50,6 +68,7 @@ afterAll(async () => {
 
 beforeEach(() => {
 	for (const key of Object.keys(gatewayEnv)) delete gatewayEnv[key];
+	embedderDeps.length = 0;
 	clearModelCache();
 });
 
@@ -104,5 +123,26 @@ describe('resolveImportSimilarity (issue #279)', () => {
 		// cosine the labelled corpus produced was 0.642, so a `newBelow` from the trigram band
 		// is unreachable for the embedding scorer and its "new" outcome would never fire.
 		expect(embedding.thresholds.newBelow).toBeGreaterThan(lexical.thresholds.newBelow);
+	});
+
+	it('bills a matching embed against import matching own price row, not canon-save (issue #309)', async () => {
+		gatewayEnv.AI_GATEWAY_API_KEY = 'test-key-not-a-real-credential';
+
+		await resolveImportSimilarity(db, {
+			userId: 'irrelevant-no-call-is-made',
+			universeId: null
+		});
+
+		// The label is the whole of issue #309: these calls are the semantic step of SPEC.md
+		// §6.4's matching order, and attributing them to `index.embed` folded import matching's
+		// gateway spend into canon-save's in `model_call`.
+		expect(embedderDeps).toEqual([{ operation: 'import.match.embed' }]);
+
+		// And the row it now names really is priced, at zero, so the relabel costs a GM nothing
+		// and cannot fail an import: `withUsage` throws on an operation with no price row at
+		// all, which is what a relabel without migration 0044 would have produced.
+		const price = await priceOf(db, 'import.match.embed');
+		expect(price.credits).toBe(0);
+		expect(price.kind).toBe('reading');
 	});
 });

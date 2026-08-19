@@ -309,6 +309,13 @@
       "when": 1787171744351,
       "tag": "0043_cached_input_prices",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1787172896851,
+      "tag": "0044_import_match_embed_and_real_image_prices",
+      "breakpoints": true
     }
   ]
 }
