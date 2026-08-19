@@ -53,7 +53,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			await auth.api.resetPassword({ body: { newPassword, token } });
+			await auth().api.resetPassword({ body: { newPassword, token } });
 		} catch (err) {
 			if (err instanceof APIError) {
 				return fail(400, { error: err.message ?? t.invalidToken });

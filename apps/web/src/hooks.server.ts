@@ -4,7 +4,7 @@
  * Auth's session resolution and request interception (issue #86).
  *
  * `svelteKitHandler` (from `better-auth/svelte-kit`) matches the request URL against
- * `/api/auth/*` and, when it matches, calls `auth.handler` directly instead of `resolve`
+ * `/api/auth/*` and, when it matches, calls `auth().handler` directly instead of `resolve`
  * - that is the entire SvelteKit mount, no catch-all route file needed (see the doc
  * comment on `$lib/server/auth.ts`). For every other path it falls through to the
  * `resolve` passed in below, which is the same theme-rewriting resolve this file always
@@ -17,15 +17,15 @@
  * `event.locals.session`/`user`/`locale` are populated before that branch, so a route
  * loader, a form action and the auth handler itself all see the same thing.
  *
- * Issue #115: `startCanonSaveJobWorker()` is called once here, at module load, the same
- * `building`-guarded eager-init pattern `$lib/server/auth.ts` already uses (see that
- * file's own doc comment for why `building` is the right guard: SvelteKit's postbuild
- * route analysis imports every server module with no environment behind it, and a
- * module-level throw or a worker starting against a database that is not there would fail
- * `vite build`/CI for no reason). Every replica's own worker has to start from its own
- * boot, not only from whichever replica happens to receive a save - reclaiming a lease a
- * *different* replica abandoned cannot depend on this one ever being asked to schedule
- * something itself.
+ * Issue #115: `startCanonSaveJobWorker()` is called once here, at module load, guarded by
+ * `building` because SvelteKit's postbuild route analysis imports every server module with
+ * no environment behind it, and a worker starting against a database that is not there
+ * would fail `vite build`/CI for no reason. Every replica's own worker has to start from
+ * its own boot, not only from whichever replica happens to receive a save - reclaiming a
+ * lease a *different* replica abandoned cannot depend on this one ever being asked to
+ * schedule something itself. Nothing else in this module runs at import: `auth()` builds
+ * its instance on first use (issue #307), so both the mail-sending path set below and the
+ * handler mount reach for it inside `handle` rather than at module scope.
  *
  * Issue #277: the two Better Auth endpoints that send a mail while answering go through
  * `guardMailSendingRequest` instead of straight to `auth.handler`, because Better Auth
@@ -42,7 +42,7 @@ import { parseThemePreference, THEME_COOKIE, themeAttribute } from '$lib/theme';
 import { negotiateLocale, type Locale } from '@canonry/lang';
 import { eq } from '@canonry/db';
 import { user as userTable } from '@canonry/db/schema';
-import type { Cookies, Handle } from '@sveltejs/kit';
+import type { Cookies, Handle, RequestEvent } from '@sveltejs/kit';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
 import { isMailTransportConfigured } from '$lib/server/mail/transport';
@@ -97,50 +97,63 @@ export async function resolveLocale(event: LocaleRequestEvent): Promise<Locale> 
 	return negotiateLocale({ accountPreference, cookie, acceptLanguage });
 }
 
-/** Resolved once, at module load, from the endpoint objects Better Auth actually mounted
- * (`$lib/server/auth.ts` configures exactly these two senders: `sendResetPassword` and
+/** Derived from the endpoint objects Better Auth actually mounted (`$lib/server/auth.ts`
+ * configures exactly these two senders: `sendResetPassword` and
  * `sendDeleteAccountVerification`). A third sender means a third entry here, and
  * `send-guard.ts` derives the paths so a rename upstream cannot silently miss.
  *
+ * Memoised on first use rather than resolved at module load, because reading `auth()`
+ * builds the Better Auth instance and this module is one of the ones SvelteKit's postbuild
+ * `analyse` step imports (issue #307). The set is the same for the life of the process
+ * either way.
+ *
  * `basePath` is read off the options rather than written out, the same way
  * `svelteKitHandler`'s own `isAuthPath` reads it, so a future override lands in one place
- * and not two. `auth.ts` sets none today, which is why the type does not carry the key
- * and the presence check is not decoration. */
-const MAIL_SENDING_AUTH_PATHS = mailSendingAuthPaths(
-	'basePath' in auth.options && typeof auth.options.basePath === 'string'
-		? auth.options.basePath
-		: undefined,
-	[auth.api.requestPasswordReset, auth.api.deleteUser]
-);
+ * and not two. `auth.ts` sets none today, and the option is optional, so the presence check
+ * is what keeps this honest rather than decoration. */
+let mailSendingPathCache: Set<string> | undefined;
+
+function mailSendingPaths(): Set<string> {
+	if (!mailSendingPathCache) {
+		const { api, options } = auth();
+		mailSendingPathCache = mailSendingAuthPaths(
+			typeof options.basePath === 'string' ? options.basePath : undefined,
+			[api.requestPasswordReset, api.deleteUser]
+		);
+	}
+	return mailSendingPathCache;
+}
 
 export const handle: Handle = async ({ event, resolve }) => {
-	const session = building ? null : await auth.api.getSession({ headers: event.request.headers });
+	const session = building ? null : await auth().api.getSession({ headers: event.request.headers });
 	event.locals.session = session?.session ?? null;
 	event.locals.user = session?.user ?? null;
 	event.locals.locale = building ? 'en' : await resolveLocale(event);
 
-	const serve = () =>
-		svelteKitHandler({
-			auth,
-			event,
-			building,
-			resolve: (innerEvent) => {
-				const preference = parseThemePreference(innerEvent.cookies.get(THEME_COOKIE));
-				const attribute = themeAttribute(preference);
-				const locale = event.locals.locale;
+	const rewrite = (innerEvent: RequestEvent) => {
+		const preference = parseThemePreference(innerEvent.cookies.get(THEME_COOKIE));
+		const attribute = themeAttribute(preference);
+		const locale = event.locals.locale;
 
-				return resolve(innerEvent, {
-					transformPageChunk: ({ html }) => {
-						const themed = attribute
-							? html.replace('data-theme-pref', `data-theme="${attribute}"`)
-							: html.replace(' data-theme-pref', '');
-						return themed.replace('lang="en"', `lang="${locale}"`);
-					}
-				});
+		return resolve(innerEvent, {
+			transformPageChunk: ({ html }) => {
+				const themed = attribute
+					? html.replace('data-theme-pref', `data-theme="${attribute}"`)
+					: html.replace(' data-theme-pref', '');
+				return themed.replace('lang="en"', `lang="${locale}"`);
 			}
 		});
+	};
 
-	if (!building && MAIL_SENDING_AUTH_PATHS.has(event.url.pathname)) {
+	// `svelteKitHandler`'s own first statement is `if (building) return resolve(event)`, so
+	// during a build it never looks at the instance it was handed. Taking that branch here
+	// instead is what keeps `auth()` uncalled while the bundler is reading (issue #307).
+	const serve = async () =>
+		building
+			? rewrite(event)
+			: svelteKitHandler({ auth: auth(), event, building, resolve: rewrite });
+
+	if (!building && mailSendingPaths().has(event.url.pathname)) {
 		return guardMailSendingRequest({ configured: isMailTransportConfigured(env), serve });
 	}
 	return serve();

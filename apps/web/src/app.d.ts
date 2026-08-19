@@ -1,6 +1,6 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
-import type { auth } from '$lib/server/auth';
+import type { Auth } from '$lib/server/auth';
 import type { Locale } from '@canonry/lang';
 
 declare global {
@@ -10,8 +10,8 @@ declare global {
 			// Populated once per request in hooks.server.ts from the session cookie
 			// (issue #86). Both null when the request is unauthenticated - every server
 			// load and action reads these instead of re-deriving a session itself.
-			session: typeof auth.$Infer.Session.session | null;
-			user: typeof auth.$Infer.Session.user | null;
+			session: Auth['$Infer']['Session']['session'] | null;
+			user: Auth['$Infer']['Session']['user'] | null;
 			// The one resolved interface locale for this request (issue #120, SPEC.md
 			// §17), negotiated once in hooks.server.ts (see that file's `resolveLocale`)
 			// from the account preference, the `canonry_locale` cookie, then
