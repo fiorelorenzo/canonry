@@ -466,9 +466,8 @@ export const en: Messages = {
 			aiOff: 'Writing is switched off for this universe.'
 		},
 
-		tabs: {
+		sections: {
 			ariaLabel: 'Entry detail',
-			sectionsAriaLabel: 'Entry detail sections',
 			relations: 'Relations',
 			facts: 'Facts',
 			images: 'Images',
@@ -614,6 +613,19 @@ export const en: Messages = {
 				publishedMustBeBoolean: 'published must be a boolean',
 				genericPublishFailedWithStatus: (status) => `Publishing failed (${status})`,
 				genericPublishFailed: 'Publishing failed'
+			},
+
+			cover: {
+				badge: 'Cover',
+				useLabel: 'Use as cover',
+				removeLabel: 'Remove as cover',
+				saving: 'Saving\u2026',
+				explanation:
+					'A cover shows above the title of this entry. Players see it only once the image itself is published.',
+				mediaAssetIdMustBeStringOrNull: 'mediaAssetId must be a string or null',
+				mustBeAnImage: 'Only an image can be a cover',
+				genericCoverFailedWithStatus: (status) => `Setting the cover failed (${status})`,
+				genericCoverFailed: 'Setting the cover failed'
 			}
 		},
 

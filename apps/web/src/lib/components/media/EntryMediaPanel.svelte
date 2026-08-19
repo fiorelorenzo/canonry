@@ -1,7 +1,8 @@
 <script lang="ts">
 	/**
-	 * The Images tab's real content (#65, #66, #71 - the handoff issue #66's own docstring
-	 * in the old entry/ImagesPanel.svelte pointed at, now replaced by this component).
+	 * The Images section's real content (#65, #66, #71 - the handoff issue #66's own
+	 * docstring in the old entry/ImagesPanel.svelte pointed at, now replaced by this
+	 * component).
 	 *
 	 * Two steps, always: generate produces one image or four to choose from, all
 	 * unattached; insert is a separate click that attaches the picked one to this entry.
@@ -9,6 +10,13 @@
 	 * `published_to_players` - the only thing that does is the per-asset publish/unpublish
 	 * button below, a GM's own deliberate click, never a side effect of anything else on
 	 * this panel.
+	 *
+	 * O2 (#284) adds "use as cover" beside it, and the two stay strictly independent
+	 * switches. Setting a cover is the accept guardrail 1 asks for: an image a model made
+	 * becomes the entry's face because somebody pressed this, and nothing in the generation
+	 * path reaches it on its own. Publishing is the other switch, and it is the only one
+	 * players are affected by, which is why the explanation under the grid says so rather
+	 * than leaving a GM to assume a cover is public because it is prominent.
 	 */
 	import { resolve } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
@@ -37,6 +45,7 @@
 		aiEnabled,
 		canWrite,
 		assets: initialAssets,
+		coverAssetId,
 		styleModifier,
 		entityImagePromptModifier,
 		portraitPrice,
@@ -52,6 +61,7 @@
 		aiEnabled: boolean;
 		canWrite: boolean;
 		assets: MediaAssetView[];
+		coverAssetId: string | null;
 		styleModifier: string | null;
 		entityImagePromptModifier: string | null;
 		portraitPrice: number;
@@ -253,6 +263,40 @@
 			publishingId = null;
 		}
 	}
+
+	// O2 (#284): same one-at-a-time shape as `publishingId` above, and a separate variable
+	// rather than a shared "busy" flag, because cover and publish are independent switches
+	// and a GM setting a cover while a publish is still in flight is not a mistake to
+	// prevent.
+	let coveringId = $state<string | null>(null);
+
+	/** The accept guardrail 1 asks for on an image: this is the only call in the app that
+	 * sets `entity.cover_asset_id`, and it exists only behind a button a person presses.
+	 * Pressing it on the asset that is already the cover clears it, so removing a cover is
+	 * the same deliberate act in reverse rather than a second surface. */
+	async function handleToggleCover(asset: MediaAssetView): Promise<void> {
+		error = null;
+		coveringId = asset.id;
+		try {
+			const res = await fetch(`${base}/cover`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ mediaAssetId: coverAssetId === asset.id ? null : asset.id })
+			});
+			if (!res.ok) {
+				const text = await res.text();
+				throw new Error(text || t.entry.media.cover.genericCoverFailedWithStatus(res.status));
+			}
+			// Same reasoning as handleTogglePublish above: `coverAssetId` only ever changes
+			// through its prop, and the band above the title reads the same loader field, so
+			// invalidateAll() is what moves both at once.
+			await invalidateAll();
+		} catch (err) {
+			error = err instanceof Error ? err.message : t.entry.media.cover.genericCoverFailed;
+		} finally {
+			coveringId = null;
+		}
+	}
 </script>
 
 {#if !aiEnabled}
@@ -320,7 +364,12 @@
 		explanation={t.entry.media.explanation}
 	/>
 {:else if assets.length > 0}
-	<div class="mt-2 grid grid-cols-2 gap-2">
+	<!-- O2 (#284): one column rather than two. The aside is 256px, so a two-up grid gave
+	     each cell about 108px, and two per-asset controls do not fit in that at any label
+	     length - which is the same mistake the tab strip this panel now sits inside was
+	     making. The row below wraps as well, so nothing here depends on how long a
+	     translated word happens to be. -->
+	<div class="mt-2 grid grid-cols-1 gap-2">
 		{#each assets as asset (asset.id)}
 			<div class="overflow-hidden rounded-md border border-line">
 				<div class="relative">
@@ -345,42 +394,68 @@
 							{t.entry.media.publish.publishedBadge}
 						</span>
 					{/if}
+					{#if coverAssetId === asset.id}
+						<!-- O2 (#284): which picture is the cover has to be legible on the
+						     picture, the same argument #254 made for publish state - a GM
+						     should not have to scroll up to the band to find out. -->
+						<span
+							class="absolute bottom-1 left-1 rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink uppercase"
+						>
+							{t.entry.media.cover.badge}
+						</span>
+					{/if}
 				</div>
 				<!-- #254: per-asset publish state has to be legible on the asset itself, not
 				     only in a summary sentence below the grid, since the grid is a mix of
 				     published and private pictures once publishing is a real action. -->
-				<div
-					class="flex items-center justify-between gap-2 border-t border-line bg-panel-2 px-2 py-1"
-				>
-					<span class="text-[11px] text-ink-2">
+				<div class="border-t border-line bg-panel-2 px-2 py-1.5">
+					<p class="text-[11px] text-ink-2">
 						{asset.publishedToPlayers
 							? t.entry.media.publish.publishedNote
 							: t.entry.media.publish.privateNote}
-					</span>
+					</p>
 					{#if canWrite}
-						<Button
-							type="button"
-							variant="secondary"
-							size="sm"
-							disabled={publishingId === asset.id}
-							onclick={() => handleTogglePublish(asset)}
-						>
-							{#if publishingId === asset.id}
-								{asset.publishedToPlayers
-									? t.entry.media.publish.unpublishing
-									: t.entry.media.publish.publishing}
-							{:else}
-								{asset.publishedToPlayers
-									? t.entry.media.publish.unpublishLabel
-									: t.entry.media.publish.publishLabel}
-							{/if}
-						</Button>
+						<div class="mt-1.5 flex flex-wrap gap-1.5">
+							<Button
+								type="button"
+								variant="secondary"
+								size="sm"
+								disabled={publishingId === asset.id}
+								onclick={() => handleTogglePublish(asset)}
+							>
+								{#if publishingId === asset.id}
+									{asset.publishedToPlayers
+										? t.entry.media.publish.unpublishing
+										: t.entry.media.publish.publishing}
+								{:else}
+									{asset.publishedToPlayers
+										? t.entry.media.publish.unpublishLabel
+										: t.entry.media.publish.publishLabel}
+								{/if}
+							</Button>
+							<Button
+								type="button"
+								variant="secondary"
+								size="sm"
+								disabled={coveringId === asset.id}
+								onclick={() => handleToggleCover(asset)}
+							>
+								{#if coveringId === asset.id}
+									{t.entry.media.cover.saving}
+								{:else}
+									{coverAssetId === asset.id
+										? t.entry.media.cover.removeLabel
+										: t.entry.media.cover.useLabel}
+								{/if}
+							</Button>
+						</div>
 					{/if}
 				</div>
 			</div>
 		{/each}
 	</div>
 	<p class="mt-1 text-xs text-muted">{t.entry.media.publish.explanation}</p>
+	<p class="mt-1 text-xs text-muted">{t.entry.media.cover.explanation}</p>
 {/if}
 
 {#if canWrite}

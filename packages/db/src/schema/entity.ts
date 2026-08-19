@@ -1,6 +1,15 @@
 import { sql } from 'drizzle-orm';
-import { index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+	index,
+	pgTable,
+	text,
+	timestamp,
+	uniqueIndex,
+	uuid,
+	type AnyPgColumn
+} from 'drizzle-orm/pg-core';
 import { entityTypeEnum, entityVisibilityEnum, languageSourceEnum } from './enums.js';
+import { mediaAsset } from './media.js';
 import { universe } from './universe.js';
 
 // SPEC.md §4.2: a typed entry. `aliases` is mandatory, not decoration - it is what makes
@@ -37,6 +46,27 @@ export const entity = pgTable(
 		// SPEC.md §9: style is shared at universe level and overridable per entry. Null
 		// means "use the universe's style", which is the case for almost every entry.
 		imagePromptModifier: text('image_prompt_modifier'),
+		// O2 (#284): the entry's cover image, the one that draws the band above its title.
+		// It lives here and not as a `role`/`primary` column on `media_asset` because one
+		// cover per entity is a single fact about the entity: a role column invites two rows
+		// both claiming it with nothing in the schema stopping them, whereas a single
+		// nullable column can only ever name one. `set null` rather than `cascade`: deleting
+		// the picture must lose the cover, never the entry. Null is the normal state, and it
+		// draws no band and no placeholder at all (the decision is explicit that an empty
+		// slot on every thin entry reads worse than no slot).
+		//
+		// Guardrail 1: nothing writes this except a GM pressing "use as cover" in the Images
+		// panel, which is that image's accept. Guardrail 6: this column says nothing about
+		// players - `media_asset.published_to_players` still decides whether the cover
+		// reaches `/p/<slug>`, and a cover is not a special case of a published image.
+		//
+		// The `AnyPgColumn` annotation is what lets this reference `media_asset` while
+		// `media_asset.entity_id` references back: the cycle is real in the database and
+		// harmless (drizzle resolves both sides lazily), but TypeScript needs the return type
+		// spelled out to stop inferring one table's type from the other's.
+		coverAssetId: uuid('cover_asset_id').references((): AnyPgColumn => mediaAsset.id, {
+			onDelete: 'set null'
+		}),
 		// Guardrail 6: `revealable` still needs a `revelation` row (players' wiki, a later
 		// wave) to actually reach players. `gm_only` can never be revealed.
 		visibility: entityVisibilityEnum('visibility').notNull().default('revealable'),

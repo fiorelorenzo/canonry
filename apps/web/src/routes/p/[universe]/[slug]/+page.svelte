@@ -15,6 +15,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import EntryProse from '$lib/components/entry/EntryProse.svelte';
+	import EntryCover from '$lib/components/media/EntryCover.svelte';
 	import GapNotice from '$lib/components/players/GapNotice.svelte';
 	import PublicFactsList from '$lib/components/players/PublicFactsList.svelte';
 	import PublicImages from '$lib/components/players/PublicImages.svelte';
@@ -25,6 +26,30 @@
 
 	let { data }: { data: PageData } = $props();
 	let t = $derived(messages(data.locale));
+
+	// O2 (#284): guardrail 6 has no exception for images, and none is made here.
+	// `coverImageId` is already the entity's cover narrowed to the published pictures this
+	// page may show (`publicEntityBySlug`), so a cover the GM set but never published is
+	// null and this page draws no band at all - the same nothing an entry with no cover
+	// draws. A `gap` entity carries no images at all, so nothing about an undiscovered
+	// entry leaks through a picture either.
+	let coverImageId = $derived(data.entity.status === 'full' ? data.entity.coverImageId : null);
+	let coverUrl = $derived(
+		coverImageId ? resolve(`/p/${data.universe.slug}/media/${coverImageId}`) : null
+	);
+
+	// The cover is one of `images`, so without this it would be drawn twice on one page:
+	// once as the band and again in the gallery below. On the GM's own page it does appear
+	// in both, because there the grid is where a cover is chosen and it carries a "cover"
+	// badge saying which one is which; here the gallery is only a gallery, and the same
+	// picture twice with nothing explaining why reads as a bug. Filtered here rather than
+	// inside `PublicImages`, which deliberately holds no logic of its own about what it is
+	// shown.
+	let galleryImages = $derived(
+		data.entity.status === 'full'
+			? data.entity.images.filter((image) => image.id !== coverImageId)
+			: []
+	);
 </script>
 
 <svelte:head><title>{data.entity.name} &middot; {data.universe.name}</title></svelte:head>
@@ -35,6 +60,10 @@
 	{data.entity.type} <span aria-hidden="true">/</span>
 	<span class="text-ink-2">{data.entity.name}</span>
 </p>
+
+{#if coverUrl}
+	<EntryCover src={coverUrl} alt={data.entity.name} entityType={data.entity.type} />
+{/if}
 
 <div class="mb-6">
 	<h1 class="mb-1 text-3xl font-semibold text-ink">{data.entity.name}</h1>
@@ -69,7 +98,7 @@
 			locale={data.locale}
 		/>
 		<PublicImages
-			images={data.entity.images}
+			images={galleryImages}
 			universeSlug={data.universe.slug}
 			entityName={data.entity.name}
 			locale={data.locale}

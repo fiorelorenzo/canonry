@@ -31,6 +31,7 @@ export {
 	createEntity,
 	listEntitiesForUniverse,
 	entityCountsByType,
+	setEntityCover,
 	type EntityLanguageState,
 	type StoredEntityLanguage,
 	type SaveEntityBodyInput,

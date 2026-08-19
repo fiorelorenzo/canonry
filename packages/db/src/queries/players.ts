@@ -316,6 +316,13 @@ export interface PublicFullEntity {
 	facts: PublicFactRow[];
 	relations: PublicRelationRow[];
 	images: PublicImageRow[];
+	/** O2 (#284): the entry's cover, or null. Guardrail 6 has no exception for images, so
+	 * this is the entity's `cover_asset_id` only when that asset is one of `images` above,
+	 * meaning it cleared the same published/gm_only/revelation gate every other picture on
+	 * this page did. A cover a GM set but never published is null here, exactly as if the
+	 * entry had none: `/p/<slug>` does not get to show unreviewed content because it
+	 * happens to sit at the top of the document. */
+	coverImageId: string | null;
 }
 
 export type PublicEntity = PublicFullEntity | PublicGapEntity;
@@ -452,6 +459,17 @@ export async function publicEntityBySlug(
 		.from(mediaAsset)
 		.where(and(eq(mediaAsset.entityId, row.id), eq(mediaAsset.publishedToPlayers, true)));
 
+	// O2 (#284): resolved against the published rows just fetched rather than by a second
+	// query on `cover_asset_id`, so the cover cannot pass a weaker gate than the gallery
+	// does - it is a cover only if it is already one of the pictures this player may see
+	// (guardrail 6). `kind === 'image'` because an audio asset has no business in an
+	// `<img>`, the same local filter `PublicImages` applies.
+	const cover =
+		row.coverAssetId === null
+			? null
+			: (imageRows.find((image) => image.id === row.coverAssetId && image.kind === 'image') ??
+				null);
+
 	return {
 		status: 'full',
 		id: row.id,
@@ -469,7 +487,8 @@ export async function publicEntityBySlug(
 			direction: r.direction,
 			other: { ...r.other, status: r.otherRevealedAt ? 'full' : 'gap' }
 		})),
-		images: imageRows
+		images: imageRows,
+		coverImageId: cover?.id ?? null
 	};
 }
 
