@@ -8,7 +8,8 @@ import type { ResolvedModel } from './models.js';
 import {
 	generateImage,
 	ReplicatePredictionFailedError,
-	ReplicateRequestError
+	ReplicateRequestError,
+	ReplicateThrottledError
 } from './replicate.js';
 import { openTestDb } from './test-db.js';
 
@@ -23,7 +24,10 @@ const TEST_USER_IDS = [
 	'test-user-replicate-1',
 	'test-user-replicate-2',
 	'test-user-replicate-3',
-	'test-user-replicate-4'
+	'test-user-replicate-4',
+	'test-user-replicate-5',
+	'test-user-replicate-6',
+	'test-user-replicate-7'
 ];
 
 const IMAGE_MODEL: ResolvedModel = {
@@ -80,6 +84,24 @@ describe('generateImage', () => {
 				operation: `${TEST_OPERATION_PREFIX}refused`,
 				label: 'Test replicate prediction failed',
 				credits: FAILURE_PRICE_CREDITS,
+				kind: 'generation'
+			},
+			{
+				operation: `${TEST_OPERATION_PREFIX}throttled-success`,
+				label: 'Test replicate throttled then succeeded',
+				credits: SUCCESS_PRICE_CREDITS,
+				kind: 'generation'
+			},
+			{
+				operation: `${TEST_OPERATION_PREFIX}throttled-exhausted`,
+				label: 'Test replicate throttled past the bound',
+				credits: FAILURE_PRICE_CREDITS,
+				kind: 'generation'
+			},
+			{
+				operation: `${TEST_OPERATION_PREFIX}throttled-retry-after`,
+				label: 'Test replicate throttle honours retry_after',
+				credits: SUCCESS_PRICE_CREDITS,
 				kind: 'generation'
 			}
 		]);
@@ -258,5 +280,142 @@ describe('generateImage', () => {
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.credits).toBeCloseTo(0, 6);
 		expect(rows[0]?.costEur).toBeCloseTo(0, 6);
+	});
+
+	// #334: Replicate throttles prediction creation hard under $5 of account credit, and
+	// answers a 429 with a `retry_after` it expects to be honoured. These three are the
+	// contract: a throttle that clears within the bound still succeeds and is still one
+	// model_call row and one charge; a throttle that never clears surfaces
+	// ReplicateThrottledError and is still recorded (never silently swallowed) but never
+	// charged; and the wait genuinely tracks the number Replicate sent, not a guess.
+	it('retries a 429 that carries retry_after and succeeds, charging exactly once (#334)', async () => {
+		let submissions = 0;
+		respond = (req, res) => {
+			res.setHeader('content-type', 'application/json');
+			if (req.method === 'POST') {
+				submissions += 1;
+				if (submissions === 1) {
+					res.statusCode = 429;
+					res.setHeader('retry-after', '0.02');
+					res.end(
+						JSON.stringify({
+							detail: 'Request was throttled. Your rate limit resets in ~10s.',
+							status: 429,
+							retry_after: 0.02
+						})
+					);
+					return;
+				}
+			}
+			res.end(
+				JSON.stringify({
+					id: 'pred-throttled',
+					status: 'succeeded',
+					output: ['https://example.invalid/img.png']
+				})
+			);
+		};
+		const operation = `${TEST_OPERATION_PREFIX}throttled-success`;
+
+		const prediction = await generateImage({
+			db,
+			model: IMAGE_MODEL,
+			replicateApiToken: 'replicate-secret',
+			input: { prompt: 'a lighthouse at dusk' },
+			userId: 'test-user-replicate-5',
+			universeId: null,
+			agent: 'warm',
+			operation,
+			baseUrl
+		});
+
+		expect(prediction.status).toBe('succeeded');
+		expect(submissions).toBe(2); // one throttled attempt, then one that got through
+
+		const rows = await db.select().from(modelCall).where(like(modelCall.operation, operation));
+		expect(rows).toHaveLength(1); // one row for the submission, not one per retry
+		expect(rows[0]?.credits).toBeCloseTo(SUCCESS_PRICE_CREDITS, 6);
+	});
+
+	it('gives up once the throttle bound is reached, surfacing ReplicateThrottledError without charging (#334)', async () => {
+		let submissions = 0;
+		respond = (req, res) => {
+			res.setHeader('content-type', 'application/json');
+			if (req.method === 'POST') submissions += 1;
+			res.statusCode = 429;
+			// Small enough that MAX_THROTTLE_ATTEMPTS, not THROTTLE_BUDGET_MS, is what ends this.
+			res.setHeader('retry-after', '0.001');
+			res.end(JSON.stringify({ detail: 'still throttled', status: 429, retry_after: 0.001 }));
+		};
+		const operation = `${TEST_OPERATION_PREFIX}throttled-exhausted`;
+
+		await expect(
+			generateImage({
+				db,
+				model: IMAGE_MODEL,
+				replicateApiToken: 'replicate-secret',
+				input: { prompt: 'a lighthouse at dusk' },
+				userId: 'test-user-replicate-6',
+				universeId: null,
+				agent: 'warm',
+				operation,
+				baseUrl
+			})
+		).rejects.toBeInstanceOf(ReplicateThrottledError);
+
+		expect(submissions).toBe(6); // MAX_THROTTLE_ATTEMPTS in replicate.ts
+
+		const rows = await db.select().from(modelCall).where(like(modelCall.operation, operation));
+		// The throttling is still recorded - one row, so a repeatedly-429'd account shows
+		// up in model_call rather than vanishing - but never charged.
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.credits).toBeCloseTo(0, 6);
+	});
+
+	it('waits the retry_after Replicate actually sent, not a fixed delay, falling back to the JSON body when there is no header (#334)', async () => {
+		const submittedAt: number[] = [];
+		let submissions = 0;
+		respond = (req, res) => {
+			res.setHeader('content-type', 'application/json');
+			if (req.method === 'POST') {
+				submissions += 1;
+				submittedAt.push(Date.now());
+				if (submissions === 1) {
+					res.statusCode = 429;
+					// No Retry-After header here on purpose - only the JSON body carries
+					// retry_after, exercising generateImage's fallback parse path.
+					res.end(JSON.stringify({ detail: 'throttled', status: 429, retry_after: 0.15 }));
+					return;
+				}
+			}
+			res.end(
+				JSON.stringify({
+					id: 'pred-retry-after',
+					status: 'succeeded',
+					output: ['https://example.invalid/img.png']
+				})
+			);
+		};
+		const operation = `${TEST_OPERATION_PREFIX}throttled-retry-after`;
+
+		await generateImage({
+			db,
+			model: IMAGE_MODEL,
+			replicateApiToken: 'replicate-secret',
+			input: { prompt: 'a lighthouse at dusk' },
+			userId: 'test-user-replicate-7',
+			universeId: null,
+			agent: 'warm',
+			operation,
+			baseUrl
+		});
+
+		expect(submittedAt).toHaveLength(2);
+		const waitedMs = submittedAt[1]! - submittedAt[0]!;
+		// 150ms declared in the body. Ignoring retry_after (an immediate retry) lands well
+		// under 140ms; a fixed backoff unrelated to the declared value (1s is this file's
+		// own POLL_INTERVAL_MS-style scale) lands well over 400ms. Neither reading passes.
+		expect(waitedMs).toBeGreaterThanOrEqual(140);
+		expect(waitedMs).toBeLessThan(1000);
 	});
 });
