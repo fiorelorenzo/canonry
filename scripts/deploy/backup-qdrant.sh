@@ -133,3 +133,9 @@ log "backup complete: $run_dir (${#collections[@]} collection(s), ${duration}s),
 record_backup_status "$status_dir" "qdrant" true "backed up ${#collections[@]} collection(s)" \
 	"$(jq -n --arg path "$run_dir" --argjson count "${#collections[@]}" --argjson duration "$duration" --argjson pruned "$pruned" \
 		'{path: $path, collections: $count, duration_seconds: $duration, pruned: $pruned}')"
+
+# The dead man's switch (issue #118), last thing in the run and only on the
+# success path: the OnFailure= handler owns the failure ping, so the two never
+# describe the same run. A no-op until /etc/canonry/backup-alert.env carries a
+# ping key.
+healthchecks_ping

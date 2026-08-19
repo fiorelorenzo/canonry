@@ -18,6 +18,15 @@ UMask=0077
 # default (the leading `-` makes a missing file not an error), created once
 # per stack alongside shared/secrets.env if wanted.
 EnvironmentFile=-/opt/apps/canonry/%i/shared/backup.env
+# The dead man's switch (issue #118). The same global file the alert handler
+# reads, so one ping key covers every stack and every backup unit, and the slug
+# is written here rather than passed on the command line: %i is the only thing
+# that knows which stack this instance is, and a key in an ExecStart line would
+# be visible to `ps` and to `systemctl cat`. A box with no such file pings
+# nothing and logs nothing, which is the correct behaviour for one that has not
+# been wired up.
+EnvironmentFile=-/etc/canonry/backup-alert.env
+Environment=HEALTHCHECKS_SLUG=canonry-backup-postgres-%i
 # Points at BASE/current, not a fixed version, so a rollback to an older
 # release also rolls the backup script back to what shipped with it.
 # --retain-days is left at the script's own default (14); adjust here per

@@ -112,12 +112,42 @@ Everything below happens once per stack. Run as a user with docker access.
    directory" the moment a real failure tried to trigger it, which is the
    worst possible time to discover a missing dependency.
 
-   Optional alert webhook, the one piece of this that has no destination
-   configured yet on prodbox: `sudo mkdir -p /etc/canonry && echo
-   'ALERT_WEBHOOK_URL=https://...' | sudo tee /etc/canonry/backup-alert.env`.
-   Without it, a failed backup still lands as an `err`-priority journal
-   entry (`journalctl -p err`) and in `systemctl --failed`, but nothing
-   pushes it anywhere a person is already looking.
+   **Wire the dead man's switch** (issue #118). A failed backup already lands as
+   an `err`-priority journal entry and in `systemctl --failed`, which is three
+   places nobody is looking, and none of them catch the case that actually
+   matters: a timer that stops firing at all leaves no failure anywhere, it just
+   goes quiet. So the four backup units ping healthchecks.io on success and the
+   `OnFailure=` handler pings the same check's `/fail`, and the check itself
+   complains when a day passes with no word.
+
+   One file, one key, every unit:
+
+   ```
+   sudo mkdir -p /etc/canonry
+   printf 'HEALTHCHECKS_PING_KEY=%s\n' '<project ping key>' \
+     | sudo tee /etc/canonry/backup-alert.env >/dev/null
+   sudo chmod 600 /etc/canonry/backup-alert.env
+   ```
+
+   The key is a project-wide ping key from healthchecks.io, not a per-check
+   UUID, because the check is addressed by slug and each unit's slug comes from
+   its own name: `canonry-backup-postgres@prod.service` pings
+   `canonry-backup-postgres-prod`. That mapping lives in the unit files
+   (`Environment=HEALTHCHECKS_SLUG=...-%i`) and in `backup-alert.sh`'s own
+   derivation from `%i`, so adding a fifth backup unit needs no list updated
+   anywhere: it pings a check named after itself, and healthchecks answers 404
+   rather than quietly attributing the failure to another stack.
+
+   The four checks are period one day, grace one hour. The grace has to absorb
+   the timers' `RandomizedDelaySec=10m` plus a slow dump; an hour is comfortable
+   without being useless. A check with no notification integration configured
+   fails silently, which defeats the whole point, so set one up before trusting
+   this.
+
+   `ALERT_WEBHOOK_URL` still works in the same file for a generic webhook
+   (Slack, Discord, Matrix) if one is ever wanted alongside. Both are optional
+   and independent: with neither set, the handler writes its journal entry and
+   stops, which is what every box did before this existed.
 
 7. **First deploy has nowhere to fall back to.** `release.sh`'s automatic
    rollback only works once a previous release exists. The very first tag for

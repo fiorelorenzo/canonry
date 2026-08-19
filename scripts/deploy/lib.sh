@@ -251,3 +251,47 @@ record_backup_status() {
 		>"$dir/$name-last-run.json.tmp.$$"
 	mv -T "$dir/$name-last-run.json.tmp.$$" "$dir/$name-last-run.json"
 }
+
+# --- dead man's switch ----------------------------------------------------
+# healthchecks_ping
+# Pings this unit's healthchecks.io check to say the run succeeded (issue
+# #118). The `OnFailure=` handler owns the failure ping, so this function only
+# ever reports success: one owner per outcome, rather than two places racing to
+# describe the same run.
+#
+# Why a ping at all, when record_backup_status already writes the outcome to
+# disk and a failure already reaches the journal: neither of those catches the
+# case that actually worries me, which is the timer never firing. A file that
+# stopped being updated and a journal with nothing in it look exactly like a
+# quiet week. An external check that expects to hear from us every day is the
+# only thing that notices silence.
+#
+# Both values come from the environment rather than from arguments, because the
+# unit file is where the mapping from stack to check belongs (`%i` writes it)
+# and the key is a secret that has no business in an ExecStart line visible to
+# `ps` and to `systemctl cat`. HEALTHCHECKS_PING_KEY comes from
+# /etc/canonry/backup-alert.env, HEALTHCHECKS_SLUG from the unit's own
+# Environment=.
+#
+# Absent key means no ping and no noise: a box that has not been wired up yet
+# is a normal state, and the units predate this. Absent slug with a key present
+# is a misconfiguration and says so, because that is the shape that would make
+# a check sit there going green on nothing.
+healthchecks_ping() {
+	if [ -z "${HEALTHCHECKS_PING_KEY:-}" ]; then
+		return 0
+	fi
+	if [ -z "${HEALTHCHECKS_SLUG:-}" ]; then
+		log "HEALTHCHECKS_PING_KEY is set but HEALTHCHECKS_SLUG is not: no success ping sent"
+		return 0
+	fi
+	# --retry, because a backup that worked must not be reported as missing over
+	# one lost packet, and --max-time so a hung endpoint cannot hold the unit
+	# open. A failed ping is logged and never fatal: the backup already
+	# succeeded, and turning a monitoring hiccup into a failed unit would page
+	# somebody about the wrong thing.
+	if ! curl -fsS --retry 3 --retry-connrefused --max-time 15 \
+		"https://hc-ping.com/${HEALTHCHECKS_PING_KEY}/${HEALTHCHECKS_SLUG}" >/dev/null 2>&1; then
+		log "healthchecks ping failed for ${HEALTHCHECKS_SLUG} (the backup itself succeeded)"
+	fi
+}

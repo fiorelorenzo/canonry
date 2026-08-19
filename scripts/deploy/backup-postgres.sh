@@ -115,3 +115,9 @@ log "backup complete: $out_dir/$filename (${size} bytes, ${duration}s), pruned $
 record_backup_status "$status_dir" "postgres" true "backed up $db from $container" \
 	"$(jq -n --arg path "$out_dir/$filename" --argjson size "$size" --argjson duration "$duration" --argjson pruned "$pruned" \
 		'{path: $path, size_bytes: $size, duration_seconds: $duration, pruned: $pruned}')"
+
+# The dead man's switch (issue #118), last thing in the run and only on the
+# success path: the OnFailure= handler owns the failure ping, so the two never
+# describe the same run. A no-op until /etc/canonry/backup-alert.env carries a
+# ping key.
+healthchecks_ping
