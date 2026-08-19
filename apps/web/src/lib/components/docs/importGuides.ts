@@ -59,11 +59,11 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 				heading: 'What it recognises',
 				blocks: [
 					p(
-						'Canonry looks for a .obsidian folder, wikilinks and Dataview inline fields to tell ' +
-							'an Obsidian vault apart from any other folder of text files. When it finds them, ' +
-							'it shows you what it counted, notes and images, and asks you to confirm the ' +
-							'Obsidian playbook before it reads any further. Say no and it falls back to a ' +
-							'short list of other playbooks.'
+						'Canonry looks for a .obsidian folder to tell your vault apart from any other ' +
+							'folder of text files; find one and it shows you how many notes it counted before ' +
+							'asking you to confirm the Obsidian playbook. Without one, if every file in the ' +
+							'upload is Markdown, it still guesses Obsidian, just unconfirmed - say no either ' +
+							'way and it falls back to a short list of other playbooks.'
 					)
 				]
 			},
@@ -163,36 +163,75 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 	{
 		slug: 'onenote',
 		label: 'OneNote',
-		summary: 'Notebook exported to PDF, DOCX or .onepkg',
+		summary: 'Page tree preferred, PDF/DOCX/.onepkg as fallback',
 		sections: [
 			{
 				heading: 'What to hand Canonry',
 				blocks: [
 					p(
-						'OneNote does not need a connector: export the notebook yourself and hand Canonry ' +
-							'the result. On Windows, the desktop app exports a whole notebook to PDF, DOCX or ' +
-							'.onepkg. On the web, with a personal Microsoft account, export produces a ' +
-							'.onepkg. A PDF or DOCX export is read the same way any other PDF or DOCX is, ' +
-							'through those guides, not a OneNote-specific path.'
+						'The real path is a folder tree of individually exported pages, one file per page, ' +
+							"keeping every page's place in your notebook's own hierarchy. OneNote has no menu " +
+							'item for this itself: producing it means running a script against the same ' +
+							"GetHierarchy and Publish automation calls OneNote's desktop app exposes, for " +
+							'example meichthys/onenote-html-export, a free, open-source tool built for exactly ' +
+							'this. It needs the desktop app on Windows; there is no web or Mac equivalent for ' +
+							'producing the tree. Point Canonry at the folder it produces, or a zip of it.'
+					),
+					p(
+						'If you cannot produce that tree, export the whole notebook or a section to PDF or ' +
+							'DOCX from the Windows desktop app instead, or to .onepkg from OneNote on the web ' +
+							'with a personal Microsoft account, and hand Canonry that file. It is read through ' +
+							'the PDF or DOCX guide, the same as any other PDF or DOCX, keeping every page but ' +
+							"losing the notebook's own hierarchy: a subpage becomes just another heading once " +
+							'the export flattens it.'
 					)
 				]
 			},
 			{
-				heading: 'Two limits worth knowing',
+				heading: 'What it recognises',
+				blocks: [
+					p(
+						'Canonry looks for a tree of HTML pages where at least one page has its own sibling ' +
+							'folder of embedded attachments, named after the page with _files appended - the ' +
+							'shape only an exported OneNote page tree produces, and nothing else mimics. Find ' +
+							'that and it shows you how many pages it counted before asking you to confirm the ' +
+							'OneNote playbook; say no and it falls back to a short list of other playbooks. A ' +
+							'notebook where no page embeds an image has no such folder for Canonry to key on, ' +
+							'so detection will not recognise it as OneNote - bring in at least one page with ' +
+							'an embedded image if you can, or use the PDF, DOCX or .onepkg fallback above.'
+					)
+				]
+			},
+			{
+				heading: 'What it reads',
+				blocks: [
+					p(
+						"The notebook's own hierarchy is what a flattened PDF or DOCX export throws away, " +
+							'and it is the reason this path exists: a page sitting in a folder named after ' +
+							'another page is proposed as a subpage of it, with the folder tree itself standing ' +
+							"as the evidence, since OneNote's own export produced it rather than anything " +
+							'written in the page itself. Every link to another page in the tree becomes a ' +
+							'candidate relation the same way, and every embedded image travels across as an ' +
+							"attachment on the page's own entity. A page's title becomes its entity name."
+					)
+				]
+			},
+			{
+				heading: 'Limits worth knowing',
 				blocks: [
 					warn(
-						'OneNote on a Mac only exports the page you are currently viewing, not the whole ' +
-							'notebook. If your world lives in OneNote on a Mac, exporting page by page is the ' +
-							'only option that app gives you. Exporting from Windows or the web, if either is ' +
-							'available to you, gets the whole notebook in one file instead.'
+						'OneNote on a Mac cannot produce the page tree at all, and its own export only ' +
+							'covers the page you are currently viewing, not the whole notebook. If your world ' +
+							'lives in OneNote on a Mac, exporting page by page to PDF is the only option that ' +
+							'app gives you.'
 					),
 					warn(
-						'A .onepkg file is not readable yet. The format is documented and a reader is ' +
-							'planned, but it has not been built. If .onepkg is your only export option, for ' +
-							'instance from OneNote on the web, export to PDF instead, or move to the Windows ' +
-							'desktop app if you have access to one. Web export also only covers a personal ' +
-							'Microsoft or OneDrive account; a work, school or SharePoint account is not ' +
-							'covered by that path.'
+						'A .onepkg file is not readable yet. The format is documented, but no reader has ' +
+							'been built for it, deferred rather than refused. If .onepkg is your only option, ' +
+							'for instance from OneNote on the web, export to PDF instead, or move to the ' +
+							'Windows desktop app if you have access to one. Web export also only covers a ' +
+							'personal Microsoft or OneDrive account; a work, school or SharePoint account is ' +
+							'not covered by that path.'
 					)
 				]
 			}
