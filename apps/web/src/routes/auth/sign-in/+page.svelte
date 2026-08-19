@@ -1,17 +1,25 @@
 <script lang="ts">
 	/**
 	 * Email and password plus whichever social providers `$lib/server/auth.ts`
-	 * actually configured (issue #86). Runs client-side against `authClient` so the
-	 * redirect and the session refresh happen in one place after either path
-	 * succeeds - `invalidateAll` re-runs every load, which is what makes the shell
-	 * pick up `locals.user` on the very next render without a full page reload.
+	 * actually configured (issue #86).
 	 *
 	 * The title page (I2 = C, #139): AuthShell owns the frame, mark, subtitle and
 	 * footer rule; this file owns only the form that sits inside it. No `pane` prop
 	 * - the argument pane is sign-up's, since a visitor signing back in is already
 	 * sold (docs/ux/product-pass.html#i2's own cost note against showing it here).
+	 *
+	 * #262: the session is created by `?/signIn` in `+page.server.ts`, not by a client
+	 * `authClient.signIn.email` call. This was `<form onsubmit={submit}>` with no `method`,
+	 * so a submit before hydration was a GET to this URL with the email and the password in
+	 * the query string. `method="post"` is what closes that, with no JavaScript involved,
+	 * and `use:enhance` keeps the redirect and the session refresh happening in one place
+	 * afterwards: applying a `redirect` result is a `goto` that invalidates every load,
+	 * which is what makes the shell pick up `locals.user` on the very next render.
+	 *
+	 * The social buttons stay on `authClient`: `type="button"` with an `onclick`, no form
+	 * submit and no field of their own, so nothing of theirs can reach a URL.
 	 */
-	import { goto, invalidateAll } from '$app/navigation';
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { authClient } from '$lib/auth-client';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
@@ -19,15 +27,13 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { messages } from '$lib/i18n';
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const t = $derived(messages(data.locale).auth.signIn);
 
-	let email = $state('');
-	let password = $state('');
-	let error = $state<string | null>(null);
+	let providerError = $state<string | null>(null);
 	let submitting = $state(false);
 
 	// Brand names, never translated - same rule SPEC.md §17 states for a canon entity's
@@ -37,27 +43,13 @@
 		google: 'Google'
 	};
 
-	async function submit(event: SubmitEvent) {
-		event.preventDefault();
-		error = null;
-		submitting = true;
-		const { error: signInError } = await authClient.signIn.email({ email, password });
-		submitting = false;
-		if (signInError) {
-			error = signInError.message ?? 'Could not sign in.';
-			return;
-		}
-		await invalidateAll();
-		await goto(resolve('/'));
-	}
-
 	async function signInWithProvider(provider: string) {
-		error = null;
+		providerError = null;
 		const { error: signInError } = await authClient.signIn.social({
 			provider,
 			callbackURL: resolve('/')
 		});
-		if (signInError) error = signInError.message ?? `Could not start ${provider} sign-in.`;
+		if (signInError) providerError = signInError.message ?? `Could not start ${provider} sign-in.`;
 	}
 </script>
 
@@ -79,6 +71,9 @@
 				</Button>
 			{/each}
 		</div>
+		{#if providerError}
+			<p role="alert" class="mt-2 text-sm text-danger">{providerError}</p>
+		{/if}
 		<div class="my-4 flex items-center gap-3 text-xs tracking-wide text-muted uppercase">
 			<span class="h-px flex-1 bg-line"></span>
 			{t.orDivider}
@@ -86,7 +81,22 @@
 		</div>
 	{/if}
 
-	<form onsubmit={submit} class="flex flex-col gap-4">
+	<form
+		method="post"
+		action="?/signIn"
+		class="flex flex-col gap-4"
+		use:enhance={() => {
+			providerError = null;
+			submitting = true;
+			// `reset: false`: a wrong password should not also empty the email field. The
+			// password is not among the values the action sends back, so what survives here is
+			// the DOM's own state, never something re-rendered from a payload.
+			return async ({ update }) => {
+				await update({ reset: false });
+				submitting = false;
+			};
+		}}
+	>
 		<div class="flex flex-col gap-1.5">
 			<Label for="email">{t.emailLabel}</Label>
 			<Input
@@ -95,7 +105,7 @@
 				name="email"
 				autocomplete="email"
 				required
-				bind:value={email}
+				value={form?.email ?? ''}
 			/>
 		</div>
 		<div class="flex flex-col gap-1.5">
@@ -106,7 +116,6 @@
 				name="password"
 				autocomplete="current-password"
 				required
-				bind:value={password}
 			/>
 			<a href={resolve('/auth/forgot-password')} class="text-sm text-accent hover:underline">
 				{t.forgotPasswordLink}
@@ -117,8 +126,8 @@
 			{submitting ? t.submitting : t.submit}
 		</Button>
 
-		{#if error}
-			<p role="alert" class="text-sm text-danger">{error}</p>
+		{#if form?.error}
+			<p role="alert" class="text-sm text-danger">{form.error}</p>
 		{/if}
 	</form>
 

@@ -2,18 +2,25 @@
 	/**
 	 * Issue #143 (I6 = B): the Account pane, the settings leaf that did not exist
 	 * before this issue - name, email, password, sign out everywhere, delete account.
-	 * Name and password go through Better Auth's own client API rather than a form
-	 * action (`authClient.updateUser`/`authClient.changePassword`), the same pattern
-	 * the sign-in page already uses for `authClient.signIn.email` - both return
-	 * `{ error }` with Better Auth's own message, which is not catalogued (it is
-	 * request-time text from a library, not interface copy this app authors).
 	 *
-	 * Deletion (#154) is the one control on this page that is a server action instead,
-	 * `?/requestDeletion` - only the server can tell "the confirmation mail failed to
-	 * send" apart from "it sent" (`$lib/server/mail/delete-account.ts`'s own doc
-	 * comment), the same reason `/auth/forgot-password` uses a form action rather than
-	 * `authClient.forgetPassword`. `data.deletionImpact` (`+page.server.ts`'s `load`)
-	 * is what makes the count real rather than a generic warning.
+	 * Deletion (#154) is a server action, `?/requestDeletion` - only the server can tell
+	 * "the confirmation mail failed to send" apart from "it sent"
+	 * (`$lib/server/mail/delete-account.ts`'s own doc comment), the same reason
+	 * `/auth/forgot-password` uses a form action rather than `authClient.forgetPassword`.
+	 * `data.deletionImpact` (`+page.server.ts`'s `load`) is what makes the count real rather
+	 * than a generic warning.
+	 *
+	 * Name and password are server actions too, since #262. They used to be `onsubmit`
+	 * handlers calling `authClient.updateUser`/`authClient.changePassword`, which meant a
+	 * submit before hydration was a GET to this URL; they leaked nothing only because those
+	 * inputs carried no `name` attribute, and a nameless credential field is not a guard
+	 * anybody reading this file would recognise as one. Better Auth's own message still
+	 * reaches the reader for all three: it is request-time text from a library, not interface
+	 * copy this app authors, so the action passes it through and only falls back to a
+	 * catalogued string when there is none.
+	 *
+	 * Sign out everywhere stays on `authClient`: it is a button, not a form, so it submits
+	 * no field and nothing of its own can reach a URL.
 	 */
 	import { enhance } from '$app/forms';
 	import { goto, invalidateAll } from '$app/navigation';
@@ -30,52 +37,8 @@
 
 	const t = $derived(messages(data.locale).settings.account);
 
-	// Seeds the field once; the form owns it after that. The reason sits on its own line
-	// because `svelte-ignore` reads everything after the rule name as further rule names,
-	// which is what made eslint report ten phantom unused ignores here.
-	// svelte-ignore state_referenced_locally
-	let name = $state(data.user?.name ?? '');
 	let nameSaving = $state(false);
-	let nameSaved = $state(false);
-	let nameError = $state<string | null>(null);
-
-	async function saveName(event: SubmitEvent) {
-		event.preventDefault();
-		nameError = null;
-		nameSaved = false;
-		if (name.trim().length === 0) return;
-		nameSaving = true;
-		const { error } = await authClient.updateUser({ name: name.trim() });
-		nameSaving = false;
-		if (error) {
-			nameError = error.message ?? t.nameSaveFailedFallback;
-			return;
-		}
-		nameSaved = true;
-		await invalidateAll();
-	}
-
-	let currentPassword = $state('');
-	let newPassword = $state('');
 	let passwordSaving = $state(false);
-	let passwordSaved = $state(false);
-	let passwordError = $state<string | null>(null);
-
-	async function changePassword(event: SubmitEvent) {
-		event.preventDefault();
-		passwordError = null;
-		passwordSaved = false;
-		passwordSaving = true;
-		const { error } = await authClient.changePassword({ currentPassword, newPassword });
-		passwordSaving = false;
-		if (error) {
-			passwordError = error.message ?? t.passwordSaveFailedFallback;
-			return;
-		}
-		currentPassword = '';
-		newPassword = '';
-		passwordSaved = true;
-	}
 
 	let signingOutEverywhere = $state(false);
 	let signOutEverywhereError = $state<string | null>(null);
@@ -115,21 +78,38 @@
 	</p>
 {:else}
 	<section class="mt-8 flex max-w-md flex-col gap-6">
-		<form onsubmit={saveName} class="flex flex-col gap-3">
+		<form
+			method="post"
+			action="?/saveName"
+			class="flex flex-col gap-3"
+			use:enhance={() => {
+				nameSaving = true;
+				return async ({ update }) => {
+					await update({ reset: false });
+					nameSaving = false;
+				};
+			}}
+		>
 			<div class="flex flex-col gap-1.5">
 				<Label for="account-name">{t.nameLabel}</Label>
-				<Input id="account-name" name="name" autocomplete="name" required bind:value={name} />
+				<Input
+					id="account-name"
+					name="name"
+					autocomplete="name"
+					required
+					value={data.user.name ?? ''}
+				/>
 			</div>
 			<div>
-				<Button type="submit" disabled={nameSaving || name.trim().length === 0}>
+				<Button type="submit" disabled={nameSaving}>
 					{nameSaving ? t.nameSaving : t.nameSave}
 				</Button>
 			</div>
-			{#if nameSaved && !nameError}
+			{#if form?.nameSaved}
 				<p class="text-sm text-ink-2">{t.nameSaved}</p>
 			{/if}
-			{#if nameError}
-				<p role="alert" class="text-sm text-danger">{nameError}</p>
+			{#if form?.nameError}
+				<p role="alert" class="text-sm text-danger">{form.nameError}</p>
 			{/if}
 		</form>
 
@@ -142,15 +122,26 @@
 
 	<section class="mt-10 max-w-md">
 		<h2 class="text-sm font-semibold text-ink">{t.passwordHeading}</h2>
-		<form onsubmit={changePassword} class="mt-3 flex flex-col gap-3">
+		<form
+			method="post"
+			action="?/changePassword"
+			class="mt-3 flex flex-col gap-3"
+			use:enhance={() => {
+				passwordSaving = true;
+				return async ({ update }) => {
+					await update();
+					passwordSaving = false;
+				};
+			}}
+		>
 			<div class="flex flex-col gap-1.5">
 				<Label for="current-password">{t.currentPasswordLabel}</Label>
 				<Input
 					id="current-password"
 					type="password"
+					name="currentPassword"
 					autocomplete="current-password"
 					required
-					bind:value={currentPassword}
 				/>
 			</div>
 			<div class="flex flex-col gap-1.5">
@@ -158,9 +149,9 @@
 				<Input
 					id="new-password"
 					type="password"
+					name="newPassword"
 					autocomplete="new-password"
 					required
-					bind:value={newPassword}
 				/>
 			</div>
 			<div>
@@ -168,11 +159,11 @@
 					{passwordSaving ? t.passwordSaving : t.passwordSave}
 				</Button>
 			</div>
-			{#if passwordSaved && !passwordError}
+			{#if form?.passwordSaved}
 				<p class="text-sm text-ink-2">{t.passwordSaved}</p>
 			{/if}
-			{#if passwordError}
-				<p role="alert" class="text-sm text-danger">{passwordError}</p>
+			{#if form?.passwordError}
+				<p role="alert" class="text-sm text-danger">{form.passwordError}</p>
 			{/if}
 		</form>
 	</section>

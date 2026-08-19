@@ -315,6 +315,9 @@ export interface Messages {
 			nameSaving: string;
 			nameSaved: string;
 			nameSaveFailedFallback: string;
+			/** #262: the form action's own check, now that this control is a POST rather than a
+			 * client call that could just return early on an empty field. */
+			nameRequired: string;
 			emailLabel: string;
 			emailNote: string;
 			passwordHeading: string;
@@ -324,6 +327,8 @@ export interface Messages {
 			passwordSaving: string;
 			passwordSaved: string;
 			passwordSaveFailedFallback: string;
+			/** #262: same, on the password control. */
+			passwordRequired: string;
 			sessionsHeading: string;
 			sessionsDescription: string;
 			signOutEverywhereButton: string;
@@ -360,6 +365,13 @@ export interface Messages {
 			subtitle: string;
 			emailLabel: string;
 			passwordLabel: string;
+			/** #262: both fields empty or missing, which the browser's own `required` catches
+			 * client-side and the form action has to catch again server-side. */
+			credentialsRequired: string;
+			/** #262: the fallback when Better Auth rejected the sign-in without a message of
+			 * its own. Better Auth's message is request-time text from a library and is shown
+			 * as-is when there is one. */
+			signInFailed: string;
 			submit: string;
 			submitting: string;
 			noAccount: string;
@@ -374,6 +386,9 @@ export interface Messages {
 			nameLabel: string;
 			emailLabel: string;
 			passwordLabel: string;
+			/** #262: same pair as `signIn`'s, on the form that creates the account. */
+			fieldsRequired: string;
+			signUpFailed: string;
 			submit: string;
 			submitting: string;
 			haveAccount: string;
@@ -401,6 +416,9 @@ export interface Messages {
 			subtitle: string;
 			newPasswordLabel: string;
 			confirmPasswordLabel: string;
+			/** #262: the form action's own check, for a POST that arrived with an empty field
+			 * whatever the browser thought. */
+			passwordRequired: string;
 			submit: string;
 			submitting: string;
 			passwordMismatch: string;

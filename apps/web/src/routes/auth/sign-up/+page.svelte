@@ -1,15 +1,26 @@
 <script lang="ts">
 	/**
-	 * Mirrors `/auth/sign-in`'s shape - see that page's doc comment for why the
-	 * redirect and the session refresh both happen client-side after authClient
-	 * resolves. `name` is required: `user.name` is `notNull()` in the schema Better
-	 * Auth owns (packages/db/src/schema/auth.ts).
+	 * Mirrors `/auth/sign-in`'s shape - see that page's doc comment for the redirect. `name`
+	 * is required: `user.name` is `notNull()` in the schema Better Auth owns
+	 * (packages/db/src/schema/auth.ts).
 	 *
 	 * The split (I2 = B, #139): the same AuthShell as sign-in, with `pane` set so
 	 * the static argument pane renders beside the form at >=900px and drops below
 	 * it (I2's own layout choice for this page).
+	 *
+	 * #262: the account is created by `?/signUp` in `+page.server.ts`, not by a client
+	 * `authClient.signUp.email` call. What used to be here was `<form onsubmit={submit}>`
+	 * with no `method` and no action behind it, so a submit before hydration was a GET to
+	 * this URL with the name, the email and the password in the query string, and therefore
+	 * in history, in a proxy log and in the next request's `Referer`. `method="post"` is
+	 * what closes that: the browser posts with no JavaScript involved, and `use:enhance` is
+	 * the enhancement on top - it keeps the same single-page feel the client call had,
+	 * because applying a `redirect` result is a `goto` that invalidates every load.
+	 *
+	 * The social buttons stay on `authClient`: they are `type="button"` with an `onclick`,
+	 * they submit no form, and they carry no field, so no value of theirs can reach a URL.
 	 */
-	import { goto, invalidateAll } from '$app/navigation';
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { authClient } from '$lib/auth-client';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
@@ -17,16 +28,13 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { messages } from '$lib/i18n';
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const t = $derived(messages(data.locale).auth.signUp);
 
-	let name = $state('');
-	let email = $state('');
-	let password = $state('');
-	let error = $state<string | null>(null);
+	let providerError = $state<string | null>(null);
 	let submitting = $state(false);
 
 	// Brand names, never translated - same rule SPEC.md §17 states for a canon entity's
@@ -36,27 +44,13 @@
 		google: 'Google'
 	};
 
-	async function submit(event: SubmitEvent) {
-		event.preventDefault();
-		error = null;
-		submitting = true;
-		const { error: signUpError } = await authClient.signUp.email({ name, email, password });
-		submitting = false;
-		if (signUpError) {
-			error = signUpError.message ?? 'Could not create an account.';
-			return;
-		}
-		await invalidateAll();
-		await goto(resolve('/'));
-	}
-
 	async function signUpWithProvider(provider: string) {
-		error = null;
+		providerError = null;
 		const { error: signInError } = await authClient.signIn.social({
 			provider,
 			callbackURL: resolve('/')
 		});
-		if (signInError) error = signInError.message ?? `Could not start ${provider} sign-in.`;
+		if (signInError) providerError = signInError.message ?? `Could not start ${provider} sign-in.`;
 	}
 </script>
 
@@ -78,6 +72,9 @@
 				</Button>
 			{/each}
 		</div>
+		{#if providerError}
+			<p role="alert" class="mt-2 text-sm text-danger">{providerError}</p>
+		{/if}
 		<div class="my-4 flex items-center gap-3 text-xs tracking-wide text-muted uppercase">
 			<span class="h-px flex-1 bg-line"></span>
 			{t.orDivider}
@@ -85,10 +82,32 @@
 		</div>
 	{/if}
 
-	<form onsubmit={submit} class="flex flex-col gap-4">
+	<form
+		method="post"
+		action="?/signUp"
+		class="flex flex-col gap-4"
+		use:enhance={() => {
+			providerError = null;
+			submitting = true;
+			// `reset: false`: a rejected sign-up should not empty the fields the reader just
+			// filled in. The password is not among the values the action sends back, so what
+			// survives here is the DOM's own state, never something re-rendered from a payload.
+			return async ({ update }) => {
+				await update({ reset: false });
+				submitting = false;
+			};
+		}}
+	>
 		<div class="flex flex-col gap-1.5">
 			<Label for="name">{t.nameLabel}</Label>
-			<Input id="name" type="text" name="name" autocomplete="name" required bind:value={name} />
+			<Input
+				id="name"
+				type="text"
+				name="name"
+				autocomplete="name"
+				required
+				value={form?.name ?? ''}
+			/>
 		</div>
 		<div class="flex flex-col gap-1.5">
 			<Label for="email">{t.emailLabel}</Label>
@@ -98,7 +117,7 @@
 				name="email"
 				autocomplete="email"
 				required
-				bind:value={email}
+				value={form?.email ?? ''}
 			/>
 		</div>
 		<div class="flex flex-col gap-1.5">
@@ -110,7 +129,6 @@
 				autocomplete="new-password"
 				required
 				minlength={8}
-				bind:value={password}
 			/>
 		</div>
 
@@ -118,8 +136,8 @@
 			{submitting ? t.submitting : t.submit}
 		</Button>
 
-		{#if error}
-			<p role="alert" class="text-sm text-danger">{error}</p>
+		{#if form?.error}
+			<p role="alert" class="text-sm text-danger">{form.error}</p>
 		{/if}
 	</form>
 
