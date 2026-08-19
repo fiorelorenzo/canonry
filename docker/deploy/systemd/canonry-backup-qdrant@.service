@@ -13,6 +13,12 @@ UMask=0077
 # Optional: ALERT_WEBHOOK_URL only. No app secrets needed here -- the
 # script resolves its own target port via `docker port`.
 EnvironmentFile=-/opt/apps/canonry/%i/shared/backup.env
+# The dead man's switch (issue #118), same global file and same reasoning as
+# the postgres unit next to this one: one ping key for every stack and unit,
+# the slug written here because %i is what knows the stack, and silence rather
+# than noise on a box that has no key.
+EnvironmentFile=-/etc/canonry/backup-alert.env
+Environment=HEALTHCHECKS_SLUG=canonry-backup-qdrant-%i
 ExecStart=/opt/apps/canonry/%i/current/scripts/deploy/backup-qdrant.sh \
 	--container canonry-%i-qdrant-1 \
 	--out-dir /opt/apps/canonry/%i/backups/qdrant \
