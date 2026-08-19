@@ -8,6 +8,7 @@ import {
 	type ModelSelector
 } from './gateway-driver.js';
 import type { ImportJob, JobBudget, JobDocument, JobEvent } from './driver.js';
+import type { StepSample } from './transcript-profile.js';
 import {
 	loadBuiltinPlaybook,
 	loadPlaybook,
@@ -1709,5 +1710,135 @@ describe('entity_propose/relation_propose fill sourceRef.path from the document 
 					: undefined;
 			expect(sourceRef).toEqual({ documentId: 'doc-1', path: 'real/path.md' });
 		}
+	});
+});
+
+describe('GatewayDriver - optional per-step transcript profiling (issue #271)', () => {
+	const documentScript = () => [
+		toolCallStep([{ id: 't1', name: 'source_read', input: { path: 'notes/aldric.md' } }]),
+		toolCallStep([
+			{
+				id: 't2',
+				name: 'entity_propose',
+				input: {
+					localId: 'e1',
+					type: 'character',
+					name: 'Aldric Voss',
+					aliases: [],
+					summary: 'Commands the harbour watch.',
+					sourceRef: { documentId: 'doc-1' },
+					evidenceSpan: { start: 0, end: 24 },
+					images: []
+				}
+			}
+		]),
+		toolCallStep([{ id: 't3', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
+	];
+
+	const sourcesWithABigPage = () =>
+		new InMemorySourceReader({
+			files: {
+				// Long enough that its tool result is unmistakably the biggest thing in the
+				// transcript, which is the point being measured.
+				'notes/aldric.md': `Aldric Voss commands the harbour watch. ${'He reports to Mira Sable. '.repeat(200)}`
+			}
+		});
+
+	it('emits one sample per model call, split into the buckets, with the provider\u2019s own token count alongside', async () => {
+		const playbook = await loadBuiltinPlaybook('generic');
+		const samples: StepSample[] = [];
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(scriptedModel(documentScript())),
+			profiler: (sample) => samples.push(sample)
+		});
+
+		await collect(
+			buildJob({
+				id: 'job-profile',
+				playbook,
+				documents: [{ id: 'doc-1', sourcePath: 'notes/aldric.md' }],
+				sources: sourcesWithABigPage()
+			}),
+			driver
+		);
+
+		expect(samples.map((s) => s.step)).toEqual([1, 2, 3]);
+		for (const sample of samples) {
+			expect(sample.attempt).toBe(0);
+			expect(sample.jobId).toBe('job-profile');
+			expect(sample.documentId).toBe('doc-1');
+			expect(sample.playbookId).toBe('generic');
+			expect(sample.playbookVersion).toBe(playbook.version);
+			expect(sample.purpose).toBe(playbook.modelPurpose);
+			expect(sample.provider).toBe('test');
+			// The fixed parts are identical on every step, which is the resend.
+			expect(sample.systemPrompt).toBe(playbook.systemPrompt.length);
+			expect(sample.toolSchemas).toBeGreaterThan(0);
+			expect(sample.reportedInputTokens).toBeGreaterThan(0);
+			expect(sample.credits).toBeGreaterThan(0);
+		}
+		expect(new Set(samples.map((s) => s.toolSchemas)).size).toBe(1);
+	});
+
+	it('shows the accumulated transcript growing step over step while nothing fixed changes', async () => {
+		const playbook = await loadBuiltinPlaybook('generic');
+		const samples: StepSample[] = [];
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(scriptedModel(documentScript())),
+			profiler: (sample) => samples.push(sample)
+		});
+
+		await collect(
+			buildJob({
+				id: 'job-growth',
+				playbook,
+				documents: [{ id: 'doc-1', sourcePath: 'notes/aldric.md' }],
+				sources: sourcesWithABigPage()
+			}),
+			driver
+		);
+
+		const [one, two, three] = samples;
+		// Step 1 has read nothing yet, so it carries no tool results at all.
+		expect(one!.toolResults).toBe(0);
+		// Step 2 carries the whole page body back, and it never leaves again.
+		expect(two!.toolResults).toBeGreaterThan(4000);
+		expect(three!.toolResults).toBeGreaterThan(two!.toolResults);
+		expect(three!.messageCount).toBeGreaterThan(one!.messageCount);
+		expect(two!.toolResultsByTool.source_read).toBeGreaterThan(4000);
+		expect(three!.totalChars).toBeGreaterThan(two!.totalChars);
+	});
+
+	it('changes nothing about a run when no profiler is attached', async () => {
+		const playbook = await loadBuiltinPlaybook('generic');
+		const withProfiler: StepSample[] = [];
+		const runs = await Promise.all(
+			[true, false].map(async (profiled) => {
+				const driver = new GatewayDriver({
+					gateway: IDENTITY_GATEWAY,
+					models: fixedModelSelector(scriptedModel(documentScript())),
+					...(profiled ? { profiler: (s: StepSample) => withProfiler.push(s) } : {})
+				});
+				return collect(
+					buildJob({
+						id: 'job-parity',
+						playbook,
+						documents: [{ id: 'doc-1', sourcePath: 'notes/aldric.md' }],
+						sources: sourcesWithABigPage()
+					}),
+					driver
+				);
+			})
+		);
+
+		// Latency is wall clock and this box runs several agents at once, so it is dropped
+		// rather than compared: everything else about the two streams must be identical.
+		const withoutLatency = (events: JobEvent[]) =>
+			events.map((event) => ({ ...event, latencyMs: undefined }));
+
+		expect(withProfiler).toHaveLength(3);
+		expect(withoutLatency(runs[1]!.events)).toEqual(withoutLatency(runs[0]!.events));
 	});
 });

@@ -23,6 +23,15 @@ export {
 } from './gateway-driver.js';
 
 export {
+	profileStep,
+	toolSchemaChars,
+	type TranscriptSegments,
+	type StepProfile,
+	type StepSample,
+	type StepProfiler
+} from './transcript-profile.js';
+
+export {
 	loadPlaybook,
 	loadPlaybookFile,
 	loadBuiltinPlaybook,
