@@ -1,23 +1,35 @@
 /**
- * Better Auth 1.6.27 (issue #86). One eager, module-level instance: `betterAuth(...)`
- * runs the moment this module is first imported (from `hooks.server.ts`, at process
- * boot), so a misconfigured secret or a social provider missing its half of a
- * client id/secret pair throws before the server accepts a single request rather than
- * failing the first sign-in attempt. "Half-working" - a provider silently absent from
- * the sign-in screen because its secret was forgotten - is exactly what that buys
- * against.
+ * Better Auth 1.6.29 (issue #86). One instance for the process, built on first use rather
+ * than at import (issue #307): `auth()` is the accessor, shaped exactly like
+ * `$lib/server/db.ts`'s `db()`, and evaluating this module constructs nothing.
+ *
+ * It used to be an eager `export const auth = betterAuth(...)`, which meant `db()` ran at
+ * import. SvelteKit's postbuild `analyse` step imports every built server chunk in a fresh
+ * process to work out each route's options, so `vite build` needed a usable DATABASE_URL to
+ * compile an app that never queried anything, and `apps/web/vite.config.ts` had to invent
+ * one pointing at the shared dev database (#297). Nothing read it, which was luck rather
+ * than design: the day a `betterAuth` option, plugin or adapter reads the database while
+ * constructing, a build becomes a write against a database nobody chose.
+ *
+ * What #86 actually wanted from eagerness was failing loudly at boot rather than
+ * half-working, and that survives without constructing anything: `assertAuthEnvironment`
+ * runs at import, under the same `building` guard as before, and checks the two things that
+ * can only be wrong through misconfiguration - a missing signing secret, and a social
+ * provider with a client id but no secret. Both are pure environment reads. A real process
+ * with a broken auth configuration still dies before it accepts a request; a build reads
+ * neither.
  *
  * The adapter and the SvelteKit mount both come from the installed package rather than
  * general Better Auth folklore: `drizzleAdapter` lives at `better-auth/adapters/drizzle`
- * in 1.6.27 (re-exported from the separate `@better-auth/drizzle-adapter` package), and
- * the SvelteKit integration needs no catch-all route file at all - `svelteKitHandler`
- * (mounted in hooks.server.ts) matches `/api/auth/*` against the raw request URL and
- * calls `auth.handler` directly, so there is nothing under `src/routes/api/auth` to
- * create. Verified by reading `node_modules/better-auth/dist/adapters/drizzle-adapter`
- * and `node_modules/better-auth/dist/integrations/svelte-kit.d.mts` in this checkout,
- * not assumed from a blog post.
+ * (re-exported from the separate `@better-auth/drizzle-adapter` package), and the SvelteKit
+ * integration needs no catch-all route file at all - `svelteKitHandler` (mounted in
+ * hooks.server.ts) matches `/api/auth/*` against the raw request URL and calls
+ * `auth().handler` directly, so there is nothing under `src/routes/api/auth` to create.
+ * Verified by reading `node_modules/better-auth/dist/adapters/drizzle-adapter` and
+ * `node_modules/better-auth/dist/integrations/svelte-kit.d.mts` in this checkout, not
+ * assumed from a blog post.
  */
-import { betterAuth } from 'better-auth';
+import { betterAuth, type Auth as BetterAuthInstance, type BetterAuthOptions } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { building } from '$app/environment';
 import { env } from '$env/dynamic/private';
@@ -72,72 +84,109 @@ export function buildSocialProviders(
 	return providers;
 }
 
-// Eager everywhere except during a build. SvelteKit's postbuild analysis imports every
-// server module to work out which routes are prerenderable, with no environment behind it,
-// so a module-level throw here fails `vite build` and therefore CI, which has no secrets
-// and should not need any to compile the app. `building` is the framework's own answer to
-// exactly this: refuse at process boot, stay quiet while the bundler is reading.
-if (!building && !env.BETTER_AUTH_SECRET) {
-	throw new Error(
-		"BETTER_AUTH_SECRET is not set: sessions cannot be signed without it, and Better Auth's " +
-			'own insecure built-in default is not an acceptable fallback for a real deployment.'
-	);
+/**
+ * Everything about the auth configuration that can only be wrong through misconfiguration,
+ * checked without building anything. Called at import below, so a real process still dies
+ * at boot rather than on the first sign-in attempt (issue #86: "failing loudly at startup
+ * ... rather than half-working").
+ *
+ * `buildSocialProviders`'s result is discarded here on purpose: it is a pure read of the
+ * environment whose only side effect is the throw, and `buildAuth` calls it again for real
+ * when it actually needs the map.
+ */
+export function assertAuthEnvironment(vars: NodeJS.ProcessEnv): void {
+	if (!vars.BETTER_AUTH_SECRET) {
+		throw new Error(
+			"BETTER_AUTH_SECRET is not set: sessions cannot be signed without it, and Better Auth's " +
+				'own insecure built-in default is not an acceptable fallback for a real deployment.'
+		);
+	}
+	buildSocialProviders(vars);
 }
 
-export const auth = betterAuth({
-	baseURL: env.BETTER_AUTH_URL ?? env.ORIGIN,
-	// Better Auth refuses to construct without a secret, and construction happens at import,
-	// which the bundler does. During a build the value is irrelevant and never signs
-	// anything: the guard above has already established that a real process without a real
-	// secret dies before it serves a request.
-	secret: env.BETTER_AUTH_SECRET ?? (building ? 'build-only-placeholder-never-signs' : undefined),
-	database: drizzleAdapter(db(), {
-		provider: 'pg',
-		// Better Auth's own table/column names, already the exact shape packages/db/src/
-		// schema/auth.ts carries (see that file's own doc comment) - usePlural defaults to
-		// false, which matches the singular `user`/`session`/`account`/`verification` names.
-		schema: { user, session, account, verification }
-	}),
-	emailAndPassword: {
-		enabled: true,
-		// #151: the forgotten-password link the sign-in form already carries. The actual
-		// loud-vs-silent-failure handling lives in ./mail/reset-password.ts's own doc
-		// comment, not here - this line only wires the transport in.
-		sendResetPassword: makeSendResetPassword({ db: db(), transport: buildMailTransport(env) })
-	},
-	// #154: turns on Better Auth's /delete-user with the emailed-confirmation path -
-	// off by default, because a signed-in session could otherwise destroy an account,
-	// and every universe under it (`universe.owner_user_id` is `ON DELETE CASCADE`),
-	// with one click and no way back. The loud-vs-silent-failure handling lives in
-	// ./mail/delete-account.ts's own doc comment, same reasoning as sendResetPassword
-	// above. `settings/account/+page.server.ts`'s requestDeletion action also passes
-	// the account's current password on this same call, which Better Auth verifies
-	// before it ever sends the mail (issue #154's own decision: a hijacked session
-	// with neither the password nor the inbox gets neither step).
-	user: {
-		deleteUser: {
+// Everywhere except during a build. SvelteKit's postbuild analysis imports every server
+// module to work out which routes are prerenderable, with no environment behind it, so a
+// module-level throw here fails `vite build` and therefore CI, which has no secrets and
+// should not need any to compile the app. `building` is the framework's own answer to
+// exactly this: refuse at process boot, stay quiet while the bundler is reading.
+if (!building) assertAuthEnvironment(env);
+
+/**
+ * This deployment's Better Auth instance type, named through the package's own exported
+ * generic rather than inferred off the factory below, so a consumer imports a contract and
+ * not an implementation detail. `BetterAuthOptions` is the right instantiation because this
+ * app passes no plugins and declares no `additionalFields`: `$Infer.Session.user` resolves
+ * to the concrete `{ id, createdAt, updatedAt, email, emailVerified, name, image }` that
+ * `app.d.ts` puts on `event.locals`, not to anything widened.
+ */
+export type Auth = BetterAuthInstance<BetterAuthOptions>;
+
+function buildAuth(): Auth {
+	const options: BetterAuthOptions = {
+		baseURL: env.BETTER_AUTH_URL ?? env.ORIGIN,
+		// No build-time placeholder any more: a build never reaches this function, and the
+		// import-time guard above has already established that a real process without a real
+		// secret dies before it serves a request.
+		secret: env.BETTER_AUTH_SECRET,
+		database: drizzleAdapter(db(), {
+			provider: 'pg',
+			// Better Auth's own table/column names, already the exact shape packages/db/src/
+			// schema/auth.ts carries (see that file's own doc comment) - usePlural defaults to
+			// false, which matches the singular `user`/`session`/`account`/`verification` names.
+			schema: { user, session, account, verification }
+		}),
+		emailAndPassword: {
 			enabled: true,
-			sendDeleteAccountVerification: makeSendDeleteAccountVerification({
-				db: db(),
-				transport: buildMailTransport(env)
-			})
-		}
-	},
-	socialProviders: buildSocialProviders(env),
-	databaseHooks: {
+			// #151: the forgotten-password link the sign-in form already carries. The actual
+			// loud-vs-silent-failure handling lives in ./mail/reset-password.ts's own doc
+			// comment, not here - this line only wires the transport in.
+			sendResetPassword: makeSendResetPassword({ db: db(), transport: buildMailTransport(env) })
+		},
+		// #154: turns on Better Auth's /delete-user with the emailed-confirmation path -
+		// off by default, because a signed-in session could otherwise destroy an account,
+		// and every universe under it (`universe.owner_user_id` is `ON DELETE CASCADE`),
+		// with one click and no way back. The loud-vs-silent-failure handling lives in
+		// ./mail/delete-account.ts's own doc comment, same reasoning as sendResetPassword
+		// above. `settings/account/+page.server.ts`'s requestDeletion action also passes
+		// the account's current password on this same call, which Better Auth verifies
+		// before it ever sends the mail (issue #154's own decision: a hijacked session
+		// with neither the password nor the inbox gets neither step).
 		user: {
-			create: {
-				// SPEC.md §15: a stated, finite ceiling from the account's first moment, not
-				// a page that quietly assumes one exists later. Runs after the user row's own
-				// transaction commits (Better Auth's own hook contract), so it cannot see or
-				// join that transaction - a second, separate write is the correct shape here,
-				// not a workaround.
-				after: async (createdUser) => {
-					await ensureBilling(db(), createdUser.id);
+			deleteUser: {
+				enabled: true,
+				sendDeleteAccountVerification: makeSendDeleteAccountVerification({
+					db: db(),
+					transport: buildMailTransport(env)
+				})
+			}
+		},
+		socialProviders: buildSocialProviders(env),
+		databaseHooks: {
+			user: {
+				create: {
+					// SPEC.md §15: a stated, finite ceiling from the account's first moment, not
+					// a page that quietly assumes one exists later. Runs after the user row's own
+					// transaction commits (Better Auth's own hook contract), so it cannot see or
+					// join that transaction - a second, separate write is the correct shape here,
+					// not a workaround.
+					after: async (createdUser) => {
+						await ensureBilling(db(), createdUser.id);
+					}
 				}
 			}
 		}
-	}
-});
+	};
+	return betterAuth(options);
+}
 
-export type Auth = typeof auth;
+let instance: Auth | undefined;
+
+/**
+ * The process's one Better Auth instance, built the first time something asks for it. Every
+ * caller goes through this rather than holding its own: the drizzle adapter it wraps shares
+ * `db()`'s single handle, so connection count stays a property of the process.
+ */
+export function auth(): Auth {
+	instance ??= buildAuth();
+	return instance;
+}

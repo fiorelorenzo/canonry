@@ -21,45 +21,32 @@ const workspaceRoot = path.resolve(import.meta.dirname, '..', '..');
 // plain `pnpm test` with no environment configured, matching every other integration test in
 // this repo, which already assumes a local Postgres at 127.0.0.1:55432.
 //
-// Split into two gates rather than one, because the three keys don't share a reason to exist:
+// One gate, `VITEST`, and nothing else. It used to be two: DATABASE_URL and
+// BETTER_AUTH_SECRET were also seeded for `command === 'build'`, because `vite build`'s own
+// postbuild `analyse` step imports every server module in this same process and
+// src/lib/server/auth.ts called `db()` and constructed `betterAuth(...)` at module scope, so
+// a build with no `.env` died on a database URL it had no use for (issue #297). That module
+// builds its instance lazily now (issue #307), so nothing a build evaluates reads either
+// key and a build needs neither. Seeding them anyway cost more than it looks: the fallback
+// named the shared dev database, so a build carried a connection string nobody chose, and a
+// genuinely missing DATABASE_URL was indistinguishable from a configured one.
 //
-// STAFF_EMAILS only has a test-time consumer (issue #235's params-merge.test.ts), so it is
-// gated on `VITEST` (the same flag @sveltejs/kit's own plugin checks in its `config` hook) and
-// nothing else. Setting it unconditionally shadowed a real STAFF_EMAILS in the workspace-root
-// `.env` under `pnpm dev` - vite's `loadEnv()` makes `process.env` win over the same key in a
-// `.env` file by design - and `requireAdmin` answers 404 for a misconfigured allowlist exactly
-// the same way it does for a correct one, which is indistinguishable by design (issue #265).
-//
-// DATABASE_URL and BETTER_AUTH_SECRET also have a build-time consumer that has nothing to do
-// with the allowlist: `vite build`'s own postbuild `analyse` step imports every server module,
-// including src/lib/server/auth.ts, in this same process, and that module calls `db()` and
-// constructs `betterAuth(...)` at module scope. CI's build step runs with no `.env` and no
-// secrets on purpose - it should not need any to compile the app - so these two are gated on
-// `VITEST` or `command === 'build'`. Neither value baked in here ever reaches a deployed
-// server: `$env/dynamic/private` is read fresh at request time from the real process
-// environment, not from whatever this file happened to seed during the build that produced
-// the running server's code.
-//
-// `vite dev` and `vite preview` hit neither gate, so neither touches `process.env` for any of
-// the three, and the workspace `.env` - reachable via `workspaceRoot` above - decides all
-// three the normal way.
-export default defineConfig(({ command }) => {
+// `vite dev`, `vite build` and `vite preview` therefore never touch `process.env` here, and
+// the workspace `.env` - reachable via `workspaceRoot` above - decides all three keys the
+// normal way. Under `pnpm test` these three are test-only values: the secret signs nothing
+// that outlives the run (issue #120's hooks.server.test.ts cannot even import the hook
+// without one) and STAFF_EMAILS is not a real staff account (issue #235's
+// params-merge.test.ts calls /admin/models' actions directly, and `requireAdmin` 404s
+// unless the session's email is on this allowlist).
+export default defineConfig(() => {
 	if (process.env.VITEST === 'true') {
-		process.env.STAFF_EMAILS ??= 'admin-models-test@canonry.invalid';
-	}
-
-	if (process.env.VITEST === 'true' || command === 'build') {
 		process.env.DATABASE_URL ??=
 			process.env.TEST_DATABASE_URL ??
 			(process.env.TEST_DB_SUFFIX
 				? `postgres://canonry:canonry@127.0.0.1:55432/canonry_test_${process.env.TEST_DB_SUFFIX}`
 				: 'postgres://canonry:canonry@127.0.0.1:55432/canonry');
-		// Issue #120: hooks.server.ts imports $lib/server/auth.ts, which throws at module load
-		// with no BETTER_AUTH_SECRET (issue #86's own fail-loud guard) - a test that imports the
-		// hook (src/hooks.server.test.ts) cannot even load without one, and CI's test job has no
-		// real secret configured. Signs nothing that outlives this process; never used outside a
-		// test run or a build.
 		process.env.BETTER_AUTH_SECRET ??= 'vitest-throwaway-secret-not-a-real-deployment';
+		process.env.STAFF_EMAILS ??= 'admin-models-test@canonry.invalid';
 	}
 
 	return {

@@ -40,7 +40,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const { headers } = await auth.api.signInEmail({
+			const { headers } = await auth().api.signInEmail({
 				body: { email, password },
 				returnHeaders: true
 			});

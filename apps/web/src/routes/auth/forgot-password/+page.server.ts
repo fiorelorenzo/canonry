@@ -42,7 +42,7 @@ export const actions: Actions = {
 
 		const outcome = { failed: false };
 		await resetSendOutcome.run(outcome, () =>
-			auth.api.requestPasswordReset({
+			auth().api.requestPasswordReset({
 				body: { email: email.trim(), redirectTo: '/auth/reset-password' }
 			})
 		);

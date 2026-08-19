@@ -43,7 +43,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const { headers } = await auth.api.signUpEmail({
+			const { headers } = await auth().api.signUpEmail({
 				body: { name, email, password },
 				returnHeaders: true
 			});

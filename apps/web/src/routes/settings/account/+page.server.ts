@@ -66,7 +66,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			await auth.api.updateUser({ headers: request.headers, body: { name: name.trim() } });
+			await auth().api.updateUser({ headers: request.headers, body: { name: name.trim() } });
 		} catch (err) {
 			if (err instanceof APIError) {
 				return fail(400, { nameError: err.message ?? t.nameSaveFailedFallback });
@@ -93,7 +93,7 @@ export const actions: Actions = {
 		try {
 			// Better Auth reissues the session cookie on a password change, so the headers it
 			// hands back have to reach the browser or this tab is left holding the old token.
-			const { headers } = await auth.api.changePassword({
+			const { headers } = await auth().api.changePassword({
 				headers: request.headers,
 				body: { currentPassword, newPassword },
 				returnHeaders: true
@@ -123,7 +123,7 @@ export const actions: Actions = {
 		const outcome = { failed: false };
 		try {
 			await deleteAccountSendOutcome.run(outcome, () =>
-				auth.api.deleteUser({
+				auth().api.deleteUser({
 					headers: request.headers,
 					body: { password, callbackURL: '/auth/account-deleted' }
 				})

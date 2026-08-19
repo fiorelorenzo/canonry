@@ -207,7 +207,7 @@ describe('the no-JavaScript POST really signs somebody up (issue #262)', () => {
 		expect(outcome.status).toBe(303);
 		expect(outcome.location).toBe('/');
 
-		const session = await auth.api.getSession({ headers: sentBack(written) });
+		const session = await auth().api.getSession({ headers: sentBack(written) });
 		expect(session?.user.email).toBe(email);
 		expect(session?.user.name).toBe('Lorenzo');
 	});
@@ -220,7 +220,7 @@ describe('the no-JavaScript POST really signs somebody up (issue #262)', () => {
 		);
 		expect(isRedirect(outcome)).toBe(true);
 
-		const session = await auth.api.getSession({ headers: sentBack(written) });
+		const session = await auth().api.getSession({ headers: sentBack(written) });
 		expect(session?.user.email).toBe(email);
 	});
 
