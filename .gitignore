@@ -9,4 +9,8 @@ build/
 .DS_Store
 coverage/
 .turbo/
+# Scratch output a run produces and nobody should commit: benchmark results, rendered
+# import corpora, anything an afternoon's evidence lives in. packages/bench already
+# ignored its own, which left the repo root uncovered.
+.data/
 *.tsbuildinfo
