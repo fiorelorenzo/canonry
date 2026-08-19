@@ -20,7 +20,7 @@
 	 * that the shell has a real breakpoint, and 'drawer' is PhoneNav.svelte's second
 	 * mount of this exact component inside a Sheet, filling whatever the sheet gives
 	 * it. Only the `<aside>` tag's own class list branches on it - everything a
-	 * sibling issue owns inside this file (the footer, the Ask row's shortcut text)
+	 * sibling issue owns inside this file (the footer, the kept-answers row)
 	 * is written once and simply renders twice, one per variant, so neither has to
 	 * touch this prop or know it exists.
 	 *
@@ -32,7 +32,6 @@
 	import { page } from '$app/state';
 	import Mark from '$lib/components/brand/Mark.svelte';
 	import { messages, type Locale } from '$lib/i18n';
-	import { formatShortcut, SHORTCUTS } from '$lib/keys';
 	import { ACCOUNT_NAV_ITEMS, NAV_ITEMS } from './nav';
 	import QuotaMeter from './QuotaMeter.svelte';
 	import ShellUserRow from './ShellUserRow.svelte';
@@ -70,13 +69,6 @@
 	const t = $derived(messages(locale).universe);
 	const shellT = $derived(messages(locale).shell);
 
-	// Issue #149 (G3 = B): the Ask button's hint used to be a hardcoded "⌘⇧A", a Mac
-	// glyph shown to every platform with no handler behind it. `CommandPalette.svelte`
-	// now binds this chord for real (global, "Ask, directly - skipping the palette");
-	// this renders whatever that binding actually is, per platform, from the one
-	// source both agree on.
-	const askShortcut = SHORTCUTS.find((shortcut) => shortcut.id === 'ask')!;
-
 	// C2 = A: a quiet, persistent nav badge. Entries carries the same real count it always
 	// has; Proposals now reads a real pending-proposal count too (#47/#51 land the table
 	// and the review surface), zero when the inbox is empty rather than hidden - a settled
@@ -100,19 +92,20 @@
 		</div>
 		<UniverseSwitcher {current} {universes} {locale} />
 		{#if mode === 'universe' && universeSlug}
+			<!-- Issue #285 (decision O3): this row used to be "Ask the Loremaster" and opened a
+			     blank composer. The composer is the floating pill now (`QuickAsk.svelte`), which
+			     also prints the mod+shift+A chord this row used to print, so what is left for a
+			     permanent nav row is the thing a blank box never was: the list of answers
+			     somebody chose to keep (#290's `ask/kept`). It wears the theme's own colours
+			     rather than the copilot's violet, for the same reason the pill does, and because
+			     a list of kept notes is not unaccepted AI text. -->
 			<a
-				href={resolve(`/w/${universeSlug}/ask`)}
-				class="mt-2 flex items-center gap-2 rounded-md border border-ai-line bg-ai-bg px-2.5 py-1.5 text-sm text-ai hover:opacity-90"
-				title={t.sidebar.askTheLoremaster}
+				href={resolve(`/w/${universeSlug}/ask/kept`)}
+				class="mt-2 flex items-center gap-2 rounded-md border border-line-2 bg-panel-2 px-2.5 py-1.5 text-sm text-ink hover:bg-accent-bg"
+				title={t.ask.keep.historyLink}
 			>
-				<span aria-hidden="true">✦</span>
-				<!-- Truncated rather than wrapped, with the full phrase on `title` and in the
-				     accessible name: off macOS the hint beside it reads "Ctrl+Shift+A" instead of
-				     three glyphs, and something has to give in a 256px rail. -->
-				<span class="truncate">{t.sidebar.askTheLoremaster}</span>
-				<span class="ml-auto flex-none font-mono text-[10px] whitespace-nowrap text-muted"
-					>{formatShortcut(askShortcut)}</span
-				>
+				<span aria-hidden="true" class="text-accent">✦</span>
+				<span class="truncate">{t.ask.keep.historyLink}</span>
 			</a>
 		{/if}
 	</div>

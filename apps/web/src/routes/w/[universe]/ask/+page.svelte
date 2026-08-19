@@ -10,6 +10,13 @@
 	 * answer text exists - `askAnswer` is empty until the first `token` event, but
 	 * `askSources` is never empty-while-loading in a way that could read as "no evidence
 	 * for this answer", satisfying guardrail 3 even mid-stream.
+	 *
+	 * Issue #285 (decision O3): the SSE reading and the keep POST both moved to
+	 * `$lib/ask/stream.ts`, because the floating panel streams the same events and reads
+	 * them the same way; the types this file used to mirror by hand live there too. And
+	 * this route now has a second way in beside `?q=`: `askHandoff`, which is the panel's
+	 * "open in Ask" handing over an answer that already streamed. That is G5's expand in
+	 * place, so the arrival re-renders rather than re-asks, and nothing is spent twice.
 	 */
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
@@ -19,57 +26,25 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import AiMarkedParagraph from '$lib/components/ai/AiMarkedParagraph.svelte';
+	import {
+		ASK_DETAIL_LEVELS,
+		keepAnswer,
+		streamAsk,
+		type AskDetailLevel,
+		type AskProposalEvent,
+		type AskProposalFailure,
+		type AskSource,
+		type OwnCanonSource
+	} from '$lib/ask/stream';
+	import { askHandoff } from '$lib/ask/handoff.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	const t = $derived(messages(data.locale).universe.ask);
 
-	type DetailLevel = '1_line' | 'short' | 'normal' | 'detailed' | 'full';
-	const LEVEL_IDS: readonly DetailLevel[] = ['1_line', 'short', 'normal', 'detailed', 'full'];
-
-	interface OwnCanonSource {
-		kind: 'own_canon';
-		entityId: string;
-		entityName: string;
-		entitySlug: string;
-		statement: string;
-		score: number;
-	}
-	interface IndexedSource {
-		kind: 'indexed';
-		dataSourceId: string;
-		pageTitle: string;
-		breadcrumb: string;
-		url: string;
-		text: string;
-		attribution: string;
-		licence: string | null;
-		licenceUrl: string | null;
-		score: number;
-	}
-	type AskSource = OwnCanonSource | IndexedSource;
-
-	/** issue #256: `runAsk`'s own `AskProposalEvent`, mirrored client-side like `AskSource`
-	 * above already is - this route has no shared types module with `packages/copilot`. */
-	interface AskProposalEvent {
-		proposalId: string;
-		planId: string | null;
-		kind: 'draft_entity' | 'update';
-		redirected: boolean;
-		entityName: string;
-		entitySlug: string;
-		summary: string;
-	}
-
-	/** issue #256: `runAsk`'s own `AskProposalFailure` - a tool call the model made whose
-	 * drafting call failed. Rendered independently of the model's own narration, which is
-	 * the hard backstop: the model is instructed to report a failure honestly, but this
-	 * never depends on it doing so. */
-	interface AskProposalFailure {
-		tool: 'entry_propose' | 'entry_edit_propose';
-		message: string;
-	}
+	type DetailLevel = AskDetailLevel;
+	const LEVEL_IDS = ASK_DETAIL_LEVELS;
 
 	let question = $state('');
 	let detailLevel = $state<DetailLevel>('normal');
@@ -95,39 +70,18 @@
 		keeping = true;
 		keepError = null;
 		try {
-			const res = await fetch(`/w/${data.universeSlug}/ask/keep`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					question,
-					answer: askAnswer,
-					detailLevel,
-					askedFromPath: page.url.pathname,
-					// Sources travel as references, never as the prose that was rendered from
-					// them: the record cites the entry, and the sentence it was grounded on.
-					sources: askSources.map((source) =>
-						source.kind === 'own_canon'
-							? {
-									kind: 'own_canon' as const,
-									entityId: source.entityId,
-									statement: source.statement
-								}
-							: {
-									kind: 'indexed' as const,
-									dataSourceId: source.dataSourceId,
-									pageTitle: source.pageTitle,
-									url: source.url,
-									statement: source.text
-								}
-					)
-				})
+			// Sources travel as references, never as the prose that was rendered from them:
+			// the record cites the entry, and the sentence it was grounded on. #285 moved that
+			// mapping into `keepSourcePayload`, so the floating panel cannot send a different
+			// shape than this route does.
+			keptId = await keepAnswer({
+				universeSlug: data.universeSlug,
+				question,
+				answer: askAnswer,
+				detailLevel,
+				askedFromPath: page.url.pathname,
+				sources: askSources
 			});
-			if (!res.ok) {
-				keepError = t.keep.failed;
-				return;
-			}
-			const body = (await res.json()) as { id: string };
-			keptId = body.id;
 		} catch {
 			keepError = t.keep.failed;
 		} finally {
@@ -176,58 +130,60 @@
 		keptId = null;
 		keepError = null;
 
-		const res = await fetch(`/w/${data.universeSlug}/ask`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ question: q, detailLevel })
-		});
-		if (!res.ok || !res.body) {
-			askError = t.askFailed;
-			asking = false;
-			return;
-		}
-
-		const reader = res.body.getReader();
-		const decoder = new TextDecoder();
-		let buffer = '';
-		while (true) {
-			const { value, done } = await reader.read();
-			if (done) break;
-			buffer += decoder.decode(value, { stream: true });
-			const events = buffer.split('\n\n');
-			buffer = events.pop() ?? '';
-			for (const raw of events) {
-				const lines = raw.split('\n');
-				const eventLine = lines.find((l) => l.startsWith('event: '));
-				const dataLine = lines.find((l) => l.startsWith('data: '));
-				if (!eventLine || !dataLine) continue;
-				const eventName = eventLine.slice('event: '.length);
-				const payload: unknown = JSON.parse(dataLine.slice('data: '.length));
-				if (eventName === 'sources' && payload && typeof payload === 'object') {
-					const p = payload as { sources: AskSource[]; followUps: string[] };
-					askSources = p.sources;
-					followUps = p.followUps;
-				} else if (eventName === 'token' && payload && typeof payload === 'object') {
-					askAnswer += (payload as { delta: string }).delta;
-				} else if (eventName === 'done' && payload && typeof payload === 'object') {
-					const p = payload as {
-						generated: boolean;
-						provider: string | null;
-						modelId: string | null;
-					};
-					generated = p.generated;
-					provider = p.provider;
-				} else if (eventName === 'proposal' && payload && typeof payload === 'object') {
-					askProposals = [...askProposals, payload as AskProposalEvent];
-				} else if (eventName === 'proposal_failed' && payload && typeof payload === 'object') {
-					askProposalFailures = [...askProposalFailures, payload as AskProposalFailure];
-				} else if (eventName === 'error' && payload && typeof payload === 'object') {
-					askError = (payload as { message: string }).message;
+		try {
+			await streamAsk(
+				{ universeSlug: data.universeSlug, question: q, detailLevel },
+				{
+					onSources: (sources, follow) => {
+						askSources = sources;
+						followUps = follow;
+					},
+					onToken: (delta) => {
+						askAnswer += delta;
+					},
+					onProposal: (proposal) => {
+						askProposals = [...askProposals, proposal];
+					},
+					onProposalFailure: (failure) => {
+						askProposalFailures = [...askProposalFailures, failure];
+					},
+					onDone: (done) => {
+						generated = done.generated;
+						provider = done.provider;
+					},
+					onError: (message) => {
+						askError = message;
+					}
 				}
-			}
+			);
+		} catch {
+			askError = t.askFailed;
+		} finally {
+			asking = false;
 		}
-		asking = false;
 	}
+
+	// Issue #285 (decision O3): "open in Ask" from the floating panel. G5's expand in
+	// place, so what arrives is an answer that already streamed and this route re-renders
+	// it rather than asking again: one model call for one question, wherever it was typed.
+	// Taken before the `?q=` effect below can fire, and taken once, so a later visit here
+	// is a blank composer again.
+	$effect(() => {
+		const carried = askHandoff.take();
+		if (!carried) return;
+		question = carried.question;
+		detailLevel = carried.detailLevel;
+		askAnswer = carried.answer;
+		askSources = carried.sources;
+		followUps = carried.followUps;
+		askProposals = carried.proposals;
+		askProposalFailures = carried.proposalFailures;
+		generated = carried.generated;
+		provider = carried.provider;
+		// Already kept from the panel: the route says so instead of offering to store the
+		// same answer a second time.
+		keptId = carried.keptId;
+	});
 
 	// Issue #149 (A3 = C): the palette's typed-question result routes here with `?q=`
 	// rather than answering inline (C8, G5) - this is where that question actually

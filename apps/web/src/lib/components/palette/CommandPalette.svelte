@@ -15,6 +15,22 @@
 	 * whether that row shows, and the matching entity still renders underneath it, "in
 	 * case a name was meant" (A3's own mock).
 	 *
+	 * Issue #285 (decision O3) grows the second placement this component was always
+	 * going to need: `placement="docked"` renders the same `Command.Root` and the same
+	 * `Command.Input` inline, with no dialog around it, which is what the floating
+	 * Loremaster panel mounts. One input implementation in two positions rather than a
+	 * second composer beside this one. Three differences, all of them because a docked
+	 * copilot composer is not a command runner:
+	 *
+	 * - The Ask row is not gated on `looksLikeQuestion`. In the palette that gate keeps
+	 *   a typed name from looking like a question; in the panel everything typed is a
+	 *   question, and a composer whose Enter key sometimes does nothing is broken.
+	 * - It calls `onAsk` instead of linking to the route, because O3's whole point is
+	 *   that the answer arrives without leaving the page. Entry rows stay real links
+	 *   and `onNavigate` lets the panel close behind them.
+	 * - Actions, the account-mode universe list and the keyboard footer stay out. mod+K
+	 *   is still the command runner; the panel has its own two exits.
+	 *
 	 * Every row is a real `Command.LinkItem` (a real `<a href>`), not an `onSelect`-only
 	 * click handler - the same mod/ctrl-click-opens-a-tab behaviour a GM expects from
 	 * any link keeps working here, and Enter on the focused row works by the primitive
@@ -23,8 +39,13 @@
 	 * own roving selection - none of that is `lib/keys.ts` vocabulary, which is
 	 * reserved for the chords that have to agree with a platform's modifier map
 	 * (mod+K, mod+shift+A), not plain list navigation.
+	 *
+	 * mod+shift+A used to be handled here, sending the GM to the Ask route. It moved to
+	 * `QuickAsk.svelte` with #285: the pill prints that chord, so the chord has to open
+	 * the pill, and binding it in the component that draws it means it is simply not
+	 * bound on the one surface where the pill hides (table mode) rather than opening a
+	 * panel nobody can see.
 	 */
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import * as Command from '$lib/components/ui/command';
 	import { Badge } from '$lib/components/ui/badge';
@@ -40,25 +61,41 @@
 		mode,
 		universeSlug,
 		universes,
-		locale
+		locale,
+		placement = 'dialog',
+		onAsk,
+		onNavigate
 	}: {
 		mode: 'universe' | 'account';
 		universeSlug: string | null;
 		universes: UniverseSummary[];
 		locale: Locale;
+		/** 'dialog' (default): A3's own overlay, opened by mod+K. 'docked': #285's
+		 * floating panel, which mounts this same input inline. */
+		placement?: 'dialog' | 'docked';
+		/** Docked only: the panel answers in place instead of routing. */
+		onAsk?: (question: string) => void;
+		/** Docked only: a row navigated away, so whatever mounted this can close. */
+		onNavigate?: () => void;
 	} = $props();
 
 	const t = $derived(messages(locale).shell.palette);
+	const docked = $derived(placement === 'docked');
 
-	// Non-null: both ids are entries this issue's own vocabulary in keys.ts carries -
-	// see that file's SHORTCUTS table.
+	// Non-null: this id is an entry the shortcut vocabulary in keys.ts carries - see that
+	// file's SHORTCUTS table.
 	const paletteShortcut = SHORTCUTS.find((shortcut) => shortcut.id === 'palette')!;
-	const askShortcut = SHORTCUTS.find((shortcut) => shortcut.id === 'ask')!;
 
 	let query = $state('');
+	/** Docked only: the dialog placement gets its focus from the dialog itself, and a
+	 * panel that expands without the caret in the box is a panel you have to click twice. */
+	let inputEl = $state<HTMLInputElement | null>(null);
 	let entityHits = $state<EntitySearchHit[]>([]);
 	let searching = $state(false);
 	let requestSeq = 0;
+	/** Docked only: the question already sent, so the suggestion list gets out of the
+	 * answer's way until the GM edits the box again. */
+	let askedQuery = $state<string | null>(null);
 
 	const trimmedQuery = $derived(query.trim());
 	const isQuestion = $derived(looksLikeQuestion(query));
@@ -67,6 +104,9 @@
 		universeSlug
 			? `${resolve(`/w/${universeSlug}/ask`)}?q=${encodeURIComponent(trimmedQuery)}`
 			: null
+	);
+	const showResults = $derived(
+		docked ? trimmedQuery.length > 0 && trimmedQuery !== askedQuery : true
 	);
 	const filteredUniverses = $derived.by(() => {
 		if (mode !== 'account') return [];
@@ -98,7 +138,9 @@
 	$effect(() => {
 		const slug = universeSlug;
 		const q = trimmedQuery;
-		if (!slug) {
+		// Docked, with the list folded away behind an answer, there is nothing to search
+		// for: the hits would be fetched and never drawn.
+		if (!slug || !showResults) {
 			entityHits = [];
 			return;
 		}
@@ -109,91 +151,118 @@
 	// Reopening starts from a blank box rather than showing whatever the last search
 	// left behind - the same reasoning `InstantSearch.svelte`'s own `requestSeq` guard
 	// applies to a single stale response, extended here to a whole closed-then-reopened
-	// session.
+	// session. The docked placement needs no equivalent: it is only mounted while the
+	// panel is open, so it starts blank by being created.
 	$effect(() => {
-		if (!paletteState.open) {
-			query = '';
-			entityHits = [];
-			searching = false;
-			requestSeq += 1;
-		}
+		if (docked || paletteState.open) return;
+		query = '';
+		entityHits = [];
+		searching = false;
+		requestSeq += 1;
+	});
+
+	$effect(() => {
+		if (docked) inputEl?.focus();
 	});
 
 	function closePalette() {
 		paletteState.open = false;
 	}
 
+	function rowSelected() {
+		if (docked) onNavigate?.();
+		else closePalette();
+	}
+
+	function ask() {
+		if (trimmedQuery.length === 0) return;
+		askedQuery = trimmedQuery;
+		onAsk?.(trimmedQuery);
+	}
+
 	function onWindowKeydown(event: KeyboardEvent) {
+		if (docked) return; // one binding per chord, and the dialog placement owns mod+K
 		if (matchesShortcut(event, paletteShortcut)) {
 			event.preventDefault();
 			paletteState.open = !paletteState.open;
-			return;
 		}
-		// "Ask, directly - skipping the palette" (A3's own vocabulary table). Only live
-		// with a universe in context: there is no account-level Ask route to send it to.
-		if (universeSlug && matchesShortcut(event, askShortcut)) {
-			event.preventDefault();
-			closePalette();
-			goto(resolve(`/w/${universeSlug}/ask`));
-		}
+	}
+
+	// Enter with the suggestion list folded away has no highlighted row for Command to
+	// select, so re-asking the same question would silently do nothing.
+	function onDockedKeydown(event: KeyboardEvent) {
+		if (event.key !== 'Enter' || showResults) return;
+		event.preventDefault();
+		ask();
 	}
 </script>
 
 <svelte:window onkeydown={onWindowKeydown} />
 
-<Command.Dialog
-	bind:open={paletteState.open}
-	title={t.dialogTitle}
-	description={t.dialogDescription}
-	closeLabel={t.closeLabel}
-	shouldFilter={false}
->
-	<Command.Input bind:value={query} placeholder={t.placeholder} />
-	<Command.List>
-		{#if mode === 'universe' && universeSlug}
-			{#if isQuestion && askHref}
+{#snippet input()}
+	<Command.Input
+		bind:value={query}
+		bind:ref={inputEl}
+		placeholder={docked ? t.askPlaceholder : t.placeholder}
+	/>
+{/snippet}
+
+{#snippet results()}
+	{#if mode === 'universe' && universeSlug}
+		{#if docked}
+			{#if trimmedQuery.length > 0}
 				<Command.Group heading={t.askHeading}>
-					<Command.LinkItem href={askHref} onSelect={closePalette} class="text-ai">
+					<Command.Item onSelect={ask} class="text-ink">
 						<span aria-hidden="true">✦</span>
 						<span class="min-w-0 truncate">{t.askAction(trimmedQuery)}</span>
-						<Command.Shortcut>{t.askHint}</Command.Shortcut>
-					</Command.LinkItem>
+						<Command.Shortcut>{t.askHereHint}</Command.Shortcut>
+					</Command.Item>
 				</Command.Group>
 			{/if}
-
-			{#if trimmedQuery.length > 0}
-				<Command.Group heading={t.entriesHeading}>
-					{#if searching}
-						<Command.Loading>{t.loadingMessage}</Command.Loading>
-					{:else if entityHits.length === 0}
-						<p class="px-2 py-3 text-sm text-muted">{t.noEntryMatches(trimmedQuery)}</p>
-					{:else}
-						{#each entityHits as hit (hit.id)}
-							<Command.LinkItem
-								href={resolve(`/w/${universeSlug}/e/${hit.slug}`)}
-								onSelect={closePalette}
-							>
-								<span class="min-w-0 truncate">{hit.name}</span>
-								{#if hit.matchedAlias}
-									<span class="shrink-0 text-xs text-muted">{t.akaHint(hit.matchedAlias)}</span>
-								{/if}
-								<Badge variant="secondary" class="ml-auto shrink-0 font-mono uppercase">
-									{messages(locale).universe.index.filters.typeLabel(hit.type)}
-								</Badge>
-							</Command.LinkItem>
-						{/each}
-					{/if}
-				</Command.Group>
-			{/if}
+		{:else if isQuestion && askHref}
+			<Command.Group heading={t.askHeading}>
+				<Command.LinkItem href={askHref} onSelect={rowSelected} class="text-ai">
+					<span aria-hidden="true">✦</span>
+					<span class="min-w-0 truncate">{t.askAction(trimmedQuery)}</span>
+					<Command.Shortcut>{t.askHint}</Command.Shortcut>
+				</Command.LinkItem>
+			</Command.Group>
 		{/if}
 
+		{#if trimmedQuery.length > 0}
+			<Command.Group heading={t.entriesHeading}>
+				{#if searching}
+					<Command.Loading>{t.loadingMessage}</Command.Loading>
+				{:else if entityHits.length === 0}
+					<p class="px-2 py-3 text-sm text-muted">{t.noEntryMatches(trimmedQuery)}</p>
+				{:else}
+					{#each entityHits as hit (hit.id)}
+						<Command.LinkItem
+							href={resolve(`/w/${universeSlug}/e/${hit.slug}`)}
+							onSelect={rowSelected}
+						>
+							<span class="min-w-0 truncate">{hit.name}</span>
+							{#if hit.matchedAlias}
+								<span class="shrink-0 text-xs text-muted">{t.akaHint(hit.matchedAlias)}</span>
+							{/if}
+							<Badge variant="secondary" class="ml-auto shrink-0 font-mono uppercase">
+								{messages(locale).universe.index.filters.typeLabel(hit.type)}
+							</Badge>
+						</Command.LinkItem>
+					{/each}
+				{/if}
+			</Command.Group>
+		{/if}
+	{/if}
+
+	{#if !docked}
 		{#if mode === 'account'}
 			<Command.Group heading={t.universesHeading}>
 				{#if filteredUniverses.length === 0}
 					<p class="px-2 py-3 text-sm text-muted">{t.noUniverseMatches(trimmedQuery)}</p>
 				{:else}
 					{#each filteredUniverses as universe (universe.id)}
-						<Command.LinkItem href={resolve(`/w/${universe.slug}`)} onSelect={closePalette}>
+						<Command.LinkItem href={resolve(`/w/${universe.slug}`)} onSelect={rowSelected}>
 							<span class="min-w-0 truncate">{universe.name}</span>
 						</Command.LinkItem>
 					{/each}
@@ -204,7 +273,7 @@
 		{#if actions.length > 0}
 			<Command.Group heading={t.actionsHeading}>
 				{#each actions as action (action.id)}
-					<Command.LinkItem href={action.href} onSelect={closePalette}>
+					<Command.LinkItem href={action.href} onSelect={rowSelected}>
 						<span class="min-w-0 truncate">{action.label}</span>
 					</Command.LinkItem>
 				{/each}
@@ -212,10 +281,36 @@
 		{/if}
 
 		<Command.Empty>{t.emptyMessage}</Command.Empty>
-	</Command.List>
-	<div class="flex gap-3 border-t border-line bg-panel-2 px-3 py-1.5 text-xs text-muted">
-		<span>↑↓ {t.footerMove}</span>
-		<span>↵ {t.footerOpen}</span>
-		<span>Esc {t.footerClose}</span>
-	</div>
-</Command.Dialog>
+	{/if}
+{/snippet}
+
+{#if docked}
+	<!-- No dialog, no overlay, no footer: the panel around this owns its own chrome, and
+	     wears the theme's colours rather than the copilot's violet (O3's amendment). -->
+	<Command.Root shouldFilter={false} onkeydown={onDockedKeydown} class="bg-transparent p-0">
+		{@render input()}
+		{#if showResults}
+			<Command.List class="max-h-56">
+				{@render results()}
+			</Command.List>
+		{/if}
+	</Command.Root>
+{:else}
+	<Command.Dialog
+		bind:open={paletteState.open}
+		title={t.dialogTitle}
+		description={t.dialogDescription}
+		closeLabel={t.closeLabel}
+		shouldFilter={false}
+	>
+		{@render input()}
+		<Command.List>
+			{@render results()}
+		</Command.List>
+		<div class="flex gap-3 border-t border-line bg-panel-2 px-3 py-1.5 text-xs text-muted">
+			<span>↑↓ {t.footerMove}</span>
+			<span>↵ {t.footerOpen}</span>
+			<span>Esc {t.footerClose}</span>
+		</div>
+	</Command.Dialog>
+{/if}

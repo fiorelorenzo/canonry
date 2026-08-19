@@ -139,7 +139,8 @@ export interface Messages {
 			paletteTriggerLabel: string;
 			accountLabel: string;
 			tabsAriaLabel: string;
-			ask: string;
+			/** #285 (O3): the third tab is the Loremaster launcher rather than a link to the
+			 * route, so it reads its label from `shell.quickAsk.name`. */
 			more: string;
 		};
 		/** Issue #143 (I6 = B): the account menu that replaces the plain link wave one
@@ -171,9 +172,15 @@ export interface Messages {
 			dialogDescription: string;
 			closeLabel: string;
 			placeholder: string;
+			/** #285: the same input, docked in the Loremaster panel, where the box is the
+			 * copilot's own composer rather than a router. */
+			askPlaceholder: string;
 			askHeading: string;
 			askAction: (question: string) => string;
 			askHint: string;
+			/** #285: the docked placement answers in place, so the row's hint says so
+			 * rather than naming a route. */
+			askHereHint: string;
 			entriesHeading: string;
 			noEntryMatches: (query: string) => string;
 			loadingMessage: string;
@@ -186,6 +193,18 @@ export interface Messages {
 			footerMove: string;
 			footerOpen: string;
 			footerClose: string;
+		};
+
+		/** Issue #285 (decision O3): the floating pill and the panel it expands into. The
+		 * chrome wears the theme's own colours, so the name and the glyph are what say
+		 * "copilot" here; these strings carry that weight. */
+		quickAsk: {
+			name: string;
+			openLabel: string;
+			closeLabel: string;
+			context: (pageName: string) => string;
+			streaming: string;
+			openInAsk: string;
 		};
 	};
 
@@ -1365,7 +1384,9 @@ export interface Messages {
 		sidebar: {
 			navAriaLabel: string;
 			primaryNavAriaLabel: string;
-			askTheLoremaster: string;
+			/** #285 (O3): the row that used to open a blank composer now points at what was
+			 * kept, and reuses `universe.ask.keep.historyLink` for its label rather than
+			 * carrying a second string for the same words. */
 			recentHeading: string;
 			notBuiltYet: string;
 		};

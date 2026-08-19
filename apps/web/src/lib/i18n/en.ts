@@ -84,7 +84,6 @@ export const en: Messages = {
 			paletteTriggerLabel: 'Open the command palette',
 			accountLabel: 'Account',
 			tabsAriaLabel: 'Primary sections',
-			ask: 'Ask',
 			more: 'More'
 		},
 		/** Issue #143 (I6 = B): "Model keys" and "Plan and credits" are the menu's own
@@ -104,9 +103,11 @@ export const en: Messages = {
 			dialogDescription: 'Jump to an entry, run a command, or ask a question.',
 			closeLabel: 'Close the command palette',
 			placeholder: 'Jump to an entry, run a command, or ask a question…',
+			askPlaceholder: 'Ask about this universe…',
 			askHeading: 'Ask',
 			askAction: (question) => `Ask "${question}"`,
 			askHint: 'Opens Ask',
+			askHereHint: 'Answers here',
 			entriesHeading: 'Entries',
 			noEntryMatches: (query) => `No entries match "${query}".`,
 			loadingMessage: 'Searching…',
@@ -119,6 +120,17 @@ export const en: Messages = {
 			footerMove: 'Move',
 			footerOpen: 'Open',
 			footerClose: 'Close'
+		},
+		// Issue #285 (decision O3): the chrome carries no violet, so the name and the glyph
+		// are the only things saying this is the copilot. "Loremaster" is a product name and
+		// stays untranslated in both catalogues, like "Canonry" itself.
+		quickAsk: {
+			name: 'Loremaster',
+			openLabel: 'Open the Loremaster',
+			closeLabel: 'Close the Loremaster',
+			context: (pageName) => `about ${pageName}`,
+			streaming: 'streaming…',
+			openInAsk: 'Open in Ask'
 		}
 	},
 
@@ -1355,7 +1367,6 @@ export const en: Messages = {
 		sidebar: {
 			navAriaLabel: 'Universe navigation',
 			primaryNavAriaLabel: 'Primary',
-			askTheLoremaster: 'Ask the Loremaster',
 			recentHeading: 'Recent',
 			notBuiltYet: 'Not built yet.'
 		},
