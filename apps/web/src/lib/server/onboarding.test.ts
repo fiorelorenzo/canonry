@@ -11,8 +11,15 @@
  * hand-made fixture at `packages/import/test/fixtures/onenote/export/`: two top-level
  * pages, one of them (`The Sunken Archive`) with both its own attachment folder and a
  * subpage folder holding `Flooded Stacks.htm`.
+ *
+ * Issue #305 is the same silent-nothing failure without the OneNote shape: the generic
+ * branch of `documentsForPlaybook` enumerated only `.md`/`.txt` too, so the last describe
+ * in this file covers what a document means for an arbitrary generic upload.
  */
-import { estimateImportJob, InMemorySourceReader } from '@canonry/import';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { zipSync } from 'fflate';
+import { ArchiveSourceReader, estimateImportJob, InMemorySourceReader } from '@canonry/import';
 import { closeDb, createDb, type Db } from '@canonry/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -133,5 +140,144 @@ describe('estimateAveragesFor cold start for onenote (issue #261)', () => {
 			avgSecondsPerDocument: averages.avgSecondsPerDocument
 		});
 		expect(estimate.estimatedCredits).toBeGreaterThan(5);
+	});
+});
+
+/**
+ * Issue #305: `documentsForPlaybook('generic', ...)` shared obsidian's `.md`/`.txt`
+ * filter, so every other format the generic guide names (HTML, RTF, CSV, "a folder of
+ * mixed files, anything readable") enumerated zero documents and the job finished having
+ * proposed nothing. These drive the real `ArchiveSourceReader` rather than
+ * `InMemorySourceReader`: what the rule turns on is what an entry's bytes decode to, and
+ * the in-memory double only holds strings, so a real zip is the only way to hand
+ * enumeration a genuine PNG or a genuine invalid-UTF-8 blob.
+ */
+describe('generic upload enumeration (issue #305)', () => {
+	const encoder = new TextEncoder();
+	// A real PNG header: the eight-byte signature, then the IHDR length, which is where
+	// the NUL bytes a text sniff sees come from.
+	const PNG_BYTES = new Uint8Array([
+		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52
+	]);
+	// A JPEG's first bytes carry no NUL, so this is the case the replacement-character
+	// share catches rather than the NUL check: none of it is valid UTF-8.
+	const JPEG_BYTES = new Uint8Array([
+		0xff, 0xd8, 0xff, 0xe0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0xfe, 0xfd, 0xfc, 0xfb, 0xfa, 0xf9, 0xf8
+	]);
+
+	const MIXED_UPLOAD: Record<string, Uint8Array> = {
+		'Ashgate/world.html': encoder.encode(
+			'<html><head><title>The Ashgate Trading Post</title></head><body>' +
+				'<p>Sera Bellweather keeps the post on the north road.</p></body></html>'
+		),
+		'Ashgate/people.csv': encoder.encode(
+			'name,role\nSera Bellweather,trader\nTorvin Hale,carter\n'
+		),
+		'Ashgate/handout.rtf': encoder.encode('{\\rtf1\\ansi Sera keeps the peace herself.\\par}'),
+		'Ashgate/session-notes.txt': encoder.encode('The party reached Ashgate at dusk.\n'),
+		'Ashgate/regions/north-road.md': encoder.encode('# The North Road\n\nTwo days ride.\n'),
+		// No extension at all, and text: a document, because the rule is about the bytes.
+		'Ashgate/README': encoder.encode('Everything in here came out of my old notes app.\n'),
+		'Ashgate/map.png': PNG_BYTES,
+		'Ashgate/portrait.jpg': JPEG_BYTES,
+		'Ashgate/.DS_Store': PNG_BYTES,
+		'Ashgate/.obsidian/workspace.json': encoder.encode('{"main":{}}'),
+		'Ashgate/empty.txt': encoder.encode(''),
+		'Ashgate/blank.txt': encoder.encode('   \n\t\n'),
+		'__MACOSX/Ashgate/._world.html': encoder.encode('resource fork')
+	};
+
+	const TEXT_PATHS = [
+		'Ashgate/README',
+		'Ashgate/handout.rtf',
+		'Ashgate/people.csv',
+		'Ashgate/regions/north-road.md',
+		'Ashgate/session-notes.txt',
+		'Ashgate/world.html'
+	];
+
+	function mixedUpload(): ArchiveSourceReader {
+		return ArchiveSourceReader.open(zipSync(MIXED_UPLOAD));
+	}
+
+	it('enumerates every readable file, at any depth, whatever its extension', async () => {
+		const docs = await documentsForPlaybook('generic', mixedUpload());
+		expect(docs.map((d) => d.sourcePath).sort()).toEqual(TEXT_PATHS);
+	});
+
+	it('skips binary, hidden and empty files rather than proposing from their bytes', async () => {
+		const docs = await documentsForPlaybook('generic', mixedUpload());
+		const paths = docs.map((d) => d.sourcePath);
+		for (const skipped of [
+			'Ashgate/map.png',
+			'Ashgate/portrait.jpg',
+			'Ashgate/.DS_Store',
+			'Ashgate/.obsidian/workspace.json',
+			'Ashgate/empty.txt',
+			'Ashgate/blank.txt',
+			'__MACOSX/Ashgate/._world.html'
+		]) {
+			expect(paths, `${skipped} should not be a document`).not.toContain(skipped);
+		}
+	});
+
+	it('numbers the documents it keeps contiguously, with no gap where a file was skipped', async () => {
+		// `JobDocument.id` is the key the job's own checkpoint is written under, so a gap
+		// would be a real defect rather than a cosmetic one.
+		const docs = await documentsForPlaybook('generic', mixedUpload());
+		expect(docs.map((d) => d.id)).toEqual(docs.map((_, i) => `doc-${i + 1}`));
+	});
+
+	it('is the same upload the old rule found nothing in', async () => {
+		// The pre-#305 rule was obsidian's, shared: `.md`/`.txt` only, minus `.obsidian`.
+		// Applied to this upload it matches session-notes.txt and north-road.md and nothing
+		// else, and applied to an HTML-and-CSV-only upload it matches nothing at all, which
+		// is the silent-nothing failure this issue is about.
+		const htmlAndCsvOnly = ArchiveSourceReader.open(
+			zipSync({
+				'Ashgate/world.html': MIXED_UPLOAD['Ashgate/world.html']!,
+				'Ashgate/people.csv': MIXED_UPLOAD['Ashgate/people.csv']!,
+				'Ashgate/map.png': PNG_BYTES
+			})
+		);
+		const docs = await documentsForPlaybook('generic', htmlAndCsvOnly);
+		expect(docs.map((d) => d.sourcePath).sort()).toEqual([
+			'Ashgate/people.csv',
+			'Ashgate/world.html'
+		]);
+		expect(docs.filter((d) => /\.(md|txt)$/i.test(d.sourcePath))).toEqual([]);
+	});
+
+	it('counts a PDF sitting in a mixed folder, because the reader really does extract its text', async () => {
+		const pdfBytes = await readFile(
+			fileURLToPath(
+				new URL('../../../../../packages/import/test/fixtures/pdf/handout.pdf', import.meta.url)
+			)
+		);
+		const reader = ArchiveSourceReader.open(
+			zipSync({
+				'Ashgate/notes.txt': MIXED_UPLOAD['Ashgate/session-notes.txt']!,
+				'Ashgate/handout.pdf': new Uint8Array(pdfBytes)
+			})
+		);
+		const docs = await documentsForPlaybook('generic', reader);
+		expect(docs.map((d) => d.sourcePath).sort()).toEqual([
+			'Ashgate/handout.pdf',
+			'Ashgate/notes.txt'
+		]);
+	});
+
+	it('leaves the obsidian rule alone: the same upload still enumerates only its .md/.txt', async () => {
+		// Untouched by #305, including the part that differs from the generic rule: the
+		// obsidian branch filters by extension and never reads a file, so it still counts an
+		// empty note as a document. A vault is a vault, and a `.md` a GM has not written into
+		// yet is a note they are about to, not an accident of a mixed folder.
+		const docs = await documentsForPlaybook('obsidian', mixedUpload());
+		expect(docs.map((d) => d.sourcePath).sort()).toEqual([
+			'Ashgate/blank.txt',
+			'Ashgate/empty.txt',
+			'Ashgate/regions/north-road.md',
+			'Ashgate/session-notes.txt'
+		]);
 	});
 });

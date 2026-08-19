@@ -41,7 +41,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { zipSync } from 'fflate';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
 	acceptRelationTypeProposal,
 	and,
@@ -88,6 +88,17 @@ const DATABASE_URL =
 const FIXTURE_ROOT = fileURLToPath(
 	new URL('../../../../../packages/import/test/fixtures/', import.meta.url)
 );
+
+// Every test in this file runs one or two whole imports, and
+// `DeterministicExtractionDriver` sleeps `FAKE_STEP_DELAY_MS` (700ms) between documents on
+// purpose, so a two-document export run twice spends most of three seconds asleep before
+// any database work. Vitest's default per-test timeout is five seconds, which left these
+// sitting right on the line: the kanka row took 5035ms on a loaded box and then timed out
+// at 5000ms on the next run, with nothing wrong with it. File-scoped rather than a third
+// argument on each `it` (which makes prettier reindent every body it touches) and rather
+// than the app's own vitest config, since no other test in `apps/web` drives an import
+// loop and those should keep failing fast.
+vi.setConfig({ testTimeout: 60_000 });
 
 function unique(prefix: string): string {
 	return `${prefix}-${randomUUID().slice(0, 8)}`;

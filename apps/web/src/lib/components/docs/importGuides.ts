@@ -254,10 +254,39 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 				heading: 'What to hand Canonry',
 				blocks: [
 					p(
-						'Whatever your tool can export: plain text, HTML, RTF, CSV, a folder of mixed files, ' +
-							'anything readable. If Canonry does not recognise the shape of what you upload as ' +
-							'one of the sources above, it runs the generic playbook automatically rather than ' +
-							'stopping.'
+						'Whatever your tool can export: a single file, or a folder of mixed files nested ' +
+							'as deep as it likes. If Canonry does not recognise the shape of what you upload ' +
+							'as one of the sources above, it runs the generic playbook automatically rather ' +
+							'than stopping.'
+					)
+				]
+			},
+			{
+				heading: 'What counts as a document',
+				blocks: [
+					p(
+						'Every file Canonry can read as text becomes one document, with its own line in ' +
+							'the estimate and its own cost: plain text, Markdown, HTML, RTF, CSV, JSON, and a ' +
+							'PDF or a Word document sitting in the folder alongside the rest. There is no ' +
+							'list of allowed extensions, so a file your tool gave an unusual name, or no ' +
+							'extension at all, still counts as long as its contents are text.'
+					),
+					p(
+						'Four kinds of file are skipped instead, and the document count on the estimate ' +
+							'screen is where you see it. An image, a sound or video file, an archive, or ' +
+							'anything else whose bytes are not text: handing those to a model as if they were ' +
+							'text is worse than leaving them out. Anything hidden, meaning a file or folder ' +
+							'whose name starts with a dot, which is where an application keeps its own ' +
+							'bookkeeping rather than your notes. An empty file. And a scanned PDF with no ' +
+							'text layer, because in a mixed folder there is nothing to read out of it: upload ' +
+							'that PDF on its own and Canonry recognises it as a PDF instead, and looks at ' +
+							'each page as an image.'
+					),
+					warn(
+						'If nothing in your upload reads as text, Canonry says so before you spend ' +
+							'anything. The estimate step refuses with "No documents this playbook recognises ' +
+							'were found in the upload" rather than starting an import that would propose ' +
+							'nothing.'
 					)
 				]
 			},
@@ -266,11 +295,18 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 				blocks: [
 					p(
 						'The generic playbook reads what it can and proposes entities from whatever text ' +
-							'and images it finds. It is slower and looser than a playbook built for one ' +
-							'source, because it is not assuming a particular structure, but it is a ' +
-							'legitimate result, not a fallback that failed. If your source is one of the ' +
-							'named ones, use its guide instead: a named playbook understands its structure ' +
-							'and produces better candidates from it.'
+							'and images it finds. An image is never a document of its own, but the playbook ' +
+							'can store one it finds referenced from a document it is reading and attach it to ' +
+							'what it proposes. HTML, RTF and CSV are handed over as their own text, markup ' +
+							'and commas included, rather than converted to something tidier first.'
+					),
+					p(
+						'It is slower and looser than a playbook built for one source, because it is not ' +
+							'assuming a particular structure, but it is a legitimate result, not a fallback ' +
+							'that failed. If your source is one of the named ones, use its guide instead: a ' +
+							'named playbook understands its structure and produces better candidates from it. ' +
+							'You can also pick a named playbook yourself on the confirmation screen when ' +
+							'Canonry guessed generic and you know better.'
 					)
 				]
 			}
