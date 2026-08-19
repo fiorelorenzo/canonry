@@ -170,7 +170,9 @@ describe('onenote playbook (issue #45, SPEC.md §6.6, §6.10)', () => {
 						input: { note: 'parent and linked page resolved' }
 					}
 				]),
-				toolCallStep([{ id: 't12', name: 'job_finish', input: { outcome: 'completed' } }])
+				toolCallStep([
+					{ id: 't12', name: 'job_finish', input: { outcome: 'completed', summary: '' } }
+				])
 			]
 		});
 

@@ -24,9 +24,14 @@ import { DEFAULT_LOCALE, type Locale } from '@canonry/lang';
  * instruction to a language model than "it", and this is the only place the mapping is needed. */
 const LANGUAGE_NAMES: Record<Locale, string> = { en: 'English', it: 'Italian' };
 
-const npcDraftSchema = z.object({
+// No `.default([])` on `aliases` (issue #269): OpenAI's structured-output mode requires
+// every schema property to be listed in `required`, and Zod's `.default()` takes a field
+// out of `required` instead of leaving it there with a client-side fallback - the same bug
+// #256 fixed in `newEntitySchema` and #269 fixed in `packages/import/src/tools.ts`'s
+// `entity_propose`. The model passes `[]` explicitly for "no aliases".
+export const npcDraftSchema = z.object({
 	name: z.string().describe('A full name fitting the setting, never a placeholder like "NPC".'),
-	aliases: z.array(z.string()).default([]),
+	aliases: z.array(z.string()),
 	body: z
 		.string()
 		.describe('Two or three sentences: a role, a trait, a reason the party might talk to them.')

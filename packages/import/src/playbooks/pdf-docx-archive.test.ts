@@ -138,7 +138,7 @@ describe('ArchiveSourceReader wired to real PDF/DOCX extraction, run through Gat
 				}
 			]),
 			toolCallStep([{ id: 't5', name: 'checkpoint', input: { note: 'both pages done' } }]),
-			toolCallStep([{ id: 't6', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 't6', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 
 		const driver = new GatewayDriver({
@@ -262,7 +262,7 @@ describe('ArchiveSourceReader wired to real PDF/DOCX extraction, run through Gat
 					input: { note: 'table and prose done' }
 				}
 			]),
-			toolCallStep([{ id: 't6', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 't6', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 
 		const driver = new GatewayDriver({

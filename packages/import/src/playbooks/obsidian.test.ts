@@ -157,7 +157,9 @@ describe('obsidian playbook (issue #41, SPEC.md §6.6)', () => {
 						input: { note: 'linked notes done' }
 					}
 				]),
-				toolCallStep([{ id: 't14', name: 'job_finish', input: { outcome: 'completed' } }])
+				toolCallStep([
+					{ id: 't14', name: 'job_finish', input: { outcome: 'completed', summary: '' } }
+				])
 			]
 		});
 

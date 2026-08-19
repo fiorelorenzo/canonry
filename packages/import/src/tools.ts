@@ -44,22 +44,34 @@ const RELATION_CARDINALITY_SCHEMA = z.enum([
 	'many_to_many'
 ]);
 
-const SOURCE_LIST_INPUT = z.object({ path: z.string().max(500).default('') }).strict();
+// No `.default('')` here: OpenAI's structured-output mode (issue #269) rejects any object
+// schema whose properties are not all listed in `required`, and Zod's `.default()` drops a
+// field out of `required` (Zod puts it back on the client side instead). `path` is required
+// and the model lists the root by passing `''`, the same value the old default supplied.
+const SOURCE_LIST_INPUT = z.object({ path: z.string().max(500) }).strict();
 const SOURCE_READ_INPUT = z.object({ path: z.string().min(1).max(500) }).strict();
 const PAGE_IMAGE_INPUT = z
 	.object({ path: z.string().min(1).max(500), page: z.number().int().positive() })
 	.strict();
 const IMAGE_STORE_INPUT = z.object({ path: z.string().min(1).max(500) }).strict();
+// No `.default([])` on `aliases`/`images` (issue #269, matching #256's `newEntitySchema`):
+// OpenAI's structured-output mode requires every schema property to be listed in `required`,
+// and Zod's `.default()` takes a field out of `required` instead of leaving it there with a
+// client-side fallback. `.default([])` here produced a 400 "'required' is required to be
+// supplied and to be an array including every key in properties. Missing 'aliases'" on every
+// call once a purpose routed to an OpenAI model, wrapped by the AI Gateway as a
+// `GatewayInternalServerError` that names neither the schema nor the field. The model passes
+// `[]` explicitly for "no aliases"/"no images" instead of omitting the key.
 const ENTITY_PROPOSE_INPUT = z
 	.object({
 		localId: z.string().min(1).max(64),
 		type: ENTITY_TYPE_SCHEMA,
 		name: z.string().min(1).max(200),
-		aliases: z.array(z.string().min(1).max(200)).max(20).default([]),
+		aliases: z.array(z.string().min(1).max(200)).max(20),
 		summary: z.string().min(1).max(4000),
 		sourceRef: SOURCE_REF_SCHEMA,
 		evidenceSpan: SPAN_SCHEMA,
-		images: z.array(z.string().min(1).max(200)).max(20).default([])
+		images: z.array(z.string().min(1).max(200)).max(20)
 	})
 	.strict();
 const RELATION_PROPOSE_INPUT = z
@@ -76,11 +88,19 @@ const RELATION_PROPOSE_INPUT = z
 	.refine((r) => r.fromLocalId !== r.toLocalId, {
 		message: 'a relation cannot join an entity to itself'
 	});
-const CHECKPOINT_INPUT = z.object({ note: z.string().max(500).optional() }).strict();
+// No `.optional()` on `note`/`summary` either (issue #269, same reason as
+// `ENTITY_PROPOSE_INPUT` above): an optional field is exactly as absent from `required` as a
+// defaulted one, and this repo's whole tool surface is model-facing, not just the two fields
+// #269 was filed against. The model passes `''` for "nothing to say" instead of omitting the
+// key; `checkpointDocument` treats an empty string the same as no note. `job_finish`'s
+// `summary` was already unread by `finishDocument` before this change (the loop computes its
+// own counts, per this file's header comment) and stays that way - only its optionality
+// changes here.
+const CHECKPOINT_INPUT = z.object({ note: z.string().max(500) }).strict();
 const JOB_FINISH_INPUT = z
 	.object({
 		outcome: z.enum(['completed', 'skipped']),
-		summary: z.string().max(1000).optional()
+		summary: z.string().max(1000)
 	})
 	.strict();
 
@@ -441,7 +461,7 @@ function checkpointDocument(ctx: DocumentRunContext, input: z.infer<typeof CHECK
 		status: 'running',
 		entityCount: ctx.entityCount,
 		relationCount: ctx.relationCount,
-		detail: input.note ?? 'checkpoint'
+		detail: input.note || 'checkpoint'
 	});
 	return { ok: true as const };
 }

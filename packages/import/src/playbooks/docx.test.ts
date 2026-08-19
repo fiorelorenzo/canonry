@@ -139,7 +139,9 @@ describe('docx playbook (issue #39, SPEC.md §6.6)', () => {
 						input: { note: 'table and prose done' }
 					}
 				]),
-				toolCallStep([{ id: 't9', name: 'job_finish', input: { outcome: 'completed' } }])
+				toolCallStep([
+					{ id: 't9', name: 'job_finish', input: { outcome: 'completed', summary: '' } }
+				])
 			]
 		});
 
