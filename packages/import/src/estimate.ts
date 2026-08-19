@@ -169,16 +169,53 @@ export function budgetCreditsForEstimate(
 }
 
 /**
- * Composes the three steps above into the one number every real admission needs -
- * `estimateImportJob`'s own job-level estimate, then the headroomed ceiling - so a caller
- * (the onboarding routes, the bench harness) cannot quietly skip the headroom step the
- * way the bench used to skip the whole derivation. Takes averages rather than a database,
- * so it is trivially unit-testable without a live Postgres connection - `estimate.test.ts`
- * pins its exact arithmetic. */
+ * The job's wall-clock timeout, derived from the same estimate rather than fixed.
+ *
+ * It used to be a flat five minutes in `apps/web/src/lib/server/onboarding.ts`, which is
+ * the third time in this file's history that a hard limit sat below what the product's own
+ * estimate said the work needed. A fourteen-document OneNote job was quoted at "about four
+ * minutes" on the estimate screen and then cancelled at exactly 300 seconds, mid-step, with
+ * 71 proposals already emitted and 44.20 of its 240-credit budget spent. Nobody pressed
+ * cancel: the job killed itself one minute after its own prediction, so no import of more
+ * than about ten documents could ever finish, whatever the budget said.
+ *
+ * So the timeout is the estimate plus headroom, with a floor for tiny jobs. The floor is
+ * five minutes because that is what small jobs already had and it is comfortably more than
+ * any measured three-document run (44 seconds for OneNote, 125 for Obsidian). The
+ * multiplier is three rather than the budget's six: overrunning a time estimate is less
+ * dangerous than overrunning a cost estimate, since a slow job spends nothing extra by
+ * being slow, and its real ceiling is the budget it cannot exceed either way.
+ *
+ * A job that hits this is still cancelled the way it always was, with its proposals intact
+ * and the document it was working on named, because that ending is good and a genuinely
+ * stuck job still needs it. */
+export const IMPORT_TIMEOUT_HEADROOM_MULTIPLIER = 3;
+export const IMPORT_TIMEOUT_FLOOR_MS = 5 * 60_000;
+
+export function timeoutMsForEstimate(
+	estimate: Pick<ImportEstimate, 'estimatedMinutes'>,
+	headroomMultiplier: number = IMPORT_TIMEOUT_HEADROOM_MULTIPLIER
+): number {
+	const fromEstimate = estimate.estimatedMinutes * 60_000 * headroomMultiplier;
+	return Math.max(IMPORT_TIMEOUT_FLOOR_MS, Math.ceil(fromEstimate));
+}
+
+/**
+ * Composes the steps above into the limits every real admission needs: `estimateImportJob`'s
+ * own job-level estimate, then the headroomed credit ceiling, then the headroomed wall-clock
+ * timeout. All three come from here so a caller (the onboarding routes, the bench harness)
+ * cannot quietly skip one, the way the bench used to skip the whole derivation and the way
+ * the onboarding route used to hardcode a five-minute timeout beside a correctly derived
+ * budget. Takes averages rather than a database, so it is trivially unit-testable without a
+ * live Postgres connection - `estimate.test.ts` pins its exact arithmetic. */
 export function deriveJobBudget(
 	averages: { avgCreditsPerDocument: number; avgSecondsPerDocument: number },
 	documentCount: number
-): { estimate: ImportEstimate; budgetCredits: number } {
+): { estimate: ImportEstimate; budgetCredits: number; timeoutMs: number } {
 	const estimate = estimateImportJob({ documentCount, ...averages });
-	return { estimate, budgetCredits: budgetCreditsForEstimate(estimate) };
+	return {
+		estimate,
+		budgetCredits: budgetCreditsForEstimate(estimate),
+		timeoutMs: timeoutMsForEstimate(estimate)
+	};
 }

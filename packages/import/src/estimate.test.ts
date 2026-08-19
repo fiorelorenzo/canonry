@@ -10,7 +10,10 @@ import {
 	budgetCreditsForEstimate,
 	deriveJobBudget,
 	IMPORT_BUDGET_HEADROOM_MULTIPLIER,
-	PLAYBOOK_COLD_START_ESTIMATE
+	IMPORT_TIMEOUT_FLOOR_MS,
+	IMPORT_TIMEOUT_HEADROOM_MULTIPLIER,
+	PLAYBOOK_COLD_START_ESTIMATE,
+	timeoutMsForEstimate
 } from './estimate.js';
 import { BUILTIN_PLAYBOOK_IDS } from './playbooks.generated.js';
 
@@ -80,5 +83,37 @@ describe('deriveJobBudget / budgetCreditsForEstimate (issue #261 item 3, #272)',
 			Math.ceil(10 * IMPORT_BUDGET_HEADROOM_MULTIPLIER)
 		);
 		expect(budgetCreditsForEstimate({ estimatedCredits: 7 }, 3)).toBe(21);
+	});
+});
+
+describe('timeoutMsForEstimate: the wall clock a job is allowed, derived not fixed', () => {
+	it('gives the fourteen-document job that used to be cancelled mid-step room to finish', () => {
+		// The real failure: quoted "about four minutes" on the estimate screen, killed at
+		// exactly 300 seconds with 71 proposals emitted and 44.20 of 240 credits spent.
+		const { estimate, timeoutMs } = deriveJobBudget(PLAYBOOK_COLD_START_ESTIMATE.onenote!, 14);
+		expect(estimate.estimatedMinutes).toBe(5);
+		expect(timeoutMs).toBe(15 * 60_000);
+		expect(timeoutMs).toBeGreaterThan(IMPORT_TIMEOUT_FLOOR_MS);
+	});
+
+	it('never drops below the floor a small job already had', () => {
+		const { estimate, timeoutMs } = deriveJobBudget(PLAYBOOK_COLD_START_ESTIMATE.onenote!, 3);
+		expect(estimate.estimatedMinutes).toBe(1);
+		// Three times one minute is under the floor, so the floor wins. Measured runs of
+		// this size took 44 seconds (OneNote) and 125 (Obsidian), well inside it.
+		expect(timeoutMs).toBe(IMPORT_TIMEOUT_FLOOR_MS);
+	});
+
+	it('scales with the estimate for a large job rather than staying flat', () => {
+		const { estimate, timeoutMs } = deriveJobBudget(PLAYBOOK_COLD_START_ESTIMATE.obsidian!, 35);
+		expect(estimate.estimatedMinutes).toBe(12);
+		expect(timeoutMs).toBe(36 * 60_000);
+	});
+
+	it('always derives from the estimate, so no caller can substitute a flat number', () => {
+		expect(timeoutMsForEstimate({ estimatedMinutes: 10 })).toBe(
+			10 * 60_000 * IMPORT_TIMEOUT_HEADROOM_MULTIPLIER
+		);
+		expect(timeoutMsForEstimate({ estimatedMinutes: 10 }, 1)).toBe(10 * 60_000);
 	});
 });

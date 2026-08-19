@@ -183,7 +183,7 @@ export const actions: Actions = {
 		const documents = await documentsForPlaybook(playbookId, reader);
 		const playbook = await loadBuiltinPlaybook(playbookId);
 		const averages = await estimateAveragesFor(db(), playbookId);
-		const { estimate, budgetCredits } = deriveJobBudget(averages, documents.length);
+		const { estimate, budgetCredits, timeoutMs } = deriveJobBudget(averages, documents.length);
 
 		let admission;
 		try {
@@ -234,6 +234,7 @@ export const actions: Actions = {
 				documents,
 				artefactPath: tempUploadPath(tempId),
 				budgetCredits,
+				timeoutMs,
 				locale: locals.locale
 			});
 		}
