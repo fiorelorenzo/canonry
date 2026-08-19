@@ -39,12 +39,13 @@ import {
 	ArchiveSourceReader,
 	DEFAULT_ARCHIVE_LIMITS,
 	DbModelSelector,
+	deriveJobBudget,
+	estimateAveragesForPlaybook,
 	GatewayDriver,
 	ImportJobRunner,
 	InMemoryImageStore,
 	acceptImportProposal,
 	admitAndCreateImportJob,
-	estimateImportJob,
 	lexicalTrigramSimilarity,
 	loadBuiltinPlaybook,
 	type JobDocument
@@ -164,11 +165,16 @@ async function runOne(input: RunOneInput): Promise<RunReport> {
 	const artefact = archivePath(input.source, input.revision);
 	const bytes = readFileSync(artefact);
 
-	const estimate = estimateImportJob({
-		documentCount: input.documents.length,
-		avgCreditsPerDocument: 0.25,
-		avgSecondsPerDocument: 12
-	});
+	// Issue #272: this used to be a private estimate (avgCreditsPerDocument was 0.25,
+	// avgSecondsPerDocument was 12) and a flat budgetCredits of 400 that had nothing to
+	// do with either number - two hundred times what the product would actually give a
+	// small job. `deriveJobBudget` is the exact derivation `apps/web`'s onboarding routes
+	// use, so a job this harness admits is the same job a real GM's UI click would admit,
+	// not a more generous stand-in for it. Headroom for a long benchmark run comes from
+	// `topUpCredits`'s large fixture balance (`fixture.ts`), same as any other user with
+	// a large quota - never from bypassing this derivation.
+	const averages = await estimateAveragesForPlaybook(input.db, input.playbookId);
+	const { estimate, budgetCredits } = deriveJobBudget(averages, input.documents.length);
 
 	const admitted = await admitAndCreateImportJob(input.db, {
 		universeId: input.universeId,
@@ -180,7 +186,7 @@ async function runOne(input: RunOneInput): Promise<RunReport> {
 		artefactBytes: bytes.byteLength,
 		artefactSha256: 'bench',
 		documentCount: input.documents.length,
-		budgetCredits: 400,
+		budgetCredits,
 		estimate,
 		concurrencyLimit: 20
 	});
@@ -228,7 +234,7 @@ async function runOne(input: RunOneInput): Promise<RunReport> {
 		userId: input.userId,
 		playbook,
 		documents: input.documents,
-		budget: { maxCredits: 400 },
+		budget: { maxCredits: budgetCredits },
 		sources: ArchiveSourceReader.open(bytes, DEFAULT_ARCHIVE_LIMITS),
 		images: new InMemoryImageStore(),
 		similarity: lexicalTrigramSimilarity,

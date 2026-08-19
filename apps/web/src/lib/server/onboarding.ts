@@ -55,7 +55,7 @@ import {
 import { hashingEmbedder } from '@canonry/indexing';
 import { createLanguageModel, readGatewayCredentials, resolveModel } from '@canonry/ai';
 import { detectLanguage } from '@canonry/lang';
-import { and, desc, eq, type Db } from '@canonry/db';
+import { eq, type Db } from '@canonry/db';
 import { importJob, proposal, proposalPlan, universe } from '@canonry/db/schema';
 import type { EntityType, ProposalKind } from '@canonry/db/schema';
 
@@ -426,62 +426,21 @@ export async function documentsForPlaybook(
 }
 
 // ---------------------------------------------------------------------------------------
-// D2 = B's estimate. job-runner.ts's EstimateImportJobInput doc comment: "historical
-// average, supplied by the caller... never invented here." Onboarding is a cold start by
-// definition (nobody has ever run this playbook on this deployment yet), so a documented
-// conservative default stands in only until real import_job rows exist to average.
+// D2 = B's estimate. Issue #272: this used to be a private copy of the same derivation
+// (`COLD_START_ESTIMATE`/`estimateAveragesFor`), which is exactly why `packages/bench`'s
+// e2e harness could not share it - that module imports `$env/dynamic/private`, a
+// SvelteKit-only alias, so nothing outside a SvelteKit app could import from here. The
+// real derivation now lives in `@canonry/import`'s `estimate.ts` (its own doc comment has
+// the full account of every playbook's constant, measured vs inferred, and issue #261's
+// history of the onenote row specifically); this file just re-exports it under the name
+// callers here already use.
 // ---------------------------------------------------------------------------------------
 
-const COLD_START_ESTIMATE: Record<
-	KnownPlaybookId,
-	{ avgCreditsPerDocument: number; avgSecondsPerDocument: number }
-> = {
-	kanka: { avgCreditsPerDocument: 0.2, avgSecondsPerDocument: 8 },
-	obsidian: { avgCreditsPerDocument: 0.25, avgSecondsPerDocument: 12 },
-	onenote: { avgCreditsPerDocument: 0.25, avgSecondsPerDocument: 12 },
-	'world-anvil': { avgCreditsPerDocument: 0.3, avgSecondsPerDocument: 15 },
-	pdf: { avgCreditsPerDocument: 0.5, avgSecondsPerDocument: 25 },
-	docx: { avgCreditsPerDocument: 0.4, avgSecondsPerDocument: 20 },
-	generic: { avgCreditsPerDocument: 0.3, avgSecondsPerDocument: 15 }
-};
-
-export async function estimateAveragesFor(
-	database: Db,
-	playbookId: KnownPlaybookId
-): Promise<{ avgCreditsPerDocument: number; avgSecondsPerDocument: number }> {
-	const rows = await database
-		.select({
-			documentCount: importJob.documentCount,
-			spentCredits: importJob.spentCredits,
-			startedAt: importJob.startedAt,
-			finishedAt: importJob.finishedAt
-		})
-		.from(importJob)
-		.where(and(eq(importJob.playbook, playbookId), eq(importJob.status, 'finished')))
-		.orderBy(desc(importJob.createdAt))
-		.limit(20);
-
-	const withDocs = rows.filter((r) => r.documentCount > 0);
-	if (withDocs.length === 0) return COLD_START_ESTIMATE[playbookId];
-
-	const totalDocs = withDocs.reduce((sum, r) => sum + r.documentCount, 0);
-	const totalCredits = withDocs.reduce((sum, r) => sum + r.spentCredits, 0);
-	const totalSeconds = withDocs.reduce((sum, r) => {
-		if (!r.startedAt || !r.finishedAt) return sum;
-		return sum + (r.finishedAt.getTime() - r.startedAt.getTime()) / 1000;
-	}, 0);
-
-	return {
-		avgCreditsPerDocument:
-			totalCredits > 0
-				? totalCredits / totalDocs
-				: COLD_START_ESTIMATE[playbookId].avgCreditsPerDocument,
-		avgSecondsPerDocument:
-			totalSeconds > 0
-				? totalSeconds / totalDocs
-				: COLD_START_ESTIMATE[playbookId].avgSecondsPerDocument
-	};
-}
+export {
+	estimateAveragesForPlaybook as estimateAveragesFor,
+	budgetCreditsForEstimate,
+	deriveJobBudget
+} from '@canonry/import';
 
 // ---------------------------------------------------------------------------------------
 // Driver + similarity selection. Production wiring uses the real GatewayDriver - the

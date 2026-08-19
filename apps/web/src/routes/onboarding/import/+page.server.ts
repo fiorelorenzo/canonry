@@ -15,10 +15,10 @@ import { messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import {
 	admitAndCreateImportJob,
+	deriveJobBudget,
 	detectSource,
 	documentsForPlaybook,
 	estimateAveragesFor,
-	estimateImportJob,
 	FAKE_DRIVER_SUPPORTED_PLAYBOOKS,
 	hasLiveGatewayCredentials,
 	ImportQuotaExceededError,
@@ -150,11 +150,7 @@ export const actions: Actions = {
 			});
 		}
 		const averages = await estimateAveragesFor(db(), playbookId);
-		const estimate = estimateImportJob({
-			documentCount: documents.length,
-			avgCreditsPerDocument: averages.avgCreditsPerDocument,
-			avgSecondsPerDocument: averages.avgSecondsPerDocument
-		});
+		const estimate = deriveJobBudget(averages, documents.length).estimate;
 
 		return {
 			stage: 'estimate' as const,
@@ -187,11 +183,7 @@ export const actions: Actions = {
 		const documents = await documentsForPlaybook(playbookId, reader);
 		const playbook = await loadBuiltinPlaybook(playbookId);
 		const averages = await estimateAveragesFor(db(), playbookId);
-		const estimate = estimateImportJob({
-			documentCount: documents.length,
-			avgCreditsPerDocument: averages.avgCreditsPerDocument,
-			avgSecondsPerDocument: averages.avgSecondsPerDocument
-		});
+		const { estimate, budgetCredits } = deriveJobBudget(averages, documents.length);
 
 		let admission;
 		try {
@@ -205,7 +197,7 @@ export const actions: Actions = {
 				artefactBytes: bytes.byteLength,
 				artefactSha256: createHash('sha256').update(bytes).digest('hex'),
 				documentCount: documents.length,
-				budgetCredits: estimate.estimatedCredits,
+				budgetCredits,
 				estimate,
 				concurrencyLimit: IMPORT_CONCURRENCY_LIMIT
 			});
@@ -241,7 +233,7 @@ export const actions: Actions = {
 				playbook,
 				documents,
 				artefactPath: tempUploadPath(tempId),
-				budgetCredits: estimate.estimatedCredits
+				budgetCredits
 			});
 		}
 

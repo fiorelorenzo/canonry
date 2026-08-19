@@ -1,5 +1,19 @@
 # Import, end to end, re-run 2026-08-16
 
+> **Note added 2026-08-19 (issue #272), the numbers below are unedited.** This run
+> admitted and ran every job under `packages/bench/src/e2e/import.ts`'s own hardcoded
+> `budgetCredits: 400` / `budget: { maxCredits: 400 }` - a budget the product's own
+> onboarding routes never give a job (a three-document job's real derived budget, after
+> #261/#272's fixes, is 18 credits; this report's 35-document Obsidian row ran under
+> roughly twenty times what that same job would now be quoted). The harness has since
+> been fixed to derive its budget the same way the product does
+> (`estimate.ts`'s `deriveJobBudget`, exported from `@canonry/import`), so this report's
+> "every proposal is now acceptable" result measured the merge engine and the playbooks
+> under a budget the product does not reproduce - not whether a GM's own import through
+> the UI completes. Real UI runs the same week (issues #261, #271, #272) show every
+> format stopping at its ceiling after one document under the product's own numbers, so
+> this report's green rows should not be read as "imports work end to end" on their own.
+
 The same seven-source run as `../2026-08-15/import-e2e.md`, on `main` after #160, #161,
 #163, #164, #166, #169 and #178 all merged. Same corpus, same models
 (`google/gemini-3.1-flash-lite` cheap), numbers read back out of `import_job` and
@@ -43,6 +57,12 @@ the evidence in that issue.
 
 The three sources that fail are the three whose documents cross-reference each other heavily,
 which is exactly where a model has several files in context and picks the wrong path.
+
+**Update:** issue #186 was fixed by #205 after this run. `entity_propose` now checks
+`sourceRef.path` against the document the loop actually read instead of trusting the
+model's own claim, which was the one cause named above for all three non-idempotent
+sources. Nobody has re-run `import-e2e` since #205 landed, so the "no" in the table
+above is this run's own result, not a current claim about `main`.
 
 Two other things worth carrying forward:
 
