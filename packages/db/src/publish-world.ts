@@ -15,12 +15,12 @@
  * - It never changes `entity.visibility`. A `gm_only` entry named in a plan is an error
  *   that writes nothing, not a row to flip: that marking is the GM saying players may not
  *   even learn the name, and no automated act gets to overrule it.
- * - It never reveals a fact. A fact's `sourceExcerpt` is cut from the raw revision body
- *   (`publicEntityBySlug`), and nothing in the public read path checks whether that span
- *   sits inside a `:::secret` fence, so a bulk fact reveal is the one shape of this script
- *   that could publish text a reader was never meant to see. A fact reaches players through
- *   the table, where the GM is looking at the sentence they are revealing. Issue #306
- *   carries the missing filter.
+ * - It never reveals a fact. Since #306 the public read path does withhold a fact whose
+ *   evidence span touches a `:::secret` or `:::gmnote` fence (`isPlayerVisibleSpan`, applied
+ *   inside `publicEntityBySlug`), so this refusal is no longer the only thing standing
+ *   between a bulk reveal and a fenced sentence on a stranger's page. It stays anyway, and
+ *   as a choice rather than a stopgap: a fact reaches players through the table, where the
+ *   GM is looking at the sentence they are revealing, and a script cannot look at anything.
  * - It never reveals a relation that touches something outside the published slice, so a
  *   relation can only ever name an entry the index already lists.
  *

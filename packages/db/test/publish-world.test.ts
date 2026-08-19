@@ -323,8 +323,10 @@ describe('publishWorld (#251)', () => {
 		expect(relationRevelations).toHaveLength(1);
 	});
 
-	// Issue #306: a fact's excerpt is cut from the raw revision body with no fence filter in
-	// the public read path, so publishing must not be a way to reveal one in bulk.
+	// Issue #306 closed the read-path hole this refusal used to be the only cover for: a fact
+	// whose excerpt lands in a fence is withheld by `publicEntityBySlug` now. The refusal is
+	// still asserted here because it is a decision in its own right, not a consequence of that
+	// bug, so a future change that starts revealing facts in bulk has to argue with this test.
 	it('never reveals a fact', async () => {
 		const w = await world();
 		await publishWorld(db, planFor(w.universeSlug));

@@ -20,11 +20,18 @@
  * which is why `publicEntityBySlug` returns a `PublicGapEntity` rather than a partially
  * filled `PublicFullEntity` with fields hidden by the caller.
  *
- * Secrets (#84) are not this file's concern: `entity.body` here is the raw stored markdown,
- * fences and all. Stripping them for players is `apps/web/src/lib/markdown-secrets.ts`'s
- * job, one layer up, because a stored-markdown concern has no business in a package with no
- * opinion on markdown.
+ * Secrets (#84) are half this file's concern, and the halves split where the data does.
+ * `entity.body` here is the raw stored markdown, fences and all: stripping prose for players
+ * is `apps/web/src/lib/server/players.ts`'s job, one layer up, because that is where the one
+ * body a page renders passes through. A fact's `sourceExcerpt` cannot wait for that layer.
+ * Its offsets index the body of `fact.source_revision_id`, a string no caller of this
+ * function ever sees, so a caller has nothing to filter against and every caller would have
+ * to remember to. #306: this file drops any revealed fact whose span is not wholly inside a
+ * player-visible part of that source body, using `@canonry/lang`'s `isPlayerVisibleSpan` -
+ * the same parser `stripSecretsForPlayers` runs on, so there is one definition of what a
+ * fence hides rather than two that can drift.
  */
+import { isPlayerVisibleSpan } from '@canonry/lang';
 import { and, asc, desc, eq, isNotNull, ne, or, sql } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { alias } from 'drizzle-orm/pg-core';
@@ -273,6 +280,11 @@ export interface PublicGapEntity {
 	type: EntityType;
 }
 
+/** #306: a row here is a fact a player may read in full. A revealed fact whose evidence span
+ * touches a `:::secret` or `:::gmnote` fence in its source revision has no row at all - not
+ * the excerpt, and not the `statement` either, which is drawn from that same fenced sentence
+ * and would republish it in paraphrase. Guardrail 3 wants a claim shown with its evidence,
+ * so a claim whose evidence has to be withheld is withheld with it. */
 export interface PublicFactRow {
 	id: string;
 	statement: string;
@@ -307,9 +319,9 @@ export interface PublicFullEntity {
 	type: EntityType;
 	slug: string;
 	aliases: string[];
-	/** Raw stored markdown, secret and GM-note fences included - #83's caller in
-	 * apps/web is responsible for running this through markdown-secrets before it ever
-	 * reaches a page's data. See this file's module doc. */
+	/** Raw stored markdown, secret and GM-note fences included - #83's caller in apps/web is
+	 * responsible for running this through `@canonry/lang`'s `stripSecretsForPlayers` before
+	 * it ever reaches a page's data. See this file's module doc. */
 	body: string;
 	revealedAt: Date;
 	revealedInSession: string | null;
@@ -373,13 +385,22 @@ export async function publicEntityBySlug(
 		return { status: 'gap', name: row.name, type: row.type };
 	}
 
+	// The source body comes back whole rather than as a `substring()`, because the excerpt is
+	// only safe to cut once something has parsed that body for fences (this file's own doc,
+	// #306), and there is one parser for that, in JS. It costs the body of each revealed
+	// fact's source revision per read, which is a handful of rows and a few kilobytes each on
+	// the widest entry the fixture has. Slicing in JS also lines the excerpt up with how the
+	// spans were produced: `packages/copilot` writes them with `String.prototype.indexOf` on
+	// a JS string, so they count UTF-16 code units, while `substring()` counts characters -
+	// the two disagree by one per astral character (an emoji in a body) before any fence is
+	// involved.
 	const factRows = await db
 		.select({
 			id: fact.id,
 			statement: fact.statement,
 			spanStart: fact.spanStart,
 			spanEnd: fact.spanEnd,
-			sourceExcerpt: sql<string>`substring(${revision.body} from ${fact.spanStart} + 1 for ${fact.spanEnd} - ${fact.spanStart})`
+			sourceBody: revision.body
 		})
 		.from(fact)
 		.innerJoin(revision, eq(revision.id, fact.sourceRevisionId))
@@ -393,6 +414,20 @@ export async function publicEntityBySlug(
 		)
 		.where(eq(fact.entityId, row.id))
 		.orderBy(asc(fact.spanStart));
+
+	// Guardrail 6: withheld here, not by the caller. `sourceBody` never leaves this function,
+	// so no shape a route serialises can carry a fenced sentence even by accident.
+	const facts: PublicFactRow[] = factRows
+		.filter((factRow) =>
+			isPlayerVisibleSpan(factRow.sourceBody, factRow.spanStart, factRow.spanEnd)
+		)
+		.map((factRow) => ({
+			id: factRow.id,
+			statement: factRow.statement,
+			spanStart: factRow.spanStart,
+			spanEnd: factRow.spanEnd,
+			sourceExcerpt: factRow.sourceBody.slice(factRow.spanStart, factRow.spanEnd)
+		}));
 
 	const otherRevealedAt = sql<Date | null>`(
 		select max(inner_rev.confirmed_at) from revelation inner_rev
@@ -480,7 +515,7 @@ export async function publicEntityBySlug(
 		body: row.body,
 		revealedAt: revealRow.confirmedAt,
 		revealedInSession: revealRow.sessionName ?? null,
-		facts: factRows,
+		facts,
 		relations: relationRows.map((r) => ({
 			key: r.key,
 			label: r.label,

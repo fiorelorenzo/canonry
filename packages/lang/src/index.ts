@@ -26,3 +26,17 @@ export {
 	type RelationTypeCatalogueEntry,
 	type RelationTypeIdentity
 } from './relation-catalogue.js';
+// #306, and moved here from `apps/web/src/lib/markdown-secrets.ts` in that issue: the one
+// definition of what a `:::secret` / `:::gmnote` fence hides. It has to be readable both by
+// a component that ships to the browser and by `@canonry/db`'s players query, which is the
+// same argument the relation catalogue above makes, and a second fence parser next to the
+// fact query is exactly the drift guardrail 6 cannot afford. See the module's own doc.
+export {
+	splitSecretBlocks,
+	stripSecretsForPlayers,
+	isPlayerVisibleSpan,
+	type SecretBlockKind,
+	type BodySegment,
+	type SecretSegment,
+	type SourceSegment
+} from './secret-blocks.js';

@@ -4,15 +4,24 @@
  * opening a block, a bare `:::` closing it, both block-level (each marker owns its own
  * line). SPEC.md §10: "hidden content inside public entries, GM notes always private."
  *
- * This module owns exactly one thing guardrail 6 depends on: `stripSecretsForPlayers`, the
- * single filter that decides what a player ever sees of an entry's body. The artifact's own
- * "rejected outright" section is explicit about why there can only be one implementation of
- * that filter - a second one (say, CSS that hides the same spans) can drift from the real
- * players' route and pass its own check while the real endpoint still leaks - so both #83's
- * public entity page and the GM's own "player preview" toggle call this same function.
+ * This module owns the one definition of what is secret in an entry's raw markdown, and
+ * everything guardrail 6 hides from a player is derived from it: `stripSecretsForPlayers`
+ * decides what prose a player sees, and `isPlayerVisibleSpan` decides whether a `[start,
+ * end)` span of that same source may be quoted to one. The E6 artifact's own "rejected
+ * outright" section is explicit about why there can only be one implementation - a second
+ * one (say, CSS that hides the same spans, or a fence parser written again next to the
+ * fact query) can drift from the real players' route and pass its own check while the real
+ * endpoint still leaks - so #83's public entity page, the GM's own "player preview" toggle
+ * and `@canonry/db`'s `publicEntityBySlug` all call into this same file.
  *
- * Deliberately its own module rather than an edit to `$lib/markdown.ts` (owned by #105/#106,
- * decision B2): this only ever calls that module's exported renderers, never rewrites them.
+ * It lives in `@canonry/lang` for the reason `relation-catalogue.ts` does: it is needed by
+ * a component that ships to the browser (`EntryProseWithSecrets.svelte`) and by a server
+ * package (`@canonry/db`'s players query, #306), and this package has no dependencies at
+ * all, so neither side drags the other's graph in. It was `apps/web/src/lib/markdown-
+ * secrets.ts` until #306, where `packages/db` needed the same answer and could not import
+ * from the app. Fence syntax is markup, not language data, which is the one seam in this
+ * package's remit; a second copy inside `packages/db` was the alternative, and a duplicated
+ * definition of what is secret is exactly the failure this module exists to prevent.
  *
  * Fails closed on a malformed document: an unclosed `:::secret`/`:::gmnote` fence swallows
  * everything to the end of the body rather than falling back to visible prose. A stray typo
@@ -122,9 +131,10 @@ export function splitSecretBlocks(source: string): SourceSegment[] {
 }
 
 /**
- * Guardrail 6's one filter: every secret and every GM note removed, wholesale, always.
- * The only function in this module #83's route and the GM preview toggle are both allowed
- * to call for "what does a player see" - see the module doc for why there cannot be two.
+ * Guardrail 6's one filter for prose: every secret and every GM note removed, wholesale,
+ * always. The only function in this module #83's route and the GM preview toggle are both
+ * allowed to call for "what does a player see" - see the module doc for why there cannot
+ * be two.
  */
 export function stripSecretsForPlayers(source: string): string {
 	return splitSecretBlocks(source)
@@ -132,4 +142,31 @@ export function stripSecretsForPlayers(source: string): string {
 		.map((segment) => segment.text)
 		.join('\n\n')
 		.trim();
+}
+
+/**
+ * #306, guardrail 6 for quoted evidence rather than for prose: may `source.slice(spanStart,
+ * spanEnd)` be shown to a player? A fact's span is a pair of character offsets into the
+ * body of the revision that produced it (`fact.span_start` / `fact.span_end`), and an
+ * offset pair carries no idea of what it landed in, so `publicEntityBySlug` asks this
+ * before it hands a `sourceExcerpt` to the players' wiki.
+ *
+ * True only when the whole span sits inside one single body segment, which is the strict
+ * reading on purpose and settles all four ways a span can touch a fence with one rule
+ * rather than four: wholly inside a block is not in a body segment, straddling the opening
+ * or the closing marker crosses out of one, and a span containing a whole block spans two
+ * with hidden text between them. It also withholds a span that covers a fence marker line
+ * and nothing else, since `:::secret` appearing in a quotation on a public page tells a
+ * reader there is something hidden here, which the rest of that surface never does.
+ *
+ * Conservative at the edges by design: a span that reaches one character past its body
+ * segment (the newline before a fence) is withheld too, because the alternative to
+ * hide-too-much here is publishing text a GM fenced off.
+ */
+export function isPlayerVisibleSpan(source: string, spanStart: number, spanEnd: number): boolean {
+	if (!Number.isInteger(spanStart) || !Number.isInteger(spanEnd)) return false;
+	if (spanStart < 0 || spanEnd <= spanStart) return false;
+	return splitSecretBlocks(source).some(
+		(segment) => segment.kind === 'body' && spanStart >= segment.start && spanEnd <= segment.end
+	);
 }
