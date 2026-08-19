@@ -101,6 +101,21 @@ pnpm --filter @canonry/bench loop-cost -- --source kanka --documents all
 # change to the matcher or to the embedding model, which is what SPEC.md §6.4 asks for
 pnpm --filter @canonry/bench matching-sweep
 pnpm --filter @canonry/bench matching-sweep -- --runs=9
+
+# issue #278: re-derive DEFAULT_TOP_K / DEFAULT_THRESHOLD / KEYWORD_BOOST_PER_MATCH.
+# Without --vault it measures the 32-chunk own canon, which is what issue #168 measured.
+# With it, a real community world goes in as a second data_source through the crawl
+# pipeline first, so the sweep sees a universe of realistic size carrying both retrieval
+# layers - clone it yourself, since a CC BY-SA corpus does not belong in an AGPL-3.0 repo:
+#   git clone --depth 1 https://github.com/offendingcommit/valdris .data/corpus/valdris
+# --repeats re-embeds the questions per repeat and reports the spread, which is how a
+# difference is told from this model's few-thousandths run-to-run cosine jitter
+pnpm --filter @canonry/bench retrieval-sweep -- --repeats=3
+pnpm --filter @canonry/bench retrieval-sweep -- --vault=.data/corpus/valdris --repeats=5
+
+# issue #278: how often AUDIT_PAIR_CAP actually binds. No model call and no gateway
+# credential; --vault adds a second, larger world read straight off disk
+pnpm --filter @canonry/bench audit-pairs -- --vault=.data/corpus/valdris
 ```
 
 Everything is written to `.data/`, which is gitignored: a run is evidence for an afternoon,

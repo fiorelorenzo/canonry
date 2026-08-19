@@ -482,3 +482,205 @@ measurement in that issue.
 The retrieval half was re-measured separately under #168 and is recorded above: the
 threshold moved from 0.25 to 0.35 on evidence, and the cross-language gap did not move,
 which the sweep attributes mostly to a 32-chunk corpus rather than to the model.
+
+## Issue #278: the same three constants at 2325 chunks, 2026-08-19
+
+Issue #168 left top-k at 8 while its own sweep found recall climbing past it, on one stated
+reason: that a 32-chunk corpus makes top-k 8 a quarter of the world, so the climb is an
+artefact of the fixture rather than a property of the model. That reason was never checked,
+and the issue said so, naming its blocker as the absence of any universe of realistic size.
+Issue #257 removed that blocker by landing a real community world in the import formats, so
+this entry is the re-run at a size the reasoning can actually be tested against.
+
+### The corpus, and how it was built
+
+A universe that carries both layers, which is what SPEC.md §11.4's numbers govern and what
+no previous sweep had:
+
+- **Own canon:** the 32-entity bilingual Valdoria Reach, seeded and indexed through
+  `indexEntity` exactly as before. 32 chunks.
+- **An imported source:** Valdris, the 78-note CC BY-SA 4.0 community vault issue #257 already
+  renders into the import formats (`offendingcommit/valdris`), read off disk by a new
+  `WikiClient` (`packages/bench/src/corpus/vault.ts`) and indexed as a real `data_source`
+  through `indexDataSource`, into the same per-universe collection. 2293 chunks.
+
+2325 chunks in all, 72 times issue #168's corpus and past SPEC.md §11.4's own 2044-chunk
+reference point. The vault goes in through the crawl pipeline rather than the LLM import loop
+deliberately: the loop costs about six credits a note (`docs/demo.md` measured 19.37 for
+three), which is five hundred credits for this vault, and it produces extracted proposals
+rather than indexed prose, which is not the layer this sweep measures. Chunk, extract
+metadata, embed, upsert is that layer, and `indexDataSource` is the production path for it.
+The markdown is mapped to the wikitext subset `chunkWikiPage` understands (`## Heading` to
+`== Heading ==`, links to their labels, fences and pipe tables flattened) so the chunker sees
+the section structure the notes actually have; nothing rewrites prose.
+
+The corpus itself stays out of the repo: it is share-alike text and this repo is AGPL-3.0.
+`.data/corpus/valdris` is a clone, and the licence review is recorded on the `data_source`
+row rather than bypassed, because `requireIndexableDataSource` is issue #61's enforcement
+point and the bench has no business going around it.
+
+**The eighteen `ASK_QUESTIONS` and their gold are unchanged**, so every added chunk is pure
+competition. That is the design: the question is what 2293 more candidates do to the same
+retrieval, not whether a new gold set scores differently.
+
+### How many runs, given the jitter
+
+Cosine scores from this model move by a few thousandths between identical calls, so a
+single-run difference can be noise. Seven runs stand behind the tables below: five repeats
+that re-embed the eighteen questions against one corpus embedding, and two independent full
+corpus embeddings into separate collections (2325 chunks each, `--collection-suffix`).
+
+Every recall and MRR figure inside the flat threshold band is **identical across all seven**,
+spread 0.000. Only two points move at all, thresholds 0.45 and 0.50, by 0.028, which is one
+gold question-entity pair out of 36 crossing the cutoff. The two corpus embeddings agree to
+0.0005 on the gold cosine median (0.47439 against 0.47385) and to 0.2 chunks on every
+admitted count. So five repeats was more than enough, and any difference below about 0.03 in
+these tables should be read as noise rather than signal.
+
+### Threshold: 0.35 confirmed at 72 times the corpus size
+
+Swept at the shipped top-k, both corpora, same questions:
+
+| threshold | recall, 32 chunks | recall, 2325 chunks | admitted of 2325 | not-gold inside top-k |
+| --- | --- | --- | --- | --- |
+| 0.00 | 0.806 | 0.750 | 2311.61 | 6.83 |
+| 0.20 | 0.806 | 0.750 | 1066.86 | 6.83 |
+| 0.25 | 0.806 | 0.750 | 588.97 | 6.83 |
+| 0.30 | 0.806 | 0.750 | 270.04 | 6.83 |
+| **0.35** | **0.806** | **0.750** | **106.12** | **6.56** |
+| 0.40 | 0.806 | 0.750 | 37.06 | 5.72 |
+| 0.45 | 0.704 | 0.656 | 10.94 | 3.86 |
+| 0.50 | 0.611 | 0.617 | 3.40 | 1.89 |
+| 0.60 | 0.250 | 0.250 | 0.72 | 0.33 |
+
+The plateau holds and the cliff has not moved: flat from 0.00 to 0.40, falling from 0.45, at
+both sizes. That was the open question and the answer is that a wide low-threshold band is
+not a small corpus's luxury. 0.35 keeps a measured step of margin below 0.40, the same
+discipline the two earlier derivations used, and stays.
+
+What the measurement does change is what the threshold is *for*. On 32 chunks it decided how
+much noise reached an answer. On 2325 it barely touches the window (6.83 not-gold hits at
+threshold 0, 6.56 at 0.35) because top-k is doing that work; its job at real size is keeping
+the candidate pool sane and staying off the cliff.
+
+### Top-k: 8 to 12, and issue #168's reasoning was wrong
+
+| top-k | recall, 32 chunks | recall, 2325 chunks | same-language | cross-language | own canon in window | indexed in window | not-gold |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 4 | 0.694 | 0.667 | 0.850 | 0.438 | 3.00 | 1.00 | 3.00 |
+| 8 | 0.806 | 0.750 | 0.850 | 0.625 | 4.89 | 2.83 | 6.56 |
+| **12** | **0.861** | **0.806** | **0.950** | 0.625 | 5.90 | 5.10 | 9.78 |
+| 16 | 0.861 | 0.806 | 0.950 | 0.625 | 6.56 | 7.39 | 12.72 |
+| 24 | 0.861 | 0.806 | 0.950 | 0.625 | 6.94 | 12.11 | 17.83 |
+| 32 | 0.861 | 0.833 | 0.950 | 0.688 | 7.83 | 15.67 | 22.22 |
+| 64 | 0.861 | 0.861 | 0.950 | 0.750 | 8.99 | 29.38 | 37.03 |
+
+**Recall still climbs past 8 where top-k 8 returns 0.34 per cent of the world instead of a
+quarter of it.** Issue #168's reason for inaction does not survive its own test, and I would
+rather say that plainly than leave the comment standing: the climb is not a fixture artefact.
+
+12 rather than 16 or 32 because 12 is the last point that buys anything - 16 and 24 buy
+exactly nothing at either corpus size - and because it is where the same-language subset
+reaches its own ceiling of 0.950, which is the point at which retrieval stops failing on
+questions asked in the language their answer is written in. Everything past 12 is
+cross-language tail needing k=32 or k=64 to move, at three to five times the sources; that is
+the ranking problem the entries above already file, not a top-k one.
+
+The cost, stated rather than buried: the window grows from a mean 7.7 hits to 11.0, of which
+not-gold goes from 6.56 to 9.78, so every Ask answer carries about three more sources that do
+not answer the question, on top of `ask.ts`'s six own-canon ones. MRR is unmoved (0.641 at
+k=8, 0.647 at k=12), so the top of the list is the same list and the four new slots are tail.
+The gain is two gold pairs of 36, reproducible with zero spread over seven runs, and thin
+enough to name: a judged Ask run showing answer quality flat or worse at 12 would be grounds
+to put it back, and that measurement does not exist.
+
+### Keyword boost: 0.03 measured, and the risk it carried does not occur
+
+`KEYWORD_BOOST_PER_MATCH` carried a comment admitting it was unverified with a specific fear:
+six matched keywords at 0.03 would be worth 0.18, about the whole relevant-versus-unrelated
+separation, so a chunk could win on vocabulary alone. Swept in the same run, at the shipped
+top-k and threshold:
+
+| per match | recall | MRR | not-gold in window | promoted into the window | largest boost applied |
+| --- | --- | --- | --- | --- | --- |
+| 0 (pure cosine) | 0.694 | 0.651 | 6.67 | 0.00 | 0.000 |
+| 0.01 | 0.694 | 0.650 | 6.67 | 0.22 | 0.030 |
+| 0.02 | 0.750 | 0.646 | 6.56 | 0.61 | 0.060 |
+| **0.03** | **0.750** | **0.641** | **6.56** | **0.83** | **0.090** |
+| 0.05 | 0.806 | 0.625 | 6.50 | 1.17 | 0.150 |
+| 0.08 | 0.778 | 0.618 | 6.56 | 1.94 | 0.240 |
+| 0.12 | 0.778 | 0.604 | 6.56 | 2.61 | 0.360 |
+
+Six matches never happened: the most any hit matched was three keywords, so the largest boost
+the shipped value ever applied was 0.090 against a gold-versus-other median gap of 0.283 on
+this corpus, under a third of the separation. The boost also earns its place rather than
+merely being harmless: 0.03 beats pure cosine by 0.056 recall for 0.010 of MRR. It stays.
+
+0.05 scores 0.056 more recall again and I am not taking it. Its largest applied boost is
+0.150, over half the separation, and the peak is not monotonic (0.08 and 0.12 fall back), so
+on 36 gold pairs that step of two pairs is as likely to be this corpus as a real optimum.
+
+One caveat that would reopen it: the match count is bounded by the extractor.
+`heuristicExtractor`, which is what `canon-save.ts` and `indexDataSource` actually run, keeps
+a chunk's eight most frequent non-stopword terms, and a short question overlaps at most three.
+`createGatewayExtractor` has no bound on `excerptKeywords` and nothing wires it in production
+today; the first deployment that does needs this re-run.
+
+### What this corpus cannot say
+
+The 2293 added chunks are a different world, which makes them weaker competition than more of
+the same world: non-gold cosine median falls from 0.3040 on the 32-chunk corpus to 0.1906
+here, and the non-gold p99 from 0.5573 to 0.4151, because a question about the Valdoria Watch
+sits further from a page on Architect ruins than from another Valdoria entry. So this measures
+"a large indexed source does not break the threshold", which was the open question, and does
+not measure two thousand chunks of a universe's **own** canon crowding the boundary. That
+needs a corpus nobody has.
+
+### `AUDIT_PAIR_CAP`: the cap binds, which is the opposite of what I expected
+
+`pnpm --filter @canonry/bench audit-pairs` runs `findCandidatePairs` uncapped, once per
+simulated single-sentence edit and once per whole-entry write, over two worlds. No model call
+and no gateway credential: the search is deterministic text matching.
+
+| world | edit | simulated edits | mean | median | p90 | max | no pair at all | more than 5 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Valdoria Reach, 32 entries | one sentence | 118 | 3.66 | 3 | 8 | 10 | 10.2% | 22.9% |
+| Valdoria Reach, 32 entries | whole entry | 32 | 5.06 | 5 | 8 | 12 | 0.0% | 43.8% |
+| Valdris, 78 notes | one sentence | 1394 | 10.90 | 3 | 40 | 71 | 13.9% | 35.6% |
+| Valdris, 78 notes | whole entry | 78 | 17.23 | 13 | 45 | 71 | 0.0% | 82.1% |
+
+I expected this to show the cap never binding, which would have made the number moot until
+universes grew. It shows the opposite. The cap turns pairs away on 22.9 per cent of
+single-sentence edits in the curated 32-entry world and 35.6 per cent in the real 78-note one,
+and on most newly written entries. So it is load-bearing today, in both directions: every pair
+past it is one more charged `cheap` call, and uncapped the search would average 10.9 calls per
+edit on the community world with a tail at 71 against the current ceiling of 5.
+
+That says the number matters. It says nothing about which number is right, and the half that
+would - whether a GM's willingness to look at a flag falls off with its position - cannot be
+produced offline. So it is instrumented instead: `auditFlagOutcomes` in `packages/db` reads
+dismissals by `proposal.rank` off rows that already exist, and `/admin/metrics` grows an
+"Audit flags by position" panel that says it has no data rather than drawing a line through
+none. `CANONRY_AUDIT_PAIR_CENSUS=1` additionally makes each run report the pairs it could have
+examined, off by default. **5 stays until that panel has rows.**
+
+Two caveats on the Valdris numbers. `namesEntityIn` matches a whole phrase
+case-insensitively, so a note titled "Social Hierarchy" is named by any body containing that
+phrase, which is realistic for a wiki and inflates mentions relative to a world of proper
+nouns. And the per-sentence figures sample 20 evenly spaced sentences per entry rather than
+all 9768, because one uncapped call over that graph takes about 40 ms and the exhaustive
+version is six minutes; the sample size is reported in the table.
+
+### Re-running it
+
+```bash
+git clone --depth 1 https://github.com/offendingcommit/valdris .data/corpus/valdris
+export DATABASE_URL=postgres://canonry:canonry@127.0.0.1:55432/canonry_bench
+pnpm --filter @canonry/bench retrieval-sweep -- --repeats=3                       # 32 chunks
+pnpm --filter @canonry/bench retrieval-sweep -- --vault=.data/corpus/valdris --repeats=5
+pnpm --filter @canonry/bench audit-pairs -- --vault=.data/corpus/valdris
+```
+
+The whole thing cost **0.014 USD** of gateway spend: 2325 chunks embedded twice plus 198
+question embeddings. Retrieval measurement is cheap; it was the corpus that was missing, not
+the budget.

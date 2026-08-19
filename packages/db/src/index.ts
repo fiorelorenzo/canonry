@@ -298,12 +298,14 @@ export {
 	importsToFirstAcceptedProposal,
 	warmHitRate,
 	sessionEntropyMetrics,
+	auditFlagOutcomes,
 	ACCEPT_RATE_DEFAULT_WINDOW_DAYS,
 	DEBRIEF_WINDOW_HOURS,
 	type ProposalOutcomeMetricRow,
 	type ImportFirstAcceptRow,
 	type WarmHitRateRow,
-	type SessionEntropyRow
+	type SessionEntropyRow,
+	type AuditFlagOutcomeRow
 } from './queries/metrics.js';
 export {
 	listWorksForUniverse,

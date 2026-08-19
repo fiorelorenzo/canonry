@@ -64,6 +64,8 @@ export {
 	scoreLoreHits,
 	DEFAULT_TOP_K,
 	DEFAULT_THRESHOLD,
+	KEYWORD_BOOST_PER_MATCH,
+	keywordMatchCount,
 	type RetrievalHit,
 	type ScoreLoreHitsOptions,
 	type RetrieveForUniverseOptions

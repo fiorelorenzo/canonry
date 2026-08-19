@@ -81,4 +81,24 @@ describe('runRetrievalEval', () => {
 		const narrow = await runRetrievalEval(valdoriaReachRetrieval, positionalRetriever, { topK: 1 });
 		expect(narrow.recallAtK[1]).toBeLessThanOrEqual(wide.recallAtK[1]!);
 	});
+
+	it('reports the noise inside the window separately from the survivors before it (issue #278)', async () => {
+		const report = await runRetrievalEval(valdoriaReachRetrieval, goodRetriever, {
+			topK: 8,
+			threshold: 0.5,
+			thresholdSweep: [0, 0.5]
+		});
+		const byThreshold = new Map(report.thresholdEffect.map((e) => [e.threshold, e]));
+
+		// At 0.5 only the gold chunks survive at all, so the window holds nothing else.
+		expect(byThreshold.get(0.5)?.meanIrrelevantInTopK).toBe(0);
+
+		// At 0 the whole corpus survives, so the window fills up behind the gold with chunks
+		// that answer nothing - and that is the number a reader pays for, while
+		// `meanResultCount` counts the far larger pool the threshold let through.
+		const wideOpen = byThreshold.get(0)!;
+		expect(wideOpen.meanIrrelevantInTopK).toBeGreaterThan(0);
+		expect(wideOpen.meanIrrelevantInTopK).toBeLessThanOrEqual(8);
+		expect(wideOpen.meanResultCount).toBeGreaterThan(wideOpen.meanIrrelevantInTopK);
+	});
 });

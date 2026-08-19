@@ -1836,6 +1836,18 @@ export const en: Messages = {
 					'Entries updated after a session versus created in prep, per universe - the metric that says whether canon entropy was actually solved or whether this is just another place to write things down.',
 				createdInPrep: 'Created in prep',
 				updatedAfterSession: 'Updated after a session'
+			},
+			auditFlags: {
+				heading: 'Audit flags by position',
+				intro: (cap: number) =>
+					`Dismissals over flags produced, broken out by where the flag sat in its own audit run. One run writes at most ${cap} flags, and that number is a reading of the spec rather than a measurement: if dismissals climb with position, it is already too generous. A flag cannot be accepted, only dismissed or left alone, so this is dismissed over produced and not an accept rate.`,
+				position: 'Position in run',
+				produced: 'Flags produced',
+				dismissed: 'Dismissed',
+				stillOpen: 'Left alone',
+				dismissalRate: 'Dismissal rate',
+				noFlagsYet:
+					'No audit flags yet. This panel needs the audit to have run on real edits before it says anything, and a line drawn through no data would be worse than an empty table.'
 			}
 		},
 

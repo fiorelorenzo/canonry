@@ -19,18 +19,25 @@
  *   how far to reach, so this panel can never show a radius the trigger did not actually use.
  * - Canon entropy (#103): entries updated after a session versus created in prep, per
  *   universe.
+ * - Audit flags by position (#278): dismissals over flags produced, broken out by the
+ *   flag's position in its own audit run. This is the instrumentation `AUDIT_PAIR_CAP` was
+ *   set without, and it is empty until the audit has been used at volume, which the panel
+ *   says in as many words rather than drawing a flat line through no data.
  *
  * Every panel is null/empty rather than a fabricated zero for a universe or window with no
  * data yet - see each section's template for the empty-state copy.
  */
 import {
+	auditFlagOutcomes,
 	importsToFirstAcceptedProposal,
 	proposalOutcomesForMetrics,
 	sessionEntropyMetrics,
 	ACCEPT_RATE_DEFAULT_WINDOW_DAYS,
+	type AuditFlagOutcomeRow,
 	type ImportFirstAcceptRow,
 	type ProposalOutcomeMetricRow
 } from '@canonry/db';
+import { AUDIT_PAIR_CAP } from '@canonry/copilot';
 import {
 	acceptRate,
 	acceptRateByGroup,
@@ -170,13 +177,52 @@ export interface WarmRadiusRow extends WarmRadiusDecision {
 	universeName: string;
 }
 
+export interface AuditFlagPositionRow {
+	/** One-based, because a GM counts flags from one and `proposal.rank` counts from zero. */
+	position: number;
+	produced: number;
+	dismissed: number;
+	stillOpen: number;
+	/** Dismissed over produced, or `null` when nothing has been produced at that position. */
+	dismissalRate: number | null;
+}
+
+/**
+ * Issue #278: dismissal rate by a flag's position in its own audit run, which is the
+ * evidence `AUDIT_PAIR_CAP = 5` was set without. If dismissals climb with position, the cap
+ * is already too generous; if they are flat, five is not the number costing anybody
+ * anything and the constant can stay where the spec's wording put it.
+ *
+ * Computed with `acceptRateByGroup`, the same function the two panels above use, but read
+ * through its `rejected` and `produced` counts rather than its `acceptRate`: a flag has no
+ * accept path at all (`acceptProposal` refuses `kind: 'flag'` outright), so "accepted over
+ * decided" is structurally zero here and would read as a GM rejecting everything. Dismissed
+ * over produced is the honest rate, and a position nobody has reached yet reports null
+ * rather than a fabricated zero.
+ */
+function dismissalRateByFlagPosition(rows: AuditFlagOutcomeRow[]): AuditFlagPositionRow[] {
+	const byPosition = acceptRateByGroup(
+		rows.map((row) => ({ outcome: row.outcome, group: String(row.position) }))
+	);
+	return Array.from(byPosition.entries())
+		.map(([group, summary]) => ({
+			position: Number(group) + 1,
+			produced: summary.produced,
+			dismissed: summary.rejected,
+			stillOpen: summary.pending,
+			dismissalRate: summary.produced === 0 ? null : summary.rejected / summary.produced
+		}))
+		.sort((a, b) => a.position - b.position);
+}
+
 export const load: PageServerLoad = async () => {
 	const database = db();
 
-	const [proposalRows, importRows, entropyRows] = await Promise.all([
+	const [proposalRows, importRows, entropyRows, flagRows] = await Promise.all([
 		proposalOutcomesForMetrics(database, { sinceDays: ACCEPT_RATE_DEFAULT_WINDOW_DAYS }),
 		importsToFirstAcceptedProposal(database),
-		sessionEntropyMetrics(database)
+		sessionEntropyMetrics(database),
+		auditFlagOutcomes(database, { sinceDays: 0 })
 	]);
 
 	const overallAcceptRate = acceptRate(proposalRows.map((row) => ({ outcome: row.outcome })));
@@ -203,6 +249,8 @@ export const load: PageServerLoad = async () => {
 		importsByUniverse,
 		warmRadiusByUniverse,
 		warmRadiusThresholdPercent: Math.round(WARM_RADIUS_HIT_RATE_THRESHOLD * 100),
-		entropyByUniverse: entropyRows
+		entropyByUniverse: entropyRows,
+		auditFlagPositions: dismissalRateByFlagPosition(flagRows),
+		auditPairCap: AUDIT_PAIR_CAP
 	};
 };

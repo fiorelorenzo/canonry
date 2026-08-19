@@ -80,6 +80,17 @@ export interface ThresholdEffect {
 	meanRecallAtTopK: number;
 	/** Mean number of hits that survive the threshold, before the top-k cut. */
 	meanResultCount: number;
+	/**
+	 * Mean number of hits inside the top-k window that are **not** in the question's
+	 * `relevantChunkIds` - the noise a caller actually pays for, since top-k is what a
+	 * reader or a model sees.
+	 *
+	 * `meanResultCount` above is the same count before the cut, and the two say different
+	 * things once a corpus is large: on a 32-chunk corpus "survivors" and "what came back"
+	 * are nearly the same list, on a 2000-chunk one the survivors can be in the hundreds
+	 * while the window stays at eight (issue #278).
+	 */
+	meanIrrelevantInTopK: number;
 }
 
 export interface RetrievalReport {

@@ -65,13 +65,21 @@ function computeThresholdEffect(
 	return thresholds.map((t) => {
 		const recalls: number[] = [];
 		const counts: number[] = [];
+		const irrelevant: number[] = [];
 		for (const question of corpus.questions) {
 			const sorted = sortedByScoreDesc(hitsByQuestion.get(question.id) ?? []);
 			const filtered = sorted.filter((hit) => hit.score >= t);
 			recalls.push(recallAt(filtered, question.relevantChunkIds, topK));
 			counts.push(filtered.length);
+			const relevant = new Set(question.relevantChunkIds);
+			irrelevant.push(filtered.slice(0, topK).filter((hit) => !relevant.has(hit.chunkId)).length);
 		}
-		return { threshold: t, meanRecallAtTopK: mean(recalls), meanResultCount: mean(counts) };
+		return {
+			threshold: t,
+			meanRecallAtTopK: mean(recalls),
+			meanResultCount: mean(counts),
+			meanIrrelevantInTopK: mean(irrelevant)
+		};
 	});
 }
 
