@@ -90,3 +90,18 @@ export const AUDIT_DISAGREEMENT_BARE: Record<Locale, (a: string, b: string) => s
 	en: (a, b) => `${a} and ${b} do not agree.`,
 	it: (a, b) => `${a} e ${b} non sono d'accordo.`
 };
+
+/** issue #270: `ask-propose.ts`'s own honest empty state - guardrail 3 says a proposal
+ * shows its evidence, and Ask's own top-k retrieval scored against the whole instruction
+ * sentence is not reliable enough to assert as evidence for a drafted create/edit (a
+ * generic "Casa dei Mercanti" bookkeeping sentence at similarity 0.10 is not a citation
+ * for a stable boy's card). `draftNewEntity`/`draftEntityUpdate` only ever attach a
+ * retrieved sentence as evidence when the drafting model itself points at it by number
+ * (`usedSources`, validated against what was actually offered); when nothing is pointed
+ * at, the honest provenance is the GM's own instruction, and this note says so instead
+ * of leaving the evidence field silently empty.
+ */
+export const NO_CANON_EVIDENCE_NOTE: Record<Locale, string> = {
+	en: 'Drafted from your own instruction, not from existing canon.',
+	it: 'Redatto dalla tua istruzione, non dal canone esistente.'
+};

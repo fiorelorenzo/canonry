@@ -13,9 +13,11 @@
 	 */
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import AiMarkedParagraph from '$lib/components/ai/AiMarkedParagraph.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -47,6 +49,27 @@
 	}
 	type AskSource = OwnCanonSource | IndexedSource;
 
+	/** issue #256: `runAsk`'s own `AskProposalEvent`, mirrored client-side like `AskSource`
+	 * above already is - this route has no shared types module with `packages/copilot`. */
+	interface AskProposalEvent {
+		proposalId: string;
+		planId: string | null;
+		kind: 'draft_entity' | 'update';
+		redirected: boolean;
+		entityName: string;
+		entitySlug: string;
+		summary: string;
+	}
+
+	/** issue #256: `runAsk`'s own `AskProposalFailure` - a tool call the model made whose
+	 * drafting call failed. Rendered independently of the model's own narration, which is
+	 * the hard backstop: the model is instructed to report a failure honestly, but this
+	 * never depends on it doing so. */
+	interface AskProposalFailure {
+		tool: 'entry_propose' | 'entry_edit_propose';
+		message: string;
+	}
+
 	let question = $state('');
 	let detailLevel = $state<DetailLevel>('normal');
 	let asking = $state(false);
@@ -54,6 +77,8 @@
 	let askAnswer = $state('');
 	let askSources = $state<AskSource[]>([]);
 	let followUps = $state<string[]>([]);
+	let askProposals = $state<AskProposalEvent[]>([]);
+	let askProposalFailures = $state<AskProposalFailure[]>([]);
 	let askError = $state<string | null>(null);
 
 	interface PanelEntry {
@@ -88,6 +113,8 @@
 		askAnswer = '';
 		askSources = [];
 		followUps = [];
+		askProposals = [];
+		askProposalFailures = [];
 		askError = null;
 		panelEntry = null;
 
@@ -127,6 +154,10 @@
 				} else if (eventName === 'done' && payload && typeof payload === 'object') {
 					const p = payload as { generated: boolean };
 					generated = p.generated;
+				} else if (eventName === 'proposal' && payload && typeof payload === 'object') {
+					askProposals = [...askProposals, payload as AskProposalEvent];
+				} else if (eventName === 'proposal_failed' && payload && typeof payload === 'object') {
+					askProposalFailures = [...askProposalFailures, payload as AskProposalFailure];
 				} else if (eventName === 'error' && payload && typeof payload === 'object') {
 					askError = (payload as { message: string }).message;
 				}
@@ -216,6 +247,55 @@
 			<p class="mt-4 max-w-measure text-sm leading-relaxed text-ink">
 				{askAnswer}{#if asking}<span class="ai-note text-ai"> …</span>{/if}
 			</p>
+		{/if}
+
+		{#if askProposals.length > 0}
+			<div class="mt-4 flex flex-col gap-2">
+				{#each askProposals as proposal (proposal.proposalId)}
+					<!-- issue #256, guardrail 2: pending, not canon - AiMarkedParagraph is the
+						same dashed-underline/marker treatment the entry read view already uses
+						for an unaccepted proposal's wording, reused rather than a second visual
+						language. Guardrail 6: a redirected outcome says so, so the GM never reads
+						this as "did what I asked" when it did the other thing instead. -->
+					<div class="rounded-lg border border-ai-line bg-ai-bg px-2.5 py-2 text-xs">
+						<span class="badge rounded-full bg-ai px-1.5 py-0.5 text-[10px] text-paper">
+							{proposal.kind === 'draft_entity' ? t.propose.badgeCreated : t.propose.badgeEdited}
+						</span>
+						<b class="text-ink">{proposal.entityName}</b>
+						{#if proposal.redirected}
+							<p class="mt-1 text-[11px] text-muted">
+								{proposal.kind === 'draft_entity'
+									? t.propose.redirectedToCreate(proposal.entityName)
+									: t.propose.redirectedToEdit(proposal.entityName)}
+							</p>
+						{/if}
+						<div class="mt-1">
+							<AiMarkedParagraph segments={[{ text: proposal.summary, proposed: true }]} />
+						</div>
+						{#if proposal.planId}
+							<a
+								href={resolve(`/w/${data.universeSlug}/proposals/${proposal.planId}`)}
+								class="mt-1 inline-block text-[11px] text-ink-2 underline"
+							>
+								{t.propose.reviewLink}
+							</a>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{/if}
+
+		{#if askProposalFailures.length > 0}
+			<div class="mt-4 flex flex-col gap-2">
+				{#each askProposalFailures as failure, i (i)}
+					<!-- issue #256, the real-gateway regression: this never depends on the
+						model's own words to say a proposal failed. It renders from
+						onProposalFailure directly, the moment the drafting call throws. -->
+					<p class="rounded-md border border-danger-bg bg-danger-bg px-3 py-2 text-xs text-danger">
+						{t.propose.failed(failure.message)}
+					</p>
+				{/each}
+			</div>
 		{/if}
 
 		{#if askSources.length > 0}

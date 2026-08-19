@@ -95,12 +95,22 @@ export {
 	runAsk,
 	type AskDetailLevel,
 	type AskInput,
+	type AskProposalEvent,
 	type AskResult,
 	type AskSource,
 	type IndexedSource,
 	type OwnCanonSource,
 	type QueryEmbedder
 } from './ask.js';
+
+export {
+	entryEditPropose,
+	entryPropose,
+	type EntryEditProposeInput,
+	type EntryProposeInput,
+	type EvidenceSource,
+	type ProposeResult
+} from './ask-propose.js';
 
 export { completeEntry, type CompleteEntryInput, type CompleteEntryResult } from './complete.js';
 

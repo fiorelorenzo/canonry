@@ -43,12 +43,14 @@ import {
 	type RetrievalHit
 } from '@canonry/indexing';
 import { type Locale } from '@canonry/lang';
-import { streamText } from 'ai';
+import { stepCountIs, streamText, tool } from 'ai';
+import { z } from 'zod';
 import { jaccard, splitIntoSentences, tokenize } from './diff.js';
 import { READING_ONLY_FALLBACK, TELL_ME_MORE, speechInstruction } from './speech.js';
 import { routeModel } from './models.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
 import { requireAiEnabled } from './propagate.js';
+import { entryEditPropose, entryPropose, type ProposeResult } from './ask-propose.js';
 
 /** SPEC.md §5: "five detail levels", shipped as a fixed row of buttons
  * (docs/ux/c8-ask-mode.html), never a settings dialog. */
@@ -250,6 +252,34 @@ function readingOnlyAnswer(locale: Locale, sources: OwnCanonSource[]): string {
 		.join(' ');
 }
 
+export interface AskProposalEvent {
+	proposalId: string;
+	planId: string | null;
+	/** Mirrors `proposal.kind`: `'draft_entity'` for a new entry `entry_propose` (or
+	 * `entry_edit_propose`'s guardrail-6 redirect) drafted, `'update'` for an edit
+	 * `entry_edit_propose` (or `entry_propose`'s own redirect) drafted. */
+	kind: 'draft_entity' | 'update';
+	/** True when the tool the GM's turn asked for is not the tool that actually ran -
+	 * guardrail 6's "refuse rather than invent": a create redirected to an edit because
+	 * the name already existed, or an edit redirected to a create because it did not. */
+	redirected: boolean;
+	entityName: string;
+	entitySlug: string;
+	/** The drafting call's own one-line rationale, addressed to the GM - what a client
+	 * shows inline, marked as pending AI text (guardrail 2) rather than read as canon. */
+	summary: string;
+}
+
+/** A tool call the model actually made, whose drafting call failed - a rejected or
+ * erroring model call, never a guardrail refusal (a guardrail-6 redirect is a normal
+ * `AskProposalEvent`, not this). Reported so the surface can say the attempt failed
+ * instead of the model narrating success over a tool result it never got - see this
+ * file's own `runAsk` for why this is fired from outside the model's own words. */
+export interface AskProposalFailure {
+	tool: 'entry_propose' | 'entry_edit_propose';
+	message: string;
+}
+
 export interface AskInput {
 	db: Db;
 	userId: string;
@@ -270,6 +300,18 @@ export interface AskInput {
 	onSources?: (sources: AskSource[], followUps: string[]) => void;
 	/** Called with each answer text chunk as it streams (SPEC.md §5's SSE requirement). */
 	onToken?: (delta: string) => void;
+	/** issue #256: fired once per `entry_propose`/`entry_edit_propose` call the model
+	 * actually makes, as soon as the proposal is written - independent of the model's
+	 * own narration, the same "never briefly missing" guarantee `onSources` already
+	 * gives evidence. Generation-off callers never see this: the tools do not exist on
+	 * that branch (guardrail 4). */
+	onProposal?: (proposal: AskProposalEvent) => void;
+	/** issue #256: fired the moment either tool's drafting call throws (a rejected or
+	 * malformed provider request, a database error) - before the model gets a chance to
+	 * say anything about it. A client renders this as a hard failure regardless of what
+	 * the model's own subsequent text claims; see `runAsk`'s own comment on why the
+	 * model cannot be trusted alone to report this correctly. */
+	onProposalFailure?: (failure: AskProposalFailure) => void;
 	requestId?: string;
 }
 
@@ -282,6 +324,12 @@ export interface AskResult {
 	 * wrote it. */
 	generated: boolean;
 	credits: number;
+	/** Every proposal `onProposal` fired during this call, in call order - empty on the
+	 * generation-off branch and on any turn where the model answered without proposing
+	 * anything. */
+	proposals: AskProposalEvent[];
+	/** Every failure `onProposalFailure` fired during this call, in call order. */
+	failures: AskProposalFailure[];
 }
 
 /** SPEC.md §5/§7, issues #53/#60. Retrieval (both layers) always runs, at zero cost,
@@ -319,7 +367,15 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 	if (!universeRow.aiEnabled) {
 		const answer = readingOnlyAnswer(input.locale, ownCanon);
 		input.onToken?.(answer);
-		return { answer, sources, followUps, generated: false, credits: 0 };
+		return {
+			answer,
+			sources,
+			followUps,
+			generated: false,
+			credits: 0,
+			proposals: [],
+			failures: []
+		};
 	}
 
 	await requireAiEnabled(input.db, input.universeId);
@@ -343,6 +399,57 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 					: {})
 			},
 			async () => {
+				const proposals: AskProposalEvent[] = [];
+				const failures: AskProposalFailure[] = [];
+				const toEvent = (outcome: ProposeResult): AskProposalEvent => ({
+					proposalId: outcome.proposal.id,
+					planId: outcome.proposal.planId,
+					kind: outcome.kind,
+					redirected: outcome.redirected,
+					entityName: outcome.entityName,
+					entitySlug: outcome.entitySlug,
+					summary: outcome.proposal.rationale
+				});
+				const recordProposal = (outcome: ProposeResult) => {
+					const event = toEvent(outcome);
+					proposals.push(event);
+					input.onProposal?.(event);
+					return {
+						ok: true as const,
+						kind: event.kind,
+						entityName: event.entityName,
+						redirected: event.redirected
+					};
+				};
+				// A drafting call's own failure (a rejected or malformed provider request, a
+				// database error) must never reach the GM as a completed proposal - the model
+				// cannot be trusted to notice a thrown error inside a tool call and narrate it
+				// honestly (observed against a real gateway: gpt-5.4 answered "I've proposed a
+				// new entry, pending review" after this exact tool's drafting call had thrown
+				// and written nothing). So a failure here is never re-thrown into the AI SDK's
+				// own tool-error handling, which the model is free to ignore; it is returned as
+				// an ordinary, unambiguous `ok: false` tool result the system prompt below
+				// requires the model to report verbatim, and `onProposalFailure` fires
+				// independently of whatever the model ends up saying, so the client can show a
+				// hard failure even if it does not.
+				const recordFailure = (toolName: 'entry_propose' | 'entry_edit_propose', err: unknown) => {
+					const message = err instanceof Error ? err.message : String(err);
+					failures.push({ tool: toolName, message });
+					input.onProposalFailure?.({ tool: toolName, message });
+					return {
+						ok: false as const,
+						error:
+							`This proposal was NOT created - the drafting call failed: ${message}. ` +
+							'Tell the GM the attempt failed and why. Never say you created or proposed ' +
+							'anything for this call.'
+					};
+				};
+
+				// SPEC.md §5's Ask row, issue #256: the only two tools this loop can call, and
+				// both only ever write a `proposal` - guardrail 1 stays acceptProposal's alone,
+				// see ask-propose.ts's own header comment on that boundary. Registered here,
+				// not on the generation-off branch above, so "with AI off, the tools do not
+				// exist" is structural rather than a prompt instruction.
 				const stream = streamText({
 					model: premiumModel.languageModel,
 					system:
@@ -350,19 +457,109 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 						'the sources below only. Never invent a fact the sources do not support. Do not ' +
 						'cite sources inline with numbers or brackets - they are listed separately. ' +
 						DETAIL_LEVEL_INSTRUCTION[input.detailLevel] +
-						' ' +
+						' Only call entry_propose or entry_edit_propose when the GM explicitly asks you ' +
+						'to create, add or change something in canon - most questions want an answer, ' +
+						'not a proposal. Neither tool writes canon directly: after calling one, check its ' +
+						'result. If it has "ok": true, tell the GM what you proposed and that it is ' +
+						'pending review, never that it is already done. If it has "ok": false, the ' +
+						'proposal was NOT created - tell the GM the attempt failed and repeat the ' +
+						'"error" field verbatim; never say you proposed or created anything for that ' +
+						'call. ' +
 						speechInstruction(input.locale),
 					prompt:
 						`Sources:\n${renderSourcesForPrompt(sources) || '(none found)'}\n\n` +
-						`Question: ${input.question}`
+						`Question: ${input.question}`,
+					tools: {
+						entry_propose: tool({
+							description:
+								'Propose creating a brand new wiki entry. Writes a pending proposal for ' +
+								'the GM to review; never creates the entry directly. If an entry with ' +
+								'this name already exists, this proposes an edit to it instead and says so.',
+							inputSchema: z
+								.object({
+									name: z.string().min(1).max(200),
+									instruction: z
+										.string()
+										.min(1)
+										.max(2000)
+										.describe(
+											'What the GM said about this entry - the only content the draft may use.'
+										)
+								})
+								.strict(),
+							execute: async (toolInput, { toolCallId }) => {
+								try {
+									return recordProposal(
+										await entryPropose({
+											db: input.db,
+											userId: input.userId,
+											universeId: input.universeId,
+											locale: input.locale,
+											modelFactory: input.modelFactory,
+											gateway: input.gateway,
+											sources: ownCanon,
+											name: toolInput.name,
+											instruction: toolInput.instruction,
+											requestId: toolCallId
+										})
+									);
+								} catch (err) {
+									return recordFailure('entry_propose', err);
+								}
+							}
+						}),
+						entry_edit_propose: tool({
+							description:
+								'Propose an edit to an existing wiki entry. Writes a pending proposal ' +
+								'for the GM to review; never edits the entry directly. If no entry with ' +
+								'this name exists, this proposes creating it instead and says so.',
+							inputSchema: z
+								.object({
+									entityName: z.string().min(1).max(200),
+									instruction: z
+										.string()
+										.min(1)
+										.max(2000)
+										.describe(
+											'What the GM wants added or changed - the only content the draft may use.'
+										)
+								})
+								.strict(),
+							execute: async (toolInput, { toolCallId }) => {
+								try {
+									return recordProposal(
+										await entryEditPropose({
+											db: input.db,
+											userId: input.userId,
+											universeId: input.universeId,
+											locale: input.locale,
+											modelFactory: input.modelFactory,
+											gateway: input.gateway,
+											sources: ownCanon,
+											entityName: toolInput.entityName,
+											instruction: toolInput.instruction,
+											requestId: toolCallId
+										})
+									);
+								} catch (err) {
+									return recordFailure('entry_edit_propose', err);
+								}
+							}
+						})
+					},
+					stopWhen: stepCountIs(4)
 				});
 				let text = '';
-				for await (const delta of stream.textStream) {
-					text += delta;
-					input.onToken?.(delta);
+				// Full stream, not just `textStream`: draining it is what drives the tool-call
+				// steps to completion, and `usage` below only resolves once every step has run.
+				for await (const part of stream.fullStream) {
+					if (part.type === 'text-delta') {
+						text += part.text;
+						input.onToken?.(part.text);
+					}
 				}
 				const usage = await stream.usage;
-				return { text, usage };
+				return { text, usage, proposals, failures };
 			},
 			{
 				extractUsage: (r) => ({
@@ -374,5 +571,13 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 		chargeFor(input.db, 'ask.answer')
 	]);
 
-	return { answer: result.text, sources, followUps, generated: true, credits: price.credits };
+	return {
+		answer: result.text,
+		sources,
+		followUps,
+		generated: true,
+		credits: price.credits,
+		proposals: result.proposals,
+		failures: result.failures
+	};
 }

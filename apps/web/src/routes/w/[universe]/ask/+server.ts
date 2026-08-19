@@ -69,6 +69,12 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 					},
 					onToken: (delta) => {
 						send(controller, 'token', { delta });
+					},
+					onProposal: (proposal) => {
+						send(controller, 'proposal', proposal);
+					},
+					onProposalFailure: (failure) => {
+						send(controller, 'proposal_failed', failure);
 					}
 				});
 				send(controller, 'done', {
