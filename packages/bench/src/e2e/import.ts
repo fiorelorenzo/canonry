@@ -46,12 +46,12 @@ import {
 	InMemoryImageStore,
 	acceptImportProposal,
 	admitAndCreateImportJob,
-	lexicalTrigramSimilarity,
+	createEmbeddingSimilarity,
+	EMBEDDING_MATCH_THRESHOLDS,
 	loadBuiltinPlaybook,
-	MATCH_THRESHOLDS,
 	type JobDocument
 } from '@canonry/import';
-import { createGatewayEmbedder } from '@canonry/indexing';
+import { createGatewayEmbedder, embeddingDimensionsFor } from '@canonry/indexing';
 import {
 	createEmbeddingModel,
 	createGateway,
@@ -220,6 +220,16 @@ async function runOne(input: RunOneInput): Promise<RunReport> {
 		operation: 'index.embed'
 	});
 
+	// Same reasoning applied to the matching decision itself (issue #279). §6.4's own
+	// re-import case is in this corpus by name - v2 renames `The Gilded Rat` to `Il Ratto
+	// Dorato` - and the lexical stand-in this used to pass is near-blind to exactly that,
+	// so measuring re-import against it would have measured the stand-in. One embedder
+	// serves both: `createEmbeddingSimilarity` batches and caches on top of it.
+	const similarity = createEmbeddingSimilarity({
+		embed: embedRelationLabel,
+		vectorSize: embeddingDimensionsFor(embeddingModel.provider, embeddingModel.modelId)
+	});
+
 	const started = Date.now();
 	const runner = new ImportJobRunner();
 	const result = await runner.run({
@@ -234,8 +244,11 @@ async function runOne(input: RunOneInput): Promise<RunReport> {
 		budget: { maxCredits: budgetCredits },
 		sources: ArchiveSourceReader.open(bytes, DEFAULT_ARCHIVE_LIMITS),
 		images: new InMemoryImageStore(),
-		similarity: lexicalTrigramSimilarity,
-		thresholds: MATCH_THRESHOLDS,
+		similarity,
+		// Paired with the scorer above, not with the lexical default: issue #279's sweep found
+		// MATCH_THRESHOLDS' newBelow of 0.5 sits below the lowest cosine the corpus produces,
+		// so running the embedding scorer against it makes the "new" outcome unreachable.
+		thresholds: EMBEDDING_MATCH_THRESHOLDS,
 		embedRelationLabel,
 		timeoutMs: 20 * 60 * 1000
 	});

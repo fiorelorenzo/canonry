@@ -10,7 +10,10 @@
  * This is the CI version of that same check: no live gateway (CI carries no
  * AI_GATEWAY_* credentials and should not), so it drives `DeterministicExtractionDriver`
  * - the same fake driver onboarding already runs on a box with none - instead of
- * `GatewayDriver`.
+ * `GatewayDriver`. It names `lexicalTrigramSimilarity` directly for the same reason: since
+ * issue #279 the app resolves its scorer through `resolveImportSimilarity`, which picks an
+ * embedding-backed one when a credential exists, and an idempotency check has to be
+ * deterministic and offline whatever the box it runs on carries.
  *
  * Why this file lives in apps/web rather than packages/import: `DeterministicExtractionDriver`
  * lives in `./onboarding.ts`, and AGENTS.md's own rule on `packages/import` is the reverse
@@ -68,6 +71,7 @@ import {
 	ImportJobRunner,
 	InMemoryImageStore,
 	InMemorySourceReader,
+	lexicalTrigramSimilarity,
 	loadBuiltinPlaybook,
 	type SourceReader
 } from '@canonry/import';
@@ -75,7 +79,6 @@ import { hashingEmbedder } from '@canonry/indexing';
 import {
 	DeterministicExtractionDriver,
 	documentsForPlaybook,
-	importMatchSimilarity,
 	MATCH_THRESHOLDS,
 	type KnownPlaybookId
 } from './onboarding.js';
@@ -331,7 +334,7 @@ describe('re-import idempotency, per source (issue #161, SPEC.md §6.4)', () => 
 					sources: reader,
 					images: new InMemoryImageStore(),
 					budget: { maxCredits: 1000 },
-					similarity: importMatchSimilarity,
+					similarity: lexicalTrigramSimilarity,
 					thresholds: MATCH_THRESHOLDS,
 					embedRelationLabel: hashingEmbedder,
 					timeoutMs: 60_000
@@ -468,7 +471,7 @@ describe('regression: two documents naming the same entity in one job (issue #16
 				sources: reader,
 				images: new InMemoryImageStore(),
 				budget: { maxCredits: 1000 },
-				similarity: importMatchSimilarity,
+				similarity: lexicalTrigramSimilarity,
 				thresholds: MATCH_THRESHOLDS,
 				embedRelationLabel: hashingEmbedder,
 				timeoutMs: 60_000
@@ -625,7 +628,7 @@ describe('one document naming two entities, another repeating one of them (issue
 				sources: reader,
 				images: new InMemoryImageStore(),
 				budget: { maxCredits: 1000 },
-				similarity: importMatchSimilarity,
+				similarity: lexicalTrigramSimilarity,
 				thresholds: MATCH_THRESHOLDS,
 				embedRelationLabel: hashingEmbedder,
 				timeoutMs: 60_000

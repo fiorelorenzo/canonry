@@ -11,12 +11,19 @@
  * this repo (Brackwater Mire, Thornwick College, Valdoria Reach - packages/eval's
  * propagation corpus), so the names are consistent with data already used across the
  * project rather than invented in isolation.
+ *
+ * Issue #279 added four bilingual pairs, because one translated pair (`translation`) is not
+ * enough to measure the thing SPEC.md §6.4 uses as its example. Two are true matches across
+ * English and Italian; two are the control that keeps the first two from being unfalsifiable
+ * - a scorer that simply rates every cross-language pair highly has to be caught losing on
+ * a translated name belonging to a *different* entity, or "embeddings fix translation" is a
+ * claim about nothing. SPEC.md §17 is why the second language is Italian.
  */
 import type { MatchingCorpus } from './matching-benchmark.js';
 
 export const SAMPLE_WORLD_MATCHING_CORPUS: MatchingCorpus = {
 	id: 'sample-world-export-pairs',
-	name: 'Sample-world re-export pairs (issue #37)',
+	name: 'Sample-world re-export pairs (issues #37, #279)',
 	pairs: [
 		{
 			id: 'retitle-descriptor',
@@ -165,6 +172,34 @@ export const SAMPLE_WORLD_MATCHING_CORPUS: MatchingCorpus = {
 			candidate: { id: 'char-seraphine-accented', name: 'Séraphine Duval', aliases: [] },
 			sameEntity: true,
 			note: 'a diacritic added or dropped between exports, common for names transliterated differently'
+		},
+		{
+			id: 'translation-faction',
+			subject: { name: 'the Ashen Covenant', aliases: [] },
+			candidate: { id: 'faction-ashen-covenant', name: 'il Patto di Cenere', aliases: [] },
+			sameEntity: true,
+			note: 'a fully translated faction name, zero shared tokens and zero shared trigrams of any length - the second reading of the case §6.4 names, so the bilingual result is not a single data point'
+		},
+		{
+			id: 'translation-epithet',
+			subject: { name: 'Aldric the Ironhand', aliases: [] },
+			candidate: { id: 'char-aldric', name: 'Aldric Mano di Ferro', aliases: [] },
+			sameEntity: true,
+			note: 'the given name survives translation and the epithet does not - the mixed case a GM actually produces, half recoverable lexically'
+		},
+		{
+			id: 'false-merge-cross-language-sibling-inn',
+			subject: { name: 'Il Ratto Dorato', aliases: [] },
+			candidate: { id: 'inn-topo-argento', name: "il Topo d'Argento", aliases: [] },
+			sameEntity: false,
+			note: 'the control for the two above: two different inns whose Italian names are semantically adjacent (a gilded rat and a silver mouse). A scorer that rates any two same-language animal-and-metal tavern names as one entity fails here, which is what stops a high score on a translation from being credited as understanding'
+		},
+		{
+			id: 'false-merge-translation-of-a-different-entity',
+			subject: { name: 'the Gilded Rat', aliases: [] },
+			candidate: { id: 'inn-gatto-dorato', name: 'il Gatto Dorato', aliases: [] },
+			sameEntity: false,
+			note: "the second control: a cross-language near-translation of a different tavern (the Gilded Cat), one word away from this corpus's true bilingual match. Distinguishing it from `translation` is the whole difference between semantic matching and rewarding cross-language proximity"
 		}
 	]
 };

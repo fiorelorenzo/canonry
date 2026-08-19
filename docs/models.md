@@ -237,6 +237,19 @@ mean is what the choice rests on.
 nothing here re-opens it. Worth recording that it worked: 32 chunks of the corpus embedded
 at 2560 dimensions through the live gateway for EUR 0.00004.
 
+What issue #279 then measured about the same model, because entity matching now depends on it
+too: over a 24-pair labelled corpus of re-export name pairs, cosine separates a true pair from
+a false one by 0.059 (mean 0.912 against 0.853), where a character-trigram baseline gets 0.225.
+It wins decisively on the case it was added for, a translated name ("the Gilded Rat" against
+"Il Ratto Dorato" goes from 0.074 to 0.80), and it has almost nothing to work with on bare
+proper nouns otherwise: "Aldric Voss" against "Seraphine Duval", two entities with nothing in
+common, scores 0.843. That is the same scale warning as the second finding above, seen from the
+matching side, and it is why `EMBEDDING_MATCH_THRESHOLDS` is a separate constant from
+`MATCH_THRESHOLDS` rather than the same band reused. Re-derive both with
+`pnpm --filter @canonry/bench matching-sweep`. Two runs of that sweep against this model scored
+the same pair 0.802 and 0.799, so treat a threshold placed within about 0.01 of an observed
+score as noise rather than as a decision.
+
 ## Re-running this
 
 ```bash

@@ -13,6 +13,9 @@ questions nothing else in the repo can:
 4. **What a document's steps cost, and where in the resent transcript the money is**
    (`docs/loop-cost.md`, issue #271), measured per step through `GatewayDriver`'s optional
    profiler rather than inferred from a job's total.
+5. **Where the decision thresholds actually sit**, for retrieval (`retrieval-sweep`) and for
+   entity matching (`matching-sweep`), by scoring the product's own decision functions against
+   a labelled corpus instead of choosing a number and defending it afterwards.
 
 Nothing here ships. It is not imported by `apps/web`, and it may not be.
 
@@ -82,6 +85,11 @@ pnpm --filter @canonry/bench rerender -- .data/models-premium.json premium
 pnpm --filter @canonry/bench loop-cost
 pnpm --filter @canonry/bench loop-cost -- --source onenote
 pnpm --filter @canonry/bench loop-cost -- --source kanka --documents all
+
+# re-derive MATCH_THRESHOLDS / EMBEDDING_MATCH_THRESHOLDS from the labelled corpus.
+# One embedMany call of ~33 short strings, so this one is cheap enough to run on every
+# change to the matcher or to the embedding model, which is what SPEC.md §6.4 asks for
+pnpm --filter @canonry/bench matching-sweep
 ```
 
 Everything is written to `.data/`, which is gitignored: a run is evidence for an afternoon,
@@ -94,7 +102,10 @@ the conclusion is what gets committed.
   it names.
 - `DATABASE_URL` **whose database name ends in `_bench` or `_e2e`**. The runner refuses
   anything else and says why: it writes real `model_config`, `proposal`, `revision`,
-  `entity` and `model_call` rows, which is the point.
+  `entity` and `model_call` rows, which is the point. `matching-sweep` is the one exception,
+  and it earns it by writing nothing at all: it reads `model_config`'s `embedding` row and
+  calls the gateway, so a guard against a database it cannot harm would only stop it from
+  running. It needs no `QDRANT_URL` either.
 - `QDRANT_URL`.
 - Gateway credit. The runner checks the balance before each candidate and stops with a
   sentence naming the reason, because the first long run ran out halfway and produced a

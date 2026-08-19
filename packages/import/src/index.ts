@@ -102,6 +102,7 @@ export {
 	normalizeForMatching,
 	nameOverlapScore,
 	preFilterCandidates,
+	EMBEDDING_MATCH_THRESHOLDS,
 	MATCH_THRESHOLDS,
 	type MatchCandidate,
 	type MatchSubject,
@@ -123,6 +124,16 @@ export {
 export { SAMPLE_WORLD_MATCHING_CORPUS } from './matching-benchmark-corpus.js';
 
 export { lexicalTrigramSimilarity } from './lexical-similarity.js';
+
+export {
+	createEmbeddingSimilarity,
+	cosineSimilarity,
+	matchTextFor,
+	EmbeddingWidthMismatchError,
+	EmbeddingBatchSizeError,
+	type EmbedTexts,
+	type EmbeddingSimilarityDeps
+} from './embedding-similarity.js';
 
 export {
 	ImportJobRunner,
