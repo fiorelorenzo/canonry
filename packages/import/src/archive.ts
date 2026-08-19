@@ -220,6 +220,80 @@ function truncateExtractedText(text: string, maxBytes: number): SourceReadResult
 	return { content: buffer.subarray(0, maxBytes).toString('utf8'), truncated: true };
 }
 
+/** Byte order marks this reader honours. UTF-8's is checked first since its first byte
+ * (0xEF) never collides with either UTF-16 mark's first byte (0xFF/0xFE), so the order
+ * below cannot misdetect one for another. UTF-32's marks are not handled - nothing in
+ * this codebase's supported exports produces UTF-32, and issue #311 only asks for these
+ * three. */
+function detectBom(
+	bytes: Uint8Array
+): { encoding: 'utf8' | 'utf16le' | 'utf16be'; length: number } | null {
+	if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+		return { encoding: 'utf8', length: 3 };
+	}
+	if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+		return { encoding: 'utf16le', length: 2 };
+	}
+	if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+		return { encoding: 'utf16be', length: 2 };
+	}
+	return null;
+}
+
+/** Node has no native 'utf16be' encoding, so this swaps to LE and decodes that. Drops a
+ * dangling trailing byte first - `Buffer.prototype.swap16` throws on an odd-length
+ * buffer, and there is no partner byte left to swap it with anyway. See
+ * `decodeEntryText` below for why dropping it, rather than doing anything else with it,
+ * is the right call. */
+function decodeUtf16be(bytes: Uint8Array): string {
+	const evenLength = bytes.byteLength - (bytes.byteLength % 2);
+	const swapped = Buffer.from(bytes.subarray(0, evenLength));
+	swapped.swap16();
+	return swapped.toString('utf16le');
+}
+
+/** Decodes a raw entry's bytes as text, honouring a UTF-8, UTF-16LE or UTF-16BE byte
+ * order mark and falling back to UTF-8 with no BOM exactly as `read` did before this
+ * function existed (issue #311). The BOM itself is never part of the returned content
+ * in any of the three cases - a UTF-8 BOM used to survive as a leading U+FEFF
+ * character, which was never a deliberate choice, just an unlooked-at one.
+ *
+ * `maxBytes`, when given, caps the *raw* byte length read, applied before decoding -
+ * the same thing the plain-text branch of `read` already did for UTF-8 before this
+ * function existed, not a cap on decoded characters. That is why a UTF-16 entry
+ * truncates at roughly half the character count a UTF-8 entry of the same byte size
+ * would: the cap is honest about what it bounds, bytes read rather than characters
+ * produced. The `.htm`/`.html` branch of `read` below calls this with no cap at all -
+ * it truncates the *stripped* string afterwards through `truncateExtractedText`, same
+ * as it always has, so no byte cap applies inside this function for that path.
+ *
+ * The one case that needs care: a UTF-16 code unit is two bytes, so a byte cap that
+ * lands on an odd offset within the post-BOM body leaves one dangling byte with no
+ * partner to decode. That byte is dropped rather than decoded, never turned into a
+ * replacement character - `readsAsText` (apps/web/src/lib/server/onboarding.ts, issue
+ * #305) would otherwise read a spurious U+FFFD off the truncation boundary itself and
+ * call an unlucky cut binary. For LE, `Buffer`'s own `toString('utf16le')` already
+ * does this silently (verified directly against Node: it decodes `floor(length / 2)`
+ * code units and never emits U+FFFD for a trailing odd byte). For BE, `decodeUtf16be`
+ * above drops it explicitly before the byte swap. Either way `truncated` reflects only
+ * whether the byte cap actually cut the entry, not whether the last code unit made it
+ * through whole - honest about the former, silent (by one code unit, at most) about
+ * the latter. */
+function decodeEntryText(rawContent: Uint8Array, maxBytes?: number): SourceReadResult {
+	const bom = detectBom(rawContent);
+	const truncated = maxBytes !== undefined && rawContent.byteLength > maxBytes;
+	const capped = truncated ? rawContent.subarray(0, maxBytes) : rawContent;
+	const body = bom ? capped.subarray(Math.min(bom.length, capped.byteLength)) : capped;
+
+	if (bom?.encoding === 'utf16le') {
+		return { content: Buffer.from(body).toString('utf16le'), truncated };
+	}
+	if (bom?.encoding === 'utf16be') {
+		return { content: decodeUtf16be(body), truncated };
+	}
+	return { content: Buffer.from(body).toString('utf8'), truncated };
+}
+
 /** Strips presentation noise a raw HTML export carries that no playbook rule reads:
  * a `<style>` block (CSS rules by class, never referenced by any extraction logic) and
  * the `style`, `class` and `lang` attributes repeated on nearly every run of text -
@@ -394,15 +468,11 @@ export class ArchiveSourceReader implements SourceReader {
 		}
 
 		if (path.toLowerCase().endsWith('.htm') || path.toLowerCase().endsWith('.html')) {
-			const stripped = stripHtmlPresentationNoise(Buffer.from(entry.content).toString('utf8'));
+			const stripped = stripHtmlPresentationNoise(decodeEntryText(entry.content).content);
 			return truncateExtractedText(stripped, this.limits.maxTextReadBytes);
 		}
 
-		const truncated = entry.content.byteLength > this.limits.maxTextReadBytes;
-		const slice = truncated
-			? entry.content.subarray(0, this.limits.maxTextReadBytes)
-			: entry.content;
-		return { content: Buffer.from(slice).toString('utf8'), truncated };
+		return decodeEntryText(entry.content, this.limits.maxTextReadBytes);
 	}
 
 	async readBinary(path: string): Promise<BinaryAsset> {
