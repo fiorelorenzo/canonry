@@ -700,17 +700,7 @@ export const it: Messages = {
 
 		inbox: {
 			empty: 'Niente in sospeso. Modifica una voce per avviare una propagazione.',
-			fromEntity: (entityName) => `Da: modifica di ${entityName}`,
-			fromTrigger: (trigger) => {
-				const labels: Record<string, string> = {
-					save: 'una modifica',
-					complete: 'un completamento',
-					audit: 'un controllo',
-					import: "un'importazione",
-					table: 'la modalità tavolo'
-				};
-				return `Da: ${labels[trigger] ?? trigger}`;
-			},
+			from: (provenance) => `Da: ${provenance}`,
 			entriesLabel: (total) => {
 				const form = pluralRules('it').select(total);
 				return `${total} ${form === 'one' ? 'voce' : 'voci'}`;
@@ -724,10 +714,27 @@ export const it: Messages = {
 			openImportReview: "Apri la revisione dell'importazione"
 		},
 
+		provenance: (trigger, entityName) => {
+			// "Chiedi" è il nome della modalità nell'interfaccia, quindi la provenienza la
+			// chiama così (issue #270): una proposta nata da una domanda su Cairnmouth non è
+			// una modifica di Cairnmouth.
+			if (trigger === 'ask') {
+				return entityName ? `una domanda in Chiedi su ${entityName}` : 'una domanda in Chiedi';
+			}
+			if (entityName) return `una modifica di ${entityName}`;
+			const labels: Record<string, string> = {
+				save: 'una modifica',
+				complete: 'un completamento',
+				audit: 'un controllo',
+				import: "un'importazione",
+				table: 'la modalità tavolo'
+			};
+			return labels[trigger] ?? trigger;
+		},
+
 		plan: {
 			crumbCurrent: 'Piano',
-			headingFromEntity: (entityName) => `Piano \u00b7 da modifica di ${entityName}`,
-			headingFromPropagation: 'Piano \u00b7 da propagazione'
+			heading: (provenance) => `Piano \u00b7 da ${provenance}`
 		},
 
 		checklist: {
@@ -867,6 +874,7 @@ export const it: Messages = {
 		evidence: {
 			button: 'Prova',
 			embeddingOnly: 'Solo similarità di embedding',
+			instructionOnly: 'La tua richiesta in Chiedi, non un collegamento nel canone',
 			close: 'Chiudi',
 			reasonRelation: (path, hops) => {
 				const form = pluralRules('it').select(hops);
@@ -875,6 +883,7 @@ export const it: Messages = {
 			reasonMention: (direction, matchedText) =>
 				`menzione ${direction === 'forward' ? 'in avanti' : "all'indietro"} ("${matchedText}")`,
 			reasonEmbedding: 'solo somiglianza testuale, nessun collegamento nel grafo',
+			reasonInstruction: 'quello che hai chiesto in Chiedi, da cui è stata scritta',
 			reasonImportAmbiguous: (path, count) => {
 				const form = pluralRules('it').select(count);
 				return `corrispondenza ambigua in "${path ?? "l'import"}", con ${count} ${form === 'one' ? 'voce esistente' : 'voci esistenti'}`;

@@ -81,12 +81,21 @@ export type OperationPriceKind = (typeof operationPriceKindEnum.enumValues)[numb
 // SPEC.md §5: the four modes of the Loremaster all produce a proposal, so the trigger says
 // which mode produced this one. 'import' is the fifth producer (SPEC.md §6), and it lands
 // in the same accept flow on purpose: one shape, one instrumentation.
+//
+// 'ask' is the sixth (issue #256's two propose tools, issue #270): a GM asking the copilot
+// in Ask to create or change an entry. It exists because nothing else in this list is true
+// of it - the value is read, not decorative. `normalizeEvidence` keys the forced-open
+// evidence popover off it, the proposals inbox and the plan header name it in their
+// provenance line, and §14's accept rate is sliced by it, so borrowing 'table' (as this
+// path did until #270) makes an Ask proposal indistinguishable from one a quick action
+// fired mid-session and tells the GM about a mode they were never in.
 export const proposalTriggerEnum = pgEnum('proposal_trigger', [
 	'save',
 	'complete',
 	'audit',
 	'import',
-	'table'
+	'table',
+	'ask'
 ]);
 export type ProposalTrigger = (typeof proposalTriggerEnum.enumValues)[number];
 

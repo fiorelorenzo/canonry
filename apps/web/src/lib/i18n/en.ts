@@ -696,17 +696,7 @@ export const en: Messages = {
 
 		inbox: {
 			empty: 'Nothing pending. Edit an entry to start a propagation run.',
-			fromEntity: (entityName) => `From: editing ${entityName}`,
-			fromTrigger: (trigger) => {
-				const labels: Record<string, string> = {
-					save: 'an edit',
-					complete: 'completing an entry',
-					audit: 'an audit pass',
-					import: 'an import',
-					table: 'table mode'
-				};
-				return `From: ${labels[trigger] ?? trigger}`;
-			},
+			from: (provenance) => `From: ${provenance}`,
 			entriesLabel: (total) => {
 				const form = pluralRules('en').select(total);
 				return `${total} ${form === 'one' ? 'entry' : 'entries'}`;
@@ -720,10 +710,27 @@ export const en: Messages = {
 			openImportReview: 'Open import review'
 		},
 
+		provenance: (trigger, entityName) => {
+			// Ask reads the trigger before the entity name on purpose (issue #270): an Ask
+			// proposal about Cairnmouth is not an edit to Cairnmouth, and saying "editing
+			// Cairnmouth" would credit the GM with a change they never made.
+			if (trigger === 'ask') {
+				return entityName ? `a question in Ask about ${entityName}` : 'a question in Ask';
+			}
+			if (entityName) return `an edit to ${entityName}`;
+			const labels: Record<string, string> = {
+				save: 'an edit',
+				complete: 'completing an entry',
+				audit: 'an audit pass',
+				import: 'an import',
+				table: 'table mode'
+			};
+			return labels[trigger] ?? trigger;
+		},
+
 		plan: {
 			crumbCurrent: 'Plan',
-			headingFromEntity: (entityName) => `Plan \u00b7 from editing ${entityName}`,
-			headingFromPropagation: 'Plan \u00b7 from propagation'
+			heading: (provenance) => `Plan \u00b7 from ${provenance}`
 		},
 
 		checklist: {
@@ -844,10 +851,12 @@ export const en: Messages = {
 		evidence: {
 			button: 'Evidence',
 			embeddingOnly: 'Embedding similarity only',
+			instructionOnly: 'Your request in Ask, not a canon link',
 			close: 'Close',
 			reasonRelation: (path, hops) => `relation ${path}, ${hops}-hop`,
 			reasonMention: (direction, matchedText) => `${direction} mention ("${matchedText}")`,
 			reasonEmbedding: 'similar wording only, no graph link',
+			reasonInstruction: 'what you asked for in Ask, drafted from it',
 			reasonImportAmbiguous: (path, count) => {
 				const form = pluralRules('en').select(count);
 				return `ambiguous match in "${path ?? 'the import'}", against ${count} existing ${form === 'one' ? 'entry' : 'entries'}`;

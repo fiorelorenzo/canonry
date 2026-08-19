@@ -43,6 +43,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		plan: {
 			id: detail.plan.id,
 			status: detail.plan.status,
+			// issue #270: the heading names where this plan came from, and the trigger is the
+			// only field that actually knows - `triggerEntityName` alone used to leave every
+			// plan without one reading "from propagation", import and Ask included.
+			trigger: detail.plan.trigger,
 			summary: detail.plan.summary,
 			estimatedCredits: detail.plan.estimatedCredits,
 			candidateCap: detail.plan.candidateCap

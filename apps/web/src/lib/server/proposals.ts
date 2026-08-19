@@ -58,7 +58,11 @@ import { ModelNotConfiguredError, resolveModel } from '@canonry/ai';
 import { semanticDiff, type FactChange } from '@canonry/copilot';
 import { deleteEntityLoreChunks, resolveOwnCanonCollection } from '@canonry/indexing';
 import { vectorClient } from '$lib/server/copilot';
-import { normalizeEvidence, type EvidenceView } from '$lib/components/proposals/evidence';
+import {
+	normalizeEvidence,
+	type EvidenceCaveat,
+	type EvidenceView
+} from '$lib/components/proposals/evidence';
 import { diffLayoutFor, type DiffLayout } from '$lib/components/proposals/diffLayout';
 
 export {
@@ -519,7 +523,7 @@ export interface DiffCandidateWaitingRelation {
 	toName: string | null;
 	rationale: string;
 	evidenceViews: EvidenceView[];
-	evidenceForceOpen: boolean;
+	evidenceCaveat: EvidenceCaveat | null;
 }
 
 /** The card-ready mirror of `RelationVocabCandidate` - same fields, entity ids already
@@ -559,7 +563,7 @@ export interface DiffCandidate {
 	diff: FactChange[];
 	diffLayout: DiffLayout;
 	evidenceViews: EvidenceView[];
-	evidenceForceOpen: boolean;
+	evidenceCaveat: EvidenceCaveat | null;
 	relationVocab: DiffCandidateRelationVocab | null;
 }
 
@@ -583,7 +587,7 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 			p.kind === 'update' ? (readPatchBefore(p.patch) ?? candidate.targetEntity?.body ?? '') : '';
 		if (before || after) diff = semanticDiff(before, after);
 	}
-	const { views, forceOpen } = normalizeEvidence(p.trigger, p.evidence);
+	const { views, caveat } = normalizeEvidence(p.trigger, p.evidence);
 
 	const relationVocab: DiffCandidateRelationVocab | null = candidate.relationVocab
 		? {
@@ -604,7 +608,7 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 						toName: r.toEntity?.name ?? null,
 						rationale: r.rationale,
 						evidenceViews: relationEvidence.views,
-						evidenceForceOpen: relationEvidence.forceOpen
+						evidenceCaveat: relationEvidence.caveat
 					};
 				})
 			}
@@ -628,7 +632,7 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 		diff,
 		diffLayout: diffLayoutFor(diff),
 		evidenceViews: views,
-		evidenceForceOpen: forceOpen,
+		evidenceCaveat: caveat,
 		relationVocab
 	};
 }

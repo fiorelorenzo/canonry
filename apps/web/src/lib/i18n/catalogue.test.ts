@@ -135,6 +135,44 @@ describe('locale-aware Intl formatters (SPEC.md §17)', () => {
 });
 
 /**
+ * Issue #270: the inbox and the plan header used to each guess where a plan came from, and
+ * for the same Ask-originated proposal they guessed differently ("table mode" in one, "from
+ * propagation" in the other), because neither read the trigger. Both now frame this one
+ * phrase, so the assertions below are the whole contract.
+ */
+describe('plan provenance names the trigger, in both locales (issue #270)', () => {
+	vitestIt('an Ask proposal says so, with or without an entry it targets', () => {
+		expect(en.proposals.provenance('ask', null)).toBe('a question in Ask');
+		expect(en.proposals.provenance('ask', 'Cairnmouth')).toBe('a question in Ask about Cairnmouth');
+		expect(it.proposals.provenance('ask', null)).toBe('una domanda in Chiedi');
+		expect(it.proposals.provenance('ask', 'Cairnmouth')).toBe(
+			'una domanda in Chiedi su Cairnmouth'
+		);
+	});
+
+	vitestIt('an Ask proposal is never described as an edit the GM made', () => {
+		for (const rendered of [
+			en.proposals.provenance('ask', 'Mother Sennah'),
+			it.proposals.provenance('ask', 'Mother Sennah')
+		]) {
+			expect(rendered).not.toMatch(/edit|modifica/i);
+		}
+	});
+
+	vitestIt('a save still reads as an edit to the entry that started it', () => {
+		expect(en.proposals.provenance('save', 'Mother Sennah')).toBe('an edit to Mother Sennah');
+		expect(it.proposals.provenance('save', 'Mother Sennah')).toBe('una modifica di Mother Sennah');
+	});
+
+	vitestIt('a plan with no entry of its own still names its own trigger', () => {
+		expect(en.proposals.provenance('import', null)).toBe('an import');
+		expect(en.proposals.provenance('table', null)).toBe('table mode');
+		expect(it.proposals.provenance('import', null)).toBe("un'importazione");
+		expect(it.proposals.provenance('table', null)).toBe('la modalità tavolo');
+	});
+});
+
+/**
  * Issue #202: the interface never names a file in this repository, a spec section, a
  * decision id or an issue number - a GM or a staff member reading a rendered string is
  * not the audience for a citation aimed at whoever built the screen. That citation

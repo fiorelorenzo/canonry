@@ -9,7 +9,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import EvidencePopover from './EvidencePopover.svelte';
 	import RejectChips from './RejectChips.svelte';
-	import type { EvidenceView } from './evidence';
+	import type { EvidenceCaveat, EvidenceView } from './evidence';
 
 	interface FactChangeLike {
 		kind: 'added' | 'removed' | 'changed';
@@ -22,7 +22,7 @@
 		toName: string | null;
 		rationale: string;
 		evidenceViews: EvidenceView[];
-		evidenceForceOpen: boolean;
+		evidenceCaveat: EvidenceCaveat | null;
 	}
 
 	/** The card's own mirror of `$lib/server/proposals.ts`'s `DiffCandidateRelationVocab` -
@@ -65,7 +65,7 @@
 		diff: FactChangeLike[];
 		diffLayout: 'in-place' | 'side-by-side';
 		evidenceViews: EvidenceView[];
-		evidenceForceOpen: boolean;
+		evidenceCaveat: EvidenceCaveat | null;
 		relationVocab: DiffCandidateRelationVocabView | null;
 	}
 
@@ -241,7 +241,7 @@
 							{#if relation.evidenceViews.length > 0}
 								<EvidencePopover
 									views={relation.evidenceViews}
-									forceOpen={relation.evidenceForceOpen}
+									caveat={relation.evidenceCaveat}
 									{locale}
 								/>
 							{/if}
@@ -258,7 +258,7 @@
 			{#if candidate.evidenceViews.length > 0}
 				<EvidencePopover
 					views={candidate.evidenceViews}
-					forceOpen={candidate.evidenceForceOpen}
+					caveat={candidate.evidenceCaveat}
 					{locale}
 				/>
 			{/if}
@@ -287,7 +287,7 @@
 						{#if candidate.evidenceViews.length > 0 && i === 0}
 							<EvidencePopover
 								views={candidate.evidenceViews}
-								forceOpen={candidate.evidenceForceOpen}
+								caveat={candidate.evidenceCaveat}
 								{locale}
 							/>
 						{/if}
@@ -316,7 +316,7 @@
 					{#if candidate.evidenceViews.length > 0}
 						<EvidencePopover
 							views={candidate.evidenceViews}
-							forceOpen={candidate.evidenceForceOpen}
+							caveat={candidate.evidenceCaveat}
 							{locale}
 						/>
 					{/if}

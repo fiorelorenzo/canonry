@@ -108,6 +108,7 @@ describe('entryPropose / entryEditPropose (issue #256, guardrail 1)', () => {
 					score: 0.7
 				}
 			],
+			request: "Create a card for Mother Sennah's nephew, he runs the stables.",
 			name: "Sennah's nephew",
 			instruction: 'He runs the stables.'
 		});
@@ -123,12 +124,20 @@ describe('entryPropose / entryEditPropose (issue #256, guardrail 1)', () => {
 			aliases: [],
 			body: 'Works the stables under his aunt, Mother Sennah.'
 		});
+		// issue #270: the GM's own request comes first, because that is what produced this
+		// draft, and it is quoted verbatim rather than paraphrased by the model.
+		expect(result.evidence[0]).toEqual({
+			kind: 'instruction',
+			instruction: "Create a card for Mother Sennah's nephew, he runs the stables."
+		});
+		// Mother Sennah's own sentence survives both gates: the model named it, and the GM's
+		// request names her.
 		expect(result.evidence).toContainEqual({
 			kind: 'embedding',
 			similarity: 0.7,
 			sourceSentence: 'Runs the harbour stables and keeps every ledger by hand.'
 		});
-		// issue #270: real evidence was attached, so the rationale carries no "nothing
+		// issue #270: real canon evidence was attached, so the rationale carries no "nothing
 		// backs this" disclaimer.
 		expect(result.proposal.rationale).not.toContain('own instruction');
 
@@ -138,7 +147,9 @@ describe('entryPropose / entryEditPropose (issue #256, guardrail 1)', () => {
 			.where(and(eq(proposal.universeId, universe.id), eq(proposal.kind, 'draft_entity')));
 		expect(pending).toHaveLength(1);
 		expect(pending[0]?.id).toBe(result.proposal.id);
-		expect(pending[0]?.trigger).toBe('table');
+		// issue #270: Ask has its own trigger value (migration 0040). 'table' made this
+		// indistinguishable from a quick action fired mid-session.
+		expect(pending[0]?.trigger).toBe('ask');
 
 		// issue #270: a create never claims Mother Sennah's own edit produced it, even
 		// though she is the strongest evidence source - the plan's own `triggerEntityId`
@@ -198,14 +209,20 @@ describe('entryPropose / entryEditPropose (issue #256, guardrail 1)', () => {
 					score: 0.105
 				}
 			],
+			request: 'Create a card for Tobin Sennah, a stable boy.',
 			name: 'Tobin Sennah',
 			instruction: 'He runs the stables.'
 		});
 
-		// No evidence attached - a 0.105-similarity, off-topic sentence is not a citation
-		// just because it was retrieved.
-		expect(result.evidence).toEqual([]);
-		expect(result.proposal.evidence).toEqual([]);
+		// No canon evidence attached - a 0.105-similarity, off-topic sentence is not a
+		// citation just because it was retrieved. What is attached is the GM's own request,
+		// which is the one thing that is actually true of this draft.
+		expect(result.evidence).toEqual([
+			{ kind: 'instruction', instruction: 'Create a card for Tobin Sennah, a stable boy.' }
+		]);
+		expect(result.proposal.evidence).toEqual([
+			{ kind: 'instruction', instruction: 'Create a card for Tobin Sennah, a stable boy.' }
+		]);
 
 		// The rationale says plainly that nothing in canon backs this, in the GM's own
 		// locale, rather than leaving an empty evidence popover to speak for itself.
@@ -219,6 +236,58 @@ describe('entryPropose / entryEditPropose (issue #256, guardrail 1)', () => {
 			.from(proposalPlan)
 			.where(eq(proposalPlan.id, result.proposal.planId!));
 		expect(plan?.triggerEntityId).toBeNull();
+	});
+
+	it('issue #270: a retrieved sentence the model does claim to have used is still dropped when its own entry is named nowhere', async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, { ownerUserId: owner.id });
+		const merchants = await insertEntity(db, universe.id, {
+			type: 'faction',
+			name: 'Casa dei Mercanti',
+			body: 'Ogni prestito che la Casa concede viene scritto due volte: una per il debitore, una per la cassa.'
+		});
+
+		// The failure mode a self-reported `usedSources` cannot catch on its own: the model
+		// names candidate [1] even though the bookkeeping rule has nothing to do with a
+		// stable boy. No similarity floor can separate this from a real citation either -
+		// Main's #270 report had 0.105, 0.103 and 0.067 for three sentences, one of them
+		// genuine. What separates them is that this entry is named neither by the GM's
+		// request nor by the draft.
+		const model = scriptedModel({
+			type: 'character',
+			name: 'Tobin Sennah',
+			aliases: [],
+			body: 'Works the stables for his aunt.',
+			summary: 'A new entry for Tobin Sennah, a stable boy.',
+			usedSources: [1]
+		});
+
+		const result = await entryPropose({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			locale: 'en',
+			modelFactory: modelFactoryFor(model),
+			gateway: IDENTITY_GATEWAY,
+			sources: [
+				{
+					entityId: merchants.id,
+					entityName: merchants.name,
+					statement: merchants.body,
+					score: 0.103
+				}
+			],
+			request: 'Create a card for Tobin Sennah, a stable boy.',
+			name: 'Tobin Sennah',
+			instruction: 'He runs the stables.'
+		});
+
+		expect(result.evidence).toEqual([
+			{ kind: 'instruction', instruction: 'Create a card for Tobin Sennah, a stable boy.' }
+		]);
+		expect(result.proposal.rationale).toBe(
+			'A new entry for Tobin Sennah, a stable boy. Drafted from your own instruction, not from existing canon.'
+		);
 	});
 
 	it('entry_edit_propose against a real entity creates one pending update proposal and zero revisions', async () => {
@@ -246,6 +315,7 @@ describe('entryPropose / entryEditPropose (issue #256, guardrail 1)', () => {
 			modelFactory: modelFactoryFor(model),
 			gateway: IDENTITY_GATEWAY,
 			sources: [],
+			request: 'Add to Cairnmouth that the harbour freezes in winter.',
 			entityName: 'Cairnmouth',
 			instruction: 'The harbour freezes in winter.'
 		});
@@ -259,6 +329,20 @@ describe('entryPropose / entryEditPropose (issue #256, guardrail 1)', () => {
 			before: 'A fishing town built on stilts over the tide flats.',
 			after: draftedBody
 		});
+		// issue #270: an Ask-originated edit records `ask` too, and carries the GM's own
+		// request as its evidence. `trigger_entity` is honestly Cairnmouth here, and the
+		// trigger is what stops the provenance line reading "editing Cairnmouth" for an edit
+		// the GM never made by hand.
+		expect(result.proposal.trigger).toBe('ask');
+		expect(result.evidence).toEqual([
+			{ kind: 'instruction', instruction: 'Add to Cairnmouth that the harbour freezes in winter.' }
+		]);
+		const [plan] = await db
+			.select()
+			.from(proposalPlan)
+			.where(eq(proposalPlan.id, result.proposal.planId!));
+		expect(plan?.trigger).toBe('ask');
+		expect(plan?.triggerEntityId).toBe(cairnmouth.id);
 
 		const [entityRow] = await db.select().from(entity).where(eq(entity.id, cairnmouth.id));
 		expect(entityRow?.body).toBe('A fishing town built on stilts over the tide flats.');
@@ -293,6 +377,7 @@ describe('entryPropose / entryEditPropose (issue #256, guardrail 1)', () => {
 			modelFactory: modelFactoryFor(model),
 			gateway: IDENTITY_GATEWAY,
 			sources: [],
+			request: 'Add to Cairnmouth that it freezes in winter.',
 			entityName: 'Cairnmouth',
 			instruction: 'It freezes in winter.'
 		});
@@ -339,6 +424,7 @@ describe('entryPropose / entryEditPropose (issue #256, guardrail 1)', () => {
 			modelFactory: modelFactoryFor(model),
 			gateway: IDENTITY_GATEWAY,
 			sources: [],
+			request: 'Add to Cairnmouth that it freezes.',
 			entityName: 'Cairnmouth',
 			instruction: 'It freezes.'
 		});
@@ -373,6 +459,7 @@ describe('entryPropose / entryEditPropose (issue #256, guardrail 1)', () => {
 				modelFactory: modelFactoryFor(scriptedModel({})),
 				gateway: IDENTITY_GATEWAY,
 				sources: [],
+				request: 'Create a card for anyone.',
 				name: 'Anyone',
 				instruction: 'Anything.'
 			})
@@ -387,6 +474,7 @@ describe('entryPropose / entryEditPropose (issue #256, guardrail 1)', () => {
 				modelFactory: modelFactoryFor(scriptedModel({})),
 				gateway: IDENTITY_GATEWAY,
 				sources: [],
+				request: 'Add anything to Cairnmouth.',
 				entityName: 'Cairnmouth',
 				instruction: 'Anything.'
 			})
@@ -419,6 +507,7 @@ describe('entryPropose / entryEditPropose (issue #256, guardrail 1)', () => {
 			modelFactory: modelFactoryFor(model),
 			gateway: IDENTITY_GATEWAY,
 			sources: [],
+			request: 'Add to Mother Sennah that she runs the stables.',
 			entityName: 'Mother Sennah',
 			instruction: 'She runs the stables.'
 		});
@@ -462,6 +551,7 @@ describe('entryPropose / entryEditPropose (issue #256, guardrail 1)', () => {
 			modelFactory: modelFactoryFor(model),
 			gateway: IDENTITY_GATEWAY,
 			sources: [],
+			request: 'Create a card for Cairnmouth with its market square.',
 			name: 'Cairnmouth',
 			instruction: 'It has a market square.'
 		});

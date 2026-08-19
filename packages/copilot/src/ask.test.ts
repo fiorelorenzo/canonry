@@ -642,11 +642,11 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 
 		// Guardrail 1: nothing reached the database - no proposal, and by construction
 		// (ask-propose.ts never calls acceptProposal) no revision either.
-		const tableProposals = await db
+		const askProposals = await db
 			.select()
 			.from(proposal)
 			.where(eq(proposal.universeId, universe.id));
-		expect(tableProposals.filter((p) => p.trigger === 'table')).toHaveLength(0);
+		expect(askProposals.filter((p) => p.trigger === 'ask')).toHaveLength(0);
 	});
 
 	it("SPEC.md §7/guardrail 3 (issue #270): more than three relevant entities all cite, not just OWN_CANON_LIMIT's old cap of three", async () => {

@@ -19,9 +19,7 @@
 		/ <span class="text-ink-2">{t.plan.crumbCurrent}</span>
 	</p>
 	<h1 class="mb-1 text-2xl font-semibold text-ink">
-		{data.triggerEntityName
-			? t.plan.headingFromEntity(data.triggerEntityName)
-			: t.plan.headingFromPropagation}
+		{t.plan.heading(t.provenance(data.plan.trigger, data.triggerEntityName))}
 	</h1>
 	<p class="mb-6 text-sm text-muted">{data.plan.summary}</p>
 

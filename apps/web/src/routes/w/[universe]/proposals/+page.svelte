@@ -32,9 +32,7 @@
 		>
 			<div class="min-w-0">
 				<p class="font-medium text-ink">
-					{plan.triggerEntityName
-						? t.inbox.fromEntity(plan.triggerEntityName)
-						: t.inbox.fromTrigger(plan.trigger)}
+					{t.inbox.from(t.provenance(plan.trigger, plan.triggerEntityName))}
 				</p>
 				<p class="text-xs text-muted">
 					{t.inbox.entriesLabel(plan.total)} &middot; {formatWhen(plan.createdAt)}
