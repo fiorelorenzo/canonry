@@ -148,6 +148,26 @@ generating at the same time produce the same number and both edit the journal, a
 resolves that: the second waits for the first to land, then regenerates instead of
 renumbering by hand.
 
+**A migration number is only as good as the branch's base, and `baseBranch: main` can lie.**
+A worktree cut with Paseo's `create_workspace` branches off the source checkout's **local**
+`main` ref, not `origin/main`, so a checkout nobody fast-forwarded hands every worktree a
+stale base. On 2026-08-19 that put nine branches on a commit eleven behind, and the agent on
+#290 read `packages/db/migrations` honestly, saw 0038 as the highest, and generated a 0039
+that already existed on `main` as #284's. The number was wrong before a line of its migration
+was written. `git fetch && git merge --ff-only origin/main` in the source checkout before
+cutting a wave, and in the worktree check `git merge-base --is-ancestor origin/main HEAD`
+rather than trusting the base you were given.
+
+**Two PRs green apart can be red together, and only the merge commit says so.** With
+`strict_required_status_checks_policy` false, which is deliberate because forcing eight open
+PRs to rebase on every merge is real friction, nothing runs CI on the combination until it is
+`main`. That happened twice in one wave: #312 renamed an export while #320 was adding a test
+that imported the old name, and #314 removed two i18n keys while #319 was adding a component
+that called them. Six PRs merged green and `main` had three typecheck errors, fixed in #324.
+Do not turn strict on; instead, after the last merge of a wave, check the run on the merge
+commit rather than on any branch, and treat a rename or an i18n key removal as a conflict
+magnet even when git reports no conflict, because the collision is by name and not by line.
+
 **Nothing guards `main`, but only one merge method is allowed.** There is no branch
 protection and no ruleset, so a red PR can be merged and the gate is you. What is not open
 is how: `allow_squash_merge` is the only one true, and both `allow_merge_commit` and
