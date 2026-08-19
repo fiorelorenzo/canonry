@@ -365,6 +365,57 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 // introspection again - this is what "214 documents" in D2's estimate card comes from.
 // ---------------------------------------------------------------------------------------
 
+const TEXT_SNIFF_SAMPLE_CHARS = 8000;
+const MAX_REPLACEMENT_CHAR_SHARE = 0.1;
+
+/** Issue #305: how "is this text or is it binary" is decided for a generic upload, and
+ * deliberately not by an extension list in either direction. An allowlist of extensions
+ * is the bug this issue is about; a denylist of known-binary extensions is the same
+ * closed list seen in a mirror, skipping `.mp4` while still handing a `.heic` or a
+ * `.sqlite` to a text model. So the decision is made on the bytes, read through the same
+ * `SourceReader.read` the playbook's own `source_read` will call, and the heuristic is
+ * Git's rather than a new one: a NUL character anywhere in the sampled prefix means
+ * binary (no encoding this reader decodes produces one from real text), and so does a
+ * prefix that decoded mostly to U+FFFD, which is what a JPEG or a zip looks like after
+ * `Buffer.toString('utf8')`. A latin-1 text file trips neither, since a handful of
+ * accented bytes is far under the share below.
+ *
+ * `read` is also what applies packages/import's own size cap (`maxTextReadBytes`), so
+ * the sample is bounded by that and this adds no second limit of its own. A `read` that
+ * throws is not a document either, which is the point rather than an accident: a
+ * truncated `.pdf` raises `ArchiveEntryExtractionError`, and a file the deterministic
+ * reader cannot turn into text is exactly what this excludes.
+ *
+ * Two narrowings worth naming because they are behaviour, not implementation. A UTF-16
+ * text file is full of NUL characters once decoded as UTF-8, so it is skipped here
+ * rather than enumerated as the mojibake it used to be; issue #311 tracks teaching the
+ * reader to honour a byte order mark, after which such a file passes this check on its
+ * own. And a PDF with no text layer extracts to nothing, so a scanned PDF sitting in a
+ * mixed folder is skipped rather than enumerated as an empty document; uploaded on its
+ * own it detects as `pdf`, whose playbook renders each page as an image. The generic
+ * import guide says both. */
+async function readsAsText(reader: SourceReader, path: string): Promise<boolean> {
+	let content: string;
+	try {
+		({ content } = await reader.read(path));
+	} catch {
+		return false;
+	}
+	// An empty or whitespace-only file can produce nothing and would still cost a
+	// document's credits, so it is not a document.
+	if (content.trim().length === 0) return false;
+
+	const sample =
+		content.length > TEXT_SNIFF_SAMPLE_CHARS ? content.slice(0, TEXT_SNIFF_SAMPLE_CHARS) : content;
+	let replacements = 0;
+	for (let i = 0; i < sample.length; i += 1) {
+		const code = sample.charCodeAt(i);
+		if (code === 0) return false;
+		if (code === 0xfffd) replacements += 1;
+	}
+	return replacements / sample.length <= MAX_REPLACEMENT_CHAR_SHARE;
+}
+
 export async function documentsForPlaybook(
 	playbookId: KnownPlaybookId,
 	reader: SourceReader
@@ -391,11 +442,47 @@ export async function documentsForPlaybook(
 		return docs;
 	}
 
-	if (playbookId === 'obsidian' || playbookId === 'generic') {
+	if (playbookId === 'obsidian') {
 		return paths
 			.filter((p) => !p.toLowerCase().split('/').includes('.obsidian'))
 			.filter((p) => /\.(md|txt)$/i.test(p))
 			.map((p, i) => ({ id: `doc-${i + 1}`, sourcePath: p }));
+	}
+
+	if (playbookId === 'generic') {
+		// Issue #305: what "a document" means for an upload nothing else recognised. Every
+		// file in the archive, at any depth, whose bytes this reader can hand back as text.
+		// This branch used to share obsidian's `.md`/`.txt` filter, which is why the HTML,
+		// RTF and CSV uploads the generic guide names enumerated zero documents and the job
+		// finished having proposed nothing, with nothing saying why.
+		//
+		// Wider than it looks in three ways. A `.pdf` or `.docx` sitting in a mixed folder
+		// is a document here, because `ArchiveSourceReader.read` runs the real pdfjs/mammoth
+		// extraction for those and they do read as text. A file with no extension at all is
+		// a document if its bytes are text. And depth is not bounded, so a nested export
+		// enumerates all of it rather than only its top level: the guide promises "a folder
+		// of mixed files", and real exports nest.
+		//
+		// Narrower than it looks in three ways: a hidden file or folder is skipped, a binary
+		// file is skipped (`readsAsText` above has the whole account of how that is decided),
+		// and an empty file is skipped.
+		//
+		// No file-count limit of its own, on purpose. `ArchiveSourceReader` (issue #25)
+		// already bounds the entry count, each read's size and the total unpacked size, the
+		// estimate screen shows the GM the document count and its cost before anything is
+		// spent, and `admitAndCreateImportJob` refuses a job over the plan's document quota.
+		// A limit here would only be a fourth number to disagree with those three.
+		const docs: JobDocument[] = [];
+		for (const p of paths) {
+			// A dotted path segment is an application's own bookkeeping rather than a document
+			// a GM wrote: `.obsidian/`, a `.git/` directory, a `.DS_Store`, a `.gitignore`.
+			// Checked on every segment and not only the file name, so a hidden directory is
+			// skipped whole instead of walked into.
+			if (p.split('/').some((segment) => segment.startsWith('.'))) continue;
+			if (!(await readsAsText(reader, p))) continue;
+			docs.push({ id: `doc-${docs.length + 1}`, sourcePath: p });
+		}
+		return docs;
 	}
 
 	if (playbookId === 'world-anvil') {
@@ -661,12 +748,14 @@ function entityTypeFromPath(sourcePath: string): EntityType {
 	return 'character';
 }
 
-/** Markdown, plain text, and the already-extracted text of a PDF/DOCX entry (§6.1's
+/** Markdown, plain text, the already-extracted text of a PDF/DOCX entry (§6.1's
  * "unpack, render PDF pages, extract embedded images" is deterministic code - and
  * ArchiveSourceReader.read() already ran that real extraction before this ever sees the
- * content). One entity per document: the heading (or first line) is the name, the first
- * real paragraph is the summary. No relation_propose here - see this module's own doc
- * comment for why that is a deliberately scoped-down simplification, not a bug. */
+ * content) and, since issue #305 widened what a generic upload enumerates, the flattened
+ * text of an HTML page and the raw text of anything else readable. One entity per
+ * document: the heading (or first line) is the name, the first real paragraph is the
+ * summary. No relation_propose here - see this module's own doc comment for why that is a
+ * deliberately scoped-down simplification, not a bug. */
 function extractFreeTextDocument(
 	documentId: string,
 	sourcePath: string,
@@ -683,11 +772,15 @@ function extractFreeTextDocument(
 	if (lines.length === 0) return { entities: [], relations: [] };
 
 	const headingLine = lines.find((line) => line.startsWith('#'));
+	// Any extension, not only `.md`/`.txt`: since issue #305 a generic upload's document
+	// can be a `.html`, `.csv` or `.rtf` file, and "people.csv" is a worse name for the
+	// entity than "people". A stripped extension has to start with a letter and stay
+	// short, so a document named "Session 4.2" keeps its own suffix.
 	const filenameStem =
 		sourcePath
 			.split('/')
 			.pop()
-			?.replace(/\.(md|txt)$/i, '') ?? sourcePath;
+			?.replace(/\.[A-Za-z][A-Za-z0-9]{0,7}$/, '') ?? sourcePath;
 	const name = headingLine ? headingLine.replace(/^#+\s*/, '').trim() : filenameStem;
 
 	const summaryLine = lines.find(
@@ -783,6 +876,37 @@ async function extractWorldAnvilDocument(
 	};
 }
 
+/** Issue #305: a generic upload's document can now be an HTML page, and this driver reads
+ * a document by looking at its first heading and its first paragraph, so handing it raw
+ * markup would name the entity after the file and summarise it as "<!DOCTYPE html>". That
+ * would trade this issue's silent nothing for visible nonsense, which is not a fix. So the
+ * markup is flattened first: `<title>` becomes a markdown heading (the page's own name,
+ * which is what OneNote's and every other HTML export's title carries), every block-level
+ * close becomes a newline so the page's paragraph structure survives the tag strip, and
+ * the remaining tags and the five named entities a text export actually uses come out.
+ * Deliberately not a parser: the real GatewayDriver hands the model the page as it is, and
+ * this only exists to keep the no-credentials fallback honest on a format it now sees. */
+function htmlToPlainText(html: string): string {
+	const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.trim();
+	const body = html
+		// `<head>` goes whole: the only readable thing in it is the title, already hoisted
+		// above, and leaving it in makes the page's own name the first line of its own
+		// summary as well.
+		.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '')
+		.replace(/<(?:script|style)\b[^>]*>[\s\S]*?<\/(?:script|style)>/gi, '')
+		.replace(/<\/(?:p|div|h[1-6]|li|tr|table|section|article|blockquote)\s*>/gi, '\n')
+		.replace(/<br\s*\/?>/gi, '\n')
+		.replace(/<[^>]+>/g, ' ')
+		.replace(/&nbsp;/gi, ' ')
+		.replace(/&lt;/gi, '<')
+		.replace(/&gt;/gi, '>')
+		.replace(/&quot;/gi, '"')
+		.replace(/&#39;/g, "'")
+		.replace(/&amp;/gi, '&')
+		.replace(/[ \t]+/g, ' ');
+	return title ? `# ${title}\n${body}` : body;
+}
+
 async function extractDeterministic(
 	playbookId: string,
 	documentId: string,
@@ -794,7 +918,8 @@ async function extractDeterministic(
 	if (playbookId === 'world-anvil') {
 		return extractWorldAnvilDocument(documentId, sourcePath, content, sources);
 	}
-	return extractFreeTextDocument(documentId, sourcePath, content);
+	const text = /\.html?$/i.test(sourcePath) ? htmlToPlainText(content) : content;
+	return extractFreeTextDocument(documentId, sourcePath, text);
 }
 
 export class DeterministicExtractionDriver implements ImportDriver {
