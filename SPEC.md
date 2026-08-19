@@ -782,7 +782,9 @@ Deploy follows the loombox pattern, which already runs on this box:
 - build on a GitHub-hosted runner, deploy on the self-hosted runner on prodbox;
 - `releases/<sha>` immutable, `releases/current` symlink flipped atomically;
 - health gate comparing the **served** version against the built artifact, because
-  a green curl has served a stale build on this box before;
+  a green curl has served a stale build on this box before, and refusing a release
+  whose `/healthz` reports no mail transport configured, because a stack that cannot
+  send a password reset tells every user to check their inbox anyway;
 - `DEPLOYED.json` records what is live; rollback is a symlink flip plus a
   container recreate;
 - keep the last 5 releases.

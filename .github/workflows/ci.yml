@@ -144,7 +144,10 @@ jobs:
       # the image starts and serves the version it was built with, not that anybody can sign
       # in. ORIGIN matters for the same reason it matters in production: adapter-node only
       # ever sees plain HTTP from a proxy, so a missing ORIGIN answers 403 to every form POST
-      # while the build stays green.
+      # while the build stays green. RESEND_API_KEY and MAIL_FROM are throwaway values that
+      # never send anything (no route requested below sends a mail): they are here so the
+      # /healthz check below can see the image report a configured mail transport, which is
+      # what the prodbox health gate refuses a release for (#277).
       - name: Boot the image against Postgres
         run: |
           docker run -d --name canonry-web-ci \
@@ -153,6 +156,8 @@ jobs:
             -e QDRANT_URL=http://127.0.0.1:1 \
             -e ORIGIN=http://127.0.0.1:5196 \
             -e BETTER_AUTH_SECRET=ci-boot-check-secret-not-used-for-anything \
+            -e RESEND_API_KEY=re_ci_boot_check_never_sends \
+            -e 'MAIL_FROM=Canonry CI <noreply@canonry.invalid>' \
             canonry-web:ci
 
       # SPEC.md #12: a green curl has served a stale build on this box
@@ -175,6 +180,7 @@ jobs:
 
           served_version=$(echo "$body" | jq -r '.version')
           served_db=$(echo "$body" | jq -r '.db')
+          served_mail=$(echo "$body" | jq -r '.mail')
 
           if [ "$served_version" != "${{ steps.version.outputs.version }}" ]; then
             echo "::error::served version '$served_version' does not match the built artifact '${{ steps.version.outputs.version }}' -- stale image"
@@ -182,6 +188,10 @@ jobs:
           fi
           if [ "$served_db" != "true" ]; then
             echo "::error::/healthz reports db=false while booted against a healthy Postgres"
+            exit 1
+          fi
+          if [ "$served_mail" != "true" ]; then
+            echo "::error::/healthz reports mail=$served_mail while booted with RESEND_API_KEY and MAIL_FROM set"
             exit 1
           fi
 

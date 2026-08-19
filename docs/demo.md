@@ -41,7 +41,7 @@ merge and the version is the honest answer:
 
 ```bash
 curl -s https://preview.canonry.io/healthz | jq .
-# {"status":"ok","version":"v0.8.0-3-g1eebef2","commit":"1eebef2...","db":true,"qdrant":true}
+# {"status":"ok","version":"v0.8.0-3-g1eebef2","commit":"1eebef2...","db":true,"qdrant":true,"mail":true}
 ```
 
 Three things about that account, all verified on 2026-08-19:
@@ -54,7 +54,10 @@ Three things about that account, all verified on 2026-08-19:
   never passed to the deployed web container, so the reset endpoint answered "check your email"
   while the send threw in the background. Fixed, with a CI guard so it cannot come back
   quietly. If you need the password, use Forgot password on preview and it will arrive from
-  `noreply@canonry.io`. The response still lies when a send genuinely fails, which is #277.
+  `noreply@canonry.io`. The response no longer lies either (#277): a request whose mail could
+  not be sent answers 503 saying so, identically for an address with an account and one
+  without, `/healthz` reports `mail`, and the deploy's health gate refuses a release that
+  serves `mail: false`.
 - **Valdoria Reach is seeded there and owned by that account**: 14 entries, plus an empty
   Forgotten Realms and Sword Coast (ours) derived from it, the same fixture the local runbook
   uses. Preview had no universes at all before this.

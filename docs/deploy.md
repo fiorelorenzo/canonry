@@ -16,7 +16,11 @@ build's image, plus a generated `.env`), flips the `current` symlink to it
 atomically, runs `docker compose up -d` (which recreates only the `web`
 container, since Postgres and Qdrant's config never changes release to
 release), and gates on `/healthz` actually serving the version and commit
-that was built, not just answering 200. A failed gate flips `current` back
+that was built, not just answering 200. The gate also refuses a release whose
+`/healthz` reports `mail: false`, meaning the container has no `RESEND_API_KEY`
+and `MAIL_FROM` and therefore cannot send a password reset (#277); a release
+built before `/healthz` reported that field at all serves no `mail` key and is
+not refused, so a rollback to one still works. A failed gate flips `current` back
 and recreates the container again automatically, the same operation a manual
 rollback performs by hand. `DEPLOYED.json` at the stack's root always
 reflects whatever is actually live. `scripts/deploy/prune-releases.sh` keeps

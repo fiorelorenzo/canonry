@@ -15,6 +15,11 @@
  * the same `/delete-user` call Better Auth verifies before it ever sends the mail -
  * issue #154's own decision that a hijacked session with neither the password nor the
  * inbox should get neither step.
+ *
+ * #277: same preflight `/auth/forgot-password` now carries. Nothing is deleted until the
+ * emailed link is followed, so a confirmation that could never be sent is a dead end this
+ * action should refuse before it asks Better Auth to verify a password, rather than
+ * answering "verification email sent" over a send that threw.
  */
 import { fail } from '@sveltejs/kit';
 import { APIError } from 'better-auth/api';
@@ -22,6 +27,8 @@ import { accountDeletionImpact, type AccountDeletionImpact } from '@canonry/db';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { deleteAccountSendOutcome } from '$lib/server/mail/delete-account';
+import { isMailTransportConfigured } from '$lib/server/mail/transport';
+import { env } from '$env/dynamic/private';
 import { messages } from '$lib/i18n';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -48,6 +55,10 @@ export const actions: Actions = {
 			return fail(400, { deleteError: t.deletePasswordRequired });
 		}
 
+		if (!isMailTransportConfigured(env)) {
+			return fail(503, { deleteError: t.deleteSendFailed });
+		}
+
 		const outcome = { failed: false };
 		try {
 			await deleteAccountSendOutcome.run(outcome, () =>
@@ -63,7 +74,7 @@ export const actions: Actions = {
 			throw err;
 		}
 		if (outcome.failed) {
-			return fail(502, { deleteError: t.deleteSendFailed });
+			return fail(503, { deleteError: t.deleteSendFailed });
 		}
 		return { deleteRequested: true };
 	}

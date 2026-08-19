@@ -41,20 +41,37 @@ it directly, reading configuration from environment variables (below).
 `GET /healthz` (`src/routes/healthz/+server.ts`) is the liveness/readiness
 probe used by `docker/compose.yml`'s healthcheck, the prodbox deploy's health
 gate and CI's post-boot check (SPEC.md §12). It pings Postgres through
-`@canonry/db`'s `ping()` and Qdrant with a 1.5s-timeout fetch, and never
-throws or leaks a connection string, a secret, or a stack trace into the
-response body.
+`@canonry/db`'s `ping()` and Qdrant with a 1.5s-timeout fetch, reads whether a
+mail transport is configured (`RESEND_API_KEY` and `MAIL_FROM`, from the
+environment alone, no call to Resend), and never throws or leaks a connection
+string, a secret, or a stack trace into the response body.
 
-- **200**, `status: "ok"` -- Postgres and Qdrant both answer.
-- **200**, `status: "degraded"` -- Postgres answers, Qdrant does not. The wiki
-  works without vectors; only semantic search and the Loremaster degrade.
+- **200**, `status: "ok"` -- Postgres and Qdrant both answer and mail is
+  configured.
+- **200**, `status: "degraded"` -- Postgres answers; Qdrant does not, or no mail
+  transport is configured, or both. The wiki works without vectors (only semantic
+  search and the Loremaster degrade) and it works without mail (only password
+  reset and account deletion cannot complete), so neither kills a running
+  container.
 - **503**, `status: "down"` -- Postgres does not answer. There is no wiki
   without it.
+
+`mail: false` is refused by the deploy's health gate
+(`scripts/deploy/lib.sh`'s `poll_health`), which rolls the release back: issue
+#247's password reset shipped unable to send on any stack and told every user to
+check their inbox anyway (#277).
 
 Body shape in every case:
 
 ```json
-{ "status": "ok", "version": "0.4.1", "commit": "a1b2c3d", "db": true, "qdrant": true }
+{
+	"status": "ok",
+	"version": "0.4.1",
+	"commit": "a1b2c3d",
+	"db": true,
+	"qdrant": true,
+	"mail": true
+}
 ```
 
 `version` and `commit` come from the `APP_VERSION` and `APP_COMMIT` build
@@ -77,6 +94,8 @@ package reads directly:
 | `AI_GATEWAY_API_KEY`  | Vercel AI Gateway, text and embeddings (`@canonry/ai`)                                                                                                                                           |
 | `REPLICATE_API_TOKEN` | Replicate, called directly for images (the gateway routes no image models we use)                                                                                                                |
 | `ELEVENLABS_API_KEY`  | ElevenLabs, called directly for sound generation                                                                                                                                                 |
+| `RESEND_API_KEY`      | Resend, called directly for transactional mail (password reset, account deletion); `/healthz` reports whether this and `MAIL_FROM` are both set                                                  |
+| `MAIL_FROM`           | the exact `Name <address>` Resend sends as; must be on a domain Resend has verified or every send fails                                                                                          |
 | `AI_GATEWAY_BASE_URL` | optional override, for pointing tests at a local fake gateway                                                                                                                                    |
 
 ## Deploying

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Tests the supersede gate (issue #228): release.sh must refuse to deploy a
-# commit that is an ancestor of the release already live for a stack, stop
-# successfully rather than fail, leave current/DEPLOYED.json/releases
-# untouched, and stay out of the way of a normal forward deploy, a redeploy
-# of the sha already live, and a rollback.
+# Tests the supersede gate (issue #228) and the health gate's mail check
+# (issue #277): release.sh must refuse to deploy a commit that is an ancestor
+# of the release already live for a stack, stop successfully rather than
+# fail, leave current/DEPLOYED.json/releases untouched, stay out of the way
+# of a normal forward deploy, a redeploy of the sha already live and a
+# rollback, and roll a release back when /healthz reports that it has no mail
+# transport configured.
 #
 # This is the first test in scripts/deploy/. There was no harness here
 # before (see docs/deploy.md's "What was verified here" section -- release,
@@ -56,6 +58,11 @@ commit() {
 sha_old=$(commit old)
 sha_live=$(commit live)
 sha_new=$(commit new)
+# Two more, for the mail cases: every deploy needs its own sha, since
+# redeploying one that already has a release directory hits the
+# immutable-release guard (case 4).
+sha_mailless=$(commit mailless)
+sha_mailok=$(commit mailok)
 
 # The scripts under test have to physically live inside this repo's working
 # tree: release.sh resolves its own directory from $BASH_SOURCE and runs
@@ -87,13 +94,20 @@ fi
 exit 0
 EOF
 
+# `mail` is emitted only when FAKE_MAIL is set, so every case below that
+# leaves it unset also stands in for a release built before /healthz reported
+# the field at all, which a rollback still has to be able to gate on.
 cat >"$stub_bin/curl" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 env_file="$FAKE_BASE/current/.env"
 version=$(grep -m1 '^APP_VERSION=' "$env_file" | cut -d= -f2-)
 commit=$(grep -m1 '^APP_COMMIT=' "$env_file" | cut -d= -f2-)
-printf '{"status":"up","version":"%s","commit":"%s"}\n' "$version" "$commit"
+if [ -n "${FAKE_MAIL:-}" ]; then
+	printf '{"status":"up","version":"%s","commit":"%s","mail":%s}\n' "$version" "$commit" "$FAKE_MAIL"
+else
+	printf '{"status":"up","version":"%s","commit":"%s"}\n' "$version" "$commit"
+fi
 EOF
 
 chmod +x "$stub_bin/docker" "$stub_bin/curl"
@@ -203,5 +217,30 @@ rollback_log="$work/rollback.log"
 [ "$(current_target)" = "releases/$sha_live" ] || fail "rollback did not move current back to $sha_live"
 [ "$(deployed_field release)" = "$sha_live" ] || fail "DEPLOYED.json.release is not $sha_live after rollback"
 pass "a rollback to the older release ($sha_live) still works -- rollback.sh never calls release.sh, so the gate cannot fire there"
+
+# --- 6. a release whose /healthz reports mail=false is rolled back ----------
+# Issue #277: #247's password reset shipped unable to send a mail on any stack,
+# and every user was told to check their inbox anyway. A release that serves
+# mail=false is exactly that release, so the gate has to refuse it rather than
+# leave it live.
+deploy_log="$work/deploy-mailless.log"
+rc=0
+FAKE_MAIL=false deploy "$sha_mailless" v-mailless >"$deploy_log" 2>&1 || rc=$?
+[ "$rc" -ne 0 ] || fail "a release serving mail=false was expected to fail the health gate: $(cat "$deploy_log")"
+grep -q "mail=false" "$deploy_log" \
+	|| fail "the health gate failure does not name mail=false as the reason: $(cat "$deploy_log")"
+[ "$(current_target)" = "releases/$sha_live" ] \
+	|| fail "current was left pointing at the release that failed the mail check"
+[ "$(deployed_field status)" = "rolled_back" ] \
+	|| fail "DEPLOYED.json.status is not rolled_back after the mail check failed"
+pass "a release whose /healthz reports mail=false fails the health gate and is rolled back"
+
+# --- 7. a release that reports mail=true deploys normally -------------------
+deploy_log="$work/deploy-mailok.log"
+FAKE_MAIL=true deploy "$sha_mailok" v-mailok >"$deploy_log" 2>&1 \
+	|| fail "a release serving mail=true failed the health gate: $(cat "$deploy_log")"
+[ "$(current_target)" = "releases/$sha_mailok" ] || fail "current does not point at the mail=true release"
+[ "$(deployed_field status)" = "healthy" ] || fail "DEPLOYED.json.status is not healthy for the mail=true release"
+pass "a release whose /healthz reports mail=true is unaffected by the new check"
 
 echo "all release-supersede tests passed"
