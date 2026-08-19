@@ -131,15 +131,26 @@ generating at the same time produce the same number and both edit the journal, a
 resolves that: the second waits for the first to land, then regenerates instead of
 renumbering by hand.
 
-**Nothing guards `main`.** There is no branch protection and no ruleset, all three merge
-methods are enabled, and `delete_branch_on_merge` is off, so a merged branch stays on the
-remote until you delete it, either with `git push -d origin <branch>` or by passing
-`--delete-branch` to `gh pr merge`, which does remove the remote branch despite the repo
-setting. The gate is you: a red PR can be merged, and a green CI run on `main` deploys
-preview through `deploy.yml`, so whatever lands there reaches a real stack a few minutes
-later. Merging a wave one PR at a time therefore queues one preview deploy per merge, and
-`deploy.yml`'s concurrency group cancels the superseded ones, which is expected rather than a
-failure to chase.
+**Nothing guards `main`, but only one merge method is allowed.** There is no branch
+protection and no ruleset, so a red PR can be merged and the gate is you. What is not open
+is how: `allow_squash_merge` is the only one true, and both `allow_merge_commit` and
+`allow_rebase_merge` are false, so `gh pr merge --rebase` and `--merge` are refused with
+"Rebase merges are not allowed on this repository" and every commit on `main` is a squash
+carrying its PR number. Write the PR body as the durable record, because a wave's individual
+commit messages do not survive the merge. `delete_branch_on_merge` is on, so the remote
+branch goes away by itself and `--delete-branch` is unnecessary rather than required. This
+paragraph said the opposite of all of that until 2026-08-19, three methods enabled and
+`delete_branch_on_merge` off, so read the repo rather than this file when it matters:
+
+```bash
+gh api repos/fiorelorenzo/canonry \
+  --jq '{squash: .allow_squash_merge, merge: .allow_merge_commit, rebase: .allow_rebase_merge, delete: .delete_branch_on_merge}'
+```
+
+A green CI run on `main` deploys preview through `deploy.yml`, so whatever lands there
+reaches a real stack a few minutes later. Merging a wave one PR at a time queues one preview
+deploy per merge, and `deploy.yml`'s concurrency group cancels the superseded ones, which is
+expected rather than a failure to chase.
 
 **Two things collide between worktrees that are not the database.** The first is your own file
 tools: a relative path resolves against the session's working directory, not the worktree, and
@@ -230,7 +241,7 @@ current issue that you split it out, with a link.
 **Conventions for a new issue.**
 
 - Title follows **conventional-commit form**: `feat(import): ...`, `fix(canon):
-  ...`, `test(copilot): ...`. Same scopes as the `area:*` labels.
+...`, `test(copilot): ...`. Same scopes as the `area:*` labels.
 - Labels: exactly one `type:*` (`feature`, `fix`, `refactor`, `test`, `chore`,
   `ci`, `docs`, `design`, `security`, `spike`), exactly one of
   `priority:P0`-`priority:P3`, and one or more `area:*`. `epic` and `flagship` are
