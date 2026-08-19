@@ -10,12 +10,19 @@
 	 *   (`paletteState`, #149) and the account (a link straight to `/settings` -
 	 *   the account menu itself lives in the drawer's footer, same as the rail,
 	 *   so nothing here duplicates it).
-	 * - E4's bottom tabs, generalised: three real destinations (Entries, Proposals
-	 *   with its live count, Ask) plus a fourth "More" tab that opens the same
-	 *   drawer as the top bar's trigger, rather than a second sheet or a fifth
-	 *   destination competing with the drawer for the same job. Universe mode
-	 *   only - account mode's three places already fit the drawer with room to
-	 *   spare, so it gets the top bar alone.
+	 * - E4's bottom tabs, generalised: two real destinations (Entries, Proposals
+	 *   with its live count), then the Loremaster launcher, then a "More" tab that
+	 *   opens the same drawer as the top bar's trigger, rather than a second sheet
+	 *   or a fifth destination competing with the drawer for the same job.
+	 *   Universe mode only - account mode's three places already fit the drawer
+	 *   with room to spare, so it gets the top bar alone.
+	 *
+	 * Issue #285 (decision O3): the third tab used to be a link to `/ask`. It is
+	 * the floating Loremaster's launcher now, flipping the same `quickAskState`
+	 * the desktop pill does, because O3 puts the launcher in this bar below `md`
+	 * rather than drawing a circle over the content. The panel itself is
+	 * `QuickAsk.svelte`, mounted once by AppShell for both breakpoints, so this
+	 * bar owns a trigger and not a second copy of the composer.
 	 *
 	 * AppShell does not mount this at all under `/w/[universe]/table`: that
 	 * route's own `ContextStrip` and `PhoneTabBar` (#81, E4's original) are this
@@ -27,6 +34,7 @@
 	import { page } from '$app/state';
 	import { messages, type Locale } from '$lib/i18n';
 	import { paletteState } from '$lib/components/palette/palette-state.svelte';
+	import { quickAskState } from '$lib/components/copilot/quick-ask-state.svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import MenuIcon from '@lucide/svelte/icons/menu';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -59,6 +67,7 @@
 
 	const t = $derived(messages(locale).shell.phoneNav);
 	const navT = $derived(messages(locale).universe.nav);
+	const quickAskT = $derived(messages(locale).shell.quickAsk);
 
 	let drawerOpen = $state(false);
 
@@ -82,7 +91,7 @@
 	);
 
 	interface PhoneTab {
-		id: 'entries' | 'proposals' | 'ask';
+		id: 'entries' | 'proposals';
 		label: string;
 		href: string;
 		badge: number | null;
@@ -104,8 +113,7 @@
 						label: navT.proposals,
 						href: resolve(`/w/${universeSlug}/proposals`),
 						badge: proposalsPending > 0 ? proposalsPending : null
-					},
-					{ id: 'ask', label: t.ask, href: resolve(`/w/${universeSlug}/ask`), badge: null }
+					}
 				]
 			: []
 	);
@@ -185,6 +193,20 @@
 			</a>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{/each}
+		<!-- #285: the launcher, in the bar rather than over the content. It carries the
+		     panel's own name and glyph because O3 dropped the copilot's violet from this
+		     chrome, so nothing else here says which tab is the Loremaster. -->
+		<button
+			type="button"
+			onclick={() => (quickAskState.open = true)}
+			aria-expanded={quickAskState.open}
+			class="flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-xs"
+			class:text-accent-ink={quickAskState.open}
+			class:font-semibold={quickAskState.open}
+			class:text-ink-2={!quickAskState.open}
+		>
+			<span><span aria-hidden="true">✦</span> {quickAskT.name}</span>
+		</button>
 		<button
 			type="button"
 			onclick={() => (drawerOpen = true)}

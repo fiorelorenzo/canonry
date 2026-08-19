@@ -99,7 +99,6 @@ export const it: Messages = {
 			paletteTriggerLabel: 'Apri la palette dei comandi',
 			accountLabel: 'Account',
 			tabsAriaLabel: 'Sezioni principali',
-			ask: 'Chiedi',
 			more: 'Altro'
 		},
 		palette: {
@@ -107,9 +106,11 @@ export const it: Messages = {
 			dialogDescription: 'Vai a una voce, esegui un comando o fai una domanda.',
 			closeLabel: 'Chiudi la palette dei comandi',
 			placeholder: 'Vai a una voce, esegui un comando o fai una domanda…',
+			askPlaceholder: 'Chiedi di questo universo…',
 			askHeading: 'Chiedi',
 			askAction: (question) => `Chiedi "${question}"`,
 			askHint: 'Apre Chiedi',
+			askHereHint: 'Risponde qui',
 			entriesHeading: 'Voci',
 			noEntryMatches: (query) => `Nessuna voce corrisponde a "${query}".`,
 			loadingMessage: 'Ricerca in corso…',
@@ -122,6 +123,17 @@ export const it: Messages = {
 			footerMove: 'Sposta',
 			footerOpen: 'Apri',
 			footerClose: 'Chiudi'
+		},
+		// Issue #285 (decisione O3): la cornice non porta viola, quindi il nome e il glifo
+		// sono le sole cose che dicono che questo è il copilota. "Loremaster" è un nome di
+		// prodotto e resta invariato, come "Canonry".
+		quickAsk: {
+			name: 'Loremaster',
+			openLabel: 'Apri il Loremaster',
+			closeLabel: 'Chiudi il Loremaster',
+			context: (pageName) => `su ${pageName}`,
+			streaming: 'in arrivo…',
+			openInAsk: 'Apri in Chiedi'
 		}
 	},
 
@@ -1396,7 +1408,6 @@ export const it: Messages = {
 		sidebar: {
 			navAriaLabel: 'Navigazione universo',
 			primaryNavAriaLabel: 'Principale',
-			askTheLoremaster: 'Chiedi al Loremaster',
 			recentHeading: 'Recenti',
 			notBuiltYet: 'Non ancora disponibile.'
 		},

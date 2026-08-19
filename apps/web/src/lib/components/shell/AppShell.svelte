@@ -25,6 +25,7 @@
 	import { page } from '$app/state';
 	import type { Locale } from '$lib/i18n';
 	import CommandPalette from '../palette/CommandPalette.svelte';
+	import QuickAsk from '../copilot/QuickAsk.svelte';
 	import PhoneNav from './PhoneNav.svelte';
 	import Sidebar from './Sidebar.svelte';
 	import type { RecentEntity, ShellQuota, UniverseSummary } from './types';
@@ -105,4 +106,18 @@
 		universes={data.universes}
 		locale={data.locale}
 	/>
+	<!-- Issue #285 (decision O3): the floating Loremaster, on every signed-in universe
+	     route and nowhere else. Two absences are the decision, not an oversight: account
+	     mode has no universe to ask about, and table mode is left alone because E3 = C's
+	     two-tier dock already owns that corner (the same reason PhoneNav is skipped
+	     there). Below `md` the pill hides itself and PhoneNav's third tab is the
+	     launcher. -->
+	{#if data.current && data.universeSlug && !isTableMode}
+		<QuickAsk
+			universeSlug={data.universeSlug}
+			universeName={data.current.name}
+			universes={data.universes}
+			locale={data.locale}
+		/>
+	{/if}
 {/if}
