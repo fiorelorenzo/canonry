@@ -63,6 +63,15 @@ export const modelCall = pgTable(
 		outputTokens: integer('output_tokens').notNull().default(0),
 		embeddingTokens: integer('embedding_tokens').notNull().default(0),
 		credits: numeric('credits', { precision: 12, scale: 4, mode: 'number' }).notNull().default(0),
+		// A provider's own metered unit for one call - ElevenLabs' `character-cost` response
+		// header on the sound-generation endpoint, credits rather than characters despite the
+		// header's name (issue #116). Null for every call whose provider does not bill in its
+		// own credits (every text/embedding/image row today): that is "not applicable", not
+		// "zero credits used", so it stays a separate column rather than overloading
+		// input/output/embedding tokens with a unit those columns were never about. Read
+		// alongside cost_eur, not instead of it - on a plan where the provider's price per
+		// credit is genuinely 0, this is the only column that still says anything happened.
+		providerCredits: integer('provider_credits'),
 		// scale 10, not 6: at qwen3-embedding-4b's rate a short embedding call costs about
 		// 0.0000002 EUR, which rounded to zero at scale 6 and quietly removed the highest-volume
 		// call in the product from every cost sum (migration 0026).

@@ -199,6 +199,11 @@ export interface ChargeInput {
 	costEur: number;
 	latencyMs: number;
 	requestId: string | null;
+	/** A provider's own metered unit for this call (ElevenLabs credits today, issue #116),
+	 * mirroring model_call.provider_credits exactly. Omit or pass null when the provider
+	 * bills some other way - the column stays null, not zero, which is "not applicable"
+	 * rather than "billed nothing". */
+	providerCredits?: number | null;
 	/** Retry safety (issue #88): a second call with the same key spends once. Omit only
 	 * for a call with no realistic retry path (e.g. a background job with its own
 	 * dedup). Ignored when credits is 0 - there is nothing to double-spend. */
@@ -269,7 +274,8 @@ export async function recordAndCharge(db: Db, input: ChargeInput): Promise<Charg
 				credits: input.credits,
 				costEur: input.costEur,
 				latencyMs: input.latencyMs,
-				requestId: input.requestId
+				requestId: input.requestId,
+				providerCredits: input.providerCredits ?? null
 			})
 			.returning({ id: modelCall.id });
 		if (!call) throw new Error('recordAndCharge: model_call insert returned no row');

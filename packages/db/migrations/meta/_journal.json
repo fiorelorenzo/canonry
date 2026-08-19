@@ -260,6 +260,13 @@
       "when": 1786988912418,
       "tag": "0036_import_agent_value",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1787118243484,
+      "tag": "0037_model_call_provider_credits",
+      "breakpoints": true
     }
   ]
 }
