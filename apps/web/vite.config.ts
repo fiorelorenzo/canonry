@@ -21,6 +21,12 @@ process.env.DATABASE_URL ??=
 // real secret configured. Signs nothing that outlives this process; never used outside a
 // test run.
 process.env.BETTER_AUTH_SECRET ??= 'vitest-throwaway-secret-not-a-real-deployment';
+// Issue #235: params-merge.test.ts calls /admin/models' `actions.text`/`actions.image`
+// directly, and `requireAdmin` (src/lib/server/admin.ts) 404s unless the session's email
+// is on this allowlist - same snapshot-timing reason as BETTER_AUTH_SECRET above, so it
+// has to be set here rather than in the test file. Not a real staff account; nothing
+// outside a test run ever authenticates as it.
+process.env.STAFF_EMAILS ??= 'admin-models-test@canonry.invalid';
 
 export default defineConfig({
 	plugins: [

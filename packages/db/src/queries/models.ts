@@ -11,6 +11,7 @@ import { and, asc, eq } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import type { ModelPurpose } from '../schema/enums.js';
 import { modelConfig } from '../schema/model.js';
+import { mergeOwnedParams } from './params.js';
 
 export type ModelConfigRow = typeof modelConfig.$inferSelect;
 
@@ -31,7 +32,15 @@ export interface UpsertTextModelInput {
 	purpose: ModelPurpose;
 	provider: string;
 	modelId: string;
-	params?: Record<string, unknown>;
+	/** Every `params` key the caller's form renders and therefore may set or clear
+	 * (`mergeOwnedParams`, issue #235). `upsertTextModel` inserts a fresh row rather
+	 * than updating in place (see the function doc comment below), so this is what
+	 * carries every key of the row being superseded into the new one - the admin
+	 * text-model form renders no pricing field at all today, so its own call site
+	 * passes an empty array here, and every params key a purpose already had survives
+	 * a provider/model switch untouched. */
+	paramKeys: readonly string[];
+	params: Record<string, unknown>;
 }
 
 /**
@@ -44,7 +53,9 @@ export interface UpsertTextModelInput {
  * who set what and when than as one row silently overwritten. Same transactional
  * shape either way: lock the current active row first (`for('update')`) so two
  * concurrent admin edits cannot both try to insert a new active row and collide on the
- * unique index.
+ * unique index. The new row's `params` is merged from the deactivated row's, via
+ * `input.paramKeys` (issue #235) - without that merge, every switch would start the new
+ * row's params from nothing, deactivated row or not.
  */
 export async function upsertTextModel(
 	db: Db,
@@ -72,7 +83,7 @@ export async function upsertTextModel(
 				provider: input.provider,
 				modelId: input.modelId,
 				active: true,
-				params: input.params ?? {}
+				params: mergeOwnedParams(existing[0]?.params, input.paramKeys, input.params)
 			})
 			.returning();
 		if (!inserted) {

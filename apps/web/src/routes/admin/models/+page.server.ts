@@ -30,7 +30,7 @@ import { clearImageModelCache } from '@canonry/media';
 import { isKnownProvider, KNOWN_PROVIDERS, CURRENCIES, clearModelCache } from '@canonry/ai';
 import { db } from '$lib/server/db';
 import { requireAdmin } from '$lib/server/admin';
-import { parseCurrency, parsePricePerImage } from './image-price.js';
+import { IMAGE_PRICE_PARAM_KEYS, parseCurrency, parsePricePerImage } from './image-price.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export interface TextModelPurposeRow {
@@ -111,7 +111,16 @@ export const actions: Actions = {
 			});
 		}
 
-		await upsertTextModel(db(), { purpose: rawPurpose, provider: rawProvider, modelId });
+		// The text form owns no key of `params` (issue #235) - passing an empty
+		// `paramKeys` leaves whatever pricing @canonry/bench's setActiveModel already
+		// wrote for this purpose exactly as it was, rather than replacing it with `{}`.
+		await upsertTextModel(db(), {
+			purpose: rawPurpose,
+			provider: rawProvider,
+			modelId,
+			paramKeys: [],
+			params: {}
+		});
 		// SPEC.md §11.1: switchable without a deploy. resolveModel's cache (packages/ai's
 		// models.ts) has a short TTL, but "short" still reads as "broken" to an admin who
 		// just saved and expects the very next AI call to use it - clear it immediately.
@@ -183,6 +192,10 @@ export const actions: Actions = {
 			feature,
 			provider,
 			modelId,
+			// Only these two keys are the image price form's own (issue #235) - every
+			// other key already on the row (`imagesPerRequest`, seeded by migration 0011)
+			// survives this save untouched.
+			paramKeys: IMAGE_PRICE_PARAM_KEYS,
 			params: { pricePerImage, currency }
 		});
 		clearImageModelCache();

@@ -8,6 +8,7 @@ import type { Db } from '../client.js';
 import type { ImageFeature } from '../schema/enums.js';
 import { entity } from '../schema/entity.js';
 import { imageModelConfig, imageStyle, mediaAsset } from '../schema/media.js';
+import { mergeOwnedParams } from './params.js';
 import { universe } from '../schema/universe.js';
 
 export type ImageModelRow = typeof imageModelConfig.$inferSelect;
@@ -38,7 +39,12 @@ export interface UpsertImageModelInput {
 	feature: ImageFeature;
 	provider: string;
 	modelId: string;
-	params?: Record<string, unknown>;
+	/** Every `params` key the caller's form renders and therefore may set or clear
+	 * (`mergeOwnedParams`, issue #235). Any other key already on the row -
+	 * `imagesPerRequest`, seeded by migration 0011 and rendered by no form - survives
+	 * this call untouched, whatever it is. */
+	paramKeys: readonly string[];
+	params: Record<string, unknown>;
 }
 
 /** Admin edit (#64): switches the active model for a feature without a deploy. Updates
@@ -46,7 +52,10 @@ export interface UpsertImageModelInput {
  * model_config test double for "admin switches the active model in place (same row,
  * unique index untouched)" - and inserts a fresh active row the first time a feature is
  * configured, since the catalogue for image models is not pre-grown one row per feature
- * the way operation_price is. */
+ * the way operation_price is. `params` is merged into whatever the row already held via
+ * `input.paramKeys`, never a wholesale replacement (issue #235) - a save through the
+ * form the caller owns keys for cannot silently delete a key nothing on that form ever
+ * renders. */
 export async function upsertImageModel(
 	db: Db,
 	input: UpsertImageModelInput
@@ -65,7 +74,7 @@ export async function upsertImageModel(
 				.set({
 					provider: input.provider,
 					modelId: input.modelId,
-					params: input.params ?? existing[0].params,
+					params: mergeOwnedParams(existing[0].params, input.paramKeys, input.params),
 					updatedAt: new Date()
 				})
 				.where(eq(imageModelConfig.id, existing[0].id))
@@ -83,7 +92,7 @@ export async function upsertImageModel(
 				provider: input.provider,
 				modelId: input.modelId,
 				active: true,
-				params: input.params ?? {}
+				params: mergeOwnedParams({}, input.paramKeys, input.params)
 			})
 			.returning();
 		if (!inserted) {
