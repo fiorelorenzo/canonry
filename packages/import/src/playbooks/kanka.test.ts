@@ -150,7 +150,9 @@ describe('kanka playbook (issue #38, SPEC.md §6.9)', () => {
 						input: { note: 'both characters and their relations done' }
 					}
 				]),
-				toolCallStep([{ id: 't14', name: 'job_finish', input: { outcome: 'completed' } }])
+				toolCallStep([
+					{ id: 't14', name: 'job_finish', input: { outcome: 'completed', summary: '' } }
+				])
 			]
 		});
 

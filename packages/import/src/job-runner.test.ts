@@ -151,7 +151,8 @@ function entityStep(id: string, localId: string, name: string, documentId: strin
 				aliases: [],
 				summary: `${name} appears in this document.`,
 				sourceRef: { documentId },
-				evidenceSpan: { start: 0, end: 10 }
+				evidenceSpan: { start: 0, end: 10 },
+				images: []
 			}
 		}
 	]);
@@ -180,7 +181,7 @@ function patchBody(patch: unknown): string | undefined {
 }
 
 function finishStep(id: string) {
-	return toolCallStep([{ id, name: 'job_finish', input: { outcome: 'completed' } }]);
+	return toolCallStep([{ id, name: 'job_finish', input: { outcome: 'completed', summary: '' } }]);
 }
 
 describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
@@ -1112,7 +1113,9 @@ One document.
 				if (calls === 2) {
 					return entityStep('t2', 'e1', 'Entity Rescued By Retry', 'doc-h');
 				}
-				return toolCallStep([{ id: 't3', name: 'job_finish', input: { outcome: 'completed' } }]);
+				return toolCallStep([
+					{ id: 't3', name: 'job_finish', input: { outcome: 'completed', summary: '' } }
+				]);
 			}
 		});
 		const driver = new GatewayDriver({
@@ -1251,7 +1254,8 @@ One document.
 									aliases: [],
 									summary: 'The one call in this step that parsed.',
 									sourceRef: { documentId: 'doc-g' },
-									evidenceSpan: { start: 0, end: 5 }
+									evidenceSpan: { start: 0, end: 5 },
+									images: []
 								})
 							}
 						],
@@ -1260,7 +1264,9 @@ One document.
 						warnings: []
 					};
 				}
-				return toolCallStep([{ id: 't2', name: 'job_finish', input: { outcome: 'completed' } }]);
+				return toolCallStep([
+					{ id: 't2', name: 'job_finish', input: { outcome: 'completed', summary: '' } }
+				]);
 			}
 		});
 		const driver = new GatewayDriver({

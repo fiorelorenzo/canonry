@@ -147,7 +147,9 @@ describe('a bilingual archive export (issue #126, SPEC.md §17)', () => {
 				}
 			]),
 			toolCallStep([{ id: 'e5', name: 'checkpoint', input: { note: 'both npcs done' } }]),
-			toolCallStep([{ id: 'e6', name: 'job_finish', input: { outcome: 'completed' } }]),
+			toolCallStep([
+				{ id: 'e6', name: 'job_finish', input: { outcome: 'completed', summary: '' } }
+			]),
 			// --- doc-it: Italian handout, mentioning the same untranslated inn name ---
 			toolCallStep([{ id: 'i1', name: 'source_read', input: { path: IT_PATH } }]),
 			toolCallStep([
@@ -199,7 +201,7 @@ describe('a bilingual archive export (issue #126, SPEC.md §17)', () => {
 				}
 			]),
 			toolCallStep([{ id: 'i5', name: 'checkpoint', input: { note: 'captain and guard' } }]),
-			toolCallStep([{ id: 'i6', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 'i6', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 
 		const driver = new GatewayDriver({

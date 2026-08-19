@@ -123,7 +123,8 @@ describe('GatewayDriver - bounded loop against a fake model (issue #22, #32)', (
 						aliases: [],
 						summary: 'Commands the harbour watch.',
 						sourceRef: { documentId: 'doc-1' },
-						evidenceSpan: { start: 0, end: 24 }
+						evidenceSpan: { start: 0, end: 24 },
+						images: []
 					}
 				},
 				{
@@ -136,7 +137,8 @@ describe('GatewayDriver - bounded loop against a fake model (issue #22, #32)', (
 						aliases: [],
 						summary: 'Aldric reports to her.',
 						sourceRef: { documentId: 'doc-1' },
-						evidenceSpan: { start: 25, end: 60 }
+						evidenceSpan: { start: 25, end: 60 },
+						images: []
 					}
 				}
 			]),
@@ -156,7 +158,7 @@ describe('GatewayDriver - bounded loop against a fake model (issue #22, #32)', (
 				}
 			]),
 			toolCallStep([{ id: 't5', name: 'checkpoint', input: { note: 'read and proposed' } }]),
-			toolCallStep([{ id: 't6', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 't6', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 
 		const driver = new GatewayDriver({
@@ -246,7 +248,8 @@ One document.
 							aliases: [],
 							summary: 'Never stops proposing.',
 							sourceRef: { documentId: 'doc-1' },
-							evidenceSpan: { start: 0, end: 5 }
+							evidenceSpan: { start: 0, end: 5 },
+							images: []
 						}
 					}
 				]);
@@ -292,11 +295,12 @@ One document.
 						aliases: [],
 						summary: 'From A.',
 						sourceRef: { documentId: 'doc-a' },
-						evidenceSpan: { start: 0, end: 8 }
+						evidenceSpan: { start: 0, end: 8 },
+						images: []
 					}
 				}
 			]),
-			toolCallStep([{ id: 'a3', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 'a3', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 
 		const firstRun = await collect(
@@ -330,11 +334,12 @@ One document.
 						aliases: [],
 						summary: 'From B.',
 						sourceRef: { documentId: 'doc-b' },
-						evidenceSpan: { start: 0, end: 8 }
+						evidenceSpan: { start: 0, end: 8 },
+						images: []
 					}
 				}
 			]),
-			toolCallStep([{ id: 'b3', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 'b3', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 
 		const secondRun = await collect(
@@ -373,7 +378,8 @@ One document.
 						aliases: [],
 						summary: 'First entity.',
 						sourceRef: { documentId: 'doc-1' },
-						evidenceSpan: { start: 0, end: 5 }
+						evidenceSpan: { start: 0, end: 5 },
+						images: []
 					}
 				}
 			]),
@@ -388,11 +394,12 @@ One document.
 						aliases: [],
 						summary: 'Second entity.',
 						sourceRef: { documentId: 'doc-1' },
-						evidenceSpan: { start: 6, end: 11 }
+						evidenceSpan: { start: 6, end: 11 },
+						images: []
 					}
 				}
 			]),
-			toolCallStep([{ id: 'c3', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 'c3', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 
 		const driver = new GatewayDriver({
@@ -457,7 +464,7 @@ describe('GatewayDriver - prompt injection changes nothing (issue #33)', () => {
 				{ id: 'i3', name: 'source_read', input: { path: '/other-universe/secret-plans.md' } }
 			]),
 			// The model gives up after both attempts fail and finishes honestly.
-			toolCallStep([{ id: 'i4', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 'i4', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 
 		const driver = new GatewayDriver({
@@ -568,8 +575,10 @@ describe('job_finish/checkpoint no longer take a documentId (issue #166)', () =>
 			safeParse: (input: unknown) => { success: boolean };
 		};
 
-		expect(schema.safeParse({ outcome: 'completed' }).success).toBe(true);
-		expect(schema.safeParse({ documentId: 'doc-1', outcome: 'completed' }).success).toBe(false);
+		expect(schema.safeParse({ outcome: 'completed', summary: '' }).success).toBe(true);
+		expect(
+			schema.safeParse({ documentId: 'doc-1', outcome: 'completed', summary: '' }).success
+		).toBe(false);
 	});
 
 	it("no longer accepts documentId on checkpoint's input schema, and no longer requires it", () => {
@@ -608,11 +617,12 @@ describe('GatewayDriver - metadata-only logging under a real run (issue #31)', (
 						aliases: [],
 						summary: `The document said: ${secret}`,
 						sourceRef: { documentId: 'doc-1' },
-						evidenceSpan: { start: 0, end: 5 }
+						evidenceSpan: { start: 0, end: 5 },
+						images: []
 					}
 				}
 			]),
-			toolCallStep([{ id: 'l3', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 'l3', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 
 		const logged: LoopLogFields[] = [];
@@ -646,7 +656,7 @@ describe('GatewayDriver - per-document model purpose routing (issue #24)', () =>
 		});
 		const model = scriptedModel([
 			toolCallStep([{ id: 't1', name: 'source_read', input: { path: 'notes.md' } }]),
-			toolCallStep([{ id: 't2', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 't2', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 		const purposes: ImportModelPurpose[] = [];
 		const resolved: ImportModel = {
@@ -681,7 +691,7 @@ describe('GatewayDriver - per-document model purpose routing (issue #24)', () =>
 		});
 		const model = scriptedModel([
 			toolCallStep([{ id: 't1', name: 'source_read', input: { path: 'notes.md' } }]),
-			toolCallStep([{ id: 't2', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 't2', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 		const purposes: ImportModelPurpose[] = [];
 		const resolved: ImportModel = {
@@ -729,11 +739,12 @@ describe('GatewayDriver - schema validation rejects a malformed proposal (issue 
 						aliases: [],
 						summary: 'Commands the harbour watch.',
 						// sourceRef intentionally omitted - a required field, not an extra one.
-						evidenceSpan: { start: 0, end: 24 }
+						evidenceSpan: { start: 0, end: 24 },
+						images: []
 					}
 				}
 			]),
-			toolCallStep([{ id: 'm3', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 'm3', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 		const logged: LoopLogFields[] = [];
 		const logger = createLoopLogger((fields) => logged.push(fields));
@@ -772,12 +783,13 @@ describe('GatewayDriver - schema validation rejects a malformed proposal (issue 
 						name: 'Aldric Voss',
 						aliases: [],
 						summary: 'Commands the harbour watch.',
-						sourceRef: { documentId: 'doc-1' }
+						sourceRef: { documentId: 'doc-1' },
+						images: []
 						// evidenceSpan intentionally omitted.
 					}
 				}
 			]),
-			toolCallStep([{ id: 'n3', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 'n3', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 		const logged: LoopLogFields[] = [];
 		const logger = createLoopLogger((fields) => logged.push(fields));
@@ -950,7 +962,8 @@ One document.
 			aliases: [],
 			summary: `The ${n}th entity found in these notes.`,
 			sourceRef: { documentId: 'doc-1' },
-			evidenceSpan: { start: 0, end: 5 + n }
+			evidenceSpan: { start: 0, end: 5 + n },
+			images: []
 		});
 		const model = scriptedModel([
 			toolCallStep([{ id: 'r1', name: 'source_read', input: { path: 'notes/a.md' } }]),
@@ -960,7 +973,7 @@ One document.
 			toolCallStep([{ id: 'p1', name: 'entity_propose', input: entity(1) }]),
 			toolCallStep([{ id: 'p2', name: 'entity_propose', input: entity(2) }]),
 			toolCallStep([{ id: 'p3', name: 'entity_propose', input: entity(3) }]),
-			toolCallStep([{ id: 'f1', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([{ id: 'f1', name: 'job_finish', input: { outcome: 'completed', summary: '' } }])
 		]);
 
 		const driver = new GatewayDriver({
@@ -1037,13 +1050,14 @@ One document.
 								aliases: [],
 								summary: 'The one entity this fixture ever proposes.',
 								sourceRef: { documentId: 'doc-1' },
-								evidenceSpan: { start: 0, end: 5 }
+								evidenceSpan: { start: 0, end: 5 },
+								images: []
 							}
 						}
 					]);
 				}
 				return toolCallStep([
-					{ id: `t${calls}`, name: 'job_finish', input: { outcome: 'completed' } }
+					{ id: `t${calls}`, name: 'job_finish', input: { outcome: 'completed', summary: '' } }
 				]);
 			}
 		});
@@ -1254,7 +1268,8 @@ One document.
 									aliases: [],
 									summary: 'The one call in this step that parsed.',
 									sourceRef: { documentId: 'doc-1' },
-									evidenceSpan: { start: 0, end: 5 }
+									evidenceSpan: { start: 0, end: 5 },
+									images: []
 								})
 							},
 							{
@@ -1269,7 +1284,9 @@ One document.
 						warnings: []
 					};
 				}
-				return toolCallStep([{ id: 't2', name: 'job_finish', input: { outcome: 'completed' } }]);
+				return toolCallStep([
+					{ id: 't2', name: 'job_finish', input: { outcome: 'completed', summary: '' } }
+				]);
 			}
 		});
 
@@ -1374,12 +1391,15 @@ One document.
 								aliases: [],
 								summary: 'Proposed on the retry, after the first attempt truncated.',
 								sourceRef: { documentId: 'doc-1' },
-								evidenceSpan: { start: 0, end: 5 }
+								evidenceSpan: { start: 0, end: 5 },
+								images: []
 							}
 						}
 					]);
 				}
-				return toolCallStep([{ id: 't3', name: 'job_finish', input: { outcome: 'completed' } }]);
+				return toolCallStep([
+					{ id: 't3', name: 'job_finish', input: { outcome: 'completed', summary: '' } }
+				]);
 			}
 		});
 
@@ -1517,11 +1537,14 @@ describe('entity_propose/relation_propose fill sourceRef.path from the document 
 						aliases: [],
 						summary: 'Commands the harbour watch.',
 						sourceRef: { documentId: 'doc-a' },
-						evidenceSpan: { start: 0, end: 24 }
+						evidenceSpan: { start: 0, end: 24 },
+						images: []
 					}
 				}
 			]),
-			toolCallStep([{ id: 'sa3', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([
+				{ id: 'sa3', name: 'job_finish', input: { outcome: 'completed', summary: '' } }
+			])
 		]);
 		const runA = await collect(
 			buildJob({
@@ -1546,11 +1569,14 @@ describe('entity_propose/relation_propose fill sourceRef.path from the document 
 						aliases: [],
 						summary: 'Holds a seat.',
 						sourceRef: { documentId: 'doc-b' },
-						evidenceSpan: { start: 0, end: 24 }
+						evidenceSpan: { start: 0, end: 24 },
+						images: []
 					}
 				}
 			]),
-			toolCallStep([{ id: 'sb3', name: 'job_finish', input: { outcome: 'completed' } }])
+			toolCallStep([
+				{ id: 'sb3', name: 'job_finish', input: { outcome: 'completed', summary: '' } }
+			])
 		]);
 		const runB = await collect(
 			buildJob({
@@ -1596,7 +1622,8 @@ describe('entity_propose/relation_propose fill sourceRef.path from the document 
 			aliases: [],
 			summary: 'Commands the harbour watch.',
 			sourceRef: { documentId: 'doc-1' },
-			evidenceSpan: { start: 0, end: 24 }
+			evidenceSpan: { start: 0, end: 24 },
+			images: []
 		};
 		const relationInput = {
 			fromLocalId: 'e1',
@@ -1642,7 +1669,8 @@ describe('entity_propose/relation_propose fill sourceRef.path from the document 
 				aliases: [],
 				summary: 'Commands the harbour watch.',
 				sourceRef: { documentId: 'doc-1' },
-				evidenceSpan: { start: 0, end: 24 }
+				evidenceSpan: { start: 0, end: 24 },
+				images: []
 			},
 			options
 		);
@@ -1654,7 +1682,8 @@ describe('entity_propose/relation_propose fill sourceRef.path from the document 
 				aliases: [],
 				summary: 'Holds a council seat.',
 				sourceRef: { documentId: 'doc-1' },
-				evidenceSpan: { start: 0, end: 24 }
+				evidenceSpan: { start: 0, end: 24 },
+				images: []
 			},
 			options
 		);
