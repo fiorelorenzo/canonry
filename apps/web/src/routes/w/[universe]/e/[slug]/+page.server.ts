@@ -171,6 +171,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			language: toLocale(current.language),
 			languageSource: current.languageSource,
 			imagePromptModifier: current.imagePromptModifier,
+			// O2 (#284): the band above the title and the Images section's "cover" badge read
+			// this same field, so there is one answer to "which picture is the cover" on the
+			// page. Guardrail 6 is not this loader's business - this is the GM's own surface,
+			// and `/p/<slug>` resolves its own cover against published assets only.
+			coverAssetId: current.coverAssetId,
 			updatedAt: current.updatedAt
 		},
 		mentionTargets: universeEntities,

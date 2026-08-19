@@ -1,19 +1,25 @@
 <script lang="ts">
 	/**
 	 * The entry read view, B1 = C: a document plus a right column that switches between
-	 * Relations, Facts, Images, History and Audit (C9 = B, #55).
+	 * Relations, Facts, Images, History and Audit (C9 = B, #55). O2 (#284) changed what the
+	 * switch is, not the shape: the column is five collapsible sections now
+	 * (`EntrySections`), and a cover band sits above the title when the entry has one.
 	 *
 	 * Issue #148 (I10 = B): below `md` that right column can't sit beside the
-	 * document, so it becomes reachable rather than cropped - `EntryTabs` renders
+	 * document, so it becomes reachable rather than cropped - `EntrySections` renders
 	 * a second time inside a bottom `sheet`, opened by a trigger under the prose,
-	 * instead of always stacking the whole five-tab panel under the article. Both
-	 * copies share `activeDetailTab`, so switching tabs in one is reflected in
-	 * whichever the viewport shows next.
+	 * instead of always stacking the whole panel under the article. Both copies share
+	 * `sectionsOpen`, so opening a section in one is reflected in whichever the viewport
+	 * shows next, and the sheet carries the same five sections with the same labels.
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
 	import EntryProseWithSecrets from '$lib/components/players/EntryProseWithSecrets.svelte';
-	import EntryTabs from '$lib/components/entry/EntryTabs.svelte';
+	import EntrySections, {
+		DEFAULT_SECTIONS_OPEN,
+		type SectionOpenState
+	} from '$lib/components/entry/EntrySections.svelte';
+	import EntryCover from '$lib/components/media/EntryCover.svelte';
 	import CompleteEntryControl from '$lib/components/entry/CompleteEntryControl.svelte';
 	import LanguageControl from '$lib/components/entry/LanguageControl.svelte';
 	import AuditFlagBadge from '$lib/components/audit/AuditFlagBadge.svelte';
@@ -26,7 +32,7 @@
 	let t = $derived(messages(data.locale));
 
 	let activeFact = $state<FactRow | null>(null);
-	let activeDetailTab = $state<'relations' | 'facts' | 'images' | 'history' | 'audit'>('relations');
+	let sectionsOpen = $state<SectionOpenState>({ ...DEFAULT_SECTIONS_OPEN });
 	let detailsOpen = $state(false);
 
 	function toggleFact(fact: FactRow): void {
@@ -38,14 +44,15 @@
 	);
 
 	// #148: computed once so both the inline (`md`+) and the mobile-sheet copy of
-	// `EntryTabs` below pass the identical object rather than two literals drifting.
-	let mediaTabData = $derived({
+	// `EntrySections` below pass the identical object rather than two literals drifting.
+	let mediaSectionData = $derived({
 		entitySlug: data.entity.slug,
 		entityName: data.entity.name,
 		entityType: data.entity.type,
 		aiEnabled: data.universe.aiEnabled,
 		canWrite: data.media.canWrite,
 		assets: data.media.assets,
+		coverAssetId: data.entity.coverAssetId,
 		styleModifier: data.media.style.modifier,
 		entityImagePromptModifier: data.entity.imagePromptModifier,
 		portraitPrice: data.media.generate.portrait.price,
@@ -54,14 +61,24 @@
 		variantsModel: data.media.generate.variants.model
 	});
 
-	// C9 = B: the title badge is a pointer into the aside's own Audit tab, not a second
-	// copy of the flag list - clicking it switches the tab and, below `md` where the
+	// O2 (#284): no band and no dashed placeholder when there is no cover, so this is the
+	// whole condition - `EntryCover` has no absent state to render. The band reads the GM's
+	// own media route, which sits behind universe membership; `/p/<slug>` builds its own URL
+	// from its own published-only resolution (guardrail 6).
+	let coverUrl = $derived(
+		data.entity.coverAssetId
+			? resolve(`/w/${data.universe.slug}/e/${data.entity.slug}/media/${data.entity.coverAssetId}`)
+			: null
+	);
+
+	// C9 = B: the title badge is a pointer into the aside's own Audit section, not a second
+	// copy of the flag list - clicking it opens that section and, below `md` where the
 	// inline copy is hidden (#148), opens the sheet holding the other one instead.
-	function openAuditTab(): void {
-		activeDetailTab = 'audit';
+	function openAuditSection(): void {
+		sectionsOpen.audit = true;
 		if (typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches) {
 			document
-				.getElementById('entry-detail')
+				.getElementById('entry-detail-audit')
 				?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 		} else {
 			detailsOpen = true;
@@ -79,13 +96,17 @@
 			<span class="text-ink-2">{data.entity.name}</span>
 		</p>
 
+		{#if coverUrl}
+			<EntryCover src={coverUrl} alt={data.entity.name} entityType={data.entity.type} />
+		{/if}
+
 		<div class="mb-6 flex items-start justify-between gap-4">
 			<div>
 				<div class="mb-1 flex flex-wrap items-center gap-2">
 					<h1 class="text-3xl font-semibold text-ink">{data.entity.name}</h1>
 					<AuditFlagBadge
 						count={data.audit.flags.length}
-						onOpen={openAuditTab}
+						onOpen={openAuditSection}
 						locale={data.locale}
 					/>
 				</div>
@@ -144,16 +165,16 @@
 	</article>
 
 	<div class="hidden md:block">
-		<EntryTabs
+		<EntrySections
 			universeSlug={data.universe.slug}
 			relations={data.relations}
 			facts={data.facts}
 			history={data.history}
 			audit={data.audit.flags}
-			bind:active={activeDetailTab}
+			bind:open={sectionsOpen}
 			activeFactId={activeFact?.id ?? null}
 			onFactToggle={toggleFact}
-			media={mediaTabData}
+			media={mediaSectionData}
 			locale={data.locale}
 		/>
 	</div>
@@ -163,27 +184,29 @@
 			<Sheet.Trigger
 				class="flex min-h-11 w-full items-center justify-between rounded-md border border-line-2 px-3 text-sm font-medium text-ink-2 hover:bg-panel-2"
 			>
-				<span>{t.entry.tabs.mobile.trigger}</span>
+				<span>{t.entry.sections.mobile.trigger}</span>
 				<span aria-hidden="true">&#9662;</span>
 			</Sheet.Trigger>
 			<Sheet.Content
 				side="bottom"
 				class="h-[85vh] gap-0 overflow-y-auto p-0"
-				closeLabel={t.entry.tabs.mobile.closeLabel}
+				closeLabel={t.entry.sections.mobile.closeLabel}
 			>
-				<Sheet.Title class="sr-only">{t.entry.tabs.mobile.trigger}</Sheet.Title>
-				<Sheet.Description class="sr-only">{t.entry.tabs.mobile.description}</Sheet.Description>
-				<EntryTabs
+				<Sheet.Title class="sr-only">{t.entry.sections.mobile.trigger}</Sheet.Title>
+				<Sheet.Description class="sr-only">
+					{t.entry.sections.mobile.description}
+				</Sheet.Description>
+				<EntrySections
 					id="entry-detail-mobile"
 					universeSlug={data.universe.slug}
 					relations={data.relations}
 					facts={data.facts}
 					history={data.history}
 					audit={data.audit.flags}
-					bind:active={activeDetailTab}
+					bind:open={sectionsOpen}
 					activeFactId={activeFact?.id ?? null}
 					onFactToggle={toggleFact}
-					media={mediaTabData}
+					media={mediaSectionData}
 					locale={data.locale}
 				/>
 			</Sheet.Content>

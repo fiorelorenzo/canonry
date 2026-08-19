@@ -285,3 +285,28 @@ export async function resetEntityLanguageToDetected(
 		.where(eq(entity.id, input.entityId));
 	return next;
 }
+
+/**
+ * O2 (#284): the one function anywhere that writes `entity.cover_asset_id`, kept alone the
+ * same way `setMediaAssetPublished` is the only writer of `published_to_players` and for
+ * the same reason. "Use as cover" in the Images panel is an accept (guardrail 1): a picture
+ * a model generated becomes the entry's face because a person pressed something that says
+ * so, so there must be exactly one place that write can come from, and no code path may
+ * reach it as a side effect of generating, attaching, uploading or publishing.
+ *
+ * `mediaAssetId: null` clears the cover, which is the same deliberate act in reverse rather
+ * than a separate undo surface. Whether the asset belongs to this entry, and whether it is
+ * an image at all, is the caller's check: this module only reads and writes Postgres.
+ */
+export async function setEntityCover(
+	db: Db,
+	input: { entityId: string; mediaAssetId: string | null }
+): Promise<{ coverAssetId: string | null }> {
+	const [updated] = await db
+		.update(entity)
+		.set({ coverAssetId: input.mediaAssetId })
+		.where(eq(entity.id, input.entityId))
+		.returning({ coverAssetId: entity.coverAssetId });
+	if (!updated) throw new Error(`entity ${input.entityId} does not exist`);
+	return updated;
+}

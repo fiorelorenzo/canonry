@@ -559,18 +559,21 @@ export interface Messages {
 			genericFailure: string;
 			aiOff: string;
 		};
-		tabs: {
+		/** O2 (#284): the entry aside, five collapsible sections rather than the tab strip
+		 * whose fifth label used to hang off a 256px column in Italian. `sectionsAriaLabel`
+		 * went with the tablist that no longer exists; native `<details>` needs no ARIA
+		 * beyond the aside's own label. */
+		sections: {
 			ariaLabel: string;
-			sectionsAriaLabel: string;
 			relations: string;
 			facts: string;
 			images: string;
 			history: string;
 			audit: string;
-			/** Issue #148 (I10 = B): below `md`, B1's five-tab aside can't sit beside
-			 * the document, so it moves behind this trigger into a bottom sheet
-			 * instead of stacking under the prose uninvited - "reachable rather than
-			 * cropped", not a second copy of the panel. */
+			/** Issue #148 (I10 = B): below `md`, B1's aside can't sit beside the document,
+			 * so it moves behind this trigger into a bottom sheet instead of stacking
+			 * under the prose uninvited - "reachable rather than cropped", not a second
+			 * copy of the panel. It carries the same five sections with the same labels. */
 			mobile: {
 				trigger: string;
 				closeLabel: string;
@@ -693,6 +696,22 @@ export interface Messages {
 				publishedMustBeBoolean: string;
 				genericPublishFailedWithStatus: (status: number) => string;
 				genericPublishFailed: string;
+			};
+			/** O2 (#284): the Images panel's "use as cover" action, which is that image's
+			 * accept - a generated picture becomes the entry's face because a person pressed
+			 * this, never as a side effect of generating it. `explanation` has to keep saying
+			 * that publishing is a separate switch, because setting a cover shows it to the
+			 * GM and to nobody else. */
+			cover: {
+				badge: string;
+				useLabel: string;
+				removeLabel: string;
+				saving: string;
+				explanation: string;
+				mediaAssetIdMustBeStringOrNull: string;
+				mustBeAnImage: string;
+				genericCoverFailedWithStatus: (status: number) => string;
+				genericCoverFailed: string;
 			};
 		};
 		editor: {

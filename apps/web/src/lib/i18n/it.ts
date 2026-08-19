@@ -471,9 +471,8 @@ export const it: Messages = {
 			aiOff: 'La scrittura è disattivata per questo universo.'
 		},
 
-		tabs: {
+		sections: {
 			ariaLabel: 'Dettagli della voce',
-			sectionsAriaLabel: 'Sezioni dei dettagli della voce',
 			relations: 'Relazioni',
 			facts: 'Fatti',
 			images: 'Immagini',
@@ -622,6 +621,20 @@ export const it: Messages = {
 				publishedMustBeBoolean: 'published deve essere un booleano',
 				genericPublishFailedWithStatus: (status) => `Pubblicazione non riuscita (${status})`,
 				genericPublishFailed: 'Pubblicazione non riuscita'
+			},
+
+			cover: {
+				badge: 'Copertina',
+				useLabel: 'Usa come copertina',
+				removeLabel: 'Rimuovi da copertina',
+				saving: 'Salvataggio in corso\u2026',
+				explanation:
+					'La copertina compare sopra il titolo di questa voce. I giocatori la vedono solo quando l\u2019immagine stessa è pubblicata.',
+				mediaAssetIdMustBeStringOrNull: 'mediaAssetId deve essere una stringa oppure null',
+				mustBeAnImage: 'Solo un\u2019immagine può essere una copertina',
+				genericCoverFailedWithStatus: (status) =>
+					`Impostazione della copertina non riuscita (${status})`,
+				genericCoverFailed: 'Impostazione della copertina non riuscita'
 			}
 		},
 

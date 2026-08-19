@@ -11,6 +11,7 @@ import {
 	revealEntityLive,
 	revealFactLive,
 	revealRelationLive,
+	setEntityCover,
 	setMediaAssetPublished,
 	type Db
 } from '../src/index.js';
@@ -396,6 +397,73 @@ describe('players', () => {
 			expect(result.images).toHaveLength(1);
 			expect(JSON.stringify(result)).not.toContain('unpublished-portrait');
 			expect(JSON.stringify(result)).not.toContain('secret prompt');
+		});
+
+		it('carries a cover only once that image is published, and never one the GM set but kept private (O2, #284)', async () => {
+			const { u, session, aldric } = await worldFixture();
+			await revealEntityLive(db, {
+				universeId: u.id,
+				entityId: aldric.id,
+				sessionEntityId: session.id
+			});
+			const [portrait] = await db
+				.insert(mediaAsset)
+				.values({
+					universeId: u.id,
+					entityId: aldric.id,
+					kind: 'image',
+					path: '/media/cover-gate-portrait.png',
+					mimeType: 'image/png',
+					generated: true,
+					publishedToPlayers: false
+				})
+				.returning();
+			if (!portrait) throw new Error('fixture setup failed');
+			await setEntityCover(db, { entityId: aldric.id, mediaAssetId: portrait.id });
+
+			// Guardrail 6 has no exception for images, and a cover is not a special case of a
+			// published one: setting it shows it to the GM and to nobody else.
+			const beforePublish = await publicEntityBySlug(db, u.id, aldric.slug);
+			if (beforePublish?.status !== 'full') throw new Error('expected a full entity');
+			expect(beforePublish.coverImageId).toBeNull();
+			expect(JSON.stringify(beforePublish)).not.toContain(portrait.id);
+
+			await setMediaAssetPublished(db, portrait.id, true);
+			const afterPublish = await publicEntityBySlug(db, u.id, aldric.slug);
+			if (afterPublish?.status !== 'full') throw new Error('expected a full entity');
+			expect(afterPublish.coverImageId).toBe(portrait.id);
+
+			// And back: unpublishing is the same deliberate act in reverse, so the band goes
+			// away again rather than surviving on the cover column alone.
+			await setMediaAssetPublished(db, portrait.id, false);
+			const afterUnpublish = await publicEntityBySlug(db, u.id, aldric.slug);
+			if (afterUnpublish?.status !== 'full') throw new Error('expected a full entity');
+			expect(afterUnpublish.coverImageId).toBeNull();
+		});
+
+		it('carries no cover when the entity has none, published images notwithstanding (O2, #284)', async () => {
+			const { u, session, aldric } = await worldFixture();
+			await revealEntityLive(db, {
+				universeId: u.id,
+				entityId: aldric.id,
+				sessionEntityId: session.id
+			});
+			await db.insert(mediaAsset).values({
+				universeId: u.id,
+				entityId: aldric.id,
+				kind: 'image',
+				path: '/media/no-cover-portrait.png',
+				mimeType: 'image/png',
+				generated: true,
+				publishedToPlayers: true
+			});
+
+			// A published picture is a gallery entry, never a cover by promotion: nothing but
+			// a GM's own "use as cover" click writes that column (guardrail 1).
+			const result = await publicEntityBySlug(db, u.id, aldric.slug);
+			if (result?.status !== 'full') throw new Error('expected a full entity');
+			expect(result.images).toHaveLength(1);
+			expect(result.coverImageId).toBeNull();
 		});
 	});
 

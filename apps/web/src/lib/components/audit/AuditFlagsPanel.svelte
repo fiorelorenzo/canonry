@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * C9 = B: "an aside section" reading the same flag list the badge counts - the entry
-	 * detail tabs' fifth section (EntryTabs.svelte). Guardrail 7: a flag is a question
+	 * aside's fifth section (EntrySections.svelte). Guardrail 7: a flag is a question
 	 * addressed to the GM, never a finding addressed at the canon, so there is no Accept
 	 * here and no percentage anywhere on this panel - only `proposal.rationale` (already
 	 * guardrail-safe, `audit.ts`'s `buildFlagRationale`), the two statements quoted
