@@ -83,6 +83,12 @@ export interface UsageCounts {
 	embeddingTokens: number;
 	/** Non-token unit: one Replicate prediction, priced via `params.pricePerImage`. */
 	images: number;
+	/** Non-token, non-image unit: a provider's own metered credit for one call - issue
+	 * #116, ElevenLabs' `character-cost` response header - priced via
+	 * `params.pricePerProviderCredit`. Optional (unlike the fields above) so every
+	 * existing literal `UsageCounts` object across the codebase stays valid - only the
+	 * one caller that has a provider-credit figure to report needs to set it. */
+	providerCredits?: number;
 }
 
 export function normalizeUsage(partial: Partial<UsageCounts>): UsageCounts {
@@ -90,7 +96,8 @@ export function normalizeUsage(partial: Partial<UsageCounts>): UsageCounts {
 		inputTokens: partial.inputTokens ?? 0,
 		outputTokens: partial.outputTokens ?? 0,
 		embeddingTokens: partial.embeddingTokens ?? 0,
-		images: partial.images ?? 0
+		images: partial.images ?? 0,
+		providerCredits: partial.providerCredits ?? 0
 	};
 }
 
@@ -109,7 +116,8 @@ export function computeCost(
 		(usage.inputTokens / 1_000_000) * toEur(params.pricePerInputMTok ?? 0, currency) +
 		(usage.outputTokens / 1_000_000) * toEur(params.pricePerOutputMTok ?? 0, currency) +
 		(usage.embeddingTokens / 1_000_000) * toEur(params.pricePerEmbeddingMTok ?? 0, currency) +
-		usage.images * toEur(params.pricePerImage ?? 0, currency);
+		usage.images * toEur(params.pricePerImage ?? 0, currency) +
+		(usage.providerCredits ?? 0) * toEur(params.pricePerProviderCredit ?? 0, currency);
 	const credits = costEur * (params.creditsPerEur ?? DEFAULT_CREDITS_PER_EUR);
 	return { credits, costEur };
 }

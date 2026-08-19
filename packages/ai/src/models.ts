@@ -28,6 +28,13 @@ export interface ModelParams {
 	pricePerOutputMTok?: number;
 	pricePerEmbeddingMTok?: number;
 	pricePerImage?: number;
+	/** Price per one of the provider's own metered credits (issue #116) - ElevenLabs'
+	 * `character-cost` response header, not a token or image count, so it gets its own
+	 * rate rather than being folded into one of the fields above. Zero is a real,
+	 * measured price on a plan whose credits are already paid for in a flat monthly cap
+	 * (see @canonry/media's AUDIO_MODEL_PARAMS for the account this was measured
+	 * against), not a missing value computeCost happens to skip. */
+	pricePerProviderCredit?: number;
 	/** Credits per euro for this model's included-quota accounting (SPEC 15). Defaults to 100 (1 credit = EUR 0.01) when absent. Always EUR - this is Canonry's own credit rate, not a provider price. */
 	creditsPerEur?: number;
 }
@@ -81,6 +88,8 @@ function readModelParams(value: unknown): ModelParams {
 	if (typeof record.pricePerEmbeddingMTok === 'number')
 		params.pricePerEmbeddingMTok = record.pricePerEmbeddingMTok;
 	if (typeof record.pricePerImage === 'number') params.pricePerImage = record.pricePerImage;
+	if (typeof record.pricePerProviderCredit === 'number')
+		params.pricePerProviderCredit = record.pricePerProviderCredit;
 	if (typeof record.creditsPerEur === 'number') params.creditsPerEur = record.creditsPerEur;
 	return params;
 }

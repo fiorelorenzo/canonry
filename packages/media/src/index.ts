@@ -95,6 +95,8 @@ export {
 	ELEVENLABS_MODEL_ID,
 	MissingElevenLabsEnvError,
 	ElevenLabsRequestError,
+	ElevenLabsQuotaExceededError,
+	ElevenLabsMissingCostHeaderError,
 	readElevenLabsApiToken,
 	tinyWavBytes,
 	findSimilarAudioLayer,

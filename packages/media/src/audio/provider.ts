@@ -16,8 +16,18 @@
  * deliberate, narrow exception to routing every model call through one gateway, the same
  * carve-out made for Replicate images. Verified live 2026-08-15 against the real API -
  * see this package's report for the exact request/response.
+ *
+ * Two things measured live against the real API since that first probe changed what this
+ * file does (issue #116, issue #233). First, ElevenLabs bills sound-generation per call,
+ * not per prompt character: with an explicit `duration_seconds` it is 5.5 credits/second,
+ * and with the field left unset (this provider's behaviour before #233) it is a flat 27
+ * credits for whatever duration the model happens to pick - about one second in
+ * measurement, the wrong artefact for a `loop`ing ambient bed. Second, the response's
+ * `character-cost` header is the real bill - chargeAndRecordLayer reads and records it
+ * rather than deriving a figure from a rate and a duration, which would be a second,
+ * driftable model of ElevenLabs' own pricing living in this codebase.
  */
-import { chargeFor, type ModelCallAgent } from '@canonry/ai';
+import { chargeFor, computeCost, type ModelCallAgent, type ModelParams } from '@canonry/ai';
 import { previewCharge, recordAndCharge, type Db } from '@canonry/db';
 import { ProviderLimiter } from '../concurrency.js';
 
@@ -75,6 +85,60 @@ export class ElevenLabsRequestError extends Error {
 	}
 }
 
+/** Thrown instead of ElevenLabsRequestError when the account's own monthly credit cap is
+ * what refused the call, not a transient or malformed-request failure - "you have run
+ * out of monthly audio" and "ElevenLabs is broken" read identically as a generic request
+ * error, and only one of them is this provider's problem to fix (issue #116). Detected
+ * from ElevenLabs' own error body (https://elevenlabs.io/docs/eleven-api/resources/errors:
+ * `detail.code`, or the older `detail.status` some responses still carry, both
+ * `'quota_exceeded'`) rather than the HTTP status alone, which ElevenLabs has used
+ * inconsistently for this case (401 in practice, 402 `payment_required` per the current
+ * docs) - see isQuotaExceededResponseBody below. */
+export class ElevenLabsQuotaExceededError extends Error {
+	constructor() {
+		super(
+			"ElevenLabs refused the call because the account's monthly credit cap is spent - " +
+				'this plan has no invoice fallback for going over, so refusing rather than ' +
+				'overspending is the plan working as designed, not the service failing.'
+		);
+		this.name = 'ElevenLabsQuotaExceededError';
+	}
+}
+
+/** True when a non-2xx ElevenLabs response body is the account's own quota exhaustion
+ * rather than any other rejection - the one distinction ElevenLabsRequestError's status
+ * code plus truncated body length deliberately cannot make (see its call site's comment
+ * on why the body itself never reaches an error message). Never throws on a body that
+ * fails to parse as the expected shape; that is just "not this case". */
+function isQuotaExceededResponseBody(bodyText: string): boolean {
+	try {
+		const parsed = JSON.parse(bodyText) as { detail?: { code?: unknown; status?: unknown } };
+		return parsed.detail?.code === 'quota_exceeded' || parsed.detail?.status === 'quota_exceeded';
+	} catch {
+		return false;
+	}
+}
+
+/** Thrown when a successful (2xx) sound-generation response is missing the
+ * `character-cost` header, or carries one that does not parse as a number (issue #116).
+ * Both are "fail loudly": recording the layer with providerCredits/costEur silently at 0
+ * would misreport a real spend as free, which is worse than refusing the layer outright -
+ * the header is the only source of truth this codebase has for what a call actually
+ * cost, deliberately never derived from duration_seconds and a rate (see this file's own
+ * header comment). */
+export class ElevenLabsMissingCostHeaderError extends Error {
+	constructor(headerValue: string | null) {
+		super(
+			headerValue === null
+				? 'ElevenLabs sound-generation response is missing the character-cost header - ' +
+						'refusing to record a layer whose real cost is unknown as if it cost nothing.'
+				: "ElevenLabs sound-generation response's character-cost header is not a number: " +
+						`"${headerValue}"`
+		);
+		this.name = 'ElevenLabsMissingCostHeaderError';
+	}
+}
+
 /** Real ElevenLabs host by default; overridable via ElevenLabsAudioProviderDeps.baseUrl
  * so tests can point this at a local HTTP stub instead of the network - the same
  * test-only override replicate.ts's own path threads through. */
@@ -87,26 +151,67 @@ function elevenLabsSoundGenerationUrl(baseUrl: string): string {
 export const ELEVENLABS_PROVIDER = 'elevenlabs';
 export const ELEVENLABS_MODEL_ID = 'eleven_text_to_sound_v2';
 
+/** Sent as `duration_seconds` on every sound-generation call (issue #233). Left unset,
+ * ElevenLabs bills a flat 27 credits and returns whatever duration it feels like -
+ * measured at about 1.1s, a stutter rather than a bed for a `loop`ing ambient layer. An
+ * explicit duration bills 5.5 credits/second instead (2s=11, 5s=27, 10s=55, 20s=110), so
+ * 5 is the highest duration that costs no more than what this provider already pays: more
+ * real audio for the same money, not a new spend. Whether a longer loop sounds better is
+ * a question for Lorenzo's ears, not this constant - do not raise it without a listening
+ * pass across a few lengths of the same prompt confirming it still loops cleanly. */
+export const AUDIO_DURATION_SECONDS = 5;
+
+/**
+ * ElevenLabs' own price per credit on the account's current plan (issue #116), in the
+ * same `ModelParams` shape #132 gave every other provider's price
+ * (`currency` + a `pricePer*` rate, converted to euros at read time by `computeCost` -
+ * see packages/ai/src/usage.ts). SPEC.md §8.2 names no admin-switchable audio model, so
+ * unlike the four purposes `model_config` drives (SPEC.md §11.1), this stays a dated
+ * constant rather than a database row - there is nothing for an admin to switch between.
+ *
+ * 0 is a measured fact about the account's plan, not "unknown": the account is on the
+ * `payg` tier, the first 10,000 credits every month are already included in what is
+ * being paid for, there is no invoice for going over
+ * (`can_extend_character_limit: false`), and going over fails the call rather than
+ * costing anything further (see ElevenLabsQuotaExceededError below). So the marginal
+ * euro cost of a credit is genuinely zero today - `computeCost` still runs the
+ * multiplication, it just multiplies by a real, measured zero, which is why
+ * `chargeAndRecordLayer` also records the raw `providerCredits` figure alongside
+ * `costEur`: at zero euros, the credit count is the only number that says anything
+ * happened at all.
+ *
+ * The day this account is on a paid or invoiced tier, this constant is the one number
+ * that changes: ElevenLabs' paid tiers price near $0.00017 per credit (Starter $6/30k,
+ * Creator $22/121k, Pro $99/600k, Scale $299/1.8M, measured 2026-08-18) - `toEur`/
+ * `computeCost` already know how to convert once it is here, so nothing else in this
+ * file changes on that day.
+ */
+export const AUDIO_MODEL_PARAMS: ModelParams = {
+	currency: 'USD',
+	pricePerProviderCredit: 0
+};
+
 /**
  * Charges and records one provider call without going through @canonry/ai's withQuota,
  * because withQuota needs a ResolvedModel typed to ModelPurpose
- * ('cheap'|'premium'|'multimodal'|'embedding'|'image'), and ElevenLabs' sound-generation
- * call is none of those - there is no DB-driven audio model config either (SPEC.md §8.2
- * names no admin-switchable audio model the way §9 does for images). Composed instead
- * from the same two primitives withQuota itself is built on - @canonry/ai's chargeFor and
- * @canonry/db's previewCharge/recordAndCharge - so the guarantee is identical (refuse
- * before spending, one model_call row either way, never charged on failure) without
- * inventing a purpose that does not exist. costEur is always recorded as 0: ModelParams
- * has a currency-aware `pricePerImage` (issue #132) but no per-second-of-audio field yet,
- * and even a live call's real `character-cost` response header is denominated in
- * ElevenLabs credits, not a currency `toEur` knows how to convert - that needs the
- * account's plan rate, which nothing here has, so this stays 0 rather than guessing one.
- * #132 left room for this: a `pricePerSecond` field plus `currency: 'USD'` (ElevenLabs
- * quotes in dollars, the same currency this field already handles) fits in
- * `ModelParams`/whatever table ends up holding it without another migration, and
- * `computeCost` already knows how to convert whatever currency it declares - #116 is
- * wiring an audio model config up to that, not inventing a new conversion path. Tracked
- * by issue #116, not fixed here.
+ * ('cheap'|'premium'|'multimodal'|'embedding'|'image') resolved from a DB-driven
+ * `model_config` row, and ElevenLabs' sound-generation call is neither - SPEC.md §8.2
+ * names no admin-switchable audio model, so there is no purpose or row for it to resolve
+ * (see AUDIO_MODEL_PARAMS above). Composed instead from the same primitives withQuota
+ * itself is built on - @canonry/ai's chargeFor/computeCost and @canonry/db's
+ * previewCharge/recordAndCharge - so the guarantee is identical (refuse before spending,
+ * one model_call row either way, never charged to the user on failure) without inventing
+ * a purpose that does not exist.
+ *
+ * `fn` returns the real `providerCredits` a call cost alongside its output - read by the
+ * caller straight off ElevenLabs' `character-cost` response header, never derived from a
+ * rate and a duration, which would be a second, driftable model of ElevenLabs' own
+ * pricing living in this codebase (issue #116). `costEur` is computed from that figure
+ * through the same `computeCost` every other provider's price crosses into euros
+ * through - `params.modelParams` is AUDIO_MODEL_PARAMS in production (ElevenLabsAudioProvider.generate
+ * below picks it), whose `pricePerProviderCredit` is a measured 0 on the account's
+ * current plan (see that constant's own comment for the reasoning), so `costEur` comes
+ * out to 0 for a real, priced reason, never as a stand-in for "we don't know".
  */
 async function chargeAndRecordLayer<T>(params: {
 	db: Db;
@@ -116,7 +221,8 @@ async function chargeAndRecordLayer<T>(params: {
 	operation: string;
 	provider: string;
 	modelId: string;
-	fn: () => Promise<T>;
+	modelParams: ModelParams;
+	fn: () => Promise<{ output: T; providerCredits: number }>;
 }): Promise<T> {
 	const { credits } = await chargeFor(params.db, params.operation);
 	await previewCharge(params.db, params.userId, credits);
@@ -132,25 +238,38 @@ async function chargeAndRecordLayer<T>(params: {
 		inputTokens: 0,
 		outputTokens: 0,
 		embeddingTokens: 0,
-		costEur: 0,
 		requestId: null
 	};
 
 	try {
-		const result = await params.fn();
+		const { output, providerCredits } = await params.fn();
+		const { costEur } = computeCost(params.modelParams, {
+			inputTokens: 0,
+			outputTokens: 0,
+			embeddingTokens: 0,
+			images: 0,
+			providerCredits
+		});
 		await recordAndCharge(params.db, {
 			...baseRecord,
 			credits,
+			costEur,
+			providerCredits,
 			latencyMs: Math.round(performance.now() - startedAt)
 		});
-		return result;
+		return output;
 	} catch (error) {
 		// A failed call is still recorded (SPEC.md §15's "free to the user is not free to
 		// us"), but never charged - the user is not billed for a layer that never came
-		// back, exactly withQuota's own contract in @canonry/ai/src/quota.ts.
+		// back, exactly withQuota's own contract in @canonry/ai/src/quota.ts. costEur and
+		// providerCredits stay at 0/null: whatever ElevenLabs actually spent processing a
+		// rejected request is not something its error response reports, so recording a
+		// real figure here would be inventing one.
 		await recordAndCharge(params.db, {
 			...baseRecord,
 			credits: 0,
+			costEur: 0,
+			providerCredits: null,
 			latencyMs: Math.round(performance.now() - startedAt)
 		});
 		throw error;
@@ -165,6 +284,11 @@ export interface ElevenLabsAudioProviderDeps {
 	baseUrl?: string;
 	limiter: ProviderLimiter;
 	agent: ModelCallAgent;
+	/** Test-only override for AUDIO_MODEL_PARAMS (issue #116) - the same test-seam shape
+	 * as `baseUrl` above, so a test can assert `model_call.cost_eur` is genuinely computed
+	 * through `computeCost` against a real (non-zero) rate rather than merely matching the
+	 * account's current, coincidentally-zero one. */
+	modelParams?: ModelParams;
 }
 
 /**
@@ -172,7 +296,8 @@ export interface ElevenLabsAudioProviderDeps {
  * per layer, SPEC.md §8.1's "3 credits per generated layer" anchor), calls ElevenLabs
  * directly gated by the 'elevenlabs' concurrency slot (SPEC.md §8.1's "3 concurrent
  * requests" fixture, reusing ../concurrency.ts's ProviderLimiter rather than a second
- * one), and records the model_call row on success or failure.
+ * one), and records the model_call row on success or failure - now with the account's
+ * own real credit cost (issue #116) and an explicit `duration_seconds` (issue #233).
  *
  * Verified live against the real ElevenLabs API (2026-08-15) - see this package's report
  * for the exact request/response: a real `eleven_text_to_sound_v2` call returns
@@ -183,6 +308,7 @@ export class ElevenLabsAudioProvider implements AudioProvider {
 	constructor(private readonly deps: ElevenLabsAudioProviderDeps) {}
 
 	async generate(input: AudioGenerateInput): Promise<GeneratedAudio> {
+		const modelParams = this.deps.modelParams ?? AUDIO_MODEL_PARAMS;
 		return chargeAndRecordLayer({
 			db: this.deps.db,
 			userId: input.userId,
@@ -191,6 +317,7 @@ export class ElevenLabsAudioProvider implements AudioProvider {
 			operation: input.operation,
 			provider: ELEVENLABS_PROVIDER,
 			modelId: ELEVENLABS_MODEL_ID,
+			modelParams,
 			fn: () =>
 				this.deps.limiter.run('elevenlabs', async () => {
 					const baseUrl = this.deps.baseUrl ?? ELEVENLABS_API_BASE_URL;
@@ -204,20 +331,34 @@ export class ElevenLabsAudioProvider implements AudioProvider {
 							text: input.prompt,
 							model_id: ELEVENLABS_MODEL_ID,
 							prompt_influence: 0.8,
-							loop: input.loop
+							loop: input.loop,
+							duration_seconds: AUDIO_DURATION_SECONDS
 						})
 					});
 					if (!response.ok) {
 						// Body may echo the request text back; never let it reach the logger, only
-						// the status code and a truncated length do (mirrors replicate.ts).
+						// the status code and a truncated length do (mirrors replicate.ts) - except
+						// for the one shape worth telling apart from a generic rejection: the
+						// account's own monthly cap, which is a plan limit rather than ElevenLabs
+						// being down (issue #116).
 						const bodyText = await response.text();
+						if (isQuotaExceededResponseBody(bodyText)) throw new ElevenLabsQuotaExceededError();
 						throw new ElevenLabsRequestError(response.status, `${bodyText.length} byte body`);
+					}
+					// The real bill for this call (issue #116), read off the response rather
+					// than derived from duration_seconds and a rate - see this file's own header
+					// comment for why. Missing or unparseable fails loudly rather than silently
+					// recording a real spend as free.
+					const characterCostHeader = response.headers.get('character-cost');
+					const providerCredits = characterCostHeader === null ? NaN : Number(characterCostHeader);
+					if (!Number.isFinite(providerCredits)) {
+						throw new ElevenLabsMissingCostHeaderError(characterCostHeader);
 					}
 					// ElevenLabs' sound-generation endpoint returns mp3 by default (audio/mpeg) -
 					// never assume wav; ../storage.ts's EXTENSION_BY_MIME keys off this exact string.
 					const mimeType = response.headers.get('content-type') ?? 'audio/mpeg';
 					const bytes = new Uint8Array(await response.arrayBuffer());
-					return { bytes, mimeType };
+					return { output: { bytes, mimeType }, providerCredits };
 				})
 		});
 	}
