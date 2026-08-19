@@ -49,6 +49,20 @@ export interface Messages {
 	 * gets a per-locale label of its own to look up here; nothing in this shape
 	 * anticipates that yet. */
 	relationTypeLabel: (key: string) => { label: string; inverseLabel: string } | undefined;
+	/** Issue #286 (decision O4 = B): the handful of strings the control layer itself
+	 * needs, shared by every combobox in the product rather than restated once per call
+	 * site. A field whose own wording is more specific than these keeps its own string
+	 * (see `table.declareContext.placePlaceholder`); these are the words that would
+	 * otherwise be written eight times identically. */
+	controls: {
+		/** Placeholder inside a combobox's search box. */
+		search: string;
+		/** Shown in a combobox when the query matches nothing. */
+		noMatch: string;
+		/** The submit button a form only shows when scripting is off, because with
+		 * scripting on the choice submits itself. */
+		apply: string;
+	};
 	shell: {
 		/** The visually-hidden "skip to content" link every page starts with. */
 		skipToContent: string;

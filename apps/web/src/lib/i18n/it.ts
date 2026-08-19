@@ -28,6 +28,11 @@ const RELATION_TYPE_CATALOGUE_IT = RELATION_TYPE_CATALOGUE.it;
 
 export const it: Messages = {
 	relationTypeLabel: (key) => RELATION_TYPE_CATALOGUE_IT[key],
+	controls: {
+		search: 'Cerca',
+		noMatch: 'Nessun risultato',
+		apply: 'Applica'
+	},
 	shell: {
 		skipToContent: 'Vai al contenuto',
 		signedInAs: (name) => `Accesso effettuato come ${name}`,

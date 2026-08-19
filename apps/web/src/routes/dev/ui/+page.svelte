@@ -11,6 +11,8 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Select from '$lib/components/ui/select';
+	import { Segmented } from '$lib/components/ui/segmented';
+	import { Combobox } from '$lib/components/ui/combobox';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Popover from '$lib/components/ui/popover';
@@ -45,6 +47,28 @@
 		light: selectSampleTypes[0],
 		dark: selectSampleTypes[0]
 	});
+
+	// Issue #286 (O4 = B): the other two controls of the three, checked here in both
+	// palettes for the same reason the Select above them is.
+	const segmentedSampleOptions = [
+		{ value: 'auto', label: 'Auto-detect' },
+		{ value: 'en', label: 'English' },
+		{ value: 'it', label: 'Italiano' },
+		{ value: 'unsure', label: 'Not sure / mixed' }
+	];
+	const comboboxSampleOptions = [
+		{ value: 'aldric', label: 'Aldric Vane', hint: 'character' },
+		{ value: 'sennah', label: 'Mother Sennah', hint: 'character' },
+		{ value: 'corvin', label: 'Corvin Ashe', hint: 'character' },
+		{ value: 'gilded-rat', label: 'The Gilded Rat', hint: 'place' },
+		{ value: 'cairnmouth', label: 'Cairnmouth', hint: 'place' },
+		{ value: 'sable-reach', label: 'The Sable Reach', hint: 'place' },
+		{ value: 'ashen-ledger', label: 'The Ashen Ledger', hint: 'faction' },
+		{ value: 'valdoria-watch', label: 'The Valdoria Watch', hint: 'faction' },
+		{ value: 'sable-winter', label: 'The Sable Winter', hint: 'event' }
+	];
+	let segmentedValue = $state<Record<string, string>>({ light: 'auto', dark: 'auto' });
+	let comboboxValue = $state<Record<string, string | null>>({ light: null, dark: null });
 </script>
 
 <svelte:head><title>Component gallery: shadcn-svelte control layer (dev only)</title></svelte:head>
@@ -115,6 +139,34 @@
 							{/each}
 						</Select.Content>
 					</Select.Root>
+				</div>
+
+				<h3 class="mb-2 text-sm font-semibold text-ink">Segmented (#286, O4 = B)</h3>
+				<div class="mb-6 rounded border border-line bg-panel p-4">
+					<Segmented
+						name="gallery-segmented-{pane.theme}"
+						bind:value={segmentedValue[pane.theme]}
+						options={segmentedSampleOptions}
+						ariaLabel="Entry language"
+					/>
+					<p class="mt-2 font-mono text-xs text-muted">value: {segmentedValue[pane.theme]}</p>
+				</div>
+
+				<h3 class="mb-2 text-sm font-semibold text-ink">Combobox (#286, O4 = B)</h3>
+				<div class="mb-6 max-w-sm rounded border border-line bg-panel p-4">
+					<Combobox
+						id="gallery-combobox-{pane.theme}"
+						bind:value={comboboxValue[pane.theme]}
+						options={comboboxSampleOptions}
+						placeholder="Choose an entry"
+						searchPlaceholder="Search"
+						emptyText="No match"
+						contentProps={{ portalProps: inline }}
+						ariaLabel="Entry"
+					/>
+					<p class="mt-2 font-mono text-xs text-muted">
+						value: {comboboxValue[pane.theme] ?? 'null'}
+					</p>
 				</div>
 
 				<h3 class="mb-2 text-sm font-semibold text-ink">Separator</h3>

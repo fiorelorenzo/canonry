@@ -10,18 +10,42 @@
 	 * visual language as the writing switch above it - a number, or "no limit" turns it
 	 * off entirely. A disabled number input is never submitted, so the server only ever
 	 * sees `cap` when a real number applies.
+	 *
+	 * Issue #286, decision O4 = B: both fields in the precedence form are drawn from the
+	 * GM's own data, so both are the combobox with search. The entry field is the reason
+	 * the third control exists at all: it offers every entity in a derived universe with
+	 * no filter of any kind (`+page.server.ts`'s own `universeEntities`), which is 61
+	 * rows in the sample world and unbounded in a real one.
+	 *
+	 * **Without JavaScript this form keeps working.** A popover cannot open without it,
+	 * so each combobox is marked `data-js-only` and paired with `ui/native-fallback`,
+	 * which puts a real `<select>` inside `<noscript>`. Letting a hidden input post its
+	 * default instead would have declared precedence over whichever entry happened to
+	 * sort first, which is a wrong write rather than a degraded one.
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Combobox } from '$lib/components/ui/combobox';
+	import { NativeFallback } from '$lib/components/ui/native-fallback';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const t = $derived(messages(data.locale).universe.settings);
 	const tRelations = $derived(t.relations);
+	const tControls = $derived(messages(data.locale).controls);
+
+	const entityOptions = $derived(
+		data.universeEntities.map((entity) => ({ value: entity.id, label: entity.name }))
+	);
+	const baseSourceOptions = $derived(
+		data.baseDataSources.map((source) => ({ value: source.id, label: source.name }))
+	);
+	let supersedeEntityId = $state<string | null>(null);
+	let supersedeSourceId = $state<string | null>(null);
 
 	let aiEnabled = $derived(form?.aiEnabled ?? data.aiEnabled);
 
@@ -188,30 +212,46 @@
 				<h3 class="text-xs font-semibold tracking-wide text-muted uppercase">
 					{t.precedence.declareHeading}
 				</h3>
-				<label class="flex flex-col gap-1 text-sm text-ink-2">
-					{t.precedence.entryLabel}
-					<select
+				<div class="flex flex-col gap-1 text-sm text-ink-2">
+					<label for="supersede-entity">{t.precedence.entryLabel}</label>
+					<div data-js-only>
+						<Combobox
+							id="supersede-entity"
+							bind:value={supersedeEntityId}
+							options={entityOptions}
+							placeholder={t.precedence.entryLabel}
+							searchPlaceholder={tControls.search}
+							emptyText={tControls.noMatch}
+						/>
+					</div>
+					<NativeFallback
 						name="entityId"
+						value={supersedeEntityId}
+						options={entityOptions}
 						required
-						class="rounded-md border border-line-2 bg-panel px-3 py-1.5 text-sm text-ink"
-					>
-						{#each data.universeEntities as entity (entity.id)}
-							<option value={entity.id}>{entity.name}</option>
-						{/each}
-					</select>
-				</label>
-				<label class="flex flex-col gap-1 text-sm text-ink-2">
-					{t.precedence.baseSourceLabel}
-					<select
+						label={t.precedence.entryLabel}
+					/>
+				</div>
+				<div class="flex flex-col gap-1 text-sm text-ink-2">
+					<label for="supersede-source">{t.precedence.baseSourceLabel}</label>
+					<div data-js-only>
+						<Combobox
+							id="supersede-source"
+							bind:value={supersedeSourceId}
+							options={baseSourceOptions}
+							placeholder={t.precedence.baseSourceLabel}
+							searchPlaceholder={tControls.search}
+							emptyText={tControls.noMatch}
+						/>
+					</div>
+					<NativeFallback
 						name="dataSourceId"
+						value={supersedeSourceId}
+						options={baseSourceOptions}
 						required
-						class="rounded-md border border-line-2 bg-panel px-3 py-1.5 text-sm text-ink"
-					>
-						{#each data.baseDataSources as source (source.id)}
-							<option value={source.id}>{source.name}</option>
-						{/each}
-					</select>
-				</label>
+						label={t.precedence.baseSourceLabel}
+					/>
+				</div>
 				<label class="flex flex-col gap-1 text-sm text-ink-2">
 					{t.precedence.sourceUrlLabel}
 					<Input name="sourceUrl" required />

@@ -7,14 +7,29 @@
 	 * write `languageSource: 'human'` - "Auto-detect" is the one choice that puts the
 	 * entry back under detection instead of confirming a value.
 	 *
-	 * The caption below the select is deliberately only shown while nothing has been
+	 * The caption below the control is deliberately only shown while nothing has been
 	 * confirmed (`languageSource === 'detected'`): it is the machine's guess, worth
 	 * showing so the GM can see it without it becoming a claim, and it disappears the
-	 * moment there is an actual claim to show in the select itself instead. A null guess
+	 * moment there is an actual claim to show in the control itself instead. A null guess
 	 * ("not enough text to tell") reads the same as any other guess - unknown is not a
 	 * defect, so there is nothing here shaped like a warning.
+	 *
+	 * Issue #286, decision O4 = B: this is a state rather than a list, so it is the
+	 * segmented control. Guardrail 1 is the reason the shape matters here and not only
+	 * the paint: the four choices have to stay four visibly separate answers, because
+	 * "the machine is guessing" and "a person decided" are exactly what this field
+	 * records, and a control that collapses them behind one trigger hides the bit the
+	 * guardrail exists to protect.
+	 *
+	 * **Without JavaScript this form keeps working, and it did not before.** The radios
+	 * are native, so the value posts on its own; what needed JavaScript was the submit,
+	 * since `onchange` below is the only trigger there has ever been. The `<noscript>`
+	 * button supplies the other one, so a reader with scripting off can change the
+	 * language rather than looking at a control that does nothing.
 	 */
 	import { enhance } from '$app/forms';
+	import { Segmented, type SegmentedOption } from '$lib/components/ui/segmented';
+	import { Button } from '$lib/components/ui/button';
 	import { LOCALES, LOCALE_NAMES, messages, type Locale } from '$lib/i18n';
 	import type { LanguageSource } from '@canonry/db/schema';
 
@@ -31,7 +46,7 @@
 	} = $props();
 	let t = $derived(messages(locale));
 
-	// The select's value space is wider than `Locale | null`: 'auto' and 'unsure' are both
+	// The control's value space is wider than `Locale | null`: 'auto' and 'unsure' are both
 	// real choices with no locale of their own, so they need their own tokens rather than
 	// overloading null for two different meanings the way the stored column does (which is
 	// exactly why `languageSource` exists at the database layer too).
@@ -52,6 +67,15 @@
 	let submitting = $state(false);
 
 	let formEl: HTMLFormElement | undefined;
+
+	const options = $derived<SegmentedOption[]>([
+		{ value: 'auto', label: t.entry.language.autoDetect },
+		...LOCALES.map((entityLocale) => ({
+			value: entityLocale,
+			label: LOCALE_NAMES[entityLocale]
+		})),
+		{ value: 'unsure', label: t.entry.language.unsure }
+	]);
 </script>
 
 <form
@@ -72,24 +96,28 @@
 		};
 	}}
 >
-	<label class="flex items-center justify-end gap-1.5 text-xs text-ink-2">
-		<span class="font-mono text-[10px] tracking-wide text-muted uppercase"
+	<div class="flex flex-wrap items-center justify-end gap-1.5 text-xs text-ink-2">
+		<span id="entry-language-label" class="font-mono text-[10px] tracking-wide text-muted uppercase"
 			>{t.entry.language.label}</span
 		>
-		<select
+		<Segmented
 			name="language"
 			bind:value={choice}
+			{options}
 			disabled={!canWrite || submitting}
+			labelledby="entry-language-label"
 			onchange={() => formEl?.requestSubmit()}
-			class="rounded-md border border-line-2 bg-panel px-1.5 py-0.5 text-xs text-ink disabled:opacity-50"
-		>
-			<option value="auto">{t.entry.language.autoDetect}</option>
-			{#each LOCALES as entityLocale (entityLocale)}
-				<option value={entityLocale}>{LOCALE_NAMES[entityLocale]}</option>
-			{/each}
-			<option value="unsure">{t.entry.language.unsure}</option>
-		</select>
-	</label>
+			class="text-xs"
+		/>
+		<!-- The one submit trigger that is not `onchange` above. Parsed as inert text
+		     whenever scripting is on, so the enhanced path never shows a button the GM
+		     would have to press. -->
+		<noscript>
+			<Button type="submit" variant="secondary" size="sm" disabled={!canWrite}>
+				{t.controls.apply}
+			</Button>
+		</noscript>
+	</div>
 	{#if source === 'detected'}
 		<p class="mt-1 text-[11px] text-muted">
 			{t.entry.language.detectedPrefix(

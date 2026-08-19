@@ -24,6 +24,11 @@ const RELATION_TYPE_CATALOGUE_EN = RELATION_TYPE_CATALOGUE.en;
 
 export const en: Messages = {
 	relationTypeLabel: (key) => RELATION_TYPE_CATALOGUE_EN[key],
+	controls: {
+		search: 'Search',
+		noMatch: 'No match',
+		apply: 'Apply'
+	},
 	shell: {
 		skipToContent: 'Skip to content',
 		signedInAs: (name) => `Signed in as ${name}`,
