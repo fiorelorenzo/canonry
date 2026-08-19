@@ -236,6 +236,13 @@ async function main(): Promise<void> {
 
 		let embedCalls = 0;
 		let embedTexts = 0;
+		// Tokens as the provider reported them, never a credit figure. Issue #271's measurement
+		// found `computeCost` prices a cached input token as fresh, so credits currently
+		// overstate spend on any purpose where a provider serves from its own implicit cache.
+		// It does not reach this run - `index.embed` is a zero-credit reading operation and this
+		// script does not bill at all - and reporting the raw count keeps it that way rather
+		// than leaving a reader to wonder which side of #271 the number came from.
+		let embedTokens = 0;
 		// `createEmbeddingSimilarity` directly rather than `bandedSimilarity`, which is the one
 		// place in the repo that should not use the pairing: this run has to score the embedding
 		// scorer against the *lexical* band to show that band is unreachable for it, and a
@@ -247,6 +254,7 @@ async function main(): Promise<void> {
 				embedCalls += 1;
 				embedTexts += texts.length;
 				const result = await embedMany({ model: embeddingModel, values: texts });
+				embedTokens += result.usage.tokens ?? 0;
 				return result.embeddings;
 			}
 		});
@@ -362,8 +370,10 @@ async function main(): Promise<void> {
 		);
 
 		console.log(
-			`\nGateway cost of this run: ${embedCalls} embedMany call(s), ${embedTexts} text(s). ` +
-				`Every threshold pair above is scored from the same vectors, cached inside one ` +
+			`\nGateway usage of this run: ${embedCalls} embedMany call(s), ${embedTexts} text(s), ` +
+				`${embedTokens} embedding token(s) as the provider counted them. Not a credit figure ` +
+				`and not derived from computeCost (see the comment on embedTokens). Every threshold ` +
+				`pair above is scored from the same vectors, cached inside one ` +
 				`createEmbeddingSimilarity instance.`
 		);
 
@@ -398,6 +408,7 @@ async function main(): Promise<void> {
 					askWeight: ASK_WEIGHT,
 					embedCalls,
 					embedTexts,
+					embedTokens,
 					pairs: scoredPairs,
 					lexical: { report: lexicalReport, bands: lexicalBands },
 					embedding: { report: embeddingReport, bands: embeddingBands }
