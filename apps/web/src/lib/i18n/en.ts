@@ -954,7 +954,7 @@ export const en: Messages = {
 			headTitle: (universeName) => `Import into ${universeName} · Canonry`,
 			heading: 'Import your world',
 			description:
-				'Drop an export from Obsidian, Kanka or World Anvil, or a PDF or DOCX file. Canonry guesses the source and shows you what it found before anything runs.',
+				'Drop an export from Obsidian, Kanka, World Anvil or OneNote, or a PDF or DOCX file. Canonry guesses the source and shows you what it found before anything runs.',
 			noLiveModelNotice:
 				'This deployment has no live model configured, so only Obsidian, Kanka and generic-text exports can actually run right now (detection still works for everything).',
 			uploadButton: 'Upload',
