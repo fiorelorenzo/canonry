@@ -191,12 +191,19 @@ jobs:
       # top level, so every route that transitively imported the import engine answered 500
       # in production while this job stayed green. One request per surface closes that hole
       # for a couple of seconds of CI.
+      #
+      # `/u/new` and `/u/valdoria-reach` sat in this list until #251 and checked nothing: that
+      # namespace is `/w/` (decision J1), so both were 404 on every run whatever the route
+      # modules did. The two `/p/` paths are the published players' wiki (#251), the one surface
+      # here a signed-out stranger is actually meant to read, and this empty database has no
+      # world in it, so what they prove is that those route modules import and render rather
+      # than that the world exists.
       - name: Every real surface renders, none of them 500
         run: |
           fail=0
-          for path in / /auth/sign-in /auth/sign-up /privacy /docs /docs/import /u/new /u/valdoria-reach; do
+          for path in / /auth/sign-in /auth/sign-up /privacy /docs /docs/import /onboarding /w/valdoria-reach /p/valdoria-reach /p/valdoria-reach/aldric-vane; do
             code=$(curl -s -o /tmp/body.html -w '%{http_code}' "http://127.0.0.1:5196$path")
-            printf '%-26s %s\n' "$path" "$code"
+            printf '%-34s %s\n' "$path" "$code"
             # 2xx, a redirect to sign-in, or an honest 404 for a universe this empty
             # database does not have are all fine. A 5xx never is.
             case "$code" in

@@ -29,6 +29,26 @@ Nothing here is a product requirement. It is fixture data.
 | The Valdoria Watch | faction | city watch, 340 sworn, badly paid |
 | The Sable Winter | event | 1247, the strait froze, a third of Cairnmouth starved |
 
+## It is also our own published world
+
+Valdoria Reach is not only fixture data any more. Decision M1 sent `canonry.io` to a world a
+stranger can read without an account, and issue #251 made that world this one: the players'
+wiki at `app.canonry.io/p/valdoria-reach` is this fixture with a slice of it revealed, on the
+prod stack, owned by a real account of ours rather than seeded by the deployment. It is ours,
+not a customer's, and anywhere it is linked says so.
+
+The slice is `SAMPLE_WORLD_PUBLICATION` in `packages/db/src/publish-world.ts`, which is the
+reviewed artifact rather than this paragraph: fifteen entries across three sessions, `session-1`
+the arrival, `session-2` the harbour court and the bank, `session-3` the winter both keep dating
+things from. Every `[[mention]]` inside a published body lands on another published entry, and a
+test asserts that instead of a reader discovering otherwise.
+
+Two edges stay visible on purpose. **The Smugglers' Ledger** is left as a decision E7 gap page,
+because its own first sentence says nobody at the table has read it. **The Drowned Concord** is
+`gm_only`, so it is not in the plan, not in the public index, and its slug answers the same 404
+a slug nobody ever used answers. Publishing never changes an entry's visibility: that is the one
+thing the script refuses to do.
+
 ## Work
 
 **Debts of Valdoria**, campaign, `status: running`.

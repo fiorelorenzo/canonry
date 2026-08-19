@@ -8,7 +8,7 @@
  * against a database that holds somebody's real campaign, which is why it refuses any
  * DATABASE_URL that does not look local unless CANONRY_SEED_FORCE is set.
  */
-import { inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { detectLanguage } from '@canonry/lang';
 import { closeDb, createDb, type Db } from './client.js';
 import { revealEntityLive, revealFactLive, revealRelationLive } from './queries/players.js';
@@ -30,7 +30,7 @@ Three hundred and forty sworn used to take his word. Forty of them still would, 
 /** The sentence every propagation proposal in the artifacts quotes as its evidence. */
 const ALDRIC_EVIDENCE = 'Dismissed from the watch in the thaw after [[The Sable Winter]]';
 
-interface SeedEntity {
+export interface SeedEntity {
 	type: 'character' | 'place' | 'faction' | 'item' | 'event' | 'session';
 	name: string;
 	slug: string;
@@ -41,7 +41,10 @@ interface SeedEntity {
 	visibility?: 'gm_only' | 'revealable';
 }
 
-const ENTITIES: SeedEntity[] = [
+/** Exported so `publish-world.test.ts` can check the published slice against the world it
+ * publishes without a database: every slug the plan names has to exist here, and every
+ * `[[mention]]` inside a published body has to land on another published entry. */
+export const ENTITIES: SeedEntity[] = [
 	{
 		type: 'character',
 		name: 'Aldric Vane',
@@ -88,6 +91,16 @@ const ENTITIES: SeedEntity[] = [
 		body: 'A fishing town two days up the coast. A third of it starved in [[The Sable Winter]] when [[The Sable Reach]] froze, and the rest remember exactly who did not come. Captain Vane led the watch through the second freeze, the winter after the thaw.'
 	},
 	{
+		// Issue #251: docs/ux/SAMPLE-WORLD.md has listed the strait since the first draft and
+		// the fixture never had it, so Cairnmouth's `[[The Sable Reach]]` was the world's one
+		// mention of a name nothing owned. The published slice reveals both, and a reader
+		// following that mention now lands on a page instead of on plain text.
+		type: 'place',
+		name: 'The Sable Reach',
+		slug: 'the-sable-reach',
+		body: 'The strait between [[Valdoria]] and [[Cairnmouth]], and the fast way north whenever the wind allows it. It froze end to end in [[The Sable Winter]], which is the year this coast still counts from.'
+	},
+	{
 		type: 'faction',
 		name: 'The Ashen Ledger',
 		slug: 'the-ashen-ledger',
@@ -110,6 +123,23 @@ const ENTITIES: SeedEntity[] = [
 		name: 'Session 1',
 		slug: 'session-1',
 		body: 'The party arrived in the Lantern Quarter and started asking questions about Aldric Vane.'
+	},
+	{
+		// Issues #82-85 gave the world one session so the players' wiki had a revelation to
+		// join on. #251 publishes a readable slice of it, and a slice needs a reading order:
+		// these two carry the second and third act of the same arrival, and every entry the
+		// published wiki shows is attributed to one of the three (see SAMPLE_WORLD_PUBLICATION
+		// in publish-world.ts, which is the reviewed list).
+		type: 'session',
+		name: 'Session 2',
+		slug: 'session-2',
+		body: 'Summoned to the harbour court, where [[Iselde Wrenn]] wanted to know who had been asking after her former captain. [[Corvin Ashe]] was waiting on the steps afterwards, which is how the party learned who holds the Lantern Quarter\u2019s debt, and that [[La Casa dei Mercanti]] keeps its own book of the same loans.'
+	},
+	{
+		type: 'session',
+		name: 'Session 3',
+		slug: 'session-3',
+		body: 'Two days up the coast to [[Cairnmouth]], where nothing is dated from anything except [[The Sable Winter]]. The ice on [[The Sable Reach]] took a third of the town, and the town tells the story of who led the watch through the freeze after it differently than the watch does.'
 	},
 	{
 		type: 'faction',
@@ -150,7 +180,12 @@ const RELATIONS: Array<[from: string, label: string, to: string]> = [
 	['mother-sennah', 'owns', 'the-gilded-rat'],
 	['the-ashen-ledger', 'employs', 'corvin-ashe'],
 	['la-casa-dei-mercanti', 'located in', 'valdoria'],
-	['smugglers-ledger', 'located in', 'valdoria']
+	['smugglers-ledger', 'located in', 'valdoria'],
+	// Issue #251: two relations docs/ux/SAMPLE-WORLD.md already described and the fixture
+	// never carried - the impact set's `protects` reading the wrong way round after Aldric's
+	// dismissal, and the town that sits on the strait that froze.
+	['mother-sennah', 'protects', 'aldric-vane'],
+	['cairnmouth', 'part of', 'the-sable-reach']
 ];
 
 function assertLocal(url: string): void {
@@ -163,7 +198,25 @@ function assertLocal(url: string): void {
 	}
 }
 
-export async function seedFixture(db: Db): Promise<{ universeId: string; entities: number }> {
+export interface SeedFixtureOptions {
+	/**
+	 * Issue #251: seed only Valdoria Reach, and refuse if it is already there.
+	 *
+	 * The published sample world lives on the prod stack as a real universe rather than as
+	 * something the deployment re-seeds, so this is the one-time bootstrap of that world and
+	 * nothing else: no `Forgotten Realms` and no `Sword Coast (ours)`, because a stranger who
+	 * guesses a slug would find two empty public wikis, and no delete-first, because a second
+	 * run would take the world's revelations and every edit its owner has made since with it.
+	 * Publishing is idempotent (`publishWorld`); seeding is not, and the refusal is what keeps
+	 * that difference honest.
+	 */
+	sampleWorldOnly?: boolean;
+}
+
+export async function seedFixture(
+	db: Db,
+	options: SeedFixtureOptions = {}
+): Promise<{ universeId: string; entities: number }> {
 	// universe.owner_user_id points at Better Auth's user table now, so the fixture owner
 	// has to be a real row. Inserted rather than assumed, and left alone if it already
 	// exists, because a developer may have signed in as it.
@@ -177,26 +230,50 @@ export async function seedFixture(db: Db): Promise<{ universeId: string; entitie
 		})
 		.onConflictDoNothing();
 
-	// Order matters: a derived universe holds a foreign key to its base with no cascade,
-	// which is deliberate (deleting a base out from under a derived world should hurt), so
-	// the derived rows go first or the delete below is refused.
-	await db.delete(universe).where(inArray(universe.slug, ['sword-coast-ours', 'ashport-frontier']));
-	await db.delete(universe).where(inArray(universe.slug, ['valdoria-reach', 'forgotten-realms']));
+	if (options.sampleWorldOnly) {
+		const [existing] = await db
+			.select({ id: universe.id })
+			.from(universe)
+			.where(eq(universe.slug, 'valdoria-reach'))
+			.limit(1);
+		if (existing) {
+			throw new Error(
+				'valdoria-reach already exists, and seeding it again would delete it first, ' +
+					'taking its revelations and any edit its owner has made with it. Nothing was ' +
+					'written. To republish the slice instead, run publish-world.ts, which is ' +
+					'idempotent.'
+			);
+		}
+	} else {
+		// Order matters: a derived universe holds a foreign key to its base with no cascade,
+		// which is deliberate (deleting a base out from under a derived world should hurt), so
+		// the derived rows go first or the delete below is refused.
+		await db
+			.delete(universe)
+			.where(inArray(universe.slug, ['sword-coast-ours', 'ashport-frontier']));
+		await db.delete(universe).where(inArray(universe.slug, ['valdoria-reach', 'forgotten-realms']));
+	}
 
 	// Stands in for the official pre-indexed universe of SPEC 4.1 and 7. Those arrive with
 	// the indexing issues (#57 to #59); until then a derived universe still needs a base to
 	// point at, and the switcher needs the precedence case to be real rather than drawn.
-	const [base] = await db
-		.insert(universe)
-		.values({
-			ownerUserId: OWNER,
-			name: 'Forgotten Realms',
-			slug: 'forgotten-realms',
-			kind: 'homebrew',
-			loremasterDescription: 'Quotes the published books and says so.'
-		})
-		.returning({ id: universe.id });
-	if (!base) throw new Error('base universe insert returned no row');
+	// Skipped entirely in `sampleWorldOnly` mode, along with the derived world at the bottom
+	// of this function: neither has anything to do with the published sample.
+	let baseId: string | undefined;
+	if (!options.sampleWorldOnly) {
+		const [base] = await db
+			.insert(universe)
+			.values({
+				ownerUserId: OWNER,
+				name: 'Forgotten Realms',
+				slug: 'forgotten-realms',
+				kind: 'homebrew',
+				loremasterDescription: 'Quotes the published books and says so.'
+			})
+			.returning({ id: universe.id });
+		if (!base) throw new Error('base universe insert returned no row');
+		baseId = base.id;
+	}
 
 	const [world] = await db
 		.insert(universe)
@@ -354,45 +431,53 @@ export async function seedFixture(db: Db): Promise<{ universeId: string; entitie
 
 	// The derived case from SAMPLE-WORLD.md, so the universe switcher can show precedence
 	// with real rows: the user's canon always wins over the base corpus (SPEC 4.1).
-	const [derived] = await db
-		.insert(universe)
-		.values({
-			ownerUserId: OWNER,
-			name: 'Sword Coast (ours)',
-			slug: 'sword-coast-ours',
-			kind: 'derived',
-			baseUniverseId: base.id,
-			loremasterDescription: 'Ours first, the books second, and it says which is which.'
-		})
-		.returning({ id: universe.id });
-	if (!derived) throw new Error('derived universe insert returned no row');
-	await db.insert(universeMember).values({ universeId: derived.id, userId: OWNER, role: 'owner' });
-	await db.insert(entity).values([
-		{
-			universeId: derived.id,
-			type: 'place',
-			name: 'Waterdeep',
-			slug: 'waterdeep',
-			body: 'Ours diverges from the published city in one way that matters: the Masked Lords are a fiction the guilds maintain, and three of them are dead.'
-		},
-		{
-			universeId: derived.id,
-			type: 'character',
-			name: 'Laeral Silverhand',
-			slug: 'laeral-silverhand',
-			body: 'Open Lord in the books. Here she has been missing for a season and [[Waterdeep]] is pretending otherwise.'
-		}
-	]);
+	if (baseId) {
+		const [derived] = await db
+			.insert(universe)
+			.values({
+				ownerUserId: OWNER,
+				name: 'Sword Coast (ours)',
+				slug: 'sword-coast-ours',
+				kind: 'derived',
+				baseUniverseId: baseId,
+				loremasterDescription: 'Ours first, the books second, and it says which is which.'
+			})
+			.returning({ id: universe.id });
+		if (!derived) throw new Error('derived universe insert returned no row');
+		await db
+			.insert(universeMember)
+			.values({ universeId: derived.id, userId: OWNER, role: 'owner' });
+		await db.insert(entity).values([
+			{
+				universeId: derived.id,
+				type: 'place',
+				name: 'Waterdeep',
+				slug: 'waterdeep',
+				body: 'Ours diverges from the published city in one way that matters: the Masked Lords are a fiction the guilds maintain, and three of them are dead.'
+			},
+			{
+				universeId: derived.id,
+				type: 'character',
+				name: 'Laeral Silverhand',
+				slug: 'laeral-silverhand',
+				body: 'Open Lord in the books. Here she has been missing for a season and [[Waterdeep]] is pretending otherwise.'
+			}
+		]);
+	}
 
 	return { universeId: world.id, entities: inserted.length };
 }
 
+// CLI: `tsx src/seed-fixture.ts`, plus `--sample-world-only` for the one-time bootstrap of
+// the published sample world on a deployed stack (issue #251), where the two extra fixture
+// universes have no business existing and a re-run must not delete the world.
 if (import.meta.url === `file://${process.argv[1]}`) {
 	const url = process.env.DATABASE_URL;
 	if (!url) throw new Error('DATABASE_URL is not set');
 	assertLocal(url);
+	const sampleWorldOnly = process.argv.slice(2).includes('--sample-world-only');
 	const db = createDb(url);
-	const result = await seedFixture(db);
+	const result = await seedFixture(db, { sampleWorldOnly });
 	console.log(`seeded Valdoria Reach: ${result.entities} entities, universe ${result.universeId}`);
 	await closeDb(db);
 }
