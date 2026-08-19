@@ -26,6 +26,25 @@ export interface ModelParams {
 	currency?: Currency;
 	pricePerInputMTok?: number;
 	pricePerOutputMTok?: number;
+	/** What the provider charges for an input token it served from its own prompt cache,
+	 * per million, in the same currency as `pricePerInputMTok` (issue #313). Taken from the
+	 * gateway's own price list (`input_cache_read` on `GET /v1/models`), never from a ratio
+	 * somebody remembered: it is 12% of the input rate on `google/gemini-3.1-flash-lite` and
+	 * 10% on `openai/gpt-5.4`, so a single assumed multiplier would be wrong on one of them.
+	 *
+	 * Absent means "this model's cached rate is not recorded", and `computeCost` then prices
+	 * a cached token at the full input rate rather than at zero. That is the only safe
+	 * default: `?? 0` would make more than half of an import job's input free the moment a
+	 * provider started serving it from cache, and an understated ceiling is exactly what
+	 * `wouldExceedCeiling` exists to prevent. */
+	pricePerCachedInputMTok?: number;
+	/** What the provider charges to *write* a cache entry, per million input tokens (issue
+	 * #313). Only explicit-caching providers charge this at all: Anthropic bills a five-minute
+	 * write at 1.25x its base input rate, while Google and OpenAI cache implicitly and the
+	 * gateway's price list quotes them no write rate at all. Absent falls back to the plain
+	 * input rate, which is both the safe direction and the right number for an implicit
+	 * cache, whose write bucket is always zero anyway. */
+	pricePerCacheWriteMTok?: number;
 	pricePerEmbeddingMTok?: number;
 	pricePerImage?: number;
 	/** Price per one of the provider's own metered credits (issue #116) - ElevenLabs'
@@ -85,6 +104,10 @@ function readModelParams(value: unknown): ModelParams {
 		params.pricePerInputMTok = record.pricePerInputMTok;
 	if (typeof record.pricePerOutputMTok === 'number')
 		params.pricePerOutputMTok = record.pricePerOutputMTok;
+	if (typeof record.pricePerCachedInputMTok === 'number')
+		params.pricePerCachedInputMTok = record.pricePerCachedInputMTok;
+	if (typeof record.pricePerCacheWriteMTok === 'number')
+		params.pricePerCacheWriteMTok = record.pricePerCacheWriteMTok;
 	if (typeof record.pricePerEmbeddingMTok === 'number')
 		params.pricePerEmbeddingMTok = record.pricePerEmbeddingMTok;
 	if (typeof record.pricePerImage === 'number') params.pricePerImage = record.pricePerImage;

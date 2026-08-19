@@ -89,6 +89,18 @@ export interface UsageCounts {
 	 * existing literal `UsageCounts` object across the codebase stays valid - only the
 	 * one caller that has a provider-credit figure to report needs to set it. */
 	providerCredits?: number;
+	/** How much of `inputTokens` the provider served from its own prompt cache, and how much
+	 * of it went into writing a cache entry (issue #313). Both are **subsets** of
+	 * `inputTokens`, never additions to it: every provider the gateway routes reports a total
+	 * that already contains them, which the AI SDK's own usage type states
+	 * (`inputTokens` is "the total number of input tokens used", `noCacheTokens` the
+	 * non-cached part) and which two measured calls confirm - 684 + 6,111 = 6,795 on
+	 * `google/gemini-3.1-flash-lite`, 3 + 83 + 4,291 = 4,377 on `anthropic/claude-haiku-4.5`.
+	 * So `computeCost` splits `inputTokens` across three rates rather than adding a fourth
+	 * term. Optional, like `providerCredits`, so every existing literal stays valid and a
+	 * caller with nothing to report keeps today's arithmetic exactly. */
+	cachedInputTokens?: number;
+	cacheWriteInputTokens?: number;
 }
 
 export function normalizeUsage(partial: Partial<UsageCounts>): UsageCounts {
@@ -97,12 +109,27 @@ export function normalizeUsage(partial: Partial<UsageCounts>): UsageCounts {
 		outputTokens: partial.outputTokens ?? 0,
 		embeddingTokens: partial.embeddingTokens ?? 0,
 		images: partial.images ?? 0,
-		providerCredits: partial.providerCredits ?? 0
+		providerCredits: partial.providerCredits ?? 0,
+		cachedInputTokens: partial.cachedInputTokens ?? 0,
+		cacheWriteInputTokens: partial.cacheWriteInputTokens ?? 0
 	};
 }
 
 /** Default: 1 credit = EUR 0.01, overridable per model via `params.creditsPerEur`. */
 const DEFAULT_CREDITS_PER_EUR = 100;
+
+/** Splits `inputTokens` into the three buckets a provider can bill it in (issue #313):
+ * fresh, served from cache, and written to cache. The two cache figures are subsets of the
+ * total, so fresh is what is left over, clamped so a provider reporting a cache count larger
+ * than its own total cannot produce a negative bill. */
+function splitInput(usage: UsageCounts): { fresh: number; cacheRead: number; cacheWrite: number } {
+	const cacheRead = Math.min(Math.max(usage.cachedInputTokens ?? 0, 0), usage.inputTokens);
+	const cacheWrite = Math.min(
+		Math.max(usage.cacheWriteInputTokens ?? 0, 0),
+		usage.inputTokens - cacheRead
+	);
+	return { fresh: usage.inputTokens - cacheRead - cacheWrite, cacheRead, cacheWrite };
+}
 
 /** Turns raw usage plus one model's params into a euro cost and a credit charge - the
  * only place `model_call.cost_eur` is computed (issue #132), so a price crosses from
@@ -112,8 +139,23 @@ export function computeCost(
 	usage: UsageCounts
 ): { credits: number; costEur: number } {
 	const currency = params.currency ?? 'EUR';
+	const inputEur = toEur(params.pricePerInputMTok ?? 0, currency);
+	// Both cache rates fall back to the plain input rate rather than to zero when a row does
+	// not carry them: see `ModelParams.pricePerCachedInputMTok` for why that direction is the
+	// only safe one.
+	const cachedInputEur =
+		params.pricePerCachedInputMTok !== undefined
+			? toEur(params.pricePerCachedInputMTok, currency)
+			: inputEur;
+	const cacheWriteEur =
+		params.pricePerCacheWriteMTok !== undefined
+			? toEur(params.pricePerCacheWriteMTok, currency)
+			: inputEur;
+	const input = splitInput(usage);
 	const costEur =
-		(usage.inputTokens / 1_000_000) * toEur(params.pricePerInputMTok ?? 0, currency) +
+		(input.fresh / 1_000_000) * inputEur +
+		(input.cacheRead / 1_000_000) * cachedInputEur +
+		(input.cacheWrite / 1_000_000) * cacheWriteEur +
 		(usage.outputTokens / 1_000_000) * toEur(params.pricePerOutputMTok ?? 0, currency) +
 		(usage.embeddingTokens / 1_000_000) * toEur(params.pricePerEmbeddingMTok ?? 0, currency) +
 		usage.images * toEur(params.pricePerImage ?? 0, currency) +

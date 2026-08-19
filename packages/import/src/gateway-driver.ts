@@ -185,7 +185,15 @@ const TOOL_DEFINITION_TOKEN_ESTIMATE = 150;
  * tools: known input (chars/4, rounded up) plus the most output the call can produce
  * (`STEP_MAX_OUTPUT_TOKENS`). Called both to price the step about to run (with the current,
  * possibly-grown `messages`) and, with a document's *initial* messages, to size the
- * one-time reserve `wouldExceedCeiling` grants a job that has not proposed anything yet. */
+ * one-time reserve `wouldExceedCeiling` grants a job that has not proposed anything yet.
+ *
+ * Deliberately prices every input token as fresh even though `callStep` now asks for a prompt
+ * cache (issue #313): a cache hit is the provider's to grant, not ours to promise, and a step
+ * whose prefix has expired or whose request lands on a cold backend really does pay the full
+ * rate. The worst case has to stay the worst case. What #313 does change is what happens
+ * after the call: `spend` below is charged the discount the provider actually gave, so the
+ * gap between this ceiling and real spend closes from the measured side rather than the
+ * predicted one. */
 function estimateWorstCaseCredits(
 	system: string,
 	messages: ModelMessage[],
@@ -204,18 +212,48 @@ function estimateWorstCaseCredits(
 	}).credits;
 }
 
+/** issue #313: the loop's stable-prefix cache control, set on every step.
+ *
+ * `runDocument` only ever appends (`messages = [...messages, ...outcome.responseMessages]`),
+ * the system prompt is a constant for a document's whole run, and the tool set never changes
+ * mid-run, so step N's request is step N-1's request with messages added: byte-identical
+ * prefix, never edited, never re-ordered. That is the exact shape a provider prompt cache
+ * wants, and #271 measured what it is worth - 53.5% of a sweep's 1,363,296 input tokens is
+ * the fixed block being re-sent, and no amount of transcript pruning can reach it.
+ *
+ * `caching: 'auto'` is the gateway's own provider-agnostic ask (`GatewayProviderOptions`,
+ * documented at vercel.com/docs/ai-gateway/models-and-providers/automatic-caching). It is the
+ * right shape for this loop rather than a hand-placed marker for two reasons. It writes an
+ * entry covering the whole prompt and reads it back on the next step, so it discounts the
+ * accumulated transcript as well as the fixed block, where a static marker on the system
+ * prompt would only ever reach the fixed part. And it is keyed on nothing this file knows: an
+ * admin can switch `model_config` from `/admin/models` without a deploy, so a marker written
+ * for one provider's dialect would silently stop meaning anything the moment the row changed.
+ *
+ * What it buys is provider-dependent, and measured rather than assumed (docs/loop-cost.md):
+ * on an explicit-caching provider it is the whole difference between no caching and all of it
+ * (`anthropic/claude-haiku-4.5`, six-step probe: 0 of 5 calls after the first cached without
+ * it, 5 of 5 and 97.2% of input tokens with it). On Google, OpenAI and DeepSeek the gateway
+ * documents it as a no-op, because those providers cache implicitly whether or not anyone
+ * asks, and today's `cheap` row is one of them. It is set unconditionally anyway: it costs
+ * one field on a request that already exists, and the loop must not depend on which row is
+ * active for its prefix to be cacheable. */
+const STABLE_PREFIX_CACHE_CONTROL = { gateway: { caching: 'auto' } } as const;
+
 /** What one `generateText` step produced, narrowed to exactly what the loop needs -
  * named here so nothing downstream has to reach for `ai`'s generic result type. */
 interface StepOutcome {
 	responseMessages: ModelMessage[];
 	inputTokens: number;
 	outputTokens: number;
-	/** issue #271: how much of `inputTokens` the provider served from its own prompt cache.
-	 * Read but not priced: `computeCost` has no cached-input rate, so billing is unchanged
-	 * by this and only the profiler looks at it. It is here because "is the gateway already
-	 * discounting the part of the transcript that never changes" is the first question any
-	 * fix for #271 has to answer, and nothing in this repo was recording the answer. */
+	/** issue #271/#313: how much of `inputTokens` the provider served from its own prompt
+	 * cache, and how much of it wrote a cache entry. Subsets of `inputTokens` rather than
+	 * additions to it. #271 recorded the read figure for the profiler only, because
+	 * `computeCost` had no cached rate and pricing it would have been a guess; it has one now
+	 * (`ModelParams.pricePerCachedInputMTok`), so both figures reach the billing path below
+	 * and a job is charged what the provider charged rather than 53% more. */
 	cachedInputTokens: number;
+	cacheWriteInputTokens: number;
 	toolCalls: Array<{ toolName: string; invalid: boolean }>;
 }
 
@@ -233,13 +271,15 @@ async function callStep(
 		messages,
 		tools,
 		maxOutputTokens,
-		abortSignal
+		abortSignal,
+		providerOptions: STABLE_PREFIX_CACHE_CONTROL
 	});
 	return {
 		responseMessages: result.responseMessages,
 		inputTokens: result.usage.inputTokens ?? 0,
 		outputTokens: result.usage.outputTokens ?? 0,
 		cachedInputTokens: result.usage.inputTokenDetails?.cacheReadTokens ?? 0,
+		cacheWriteInputTokens: result.usage.inputTokenDetails?.cacheWriteTokens ?? 0,
 		toolCalls: result.toolCalls.map((call) => ({
 			toolName: call.toolName,
 			invalid: 'invalid' in call && call.invalid === true
@@ -534,11 +574,17 @@ async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent>
 				errorName: null
 			});
 
+			// issue #313: what the provider actually charged, cache buckets included. Every step
+			// after the first re-sends a prefix it has already sent, so on a provider that caches
+			// this is most of the step, and pricing it as fresh input overstated a job's bill by
+			// 53% across #271's own sweep.
 			const { credits, costEur } = computeCost(resolved.params, {
 				inputTokens: outcome.inputTokens,
 				outputTokens: outcome.outputTokens,
 				embeddingTokens: 0,
-				images: 0
+				images: 0,
+				cachedInputTokens: outcome.cachedInputTokens,
+				cacheWriteInputTokens: outcome.cacheWriteInputTokens
 			});
 			params.budget.spend(credits);
 			if (params.profiler && profile) {
