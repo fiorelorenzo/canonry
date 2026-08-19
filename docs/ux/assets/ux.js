@@ -258,6 +258,13 @@ const UX_REGISTER = [
     w: 'now', i: [194, 195, 196, 197, 198], dt: '2026-08-16',
     d: 'A', dn: 'Identity moves off the label',
     dnote: 'The label was doing three jobs and only one was display: it was the unique key in Postgres, the value inside proposal.evidence paths, what reject-signal.ts compares, what db-graph.ts builds the traversal on, and what the model reads in a prompt. Translating it for the reader would have made all four vary by who was looking, which is invisible and degrades the copilot rather than announcing itself. So a stable `key` carries identity and survives a rename, the ten shipped labels ship in the i18n bundle in every locale the way entity type names already do, and a universe\'s own labels display as authored because SPEC 17 rule 3 keeps canon in its own language. Nobody waits because nothing is translated: the switch repaints from the bundle. It also fixed a bug no fixture could catch, since every fixture world is English: an Italian world could not use the shipped catalogue at all, forking eleven duplicates of it on first import.' },
+
+  /* Round eight: the product shipped, so the page in front of it is answering the wrong question. */
+  { s: 'Round eight', id: 'M1', f: 'DECISIONS.md', t: 'What the landing page is for once the product exists',
+    q: 'The product is built and canonry.io still says "coming". What is the landing page for now?',
+    w: 'now', i: [151, 154], dt: '2026-08-19',
+    d: 'A', dn: 'A door, not a waiting list',
+    dnote: 'F6 and G10 both still hold, the demo stays the hero and the export sentence stays under it: what changed is that there is now a product behind them. app.canonry.io serves the whole thing on a tagged release, so a page collecting addresses in front of it asks people to wait for something they could be using. The order is the part on the record rather than the layout: there is no password recovery and no account deletion yet, both blocked on a mail transport that is now bought and verified, so the sign-up call to action ships after those and the first version can point at a published players wiki, which is a real public surface a stranger can read without an account. And the waiting list becomes its own decision rather than a leftover, because waitlist_signup records an address and a timestamp and nothing about what was agreed, so it either becomes a named newsletter opt-in with consent recorded at the moment it is given, or it is retired: what it cannot do is quietly become a marketing list, since the people on it asked to be told when Canonry launched.' },
 ];
 
 const KEY = (id) => `canonry.ux.${id}`;
