@@ -38,7 +38,17 @@
 	{/if}
 
 	<form method="POST">
-		<MarkdownEditor bind:value={body} targets={data.mentionTargets} locale={data.locale} />
+		<MarkdownEditor
+			bind:value={body}
+			targets={data.mentionTargets}
+			locale={data.locale}
+			imageInsert={{
+				universeSlug: data.universe.slug,
+				entrySlug: data.entity.slug,
+				assets: data.media.assets,
+				aiEnabled: data.universe.aiEnabled
+			}}
+		/>
 		<input type="hidden" name="body" value={body} />
 
 		<div class="mt-4 flex justify-end">

@@ -13,6 +13,7 @@ import {
 	isPubliclyVisible,
 	listPublicEntities,
 	publicEntityBySlug,
+	publicMediaAssetById,
 	publicMentionTargets,
 	universeForExport,
 	type Db,
@@ -94,6 +95,40 @@ export interface PublicEntityPageData {
 	mentionTargets: PublicMentionTarget[];
 }
 
+/**
+ * #254: an entry body may carry a GM-authored image reference, contract #1's
+ * `![alt](/w/<universeSlug>/e/<entrySlug>/media/<assetId>)` - the GM surface's own URL,
+ * which sits behind universe membership and a signed-out player's browser can never
+ * load. Rewrites every such reference to the public route, `/p/<universeSlug>/media
+ * /<assetId>`, but only for an asset `publicMediaAssetById` actually clears - the same
+ * double gate a direct request to that route applies. Anything that does not clear it is
+ * removed from the body outright, alt text included: an unpublished picture referenced
+ * from a published body degrades to nothing, never a broken `<img>` and never a leaked
+ * filename hinting at what a player has not been shown (guardrail 6).
+ */
+const BODY_IMAGE_RE = /!\[[^\]]*\]\(\/w\/[^/)]+\/e\/[^/)]+\/media\/([^/)]+\))/g;
+
+async function resolvePublicBodyImages(
+	db: Db,
+	universeId: string,
+	universeSlug: string,
+	body: string
+): Promise<string> {
+	const assetIds = new Set([...body.matchAll(BODY_IMAGE_RE)].map((m) => m[1].slice(0, -1)));
+	if (assetIds.size === 0) return body;
+
+	const visible = new Map<string, boolean>();
+	for (const assetId of assetIds) {
+		visible.set(assetId, (await publicMediaAssetById(db, universeId, assetId)) !== undefined);
+	}
+
+	return body.replace(BODY_IMAGE_RE, (whole, closedAssetId: string) => {
+		const assetId = closedAssetId.slice(0, -1);
+		if (!visible.get(assetId)) return '';
+		return `![](/p/${universeSlug}/media/${assetId})`;
+	});
+}
+
 /** #83's detail page and #85's leak test both call this. `entity.body` on the returned
  * value, when `entity.status === 'full'`, has already been through
  * `stripSecretsForPlayers` - a secret or GM-note block is not merely styled invisible, its
@@ -104,6 +139,7 @@ export interface PublicEntityPageData {
 export async function loadPublicEntity(
 	db: Db,
 	universeId: string,
+	universeSlug: string,
 	entitySlug: string,
 	locale?: Locale
 ): Promise<PublicEntityPageData | undefined> {
@@ -115,7 +151,8 @@ export async function loadPublicEntity(
 	}
 
 	const mentionTargets = await publicMentionTargets(db, universeId);
-	const body = stripSecretsForPlayers(found.body);
+	const strippedBody = stripSecretsForPlayers(found.body);
+	const body = await resolvePublicBodyImages(db, universeId, universeSlug, strippedBody);
 	return {
 		entity: { ...found, body, language: detectLanguage(body) },
 		mentionTargets

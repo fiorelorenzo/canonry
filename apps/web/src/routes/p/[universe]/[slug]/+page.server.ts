@@ -19,7 +19,7 @@ import type { PageServerLoad } from './$types';
 // re-derived per route.
 export const load: PageServerLoad = async ({ params, parent }) => {
 	const { universe, locale } = await parent();
-	const result = await loadPublicEntity(db(), universe.id, params.slug, locale);
+	const result = await loadPublicEntity(db(), universe.id, universe.slug, params.slug, locale);
 	if (!result) error(404, `No entry named "${params.slug}"`);
 	return result;
 };

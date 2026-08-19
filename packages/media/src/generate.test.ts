@@ -24,7 +24,12 @@ import {
 import { createVectorClient } from '@canonry/vector';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { FakeEmbeddingProvider } from './embedding.js';
-import { AiDisabledError, generateImages } from './generate.js';
+import {
+	AiDisabledError,
+	MediaAssetHasNoPromptError,
+	MediaAssetNotOwnedError,
+	generateImages
+} from './generate.js';
 import { FakeImageProvider } from './provider.js';
 import { FilesystemMediaStorage } from './storage.js';
 import type { SimilarityCacheDeps } from './similarity.js';
@@ -363,5 +368,222 @@ describe('generateImages (#64-#67, #71)', () => {
 
 		const [afterReveal] = await db.select().from(mediaAsset).where(eq(mediaAsset.id, generated.id));
 		expect(afterReveal?.publishedToPlayers).toBe(false);
+	});
+
+	it('a regeneration can itself be regenerated, each round building on the full prompt before it (#255 acceptance)', async () => {
+		const target = await makeEntity();
+		const images = new FakeImageProvider();
+		const embeddings = new FakeEmbeddingProvider();
+		const commonArgs = {
+			db,
+			images,
+			embeddings,
+			storage: new FilesystemMediaStorage(storageRoot),
+			similarity,
+			universeId,
+			aiEnabled: true,
+			entity: { id: target.id, name: target.name, description: target.body },
+			feature: 'portrait' as const,
+			userId
+		};
+
+		const round1 = await generateImages(commonArgs);
+		const round1Asset = round1.assets[0];
+		if (!round1Asset) throw new Error('expected a round 1 asset');
+
+		const round2 = await generateImages({
+			...commonArgs,
+			fromAssetId: round1Asset.id,
+			instruction: 'older, and lose the helmet'
+		});
+		const round2Asset = round2.assets[0];
+		if (!round2Asset) throw new Error('expected a round 2 asset');
+		// The prompt carries the prior attempt's own prompt plus the instruction, not a
+		// fresh roll from the entry text.
+		expect(round2.prompt).toBe(`${round1.prompt}. older, and lose the helmet`);
+		// The stored prompt on the new asset is the full prompt actually sent.
+		expect(round2Asset.prompt).toBe(round2.prompt);
+
+		// Alongside, not replacing: round 1's own row is untouched, still fetchable, still
+		// carrying its own original prompt.
+		const [round1Reloaded] = await db
+			.select()
+			.from(mediaAsset)
+			.where(eq(mediaAsset.id, round1Asset.id));
+		expect(round1Reloaded?.prompt).toBe(round1.prompt);
+
+		const round3 = await generateImages({
+			...commonArgs,
+			fromAssetId: round2Asset.id,
+			instruction: 'add a scar across the left cheek'
+		});
+		const round3Asset = round3.assets[0];
+		if (!round3Asset) throw new Error('expected a round 3 asset');
+		expect(round3.prompt).toBe(`${round2.prompt}. add a scar across the left cheek`);
+		expect(round3Asset.prompt).toBe(round3.prompt);
+		// A third round builds on the second, which built on the first - the whole chain
+		// is still readable in the final prompt.
+		expect(round3.prompt).toContain(round1.prompt);
+		expect(round3.prompt).toContain('older, and lose the helmet');
+		expect(round3.prompt).toContain('add a scar across the left cheek');
+
+		expect(images.calls).toHaveLength(3);
+		expect(new Set([round1Asset.id, round2Asset.id, round3Asset.id]).size).toBe(3);
+	});
+
+	it('bypasses the similarity cache when an instruction is present, and still applies it when absent (#255 vs #67)', async () => {
+		const target = await makeEntity();
+		const images = new FakeImageProvider();
+		const embeddings = new FakeEmbeddingProvider();
+		const commonArgs = {
+			db,
+			images,
+			embeddings,
+			storage: new FilesystemMediaStorage(storageRoot),
+			similarity,
+			universeId,
+			aiEnabled: true,
+			entity: { id: target.id, name: target.name, description: target.body },
+			feature: 'portrait' as const,
+			userId
+		};
+
+		const baseline = await generateImages(commonArgs);
+		expect(images.calls).toHaveLength(1);
+		const baseAsset = baseline.assets[0];
+		if (!baseAsset) throw new Error('expected a baseline asset');
+
+		// No instruction: a fromAssetId regeneration with nothing to append carries the
+		// base prompt forward unchanged, which is exactly what the baseline generation
+		// just cached - the cache is still checked, and it hits.
+		const repeat = await generateImages({ ...commonArgs, fromAssetId: baseAsset.id });
+		expect(repeat.reusedFromCache).toBe(true);
+		expect(images.calls).toHaveLength(1);
+
+		// With an instruction: this exact prompt has never been generated before, so this
+		// is a genuine miss regardless of the bypass.
+		const firstRefine = await generateImages({
+			...commonArgs,
+			fromAssetId: baseAsset.id,
+			instruction: 'older, and lose the helmet'
+		});
+		expect(firstRefine.reusedFromCache).toBe(false);
+		expect(images.calls).toHaveLength(2);
+
+		// Repeating the exact same instruction against the exact same source asset would
+		// be a guaranteed cache hit if the lookup ran at all - firstRefine's own
+		// generation just recorded that identical prompt's vector. Getting a second real
+		// generation instead (not firstRefine's own candidate handed back) is the bypass.
+		const secondRefine = await generateImages({
+			...commonArgs,
+			fromAssetId: baseAsset.id,
+			instruction: 'older, and lose the helmet'
+		});
+		expect(secondRefine.reusedFromCache).toBe(false);
+		expect(images.calls).toHaveLength(3);
+	});
+
+	it('refuses a fromAssetId that belongs to another universe (#255)', async () => {
+		const target = await makeEntity();
+		const baseline = await generateImages({
+			db,
+			images: new FakeImageProvider(),
+			embeddings: new FakeEmbeddingProvider(),
+			storage: new FilesystemMediaStorage(storageRoot),
+			similarity,
+			universeId,
+			aiEnabled: true,
+			entity: { id: target.id, name: target.name, description: target.body },
+			feature: 'portrait',
+			userId
+		});
+		const foreignAssetId = baseline.assets[0]?.id;
+		if (!foreignAssetId) throw new Error('expected a baseline asset');
+
+		const [otherStyle] = await db
+			.insert(imageStyle)
+			.values({ name: 'Other Universe Style', promptModifier: 'flat colour, no shading' })
+			.returning();
+		if (!otherStyle) throw new Error('image_style insert did not return a row');
+		const [otherWorld] = await db
+			.insert(universe)
+			.values({
+				ownerUserId: userId,
+				name: 'Another Universe',
+				slug: unique('media-generate-other-universe'),
+				kind: 'homebrew',
+				imageStyleId: otherStyle.id,
+				aiEnabled: true
+			})
+			.returning();
+		if (!otherWorld) throw new Error('universe insert did not return a row');
+
+		try {
+			const [otherEntity] = await db
+				.insert(entity)
+				.values({
+					universeId: otherWorld.id,
+					type: 'character',
+					name: 'Someone Else',
+					slug: unique('someone-else'),
+					body: 'A stranger from a different world.'
+				})
+				.returning();
+			if (!otherEntity) throw new Error('entity insert did not return a row');
+
+			await expect(
+				generateImages({
+					db,
+					images: new FakeImageProvider(),
+					embeddings: new FakeEmbeddingProvider(),
+					storage: new FilesystemMediaStorage(storageRoot),
+					similarity,
+					universeId: otherWorld.id,
+					aiEnabled: true,
+					entity: { id: otherEntity.id, name: otherEntity.name, description: otherEntity.body },
+					feature: 'portrait',
+					userId,
+					fromAssetId: foreignAssetId,
+					instruction: 'older'
+				})
+			).rejects.toBeInstanceOf(MediaAssetNotOwnedError);
+		} finally {
+			await db.delete(universe).where(eq(universe.id, otherWorld.id));
+		}
+	});
+
+	it('refuses to regenerate from an asset with no stored prompt, like an imported or uploaded image (#255)', async () => {
+		const target = await makeEntity();
+		const [imported] = await db
+			.insert(mediaAsset)
+			.values({
+				universeId,
+				entityId: null,
+				kind: 'image',
+				path: 'imported/not-generated.png',
+				mimeType: 'image/png',
+				bytes: 1,
+				prompt: null,
+				generated: false
+			})
+			.returning();
+		if (!imported) throw new Error('media_asset insert did not return a row');
+
+		await expect(
+			generateImages({
+				db,
+				images: new FakeImageProvider(),
+				embeddings: new FakeEmbeddingProvider(),
+				storage: new FilesystemMediaStorage(storageRoot),
+				similarity,
+				universeId,
+				aiEnabled: true,
+				entity: { id: target.id, name: target.name, description: target.body },
+				feature: 'portrait',
+				userId,
+				fromAssetId: imported.id,
+				instruction: 'add a hat'
+			})
+		).rejects.toBeInstanceOf(MediaAssetHasNoPromptError);
 	});
 });

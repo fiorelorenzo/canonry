@@ -5,11 +5,13 @@ import {
 	isPubliclyVisible,
 	listPublicEntities,
 	publicEntityBySlug,
+	publicMediaAssetById,
 	publicMentionTargets,
 	queueEntityForSessionLog,
 	revealEntityLive,
 	revealFactLive,
 	revealRelationLive,
+	setMediaAssetPublished,
 	type Db
 } from '../src/index.js';
 import { entity } from '../src/schema/entity.js';
@@ -394,6 +396,81 @@ describe('players', () => {
 			expect(result.images).toHaveLength(1);
 			expect(JSON.stringify(result)).not.toContain('unpublished-portrait');
 			expect(JSON.stringify(result)).not.toContain('secret prompt');
+		});
+	});
+
+	describe('publicMediaAssetById (#254)', () => {
+		it('walks every publish/unpublish transition: invisible, visible once published, invisible again once unpublished', async () => {
+			const { u, session, aldric } = await worldFixture();
+			await revealEntityLive(db, {
+				universeId: u.id,
+				entityId: aldric.id,
+				sessionEntityId: session.id
+			});
+			const [asset] = await db
+				.insert(mediaAsset)
+				.values({
+					universeId: u.id,
+					entityId: aldric.id,
+					kind: 'image',
+					path: '/media/publish-gate-portrait.png',
+					mimeType: 'image/png',
+					generated: true,
+					publishedToPlayers: false
+				})
+				.returning();
+			if (!asset) throw new Error('fixture setup failed');
+
+			expect(await publicMediaAssetById(db, u.id, asset.id)).toBeUndefined();
+
+			await setMediaAssetPublished(db, asset.id, true);
+			expect(await publicMediaAssetById(db, u.id, asset.id)).toEqual({
+				path: '/media/publish-gate-portrait.png',
+				mimeType: 'image/png'
+			});
+
+			await setMediaAssetPublished(db, asset.id, false);
+			expect(await publicMediaAssetById(db, u.id, asset.id)).toBeUndefined();
+		});
+
+		it('stays invisible for a gm_only entity even once its image is published - visibility outranks publication', async () => {
+			const { u, ledger } = await worldFixture();
+			const [asset] = await db
+				.insert(mediaAsset)
+				.values({
+					universeId: u.id,
+					entityId: ledger.id,
+					kind: 'image',
+					path: '/media/gm-only-portrait.png',
+					mimeType: 'image/png',
+					generated: true,
+					publishedToPlayers: true
+				})
+				.returning();
+			if (!asset) throw new Error('fixture setup failed');
+
+			expect(await publicMediaAssetById(db, u.id, asset.id)).toBeUndefined();
+		});
+
+		it('stays invisible for a published image whose entity carries no confirmed revelation', async () => {
+			const { u, aldric } = await worldFixture();
+			// Deliberately no revealEntityLive call - aldric is revealable, but nothing at
+			// the table has confirmed it yet.
+			const [asset] = await db
+				.insert(mediaAsset)
+				.values({
+					universeId: u.id,
+					entityId: aldric.id,
+					kind: 'image',
+					path: '/media/unrevealed-portrait.png',
+					mimeType: 'image/png',
+					generated: true,
+					publishedToPlayers: true
+				})
+				.returning();
+			if (!asset) throw new Error('fixture setup failed');
+
+			expect(await publicMediaAssetById(db, u.id, asset.id)).toBeUndefined();
 		});
 	});
 });

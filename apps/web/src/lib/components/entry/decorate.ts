@@ -22,13 +22,14 @@ function escapeHtml(text: string): string {
 	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 }
 
-const INLINE_RE = /(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|(\[\[[^\]\n]+\]\])|(\[[^\]\n]+\]\([^)\n]*\))/g;
+const INLINE_RE =
+	/(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|(\[\[[^\]\n]+\]\])|(!\[[^\]\n]*\]\([^)\n]*\))|(\[[^\]\n]+\]\([^)\n]*\))/g;
 
 function decorateInline(text: string, targets: MentionTarget[]): string {
 	let out = '';
 	let last = 0;
 	for (const match of text.matchAll(INLINE_RE)) {
-		const [whole, bold, italic, mention, link] = match;
+		const [whole, bold, italic, mention, image, link] = match;
 		const index = match.index ?? 0;
 		out += escapeHtml(text.slice(last, index));
 		if (bold) {
@@ -42,6 +43,12 @@ function decorateInline(text: string, targets: MentionTarget[]): string {
 				? 'text-accent-ink border-b border-line-2'
 				: 'text-danger border-b border-dashed border-line-2';
 			out += `<span class="${cls}">${escapeHtml(mention)}</span>`;
+		} else if (image) {
+			// Same treatment as a link (below): image markdown is still just a link's
+			// shape with a leading `!`, and the read view already renders it as an
+			// `<img>` (markdown.ts's default image rule), so the editor only needs the
+			// backdrop to stop looking like broken syntax while it's being typed.
+			out += `<span class="text-accent-ink underline decoration-line-2">${escapeHtml(image)}</span>`;
 		} else if (link) {
 			out += `<span class="text-accent-ink underline decoration-line-2">${escapeHtml(link)}</span>`;
 		}

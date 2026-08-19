@@ -219,3 +219,23 @@ export async function mediaAssetsByIds(db: Db, ids: readonly string[]): Promise<
 		.from(mediaAsset)
 		.where(inArray(mediaAsset.id, [...ids]));
 }
+
+/** Guardrail 6 and issue #71/#254: the one function anywhere that writes
+ * `published_to_players`. It exists precisely so that write stays in exactly one place -
+ * a GM's own explicit click in the Images tab, never a side effect of `attachMediaAsset`,
+ * `acceptProposal`, or revealing an entity, none of which touch this column. Flips both
+ * directions on purpose: a GM who showed a picture too early needs to take it back, and
+ * unpublish is that same deliberate act in reverse, not a special case. */
+export async function setMediaAssetPublished(
+	db: Db,
+	id: string,
+	published: boolean
+): Promise<MediaAssetRow> {
+	const [updated] = await db
+		.update(mediaAsset)
+		.set({ publishedToPlayers: published })
+		.where(eq(mediaAsset.id, id))
+		.returning();
+	if (!updated) throw new Error(`setMediaAssetPublished: no media_asset row "${id}"`);
+	return updated;
+}

@@ -393,7 +393,10 @@ export const it: Messages = {
 		gapNoticeBefore: 'Hai sentito il nome. Nessuno al tavolo ha ancora scoperto abbastanza su',
 		gapNoticeAfter: (type) => `perché questa pagina di tipo ${type} dica di più, per ora.`,
 		factsHeading: 'Cosa si sa',
-		relationsHeading: 'Relazioni note'
+		relationsHeading: 'Relazioni note',
+		media: {
+			heading: 'Immagini'
+		}
 	},
 
 	docsLanguages: {
@@ -513,7 +516,6 @@ export const it: Messages = {
 			empty: 'Nessuna immagine finora.',
 			explanation:
 				'Le immagini si generano su richiesta, con un clic che chiede sempre conferma della spesa.',
-			privateNote: 'Privata - non visibile ai giocatori finché non riveli questa voce.',
 			generatedBadge: 'Generata',
 			generateButton: 'Genera immagine',
 			candidatesSummary: (reusedFromCache, multiple) => {
@@ -554,7 +556,68 @@ export const it: Messages = {
 			privateHint:
 				'L\u2019immagine resta privata finché non la inserisci qui - non raggiunge mai da sola il wiki dei giocatori.',
 			generateAction: 'Genera',
-			generating: 'Generazione in corso\u2026'
+			generating: 'Generazione in corso\u2026',
+			upload: {
+				button: 'Carica immagine',
+				uploading: 'Caricamento in corso\u2026',
+				uploadedBadge: 'Caricata',
+				noFile: 'Scegli un file da caricare.',
+				tooLarge: (maxMegabytes) => `L\u2019immagine supera il limite di ${maxMegabytes}MB.`,
+				unsupportedType: 'Puoi caricare solo immagini PNG, JPEG o WEBP.',
+				typeMismatch: 'Il tipo dichiarato del file non corrisponde al suo contenuto.',
+				genericUploadFailedWithStatus: (status) => `Caricamento non riuscito (${status})`,
+				genericUploadFailed: 'Caricamento non riuscito'
+			},
+			inBody: {
+				toolbarLabel: 'Immagine',
+				toolbarTitle: 'Inserisci un\u2019immagine nel testo',
+				dialogTitle: 'Inserisci un\u2019immagine',
+				existingHeading: 'Le immagini di questa voce',
+				emptyExisting: 'Nessuna immagine collegata a questa voce - generane una qui sotto.',
+				generateHeading: 'Generane una nuova',
+				featureAriaLabel: 'Tipo di immagine',
+				portraitOption: 'Ritratto (una sola immagine)',
+				variantsOption: 'Varianti (quattro tra cui scegliere)',
+				generateButton: 'Genera',
+				insertThisImage: 'Inserisci questa immagine',
+				useThisOne: 'Usa questa',
+				generateFailedWithStatus: (status) => `Generazione non riuscita (${status})`,
+				generateFailed: 'Generazione non riuscita',
+				attachFailedWithStatus: (status) =>
+					`Collegamento dell\u2019immagine non riuscito (${status})`,
+				attachFailed: 'Collegamento dell\u2019immagine non riuscito'
+			},
+			/** Issue #255: affina un candidato con un'istruzione invece di un tiro nuovo. */
+			regenerate: {
+				trigger: "Affina con un'istruzione",
+				dialogTitle: (entityName) => `Rigenera: ${entityName}`,
+				hint: "Parte dall'immagine che stai guardando, non da un tiro nuovo: stessa entità e stesso stile, cambia solo quello che chiedi.",
+				instructionLabel: 'Cosa non va?',
+				instructionPlaceholder: "più vecchio, e senza l'elmo",
+				action: 'Rigenera',
+				regenerating: 'Rigenerazione in corso\u2026',
+				instructionMustBeString: 'instruction deve essere una stringa',
+				fromAssetIdMustBeString: 'fromAssetId deve essere una stringa',
+				sourceHasNoPrompt: 'Quell\u2019immagine non ha un prompt salvato da cui rigenerare.'
+			},
+			// #254: il controllo di pubblicazione/ritiro per singola immagine e la frase di
+			// riepilogo sotto la griglia. Sostituisce la vecchia `privateNote` incondizionata,
+			// che smetteva di essere vera non appena un'immagine poteva essere pubblicata -
+			// questa resta accurata sia con la griglia tutta privata, tutta pubblicata, o mista.
+			publish: {
+				publishedBadge: 'Pubblicata',
+				publishedNote: 'Pubblicata nel wiki dei giocatori.',
+				privateNote: 'Privata.',
+				publishLabel: 'Pubblica',
+				unpublishLabel: 'Ritira dal wiki',
+				publishing: 'Pubblicazione in corso\u2026',
+				unpublishing: 'Ritiro in corso\u2026',
+				explanation:
+					"Pubblica un'immagine per aggiungerla al wiki dei giocatori. Da qui nulla arriva ai giocatori da solo.",
+				publishedMustBeBoolean: 'published deve essere un booleano',
+				genericPublishFailedWithStatus: (status) => `Pubblicazione non riuscita (${status})`,
+				genericPublishFailed: 'Pubblicazione non riuscita'
+			}
 		},
 
 		editor: {
@@ -1343,7 +1406,18 @@ export const it: Messages = {
 			ownCanonLabel: 'il tuo canone',
 			indexedBadge: 'indicizzata',
 			close: 'Chiudi',
-			loading: 'Caricamento…'
+			loading: 'Caricamento…',
+			propose: {
+				badgeCreated: 'Proposta: nuova voce',
+				badgeEdited: 'Proposta: modifica',
+				redirectedToEdit: (entityName) =>
+					`${entityName} esiste già, quindi è diventata una proposta di modifica.`,
+				redirectedToCreate: (entityName) =>
+					`Non esiste ancora una voce chiamata ${entityName}, quindi è diventata una proposta di nuova voce.`,
+				reviewLink: 'Rivedi nelle proposte',
+				failed: (message) =>
+					`Un tentativo di proposta non è riuscito, e non è stato proposto nulla: ${message}`
+			}
 		},
 
 		settings: {

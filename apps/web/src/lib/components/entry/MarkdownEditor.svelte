@@ -11,9 +11,11 @@
 	import { decorateMarkdown } from './decorate';
 	import FormattingToolbar, { type FormatCommand } from './FormattingToolbar.svelte';
 	import MentionMenu from './MentionMenu.svelte';
+	import ImageInsertDialog, { type ImageInsertContext } from '../media/ImageInsertDialog.svelte';
 	import {
 		applyMentionSelection,
 		findActiveTrigger,
+		insertImage,
 		insertLink,
 		insertMentionTrigger,
 		matchTargets,
@@ -29,11 +31,16 @@
 	let {
 		value = $bindable(''),
 		targets,
-		locale
+		locale,
+		imageInsert
 	}: {
 		value: string;
 		targets: MentionTarget[];
 		locale: Locale;
+		/** Only the entry editor passes this (issue #253) - the works/node editor mounts
+		 * this same component with no entity behind it, so the toolbar's image button
+		 * stays hidden there rather than opening a picker with nothing to place. */
+		imageInsert?: ImageInsertContext;
 	} = $props();
 	let t = $derived(messages(locale));
 
@@ -42,6 +49,11 @@
 	let caret = $state(0);
 	let dismissedTriggerStart = $state<number | null>(null);
 	let highlightedIndex = $state(0);
+	let imageDialogOpen = $state(false);
+	// Captured when the toolbar button opens the dialog, not read again once it's open:
+	// the native <dialog> is modal, so the textarea's own selection can't move underneath
+	// it while the user is picking or generating an image.
+	let pendingImageSelection = { start: 0, end: 0 };
 
 	let decorated = $derived(decorateMarkdown(value, targets));
 	let trigger = $derived(findActiveTrigger(value, caret));
@@ -87,7 +99,17 @@
 		else if (command === 'list') applyEdit(toggleLinePrefix(value, start, end, '- '));
 		else if (command === 'quote') applyEdit(toggleLinePrefix(value, start, end, '> '));
 		else if (command === 'link') applyEdit(insertLink(value, start, end));
-		else applyEdit(insertMentionTrigger(value, start, end));
+		else if (command === 'image') {
+			pendingImageSelection = { start, end };
+			imageDialogOpen = true;
+		} else applyEdit(insertMentionTrigger(value, start, end));
+	}
+
+	/** Passed to `ImageInsertDialog` as `onInsert`: the dialog already resolved which
+	 * asset (existing, or freshly generated and attached) and handed back the URL to
+	 * write - this just runs it through the same `applyEdit` every other command uses. */
+	function insertImageAtSelection(url: string): void {
+		applyEdit(insertImage(value, pendingImageSelection.start, pendingImageSelection.end, url));
 	}
 
 	function selectMention(target: MentionTarget): void {
@@ -133,7 +155,7 @@
 </script>
 
 <div>
-	<FormattingToolbar onCommand={runCommand} {locale} />
+	<FormattingToolbar onCommand={runCommand} {locale} imageInsertEnabled={!!imageInsert} />
 
 	<div class="relative overflow-hidden rounded-b-lg border border-line-2 bg-panel">
 		<div
@@ -167,6 +189,18 @@
 			{matches}
 			highlightedIndex={effectiveHighlight}
 			onSelect={selectMention}
+			{locale}
+		/>
+	{/if}
+
+	{#if imageInsert}
+		<ImageInsertDialog
+			bind:open={imageDialogOpen}
+			universeSlug={imageInsert.universeSlug}
+			entrySlug={imageInsert.entrySlug}
+			assets={imageInsert.assets}
+			aiEnabled={imageInsert.aiEnabled}
+			onInsert={insertImageAtSelection}
 			{locale}
 		/>
 	{/if}

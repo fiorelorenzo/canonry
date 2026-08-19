@@ -72,6 +72,21 @@ export function insertLink(source: string, start: number, end: number): TextEdit
 	return { source: next, selectionStart: caret, selectionEnd: caret };
 }
 
+/** `![alt](url)`; a selection becomes the alt text, the same reading `insertLink` gives a
+ * selection, with a default alt when there is none. Unlike `insertLink`, `url` is already
+ * known when this runs - the picker resolves an asset (or a freshly generated one) before
+ * this is ever called - so the markdown is complete on insert and the caret lands just past
+ * it, ready for the next sentence, rather than parked inside an argument still to be typed. */
+export function insertImage(source: string, start: number, end: number, url: string): TextEdit {
+	const alt = source.slice(start, end) || 'image';
+	const before = source.slice(0, start);
+	const after = source.slice(end);
+	const markdown = `![${alt}](${url})`;
+	const next = before + markdown + after;
+	const caret = start + markdown.length;
+	return { source: next, selectionStart: caret, selectionEnd: caret };
+}
+
 /** Inserts `[[` at the caret (or wraps a selection as `[[selection`) so the mention menu's
  * own trigger detection picks it up immediately, exactly like typing it by hand. */
 export function insertMentionTrigger(source: string, start: number, end: number): TextEdit {

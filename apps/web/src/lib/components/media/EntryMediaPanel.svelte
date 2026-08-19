@@ -5,10 +5,10 @@
 	 *
 	 * Two steps, always: generate produces one image or four to choose from, all
 	 * unattached; insert is a separate click that attaches the picked one to this entry.
-	 * Guardrail 6 (#71): nothing here, or anywhere behind it, ever sets
-	 * published_to_players - every image shown here carries a permanent "Private" note,
-	 * not because a flag says so on this specific asset, but because there is no code
-	 * path that could have made it otherwise.
+	 * Guardrail 6 (#71, #254): attaching, generating and uploading never touch
+	 * `published_to_players` - the only thing that does is the per-asset publish/unpublish
+	 * button below, a GM's own deliberate click, never a side effect of anything else on
+	 * this panel.
 	 */
 	import { resolve } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
@@ -75,6 +75,11 @@
 	}
 	let candidates = $state<Candidate[]>([]);
 	let selectedCandidateId = $state<string | null>(null);
+	// #255: the candidate being refined when the dialog is opened in regenerate mode -
+	// null means the next `dialogOpen = true` is a fresh generation. Set by the "Refine"
+	// button below, cleared on a fresh "Generate image" click and after a successful
+	// generation of either kind.
+	let regenerateSourceId = $state<string | null>(null);
 	let reusedFromCache = $state(false);
 	let inserting = $state(false);
 
@@ -91,14 +96,19 @@
 		return `${base}/${id}`;
 	}
 
-	async function handleGenerate(feature: ImageFeature): Promise<void> {
+	async function handleGenerate(feature: ImageFeature, instruction?: string): Promise<void> {
 		error = null;
 		generating = true;
+		const fromAssetId = regenerateSourceId;
 		try {
 			const res = await fetch(`${base}/generate`, {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ feature })
+				body: JSON.stringify({
+					feature,
+					...(instruction ? { instruction } : {}),
+					...(fromAssetId ? { fromAssetId } : {})
+				})
 			});
 			if (!res.ok) {
 				const text = await res.text();
@@ -108,10 +118,19 @@
 				reusedFromCache: boolean;
 				assets: Candidate[];
 			};
-			candidates = data.assets;
+			// #255: a regeneration's result joins the candidate it refined instead of
+			// replacing the whole batch, so the user can compare and keep either; a fresh
+			// "Generate image" always starts a clean batch.
+			if (fromAssetId) {
+				candidates = [...candidates, ...data.assets];
+				selectedCandidateId = data.assets[0]?.id ?? selectedCandidateId;
+			} else {
+				candidates = data.assets;
+				selectedCandidateId = data.assets[0]?.id ?? null;
+			}
 			reusedFromCache = data.reusedFromCache;
-			selectedCandidateId = data.assets[0]?.id ?? null;
 			dialogOpen = false;
+			regenerateSourceId = null;
 		} catch (err) {
 			error = err instanceof Error ? err.message : t.entry.media.genericGenerationFailed;
 		} finally {
@@ -170,6 +189,70 @@
 			savingStyle = false;
 		}
 	}
+
+	// #252: nothing here calls a model, so this control stays enabled even with
+	// `aiEnabled` false (guardrail 4 - the wiki, including a GM's own pictures, keeps
+	// working with the AI switched off). `uploadInput` is a plain ref, not `$state`,
+	// same convention as `LanguageControl.svelte`'s `formEl`: it is only ever written by
+	// the DOM binding and read imperatively from the click handler below, never read
+	// reactively in the template.
+	let uploadInput: HTMLInputElement | undefined;
+	let uploading = $state(false);
+
+	async function handleUpload(): Promise<void> {
+		const chosen = uploadInput?.files?.[0];
+		if (!chosen) return;
+		error = null;
+		uploading = true;
+		try {
+			const body = new FormData();
+			body.set('file', chosen);
+			const res = await fetch(`${base}/upload`, { method: 'POST', body });
+			if (!res.ok) {
+				const text = await res.text();
+				throw new Error(text || t.entry.media.upload.genericUploadFailedWithStatus(res.status));
+			}
+			// Same reasoning as handleInsert above: `assets` only ever changes through the
+			// `assets` prop, so invalidateAll() is what brings the new row into the grid,
+			// with the server's own id/createdAt rather than a locally guessed one.
+			await invalidateAll();
+		} catch (err) {
+			error = err instanceof Error ? err.message : t.entry.media.upload.genericUploadFailed;
+		} finally {
+			uploading = false;
+			if (uploadInput) uploadInput.value = '';
+		}
+	}
+
+	// #254: which asset's publish/unpublish request is in flight, if any - one button at
+	// a time makes sense (an asset can only be mid-toggle once), a shared `publishing`
+	// boolean does not, since a GM might reasonably click a second asset's button while
+	// the first request is still in the air.
+	let publishingId = $state<string | null>(null);
+
+	async function handleTogglePublish(asset: MediaAssetView): Promise<void> {
+		error = null;
+		publishingId = asset.id;
+		try {
+			const res = await fetch(`${base}/publish`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ mediaAssetId: asset.id, published: !asset.publishedToPlayers })
+			});
+			if (!res.ok) {
+				const text = await res.text();
+				throw new Error(text || t.entry.media.publish.genericPublishFailedWithStatus(res.status));
+			}
+			// Same reasoning as handleInsert/handleUpload above: `assets` only ever changes
+			// through the `assets` prop, so invalidateAll() is what brings the real row's
+			// new `publishedToPlayers` value into the grid.
+			await invalidateAll();
+		} catch (err) {
+			error = err instanceof Error ? err.message : t.entry.media.publish.genericPublishFailed;
+		} finally {
+			publishingId = null;
+		}
+	}
 </script>
 
 {#if !aiEnabled}
@@ -214,6 +297,18 @@
 			<Button type="button" variant="secondary" size="sm" onclick={discardCandidates}>
 				{t.entry.media.discard}
 			</Button>
+			<Button
+				type="button"
+				variant="secondary"
+				size="sm"
+				disabled={!selectedCandidateId || !aiEnabled}
+				onclick={() => {
+					regenerateSourceId = selectedCandidateId;
+					dialogOpen = true;
+				}}
+			>
+				{t.entry.media.regenerate.trigger}
+			</Button>
 		</div>
 	</div>
 {/if}
@@ -227,24 +322,95 @@
 {:else if assets.length > 0}
 	<div class="mt-2 grid grid-cols-2 gap-2">
 		{#each assets as asset (asset.id)}
-			<div class="relative overflow-hidden rounded-md border border-line">
-				<img src={imageUrl(asset.id)} alt={entityName} class="block h-auto w-full" />
-				{#if asset.generated}
-					<span
-						class="absolute top-1 left-1 rounded-full border border-ai-line bg-ai-bg px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ai uppercase"
-					>
-						{t.entry.media.generatedBadge}
+			<div class="overflow-hidden rounded-md border border-line">
+				<div class="relative">
+					<img src={imageUrl(asset.id)} alt={entityName} class="block h-auto w-full" />
+					{#if asset.generated}
+						<span
+							class="absolute top-1 left-1 rounded-full border border-ai-line bg-ai-bg px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ai uppercase"
+						>
+							{t.entry.media.generatedBadge}
+						</span>
+					{:else}
+						<span
+							class="absolute top-1 left-1 rounded-full border border-line bg-panel-2 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-2 uppercase"
+						>
+							{t.entry.media.upload.uploadedBadge}
+						</span>
+					{/if}
+					{#if asset.publishedToPlayers}
+						<span
+							class="absolute top-1 right-1 rounded-full border border-accent bg-accent-bg px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-accent-ink uppercase"
+						>
+							{t.entry.media.publish.publishedBadge}
+						</span>
+					{/if}
+				</div>
+				<!-- #254: per-asset publish state has to be legible on the asset itself, not
+				     only in a summary sentence below the grid, since the grid is a mix of
+				     published and private pictures once publishing is a real action. -->
+				<div
+					class="flex items-center justify-between gap-2 border-t border-line bg-panel-2 px-2 py-1"
+				>
+					<span class="text-[11px] text-ink-2">
+						{asset.publishedToPlayers
+							? t.entry.media.publish.publishedNote
+							: t.entry.media.publish.privateNote}
 					</span>
-				{/if}
+					{#if canWrite}
+						<Button
+							type="button"
+							variant="secondary"
+							size="sm"
+							disabled={publishingId === asset.id}
+							onclick={() => handleTogglePublish(asset)}
+						>
+							{#if publishingId === asset.id}
+								{asset.publishedToPlayers
+									? t.entry.media.publish.unpublishing
+									: t.entry.media.publish.publishing}
+							{:else}
+								{asset.publishedToPlayers
+									? t.entry.media.publish.unpublishLabel
+									: t.entry.media.publish.publishLabel}
+							{/if}
+						</Button>
+					{/if}
+				</div>
 			</div>
 		{/each}
 	</div>
-	<p class="mt-1 text-xs text-muted">{t.entry.media.privateNote}</p>
+	<p class="mt-1 text-xs text-muted">{t.entry.media.publish.explanation}</p>
 {/if}
 
 {#if canWrite}
-	<Button type="button" class="mt-3" disabled={!aiEnabled} onclick={() => (dialogOpen = true)}>
+	<Button
+		type="button"
+		class="mt-3"
+		disabled={!aiEnabled}
+		onclick={() => {
+			regenerateSourceId = null;
+			dialogOpen = true;
+		}}
+	>
 		{t.entry.media.generateButton}
+	</Button>
+
+	<input
+		bind:this={uploadInput}
+		type="file"
+		accept="image/png,image/jpeg,image/webp"
+		class="hidden"
+		onchange={handleUpload}
+	/>
+	<Button
+		type="button"
+		variant="secondary"
+		class="mt-3 ml-2"
+		disabled={uploading}
+		onclick={() => uploadInput?.click()}
+	>
+		{uploading ? t.entry.media.upload.uploading : t.entry.media.upload.button}
 	</Button>
 
 	{#if styleEditorOpen}
@@ -279,6 +445,9 @@
 		{portraitModel}
 		{variantsModel}
 		busy={generating}
+		regenerateSource={regenerateSourceId
+			? { id: regenerateSourceId, imageUrl: imageUrl(regenerateSourceId) }
+			: null}
 		onGenerate={handleGenerate}
 		onEditStyle={() => {
 			styleDraft = entityImagePromptModifier ?? '';

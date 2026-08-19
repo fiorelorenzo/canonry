@@ -458,6 +458,13 @@ export interface Messages {
 		gapNoticeAfter: (entityType: string) => string;
 		factsHeading: string;
 		relationsHeading: string;
+		/** Issue #254: the published-image gallery on a revealed entity's page - only
+		 * ever fed `PublicImageRow[]` already filtered to published, gm_only-excluded,
+		 * revelation-confirmed images (`publicEntityBySlug`'s own `images` field), so
+		 * this component carries no visibility logic of its own. */
+		media: {
+			heading: string;
+		};
 	};
 
 	/** Issue #131's "what we translate" doc at `/docs/languages`, linked from
@@ -565,7 +572,6 @@ export interface Messages {
 			aiOffBanner: string;
 			empty: string;
 			explanation: string;
-			privateNote: string;
 			generatedBadge: string;
 			generateButton: string;
 			candidatesSummary: (reusedFromCache: boolean, multiple: boolean) => string;
@@ -593,6 +599,70 @@ export interface Messages {
 			privateHint: string;
 			generateAction: string;
 			generating: string;
+			upload: {
+				button: string;
+				uploading: string;
+				uploadedBadge: string;
+				noFile: string;
+				tooLarge: (maxMegabytes: number) => string;
+				unsupportedType: string;
+				typeMismatch: string;
+				genericUploadFailedWithStatus: (status: number) => string;
+				genericUploadFailed: string;
+			};
+			/** Issue #253: the toolbar's "insert image into the body" picker. Reuses several
+			 * leaf strings from this same `media` object (generating, cancel, discard,
+			 * generatedBadge) rather than duplicating them under this namespace. */
+			inBody: {
+				toolbarLabel: string;
+				toolbarTitle: string;
+				dialogTitle: string;
+				existingHeading: string;
+				emptyExisting: string;
+				generateHeading: string;
+				featureAriaLabel: string;
+				portraitOption: string;
+				variantsOption: string;
+				generateButton: string;
+				insertThisImage: string;
+				useThisOne: string;
+				generateFailedWithStatus: (status: number) => string;
+				generateFailed: string;
+				attachFailedWithStatus: (status: number) => string;
+				attachFailed: string;
+			};
+			/** Issue #255: refine a candidate with an instruction instead of a fresh roll -
+			 * the "Refine with instruction" control in the candidates block, opening
+			 * GenerateDialog in its regenerate mode. */
+			regenerate: {
+				trigger: string;
+				dialogTitle: (entityName: string) => string;
+				hint: string;
+				instructionLabel: string;
+				instructionPlaceholder: string;
+				action: string;
+				regenerating: string;
+				instructionMustBeString: string;
+				fromAssetIdMustBeString: string;
+				sourceHasNoPrompt: string;
+			};
+			/** Issue #254: the per-asset publish/unpublish control and its legible state,
+			 * plus the summary sentence below the grid - unlike the old unconditional
+			 * `privateNote` it replaced, this has to stay true in the mixed state where some
+			 * assets are published and some are not. */
+			publish: {
+				publishedBadge: string;
+				publishedNote: string;
+				privateNote: string;
+				publishLabel: string;
+				unpublishLabel: string;
+				publishing: string;
+				unpublishing: string;
+				explanation: string;
+				publishedMustBeBoolean: string;
+				genericPublishFailedWithStatus: (status: number) => string;
+				genericPublishFailed: string;
+			};
 		};
 		editor: {
 			breadcrumbEdit: string;
@@ -1284,6 +1354,19 @@ export interface Messages {
 			indexedBadge: string;
 			close: string;
 			loading: string;
+			/** issue #256: the `entry_propose`/`entry_edit_propose` tools' own reserved
+			 * sub-object (wave i18n contract) - what a pending Ask-drafted proposal chip says. */
+			propose: {
+				badgeCreated: string;
+				badgeEdited: string;
+				redirectedToEdit: (entityName: string) => string;
+				redirectedToCreate: (entityName: string) => string;
+				reviewLink: string;
+				/** issue #256's real-gateway regression: shown independently of whatever the
+				 * model's own answer text says, so a failed drafting call never has to rely on
+				 * the model reporting it honestly. */
+				failed: (message: string) => string;
+			};
 		};
 		settings: {
 			headTitle: (universeName: string) => string;
