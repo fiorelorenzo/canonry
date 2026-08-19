@@ -11,7 +11,8 @@ import { modelCall, modelConfig, universe, user } from '@canonry/db/schema';
 import { MockLanguageModelV4 } from 'ai/test';
 import type { LanguageModel } from 'ai';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { AMBIENT_LAYERS_OPERATION, parseAmbientLayers } from './layers.js';
+import { z } from 'zod';
+import { AMBIENT_LAYERS_OPERATION, layerSchema, parseAmbientLayers } from './layers.js';
 import { openTestDb } from '../test-db.js';
 
 function unique(prefix: string): string {
@@ -103,7 +104,13 @@ describe('parseAmbientLayers (#68, SPEC.md §8.2)', () => {
 	it('decomposes a description into layers, charged at zero credits (#68)', async () => {
 		const languageModel = scriptedModel({
 			layers: [
-				{ prompt: 'gentle rain falling on leaves', loopType: 'continuous', volume: 0.6 },
+				{
+					prompt: 'gentle rain falling on leaves',
+					loopType: 'continuous',
+					intervalMinSeconds: null,
+					intervalMaxSeconds: null,
+					volume: 0.6
+				},
 				{
 					prompt: 'distant thunder rumble',
 					loopType: 'interval',
@@ -123,7 +130,13 @@ describe('parseAmbientLayers (#68, SPEC.md §8.2)', () => {
 		});
 
 		expect(layers).toEqual([
-			{ prompt: 'gentle rain falling on leaves', loopType: 'continuous', volume: 0.6 },
+			{
+				prompt: 'gentle rain falling on leaves',
+				loopType: 'continuous',
+				intervalMinSeconds: null,
+				intervalMaxSeconds: null,
+				volume: 0.6
+			},
 			{
 				prompt: 'distant thunder rumble',
 				loopType: 'interval',
@@ -150,7 +163,15 @@ describe('parseAmbientLayers (#68, SPEC.md §8.2)', () => {
 	it('passes the resolved cheap-purpose provider/modelId to the injected factory', async () => {
 		const seen: Array<{ provider: string; modelId: string }> = [];
 		const languageModel = scriptedModel({
-			layers: [{ prompt: 'wind through the trees', loopType: 'continuous', volume: 0.4 }]
+			layers: [
+				{
+					prompt: 'wind through the trees',
+					loopType: 'continuous',
+					intervalMinSeconds: null,
+					intervalMaxSeconds: null,
+					volume: 0.4
+				}
+			]
 		});
 
 		await parseAmbientLayers({
@@ -165,5 +186,72 @@ describe('parseAmbientLayers (#68, SPEC.md §8.2)', () => {
 		});
 
 		expect(seen).toEqual([{ provider: 'test-provider', modelId: 'test-cheap' }]);
+	});
+});
+
+/**
+ * Issue #293: same root cause as #269 (`packages/import/src/tools.test.ts`) - OpenAI's
+ * structured-output mode rejects any object schema whose properties are not all listed
+ * in `required`, and `.optional()` drops a property out of `required` exactly like
+ * `.default()` does. `layerSchema` nests its per-layer object inside `layers: array(...)`,
+ * one level deeper than any of #269's flat tool schemas, so the walk below checks every
+ * object node the JSON Schema conversion produces rather than only the top level -
+ * `layers` itself has nothing optional, and a check that stopped there would pass while
+ * `intervalMinSeconds`/`intervalMaxSeconds` slipped out of the nested object's `required`.
+ */
+describe("layerSchema keeps every property in JSON Schema's required, at every nesting level (issue #293)", () => {
+	type JsonSchemaNode = {
+		type?: string;
+		properties?: Record<string, JsonSchemaNode>;
+		required?: string[];
+		items?: JsonSchemaNode;
+		anyOf?: JsonSchemaNode[];
+	};
+
+	function objectNodes(node: JsonSchemaNode | undefined): JsonSchemaNode[] {
+		if (!node) return [];
+		const nested = [
+			...Object.values(node.properties ?? {}).flatMap(objectNodes),
+			...objectNodes(node.items),
+			...(node.anyOf ?? []).flatMap(objectNodes)
+		];
+		return node.type === 'object' && node.properties ? [node, ...nested] : nested;
+	}
+
+	it('every object node has every property listed in required', () => {
+		const jsonSchema = z.toJSONSchema(layerSchema, {
+			target: 'draft-7',
+			io: 'input'
+		}) as JsonSchemaNode;
+		const objects = objectNodes(jsonSchema);
+
+		// A schema with no object nodes at all would vacuously pass every assertion below
+		// without exercising them - layerSchema has two today (the outer { layers } and the
+		// per-layer object), and a future refactor that flattened it to one still has to
+		// prove that here rather than silently sailing through.
+		expect(objects.length).toBeGreaterThan(0);
+		for (const object of objects) {
+			const properties = Object.keys(object.properties ?? {});
+			const required = object.required ?? [];
+			expect(properties.length).toBeGreaterThan(0);
+			expect(required.sort()).toEqual(properties.sort());
+		}
+	});
+
+	// The regression this issue was actually filed against: reintroducing `.optional()`
+	// on a nested field fails the same way `.default()` did in #269's own shipped bug.
+	it('catches an `.optional()` field the way #269 caught `.default()`', () => {
+		const withOptional = z
+			.object({
+				layers: z.array(z.object({ a: z.string(), b: z.number().optional() })).min(1)
+			})
+			.strict();
+		const jsonSchema = z.toJSONSchema(withOptional, {
+			target: 'draft-7',
+			io: 'input'
+		}) as JsonSchemaNode;
+		const perLayer = jsonSchema.properties?.layers?.items;
+
+		expect(perLayer?.required ?? []).not.toContain('b');
 	});
 });

@@ -20,7 +20,10 @@ import { z } from 'zod';
 
 export const AMBIENT_LAYERS_OPERATION = 'audio.layers_parse';
 
-const layerSchema = z.object({
+// Exported so tools.test.ts-style JSON Schema regression coverage (issue #293, guard
+// extended from #269's packages/import/src/tools.test.ts) can reach it directly rather
+// than exercising it only through parseAmbientLayers.
+export const layerSchema = z.object({
 	layers: z
 		.array(
 			z.object({
@@ -36,14 +39,27 @@ const layerSchema = z.object({
 						'continuous: steady background (rain, wind, fire). oneshot: plays once. interval: ' +
 							'repeats at random intervals (thunder, bird chirp, wolf howl).'
 					),
+				// Required + nullable rather than `.optional()` (issue #293, same root cause as
+				// #269 but a different shape than its fix): these two are genuinely conditional
+				// on `loopType`, not naturally empty, so making them plainly required with no
+				// value would be a lie the way #269's `aliases`/`images` -> required swap wasn't.
+				// `.optional()` still drops a property out of the JSON Schema's `required` array
+				// exactly like `.default()` does, and OpenAI's structured-output mode rejects any
+				// object schema whose properties are not all listed there. `.nullable()` is
+				// OpenAI's own documented way to emulate an optional field: the key is always
+				// present, `null` when `loopType` isn't 'interval', a real number when it is.
 				intervalMinSeconds: z
 					.number()
-					.optional()
-					.describe('Minimum seconds between plays. Required for interval type.'),
+					.nullable()
+					.describe(
+						'Minimum seconds between plays. Required (non-null) for interval type, null otherwise.'
+					),
 				intervalMaxSeconds: z
 					.number()
-					.optional()
-					.describe('Maximum seconds between plays. Required for interval type.'),
+					.nullable()
+					.describe(
+						'Maximum seconds between plays. Required (non-null) for interval type, null otherwise.'
+					),
 				volume: z
 					.number()
 					.min(0)
@@ -73,8 +89,8 @@ const AMBIENT_LAYERS_SYSTEM_PROMPT = `You decompose an ambient soundscape descri
 export interface ParsedAmbientLayer {
 	prompt: string;
 	loopType: 'continuous' | 'oneshot' | 'interval';
-	intervalMinSeconds?: number | undefined;
-	intervalMaxSeconds?: number | undefined;
+	intervalMinSeconds: number | null;
+	intervalMaxSeconds: number | null;
 	volume: number;
 }
 

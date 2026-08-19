@@ -177,8 +177,12 @@ function layerResultFrom(
 		generated: flags.generated,
 		credits: flags.credits
 	};
-	if (layer.intervalMinSeconds !== undefined) result.intervalMinSeconds = layer.intervalMinSeconds;
-	if (layer.intervalMaxSeconds !== undefined) result.intervalMaxSeconds = layer.intervalMaxSeconds;
+	// `ParsedAmbientLayer`'s interval fields are `number | null` (issue #293: required +
+	// nullable in the model-facing schema, so the key is always present for OpenAI's
+	// structured-output mode). `AmbientLayerResult` keeps the field itself optional and
+	// omits the key entirely for a non-interval layer, same compact shape as before.
+	if (layer.intervalMinSeconds !== null) result.intervalMinSeconds = layer.intervalMinSeconds;
+	if (layer.intervalMaxSeconds !== null) result.intervalMaxSeconds = layer.intervalMaxSeconds;
 	return result;
 }
 

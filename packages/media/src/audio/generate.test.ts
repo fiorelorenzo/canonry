@@ -62,8 +62,20 @@ function scriptedModel(object: unknown): LanguageModel {
 
 const DOCKSIDE_LAYERS = {
 	layers: [
-		{ prompt: 'gentle rain falling on leaves', loopType: 'continuous', volume: 0.6 },
-		{ prompt: 'a single dock bell toll', loopType: 'oneshot', volume: 0.5 },
+		{
+			prompt: 'gentle rain falling on leaves',
+			loopType: 'continuous',
+			intervalMinSeconds: null,
+			intervalMaxSeconds: null,
+			volume: 0.6
+		},
+		{
+			prompt: 'a single dock bell toll',
+			loopType: 'oneshot',
+			intervalMinSeconds: null,
+			intervalMaxSeconds: null,
+			volume: 0.5
+		},
 		{
 			prompt: 'distant thunder rumble',
 			loopType: 'interval',
@@ -267,7 +279,15 @@ describe('generateAmbientPack (#68)', () => {
 		const first = await generateAmbientPack(baseInput({ audio }));
 
 		const cellarLayers = {
-			layers: [{ prompt: 'dripping water in a stone cellar', loopType: 'continuous', volume: 0.5 }]
+			layers: [
+				{
+					prompt: 'dripping water in a stone cellar',
+					loopType: 'continuous',
+					intervalMinSeconds: null,
+					intervalMaxSeconds: null,
+					volume: 0.5
+				}
+			]
 		};
 		const second = await generateAmbientPack(
 			baseInput({
