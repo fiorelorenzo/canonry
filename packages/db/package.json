@@ -15,7 +15,8 @@
 		"test": "TEST_DB_SUFFIX=$$ vitest run",
 		"migrate": "tsx src/migrate.ts",
 		"generate": "drizzle-kit generate",
-		"seed": "tsx src/seed-fixture.ts"
+		"seed": "tsx src/seed-fixture.ts",
+		"publish-world": "tsx src/publish-world.ts"
 	},
 	"dependencies": {
 		"@canonry/lang": "workspace:*",
