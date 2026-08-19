@@ -15,6 +15,7 @@
 	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
+	import { providerLabel } from '$lib/providers';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import AiMarkedParagraph from '$lib/components/ai/AiMarkedParagraph.svelte';
@@ -81,6 +82,59 @@
 	let askProposalFailures = $state<AskProposalFailure[]>([]);
 	let askError = $state<string | null>(null);
 
+	// #290, decision O3: "keep" is the only exit that writes anything. `provider` arrives on
+	// the `done` event because the guardrail 5 sentence beside the control names the company
+	// that generated this text, and the client is not the place that gets to decide that.
+	let provider = $state<string | null>(null);
+	let keeping = $state(false);
+	let keptId = $state<string | null>(null);
+	let keepError = $state<string | null>(null);
+
+	async function keep() {
+		if (keeping || keptId !== null || askAnswer.length === 0) return;
+		keeping = true;
+		keepError = null;
+		try {
+			const res = await fetch(`/w/${data.universeSlug}/ask/keep`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					question,
+					answer: askAnswer,
+					detailLevel,
+					askedFromPath: page.url.pathname,
+					// Sources travel as references, never as the prose that was rendered from
+					// them: the record cites the entry, and the sentence it was grounded on.
+					sources: askSources.map((source) =>
+						source.kind === 'own_canon'
+							? {
+									kind: 'own_canon' as const,
+									entityId: source.entityId,
+									statement: source.statement
+								}
+							: {
+									kind: 'indexed' as const,
+									dataSourceId: source.dataSourceId,
+									pageTitle: source.pageTitle,
+									url: source.url,
+									statement: source.text
+								}
+					)
+				})
+			});
+			if (!res.ok) {
+				keepError = t.keep.failed;
+				return;
+			}
+			const body = (await res.json()) as { id: string };
+			keptId = body.id;
+		} catch {
+			keepError = t.keep.failed;
+		} finally {
+			keeping = false;
+		}
+	}
+
 	interface PanelEntry {
 		name: string;
 		type: string;
@@ -117,6 +171,10 @@
 		askProposalFailures = [];
 		askError = null;
 		panelEntry = null;
+		// A new answer is a new thing to keep, so the previous keep never carries over.
+		provider = null;
+		keptId = null;
+		keepError = null;
 
 		const res = await fetch(`/w/${data.universeSlug}/ask`, {
 			method: 'POST',
@@ -152,8 +210,13 @@
 				} else if (eventName === 'token' && payload && typeof payload === 'object') {
 					askAnswer += (payload as { delta: string }).delta;
 				} else if (eventName === 'done' && payload && typeof payload === 'object') {
-					const p = payload as { generated: boolean };
+					const p = payload as {
+						generated: boolean;
+						provider: string | null;
+						modelId: string | null;
+					};
 					generated = p.generated;
+					provider = p.provider;
 				} else if (eventName === 'proposal' && payload && typeof payload === 'object') {
 					askProposals = [...askProposals, payload as AskProposalEvent];
 				} else if (eventName === 'proposal_failed' && payload && typeof payload === 'object') {
@@ -196,7 +259,15 @@
 		class="flex-1 overflow-y-auto px-8 py-8"
 		class:max-w-2xl={panelEntry !== null || panelLoading}
 	>
-		<p class="crumb text-xs tracking-wide text-muted uppercase">{t.crumb(data.current.name)}</p>
+		<div class="flex items-baseline justify-between gap-4">
+			<p class="crumb text-xs tracking-wide text-muted uppercase">{t.crumb(data.current.name)}</p>
+			<!-- #290: the way to what was kept. #285 moves the sidebar's own item here once the
+			     floating composer lands; until then this is how the history is reached. -->
+			<a
+				href={resolve(`/w/${data.universeSlug}/ask/kept`)}
+				class="text-xs text-accent hover:underline">{t.keep.historyLink}</a
+			>
+		</div>
 
 		<form
 			class="mt-3 flex items-center gap-2 rounded-lg border border-line-2 bg-panel px-3 py-2"
@@ -247,6 +318,40 @@
 			<p class="mt-4 max-w-measure text-sm leading-relaxed text-ink">
 				{askAnswer}{#if asking}<span class="ai-note text-ai"> …</span>{/if}
 			</p>
+		{/if}
+
+		<!-- #290, decision O3: the one exit that writes. The guardrail 5 sentence sits with it
+		     rather than in a policy page (F3 = C), and it says what is stored, who generated the
+		     text, that it stays a note rather than becoming canon, and that only the GM removes
+		     it. Shown once the answer has finished arriving, because keeping half a stream would
+		     store half a record. -->
+		{#if askAnswer.length > 0 && !asking}
+			<div class="mt-4 max-w-measure rounded-lg border border-line-2 bg-panel-2 p-3">
+				<p class="mt-0 mb-0 text-xs text-ink-2">
+					{t.keep.noteBefore}{provider
+						? t.keep.noteProvider(providerLabel(provider))
+						: t.keep.noteNoProvider}{t.keep.noteAfter}
+					{t.keep.noteLinkBefore}<a href={resolve('/privacy')} class="text-accent hover:underline"
+						>{t.keep.noteLink}</a
+					>.
+				</p>
+				<div class="mt-2 flex items-center gap-3">
+					{#if keptId}
+						<span class="text-xs text-ink-2">{t.keep.kept}</span>
+						<a
+							href={resolve(`/w/${data.universeSlug}/ask/kept`)}
+							class="text-xs text-accent hover:underline">{t.keep.historyLink}</a
+						>
+					{:else}
+						<Button type="button" variant="secondary" size="sm" disabled={keeping} onclick={keep}>
+							{keeping ? t.keep.keeping : t.keep.button}
+						</Button>
+					{/if}
+				</div>
+				{#if keepError}
+					<p class="mt-2 mb-0 text-xs text-danger">{keepError}</p>
+				{/if}
+			</div>
 		{/if}
 
 		{#if askProposals.length > 0}

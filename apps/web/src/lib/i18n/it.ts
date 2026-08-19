@@ -1534,6 +1534,47 @@ export const it: Messages = {
 				reviewLink: 'Rivedi nelle proposte',
 				failed: (message) =>
 					`Un tentativo di proposta non è riuscito, e non è stato proposto nulla: ${message}`
+			},
+			keep: {
+				button: 'Conserva',
+				keeping: 'Sto conservando…',
+				kept: 'Conservata',
+				failed: 'Non è stato possibile conservare questa risposta.',
+				invalidRequest: 'Questa risposta non può essere conservata così come è stata inviata.',
+				sourceNotInUniverse: 'Una di queste fonti non appartiene a questo universo.',
+				methodNotAllowed: 'Invia con POST una risposta da conservare.',
+				noteBefore:
+					'Conservandola vengono salvati la domanda, la risposta e le voci che cita, come una tua nota. ',
+				noteProvider: (provider) => `${provider} ha scritto la risposta dal tuo canone.`,
+				noteNoProvider:
+					"Nessun modello l'ha scritta: la scrittura è disattivata per questo universo, quindi la risposta sono le tue stesse frasi ripetute.",
+				noteAfter:
+					' Resta una nota e non entra a fare parte di nessuna voce, i giocatori non la vedono, e resta finché non la elimini. ',
+				// The elision stays on the prefix, so the link's own text is a real word rather
+				// than something starting with an apostrophe.
+				noteLinkBefore:
+					"Quale azienda legge la tua campagna per rispondere a una domanda è indicato nell'",
+				noteLink: 'informativa completa',
+				historyLink: 'Risposte conservate'
+			},
+			kept: {
+				headTitle: (universeName) => `Risposte conservate: ${universeName}`,
+				crumb: (universeName) => `Risposte conservate · ${universeName}`,
+				heading: 'Risposte conservate',
+				note: 'Queste sono le risposte che hai scelto di conservare. Ognuna è testo generato dal tuo canone e salvato come una tua nota: non entra a fare parte di una voce senza una proposta che accetti, i giocatori non la vedono, e nessuno la rimuove tranne te. Eliminarne una elimina la riga stessa, senza copie da nessuna parte.',
+				empty:
+					'Non hai ancora conservato nulla. Chiedi qualcosa al Loremaster, e conserva la risposta se vale la pena.',
+				askLink: 'Chiedi al Loremaster',
+				askedFrom: 'Chiesta da',
+				writtenBy: (provider) => `Scritta da ${provider}`,
+				writtenWithoutModel: 'Letta dal tuo canone, senza modello',
+				sourcesLabel: 'Fonti',
+				deletedEntry: 'Questa voce è stata eliminata nel frattempo.',
+				delete: 'Elimina',
+				deleteConfirmPrompt: 'Eliminarla definitivamente?',
+				deleteConfirmCancel: 'Annulla',
+				deleteFailed: 'Non è stato possibile eliminare questa risposta.',
+				deleteNotFound: 'Questa risposta non esiste più.'
 			}
 		},
 

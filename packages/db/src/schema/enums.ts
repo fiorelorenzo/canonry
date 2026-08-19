@@ -243,3 +243,24 @@ export type CreditTransactionKind = (typeof creditTransactionKindEnum.enumValues
 // 'detected' row and must never touch a 'human' one.
 export const languageSourceEnum = pgEnum('language_source', ['detected', 'human']);
 export type LanguageSource = (typeof languageSourceEnum.enumValues)[number];
+
+// SPEC.md §5's five detail levels, matching @canonry/copilot's `AskDetailLevel` union
+// exactly. Stored on a kept answer (issue #290) because the same question answered at
+// '1_line' and at 'full' are two different answers, and a history that recorded only the
+// text would make every short one look like a bad answer.
+export const askDetailLevelEnum = pgEnum('ask_detail_level', [
+	'1_line',
+	'short',
+	'normal',
+	'detailed',
+	'full'
+]);
+export type AskDetailLevel = (typeof askDetailLevelEnum.enumValues)[number];
+
+// The two retrieval layers `runAsk` cites from, which store differently: own canon is an
+// entity reference, an indexed page is a corpus reference plus the page's own title and
+// URL. Kept as a column rather than derived from which foreign key is populated, because
+// an own-canon citation whose entry was later deleted has a null entity id and still has
+// to read as an own-canon citation.
+export const keptAnswerSourceKindEnum = pgEnum('kept_answer_source_kind', ['own_canon', 'indexed']);
+export type KeptAnswerSourceKind = (typeof keptAnswerSourceKindEnum.enumValues)[number];
