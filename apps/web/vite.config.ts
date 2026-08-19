@@ -13,8 +13,17 @@ import { sveltekit } from '@sveltejs/kit/vite';
 // already assumes a local Postgres at 127.0.0.1:55432.
 // TEST_DATABASE_URL comes first because that is the variable CI sets and the one every
 // package's own test harness already reads, and CI's Postgres is not on this box's dev port.
+// After it, TEST_DB_SUFFIX, so this app isolates a run the same way every other package
+// does through packages/db/test/env.ts: two runs in two worktrees otherwise share one
+// database and the second one's global setup drops it out from under the first. AGENTS.md
+// documents that convention for the whole repo and this app used to be the exception that
+// silently ignored it, which is worse than not having it: nine agents in one day passed
+// TEST_DB_SUFFIX here and all of them wrote to the dev database instead.
 process.env.DATABASE_URL ??=
-	process.env.TEST_DATABASE_URL ?? 'postgres://canonry:canonry@127.0.0.1:55432/canonry';
+	process.env.TEST_DATABASE_URL ??
+	(process.env.TEST_DB_SUFFIX
+		? `postgres://canonry:canonry@127.0.0.1:55432/canonry_test_${process.env.TEST_DB_SUFFIX}`
+		: 'postgres://canonry:canonry@127.0.0.1:55432/canonry');
 // Issue #120: hooks.server.ts imports $lib/server/auth.ts, which throws at module load
 // with no BETTER_AUTH_SECRET (issue #86's own fail-loud guard) - a test that imports the
 // hook (src/hooks.server.test.ts) cannot even load without one, and CI's test job has no

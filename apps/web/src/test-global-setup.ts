@@ -10,10 +10,14 @@
 import { closeDb, createDb, runMigrations } from '@canonry/db';
 import postgres from 'postgres';
 
+// Same precedence as vite.config.ts, and it has to stay the same: this file runs in the
+// vitest global-setup process and the tests run in workers, so the two resolve the URL
+// independently and a disagreement would migrate one database and query another.
 const DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
-	process.env.DATABASE_URL ??
-	'postgres://canonry:canonry@127.0.0.1:55432/canonry';
+	(process.env.TEST_DB_SUFFIX
+		? `postgres://canonry:canonry@127.0.0.1:55432/canonry_test_${process.env.TEST_DB_SUFFIX}`
+		: (process.env.DATABASE_URL ?? 'postgres://canonry:canonry@127.0.0.1:55432/canonry'));
 
 export default async function setup(): Promise<void> {
 	const target = new URL(DATABASE_URL);
