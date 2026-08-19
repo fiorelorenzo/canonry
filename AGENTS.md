@@ -76,11 +76,20 @@ set `TEST_DB_SUFFIX=$$` in their `test` script, and `packages/db/test/env.ts` tu
 recreates it, and terminates every other backend connected to it, so two runs sharing a
 suffix kill each other mid-query, which reads like a `postgres.js` bug and is not one. The
 default is `local`, so two `vitest` runs started by hand in two worktrees do collide unless
-you set it. **`apps/web`, `packages/bench` and `packages/eval` are the three that do not set
-it**, so those are the ones to prefix yourself (`TEST_DB_SUFFIX=w<issue> pnpm --filter web
-test`) whenever anything else is running. CI sets `TEST_DATABASE_URL` explicitly and keeps one
-deterministic name. Qdrant needs nothing: each vector test creates a scratch collection under
-a fresh UUID and drops it afterwards.
+you set it. **`apps/web` does not set it for you, so pass it yourself**
+(`TEST_DB_SUFFIX=w<issue> pnpm --filter web test`) whenever anything else is running: with no
+suffix and no `TEST_DATABASE_URL` that suite runs against the **dev** database, migrated in
+place rather than dropped, which is deliberate and also means an unsuffixed run writes where a
+running dev server reads. `packages/bench` and `packages/eval` need none of this: neither has a
+test that touches Postgres. CI sets `TEST_DATABASE_URL` explicitly and keeps one deterministic
+name, and that variable still wins everywhere when it is set. Qdrant needs nothing: each vector
+test creates a scratch collection under a fresh UUID and drops it afterwards.
+
+That last part was wrong in this file for a day, and the way it was wrong is worth keeping:
+`apps/web` read only `TEST_DATABASE_URL` and `DATABASE_URL`, so the documented
+`TEST_DB_SUFFIX=w<issue>` prefix was a silent no-op there and nine agents in one wave all
+wrote to the dev database believing they were isolated. A convention a package ignores without
+saying so is worse than no convention, which is why the app now reads the suffix too.
 
 **The suffix is per run, not per file, and that is a second race.** Vitest's fork pool runs
 a package's test files concurrently against that one database, so two files that drive the
