@@ -64,6 +64,40 @@ describe('message catalogue (issue #120)', () => {
 	});
 });
 
+/** issue #263: the onboarding upload/confirm screen's detail line under "Rilevato: …"
+ * used to be an English sentence composed server-side (`detectSource`,
+ * `$lib/server/onboarding.ts`) and stored on the form data verbatim. It now travels as
+ * a `DetectedDetail` value and is rendered here, in the reader's own locale - proven by
+ * checking the Italian catalogue produces Italian, not the English sentence the server
+ * used to hand back directly. */
+describe('upload detection detail renders in the reader locale (issue #263)', () => {
+	vitestIt("the onenote detail is Italian, not the server's old English sentence", () => {
+		const rendered = it.import.upload.confirm.detail({ kind: 'onenote', pages: 4 });
+		expect(rendered).toContain('pagine');
+		expect(rendered).not.toContain('exported page');
+	});
+
+	vitestIt('every DetectedDetail kind renders distinct English and Italian text', () => {
+		const cases: Parameters<typeof en.import.upload.confirm.detail>[0][] = [
+			{ kind: 'obsidian', notes: 3 },
+			{ kind: 'obsidian-unsure', markdownFiles: 2 },
+			{ kind: 'kanka', jsonFiles: 5 },
+			{ kind: 'world-anvil' },
+			{ kind: 'onenote', pages: 1 },
+			{ kind: 'pdf' },
+			{ kind: 'docx' },
+			{ kind: 'generic', files: 7 }
+		];
+		for (const detail of cases) {
+			const enText = en.import.upload.confirm.detail(detail);
+			const itText = it.import.upload.confirm.detail(detail);
+			expect(enText.length).toBeGreaterThan(0);
+			expect(itText.length).toBeGreaterThan(0);
+			expect(itText).not.toBe(enText);
+		}
+	});
+});
+
 describe('locale-aware Intl formatters (SPEC.md §17)', () => {
 	vitestIt('Italian credits use a decimal comma, English a decimal point', () => {
 		// SPEC.md §17's literal example: the same 4-digit quota, grouped in both

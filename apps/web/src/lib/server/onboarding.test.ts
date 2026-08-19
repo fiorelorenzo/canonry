@@ -72,7 +72,7 @@ describe('onenote export detection and enumeration (issue #162)', () => {
 		const detected = await detectSource(ONENOTE_EXPORT);
 		expect(detected.playbookId).toBe('onenote');
 		expect(detected.confident).toBe(true);
-		expect(detected.detail).toContain('exported page');
+		expect(detected.detail).toEqual({ kind: 'onenote', pages: 4 });
 	});
 
 	it('documentsForPlaybook enumerates exactly the three real pages, not the attachment folders', async () => {

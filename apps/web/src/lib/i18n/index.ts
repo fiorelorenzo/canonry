@@ -24,7 +24,7 @@ export {
 	type Locale
 } from '@canonry/lang';
 export { dateFormat, numberFormat, pluralRules } from './intl.js';
-export type { Messages } from './messages.js';
+export type { Messages, DetectedDetail } from './messages.js';
 
 import { toLocale, type Locale } from '@canonry/lang';
 import { en } from './en.js';

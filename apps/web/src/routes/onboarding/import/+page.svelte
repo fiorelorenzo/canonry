@@ -72,7 +72,7 @@
 						: t.confirm.notDetected(data.playbookLabels[form.playbookId])}
 				</h2>
 				{#if form.detail}
-					<p class="mt-1 text-sm text-muted">{form.detail}</p>
+					<p class="mt-1 text-sm text-muted">{t.confirm.detail(form.detail)}</p>
 				{/if}
 			</div>
 

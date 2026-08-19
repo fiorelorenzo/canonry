@@ -10,6 +10,7 @@
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
+	import { renderOutcomeNote } from '$lib/import/outcome-note';
 	import LiveProposalFeed from '$lib/components/onboarding/LiveProposalFeed.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import type { ProposalSummary } from '$lib/components/onboarding/proposalView';
@@ -97,6 +98,7 @@
 
 	const pendingCount = $derived(proposals.filter((p) => p.outcome === 'pending').length);
 	const isTerminal = $derived(TERMINAL_STATUSES.has(job.status));
+	const renderedOutcomeNote = $derived(renderOutcomeNote(data.locale, job.outcomeNote));
 
 	const terminalHeading = $derived(
 		job.status === 'finished'
@@ -139,8 +141,8 @@
 		<p class="text-sm text-ink">
 			{t.job.statusLine(job.proposalsEmitted, job.documentCount, t.job.statusWord[job.status])}
 		</p>
-		{#if job.outcomeNote}
-			<p class="mt-1 text-sm text-muted">{job.outcomeNote}</p>
+		{#if renderedOutcomeNote}
+			<p class="mt-1 text-sm text-muted">{renderedOutcomeNote}</p>
 		{/if}
 	</div>
 

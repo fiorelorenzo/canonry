@@ -54,3 +54,19 @@ describe("packages/bench/src/e2e/import.ts admits jobs under the product's own b
 		expect(runOneBody).toMatch(/maxCredits: budgetCredits/);
 	});
 });
+
+describe("packages/bench/src/e2e/import.ts uses the product's own matching thresholds", () => {
+	it('imports MATCH_THRESHOLDS from @canonry/import rather than a private copy of the literal', () => {
+		// The claim this pins down: a matching-audit finding that this file "defines its
+		// own thresholds" separately from the product's. It used to - a hand-copied
+		// `{ matchAbove: 0.85, newBelow: 0.5 }` next to a comment promising it matched
+		// `onboarding.ts`. Nothing enforced that promise. Now both read the same binding
+		// (`@canonry/import`'s `matching.ts`), so a change to the product's thresholds
+		// cannot silently leave this harness testing a stale band.
+		expect(SOURCE).toMatch(
+			/import\s*\{[^}]*\bMATCH_THRESHOLDS\b[^}]*\}\s*from\s*'@canonry\/import'/s
+		);
+		expect(SOURCE).not.toMatch(/matchAbove:\s*[\d.]/);
+		expect(SOURCE).not.toMatch(/newBelow:\s*[\d.]/);
+	});
+});

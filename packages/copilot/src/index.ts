@@ -129,3 +129,13 @@ export {
 // bundle imports them directly. Re-exporting them through this barrel is what dragged this
 // package's server graph into the client bundle once already (#197), so anything that needs
 // them, including this package, imports `@canonry/lang`.
+
+// issue #263: packages/import's job-runner.ts is outside this package, so its rationale
+// strings have to come through the barrel like everything else here does - see
+// speech.ts's own doc comment on this export for why they are not model output.
+export {
+	IMPORT_RATIONALE_EXTRACTED,
+	IMPORT_RATIONALE_AMBIGUOUS,
+	IMPORT_RATIONALE_MATCHED,
+	IMPORT_RATIONALE_RELATION
+} from './speech.js';

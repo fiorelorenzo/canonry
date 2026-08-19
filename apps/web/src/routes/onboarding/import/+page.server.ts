@@ -130,7 +130,7 @@ export const actions: Actions = {
 			fileBytes,
 			playbookId,
 			confident: true,
-			detail: ''
+			detail: null
 		};
 
 		if (!hasLiveGatewayCredentials() && !FAKE_DRIVER_SUPPORTED_PLAYBOOKS.has(playbookId)) {
@@ -233,7 +233,8 @@ export const actions: Actions = {
 				playbook,
 				documents,
 				artefactPath: tempUploadPath(tempId),
-				budgetCredits
+				budgetCredits,
+				locale: locals.locale
 			});
 		}
 

@@ -91,7 +91,16 @@ import {
 	type ProposalRow,
 	type RelationTypeVocabResolutionInput
 } from '@canonry/db';
-import { resolveRelationType, type Embedder, type RelationTypeResolution } from '@canonry/copilot';
+import {
+	resolveRelationType,
+	type Embedder,
+	type RelationTypeResolution,
+	IMPORT_RATIONALE_EXTRACTED,
+	IMPORT_RATIONALE_AMBIGUOUS,
+	IMPORT_RATIONALE_MATCHED,
+	IMPORT_RATIONALE_RELATION
+} from '@canonry/copilot';
+import type { Locale } from '@canonry/lang';
 import { chargeFor, recordCall } from '@canonry/ai';
 import type {
 	DocumentStatus,
@@ -271,6 +280,12 @@ export interface RunImportJobParams {
 	/** issue #26: this job cancels itself once this many milliseconds of wall clock pass,
 	 * independent of whatever HTTP request or browser tab started it. */
 	timeoutMs: number;
+	/** issue #263: the reader's interface locale, threaded into each proposal's
+	 * deterministic `rationale` (speech.ts's `IMPORT_RATIONALE_*`) and recorded on
+	 * `proposal.locale` exactly like every other row this codebase writes speech into.
+	 * Optional and defaulting to `'en'` so a caller with no request-scoped locale (a
+	 * script, a test) still gets a real sentence rather than an unset one. */
+	locale?: Locale;
 }
 
 export interface DocumentOutcome {
@@ -298,9 +313,133 @@ export interface DocumentOutcome {
 	detail: string;
 }
 
+/** issue #263: `outcome_note` is read back later, possibly by a reader whose locale is
+ * not the one the job ran under, so this writes a stable machine-readable payload
+ * instead of an English sentence - the reader's own `messages()` catalogue renders it
+ * (`apps/web/src/lib/import/outcome-note.ts`). `v: 1` so a future reshape can tell a row
+ * it does not understand from one it does. `parseOutcomeNote` below is this payload's
+ * only reader; a row written before this change is not valid JSON (or is the column's
+ * `''` default) and comes back as `{ kind: 'legacy', text }` - the reader falls back to
+ * showing that English text verbatim rather than crashing or going blank. */
+export type OutcomeNoteOffenderReason =
+	| 'step_ceiling'
+	| 'cancelled_before_step'
+	| 'cancelled_mid_step'
+	| 'tool_calls_unparseable'
+	| 'step_worst_case_exceeds_budget'
+	| 'job_budget_exhausted'
+	| 'never_started'
+	| 'model_call_failed'
+	| 'loop_guard'
+	| 'other';
+
+export interface OutcomeNoteOffender {
+	path: string;
+	reason: OutcomeNoteOffenderReason;
+	othersCount: number;
+	/** `model_call_failed` only. */
+	errorName?: string;
+	/** `loop_guard` only. */
+	toolName?: string;
+	loopCount?: number;
+	/** `other` only - `classifyOffenderDetail`'s fallback, the raw (English)
+	 * `DocumentOutcome.detail` for a reason this catalogue does not name yet. */
+	text?: string;
+}
+
+export interface OutcomeNoteLossy {
+	path: string;
+	count: number;
+	othersCount: number;
+}
+
+export type OutcomeNotePayload =
+	| { v: 1; kind: 'finished'; documents: number; proposals: number; lossy?: OutcomeNoteLossy }
+	| { v: 1; kind: 'no_documents' }
+	| { v: 1; kind: 'unchanged'; documents: number }
+	| {
+			v: 1;
+			kind: 'stopped_no_offender';
+			documents: number;
+			proposals: number;
+			lossy?: OutcomeNoteLossy;
+	  }
+	| { v: 1; kind: 'offender'; offender: OutcomeNoteOffender; lossy?: OutcomeNoteLossy };
+
+export type ParsedOutcomeNote = OutcomeNotePayload | { kind: 'legacy'; text: string } | null;
+
+/** `raw` is `import_job.outcome_note` - `''` (the column default, an unsettled or
+ * no-note job) parses to `null`, valid `v: 1` JSON parses to its payload, anything else
+ * (a note written before this issue) comes back as `legacy` carrying the original text. */
+export function parseOutcomeNote(raw: string): ParsedOutcomeNote {
+	if (!raw) return null;
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		if (
+			parsed !== null &&
+			typeof parsed === 'object' &&
+			(parsed as { v?: unknown }).v === 1 &&
+			typeof (parsed as { kind?: unknown }).kind === 'string'
+		) {
+			return parsed as OutcomeNotePayload;
+		}
+	} catch {
+		// Not JSON at all - a pre-#263 note. Falls through to the legacy return below.
+	}
+	return { kind: 'legacy', text: raw };
+}
+
+/** `DocumentOutcome.detail` is drawn from a small closed set of literal strings
+ * `gateway-driver.ts`'s `runDocument` and `tools.ts`'s loop guard yield (this module's
+ * own `'never started'` and `'unchanged since the last import'` join that set) - matched
+ * here rather than threaded as a code from the driver, since the driver's own progress
+ * events are consumed by more than this function and changing their shape is a bigger
+ * move than this issue asks for. Anything that does not match (there is currently
+ * exactly one such literal, `model call failed: ${errorName}`, itself pattern-matched
+ * below) falls back to `'other'` with the raw text kept as a last resort. */
+function classifyOffenderDetail(detail: string): Omit<OutcomeNoteOffender, 'path' | 'othersCount'> {
+	switch (detail) {
+		case "this document's step ceiling was reached":
+			return { reason: 'step_ceiling' };
+		case 'cancelled before this step started':
+			return { reason: 'cancelled_before_step' };
+		case 'cancelled mid-step':
+			return { reason: 'cancelled_mid_step' };
+		case 'every tool call in this step failed to parse, most likely truncated by the output limit':
+			return { reason: 'tool_calls_unparseable' };
+		case "this step's worst case would not fit this job's remaining credit budget":
+			return { reason: 'step_worst_case_exceeds_budget' };
+		case "this job's credit budget is exhausted":
+			return { reason: 'job_budget_exhausted' };
+		case 'never started':
+			return { reason: 'never_started' };
+	}
+	const modelFailed = /^model call failed: (.+)$/.exec(detail);
+	if (modelFailed) return { reason: 'model_call_failed', errorName: modelFailed[1] ?? '' };
+	const loop =
+		/^stuck in a loop: (.+) was called with identical arguments (\d+) times in a row, so this document was ended rather than run to its step ceiling$/.exec(
+			detail
+		);
+	if (loop)
+		return { reason: 'loop_guard', toolName: loop[1] ?? '', loopCount: Number(loop[2] ?? 0) };
+	return { reason: 'other', text: detail };
+}
+
+/** Merges `lossy` into a payload's JSON string only when there is one -
+ * `exactOptionalPropertyTypes` treats a present `lossy: undefined` key differently from
+ * an absent one, and `OutcomeNotePayload` wants the latter, so this stringifies from two
+ * branches instead of assigning a possibly-`undefined` property. Three call sites below,
+ * one per payload kind that carries a lossy suffix. */
+function stringifyWithLossy(
+	base: Record<string, unknown>,
+	lossy: OutcomeNoteLossy | undefined
+): string {
+	return JSON.stringify(lossy ? { ...base, lossy } : base);
+}
+
 /** issue #177, guardrail 7 ("the product says what did not add up, it never
  * certifies that anything is fine"): a job that did not finish cleanly names the
- * document(s) that stopped it, not only a count. Several outstanding documents
+ * document that stopped it, not only a count. Several outstanding documents
  * name the first and say how many others there were, rather than an unbounded
  * sentence - `outcome_note` is one line on a review screen, not a log. */
 function buildOutcomeNote(
@@ -312,22 +451,23 @@ function buildOutcomeNote(
 	// issue #212, guardrail 7: a document can lose tool calls to a step's output limit
 	// without ever becoming one of the "unfinished" documents below - the model still
 	// gets its step budget to retry narrower, and the document usually still finishes.
-	// Computed once, up front, so every branch below can append it instead of only the
+	// Computed once, up front, so every branch below can attach it instead of only the
 	// branch its author happened to be thinking about staying honest about it.
 	const lossy = outcomes.filter((outcome) => outcome.lostToolCallCount > 0);
-	const [firstLoss, ...restLoss] = lossy.map(
-		(outcome) =>
-			`${outcome.sourcePath} lost ${outcome.lostToolCallCount} tool call(s) along the way, most likely truncated by a step's output limit`
-	);
-	const lossNote = !firstLoss
-		? null
-		: restLoss.length > 0
-			? `${firstLoss} (and ${restLoss.length} other document(s) that lost some too)`
-			: firstLoss;
+	const [firstLoss, ...restLoss] = lossy;
+	const lossyPayload: OutcomeNoteLossy | undefined = firstLoss
+		? {
+				path: firstLoss.sourcePath,
+				count: firstLoss.lostToolCallCount,
+				othersCount: restLoss.length
+			}
+		: undefined;
 
 	if (finalStatus === 'finished') {
-		const base = `${outcomes.length} document(s) processed, ${proposalsEmitted} proposal(s) emitted`;
-		return lossNote ? `${base}; ${lossNote}` : base;
+		return stringifyWithLossy(
+			{ v: 1, kind: 'finished', documents: outcomes.length, proposals: proposalsEmitted },
+			lossyPayload
+		);
 	}
 
 	const unfinished = outcomes.filter(
@@ -341,22 +481,36 @@ function buildOutcomeNote(
 	const neverStarted = documentsToRun.filter((doc) => !settledIds.has(doc.id));
 
 	const offenders = [
-		...unfinished.map((outcome) => `${outcome.sourcePath}: ${outcome.detail}`),
-		...neverStarted.map((doc) => `${doc.sourcePath}: never started`)
+		...unfinished.map((outcome) => ({ path: outcome.sourcePath, detail: outcome.detail })),
+		...neverStarted.map((doc) => ({ path: doc.sourcePath, detail: 'never started' }))
 	];
 	const [first, ...rest] = offenders;
 	if (!first) {
 		// Every branch that sets finalStatus to something other than 'finished' also
 		// puts at least one entry into unfinished or neverStarted, so this is not
 		// reachable - kept honest rather than silent if that ever stops being true.
-		const base = `stopped before finishing: ${outcomes.length} document(s) settled, ${proposalsEmitted} proposal(s) emitted`;
-		return lossNote ? `${base}; ${lossNote}` : base;
+		return stringifyWithLossy(
+			{
+				v: 1,
+				kind: 'stopped_no_offender',
+				documents: outcomes.length,
+				proposals: proposalsEmitted
+			},
+			lossyPayload
+		);
 	}
-	const offenderNote =
-		rest.length > 0
-			? `${first} (and ${rest.length} other document(s) that did not finish cleanly)`
-			: first;
-	return lossNote ? `${offenderNote}; ${lossNote}` : offenderNote;
+	return stringifyWithLossy(
+		{
+			v: 1,
+			kind: 'offender',
+			offender: {
+				path: first.path,
+				othersCount: rest.length,
+				...classifyOffenderDetail(first.detail)
+			}
+		},
+		lossyPayload
+	);
 }
 
 export interface RunImportJobResult {
@@ -422,10 +576,11 @@ export class ImportJobRunner {
 		if (documentsToRun.length === 0) {
 			const settled = await settleImportJob(db, params.dbJobId, {
 				status: 'finished',
-				outcomeNote:
+				outcomeNote: JSON.stringify(
 					outcomes.length > 0
-						? `nothing changed: all ${outcomes.length} document(s) matched what was already imported`
-						: 'no documents to process',
+						? ({ v: 1, kind: 'unchanged', documents: outcomes.length } satisfies OutcomeNotePayload)
+						: ({ v: 1, kind: 'no_documents' } satisfies OutcomeNotePayload)
+				),
 				proposalsEmitted: 0
 			});
 			await syncMissingAfterSettle(params, settled.job.status, params.dbJobId);
@@ -749,6 +904,7 @@ async function materializeDocumentProposals(
 	contentHash: string
 ): Promise<number> {
 	const { db } = params;
+	const locale: Locale = params.locale ?? 'en';
 	const localIdToEntityId = new Map<string, string>();
 	const localIdToType = new Map<string, EntityProposalPayload['type']>();
 	const resolved: ResolvedEntityCandidate[] = [];
@@ -811,7 +967,7 @@ async function materializeDocumentProposals(
 				candidate: {
 					kind: 'update',
 					targetEntityId: decision.candidateId,
-					rationale: `Re-imported from "${payload.sourceRef.path}" - matched an existing entity.`,
+					rationale: IMPORT_RATIONALE_MATCHED[locale](payload.sourceRef.path),
 					evidence: matchEvidence(
 						documentId,
 						payload,
@@ -837,8 +993,11 @@ async function materializeDocumentProposals(
 					targetEntityId: null,
 					rationale:
 						decision.outcome === 'ask'
-							? `Extracted from "${payload.sourceRef.path}" - ambiguous match against ${ambiguousCandidateIds.length} existing entities, needs a human decision.`
-							: `Extracted from "${payload.sourceRef.path}" as a new entity.`,
+							? IMPORT_RATIONALE_AMBIGUOUS[locale](
+									payload.sourceRef.path,
+									ambiguousCandidateIds.length
+								)
+							: IMPORT_RATIONALE_EXTRACTED[locale](payload.sourceRef.path),
 					evidence: matchEvidence(
 						documentId,
 						payload,
@@ -887,7 +1046,7 @@ async function materializeDocumentProposals(
 			}
 		);
 
-		const rationale = `Re-imported from "${relationPayload.sourceRef.path}".`;
+		const rationale = IMPORT_RATIONALE_RELATION[locale](relationPayload.sourceRef.path);
 		const evidence = {
 			documentId,
 			sourceRef: relationPayload.sourceRef,
@@ -938,7 +1097,8 @@ async function materializeDocumentProposals(
 		summary: `Import: ${resolved.length} entit${resolved.length === 1 ? 'y' : 'ies'}, ${relationCandidates.length} relation(s) from document "${documentId}".`,
 		candidateCap: allCandidates.length,
 		estimatedCredits: 0,
-		candidates: allCandidates
+		candidates: allCandidates,
+		locale
 	});
 
 	const allPatches = [...resolved.map((r) => r.patch), ...relationCandidates.map((r) => r.patch)];

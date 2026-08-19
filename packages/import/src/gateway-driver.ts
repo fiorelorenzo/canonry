@@ -160,9 +160,12 @@ const CHARS_PER_TOKEN_ESTIMATE = 4;
  * 747,111 input tokens against 5,587 output tokens, a ratio of 134 to 1, because every step
  * resends the accumulated transcript (#271). An output cap is therefore not where a job's
  * money goes, and trading a little worst-case output for a document that finishes at all is
- * plainly worth it. What this does not fix is the underlying fragility: a step whose calls
- * all truncate still fails its document rather than retrying with a smaller ask, which is
- * #273. This buys room, it does not make the loop robust. */
+ * plainly worth it. What this alone does not fix is the underlying fragility: a step
+ * whose calls all truncate here still fails its document, on the first try, with no
+ * attempt at a smaller ask - #273 covers that seam; see `STEP_PARSE_RETRY_LIMIT` and
+ * the retry loop in `runDocument` below for the rest of the fix. This raise buys room
+ * on its own; it does not by itself make the loop robust to a step too big for any
+ * fixed ceiling. */
 const STEP_MAX_OUTPUT_TOKENS = 24576;
 
 /** Rough, constant-per-tool overhead for the JSON-schema encoding every enabled tool's
@@ -262,6 +265,44 @@ interface RunDocumentParams {
 	budget: BudgetTracker;
 }
 
+/** issue #273: how many extra attempts one step gets, each asking for less, after every
+ * tool call in it comes back invalid, before the document fails exactly as it did before
+ * this existed. A retry is a real model call - priced against the budget and charged and
+ * logged the same as any other (see the retry loop in `runDocument`) - so this cannot be
+ * unbounded, or a document that keeps overflowing `STEP_MAX_OUTPUT_TOKENS` no matter how
+ * small the ask would spend the job's budget one retry at a time and never finish either
+ * way. Three retries (four attempts total for the one step) gives the smaller-ask
+ * instruction below room to actually work rather than judging it on a single reroll, and
+ * keeps the worst case this adds small next to a document's real `stepBudget` (tens of
+ * steps for a healthy run) - a step that still cannot produce one valid tool call after
+ * being told four times to propose less is not a truncation the model can be argued out
+ * of, and failing loudly, as today, is the right call at that point. */
+const STEP_PARSE_RETRY_LIMIT = 3;
+
+/** issue #273: appended as a fresh user turn ahead of a retry - never the previous
+ * (invalid) attempt's own output, which `runDocument`'s retry loop drops rather than
+ * resends (see the loop's own comment for why re-sending it would be worse than useless).
+ * This is deliberately an instruction, not a context trim: `STEP_MAX_OUTPUT_TOKENS` caps
+ * this step's *output*, and shrinking the *input* transcript does not mechanically shrink
+ * the next response - the two root causes issue #273 itself lists (a document's transcript
+ * growing step over step, and a playbook's own "catch up, propose everything left" framing
+ * near a step ceiling) are both about what the model decides to attempt in one turn, which
+ * a direct instruction addresses without the risk of the other lever: slicing arbitrary
+ * messages out of a tool-calling transcript can orphan a tool result whose matching call
+ * got cut, and a real provider rejects that outright - trading a soft, recoverable
+ * truncation for a hard, unrecoverable request error is a worse trade than the one this
+ * retry exists to avoid. */
+function retryWithSmallerAskMessage(): ModelMessage {
+	return {
+		role: 'user',
+		content:
+			"Your last response's tool calls could not be read back, most likely because " +
+			'the response was cut off before it finished. Propose fewer things this turn - ' +
+			"a handful, not everything that's left - call checkpoint, and continue with the " +
+			'rest on your next turn.'
+	};
+}
+
 /** Runs the bounded tool-calling loop for exactly one document, yielding events as
  * each step resolves. Returns (without throwing) on completion, on hitting the
  * playbook's step ceiling, on cancellation, or on hitting the job's credit ceiling -
@@ -330,69 +371,109 @@ async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent>
 			return;
 		}
 
-		const purpose: ImportModelPurpose = nextPurposeIsMultimodal
-			? 'multimodal'
-			: document.hard
-				? 'premium'
-				: playbook.modelPurpose;
-		const resolved = await params.models.resolve(purpose);
-		const languageModel = params.gateway(resolved.languageModel);
+		// issue #273: a step whose every tool call fails to parse gets up to
+		// STEP_PARSE_RETRY_LIMIT extra attempts, each asking for less, before this step is
+		// allowed to fail the document below. `outcome` is always assigned by the time it
+		// is read after this loop: every exit (`break`) is reached only once a `callStep`
+		// call has actually returned, either in this iteration or - for the ceiling-can't-
+		// afford-a-retry exit - an earlier one of the same step.
+		let outcome!: StepOutcome;
+		let retryCount = 0;
 
-		// issue #134: price this step's worst case before calling the model at all - known
-		// input (the system prompt, the conversation so far, the tools on offer) plus the
-		// most output the call can produce (`STEP_MAX_OUTPUT_TOKENS`, enforced below by
-		// `callStep`'s own `maxOutputTokens`). A step that cannot fit even in the worst case
-		// is refused here, before it starts, rather than discovered afterwards.
-		const worstCase = estimateWorstCaseCredits(
-			playbook.systemPrompt,
-			messages,
-			toolCount,
-			resolved.params
-		);
-		const reserveCredits = estimateWorstCaseCredits(
-			playbook.systemPrompt,
-			initialMessages,
-			toolCount,
-			resolved.params
-		);
-		if (params.budget.wouldExceedCeiling(worstCase, reserveCredits)) {
-			params.logger.log({
-				event: 'budget_ceiling',
-				status: 'ok',
-				jobId,
-				documentId: document.id,
-				playbookId: playbook.id,
-				playbookVersion: playbook.version,
-				step,
-				toolName: null,
-				latencyMs: 0,
-				errorName: null
-			});
-			yield progressEvent(
-				ctx,
-				step,
-				'stopped_at_ceiling',
-				"this step's worst case would not fit this job's remaining credit budget"
-			);
-			return;
-		}
+		for (;;) {
+			const purpose: ImportModelPurpose = nextPurposeIsMultimodal
+				? 'multimodal'
+				: document.hard
+					? 'premium'
+					: playbook.modelPurpose;
+			const resolved = await params.models.resolve(purpose);
+			const languageModel = params.gateway(resolved.languageModel);
 
-		const startedAt = Date.now();
-		let outcome: StepOutcome;
-		try {
-			outcome = await callStep(
-				languageModel,
+			// issue #273: a retry sends the real transcript plus one "ask for less"
+			// instruction - never a previous (failed) attempt's own output, which
+			// `retryWithSmallerAskMessage`'s own comment explains is dropped rather than
+			// resent.
+			const stepMessages =
+				retryCount === 0 ? messages : [...messages, retryWithSmallerAskMessage()];
+
+			// issue #134: price this step's worst case before calling the model at all - known
+			// input (the system prompt, the conversation so far, the tools on offer) plus the
+			// most output the call can produce (`STEP_MAX_OUTPUT_TOKENS`, enforced below by
+			// `callStep`'s own `maxOutputTokens`). A step that cannot fit even in the worst case
+			// is refused here, before it starts, rather than discovered afterwards.
+			const worstCase = estimateWorstCaseCredits(
 				playbook.systemPrompt,
-				messages,
-				tools,
-				STEP_MAX_OUTPUT_TOKENS,
-				params.abortSignal
+				stepMessages,
+				toolCount,
+				resolved.params
 			);
-		} catch (error) {
-			if (params.abortSignal.aborted) {
+			const reserveCredits = estimateWorstCaseCredits(
+				playbook.systemPrompt,
+				initialMessages,
+				toolCount,
+				resolved.params
+			);
+			if (params.budget.wouldExceedCeiling(worstCase, reserveCredits)) {
+				if (retryCount === 0) {
+					params.logger.log({
+						event: 'budget_ceiling',
+						status: 'ok',
+						jobId,
+						documentId: document.id,
+						playbookId: playbook.id,
+						playbookVersion: playbook.version,
+						step,
+						toolName: null,
+						latencyMs: 0,
+						errorName: null
+					});
+					yield progressEvent(
+						ctx,
+						step,
+						'stopped_at_ceiling',
+						"this step's worst case would not fit this job's remaining credit budget"
+					);
+					return;
+				}
+				// issue #273: a retry is another real model call, priced and gated exactly like
+				// the first attempt - one this job's budget cannot afford does not get to run
+				// quietly. Stop retrying and let this step's last (still all-invalid) outcome
+				// fall through to the same failure below, rather than spend outside what the
+				// job was admitted with.
+				break;
+			}
+
+			const startedAt = Date.now();
+			try {
+				outcome = await callStep(
+					languageModel,
+					playbook.systemPrompt,
+					stepMessages,
+					tools,
+					STEP_MAX_OUTPUT_TOKENS,
+					params.abortSignal
+				);
+			} catch (error) {
+				if (params.abortSignal.aborted) {
+					params.logger.log({
+						event: 'job_cancelled',
+						status: 'ok',
+						jobId,
+						documentId: document.id,
+						playbookId: playbook.id,
+						playbookVersion: playbook.version,
+						step,
+						toolName: null,
+						latencyMs: Date.now() - startedAt,
+						errorName: null
+					});
+					yield progressEvent(ctx, step, 'cancelled', 'cancelled mid-step');
+					return;
+				}
+				const errorName = error instanceof Error ? error.name : 'UnknownError';
 				params.logger.log({
-					event: 'job_cancelled',
-					status: 'ok',
+					event: 'step',
+					status: 'error',
 					jobId,
 					documentId: document.id,
 					playbookId: playbook.id,
@@ -400,88 +481,90 @@ async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent>
 					step,
 					toolName: null,
 					latencyMs: Date.now() - startedAt,
-					errorName: null
+					errorName
 				});
-				yield progressEvent(ctx, step, 'cancelled', 'cancelled mid-step');
+				yield progressEvent(ctx, step, 'failed', `model call failed: ${errorName}`);
 				return;
 			}
-			const errorName = error instanceof Error ? error.name : 'UnknownError';
+			const latencyMs = Date.now() - startedAt;
 			params.logger.log({
-				event: 'step',
-				status: 'error',
+				event: retryCount === 0 ? 'step' : 'step_retry',
+				status: 'ok',
 				jobId,
 				documentId: document.id,
 				playbookId: playbook.id,
 				playbookVersion: playbook.version,
 				step,
 				toolName: null,
-				latencyMs: Date.now() - startedAt,
-				errorName
-			});
-			yield progressEvent(ctx, step, 'failed', `model call failed: ${errorName}`);
-			return;
-		}
-		const latencyMs = Date.now() - startedAt;
-		params.logger.log({
-			event: 'step',
-			status: 'ok',
-			jobId,
-			documentId: document.id,
-			playbookId: playbook.id,
-			playbookVersion: playbook.version,
-			step,
-			toolName: null,
-			latencyMs,
-			errorName: null
-		});
-
-		messages = [...messages, ...outcome.responseMessages];
-
-		const { credits, costEur } = computeCost(resolved.params, {
-			inputTokens: outcome.inputTokens,
-			outputTokens: outcome.outputTokens,
-			embeddingTokens: 0,
-			images: 0
-		});
-		params.budget.spend(credits);
-		// issue #134: once this job has proposed anything, `wouldExceedCeiling`'s reserve
-		// grace is no longer needed - its whole purpose was making sure a job did not end at
-		// zero proposals, and that has already happened.
-		if (ctx.pending.some((event) => event.type === 'proposal')) {
-			params.budget.markProposed();
-		}
-
-		yield {
-			type: 'usage',
-			jobId,
-			documentId: document.id,
-			step,
-			purpose,
-			provider: resolved.provider,
-			modelId: resolved.modelId,
-			inputTokens: outcome.inputTokens,
-			outputTokens: outcome.outputTokens,
-			credits,
-			costEur,
-			latencyMs
-		};
-
-		for (const event of ctx.pending.splice(0)) yield event;
-
-		for (const call of outcome.toolCalls) {
-			params.logger.log({
-				event: 'tool_call',
-				status: call.invalid ? 'error' : 'ok',
-				jobId,
-				documentId: document.id,
-				playbookId: playbook.id,
-				playbookVersion: playbook.version,
-				step,
-				toolName: call.toolName,
-				latencyMs: 0,
+				latencyMs,
 				errorName: null
 			});
+
+			const { credits, costEur } = computeCost(resolved.params, {
+				inputTokens: outcome.inputTokens,
+				outputTokens: outcome.outputTokens,
+				embeddingTokens: 0,
+				images: 0
+			});
+			params.budget.spend(credits);
+			// issue #134: once this job has proposed anything, `wouldExceedCeiling`'s reserve
+			// grace is no longer needed - its whole purpose was making sure a job did not end at
+			// zero proposals, and that has already happened.
+			if (ctx.pending.some((event) => event.type === 'proposal')) {
+				params.budget.markProposed();
+			}
+
+			// issue #273: charged and logged like any other model call, whether this is the
+			// step's first attempt or one of its retries - nothing here spends quietly.
+			yield {
+				type: 'usage',
+				jobId,
+				documentId: document.id,
+				step,
+				purpose,
+				provider: resolved.provider,
+				modelId: resolved.modelId,
+				inputTokens: outcome.inputTokens,
+				outputTokens: outcome.outputTokens,
+				credits,
+				costEur,
+				latencyMs
+			};
+
+			for (const event of ctx.pending.splice(0)) yield event;
+
+			for (const call of outcome.toolCalls) {
+				params.logger.log({
+					event: 'tool_call',
+					status: call.invalid ? 'error' : 'ok',
+					jobId,
+					documentId: document.id,
+					playbookId: playbook.id,
+					playbookVersion: playbook.version,
+					step,
+					toolName: call.toolName,
+					latencyMs: 0,
+					errorName: null
+				});
+			}
+
+			// issue #134/#273: every tool call this attempt made came back invalid - retry
+			// with a smaller ask, up to STEP_PARSE_RETRY_LIMIT times, before letting the step
+			// settle as a failure below. Anything else (some or all calls valid, or none
+			// attempted at all) settles this step now.
+			const attemptInvalid = outcome.toolCalls.filter((call) => call.invalid);
+			const attemptAllInvalid =
+				outcome.toolCalls.length > 0 && attemptInvalid.length === outcome.toolCalls.length;
+			if (!attemptAllInvalid || retryCount >= STEP_PARSE_RETRY_LIMIT) break;
+			retryCount += 1;
 		}
+
+		// issue #273: only the settled attempt's response joins the real transcript -
+		// a step rescued by a retry carries forward exactly as if it had succeeded on the
+		// first try, never the "ask for less" instruction or the failed attempt(s) that
+		// came before it. That is the point: a document that needed one retry on step 4
+		// should not read any different to a later step than a document that never did.
+		messages = [...messages, ...outcome.responseMessages];
 
 		// issue #134: the AI SDK already skips executing an invalid tool call (a response
 		// it could not parse against the tool's schema - most plausibly here, one truncated
@@ -489,7 +572,8 @@ async function* runDocument(params: RunDocumentParams): AsyncGenerator<JobEvent>
 		// for it, and without this check the only trace would be the `tool_call` log lines
 		// just above, never anything a GM sees. A step that attempted at least one tool
 		// call and got nothing usable back from any of them ends the document loudly
-		// instead of silently losing whatever it was trying to propose.
+		// instead of silently losing whatever it was trying to propose - issue #273's retry
+		// loop above already gave this step every chance a smaller ask could buy it.
 		const invalidToolCalls = outcome.toolCalls.filter((call) => call.invalid);
 		if (outcome.toolCalls.length > 0 && invalidToolCalls.length === outcome.toolCalls.length) {
 			yield progressEvent(

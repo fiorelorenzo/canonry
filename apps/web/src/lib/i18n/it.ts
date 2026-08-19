@@ -709,7 +709,8 @@ export const it: Messages = {
 			keptSuffix: (total, cap) => {
 				const form = pluralRules('it').select(total);
 				const word = form === 'one' ? 'mantenuto' : 'mantenuti';
-				return ` su ${total} ${word} \u00b7 limite ${cap}`;
+				const capPart = cap === null ? 'nessun limite' : `limite ${cap}`;
+				return ` su ${total} ${word} \u00b7 ${capPart}`;
 			},
 			estimatedCredits: (credits) => {
 				const form = pluralRules('it').select(credits);
@@ -916,6 +917,40 @@ export const it: Messages = {
 			}
 		},
 
+		outcomeNote: {
+			finished: (documents, proposals) =>
+				`${documents} ${documents === 1 ? 'documento elaborato' : 'documenti elaborati'}, ${proposals} ${proposals === 1 ? 'proposta generata' : 'proposte generate'}`,
+			noDocuments: 'Nessun documento da elaborare.',
+			unchanged: (documents) =>
+				documents === 1
+					? "Nulla di cambiato: l'unico documento corrisponde a ciò che era già stato importato."
+					: `Nulla di cambiato: tutti i ${documents} documenti corrispondono a ciò che era già stato importato.`,
+			stoppedNoOffender: (documents, proposals) =>
+				`Interrotto prima della fine: ${documents} ${documents === 1 ? 'documento concluso' : 'documenti conclusi'}, ${proposals} ${proposals === 1 ? 'proposta generata' : 'proposte generate'}`,
+			offenderReason: {
+				step_ceiling: 'ha raggiunto il limite di passi previsto per questo documento',
+				cancelled_before_step: 'annullato prima che questo passo iniziasse',
+				cancelled_mid_step: 'annullato a metà di un passo',
+				tool_calls_unparseable:
+					'tutte le chiamate a strumenti di questo passo non erano interpretabili, probabilmente troncate dal limite di output',
+				step_worst_case_exceeds_budget:
+					'il costo massimo di questo passo non entra nel budget di credito rimasto per questo import',
+				job_budget_exhausted: 'il budget di credito di questo import è esaurito',
+				never_started: 'mai avviato',
+				model_call_failed: (errorName) => `la chiamata al modello è fallita: ${errorName}`,
+				loop_guard: (toolName, count) =>
+					`bloccato in un ciclo: ${toolName} è stato chiamato con gli stessi argomenti ${count} ${count === 1 ? 'volta' : 'volte'} di fila, quindi il documento è stato interrotto invece di proseguire fino al suo limite di passi`,
+				other: (text) => text
+			},
+			offender: (path, reasonText) => `${path}: ${reasonText}`,
+			offenderWithOthers: (base, othersCount) =>
+				`${base} (e altri ${othersCount} ${othersCount === 1 ? 'documento che non è finito correttamente' : 'documenti che non sono finiti correttamente'})`,
+			lossy: (path, count) =>
+				`${path} ha perso ${count} ${count === 1 ? 'chiamata a uno strumento' : 'chiamate a strumenti'} lungo il percorso, probabilmente troncate dal limite di output di un passo`,
+			lossyWithOthers: (base, othersCount) =>
+				`${base} (e altri ${othersCount} ${othersCount === 1 ? 'documento che ne ha perse alcune' : 'documenti che ne hanno perse alcune'})`
+		},
+
 		start: {
 			headTitle: 'Nuovo universo · Canonry',
 			heading: 'Dai un nome al tuo universo',
@@ -957,6 +992,26 @@ export const it: Messages = {
 				uploadedSummary: (fileName, kilobytes) => `${fileName} caricato, ${kilobytes} KB`,
 				detected: (label) => `Rilevato: ${label}`,
 				notDetected: (label) => `Formato non rilevato con sicurezza: ${label}`,
+				detail: (d) => {
+					switch (d.kind) {
+						case 'obsidian':
+							return `${d.notes} ${d.notes === 1 ? 'nota trovata' : 'note trovate'}, con cartella .obsidian`;
+						case 'obsidian-unsure':
+							return `${d.markdownFiles} file Markdown, ma senza cartella .obsidian`;
+						case 'kanka':
+							return `${d.jsonFiles} file JSON, con campo entity_type`;
+						case 'world-anvil':
+							return 'cartelle json/ e html/ trovate, corrispondono a un Full World Export';
+						case 'onenote':
+							return `${d.pages} ${d.pages === 1 ? 'pagina esportata' : 'pagine esportate'}, con cartella _files/ associata`;
+						case 'pdf':
+							return 'un file PDF';
+						case 'docx':
+							return 'un file DOCX';
+						case 'generic':
+							return `${d.files} file, schema di export non riconosciuto`;
+					}
+				},
 				playbookLabel: 'Playbook da eseguire',
 				continueButton: 'Conferma e continua'
 			},
@@ -1439,6 +1494,24 @@ export const it: Messages = {
 				resumeWriting: 'Riprendi la scrittura',
 				offNotice: (universeName) =>
 					`La scrittura è disattivata per ${universeName}. Ricerca e suggerimenti di menzione continuano comunque a pesare sulla tua quota inclusa come qualsiasi altra richiesta; semplicemente non costano nulla, attivi o no.`
+			},
+			propagationCap: {
+				heading: 'Limite di propagazione',
+				description: (universeName) =>
+					`Quante voci può proporre il piano di un salvataggio per ${universeName}. Ogni voce per cui il copilota scrive una differenza costa un credito, quindi alzare questo valore significa accettare di spendere di più a ogni salvataggio.`,
+				capLabel: 'Limite',
+				noLimitLabel: 'Nessun limite',
+				save: 'Salva',
+				capNotice: (cap) => {
+					const form = pluralRules('it').select(cap);
+					return {
+						prefix: 'Limitato a ',
+						suffix: form === 'one' ? ' voce per piano.' : ' voci per piano.'
+					};
+				},
+				noLimitNotice:
+					'Nessun limite: ogni candidato trovato dal copilota riceve una differenza. La spesa viene comunque confermata prima di generare le differenze.',
+				invalidCapError: 'Inserisci un numero maggiore o uguale a 1, oppure disattiva il limite.'
 			},
 			precedence: {
 				heading: 'Precedenza',
