@@ -41,7 +41,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { zipSync } from 'fflate';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
 	acceptRelationTypeProposal,
 	and,
@@ -79,6 +79,15 @@ import {
 	MATCH_THRESHOLDS,
 	type KnownPlaybookId
 } from './onboarding.js';
+
+// Issue #296. Every `it` in this file drives a full import twice against a real Postgres,
+// so vitest's 5s default leaves almost no headroom: measured on the dev box with nothing
+// else running, the slowest case (kanka) takes 4.5s and the file's ten cases take 18.6s
+// of test time between them. It failed once at 5027ms during a nine-agent wave and passed
+// on re-run, which is a flake that says nothing about the code. 30s is roughly six times
+// the measured worst case and still well under the 60s the job polls inside these tests
+// already wait, so a real hang fails here rather than being masked.
+vi.setConfig({ testTimeout: 30_000 });
 
 const DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
