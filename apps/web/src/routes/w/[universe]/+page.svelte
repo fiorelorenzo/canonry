@@ -32,7 +32,7 @@
 
 	const t = $derived(messages(data.locale).universe.index);
 	const homeT = $derived(t.home);
-	const inboxT = $derived(messages(data.locale).proposals.inbox);
+	const proposalsT = $derived(messages(data.locale).proposals);
 	const relationTypeLabel = $derived(messages(data.locale).relationTypeLabel);
 
 	const entriesHref = $derived(resolve(`/w/${data.current.slug}/entries`));
@@ -119,7 +119,7 @@
 			importJobs={data.waiting.importJobs}
 			totalPending={data.waiting.totalPending}
 			t={homeT}
-			{inboxT}
+			{proposalsT}
 		/>
 	{/if}
 </section>

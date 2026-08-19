@@ -34,14 +34,18 @@
 		importJobs,
 		totalPending,
 		t,
-		inboxT
+		proposalsT
 	}: {
 		universeSlug: string;
 		plans: WaitingPlan[];
 		importJobs: WaitingImportJob[];
 		totalPending: number;
 		t: Messages['universe']['index']['home'];
-		inboxT: Messages['proposals']['inbox'];
+		// The whole `proposals` group rather than just `inbox`, because #270 collapsed the two
+		// disagreeing provenance renderers into one phrase that sits beside it: the row has to
+		// read `inbox.from(provenance(...))` exactly as the inbox itself does, or the home and
+		// the inbox go back to describing the same pending work two different ways.
+		proposalsT: Messages['proposals'];
 	} = $props();
 
 	// Rendered only when something is actually pending, which the caller decides: this
@@ -56,12 +60,10 @@
 	{#each plans as plan (plan.id)}
 		<li class="flex items-baseline gap-3 py-2.5 text-sm">
 			<span class="min-w-0 flex-1 truncate text-ink-2">
-				{plan.triggerEntityName
-					? inboxT.fromEntity(plan.triggerEntityName)
-					: inboxT.fromTrigger(plan.trigger)}
+				{proposalsT.inbox.from(proposalsT.provenance(plan.trigger, plan.triggerEntityName))}
 			</span>
 			<span class="shrink-0 font-mono text-xs text-muted tabular-nums">
-				{inboxT.pendingLabel(plan.pending)}
+				{proposalsT.inbox.pendingLabel(plan.pending)}
 			</span>
 			<a
 				href={resolve(`/w/${universeSlug}/proposals/${plan.id}`)}
@@ -73,9 +75,11 @@
 	{/each}
 	{#each importJobs as job (job.id)}
 		<li class="flex items-baseline gap-3 py-2.5 text-sm">
-			<span class="min-w-0 flex-1 truncate text-ink-2">{inboxT.importFrom(job.playbook)}</span>
+			<span class="min-w-0 flex-1 truncate text-ink-2"
+				>{proposalsT.inbox.importFrom(job.playbook)}</span
+			>
 			<span class="shrink-0 font-mono text-xs text-muted tabular-nums">
-				{inboxT.pendingLabel(job.pending)}
+				{proposalsT.inbox.pendingLabel(job.pending)}
 			</span>
 			<a
 				href={resolve(`/w/${universeSlug}/import/${job.id}/review`)}

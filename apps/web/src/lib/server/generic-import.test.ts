@@ -31,6 +31,7 @@ import {
 	estimateImportJob,
 	ImportJobRunner,
 	InMemoryImageStore,
+	lexicalTrigramSimilarity,
 	loadBuiltinPlaybook,
 	parseOutcomeNote
 } from '@canonry/import';
@@ -39,7 +40,6 @@ import {
 	DeterministicExtractionDriver,
 	documentsForPlaybook,
 	getImportJobRow,
-	importMatchSimilarity,
 	MATCH_THRESHOLDS
 } from './onboarding.js';
 
@@ -163,7 +163,7 @@ describe('a generic upload of HTML and CSV imports and proposes (issue #305)', (
 			sources: reader,
 			images: new InMemoryImageStore(),
 			budget: { maxCredits: 1000 },
-			similarity: importMatchSimilarity,
+			similarity: lexicalTrigramSimilarity,
 			thresholds: MATCH_THRESHOLDS,
 			embedRelationLabel: hashingEmbedder,
 			timeoutMs: 60_000
@@ -238,7 +238,7 @@ describe('a generic upload of HTML and CSV imports and proposes (issue #305)', (
 			sources: reader,
 			images: new InMemoryImageStore(),
 			budget: { maxCredits: 1000 },
-			similarity: importMatchSimilarity,
+			similarity: lexicalTrigramSimilarity,
 			thresholds: MATCH_THRESHOLDS,
 			embedRelationLabel: hashingEmbedder,
 			timeoutMs: 60_000
