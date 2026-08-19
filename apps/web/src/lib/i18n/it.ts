@@ -984,7 +984,7 @@ export const it: Messages = {
 			headTitle: (universeName) => `Import in ${universeName} · Canonry`,
 			heading: 'Importa il tuo mondo',
 			description:
-				'Trascina un export da Obsidian, Kanka o World Anvil, oppure un file PDF o DOCX. Canonry indovina la sorgente e ti mostra cosa ha trovato prima che parta qualsiasi cosa.',
+				'Trascina un export da Obsidian, Kanka, World Anvil o OneNote, oppure un file PDF o DOCX. Canonry indovina la sorgente e ti mostra cosa ha trovato prima che parta qualsiasi cosa.',
 			noLiveModelNotice:
 				'Questa installazione non ha un modello live configurato, quindi in questo momento possono davvero partire solo gli import da Obsidian, Kanka e testo generico (il rilevamento funziona comunque per tutto).',
 			uploadButton: 'Carica',
