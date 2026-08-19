@@ -145,5 +145,8 @@ export {
 	estimateAveragesForPlaybook,
 	IMPORT_BUDGET_HEADROOM_MULTIPLIER,
 	budgetCreditsForEstimate,
-	deriveJobBudget
+	deriveJobBudget,
+	IMPORT_TIMEOUT_HEADROOM_MULTIPLIER,
+	IMPORT_TIMEOUT_FLOOR_MS,
+	timeoutMsForEstimate
 } from './estimate.js';

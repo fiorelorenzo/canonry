@@ -921,6 +921,11 @@ export interface StartImportRunInput {
 	documents: JobDocument[];
 	artefactPath: string;
 	budgetCredits: number;
+	/** Both job limits come from `deriveJobBudget` together, so the timeout cannot drift
+	 * below what the estimate the GM agreed to implies. It used to be a flat five minutes
+	 * here, one minute past what a fourteen-document job was quoted, which cancelled it
+	 * mid-step with its proposals already emitted. */
+	timeoutMs: number;
 	locale?: Locale;
 }
 
@@ -960,7 +965,7 @@ export function startImportRun(database: Db, input: StartImportRunInput): void {
 				// credential is not available, which is exactly this driver's situation
 				// too (`DeterministicExtractionDriver`, this file's own doc comment).
 				embedRelationLabel: hashingEmbedder,
-				timeoutMs: 5 * 60_000,
+				timeoutMs: input.timeoutMs,
 				locale: input.locale
 			};
 			await runner.run(params);
