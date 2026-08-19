@@ -16,15 +16,16 @@ waits for a human, however it is grouped on screen. `AGENTS.md` carries the same
 wording in short form. G6 itself, whether that bucket is informational or reviewable,
 is still open.
 
-**Seven rounds, 64 answers.** Round one, 38, and round two, the 11 questions those answers
+**Eight rounds, 65 answers.** Round one, 38, and round two, the 11 questions those answers
 opened, were both taken on 2026-08-13; round three's 2 on 2026-08-14; round four's 10 and
-round five's 1, both on 2026-08-15; round six's 1 and round seven's 1 on 2026-08-16. Rounds one
+round five's 1, both on 2026-08-15; round six's 1 and round seven's 1 on 2026-08-16; round
+eight's 1 on 2026-08-19. Rounds one
 to three answered
 questions asked before there was code. Round four came out of the shipped UI and is recorded
 further down in this file, with its audit in [`product-pass.html`](product-pass.html). Rounds
-five, six and seven have no separate audit artifact: each is one question forced by something the
-shipped product already did, not a page of drawn options, and both are recorded at the bottom
-of this file.
+five to eight have no separate audit artifact: each is one question forced by something the
+shipped product already did, not a page of drawn options, and all four are recorded at the
+bottom of this file.
 
 To change a decision: edit this file and the `UX_REGISTER` entry in
 `docs/ux/assets/ux.js`, and say so on the issues it blocks. The artifact keeps its
@@ -565,3 +566,45 @@ label that maps to nothing rather than being guessed at. And the shipped keys ar
 `located_in` cannot be renamed, only relabelled.
 
 Built as epic #194 with #195, #196, #197 and #198.
+
+## Round eight, decided 2026-08-19
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| M1 | The product is built and `canonry.io` still says "coming". What is the landing page for now? | **A door, not a waiting list.** The page's job becomes getting a stranger into the product or into a world they can read, and the waiting list stops being the primary action |
+
+**What changed is the product, not the page.** F6 chose the propagation demo as the hero and
+G10 put the export sentence under it, and both still hold: nothing above the demo, one place
+where the lock-in answer is said out loud. What has moved is everything behind them. When those
+were decided there was no product to point at, so a waiting list was the only honest call to
+action a page could carry. `app.canonry.io` now serves the whole thing, healthy, on a tagged
+release, and a page that collects addresses in front of a working product is not cautious, it is
+wrong: it asks people to wait for something they could be using.
+
+**The order matters more than the page, and it is the part I want on the record.** Two things a
+stranger needs on the day they can create an account, and neither exists yet: there is no
+password recovery, so a forgotten password is a database query, and there is no account
+deletion, so somebody who wants to leave cannot. Both were blocked on having no mail transport
+at all, which is now bought and verified. So the sign-up call to action does not ship until
+those do, and the page's first version can point at something a stranger can already read
+without an account rather than at a form. That is available today: a published players' wiki is
+a real public surface, and pointing at a real world is a better argument than a demo of one.
+
+**The waiting list becomes a decision of its own rather than a leftover.** It has been
+collecting real addresses into `waitlist_signup`, which records an address and a timestamp and
+nothing about what the person agreed to. Either it becomes an explicitly named newsletter
+opt-in, with the consent recorded at the moment it is given, or it is retired. What it cannot
+do is quietly become a marketing list, because the people on it asked to be told when Canonry
+launched, and reinterpreting that after the fact is exactly the kind of thing this file exists
+to stop. The addresses already there keep the promise they were collected under, and if we want
+more than that we ask them once.
+
+**What this costs.** The landing repository and this one now both describe a launched product,
+so I1's cost gets worse before it gets better: two copies of the argument in two repositories,
+and the app's door page is still the one nobody will remember to update. And a page that
+invites people in is a guardrail 7 surface in a way a waiting list never was, because copy that
+promises a coherent canon is a defect and it is much easier to write that sentence when you are
+selling than when you are explaining.
+
+Tracked as `canonry-landing#9`, with `canonry-landing#8` for the consent record, and gated on
+#151 and #154 in this repository.
