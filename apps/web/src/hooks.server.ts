@@ -26,6 +26,12 @@
  * boot, not only from whichever replica happens to receive a save - reclaiming a lease a
  * *different* replica abandoned cannot depend on this one ever being asked to schedule
  * something itself.
+ *
+ * Issue #277: the two Better Auth endpoints that send a mail while answering go through
+ * `guardMailSendingRequest` instead of straight to `auth.handler`, because Better Auth
+ * answers `{status: true, "check your email"}` even when the send threw. See
+ * `$lib/server/mail/send-guard.ts`'s own doc comment for what that changes and for why
+ * refusing before the address is looked up is what keeps the enumeration hedge intact.
  */
 import { building } from '$app/environment';
 import { auth } from '$lib/server/auth';
@@ -38,6 +44,9 @@ import { eq } from '@canonry/db';
 import { user as userTable } from '@canonry/db/schema';
 import type { Cookies, Handle } from '@sveltejs/kit';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
+import { env } from '$env/dynamic/private';
+import { isMailTransportConfigured } from '$lib/server/mail/transport';
+import { guardMailSendingRequest, mailSendingAuthPaths } from '$lib/server/mail/send-guard';
 
 if (!building) startCanonSaveJobWorker();
 
@@ -88,29 +97,51 @@ export async function resolveLocale(event: LocaleRequestEvent): Promise<Locale> 
 	return negotiateLocale({ accountPreference, cookie, acceptLanguage });
 }
 
+/** Resolved once, at module load, from the endpoint objects Better Auth actually mounted
+ * (`$lib/server/auth.ts` configures exactly these two senders: `sendResetPassword` and
+ * `sendDeleteAccountVerification`). A third sender means a third entry here, and
+ * `send-guard.ts` derives the paths so a rename upstream cannot silently miss.
+ *
+ * `basePath` is read off the options rather than written out, the same way
+ * `svelteKitHandler`'s own `isAuthPath` reads it, so a future override lands in one place
+ * and not two. `auth.ts` sets none today, which is why the type does not carry the key
+ * and the presence check is not decoration. */
+const MAIL_SENDING_AUTH_PATHS = mailSendingAuthPaths(
+	'basePath' in auth.options && typeof auth.options.basePath === 'string'
+		? auth.options.basePath
+		: undefined,
+	[auth.api.requestPasswordReset, auth.api.deleteUser]
+);
+
 export const handle: Handle = async ({ event, resolve }) => {
 	const session = building ? null : await auth.api.getSession({ headers: event.request.headers });
 	event.locals.session = session?.session ?? null;
 	event.locals.user = session?.user ?? null;
 	event.locals.locale = building ? 'en' : await resolveLocale(event);
 
-	return svelteKitHandler({
-		auth,
-		event,
-		building,
-		resolve: (innerEvent) => {
-			const preference = parseThemePreference(innerEvent.cookies.get(THEME_COOKIE));
-			const attribute = themeAttribute(preference);
-			const locale = event.locals.locale;
+	const serve = () =>
+		svelteKitHandler({
+			auth,
+			event,
+			building,
+			resolve: (innerEvent) => {
+				const preference = parseThemePreference(innerEvent.cookies.get(THEME_COOKIE));
+				const attribute = themeAttribute(preference);
+				const locale = event.locals.locale;
 
-			return resolve(innerEvent, {
-				transformPageChunk: ({ html }) => {
-					const themed = attribute
-						? html.replace('data-theme-pref', `data-theme="${attribute}"`)
-						: html.replace(' data-theme-pref', '');
-					return themed.replace('lang="en"', `lang="${locale}"`);
-				}
-			});
-		}
-	});
+				return resolve(innerEvent, {
+					transformPageChunk: ({ html }) => {
+						const themed = attribute
+							? html.replace('data-theme-pref', `data-theme="${attribute}"`)
+							: html.replace(' data-theme-pref', '');
+						return themed.replace('lang="en"', `lang="${locale}"`);
+					}
+				});
+			}
+		});
+
+	if (!building && MAIL_SENDING_AUTH_PATHS.has(event.url.pathname)) {
+		return guardMailSendingRequest({ configured: isMailTransportConfigured(env), serve });
+	}
+	return serve();
 };

@@ -10,6 +10,7 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	FakeMailTransport,
+	isMailTransportConfigured,
 	MailSendError,
 	MissingResendEnvError,
 	readResendConfig,
@@ -38,6 +39,24 @@ describe('readResendConfig (#151)', () => {
 		expect(() => readResendConfig({ MAIL_FROM: 'Canonry <noreply@canonry.io>' })).toThrow(
 			MissingResendEnvError
 		);
+	});
+});
+
+describe('isMailTransportConfigured (#277)', () => {
+	it('is true only when both variables are present, and never throws', () => {
+		expect(
+			isMailTransportConfigured({
+				RESEND_API_KEY: 're_test_key',
+				MAIL_FROM: 'Canonry <noreply@canonry.io>'
+			})
+		).toBe(true);
+		expect(isMailTransportConfigured({})).toBe(false);
+		expect(isMailTransportConfigured({ RESEND_API_KEY: 're_test_key' })).toBe(false);
+		expect(isMailTransportConfigured({ MAIL_FROM: 'Canonry <noreply@canonry.io>' })).toBe(false);
+	});
+
+	it('treats an empty value as unset, since an empty key sends nothing', () => {
+		expect(isMailTransportConfigured({ RESEND_API_KEY: '', MAIL_FROM: '' })).toBe(false);
 	});
 });
 

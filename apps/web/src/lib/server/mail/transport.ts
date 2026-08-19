@@ -58,6 +58,23 @@ export function readResendConfig(env: NodeJS.ProcessEnv = process.env): {
 	return { apiKey, from };
 }
 
+/** Whether a transport could send at all, answerable from the environment alone: no
+ * network call, no address, no database row. That is exactly what makes it usable as a
+ * preflight (#277) - a request that cannot possibly result in a mail is refused
+ * identically for every address, before anything looks one up, so refusing reveals
+ * nothing about which addresses have accounts. `/healthz` reports the same predicate
+ * for the same reason it cannot report more: probing Resend itself on every container
+ * healthcheck would bill a third party every ten seconds to answer a question about
+ * this deployment's own configuration. */
+export function isMailTransportConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+	try {
+		readResendConfig(env);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 export class MailSendError extends Error {
 	constructor(
 		public readonly status: number,

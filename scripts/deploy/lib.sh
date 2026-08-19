@@ -160,6 +160,13 @@ compose_cmd() {
 # not enough: SPEC.md #12 exists because a green curl has served a stale
 # build on this box before, so the served version is compared against the
 # artifact this run actually built.
+#
+# `.mail` (#277) is refused the same way. #247's password reset shipped unable
+# to send on any stack because the deploy never passed RESEND_API_KEY, and every
+# user was told to check their inbox anyway; the release that did that would now
+# be rolled back here instead. Only an explicit `false` refuses: a release built
+# before /healthz reported the field at all serves no `mail` key, and a rollback
+# to one of those has to keep working.
 poll_health() {
 	url="$1"
 	expected_version="$2"
@@ -176,9 +183,15 @@ poll_health() {
 			served_version=$(printf '%s' "$last_body" | jq -r '.version // empty')
 			served_commit=$(printf '%s' "$last_body" | jq -r '.commit // empty')
 			served_status=$(printf '%s' "$last_body" | jq -r '.status // empty')
+			# `.mail // empty` would read a literal `false` as absent, since jq's
+			# alternative operator treats false as empty: `tostring` is what keeps
+			# "unconfigured" (false) apart from "not reported by this release" (null).
+			served_mail=$(printf '%s' "$last_body" | jq -r '.mail | tostring')
 
 			if [ "$served_status" = "down" ]; then
 				last_error="reports status=down"
+			elif [ "$served_mail" = "false" ]; then
+				last_error="reports mail=false: no mail transport is configured, so password reset and account deletion cannot send (RESEND_API_KEY and MAIL_FROM must reach the web container)"
 			elif [ "$served_version" != "$expected_version" ]; then
 				last_error="served version '$served_version' does not match built artifact '$expected_version' -- stale build"
 			elif [ "$served_commit" != "$expected_commit" ]; then

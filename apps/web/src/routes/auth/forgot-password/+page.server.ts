@@ -7,10 +7,19 @@
  * check-your-inbox over a mail that never left"), and that distinction only exists on
  * the server, inside `resetSendOutcome.run` (`$lib/server/mail/reset-password.ts`'s own
  * doc comment explains why Better Auth's client/HTTP layer cannot see it either way).
+ *
+ * #277 added the line before that call: with no transport configured there is nothing to
+ * attempt, and answering that before the address is looked up is what keeps this screen
+ * from turning a missing `RESEND_API_KEY` into an enumeration oracle. An existing address
+ * and an unknown one get the same `t.sendFailed`, from the same branch, having read the
+ * same rows (none). See `$lib/server/mail/send-guard.ts` for the same rule on the
+ * `/api/auth` side.
  */
 import { fail, redirect } from '@sveltejs/kit';
 import { auth } from '$lib/server/auth';
 import { resetSendOutcome } from '$lib/server/mail/reset-password';
+import { isMailTransportConfigured } from '$lib/server/mail/transport';
+import { env } from '$env/dynamic/private';
 import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, messages, parseLocaleChoice } from '$lib/i18n';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -27,6 +36,10 @@ export const actions: Actions = {
 			return fail(400, { error: t.emailRequired });
 		}
 
+		if (!isMailTransportConfigured(env)) {
+			return fail(503, { error: t.sendFailed });
+		}
+
 		const outcome = { failed: false };
 		await resetSendOutcome.run(outcome, () =>
 			auth.api.requestPasswordReset({
@@ -34,7 +47,7 @@ export const actions: Actions = {
 			})
 		);
 		if (outcome.failed) {
-			return fail(502, { error: t.sendFailed });
+			return fail(503, { error: t.sendFailed });
 		}
 		return { success: true };
 	},

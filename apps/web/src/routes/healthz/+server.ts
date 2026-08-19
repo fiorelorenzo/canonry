@@ -3,9 +3,18 @@
 // its own single-connection pool instead of reaching into app-wide server state,
 // because a health endpoint has to keep working even when the rest of the app is
 // misconfigured.
+//
+// `mail` (#277): whether a mail transport is configured at all, read from the environment
+// with no network call, because a stack whose password reset can never send should be
+// refusable by the deploy's own health gate rather than discoverable in a container log
+// after a user gave up. It reports configuration and not reachability on purpose: probing
+// Resend on every container healthcheck would bill a third party every ten seconds to
+// answer a question about this deployment's own environment. `scripts/deploy/lib.sh`'s
+// `poll_health` refuses a release that serves `mail: false`.
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { createDb, ping, type Db } from '@canonry/db';
+import { isMailTransportConfigured } from '$lib/server/mail/transport';
 import type { RequestHandler } from './$types';
 
 const QDRANT_TIMEOUT_MS = 1500;
@@ -49,11 +58,16 @@ async function checkQdrant(): Promise<boolean> {
 
 export const GET: RequestHandler = async () => {
 	const [dbOk, qdrantOk] = await Promise.all([checkPostgres(), checkQdrant()]);
+	const mailOk = isMailTransportConfigured(env);
 
 	// Postgres is structural: without it there is no wiki. Qdrant only backs
 	// semantic search and the Loremaster, so its absence degrades rather than
-	// fails (SPEC.md #4.1, #11).
-	const status = !dbOk ? 'down' : qdrantOk ? 'ok' : 'degraded';
+	// fails (SPEC.md #4.1, #11). A missing mail transport degrades the same way
+	// from this endpoint's point of view: the wiki reads and writes fine, and
+	// password reset and account deletion cannot complete. It stays a 200 so a
+	// running container is not killed over it; refusing to *deploy* it is the
+	// health gate's call, not the container healthcheck's.
+	const status = !dbOk ? 'down' : qdrantOk && mailOk ? 'ok' : 'degraded';
 
 	return json(
 		{
@@ -61,7 +75,8 @@ export const GET: RequestHandler = async () => {
 			version: env.APP_VERSION ?? 'unknown',
 			commit: env.APP_COMMIT ?? 'unknown',
 			db: dbOk,
-			qdrant: qdrantOk
+			qdrant: qdrantOk,
+			mail: mailOk
 		},
 		{ status: dbOk ? 200 : 503 }
 	);
