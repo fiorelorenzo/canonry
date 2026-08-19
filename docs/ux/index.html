@@ -68,10 +68,10 @@
   options are drawn rather than described because half of these questions cannot be
   answered from a paragraph: density, marking, diff layout and phone ergonomics are
   decided by looking.</p>
-  <p><b>Nine rounds are decided and a tenth is open.</b> 66 answers, the first 49 on
+  <p><b>All ten rounds are decided.</b> 70 answers, the first 49 on
   2026-08-13, H1 and H2 on 2026-08-14, round four's ten and round five's one on 2026-08-15,
-  round six's and round seven's on 2026-08-16, and round eight's and round nine's on
-  2026-08-19, recorded in
+  round six's and round seven's on 2026-08-16, and round eight's, round nine's and round ten's
+  four on 2026-08-19, recorded in
   <a href="DECISIONS.md">DECISIONS.md</a> and in the register below, so a page you open shows
   what was chosen at the top and keeps its options and its rejected section underneath. Five of
   those answers went against what the artifact recommended, which is the set working rather
@@ -79,17 +79,20 @@
   way down to the number columns, G9 kept retrieval running with the AI off, I1 kept a door
   page in the app rather than redirecting to sign-in, and I9 took shadcn-svelte for the whole
   control layer rather than six components of our own.</p>
-  <p><b>Round ten is the first set with nothing decided in it.</b> Same direction as round
-  four, from the shipped product back to the decisions: I opened the preview, disliked the
+  <p><b>Round ten is the first one that overturned an earlier answer.</b> Same direction as
+  round four, from the shipped product back to the decisions: I opened the preview, disliked the
   world home, the entry page, the way the Loremaster is reached and the ten controls that
   still open the browser's own select, and drew the options rather than settling any of it
   while editing a component. Four artifacts, <a href="o1-world-overview.html">O1</a>,
   <a href="o2-entry-page-and-cover.html">O2</a>,
   <a href="o3-loremaster-quick-ask.html">O3</a> and
   <a href="o4-select-control.html">O4</a>, filed as epic
-  <a href="https://github.com/fiorelorenzo/canonry/issues/282">#282</a>. Two of them carry a
-  real defect rather than a preference: the entry aside is 256px holding five untruncated
-  labels, and a cover image has nowhere to live in the schema at all.</p>
+  <a href="https://github.com/fiorelorenzo/canonry/issues/282">#282</a>, and all four took the
+  recommendation, which no earlier round managed. O1 = C is the consequential one: it amends
+  I7, so the universe home stops being one page in two modes and becomes a home plus a dense
+  entry table, and I7's row in round four now reads as superseded rather than as taken. Two of
+  the four also carried a real defect rather than a preference: the entry aside is 256px holding
+  five untruncated labels, and a cover image has nowhere to live in the schema at all.</p>
   <p><b>Round four came from the other direction.</b> The first three answered questions asked
   before there was any code. Round four is what the shipped UI asked back: I signed into the
   deployed preview as a new user, could not create a universe, and audited every route to find
@@ -149,14 +152,15 @@
   A surface can start once its gate is answered, and after round one nearly all of them
   are: the shell, the entry and its editor, relations, revisions, the whole propagation
   loop, the import surfaces, onboarding and the landing page.</p>
-  <p>That sentence is now the wrong way round: every gate the first nine rounds opened is
-  answered, and the four surfaces waiting on a decision are waiting on round ten. Three of
-  them already ship and are being redrawn rather than built, which is a different kind of
-  wait: the world home (O1), the entry page and its missing cover (O2), and the Loremaster's
-  front door (O3). The fourth, the control that replaces a native select (O4), is a gap #155
-  recorded when I9 made shadcn-svelte the control layer and no select came with it.
-  <a href="DECISIONS.md">DECISIONS.md</a> lists every answer, and the register below marks
-  the four that are open.</p>
+  <p>That sentence is now the wrong way round: no gate anywhere in the set is open, and the
+  four surfaces round ten answered are waiting on a build rather than on a decision. Three of
+  them already ship and are being redrawn rather than built: the world home (O1 = C, two
+  surfaces), the entry page and its missing cover (O2 = A, a band above the title and an aside
+  with no tab strip left to clip), and the Loremaster's front door (O3 = A, a floating pill in
+  the theme's own colours). The fourth, the control that replaces a native select (O4 = B), is a
+  gap #155 recorded when I9 made shadcn-svelte the control layer and no select came with it.
+  <a href="DECISIONS.md">DECISIONS.md</a> carries every answer and the amendments each one took
+  on the way in, which for O3 is where the two visual ones live.</p>
 </section>
 
 <section>
@@ -173,7 +177,7 @@
       <tr><td><b>The control layer</b></td><td>Buttons, dialogs, badges, and the ten places that still open the browser's own select</td>
         <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/147">#147</a> <a href="https://github.com/fiorelorenzo/canonry/issues/155">#155</a> <a href="https://github.com/fiorelorenzo/canonry/issues/286">#286</a></td><td class="gate">I9 &middot; G1 G2 &middot; O4</td></tr>
       <tr><td><b>The copilot's front door</b></td><td>How a question gets asked from wherever the GM already is, and what remembers the answer</td>
-        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/285">#285</a></td><td class="gate">O3 &middot; A3 C8 G5</td></tr>
+        <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/285">#285</a> <a href="https://github.com/fiorelorenzo/canonry/issues/290">#290</a></td><td class="gate">O3 &middot; A3 C8 G5</td></tr>
       <tr><td><b>Auth screens</b></td><td>Signup, login, social login, the first screen anybody sees</td>
         <td class="iss"><a href="https://github.com/fiorelorenzo/canonry/issues/86">#86</a> <a href="https://github.com/fiorelorenzo/canonry/issues/139">#139</a></td><td class="gate">A1 D7 &middot; I1 I2</td></tr>
       <tr><td><b>Settings</b></td><td>Account, universe, AI on and off, keys, style, export</td>
