@@ -21,3 +21,11 @@ updates:
       # likely candidate, since the two other consumers already resolve esbuild directly)
       # would confirm.
       - dependency-name: "esbuild"
+      # `@types/node` describes the runtime, so it tracks the runtime rather than npm's latest:
+      # `.node-version`, ci.yml's `NODE_VERSION` and the Docker image are all Node 22.22.3, and
+      # every package asks for `^22` deliberately. A major bump here would type against APIs the
+      # runtime does not have, which makes the typecheck pass for the wrong reason. Dependabot
+      # proposed 26.2.0 the moment this file landed and it was closed for that reason. Minor and
+      # patch updates inside 22.x still arrive. Drop this the day the runtime pin moves.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
