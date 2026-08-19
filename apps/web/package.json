@@ -27,7 +27,7 @@
 		"@canonry/vector": "workspace:*",
 		"@canonry/warm": "workspace:*",
 		"@lucide/svelte": "^1.31.0",
-		"ai": "^7.0.65",
+		"ai": "^7.0.66",
 		"better-auth": "^1.6.27",
 		"bits-ui": "^2.18.1",
 		"clsx": "^2.1.1",
