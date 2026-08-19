@@ -269,7 +269,8 @@ export const it: Messages = {
 			noAccount: 'Non hai ancora un account?',
 			signUpLink: 'Registrati',
 			orDivider: 'oppure',
-			continueWith: (provider) => `Continua con ${provider}`
+			continueWith: (provider) => `Continua con ${provider}`,
+			forgotPasswordLink: 'Password dimenticata?'
 		},
 		signUp: {
 			title: 'Registrati',
@@ -283,6 +284,31 @@ export const it: Messages = {
 			signInLink: 'Accedi',
 			orDivider: 'oppure',
 			continueWith: (provider) => `Continua con ${provider}`
+		},
+		forgotPassword: {
+			title: 'Recupera la password',
+			subtitle: "Ti inviamo un link all'indirizzo del tuo account.",
+			emailLabel: 'Email',
+			emailRequired: "Inserisci l'indirizzo email del tuo account.",
+			submit: 'Invia link di recupero',
+			submitting: 'Invio in corso…',
+			success:
+				"Se quell'indirizzo ha un account, il link di recupero è in arrivo. Scade tra un'ora.",
+			sendFailed: 'Non è stato possibile inviare il link. Riprova tra poco.',
+			backToSignIn: "Torna all'accesso"
+		},
+		resetPassword: {
+			title: 'Imposta una nuova password',
+			subtitle: 'Scegli una nuova password per il tuo account.',
+			newPasswordLabel: 'Nuova password',
+			confirmPasswordLabel: 'Conferma password',
+			submit: 'Imposta nuova password',
+			submitting: 'Impostazione in corso…',
+			passwordMismatch: 'Le password non corrispondono.',
+			invalidToken: 'Questo link è scaduto o è già stato usato.',
+			requestNewLink: 'Richiedi un nuovo link',
+			success: 'Password aggiornata. Accedi con la tua nuova password.',
+			signInLink: 'Accedi'
 		},
 		languageSwitcher: {
 			label: 'Lingua'
@@ -304,6 +330,19 @@ export const it: Messages = {
 			evidence: 'Prova: Aldric Vane, paragrafo 1.',
 			disclaimer:
 				'Niente di quanto sopra è stato applicato. Ogni riga scritta da un modello aspetta la tua approvazione, una voce alla volta.'
+		}
+	},
+
+	mail: {
+		passwordReset: {
+			subject: 'Reimposta la tua password Canonry',
+			heading: 'Reimposta la tua password',
+			body: 'Qualcuno ha chiesto di reimpostare la password di questo account. Se sei stato tu, scegline una nuova qui sotto.',
+			button: 'Reimposta password',
+			linkFallback: 'Oppure incolla questo link nel browser:',
+			expiryNotice: "Questo link scade tra un'ora.",
+			ignoreNotice:
+				'Se non hai fatto questa richiesta, ignora pure questa email: la tua password resterà invariata.'
 		}
 	},
 

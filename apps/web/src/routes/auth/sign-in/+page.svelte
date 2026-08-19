@@ -108,10 +108,9 @@
 				required
 				bind:value={password}
 			/>
-			<!-- No "Forgotten password?" link: `emailAndPassword` (lib/server/auth.ts) has no
-			     `sendResetPassword` and the app configures no mail transport anywhere, so a
-			     recovery link here would go nowhere. A dead link is worse than an absent one.
-			     Recovery flow is #151; add the link back once that lands. -->
+			<a href={resolve('/auth/forgot-password')} class="text-sm text-accent hover:underline">
+				{t.forgotPasswordLink}
+			</a>
 		</div>
 
 		<Button type="submit" disabled={submitting} class="mt-2 w-full">

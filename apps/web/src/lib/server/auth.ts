@@ -24,6 +24,8 @@ import { env } from '$env/dynamic/private';
 import { ensureBilling } from '@canonry/db';
 import { account, session, user, verification } from '@canonry/db/schema';
 import { db } from './db';
+import { buildMailTransport } from './mail/transport.js';
+import { makeSendResetPassword } from './mail/reset-password.js';
 
 interface SocialProviderEnvVars {
 	idVar: string;
@@ -96,7 +98,11 @@ export const auth = betterAuth({
 		schema: { user, session, account, verification }
 	}),
 	emailAndPassword: {
-		enabled: true
+		enabled: true,
+		// #151: the forgotten-password link the sign-in form already carries. The actual
+		// loud-vs-silent-failure handling lives in ./mail/reset-password.ts's own doc
+		// comment, not here - this line only wires the transport in.
+		sendResetPassword: makeSendResetPassword({ db: db(), transport: buildMailTransport(env) })
 	},
 	socialProviders: buildSocialProviders(env),
 	databaseHooks: {
