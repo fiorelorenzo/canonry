@@ -46,7 +46,8 @@
 				universeSlug: data.universe.slug,
 				entrySlug: data.entity.slug,
 				assets: data.media.assets,
-				aiEnabled: data.universe.aiEnabled
+				aiEnabled: data.universe.aiEnabled,
+				scene: data.media.scene
 			}}
 		/>
 		<input type="hidden" name="body" value={body} />

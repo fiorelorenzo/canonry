@@ -26,7 +26,8 @@
 		"rerender": "tsx src/models/rerender.ts",
 		"retrieval-sweep": "tsx src/retrieval-sweep.ts",
 		"matching-sweep": "tsx src/matching-sweep.ts",
-		"audit-pairs": "tsx src/audit-pairs.ts"
+		"audit-pairs": "tsx src/audit-pairs.ts",
+		"scene-images": "tsx src/media/scene.ts"
 	},
 	"dependencies": {
 		"@canonry/ai": "workspace:*",
@@ -36,6 +37,7 @@
 		"@canonry/import": "workspace:*",
 		"@canonry/indexing": "workspace:*",
 		"@canonry/lang": "workspace:*",
+		"@canonry/media": "workspace:*",
 		"@canonry/vector": "workspace:*",
 		"ai": "^7.0.66",
 		"zod": "^4.1.13",

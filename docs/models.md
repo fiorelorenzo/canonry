@@ -13,6 +13,12 @@ is `packages/bench`, so the next person to disagree can re-run it rather than ar
 Prices are the gateway's own list on 2026-08-15, converted at that day's ECB reference rate
 (1 EUR = 1.1567 USD), the same rate migration 0024 used.
 
+`image_model_config` is a second table on a second axis (one active row per *feature*, not
+per purpose) and it went the same way: migration 0011 seeded `portrait` and `variants` from
+the two model names SPEC.md §9 happens to mention, and left `scene` with no row at all. The
+`scene` section near the bottom is that measurement, run on 2026-08-19 against Replicate's
+own list prices of that day.
+
 ## The answer
 
 | purpose | was | is | why in one line |
@@ -250,6 +256,137 @@ matching side, and it is why `EMBEDDING_MATCH_THRESHOLDS` is a separate constant
 the same pair 0.802 and 0.799, so treat a threshold placed within about 0.01 of an observed
 score as noise rather than as a decision.
 
+## `scene`: bytedance/seedream-4 (issue #258)
+
+`image_feature` has three values and `image_model_config` had two rows, so `scene` was
+reachable from the type system and dead in the database. This is the measurement that gave it
+a row, and it is the first time any image model in this product has been measured rather than
+cited: `portrait` and `variants` still hold whatever migration 0011 seeded.
+
+The harness is `packages/bench/src/media/scene.ts`. It runs the product's own
+`composePrompt` with the feature the image will really carry, resolves the model out of
+`image_model_config` through `resolveImageModel` (rewriting that row per arm, which is
+exactly what an admin does at `/admin/models`), and submits through
+`ReplicateImageProvider`, so every image below was charged, priced and written to
+`model_call` the way a GM's would be. The one deliberate detour around the product is
+`generateImages` itself: its similarity cache keys on universe, feature and prompt vector,
+so the second arm to ask for "The Cistern Quarter" would have been served the first arm's
+picture and the table would have measured nothing.
+
+Six cases, drawn from the same Valdoria Reach the text bench uses, each there for a reason:
+`valdoria` (a city) and `the-sable-reach` (a frozen strait, no people in its prose) are the
+easy end; `the-gilded-rat` and `the-cistern-quarter` name people in their lead ("Mother
+Sennah keeps it", "Sera Voss grew up here"), which is the sentence that turns a place into a
+portrait of whoever is standing in it; `il-molo-vecchio` is Italian prose, because SPEC.md
+§17 ships Italian; and `the-sable-winter` is an `event`, so one case is a moment rather than
+a place.
+
+Three of the four columns are measurable without an opinion. **shape** is the returned
+file's own header: 16:9 asked for, within 4 per cent, which is loose enough that a model
+rounding to 1344x768 (1.750) counts as obeying and tight enough that 1:1 or 4:3 does not.
+**subject** and **adherence** are judged by the same two vision models from different houses
+the text tasks use (`openai/gpt-5.4` and `anthropic/claude-opus-4.8`), asked whether the
+image is of a place, a moment, a person, an object or nothing legible, and how much of the
+entry text it actually shows. A case counts as portrait-shaped only when neither judge saw a
+place or a moment, the same both-judges rule `judge.ts` documents. **usable** is the two
+judges' yes/no on "would you put this in that entry's body as it stands", out of twelve.
+
+| arm | prompt | shape | subject | adherence | usable | wall ms | predict s | USD/image | EUR/image |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **bytedance/seedream-4** | scene | 6/6 | 6/6 | **0.938** | **12/12** | 12233 | 10.9 | 0.030 | 0.0259 |
+| black-forest-labs/flux-1.1-pro | scene | 6/6 | 6/6 | 0.813 | 12/12 | 3299 | 2.5 | 0.040 | 0.0346 |
+| black-forest-labs/flux-schnell | scene | 6/6 | 6/6 | 0.771 | 12/12 | 64499 | **3.1** | **0.003** | **0.0026** |
+| prunaai/p-image (the `portrait` row) | scene | 6/6 | 6/6 | 0.708 | 12/12 | 2067 | 1.1 | 0.005 | 0.0043 |
+| prunaai/p-image, control | portrait | 6/6 | 6/6 | 0.625 | 10/12 | 1865 | 1.1 | 0.005 | 0.0043 |
+
+`wall ms` is the median the bench measured end to end; `predict s` is Replicate's own
+`metrics.predict_time` for the same predictions. The two disagree wildly for one model and
+the reason is the next section, not the model.
+
+Migration `0042_seed_scene_image_model.sql` writes the row and prices `image.scene` at 4
+credits.
+
+**Every candidate honoured 16:9 and every candidate produced a place, so neither of those
+separated the field.** That includes the control, which is the finding I did not expect: the
+`the-cistern-quarter` prose names three people and p-image still framed a street, with the
+portrait prompt, on a 16:9 canvas. So the framing clause is not what stops a scene becoming a
+portrait; asking for a wide canvas already does that on this field of models. What the clause
+is worth is smaller and real: on the same model it moved adherence from 0.625 to 0.708 and
+usable from 10/12 to 12/12, and the case it rescued is `valdoria`, which the portrait prompt
+rendered as an aerial shot of a hill fort that both judges scored 0.13 and refused. That is
+the whole justification for `SCENE_FRAMING`, stated at its real size.
+
+**seedream-4 wins on the only column that separated anything.** 0.938 against 0.813 for the
+next best, over six cases and two judges, and the gap is visible rather than statistical: it
+is the only candidate that read the entry text back into the picture, painting "Valdoria" on
+a quayside sign and "1247" into the corner of the Sable Winter, and the only one whose
+harbour is a fantasy harbour rather than a photograph of motorboats. It also returns
+2560x1440 where everything else returns 1344x768, which matters for an image that sits at the
+full width of an entry body.
+
+**The two rejected alternatives, with what taking them would have cost.**
+`flux-schnell` is ten times cheaper, EUR 0.0026 against EUR 0.0259, and it is already the
+`variants` row so adopting it would have needed no new provider relationship at all. What it
+costs is 0.167 of adherence, garbled signage where seedream reads back the entry's own
+proper nouns, two of six cases rendered as present-day photographs (`il-molo-vecchio` came
+back as a marina full of motorboats), and letterboxing that spends part of a 16:9 canvas on
+black bars. On ten scene images a month that price difference is EUR 0.23 against EUR 0.026,
+which is not a number worth trading a visibly worse picture for. `flux-1.1-pro` is the
+opposite trade: EUR 0.0346 an image, the most expensive arm, for 0.125 less adherence than
+the model that costs a quarter less, and it decorates two of six with a caption bar of
+illegible text.
+
+**The margin is thin and that is a decision, not an oversight.** A credit is EUR 0.01
+(`DEFAULT_CREDITS_PER_EUR`), so `image.portrait` at 3 credits sells an EUR 0.0043 image for
+EUR 0.03, an 86 per cent margin. A seedream-4 scene costs EUR 0.0259, so 3 credits would sell
+it at a 14 per cent margin and `flux-1.1-pro` would sell it at a loss. The migration prices
+`image.scene` at **4 credits**, which is the number `image.variants` already uses and gives a
+35 per cent margin, and I am recording rather than burying that this is still well under what
+every other generated image in the catalogue earns. If that margin has to match
+`image.portrait`'s, the answer flips to `flux-schnell` and this table is the reason to ask
+first: that is a pricing decision, not a measurement.
+
+### `google/imagen-4-fast` could not be measured at all
+
+It was on the shortlist as the fourth house and never produced an image. Replicate accepted
+every prediction and Google then answered `404 Not Found` for
+`imagen-4.0-fast-generate-001` on its own Vertex endpoint
+(prediction `fjfhvm0pp1rmy0d03e9vkyq6e0`), so the arm failed six for six at zero cost. Not a
+content refusal and not a bad candidate, just a model that is currently broken behind
+Replicate's proxy. `bytedance/seedream-4` took its place, which is why the field was measured
+in two runs rather than one.
+
+### Two things this run found that are not about model choice
+
+**`Prefer: wait` is not enough, and the product was charging for the difference.** Replicate's
+synchronous wait held the connection the full 60 seconds for `flux-schnell`, then answered
+`202` with `status: "processing"` and `output: null`, while its own
+`metrics.total_time` for that same prediction was 3.2 seconds. `generateImage` returned that
+prediction happily, `withQuota` read a successful callback and charged 3 credits, and
+`ReplicateImageProvider` then threw "returned no image output". Six out of six `flux-schnell`
+cases did that, and `flux-schnell` is the model `variants` runs on. `generateImage` now polls
+to a terminal state inside the quota callback and throws on anything that is not `succeeded`,
+which is what keeps the charge and the image in step; the 64-second wall clock in the table
+above is that path being exercised rather than anything about the model.
+
+**Replicate throttles hard below $5 of credit.** 6 predictions a minute with a burst of 1,
+which the bench paces around at one submission every 11 seconds. A GM clicking Generate twice
+inside ten seconds would meet the same 429 as a failed generation, and the product does not
+retry it. Not fixed here.
+
+### What this measures and what it does not
+
+Every arm ran with **no style modifier**, so these are the model's own defaults rather than
+what a GM sees: production appends the universe's or the entry's `imagePromptModifier`, and
+a house style is exactly the instrument that would pull p-image's photography towards the
+rest of the field. The ranking is about which model reads a Valdoria entry and frames it,
+with the style held out of it.
+
+Six cases and two judges is enough to separate 0.94 from 0.71 and nowhere near enough to
+separate 0.94 from 0.91, and `adherence` is a judged number even though `shape` next to it is
+not. One image per case, no seeds fixed, so a case is one sample of a distribution and not a
+verdict on it.
+
 ## Re-running this
 
 ```bash
@@ -259,8 +396,14 @@ pnpm --filter @canonry/bench seed            # seed the world and index it
 pnpm --filter @canonry/bench models -- --purpose cheap
 pnpm --filter @canonry/bench models -- --purpose premium
 pnpm --filter @canonry/bench models -- --purpose multimodal
+pnpm --filter @canonry/bench scene-images                       # every arm, 30 images
+pnpm --filter @canonry/bench scene-images -- --arm seedream-4   # one arm
 ```
 
 Needs `AI_GATEWAY_API_KEY`, a live Qdrant, and a `DATABASE_URL` whose name ends in `_bench`
 or `_e2e`; the runner refuses anything else, because it writes real proposals, revisions and
-`model_call` rows on purpose.
+`model_call` rows on purpose. `scene-images` additionally needs `REPLICATE_API_TOKEN`, needs
+no Qdrant, and spends about EUR 0.65 for a full sweep, so `--arm` exists to avoid re-running
+the arms that were fine. The images themselves land in `packages/bench/.data/scene/<arm>/`,
+which is gitignored: a run is evidence for one afternoon and the table above is what gets
+committed.

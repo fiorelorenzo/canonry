@@ -49,8 +49,11 @@ export class AiDisabledError extends Error {
 	}
 }
 
-/** 'scene' exists in the image_feature enum for a later wave; SPEC.md §9 only names a
- * priced operation and a seeded model for portrait and its four-variant batch. */
+/** A feature with no priced operation and no image count of its own. Nothing reaches this
+ * today: `portrait`, `variants` and `scene` (#258) are the whole `image_feature` enum and
+ * all three are configured below. It stays because the enum is a database type and a
+ * fourth value can be added by a migration without this file noticing, and throwing here
+ * is the honest answer to that rather than charging a made-up operation. */
 export class UnsupportedImageFeatureError extends Error {
 	constructor(feature: ImageFeature) {
 		super(`image feature "${feature}" has no priced operation configured yet`);
@@ -84,12 +87,31 @@ export class MediaAssetHasNoPromptError extends Error {
 
 const OPERATION_BY_FEATURE: Partial<Record<ImageFeature, string>> = {
 	portrait: 'image.portrait',
-	variants: 'image.variants'
+	variants: 'image.variants',
+	scene: 'image.scene'
 };
 
 const IMAGE_COUNT_BY_FEATURE: Partial<Record<ImageFeature, number>> = {
 	portrait: 1,
-	variants: 4
+	variants: 4,
+	scene: 1
+};
+
+/**
+ * The shape of the image, per feature (#258). Only `scene` states one: a body image is a
+ * landscape, and 16:9 is what the bench measured every candidate at (docs/models.md).
+ * `portrait` and `variants` deliberately state nothing, so both keep whatever their own
+ * model defaults to and nothing about either changes because this table exists.
+ *
+ * Sent as Replicate's own `aspect_ratio` input key, which is the name nine of the ten models
+ * whose schemas I read while measuring #258 use, including all four that were measured
+ * (`stability-ai/sdxl` is the exception and takes `width`/`height` instead). A model that
+ * does not declare the key is not a failure: Replicate ignores an input key its schema does
+ * not carry, which is not a guess - `prunaai/p-image` has no `num_outputs` in its schema and
+ * has been receiving one from this package since #66.
+ */
+const ASPECT_RATIO_BY_FEATURE: Partial<Record<ImageFeature, string>> = {
+	scene: '16:9'
 };
 
 export function operationForFeature(feature: ImageFeature): string {
@@ -163,7 +185,8 @@ export async function generateImages(input: GenerateImagesInput): Promise<Genera
 		: composePrompt({
 				name: input.entity.name,
 				description: input.entity.description,
-				styleModifier: style.modifier
+				styleModifier: style.modifier,
+				feature: input.feature
 			});
 	const prompt = instruction
 		? composeRegeneratePrompt({ priorPrompt: basePrompt, instruction })
@@ -194,13 +217,15 @@ export async function generateImages(input: GenerateImagesInput): Promise<Genera
 		}
 	}
 
+	const aspectRatio = ASPECT_RATIO_BY_FEATURE[input.feature];
 	const generated = await input.images.generate({
 		prompt,
 		model,
 		count,
 		userId: input.userId,
 		universeId: input.universeId,
-		operation
+		operation,
+		...(aspectRatio ? { aspectRatio } : {})
 	});
 
 	const price = await chargeFor(input.db, operation);

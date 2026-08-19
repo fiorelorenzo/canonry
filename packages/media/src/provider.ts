@@ -20,6 +20,10 @@ export interface ImageGenerateInput {
 	userId: string;
 	universeId: string;
 	operation: string;
+	/** Replicate's own `aspect_ratio` value, when the feature has a shape of its own
+	 * (#258: `scene` asks for 16:9). Omitted means "leave the model's default alone",
+	 * which is what `portrait` and `variants` still do. */
+	aspectRatio?: string;
 	/** Retry safety (SPEC.md §15/#88): threaded through to generateImage/withQuota so a
 	 * retried submission is charged once. Omit when there is no retry path. */
 	idempotencyKey?: string;
@@ -79,7 +83,11 @@ export class ReplicateImageProvider implements ImageProvider {
 				db: this.deps.db,
 				model: input.model,
 				replicateApiToken: this.deps.replicateApiToken,
-				input: { prompt: input.prompt, num_outputs: input.count },
+				input: {
+					prompt: input.prompt,
+					num_outputs: input.count,
+					...(input.aspectRatio ? { aspect_ratio: input.aspectRatio } : {})
+				},
 				userId: input.userId,
 				universeId: input.universeId,
 				agent: this.deps.agent,

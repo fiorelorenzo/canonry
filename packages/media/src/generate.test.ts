@@ -118,6 +118,13 @@ describe('generateImages (#64-#67, #71)', () => {
 				modelId: 'black-forest-labs/flux-schnell',
 				active: true,
 				params: { pricePerImage: 0.01, currency: 'USD' }
+			},
+			{
+				feature: 'scene',
+				provider: 'replicate',
+				modelId: 'prunaai/p-image',
+				active: true,
+				params: { pricePerImage: 0.005, currency: 'USD' }
 			}
 		]);
 	});
@@ -182,6 +189,10 @@ describe('generateImages (#64-#67, #71)', () => {
 
 		expect(images.calls).toHaveLength(1);
 		expect(images.calls[0]?.count).toBe(1);
+		// #258 added a per-feature aspect ratio, and a portrait is the feature that must not
+		// have one: sending `aspect_ratio` here would silently reshape every existing
+		// portrait, so the absence is the assertion.
+		expect(images.calls[0]?.aspectRatio).toBeUndefined();
 	});
 
 	it('generates four variants for the batch feature', async () => {
@@ -205,6 +216,41 @@ describe('generateImages (#64-#67, #71)', () => {
 		expect(result.assets.every((a) => a.credits > 0)).toBe(true);
 		expect(result.assets.reduce((sum, a) => sum + a.credits, 0)).toBeCloseTo(4, 6); // image.variants' real price
 		expect(images.calls[0]?.count).toBe(4);
+	});
+
+	// #258: the three things a scene is that a portrait is not, in one test, because they
+	// only mean anything together - a wide canvas with a portrait prompt is a wide portrait,
+	// and a scene prompt at 1:1 is a cropped scene.
+	it('generates a scene at 16:9, framed as a place, charged as image.scene (#258)', async () => {
+		const target = await makeEntity();
+		const images = new FakeImageProvider();
+
+		const result = await generateImages({
+			db,
+			images,
+			embeddings: new FakeEmbeddingProvider(),
+			storage: new FilesystemMediaStorage(storageRoot),
+			similarity,
+			universeId,
+			aiEnabled: true,
+			entity: { id: target.id, name: target.name, description: target.body },
+			feature: 'scene',
+			userId
+		});
+
+		expect(result.assets).toHaveLength(1);
+		expect(result.prompt).toBe(
+			'Aldric Vane. Dismissed watch captain, lean and grey-coated, Lantern Quarter backdrop., ' +
+				'a wide establishing view of the place itself, no posed figure filling the frame, ' +
+				'ink and wash, muted, cold light'
+		);
+		expect(images.calls[0]?.count).toBe(1);
+		expect(images.calls[0]?.aspectRatio).toBe('16:9');
+		// The real seeded image.scene price, which is what makes this a priced operation
+		// rather than a feature quietly charging somebody else's. Four credits and not the
+		// portrait's three: the model the bench chose costs six times as much per image
+		// (migration 0042, docs/models.md).
+		expect(result.assets[0]?.credits).toBeCloseTo(4, 6);
 	});
 
 	it('the per-entry override wins over the universe style in the built prompt (#65 acceptance)', async () => {

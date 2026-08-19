@@ -11,10 +11,11 @@
  * `instruction` than pass it on as a string, which is the whole point of treating it as
  * data rather than something to interpret.
  *
- * Always the real Replicate provider - never a fake wired in behind a flag. This box has
- * no REPLICATE_API_TOKEN, so this throws MissingReplicateEnvError until one is
- * configured; see $lib/server/media.ts's header and this package's own report for why
- * that is the honest behaviour rather than a silent, fabricated fallback.
+ * Always the real Replicate provider - never a fake wired in behind a flag. Without a
+ * REPLICATE_API_TOKEN this throws MissingReplicateEnvError rather than falling back to
+ * anything; see $lib/server/media.ts's header and this package's own report for why that is
+ * the honest behaviour. With one it really generates: #258 drove this endpoint end to end
+ * against Replicate, and the 2560x1440 seedream-4 scene it returned is in that PR.
  */
 import { error, json } from '@sveltejs/kit';
 import { InsufficientCreditsError } from '@canonry/ai';
@@ -37,8 +38,11 @@ import {
 import type { RequestHandler } from './$types';
 import { loadMediaContext, requireWriter } from '../_context.js';
 
-function isImageFeature(value: unknown): value is 'portrait' | 'variants' {
-	return value === 'portrait' || value === 'variants';
+/** Every value of `image_feature` is a real, configured feature since #258 seeded `scene`,
+ * so this guard is now the enum and not a subset of it. It stays a guard rather than a cast:
+ * the body is JSON a client sent, and `generateImages` charges for whatever it is handed. */
+function isImageFeature(value: unknown): value is 'portrait' | 'variants' | 'scene' {
+	return value === 'portrait' || value === 'variants' || value === 'scene';
 }
 
 export const POST: RequestHandler = async ({ request, params, locals }) => {

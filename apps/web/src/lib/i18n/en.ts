@@ -596,9 +596,9 @@ export const en: Messages = {
 				existingHeading: "This entry's images",
 				emptyExisting: 'No images attached to this entry yet - generate one below.',
 				generateHeading: 'Generate a new one',
-				featureAriaLabel: 'Image type',
-				portraitOption: 'Portrait (one image)',
-				variantsOption: 'Variants (four to choose from)',
+				sceneCost: (credits) =>
+					`One wide scene image of this entry, ${credits} ${credits === 1 ? 'credit' : 'credits'}.`,
+				sceneNotConfigured: 'No image model is configured for scenes yet.',
 				generateButton: 'Generate',
 				insertThisImage: 'Insert this image',
 				useThisOne: 'Use this one',
@@ -693,7 +693,7 @@ export const en: Messages = {
 			unknownLanguage: (choice) => `Unknown language "${choice}"`,
 			completeCannotRun: (message) => `Complete cannot run: ${message}`,
 			modifierMustBeString: 'modifier must be a string',
-			featureInvalid: 'feature must be "portrait" or "variants"',
+			featureInvalid: 'feature must be "portrait", "variants" or "scene"',
 			generationOff: 'Generation is switched off for this universe.',
 			notEnoughCredits: 'Not enough credits to generate this image.',
 			mediaAssetIdMustBeString: 'mediaAssetId must be a string',
@@ -1772,7 +1772,7 @@ export const en: Messages = {
 			featureLabel: {
 				portrait: 'Portrait - one image per request',
 				variants: 'Variants - up to four to choose from',
-				scene: 'Scene'
+				scene: 'Scene - one wide image for an entry body'
 			},
 			errors: {
 				unknownPurpose: (purpose) => `"${purpose}" is not a known model purpose.`,
