@@ -107,8 +107,20 @@ export function scoreCandidates(
 /** docs/ux/c7-reject-reasons.html: "too much" tunes the cap's cutoff rather than
  * penalising a specific candidate. Each recent "too much" tightens the cap by one entry,
  * down to a floor of 3 - a plan can get smaller as the GM says the copilot is too noisy,
- * but it never disappears, since a plan of zero candidates is silence, not a signal. */
-export function effectiveCap(baseCap: number, recentReasons: Array<string | null>): number {
+ * but it never disappears, since a plan of zero candidates is silence, not a signal.
+ *
+ * `baseCap: null` is decision C3's amendment: the GM turned the limit off entirely, and
+ * there is nothing to tighten - a cap that does not exist cannot get one smaller. This
+ * returns null straight through rather than substituting a number, and the floor of 3
+ * never applies in that case: a GM who explicitly asked for every candidate does not
+ * silently get three because they also rejected a few as "too much" in the past. The
+ * floor is a floor on *tightening a real cap*, not a minimum plan size the product
+ * imposes regardless of what the GM asked for. */
+export function effectiveCap(
+	baseCap: number | null,
+	recentReasons: Array<string | null>
+): number | null {
+	if (baseCap === null) return null;
 	const tooMuchCount = recentReasons.filter(
 		(reason) => normalizeReason(reason) === 'too_much'
 	).length;

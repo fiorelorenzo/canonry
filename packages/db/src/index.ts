@@ -131,6 +131,7 @@ export {
 	universeAccessBySlug,
 	universesForUser,
 	entityCountsByUniverseIds,
+	propagationCapForUniverse,
 	type UniverseAccess
 } from './queries/access.js';
 export { accountDeletionImpact, type AccountDeletionImpact } from './queries/account.js';

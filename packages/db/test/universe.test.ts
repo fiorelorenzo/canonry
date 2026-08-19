@@ -205,4 +205,31 @@ describe('universe', () => {
 		expect(remainingFacts).toHaveLength(0);
 		expect(remainingRevisions).toHaveLength(0);
 	});
+
+	it('defaults propagation cap to 25 and round-trips a set number and an explicit no-limit null', async () => {
+		const withDefault = await insertHomebrewUniverse(db);
+		expect(withDefault.propagationCap).toBe(25);
+
+		const withNumber = await insertHomebrewUniverse(db, { propagationCap: 40 });
+		expect(withNumber.propagationCap).toBe(40);
+
+		const withNoLimit = await insertHomebrewUniverse(db, { propagationCap: null });
+		expect(withNoLimit.propagationCap).toBeNull();
+
+		// Read back independently of the insert's own `.returning()`, so this is a real
+		// round trip through Postgres rather than just an echo of what was sent.
+		const [reloaded] = await db.select().from(universe).where(eq(universe.id, withNoLimit.id));
+		expect(reloaded?.propagationCap).toBeNull();
+	});
+
+	it('rejects a propagation cap of zero or less (universe_propagation_cap_positive)', async () => {
+		await expectConstraintViolation(
+			insertHomebrewUniverse(db, { propagationCap: 0 }),
+			'universe_propagation_cap_positive'
+		);
+		await expectConstraintViolation(
+			insertHomebrewUniverse(db, { propagationCap: -1 }),
+			'universe_propagation_cap_positive'
+		);
+	});
 });

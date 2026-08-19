@@ -6,6 +6,10 @@
 	 * universe's supersede declarations list here, with the source page struck through.
 	 * Decision K1 (DECISIONS.md "Round six"): a card here links to `settings/relations`,
 	 * issue #192's catalogue, rather than inlining a page's worth of tables and dialogs.
+	 * Decision N1 (DECISIONS.md "Round nine"): the propagation cap control, in the same
+	 * visual language as the writing switch above it - a number, or "no limit" turns it
+	 * off entirely. A disabled number input is never submitted, so the server only ever
+	 * sees `cap` when a real number applies.
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
@@ -20,6 +24,25 @@
 	const tRelations = $derived(t.relations);
 
 	let aiEnabled = $derived(form?.aiEnabled ?? data.aiEnabled);
+
+	// Annotated, and `undefined` explicitly excluded, because `ActionData` is a union over
+	// every action on this page: `'propagationCap' in form` narrows to the member that has
+	// the key but still admits `undefined` for it, which then leaks into `capInput` and the
+	// number input's own `number` prop.
+	let propagationCap = $derived<number | null>(
+		form && 'propagationCap' in form && form.propagationCap !== undefined
+			? form.propagationCap
+			: data.propagationCap
+	);
+	let noLimit = $state(propagationCap === null);
+	// 25 as a starting point mirrors packages/db/src/schema/universe.ts's own column
+	// default - not authoritative here, it is only what the number field shows if a GM
+	// switches off "no limit" without ever having typed a number of their own.
+	let capInput = $state(propagationCap ?? 25);
+	$effect(() => {
+		noLimit = propagationCap === null;
+		if (propagationCap !== null) capInput = propagationCap;
+	});
 </script>
 
 <svelte:head><title>{t.headTitle(data.current.name)}</title></svelte:head>
@@ -60,6 +83,45 @@
 				{t.aiToggle.offNotice(data.current.name)}
 			</p>
 		{/if}
+	</section>
+
+	<section class="mt-8 rounded-lg border border-line bg-panel p-4">
+		<h2 class="text-sm font-semibold text-ink">{t.propagationCap.heading}</h2>
+		<p class="mt-1 max-w-measure text-sm text-ink-2">
+			{t.propagationCap.description(data.current.name)}
+		</p>
+		<form method="POST" action="?/setPropagationCap" class="mt-3 flex flex-wrap items-center gap-3">
+			<label class="flex items-center gap-2 text-sm text-ink-2">
+				{t.propagationCap.capLabel}
+				<input
+					type="number"
+					name="cap"
+					min="1"
+					step="1"
+					bind:value={capInput}
+					disabled={noLimit}
+					class="h-9 w-20 rounded-md border border-line-2 bg-panel px-2 text-sm text-ink disabled:opacity-50"
+				/>
+			</label>
+			<label class="flex items-center gap-2 text-sm text-ink-2">
+				<input type="checkbox" name="noLimit" value="true" bind:checked={noLimit} class="h-4 w-4" />
+				{t.propagationCap.noLimitLabel}
+			</label>
+			<Button type="submit" variant="secondary" class="w-fit">
+				{t.propagationCap.save}
+			</Button>
+			{#if form?.message}
+				<p class="w-full text-sm text-danger">{form.message}</p>
+			{/if}
+		</form>
+		<p class="mt-3 text-xs text-muted">
+			{#if propagationCap === null}
+				{t.propagationCap.noLimitNotice}
+			{:else}
+				{@const notice = t.propagationCap.capNotice(propagationCap)}
+				{notice.prefix}<b class="text-ink-2">{propagationCap}</b>{notice.suffix}
+			{/if}
+		</p>
 	</section>
 
 	<section class="mt-8 rounded-lg border border-line bg-panel p-4">

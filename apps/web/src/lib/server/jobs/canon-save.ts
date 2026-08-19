@@ -62,7 +62,7 @@ import {
 	type EmbeddingModelFactory
 } from '@canonry/indexing';
 import type { QdrantClient } from '@canonry/vector';
-import type { Db } from '@canonry/db';
+import { propagationCapForUniverse, type Db } from '@canonry/db';
 import { db } from '$lib/server/db';
 import { identityGateway, modelFactory, vectorClient } from '$lib/server/copilot';
 import { DurableJobPoller, type DurableQueueHandlers } from './queue.js';
@@ -147,8 +147,14 @@ function describeEngineFailure(
 	return { status: 'error', ...logEngineFailure(err, universeId, entityId, engine) };
 }
 
+/** Decision C3 amendment: reads the universe's own `propagation_cap` before planning,
+ * rather than letting `planPropagation` fall back to its own default - a job here
+ * always knows which universe it is running for, so there is no excuse for the GM's
+ * setting not to apply. Null (no limit) passes straight through; `planPropagation`
+ * is what decides that means no truncation. */
 async function runPropagationEngine(input: EngineRunInput): Promise<EngineOutcome> {
 	try {
+		const cap = await propagationCapForUniverse(input.db, input.universeId);
 		const result = await planPropagation({
 			db: input.db,
 			userId: input.userId,
@@ -160,7 +166,8 @@ async function runPropagationEngine(input: EngineRunInput): Promise<EngineOutcom
 			triggerRevisionId: input.triggerRevisionId,
 			locale: input.locale,
 			modelFactory: input.modelFactory,
-			gateway: input.gateway
+			gateway: input.gateway,
+			cap
 		});
 		return result ? { status: 'ok', planId: result.plan.id } : { status: 'no-change' };
 	} catch (err) {

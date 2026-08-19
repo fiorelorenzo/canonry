@@ -121,4 +121,10 @@ describe('effectiveCap', () => {
 		const many = new Array(20).fill('too much');
 		expect(effectiveCap(10, many)).toBe(3);
 	});
+
+	it('never imposes the floor of 3 when the limit is off', () => {
+		const many = new Array(20).fill('too much');
+		expect(effectiveCap(null, many)).toBeNull();
+		expect(effectiveCap(null, [])).toBeNull();
+	});
 });
