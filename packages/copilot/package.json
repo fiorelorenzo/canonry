@@ -24,7 +24,7 @@
 	},
 	"devDependencies": {
 		"@canonry/eval": "workspace:*",
-		"@types/node": "^22",
+		"@types/node": "^26",
 		"postgres": "^3.4.9",
 		"prettier": "^3.8.3",
 		"typescript": "^6.0.3",
