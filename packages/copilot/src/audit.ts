@@ -40,9 +40,14 @@ import type { GatewayWrapper, ModelFactory, RoutedModel } from './models.js';
 import { requireAiEnabled } from './propagate.js';
 import { AUDIT_DISAGREEMENT, AUDIT_DISAGREEMENT_BARE, speechInstruction } from './speech.js';
 
-/** SPEC.md §5.2: "at most a handful of flags". Bounds both the number of candidate pairs
- * examined (so the model is never billed more than a handful of times per audit run) and,
- * transitively, the number of flags a run can ever produce. */
+/** SPEC.md §5.2: "at most a handful of flags". 5 is a reading of "a handful", not a
+ * measurement of anything - nobody has run audit against a real corpus and counted how
+ * many flags a GM actually tolerates before it reads as noise. Left alone rather than
+ * raised: raising it costs one real model call per extra pair examined, and the spec's
+ * wording is the only evidence either direction, so there is no basis to spend more on a
+ * number that already satisfies the words it is implementing. Bounds both the number of
+ * candidate pairs examined (so the model is never billed more than a handful of times per
+ * audit run) and, transitively, the number of flags a run can ever produce. */
 const AUDIT_PAIR_CAP = 5;
 
 export interface AuditFlagStatement {
