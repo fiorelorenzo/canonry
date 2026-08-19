@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: "npm" # covers pnpm; GitHub detects pnpm-lock.yaml under this ecosystem
+    directory: "/" # single root lockfile for the whole pnpm workspace (apps/*, packages/*)
+    schedule:
+      interval: "weekly"
+    ignore:
+      # esbuild's only vulnerable copy (GHSA behind alert #2, "esbuild enables any website to
+      # send any requests to the development server") is pinned by @esbuild-kit/core-utils,
+      # a deprecated dependency that drizzle-kit@0.31.10 still lists directly
+      # ("@esbuild-kit/esm-loader": "^2.5.5"), which in turn requires esbuild "~0.18.20". That
+      # range never reaches 0.28.1, the lowest non-vulnerable version, so every Dependabot
+      # security-update attempt against esbuild fails with security_update_not_possible and
+      # exits 1, turning every commit's check red (issue #232). The other two esbuild copies in
+      # the tree (drizzle-kit's own "esbuild": "^0.25.4" and tsx's, both already >=0.25) are
+      # unaffected and not part of this ignore. This is not a fix for the vulnerability itself,
+      # which stays tracked as an open Dependabot alert regardless of this file (alerts come
+      # from the dependency graph, not from this job) and is separately scoped to issue #224.
+      # Drop this entry once `pnpm why esbuild` no longer shows @esbuild-kit/core-utils in the
+      # tree, which a drizzle-kit release dropping @esbuild-kit/esm-loader (its 1.0 is the
+      # likely candidate, since the two other consumers already resolve esbuild directly)
+      # would confirm.
+      - dependency-name: "esbuild"
