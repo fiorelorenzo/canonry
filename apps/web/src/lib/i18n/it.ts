@@ -253,8 +253,28 @@ export const it: Messages = {
 			signOutEverywhereInProgress: 'Uscita da ovunque in corso…',
 			signOutEverywhereFailedFallback: 'Non è stato possibile terminare tutte le sessioni.',
 			deleteHeading: 'Elimina account',
-			deleteUnavailable:
-				"L'eliminazione dell'account non è ancora attiva su questo deployment, quindi qui non c'è un pulsante che fallirebbe in silenzio - chiedi a chi gestisce questo deployment di attivarla nella configurazione di Better Auth."
+			deleteIntro:
+				"Questa azione chiude l'account in modo definitivo. Non c'è modo di tornare indietro una volta seguito il link di conferma.",
+			deleteImpact: (impact) => {
+				const universes = impact.universes === 1 ? '1 universo' : `${impact.universes} universi`;
+				const entities = impact.entities === 1 ? '1 entit\u00e0' : `${impact.entities} entit\u00e0`;
+				const revisions = impact.revisions === 1 ? '1 revisione' : `${impact.revisions} revisioni`;
+				const proposals = impact.proposals === 1 ? '1 proposta' : `${impact.proposals} proposte`;
+				const images = impact.images === 1 ? '1 immagine' : `${impact.images} immagini`;
+				return `Eliminare questo account porta con s\u00e9 ${universes}, ${entities}, ${revisions}, ${proposals} e ${images}.`;
+			},
+			deleteExportPrompt:
+				'Esporta ci\u00f2 che vale la pena conservare prima di chiedere il link di conferma.',
+			deleteExportLink: "Vai all'esportazione",
+			deletePasswordLabel: 'Password attuale',
+			deleteButton: 'Inviami un link di conferma',
+			deleteSending: 'Invio…',
+			deletePasswordRequired: 'Inserisci la password attuale per richiedere il link di conferma.',
+			deleteWrongPassword: 'Quella password non \u00e8 corretta.',
+			deleteSendFailed:
+				'La mail di conferma non \u00e8 stata inviata. Nulla \u00e8 stato eliminato; riprova.',
+			deleteRequested:
+				"Controlla la posta in arrivo: il link in quella mail \u00e8 ci\u00f2 che elimina davvero l'account, e scade tra 24 ore."
 		}
 	},
 
@@ -310,6 +330,12 @@ export const it: Messages = {
 			success: 'Password aggiornata. Accedi con la tua nuova password.',
 			signInLink: 'Accedi'
 		},
+		accountDeleted: {
+			title: 'Account eliminato',
+			subtitle: 'Sparito, universi inclusi.',
+			body: "L'account e tutto ci\u00f2 che possedeva sono spariti. Accedere con quelle credenziali non funzioner\u00e0 pi\u00f9.",
+			homeLink: 'Torna a Canonry'
+		},
 		languageSwitcher: {
 			label: 'Lingua'
 		},
@@ -343,6 +369,16 @@ export const it: Messages = {
 			expiryNotice: "Questo link scade tra un'ora.",
 			ignoreNotice:
 				'Se non hai fatto questa richiesta, ignora pure questa email: la tua password resterà invariata.'
+		},
+		deleteAccount: {
+			subject: "Conferma l'eliminazione del tuo account Canonry",
+			heading: "Conferma l'eliminazione dell'account",
+			body: "Qualcuno ha chiesto di eliminare questo account. Cliccando sul link qui sotto elimini in modo permanente l'account e ogni universo, entit\u00e0, revisione, proposta e immagine che possiede. Non si pu\u00f2 annullare.",
+			button: 'Elimina il mio account',
+			linkFallback: 'Oppure incolla questo link nel browser:',
+			expiryNotice: 'Questo link scade tra 24 ore.',
+			ignoreNotice:
+				"Se non hai fatto questa richiesta, ignora questa email: l'account rimarr\u00e0 esattamente com'\u00e8."
 		}
 	},
 

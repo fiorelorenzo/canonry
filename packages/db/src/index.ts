@@ -133,6 +133,7 @@ export {
 	entityCountsByUniverseIds,
 	type UniverseAccess
 } from './queries/access.js';
+export { accountDeletionImpact, type AccountDeletionImpact } from './queries/account.js';
 export {
 	latestRevisionIds,
 	findByFingerprint,

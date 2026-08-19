@@ -68,13 +68,13 @@
 
 	<h2>Mail</h2>
 	<p>
-		A password reset, and later an email verification, a shared-universe invitation or an
-		import-finished notice, is sent through <strong>Resend</strong>, on our own verified
-		<code>canonry.io</code> domain. Resend sees the address you sign up with and the mail we ask it to
-		deliver on our behalf - never your canon's content, which never touches this connection at all. The
-		key we hold for it can only send mail on that domain; it cannot read your account, your inbox, or
-		anyone else's mail. If a send fails, we log that it failed and tell you, rather than showing a message
-		that went nowhere.
+		A password reset, an account-deletion confirmation, and later an email verification, a
+		shared-universe invitation or an import-finished notice, is sent through <strong>Resend</strong
+		>, on our own verified <code>canonry.io</code> domain. Resend sees the address you sign up with and
+		the mail we ask it to deliver on our behalf - never your canon's content, which never touches this
+		connection at all. The key we hold for it can only send mail on that domain; it cannot read your account,
+		your inbox, or anyone else's mail. If a send fails, we log that it failed and tell you, rather than
+		showing a message that went nowhere.
 	</p>
 
 	<h2>Reading stays on when writing is switched off</h2>
