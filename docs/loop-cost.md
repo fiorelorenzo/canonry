@@ -25,11 +25,14 @@ on the `cheap` purpose, 307 model calls, 1,363,296 input tokens, EUR 0.50 of rea
 | Are the tool schemas the problem? | No. 964 tokens for OneNote's seven-tool surface, against the 1,050 that `gateway-driver.ts`'s flat `TOOL_DEFINITION_TOKEN_ESTIMATE` of 150 tokens per tool assumes, so the stand-in over-prices them, which is the safe direction for a ceiling |
 | Is `onenote` special? | Not in the way #271 guessed. It does not spend closest to its step budget: it used 9 to 12 steps of 60, and the production job's 129,188 input tokens reconcile at 11 to 14 calls, not 60. What is special is that its **fixed block is the largest of the seven playbooks** (3,935 tokens on current `main`, from a 2,928-token system prompt) and it is re-sent on every step |
 | Is any playbook's per-document cost proportional to content? | None of them. Among documents that have real work to do, cost is near-flat regardless of size: OneNote's smallest document cost slightly **more** than its largest (0.9743 against 0.8849 credits, for 1.77x less content). The only cheap documents are the ones the model skipped in two steps because they hold nothing |
-| Is anything already discounting the resend? | Yes, by accident. Gemini's implicit prompt cache served **53.6 per cent of every input token this sweep spent**, on 49 per cent of calls, covering 83.5 per cent of a call when it fired. `ModelParams` has no cached-input price, so `computeCost` bills all of it at the full input rate |
+| Is anything already discounting the resend? | Yes, by accident. Gemini's implicit prompt cache served **53.6 per cent of every input token this sweep spent**, on 49 per cent of calls, covering 83.5 per cent of a call when it fired. `ModelParams` had no cached-input price, so `computeCost` billed all of it at the full input rate. Fixed in #313; the last section of this document is that measurement |
 
 **The fix the numbers point at is deterministic prompt caching of the loop's stable
 prefix, plus a cached-input rate in `computeCost`.** Not transcript pruning, which the
-next section explains cannot reach most of the money. Filed as its own issue.
+next section explains cannot reach most of the money. Filed as #313, built, and measured
+with this same harness at the end of this document - where half of it turned out to be
+worth exactly what this section predicted and the other half turned out not to be
+available at all, for a reason nothing here had checked.
 
 ## Where the tokens are, one document at a time
 
@@ -226,13 +229,17 @@ against that overstatement.
 And the hit rate is **incidental rather than driven**: it fired on 49 per cent of calls,
 including a step 8 sandwiched between two hits, because nothing in this codebase asks for a
 cache. Making it explicit is a change to how the request is built, not to what the loop
-does, so it costs none of the guardrails.
+does, so it costs none of the guardrails. (#313 found the second half of that sentence right
+and the first half not actionable on this provider: there is no request this codebase can
+build that asks Google for a cache, because Google's is implicit and unconditional. See the
+last section.)
 
 Sizing it, as a band rather than a number, because the cached-read rate has to come from the
 gateway's own price list and not from me: at 25 per cent of the input rate the sweep gets 37
 per cent cheaper on today's incidental hit rate and 57 per cent cheaper if every call hits at
 the coverage already observed; at 10 per cent, 44 and 69 per cent. Either end is a bigger
-lever than anything else on this list.
+lever than anything else on this list. (The real rate is 12 per cent, and repricing this
+sweep's own 730,321 cache reads at it takes the pooled bill down 43.0 per cent.)
 
 **Second: fewer model calls.** The bill is calls times the fixed block, so batching is worth
 real money and the sweep shows the model already varies by up to 1.37x on identical input.
@@ -269,6 +276,134 @@ why the argument rests on the repeatability table and not on the regression.
 Wall clock is deliberately absent. The box these ran on had several other agents on it, so
 latency here would measure the box.
 
+## What the fix actually bought (issue #313)
+
+Same harness, same two OneNote documents, 2026-08-19, a few hours after the sweeps above.
+`pnpm --filter @canonry/bench loop-cost -- --source onenote`, three arms, plus four probes
+against the raw gateway. The change is two things: one field on every step's request
+(`providerOptions.gateway.caching = 'auto'`, set in `callStep`) and a cached-input rate in
+`computeCost`. The second half is worth what the section above predicted. The first half is
+worth much less than it predicted, for a reason nothing in the spike had checked.
+
+### There is no cache to ask Google for
+
+`caching: 'auto'` is the only cache control the gateway exposes to an AI SDK caller, and
+Vercel's own provider table says what it does: for Anthropic and MiniMax, which cache only
+when asked, the gateway inserts `cache_control` breakpoints; for OpenAI, Google and DeepSeek,
+which cache implicitly, "no change needed, caching happens automatically" and the request
+goes through unmodified. `google/gemini-3.1-flash-lite` is in the second group. So the 49 per
+cent hit rate above is not a hit rate this codebase can raise by changing how it builds a
+request, and "deterministic rather than a coin flip" was the wrong expectation rather than an
+unmet one.
+
+Three measurements say so, and they agree.
+
+**Four arms, interleaved, each with a salted system prompt so no arm can read another's
+cache, eight steps each on a 3,953-token prefix that grows like the real loop's:**
+
+| arm | calls after the first that read cache | input tokens served from cache |
+| --- | --- | --- |
+| control, nothing asked | 4 of 7 | 53.9% |
+| `caching: 'auto'` | 5 of 7 | 67.3% |
+| `caching: 'auto'` + `order: ['vertex']` | 5 of 7 | 67.3% |
+| `caching: 'auto'` + `only: ['vertex']` | 2 of 7 | 26.8% |
+
+Noise, in both directions, which is what a no-op looks like. Pinning the provider does not
+help either: every one of those calls was served by `vertex` anyway, so the arm that forbade
+the fallback simply removed a fallback.
+
+**The runner itself, four times, and the interesting rows are the third and the fourth:**
+
+| arm | order | calls cached | input served from cache | credits |
+| --- | --- | --- | --- | --- |
+| no cache control | first, cold | 14 of 24 | 46.2% | 2.4766, old pricing |
+| `caching: 'auto'` | second | 23 of 26 | 69.3% | 2.7389, old pricing |
+| no cache control again | third | 19 of 21 | 73.3% | 2.1428, old pricing |
+| `caching: 'auto'`, cached rate seeded | fourth | 16 of 26 | 47.8% | **1.6800**, against 2.7303 for the same tokens under the old |
+
+Read the second row on its own and the change looks like it took the loop from half its calls
+to substantially all of them, which is exactly what #313's acceptance asked for. The third and
+fourth rows are why that reading is wrong. With the change reverted and the cache warm from two
+prior runs, the same loop gets 19 of 21 and a *higher* coverage than the arm that asked; with
+the change back in place on the fourth run it falls to 16 of 26 and 47.8 per cent, near where
+the cold arm started. Four draws of 46, 69, 73 and 48 per cent, in that order, is not a warm-up
+curve and it is certainly not a lever: it is a provider deciding, per call, whether to serve a
+prefix it already holds. The per-step reads say the same thing without the aggregate, and they
+say it consistently: when a step hits, the read is a flat 3,300 to 3,640 tokens, which is the
+fixed block and nothing else, and the misses are scattered rather than clustered at the start.
+
+The fourth row is also the end-to-end check on the other half of the change. That run is the
+only one with `pricePerCachedInputMTok` actually present on the `cheap` row, and the credits the
+loop charged itself, 1.6800, match a hand recomputation from the recorded token counts to four
+decimal places. Which is the whole point: 38.5 per cent off the same work, from pricing rather
+than from asking.
+
+**And on a provider that does need asking, the same field is the whole difference.** Six
+steps against `anthropic/claude-haiku-4.5`, the model that held the `cheap` row until
+migration 0028 four days ago and whose row 0028 deactivated rather than deleted:
+
+| arm | calls after the first that read cache | input served from cache |
+| --- | --- | --- |
+| control | 0 of 5 | 0.0% |
+| `caching: 'auto'` | 5 of 5 | 97.2% |
+
+Step 1 writes 4,291 tokens; every step after it reads the previous step's whole prompt back
+and writes only the 83 to 146 tokens it appended. That is the deterministic behaviour the
+spike wanted, it is what this loop's append-only shape deserves, and on Anthropic the loop got
+precisely none of it before this change. That is why the field is set unconditionally rather
+than gated on the active row: `model_config` is switchable from `/admin/models` without a
+deploy, so the loop must not depend on which provider it happens to be pointed at for its
+prefix to be cacheable.
+
+### The rate, and what it changes
+
+From the gateway's own price list (`GET /v1/models`, the `input_cache_read` field), not from a
+ratio: **USD 0.03 per million cached input tokens for `google/gemini-3.1-flash-lite`** against
+USD 0.25 fresh, so 12 per cent, and **USD 0.25 against USD 2.50 for `openai/gpt-5.4`**, so 10
+per cent. A single assumed multiplier would have been wrong on one of the two, which is why
+the spike refused to guess it. Neither model is quoted a cache-write rate at all, because
+neither charges for one; Anthropic does, at 1.25x its input rate for a five-minute entry,
+which is why `ModelParams` carries `pricePerCacheWriteMTok` as well.
+
+Repricing, three rows of arithmetic on recorded runs and one row the loop charged itself:
+
+| run | input tokens | served from cache | bill before | bill after | drop |
+| --- | --- | --- | --- | --- | --- |
+| onenote, cold | 104,586 | 46.2% | 2.4766 credits | 1.5578 | 37.1% |
+| onenote, warm | 90,715 | 73.3% | 2.1428 credits | 0.8788 | 59.0% |
+| onenote, fourth arm, **actually billed this way** | 115,610 | 47.8% | 2.7303 credits | 1.6800 | 38.5% |
+| the two full sweeps above, pooled | 1,363,296 | 53.6% | EUR 0.3232 | EUR 0.1843 | 43.0% |
+
+So the band this document guessed at (37 to 57 per cent at a 25 per cent rate, 44 to 69 at 10)
+lands at 37 to 59 per cent on the runs actually measured, and 43 per cent on the pooled sweep
+it was guessing about. The money was never in asking for the cache; it was in paying for the
+one we were already getting.
+
+### Two things this leaves behind
+
+**A cached read looks like it needs a large enough prefix, which is an argument against
+shortening the long playbook prompts rather than for it.** Across the four probes the pattern
+is monotone and hard to miss: 0 hits in 18 calls at a 3,083 to 3,478-token prefix, 16 of 28 at
+3,953 to 4,497, and 11 of 12 at 6,795, where the read covered 90 per cent of the call. Nothing
+here isolates a threshold, and Google publishes a minimum for implicit caching rather than
+guaranteeing anything above it. But `onenote`'s fixed block is 3,935 tokens, which sits right
+where hits start, and cutting the 1,100 tokens of provenance and scope rationale out of its
+system prompt would land it near 2,800, below anything measured to hit at all. That trim needs
+its own arm of this runner before it ships, not just a token count, which is what #329 asks
+for. `obsidian`'s 2,808 tokens are a different case and were checked separately: its length is
+the seven wikilink forms and Dataview's inline fields, both of them markup no other playbook
+sees and each row of them changing a decision, so that one is earned.
+
+**`estimate.ts`'s 2.816 credits per OneNote document is now too high, and by an amount this
+repo cannot compute.** That constant is the average of two real jobs' `spent_credits`, and
+`spent_credits` priced their cache reads as fresh input; neither job recorded how many it got,
+because nothing recorded cached tokens before #271 and nothing persists them even now. The
+band above puts the honest figure between roughly 1.15 and 1.77 credits. It is deliberately
+not hardcoded to either: `estimateAveragesForPlaybook` replaces a cold-start default with a
+historical average the first time a real job finishes, so the right way to move that number is
+to let one finish under the new arithmetic rather than to substitute a repricing of old token
+counts for the measurement the row is supposed to carry. Filed as #330.
+
 ## Re-running this
 
 ```bash
@@ -289,3 +424,4 @@ The instrumentation is `profileStep` and `toolSchemaChars` in
 work at all: it does not convert a schema, it does not walk a transcript, and
 `gateway-driver.test.ts` pins that a profiled run and an unprofiled run of the same document
 emit identical events.
+

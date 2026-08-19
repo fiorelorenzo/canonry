@@ -92,6 +92,93 @@ describe('computeCost', () => {
 		);
 		expect(costEur).toBe(0.0173);
 	});
+
+	// issue #313. The real rates on the gateway's own price list for the model the import
+	// loop runs on: $0.25 per million input tokens, $0.03 per million served from the
+	// provider's prompt cache.
+	const CHEAP_MODEL_PARAMS = {
+		currency: 'USD' as const,
+		pricePerInputMTok: 0.25,
+		pricePerOutputMTok: 1.5,
+		pricePerCachedInputMTok: 0.03,
+		creditsPerEur: 100
+	};
+
+	it('charges less for a call the provider served from its own prompt cache (issue #313)', () => {
+		const base = { outputTokens: 1_000, embeddingTokens: 0, images: 0 };
+		const uncached = computeCost(CHEAP_MODEL_PARAMS, { ...base, inputTokens: 100_000 });
+		const cached = computeCost(CHEAP_MODEL_PARAMS, {
+			...base,
+			inputTokens: 100_000,
+			cachedInputTokens: 80_000
+		});
+		expect(cached.costEur).toBeLessThan(uncached.costEur);
+		// Input: 20k fresh at $0.25 + 80k cached at $0.03 = $0.0074, against $0.025 uncached.
+		// Output is the same $0.0015 on both, so the whole call costs 33.6% of what it did
+		// before this rate existed, and its input alone 29.6%.
+		expect(cached.costEur / uncached.costEur).toBeCloseTo(0.0089 / 0.0265, 6);
+	});
+
+	it('prices a cached token as fresh input when the model carries no cached rate, never as free', () => {
+		const { pricePerCachedInputMTok: _dropped, ...noCachedRate } = CHEAP_MODEL_PARAMS;
+		const usage = {
+			inputTokens: 100_000,
+			outputTokens: 0,
+			embeddingTokens: 0,
+			images: 0
+		};
+		const withCacheReads = computeCost(noCachedRate, { ...usage, cachedInputTokens: 80_000 });
+		const withNone = computeCost(noCachedRate, usage);
+		expect(withCacheReads.costEur).toBe(withNone.costEur);
+		expect(withCacheReads.costEur).toBeGreaterThan(0);
+	});
+
+	it('bills a cache write at its own rate, which an explicit-caching provider charges above input', () => {
+		// Anthropic's five-minute write is 1.25x its base input rate; the read is 0.1x.
+		const params = {
+			currency: 'USD' as const,
+			pricePerInputMTok: 1,
+			pricePerCachedInputMTok: 0.1,
+			pricePerCacheWriteMTok: 1.25,
+			creditsPerEur: 100
+		};
+		const base = { outputTokens: 0, embeddingTokens: 0, images: 0 };
+		const firstStep = computeCost(params, {
+			...base,
+			inputTokens: 1_000_000,
+			cacheWriteInputTokens: 1_000_000
+		});
+		const laterStep = computeCost(params, {
+			...base,
+			inputTokens: 1_000_000,
+			cachedInputTokens: 1_000_000
+		});
+		const noCaching = computeCost(params, { ...base, inputTokens: 1_000_000 });
+		expect(firstStep.costEur).toBeGreaterThan(noCaching.costEur);
+		expect(laterStep.costEur).toBeCloseTo(noCaching.costEur * 0.1, 10);
+		// One read repays the write premium: 1.25 + 0.1 against 2 for two uncached steps.
+		expect(firstStep.costEur + laterStep.costEur).toBeLessThan(noCaching.costEur * 2);
+	});
+
+	it('never lets a provider reporting more cached tokens than it read produce a negative bill', () => {
+		const { costEur } = computeCost(CHEAP_MODEL_PARAMS, {
+			inputTokens: 1_000,
+			outputTokens: 0,
+			embeddingTokens: 0,
+			images: 0,
+			cachedInputTokens: 9_000,
+			cacheWriteInputTokens: 9_000
+		});
+		expect(costEur).toBeGreaterThan(0);
+		expect(costEur).toBeLessThan(
+			computeCost(CHEAP_MODEL_PARAMS, {
+				inputTokens: 1_000,
+				outputTokens: 0,
+				embeddingTokens: 0,
+				images: 0
+			}).costEur
+		);
+	});
 });
 
 describe('recordCall and withUsage against real Postgres', () => {

@@ -1842,3 +1842,144 @@ describe('GatewayDriver - optional per-step transcript profiling (issue #271)', 
 		expect(withoutLatency(runs[1]!.events)).toEqual(withoutLatency(runs[0]!.events));
 	});
 });
+
+describe('GatewayDriver - the stable prefix is sent with provider cache control (issue #313)', () => {
+	/** The same shape as `usage()` above, with the provider reporting part of the input as
+	 * served from (or written to) its own prompt cache. No provider is involved: the point is
+	 * that the loop prices what it is told, which is what CI can check with no credentials. */
+	interface CacheAwareUsage {
+		inputTokens: {
+			total: number;
+			noCache: number;
+			cacheRead: number | undefined;
+			cacheWrite: number | undefined;
+		};
+		outputTokens: { total: number; text: number; reasoning: number | undefined };
+	}
+
+	function cachedUsage(input: {
+		total: number;
+		cacheRead?: number;
+		cacheWrite?: number;
+	}): CacheAwareUsage {
+		return {
+			inputTokens: {
+				total: input.total,
+				noCache: input.total - (input.cacheRead ?? 0) - (input.cacheWrite ?? 0),
+				cacheRead: input.cacheRead,
+				cacheWrite: input.cacheWrite
+			},
+			outputTokens: { total: 5, text: 5, reasoning: undefined }
+		};
+	}
+
+	const CACHED_PARAMS = {
+		pricePerInputMTok: 1,
+		pricePerOutputMTok: 2,
+		pricePerCachedInputMTok: 0.1,
+		creditsPerEur: 100
+	};
+
+	function selectorWith(
+		languageModel: LanguageModel,
+		params: ImportModel['params']
+	): ModelSelector {
+		const resolved: ImportModel = {
+			languageModel,
+			provider: 'test',
+			modelId: 'test-cheap',
+			params
+		};
+		return { resolve: async () => resolved };
+	}
+
+	function threeStepScript(usageFor: (step: number) => CacheAwareUsage): MockLanguageModelV4 {
+		let calls = 0;
+		return new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			doGenerate: async () => {
+				calls += 1;
+				const step =
+					calls === 1
+						? toolCallStep([{ id: 't1', name: 'source_read', input: { path: 'notes.md' } }])
+						: calls === 2
+							? toolCallStep([{ id: 't2', name: 'checkpoint', input: { note: 'read it' } }])
+							: toolCallStep([
+									{ id: 't3', name: 'job_finish', input: { outcome: 'completed', summary: '' } }
+								]);
+				return { ...step, usage: usageFor(calls) };
+			}
+		});
+	}
+
+	it('asks the gateway for automatic caching on every call of a document, not only the first', async () => {
+		const playbook = await loadBuiltinPlaybook('generic');
+		const sources = new InMemorySourceReader({
+			files: { 'notes.md': 'Aldric Voss, harbourmaster.' }
+		});
+		const model = threeStepScript(() => cachedUsage({ total: 10 }));
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+
+		await collect(
+			buildJob({
+				id: 'job-cache-control',
+				playbook,
+				documents: [{ id: 'doc-1', sourcePath: 'notes.md' }],
+				sources
+			}),
+			driver
+		);
+
+		expect(model.doGenerateCalls).toHaveLength(3);
+		// Every call, not just the first: the prefix a step re-sends is the previous step's
+		// whole request, so the ask has to be on all of them or the chain of reads breaks.
+		for (const call of model.doGenerateCalls) {
+			expect(call.providerOptions).toEqual({ gateway: { caching: 'auto' } });
+		}
+	});
+
+	it('charges a step the cached rate for the input its provider served from cache', async () => {
+		const playbook = await loadBuiltinPlaybook('generic');
+		const creditsOf = async (
+			id: string,
+			usageFor: (step: number) => CacheAwareUsage
+		): Promise<number> => {
+			const driver = new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: selectorWith(threeStepScript(usageFor), CACHED_PARAMS)
+			});
+			const { events } = await collect(
+				buildJob({
+					id,
+					playbook,
+					documents: [{ id: 'doc-1', sourcePath: 'notes.md' }],
+					sources: new InMemorySourceReader({
+						files: { 'notes.md': 'Aldric Voss, harbourmaster.' }
+					})
+				}),
+				driver
+			);
+			return events
+				.filter((e): e is Extract<JobEvent, { type: 'usage' }> => e.type === 'usage')
+				.reduce((sum, e) => sum + e.credits, 0);
+		};
+
+		// Same three steps, same token totals, same rates. The only difference is that one
+		// provider says it served 90% of steps 2 and 3 from its own cache.
+		const uncached = await creditsOf('job-cache-off', () => cachedUsage({ total: 100_000 }));
+		const cached = await creditsOf('job-cache-on', (step) =>
+			step === 1
+				? cachedUsage({ total: 100_000 })
+				: cachedUsage({ total: 100_000, cacheRead: 90_000 })
+		);
+
+		expect(cached).toBeLessThan(uncached);
+		// Steps 2 and 3 each pay 10k at 1.0 plus 90k at 0.1, so 19k-equivalent instead of
+		// 100k: the job's input bill drops from 300k to 138k token-equivalents.
+		expect(cached / uncached).toBeLessThan(0.6);
+	});
+});
