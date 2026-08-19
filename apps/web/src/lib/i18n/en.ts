@@ -1375,20 +1375,48 @@ export const en: Messages = {
 			derivedNoticeBefore: 'Derived: reads its own canon plus ',
 			derivedNoticeAfter: "'s indexed corpus, read-only. Your canon always wins.",
 			newEntryAction: 'New entry',
-			strip: {
-				collapseLabel: 'Collapse',
-				expandLabel: 'Expand overview',
-				whatChangedHeading: 'What changed',
-				whatChangedEmpty: 'Nothing changed yet.',
-				waitingForReviewHeading: 'Waiting for review',
-				quotaHeading: 'Quota',
+			home: {
+				entriesStat: 'Entries',
+				waitingStat: 'Waiting review',
+				quotaStat: 'Quota',
 				quotaValue: (used, total) => {
 					const fmt = numberFormat('en', { maximumFractionDigits: 0, useGrouping: 'always' });
-					return `${fmt.format(used)} / ${fmt.format(total)} credits`;
+					return `${fmt.format(used)} / ${fmt.format(total)}`;
 				},
-				currentWorkHeading: 'Current work',
-				currentWorkEmpty: 'Nothing in progress.',
-				currentWorkValue: (workName, nodeTitle) => `${workName} \u00b7 ${nodeTitle}`
+				continueHeading: 'Continue',
+				continueEmpty: 'Nothing changed yet.',
+				waitingHeading: 'Waiting for you',
+				waitingEmpty: 'Nothing is waiting for you.',
+				reviewLink: 'review',
+				reviewAll: (pending) => `Review all ${pending}`,
+				activityHeading: 'Recent activity',
+				activityEmpty: 'Nothing has happened here yet.',
+				activityRevision: (entityName) => `${entityName} was rewritten`,
+				activityRelation: (fromName, label, toName) => `${fromName} ${label} ${toName}`,
+				activityWork: (workName, nodeTitle) => `${nodeTitle} \u00b7 ${workName}`,
+				authorAi: 'accepted from the Loremaster',
+				browseEntries: 'Browse every entry'
+			},
+			entries: {
+				headTitle: (universeName) => `Entries: ${universeName}`,
+				title: 'Entries',
+				backToHome: (universeName) => `Back to ${universeName}`,
+				columnName: 'Name',
+				columnType: 'Type',
+				columnRelations: 'Relations',
+				columnFacts: 'Facts',
+				columnChanged: 'Changed',
+				sortBy: (column) => `Sort by ${column}`,
+				tableAriaLabel: 'Entries',
+				moveHint: 'move',
+				openHint: 'open',
+				range: (from, to, total) => {
+					const fmt = numberFormat('en', { maximumFractionDigits: 0, useGrouping: 'always' });
+					return `${fmt.format(from)}\u2013${fmt.format(to)} of ${fmt.format(total)}`;
+				},
+				pageOf: (page, pages) => `page ${page} of ${pages}`,
+				previousPage: 'Previous',
+				nextPage: 'Next'
 			},
 			filters: {
 				all: 'All',

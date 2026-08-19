@@ -386,35 +386,4 @@ export async function moveWorkNode(
 	return { moved: true };
 }
 
-export interface CurrentWorkSignal {
-	workName: string;
-	workSlug: string;
-	nodeTitle: string;
-}
-
-/** Issue #145 (I7 = C)'s overview strip "current work" signal: the most recently touched
- * work_node anywhere in the universe, across every work - a proxy for "what a GM was
- * last writing" that costs one indexed query rather than a session/presence system this
- * wave has no room for. Null when the universe has no work at all yet (most universes,
- * until #20 gets used), which the strip reads as "nothing to show" rather than an error. */
-export async function mostRecentWorkNode(
-	db: Db,
-	universeId: string
-): Promise<CurrentWorkSignal | null> {
-	const [row] = await db
-		.select({
-			workName: work.name,
-			workSlug: work.slug,
-			nodeTitle: workNode.title,
-			updatedAt: workNode.updatedAt
-		})
-		.from(workNode)
-		.innerJoin(work, eq(workNode.workId, work.id))
-		.where(eq(work.universeId, universeId))
-		.orderBy(desc(workNode.updatedAt))
-		.limit(1);
-	if (!row) return null;
-	return { workName: row.workName, workSlug: row.workSlug, nodeTitle: row.nodeTitle };
-}
-
 export type { WorkNodeKind, WorkStatus, WorkType };

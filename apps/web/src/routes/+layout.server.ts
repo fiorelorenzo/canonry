@@ -39,10 +39,12 @@
  * select by `userId`, its primary key - no join, no scan), plus an in-memory lookup
  * of the matching `SUBSCRIPTION_PLANS` entry. Never computed for a signed-out
  * request, same guard as `universes` below. Named `shellQuota` rather than `quota`
- * because `w/[universe]/+page.server.ts` already returns its own `quota: { used,
- * total }` for `OverviewStrip` - SvelteKit merges every load's return value onto one
- * `page.data` object by key, so a name collision there would have the page load's
- * shape silently win over this layout's on every universe route.
+ * because `w/[universe]/+page.server.ts` used to return its own `quota: { used, total }`
+ * for the overview strip, and SvelteKit merges every load's return value onto one
+ * `page.data` object by key, so that collision would have had the page load's shape
+ * silently win over this layout's on every universe route. O1 = C (#283) removed the
+ * strip, and the world home now reads this field instead of computing its own; the name
+ * stays, because the reason it is distinct from a page-level `quota` has not changed.
  */
 import { entityCountsByUniverseIds, universesForUser } from '@canonry/db';
 import { db } from '$lib/server/db';

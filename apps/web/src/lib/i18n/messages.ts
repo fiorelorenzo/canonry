@@ -1379,27 +1379,69 @@ export interface Messages {
 			allUniverses: string;
 			newUniverse: string;
 		};
-		/** Issue #145 (I7 = C, "one page, two modes"): the universe home is now the entry
-		 * browser, with a collapsible overview strip pinned above it. Replaces the old
-		 * three-sentence Recent-list page (`recentEntriesHeading`/`empty`) entirely - Recent
-		 * stays only in the sidebar (`sidebar.recentHeading`), which Shell owns. */
+		/** O1 = C (#283): two surfaces, honestly split. `home` is the world home at
+		 * `/w/<slug>` (masthead, Continue, Waiting for you, Recent activity) and `entries`
+		 * is the browser at `/w/<slug>/entries` (the dense table). Everything below them -
+		 * `filters`, `searchPlaceholder`, the empty states, `relativeTime`,
+		 * `newEntryDialog` - is shared by both or belongs to the table, which is why this
+		 * bag was not split in two.
+		 *
+		 * I7 = C's `strip` block is gone with `OverviewStrip.svelte`: its four cells became
+		 * the home's own sections, so there is nothing left to collapse and no collapse
+		 * state to name. */
 		index: {
 			homebrewEyebrow: string;
 			derivedEyebrow: string;
 			derivedNoticeBefore: string;
 			derivedNoticeAfter: string;
 			newEntryAction: string;
-			strip: {
-				collapseLabel: string;
-				expandLabel: string;
-				whatChangedHeading: string;
-				whatChangedEmpty: string;
-				waitingForReviewHeading: string;
-				quotaHeading: string;
+			home: {
+				/** The three masthead figures, tabular per G2. */
+				entriesStat: string;
+				waitingStat: string;
+				quotaStat: string;
 				quotaValue: (used: number, total: number) => string;
-				currentWorkHeading: string;
-				currentWorkEmpty: string;
-				currentWorkValue: (workName: string, nodeTitle: string) => string;
+				continueHeading: string;
+				continueEmpty: string;
+				waitingHeading: string;
+				/** Guardrail 7's wording discipline applies to a settled day too: it says
+				 * nothing is waiting, never that the world is consistent. */
+				waitingEmpty: string;
+				/** C2 = A: the row is a pointer into the existing inbox, so the link says
+				 * where it goes and the home never accepts or rejects anything itself. */
+				reviewLink: string;
+				reviewAll: (pending: number) => string;
+				activityHeading: string;
+				activityEmpty: string;
+				activityRevision: (entityName: string) => string;
+				activityRelation: (fromName: string, label: string, toName: string) => string;
+				activityWork: (workName: string, nodeTitle: string) => string;
+				/** Guardrail 2: an accepted-from-the-copilot event stays marked as one after
+				 * the fact, so the feed cannot flatten the two authors into "changed". */
+				authorAi: string;
+				browseEntries: string;
+			};
+			entries: {
+				headTitle: (universeName: string) => string;
+				title: string;
+				/** The way back to the world home, which the sidebar deliberately does not
+				 * carry: A2 caps that nav at seven items and `Entries` now points here. */
+				backToHome: (universeName: string) => string;
+				columnName: string;
+				columnType: string;
+				columnRelations: string;
+				columnFacts: string;
+				columnChanged: string;
+				/** The accessible name of a column header's own sort control. */
+				sortBy: (column: string) => string;
+				tableAriaLabel: string;
+				moveHint: string;
+				openHint: string;
+				/** "1-25 of 214", tabular figures per G2. */
+				range: (from: number, to: number, total: number) => string;
+				pageOf: (page: number, pages: number) => string;
+				previousPage: string;
+				nextPage: string;
 			};
 			filters: {
 				all: string;

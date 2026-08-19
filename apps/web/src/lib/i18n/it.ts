@@ -1416,20 +1416,48 @@ export const it: Messages = {
 			derivedNoticeBefore: 'Derivato: legge il proprio canone più il corpus indicizzato di ',
 			derivedNoticeAfter: ', in sola lettura. Il tuo canone vince sempre.',
 			newEntryAction: 'Nuova voce',
-			strip: {
-				collapseLabel: 'Comprimi',
-				expandLabel: 'Espandi il riepilogo',
-				whatChangedHeading: 'Cosa è cambiato',
-				whatChangedEmpty: 'Ancora nessun cambiamento.',
-				waitingForReviewHeading: 'In attesa di revisione',
-				quotaHeading: 'Credito',
+			home: {
+				entriesStat: 'Voci',
+				waitingStat: 'Da revisionare',
+				quotaStat: 'Credito',
 				quotaValue: (used, total) => {
 					const fmt = numberFormat('it', { maximumFractionDigits: 0, useGrouping: 'always' });
-					return `${fmt.format(used)} di ${fmt.format(total)} crediti`;
+					return `${fmt.format(used)} di ${fmt.format(total)}`;
 				},
-				currentWorkHeading: 'Lavoro in corso',
-				currentWorkEmpty: 'Nessun lavoro in corso.',
-				currentWorkValue: (workName, nodeTitle) => `${workName} \u00b7 ${nodeTitle}`
+				continueHeading: 'Riprendi',
+				continueEmpty: 'Ancora nessun cambiamento.',
+				waitingHeading: 'In attesa di te',
+				waitingEmpty: 'Non c\u2019è niente in attesa.',
+				reviewLink: 'rivedi',
+				reviewAll: (pending) => `Rivedi tutto: ${pending}`,
+				activityHeading: 'Attività recente',
+				activityEmpty: 'Qui non è ancora successo niente.',
+				activityRevision: (entityName) => `Riscrittura di ${entityName}`,
+				activityRelation: (fromName, label, toName) => `${fromName} ${label} ${toName}`,
+				activityWork: (workName, nodeTitle) => `${nodeTitle} \u00b7 ${workName}`,
+				authorAi: 'accettato dal Loremaster',
+				browseEntries: 'Sfoglia tutte le voci'
+			},
+			entries: {
+				headTitle: (universeName) => `Voci: ${universeName}`,
+				title: 'Voci',
+				backToHome: (universeName) => `Torna a ${universeName}`,
+				columnName: 'Nome',
+				columnType: 'Tipo',
+				columnRelations: 'Relazioni',
+				columnFacts: 'Fatti',
+				columnChanged: 'Cambiata',
+				sortBy: (column) => `Ordina per ${column}`,
+				tableAriaLabel: 'Voci',
+				moveHint: 'muovi',
+				openHint: 'apri',
+				range: (from, to, total) => {
+					const fmt = numberFormat('it', { maximumFractionDigits: 0, useGrouping: 'always' });
+					return `${fmt.format(from)}\u2013${fmt.format(to)} di ${fmt.format(total)}`;
+				},
+				pageOf: (page, pages) => `pagina ${page} di ${pages}`,
+				previousPage: 'Precedente',
+				nextPage: 'Successiva'
 			},
 			filters: {
 				all: 'Tutte',

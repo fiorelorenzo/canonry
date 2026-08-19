@@ -40,7 +40,9 @@ export function paletteActions(
 		actions.push({
 			id: 'new-entry',
 			label: t.universe.index.newEntryAction,
-			href: `${resolve(`/w/${universeSlug}`)}?new=entry`
+			// O1 = C (#283): the dialog moved to the browser with the list, so this navigates to
+			// `/entries?new=entry`. The world home's cold empty state links to the same place.
+			href: `${resolve(`/w/${universeSlug}/entries`)}?new=entry`
 		});
 	}
 

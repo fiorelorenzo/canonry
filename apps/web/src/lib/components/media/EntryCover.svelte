@@ -34,32 +34,14 @@
 	 * already cleared the published/gm_only/revelation gate.
 	 */
 	import type { EntityType } from '@canonry/db/schema';
+	import { COVER_POSITION, COVER_RATIO } from './cover-crop';
 
 	let { src, alt, entityType }: { src: string; alt: string; entityType: EntityType } = $props();
 
-	/** Wide for a place, an event or a session, since all three are read as somewhere or
-	 * something that happened; closer to square for a character or an item, which are read
-	 * as a subject; a faction's sigil or banner sits between the two. */
-	const RATIO: Record<EntityType, string> = {
-		character: '3 / 2',
-		item: '3 / 2',
-		faction: '16 / 9',
-		place: '21 / 9',
-		event: '21 / 9',
-		session: '21 / 9'
-	};
-
-	const POSITION: Record<EntityType, string> = {
-		character: 'center top',
-		item: 'center',
-		faction: 'center',
-		place: 'center',
-		event: 'center',
-		session: 'center'
-	};
-
-	let ratio = $derived(RATIO[entityType]);
-	let position = $derived(POSITION[entityType]);
+	// Both maps moved to `cover-crop.ts` when O1 (#283) gave a cover its second surface, the
+	// world home's Continue cards: rules 2 and 3 above are the same decision at both sizes.
+	let ratio = $derived(COVER_RATIO[entityType]);
+	let position = $derived(COVER_POSITION[entityType]);
 </script>
 
 <div

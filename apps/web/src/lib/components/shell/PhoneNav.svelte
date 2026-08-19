@@ -91,7 +91,14 @@
 	const tabs = $derived<PhoneTab[]>(
 		universeSlug
 			? [
-					{ id: 'entries', label: navT.entries, href: resolve(`/w/${universeSlug}`), badge: null },
+					// O1 = C (#283): the same fork the rail's `Entries` item takes - the browser is
+					// `/entries` now and `/w/<slug>` is the world home.
+					{
+						id: 'entries',
+						label: navT.entries,
+						href: resolve(`/w/${universeSlug}/entries`),
+						badge: null
+					},
 					{
 						id: 'proposals',
 						label: navT.proposals,
