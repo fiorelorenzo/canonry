@@ -543,6 +543,28 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 			expect(candidates.some((c) => c.name === 'Aldric Voss')).toBe(true);
 			expect(candidates.some((c) => c.name === 'Thornwick College')).toBe(false);
 		});
+
+		it('carries the type and a capped head of the body, for the matcher to embed (issue #310)', async () => {
+			const { universe: u } = await jobFixture();
+			const body = `${'Dismissed captain of the Valdoria Watch. '.repeat(20)}tail`;
+			await db.insert(entity).values({
+				universeId: u.id,
+				type: 'character',
+				name: 'Aldric Vane',
+				slug: unique('aldric-vane'),
+				body
+			});
+
+			const candidates = await candidateEntitiesForMatching(db, u.id, 'character');
+			const aldric = candidates.find((candidate) => candidate.name === 'Aldric Vane');
+			if (!aldric) throw new Error('fixture setup failed');
+
+			expect(aldric.type).toBe('character');
+			// Cut in SQL, so a pool of two hundred entities does not ship two hundred whole bodies
+			// over the wire to use the first sentence of each.
+			expect(aldric.bodyLead).toBe(body.slice(0, 400));
+			expect(aldric.bodyLead.length).toBeLessThan(body.length);
+		});
 	});
 
 	describe('pendingEntityProposalsForJob / foldEntitySightingIntoPendingProposal (issue #160, #178)', () => {
@@ -584,7 +606,18 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 			await pendingCreateCandidate(otherJob.id, u.id, 'character', 'Mira Sable');
 
 			const candidates = await pendingEntityProposalsForJob(db, job.id, 'character');
-			expect(candidates).toEqual([{ id: character.id, name: 'Aldric Vane', aliases: [] }]);
+			// `type` and `bodyLead` are issue #310: the matcher embeds them as context, and they come
+			// off the patch rather than off the caller's filter argument so a row reports what it
+			// actually says.
+			expect(candidates).toEqual([
+				{
+					id: character.id,
+					name: 'Aldric Vane',
+					aliases: [],
+					type: 'character',
+					bodyLead: 'x'
+				}
+			]);
 		});
 
 		it('stops returning a proposal once it is no longer pending', async () => {

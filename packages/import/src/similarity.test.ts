@@ -37,14 +37,25 @@ describe('bandedSimilarity (issue #279)', () => {
 
 	it('never hands a cosine scorer a band whose newBelow the cosine floor cannot reach', () => {
 		// The specific mistake this whole pairing exists to make impossible, and the one that
-		// was live for a day: the labelled corpus's lowest cosine is 0.642, so the lexical
-		// band's newBelow of 0.5 makes the "new" outcome unreachable for the embedding scorer
-		// and turns every unmatched entity into a question (matching.ts carries the numbers).
+		// was live for a day: the lexical band's newBelow of 0.5 sits under the bottom of the
+		// cosine distribution, which makes the "new" outcome unreachable for the embedding
+		// scorer and turns every unmatched entity into a question (matching.ts carries the
+		// numbers).
+		//
+		// This used to assert the same about `matchAbove`, on the reasoning that a cosine over
+		// two bare names sits high and compressed so its match bound has to sit above a
+		// Jaccard one. Issue #310 gave both sides a `MatchContext` to embed and that stopped
+		// being true: the cosine band is now 0.75/0.60 against the lexical 0.85/0.50, because
+		// unrelated entities with different summaries score far lower than unrelated names of
+		// the same shape did. The assertion was a fact about one distribution rather than an
+		// invariant of the pairing, so it is gone rather than adjusted; what the pairing owes
+		// its callers is that each scorer gets the band measured for it, which the two tests
+		// above check by identity.
 		const embedding = bandedSimilarity({ embed: NEVER_CALLED, vectorSize: 2560 });
 		const lexical = bandedSimilarity(null);
 
 		expect(embedding.thresholds.newBelow).toBeGreaterThan(lexical.thresholds.newBelow);
-		expect(embedding.thresholds.matchAbove).toBeGreaterThan(lexical.thresholds.matchAbove);
+		expect(embedding.thresholds).not.toEqual(lexical.thresholds);
 	});
 
 	it('builds a working scorer, not just a pair of numbers', async () => {

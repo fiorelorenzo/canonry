@@ -115,7 +115,13 @@ import type {
 import type { LoadedPlaybook } from './playbook.js';
 import type { SourceReader } from './sources.js';
 import type { ImageStore } from './images.js';
-import { resolveMatch, type MatchThresholds, type SimilarityFn } from './matching.js';
+import {
+	oneLineSummary,
+	resolveMatch,
+	type MatchCandidate,
+	type MatchThresholds,
+	type SimilarityFn
+} from './matching.js';
 
 // ---------------------------------------------------------------------------
 // Estimate (issue #30: "an estimate before the run covering size, time and cost").
@@ -881,6 +887,71 @@ function toVocabResolutionInput(
 }
 
 /**
+ * The `MatchContext` (matching.ts) for one already-existing candidate: its own type, and one
+ * line off the head of its body. No source sentence, because an already-imported entity has
+ * no source document text kept anywhere - `entity_source_ref` records which document it came
+ * from and its hash, never the text.
+ */
+function toMatchCandidate(row: MatchCandidateRow): MatchCandidate {
+	return {
+		id: row.id,
+		name: row.name,
+		aliases: row.aliases,
+		context: {
+			type: row.type,
+			summary: oneLineSummary(row.bodyLead),
+			sourceSentence: null
+		}
+	};
+}
+
+/**
+ * The text of every document this buffer's entities point at, for the source sentence half of
+ * their `MatchContext` (issue #310).
+ *
+ * One read per distinct path, dropped as soon as this document's proposals are materialised,
+ * rather than caching every document's text for the length of the job: a vault is hundreds of
+ * documents and only the current one's spans are ever sliced. Keyed by path rather than taken
+ * from the first payload because `tools.ts` pins `sourceRef.documentId` to this run's document
+ * and says nothing about the path, so a driver that proposed an entity against a second path
+ * gets its own text rather than a span sliced out of the wrong string.
+ *
+ * A read that fails yields no entry and therefore no source sentence. Matching then scores
+ * what it scored before this issue, which is the right failure: an import must not die because
+ * a path that was readable during the hash pass is not readable now, and the alternative -
+ * slicing a span out of some other document - would be a quotation of the wrong text.
+ */
+async function readSourceTextsForContext(
+	params: RunImportJobParams,
+	buffer: DocumentBuffer
+): Promise<Map<string, string>> {
+	const texts = new Map<string, string>();
+	const paths = new Set<string>();
+	for (const payload of buffer.entities.values()) paths.add(payload.sourceRef.path);
+	for (const path of paths) {
+		try {
+			const { content } = await params.sources.read(path);
+			texts.set(path, content);
+		} catch {
+			// See this function's own comment: no context beats the wrong context.
+		}
+	}
+	return texts;
+}
+
+/** The slice `evidenceSpan` names, out of the same string `source_read` returned to the
+ * driver (playbooks state the span is an offset range into that text). Clamped rather than
+ * trusted: a span past the end is what a truncated read produces, and `undefined` is what a
+ * failed read produces. */
+function spanText(text: string | undefined, span: { start: number; end: number }): string | null {
+	if (!text) return null;
+	const start = Math.min(Math.max(span.start, 0), text.length);
+	const end = Math.min(Math.max(span.end, start), text.length);
+	const sliced = text.slice(start, end).trim();
+	return sliced.length > 0 ? sliced : null;
+}
+
+/**
  * SPEC.md §6.1's "match against what already exists, merge, resolve conflicts - a
  * deterministic engine, this is where damage would happen, so no model decides it." Runs
  * `resolveMatch` (matching.ts) for every entity this document proposed, turns the
@@ -908,6 +979,7 @@ async function materializeDocumentProposals(
 	const localIdToEntityId = new Map<string, string>();
 	const localIdToType = new Map<string, EntityProposalPayload['type']>();
 	const resolved: ResolvedEntityCandidate[] = [];
+	const sourceTexts = await readSourceTextsForContext(params, buffer);
 
 	for (const [localId, payload] of buffer.entities) {
 		localIdToType.set(localId, payload.type);
@@ -926,11 +998,21 @@ async function materializeDocumentProposals(
 		const pendingProposalIds = new Set(pendingPool.map((p) => p.id));
 
 		const decision = await resolveMatch({
-			subject: { name: payload.name, aliases: payload.aliases },
+			subject: {
+				name: payload.name,
+				aliases: payload.aliases,
+				context: {
+					type: payload.type,
+					summary: oneLineSummary(payload.summary),
+					sourceSentence: oneLineSummary(
+						spanText(sourceTexts.get(payload.sourceRef.path), payload.evidenceSpan)
+					)
+				}
+			},
 			exactSourceRefMatch: exact
 				? { id: exact.entityId, name: exact.name, aliases: exact.aliases }
 				: null,
-			candidates: [...candidatePool, ...pendingPool],
+			candidates: [...candidatePool, ...pendingPool].map(toMatchCandidate),
 			similarity: params.similarity,
 			thresholds: params.thresholds
 		});
