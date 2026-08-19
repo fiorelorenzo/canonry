@@ -29,17 +29,19 @@ import {
 	acceptAnyImportProposal as dbAcceptAnyImportProposal,
 	admitAndCreateImportJob,
 	ArchiveSourceReader,
+	bandedSimilarity,
 	DbModelSelector,
 	DEFAULT_ARCHIVE_LIMITS,
+	EMBEDDING_MATCH_THRESHOLDS,
 	estimateImportJob,
 	GatewayDriver,
 	ImportJobRunner,
 	ImportQuotaExceededError,
 	InMemoryImageStore,
-	lexicalTrigramSimilarity,
 	loadBuiltinPlaybook,
 	MATCH_THRESHOLDS,
 	type AcceptImportProposalInput,
+	type BandedSimilarity,
 	type EntityProposalPayload,
 	type GatewayWrapper,
 	type ImportDriver,
@@ -53,8 +55,14 @@ import {
 	type RunImportJobParams,
 	type SourceReader
 } from '@canonry/import';
-import { hashingEmbedder } from '@canonry/indexing';
-import { createLanguageModel, readGatewayCredentials, resolveModel } from '@canonry/ai';
+import { createGatewayEmbedder, embeddingDimensionsFor, hashingEmbedder } from '@canonry/indexing';
+import {
+	createEmbeddingModel,
+	createLanguageModel,
+	readGatewayCredentials,
+	resolveModel,
+	type ResolvedModel
+} from '@canonry/ai';
 import { detectLanguage, type Locale } from '@canonry/lang';
 import type { DetectedDetail } from '$lib/i18n';
 import { eq, type Db } from '@canonry/db';
@@ -570,19 +578,91 @@ export function resolveImportDriver(database: Db): { driver: ImportDriver; isFak
 	return { driver: new GatewayDriver({ gateway: identityGateway, models }), isFake: false };
 }
 
-/** matching.ts's own doc comment on lexicalTrigramSimilarity: "not production code... the
- * real similarity function, wired once real embedding credentials exist". No embedding-
- * backed SimilarityFn exists anywhere in packages/import yet (unlike the driver seam,
- * nobody built that composition root this wave), so this is a second, distinct gap from
- * the driver one above rather than the same env-var check. */
-export const importMatchSimilarity = lexicalTrigramSimilarity;
+/**
+ * The similarity half of the same seam (issue #279, SPEC.md §6.4). Until this existed,
+ * `importMatchSimilarity` was `lexicalTrigramSimilarity` unconditionally, so a production
+ * import running the real `GatewayDriver` with real credentials still scored entity
+ * matches with character-trigram Jaccard - near-blind to §6.4's own example, where "the
+ * Gilded Rat" and "Il Ratto Dorato" are one inn.
+ *
+ * Same shape as `resolveImportDriver` above, and deliberately not a second pattern: one
+ * credential check, the real thing when it passes, the deterministic stand-in when it does
+ * not. A box with no `AI_GATEWAY_API_KEY` (this dev box, and CI) gets exactly the scorer it
+ * got before, so nothing about a credentials-less run changes.
+ *
+ * The three differences from the driver resolver, all forced by what an embedding needs:
+ *
+ *  - it is async, because the vector width has to be known before the first score and
+ *    comes from `model_config`'s `embedding` row rather than an env var (the account of why
+ *    is in `$lib/server/media`'s `similarityDeps`). Resolving it once per job also means a
+ *    misconfigured row fails at wiring time rather than mid-decision;
+ *  - it takes the asking user and universe, because `createGatewayEmbedder` records every
+ *    call through `withUsage` and a shared instance would bill one user's embeddings to
+ *    whoever booted it (the same reason `queryEmbedderFor` and `embeddingProviderFor` are
+ *    built per request rather than memoised);
+ *  - it hands back a `MatchThresholds` beside the scorer rather than only the scorer, because
+ *    a threshold is a property of the score's distribution rather than of the decision, and
+ *    cosine and trigram Jaccard do not share one. Issue #279's own measurement is why this is
+ *    not a detail: `MATCH_THRESHOLDS`'s `newBelow: 0.5` is *below* the lowest cosine the
+ *    corpus produced, so reusing it would have made the "new" outcome unreachable and turned
+ *    every unmatched entity into a question. The pairing itself is `@canonry/import`'s
+ *    `bandedSimilarity`, not this file's: `packages/bench` resolves a scorer for the same
+ *    corpus and would otherwise hold a second copy of the same knowledge.
+ *
+ * The fallback on a resolution failure is noisy on purpose, for `$lib/server/copilot`'s
+ * reason: matching that has silently dropped back to token overlap looks exactly like
+ * matching that works, and that is the failure mode which hid this gap for a month.
+ */
+export interface ImportSimilarityContext {
+	userId: string;
+	universeId: string | null;
+}
+
+export async function resolveImportSimilarity(
+	database: Db,
+	context: ImportSimilarityContext
+): Promise<BandedSimilarity> {
+	if (!hasLiveGatewayCredentials()) return bandedSimilarity(null);
+	const credentials = readGatewayCredentials(env as NodeJS.ProcessEnv);
+	let model: ResolvedModel;
+	let vectorSize: number;
+	try {
+		model = await resolveModel(database, 'embedding');
+		vectorSize = embeddingDimensionsFor(model.provider, model.modelId);
+	} catch (error) {
+		console.warn(
+			`*** import matching is falling back to lexicalTrigramSimilarity: ${
+				error instanceof Error ? error.message : String(error)
+			} Entity matching in this process scores character-trigram overlap, so a translated ` +
+				`or reworded name (SPEC.md §6.4's own example) will not match. ***`
+		);
+		return bandedSimilarity(null);
+	}
+	const embed = createGatewayEmbedder({
+		db: database,
+		model: {
+			...model,
+			model: createEmbeddingModel(model.provider, model.modelId, credentials)
+		},
+		userId: context.userId,
+		universeId: context.universeId,
+		// `operation_price` has no row for import matching, and adding one is a migration
+		// this wave's single slot is not mine. `index.embed` is the closest existing row and
+		// is priced at zero as a reading operation, which is what this is (SPEC.md §15:
+		// reading is free), so the accounting is right in credits and imprecise only in the
+		// label. Issue #309 carries the dedicated `import.match.embed` row.
+		operation: 'index.embed'
+	});
+	return bandedSimilarity({ embed, vectorSize });
+}
 
 /** The literal used to live here, hand-copied into `packages/bench/src/e2e/import.ts`
  * too - the exact shape issue #272 flagged for the budget constants, a private copy
- * with no way to notice a drift. `@canonry/import`'s `matching.ts` now owns the one
- * value; this just re-exports it so `./onboarding.js`'s existing importers (this
- * file's own tests) keep working under the same name. */
-export { MATCH_THRESHOLDS };
+ * with no way to notice a drift. `@canonry/import`'s `matching.ts` now owns both values;
+ * this just re-exports them so `./onboarding.js`'s existing importers (this file's own
+ * tests) keep working under the same names. Which of the two a job runs with is
+ * `resolveImportSimilarity`'s answer, not a caller's choice. */
+export { EMBEDDING_MATCH_THRESHOLDS, MATCH_THRESHOLDS };
 
 // ---------------------------------------------------------------------------------------
 // DeterministicExtractionDriver: implements packages/import's ImportDriver directly - the
@@ -1070,6 +1150,10 @@ export function startImportRun(database: Db, input: StartImportRunInput): void {
 		try {
 			const sources = await openArtefact(input.artefactPath);
 			const { driver } = resolveImportDriver(database);
+			const { similarity, thresholds } = await resolveImportSimilarity(database, {
+				userId: input.userId,
+				universeId: input.universeId
+			});
 			const runner = new ImportJobRunner();
 			const params: RunImportJobParams = {
 				db: database,
@@ -1083,8 +1167,8 @@ export function startImportRun(database: Db, input: StartImportRunInput): void {
 				sources,
 				images: new InMemoryImageStore(),
 				budget: { maxCredits: input.budgetCredits },
-				similarity: importMatchSimilarity,
-				thresholds: MATCH_THRESHOLDS,
+				similarity,
+				thresholds,
 				// Issue #189/#190, decision K1: same network-free default embedder
 				// `@canonry/indexing`'s own pipeline wires in wherever a real gateway
 				// credential is not available, which is exactly this driver's situation

@@ -46,18 +46,11 @@ import {
 	InMemoryImageStore,
 	acceptImportProposal,
 	admitAndCreateImportJob,
-	lexicalTrigramSimilarity,
 	loadBuiltinPlaybook,
-	MATCH_THRESHOLDS,
 	type JobDocument
 } from '@canonry/import';
-import { createGatewayEmbedder } from '@canonry/indexing';
-import {
-	createEmbeddingModel,
-	createGateway,
-	readGatewayCredentials,
-	resolveModel
-} from '@canonry/ai';
+import { createGateway, readGatewayCredentials, resolveModel } from '@canonry/ai';
+import { benchMatching } from './matching.js';
 import { rejectProposal, undoAcceptedProposal } from '@canonry/db';
 import { dataDir, loadEnv, requireEnv } from '../env.js';
 import { benchFixture, topUpCredits } from '../fixture.js';
@@ -197,27 +190,13 @@ async function runOne(input: RunOneInput): Promise<RunReport> {
 		gateway: (model) => model
 	});
 
-	// K1 (docs/ux/DECISIONS.md round six, issue #189): the import loop resolves a relation
-	// label the model proposed against the vocabulary this world already has, and the last
-	// rung of that resolver is semantic. This harness promises nothing is stubbed, so it
-	// gets the real gateway embedder rather than `hashingEmbedder`: the whole point of
-	// measuring here is to find out what a real model's wording does to a real catalogue,
-	// and #189's own threshold is explicitly waiting on a benchmark run like this one to
-	// stop being a guess.
-	const embeddingModel = await resolveModel(input.db, 'embedding');
-	const embedRelationLabel = createGatewayEmbedder({
+	// One embedder, two consumers, and the band that goes with the scorer: see
+	// `./matching.ts` for why that wiring lives in its own module rather than inline here.
+	const matching = benchMatching({
 		db: input.db,
-		model: {
-			...embeddingModel,
-			model: createEmbeddingModel(
-				embeddingModel.provider,
-				embeddingModel.modelId,
-				readGatewayCredentials(process.env)
-			)
-		},
+		model: await resolveModel(input.db, 'embedding'),
 		userId: input.userId,
-		universeId: input.universeId,
-		operation: 'index.embed'
+		universeId: input.universeId
 	});
 
 	const started = Date.now();
@@ -234,9 +213,9 @@ async function runOne(input: RunOneInput): Promise<RunReport> {
 		budget: { maxCredits: budgetCredits },
 		sources: ArchiveSourceReader.open(bytes, DEFAULT_ARCHIVE_LIMITS),
 		images: new InMemoryImageStore(),
-		similarity: lexicalTrigramSimilarity,
-		thresholds: MATCH_THRESHOLDS,
-		embedRelationLabel,
+		similarity: matching.similarity,
+		thresholds: matching.thresholds,
+		embedRelationLabel: matching.embedRelationLabel,
 		timeoutMs: 20 * 60 * 1000
 	});
 	const seconds = (Date.now() - started) / 1000;

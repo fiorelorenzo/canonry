@@ -94,27 +94,86 @@ export interface MatchThresholds {
 	newBelow: number;
 }
 
-/** The product's current shipped default for `MatchThresholds`. `apps/web/src/lib/
- * server/onboarding.ts`'s `startImportRun` passes this straight into `ImportJobRunner
- * .run` for every real import job, so this is not a bench-only number - it is the band
- * SPEC.md §6.4 describes ("above a high similarity it is a match, below a low one a new
- * entity, in between the user is asked"), with real numbers in it.
+/** The band the **lexical** scorer (`lexicalTrigramSimilarity`) runs with: the scorer a box
+ * with no embedding credentials, and CI, resolve to. `apps/web/src/lib/server/onboarding.ts`'s
+ * `startImportRun` passes whichever band `resolveImportSimilarity` returns beside the scorer
+ * it picked, so this is not a bench-only number - it is the band SPEC.md §6.4 describes
+ * ("above a high similarity it is a match, below a low one a new entity, in between the user
+ * is asked"), with real numbers in it.
  *
- * It is still a chosen value, not a measured one: SPEC.md §16's open decision #3 says
- * matching thresholds stay open "until the benchmark exists, which is the point: they
- * are measured, not chosen", and `matching-benchmark.ts` is that benchmark - built, but
- * nothing wires its sweep back into this constant yet, and no labelled corpus run has
- * produced a number to replace this one with. 0.85/0.5 leaves a wide ask band on
- * purpose, the same asymmetry `packages/copilot/src/relation-types.ts`'s
- * `SEMANTIC_REUSE_THRESHOLD` reasons about for the sibling relation-type decision: a
- * false "new" costs the GM one merge, a false "match" silently folds two entities into
- * one.
+ * **Measured and kept, issue #279.** SPEC.md §16's open decision #3 says these stay open
+ * "until the benchmark exists, which is the point: they are measured, not chosen".
+ * `packages/bench`'s `matching-sweep` is now that run: 24 labelled pairs, 13 the same entity
+ * and 11 not, false merges weighted 5x. On the trigram scorer 0.85/0.50 costs 2 false merges
+ * and 4 false splits, and the sweep's own optimum is 0.70/0.45 at 2 false merges and 4 false
+ * splits with recall up from 0.308 to 0.538. Two false merges is the floor either way: two
+ * negative pairs in the corpus are byte-identical as text (an office whose holder changed, a
+ * generic guard title reused in two settlements) and no name-based scorer can separate them.
+ *
+ * So the whole gain on offer is decisive-match recall, and buying it means dropping
+ * `matchAbove` by 0.15 - loosening the expensive direction, on the evidence of a 24-pair
+ * corpus, where the pair that would newly auto-match is one entry moving across a boundary.
+ * That is not enough to loosen the direction where a mistake silently folds two of the GM's
+ * entities into one, so the value stays and the number that would replace it is written down
+ * here for the next run to argue with. The asymmetry is the same one
+ * `packages/copilot/src/relation-types.ts`'s `SEMANTIC_REUSE_THRESHOLD` reasons about: a
+ * false "new" costs the GM one merge, a false "match" costs an entity.
  *
  * Exported once, here, so `onboarding.ts` and `packages/bench`'s end-to-end harness
  * import the same binding instead of each hand-copying the literal - the shape issue
  * #272 named for the budget constants: a private copy has no way to notice when the
  * value it is supposed to mirror changes. */
 export const MATCH_THRESHOLDS: MatchThresholds = { matchAbove: 0.85, newBelow: 0.5 };
+
+/**
+ * The band the **embedding** scorer (`createEmbeddingSimilarity`) runs with. A separate
+ * constant because a threshold is a property of the score's distribution and not of the
+ * decision, and cosine and Jaccard do not share one: `docs/models.md` and
+ * `packages/indexing/src/models.ts` already record that for retrieval ("absolute cosines are
+ * on a different scale... shipping this model while keeping the old threshold would have
+ * thrown away most correct hits, silently"), and matching is the same trap with the sign
+ * flipped.
+ *
+ * **Measured, issue #279**, same 24-pair corpus and same run as `MATCH_THRESHOLDS` above,
+ * with `alibaba/qwen3-embedding-4b` at 2560 dimensions. What that run found, in the order it
+ * matters:
+ *
+ *  1. **Reusing 0.85/0.50 would have been broken, not merely suboptimal.** The lowest cosine
+ *     any pair in the corpus reached was 0.642 (two entities with nothing whatsoever in
+ *     common), so `newBelow: 0.50` is below the floor: the "new" outcome becomes unreachable
+ *     and every unmatched entity turns into a question. At 0.85/0.50 the embedding scorer
+ *     also produced 5 false merges against the trigram scorer's 2.
+ *  2. **0.96 is where the expensive error stops.** The highest-scoring negative pair that a
+ *     name can actually distinguish is "Aldric Voss" against "Aldric Voss the Younger" at
+ *     0.953 - literally §6.4's "two characters collapsed into one". Above 0.96 the only
+ *     false merges left are the two byte-identical pairs no scorer can separate, which is
+ *     the floor. It costs almost nothing on the case that matters most in practice: an
+ *     unchanged name between two exports is byte-identical text, and
+ *     `createEmbeddingSimilarity` short-circuits that to exactly 1.
+ *  3. **0.70, and not the boundary the corpus appears to offer.** SPEC.md §6.4's own example,
+ *     "the Gilded Rat" against "Il Ratto Dorato", scores about 0.80, and the lowest true pair
+ *     in the corpus, "Brackwater Mire" against "Brackwater", scores 0.782 with the highest
+ *     negative underneath it at 0.777. That is a five-thousandth-wide gap, and two runs of
+ *     this same sweep against this same model scored the bilingual pair 0.802 and 0.799, so a
+ *     `newBelow` placed inside that gap decides by noise rather than by similarity. (The
+ *     jitter is the same one `packages/indexing/src/models.ts` measured from the other side:
+ *     repeated calls for one text return vectors with cosine self-similarity 0.99989.) 0.70
+ *     sits clear of every true pair by 0.08, so it can only ever fire on a pair the model put
+ *     nowhere near a match.
+ *
+ * What this band buys and what it costs, stated rather than implied: it holds false merges at
+ * the floor and false splits at zero, and it pays for both by asking. On this corpus the
+ * embedding scorer decides 1 of 13 true pairs outright and asks about 20 of 24 pairs, where
+ * the trigram scorer decides 4 and asks about 7. Two facts make that the right side of §6.4's
+ * weighting rather than a good result: the case that dominates a real re-import is an
+ * unchanged name, which is byte-identical text and short-circuits to exactly 1 without ever
+ * reaching a threshold; and a question is what §6.4 asks for in the in-between band, while a
+ * false merge is the error it calls expensive. The reason the band has to be this wide is
+ * that a cosine over bare proper nouns has very little to work with - two unrelated personal
+ * names of the same shape already sit at 0.843 - and the fix for that is to embed more than
+ * the bare name, which is issue #310 rather than a threshold.
+ */
+export const EMBEDDING_MATCH_THRESHOLDS: MatchThresholds = { matchAbove: 0.96, newBelow: 0.7 };
 
 export type SimilarityFn = (
 	subject: MatchSubject,
