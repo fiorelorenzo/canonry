@@ -646,12 +646,13 @@ export async function resolveImportSimilarity(
 		},
 		userId: context.userId,
 		universeId: context.universeId,
-		// `operation_price` has no row for import matching, and adding one is a migration
-		// this wave's single slot is not mine. `index.embed` is the closest existing row and
-		// is priced at zero as a reading operation, which is what this is (SPEC.md §15:
-		// reading is free), so the accounting is right in credits and imprecise only in the
-		// label. Issue #309 carries the dedicated `import.match.embed` row.
-		operation: 'index.embed'
+		// Import matching's own row (issue #309, migration 0044), not `index.embed`: what this
+		// embeds is the semantic step of SPEC.md §6.4's matching order, an entity name plus the
+		// context issue #310 gave it, so a re-import can tell an update from a duplicate. Both
+		// rows are zero as reading operations (SPEC.md §15), so this changes no credit and no
+		// euro; what it changes is that import matching's gateway spend is now separable from
+		// canon-save's in `model_call`.
+		operation: 'import.match.embed'
 	});
 	return bandedSimilarity({ embed, vectorSize });
 }

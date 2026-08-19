@@ -65,7 +65,12 @@ export function benchMatching(input: BenchMatchingInput): BenchMatching {
 		},
 		userId: input.userId,
 		universeId: input.universeId,
-		operation: 'index.embed'
+		// Import matching's own row (issue #309), the same one the product now bills a matching
+		// embed against. This embedder serves both halves of a bench import, the matcher and the
+		// relation-label resolver, so both of them land on that row here; in production the
+		// relation-label rung runs on `hashingEmbedder` and reaches no gateway at all, so
+		// nothing outside this harness attributes a relation label to matching.
+		operation: 'import.match.embed'
 	});
 	return {
 		...bandedSimilarity({
