@@ -38,7 +38,7 @@ option is what stops it being reopened in six months.
 
 | Id | Decision | Chosen |
 | --- | --- | --- |
-| A1 | Visual language and density | **B, reading room.** Warm paper, serif for canon prose and entry titles, burnt umber accent, violet spent only on the copilot |
+| A1 | Visual language and density | **B, reading room.** Warm paper, serif for canon prose and entry titles, burnt umber accent, a hue reserved for the copilot. Amended round eleven: that hue is no longer violet, see P1 |
 | A2 | Information architecture | **A, fixed sidebar** with the universe switcher on top, capped at seven items, the palette as overflow |
 | A3 | Palette and keyboard | **C, one box** that routes a typed question to Ask instead of answering inline. Amended: the shortcuts have to be cross platform |
 
@@ -56,10 +56,10 @@ option is what stops it being reopened in six months.
 
 | Id | Decision | Chosen |
 | --- | --- | --- |
-| C1 | AI text marking | **B, underline and margin marker.** Unaccepted wording never enters the entry's own reading flow |
+| C1 | AI text marking | **B, underline and margin marker.** Unaccepted wording never enters the entry's own reading flow. The mechanism is unamended; only its hue moved, see P1 |
 | C2 | Proposal routing | **A, an inbox**, with a quiet arrival signal and never a modal |
 | C3 | The plan | **A, flat checklist** ordered by relevance, entries droppable before any diff is written |
-| C4 | Diff layout | **C, in place with a toggle** |
+| C4 | Diff layout | **C, in place with a toggle.** Amended round eleven: the diff has its own colour, distinct from C1's marking, see P3 |
 | C5 | Evidence | **B, popover on the changed text**, forced open where nothing but weak evidence backs the candidate. Amended (#270): weak means embedding similarity, or the GM's own request for a proposal made from Ask, and the popover names which of the two |
 | C6 | Accept and reject | **B, keyboard queue**, `j k a r u`, buttons always visible |
 | C7 | Reject reasons | **A, chips with a free text escape** |
@@ -679,7 +679,7 @@ argument for drawing them.
 | Id | Question | Chosen |
 | --- | --- | --- |
 | O1 | The world home is four small cells over a flat list. Is it big editorial sections, a browser that grows up, or two surfaces? | **C, two surfaces, honestly split.** A world home at `/w/<slug>`, and the browser as a dense table at `/w/<slug>/entries` |
-| O2 | An entry has no cover image and a five-tab aside that clips its own last label at 256px. Where does the cover live, and what carries the structured layer? | **A, a cover band above the title, and the aside loses its tabs** for stacked collapsible sections |
+| O2 | An entry has no cover image and a five-tab aside that clips its own last label at 256px. Where does the cover live, and what carries the structured layer? | **A, a cover band above the title, and the aside loses its tabs** for stacked collapsible sections. Amended round eleven: there is a placeholder after all, for a writer only, see P6 |
 | O3 | Ask has three doors, all of which navigate away, and it remembers nothing. Does the copilot get a floating composer on every page, and what does the dedicated page become? | **A, a floating pill that expands in place.** Amended: the theme's own colours rather than the copilot's violet, and an icon to close rather than the word |
 | O4 | Which control replaces a native select, and does one control fit both a two-option toggle and every entity in the world? | **B, three controls, chosen by what the list is** |
 
@@ -790,3 +790,117 @@ Epic [#282](https://github.com/fiorelorenzo/canonry/issues/282), with #283 (O1),
 filed for the persistence O3 deliberately did not settle. The artifacts keep their options and
 their rejected sections, as every artifact in this set does, because the reasoning behind an
 option that lost is what stops it being reopened in six months.
+
+
+## Round eleven, decided 2026-08-20
+
+Round eleven has no artifacts, and that is the one thing to say about it before the
+answers. Every earlier round drew two or three options per question and then picked one.
+Here Lorenzo used the deployed preview, listed nine things he disliked, and said what he
+wanted instead. Drawing options to justify answers already given would be theatre, so this
+round is prose only and the register in `docs/ux/assets/ux.js` keeps no rows for it: every
+row there is keyed to an artifact, and inventing artifact-less rows would make the register
+lie about how these were decided. What the register does get is O2's amendment, because a
+reversal has to be visible where the original is.
+
+Two of the nine reverse a recorded decision, four are defects against one, and three were
+never decided at all. Separating those was most of the work, because "I do not like it" and
+"this contradicts what we wrote down" want different answers.
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| P1 | The copilot's hue reads as a cold blue against warm paper. Does the marking keep violet? | **No.** C1's mechanism stands, its hue is re-derived onto the palette's own warm axis |
+| P2 | Nine surfaces wear the copilot's colour as furniture. Does O3's amendment reach them? | **Yes.** O3 was applied to one component and it was always a rule, not a patch |
+| P3 | C4 never named the diff's colours and the diff inherited the marking's. Same colour or two? | **Two.** "This clause changed" and "nobody has accepted this wording" are different claims |
+| P4 | The floating panel is 352px wide. Is that the size? | **No.** It grows, most of all horizontally, and the width is stated rather than inherited |
+| P5 | Where does a history of kept answers live, given A2's cap of seven? | **In the account menu's own surface**, not as a tenth thing shouting above the nav |
+| P6 | Does an entry with no cover show a placeholder? | **Yes, for somebody who can write to that world**, and it is the affordance that starts a generation |
+| P7 | The world home opens on three figures nobody needed. What goes there? | **Nothing that is already in the shell.** The masthead earns its space or loses it |
+
+### P1, and why this is A1's amendment rather than C1's
+
+The complaint was "a blue that has nothing to do with the rest", and it is measurable rather
+than a matter of taste. `--color-ai` is `#6b4ee6`, which is oklch hue **294°**. Every other
+colour in the reading room sits on a warm axis: paper `#f4efe4` at 36°, the burnt umber
+accent `#7a4a1f` at 30°. Paper and accent are six degrees apart. The copilot's hue is 258
+degrees from paper, a quarter turn across the wheel, at nearly double the accent's chroma.
+It does not read as "the copilot's colour" in this palette, it reads as the one element that
+came from a different design.
+
+O3 already found this and only half-fixed it. Its own amendment says the pill drawn in `--ai`
+"reads as a cold purple blob stuck to the corner", and it moved the furniture off the hue
+while explicitly keeping it on the marked text. That was the right call for the furniture and
+the wrong stopping point: the text has the same problem, in the middle of the reading surface
+rather than in a corner.
+
+So **C1 is not repealed and is not even amended in substance**. Unaccepted AI wording still
+gets a dashed underline and a margin marker, and still never enters the entry's own reading
+flow. What changes is which hue does that, and that belongs to A1, which is the row that spent
+violet on the copilot in the first place. The replacement has to satisfy three things at once,
+which is why it is a measurement and not a swatch: it must be unmistakably not-canon at a
+glance, it must not be confusable with the umber accent that means "interactive", and it must
+hold at AA on paper and on ink both, since G1 made dark half the design system.
+
+### P2, and the rule O3 was always making
+
+O3 said the furniture loses the violet "because it was never AI text in the first place". That
+is a rule about what the hue means, not an instruction about one component, and it was applied
+to `QuickAsk` and nowhere else. Nine other sites still tint chrome with it: the pending-proposal
+band on an entry, the import review status, the proposal inbox card, two chips on the Ask page,
+one on the kept page, the settings AI toggle, table mode's proposal badge, and the derived-universe
+badge in the switcher. None of them contains a word a model wrote. A count and a link are not
+AI text.
+
+The cost of leaving them is the thing worth naming: a hue that marks nine kinds of furniture and
+one kind of text marks nothing. C1's marking only works if the colour appears exactly where a
+human has not yet agreed to something.
+
+### P3, the collision nobody chose
+
+C4 picked "in place with a toggle" and never named a colour. G1 later refers to "C1's marking
+and C4's diff colours" as though both had been decided, and the diff quietly ended up using
+`--color-ai-bg`, the same tint as the marking and as all nine pieces of furniture above. The
+result is that a reader cannot distinguish *this clause is what changed* from *nobody has
+accepted this wording*, which are two different claims about the same sentence and the whole
+point of showing a diff before an accept.
+
+The diff gets its own treatment, derived from the palette rather than borrowed. Guardrail 3 is
+what makes this more than tidiness: a proposal has to show its evidence, and a reader who cannot
+tell the two signals apart cannot read the evidence.
+
+### P4, P5, P6 and P7, briefly, because none of them is contested
+
+**P4.** The panel is `md:w-88`, 352px, with a 70vh cap, inheriting its width from nothing in
+particular. An answer with source chips in a 352px column wraps into a ribbon. It gets wider,
+the width is written down with the reason, and it is checked at both ends of the range rather
+than only at the desktop default, since E4 and I10 already put it in the phone's bottom bar.
+
+**P5.** The kept-answers row currently sits between the universe switcher and the nav, outside
+`NAV_ITEMS`, which is how it dodged A2's cap of seven while taking more visual weight than any
+item that respected it. A2 is not amended: the answer is that a history of what the copilot said
+is not navigation, it belongs with the account's own things, and the pill is how you reach the
+copilot from anywhere anyway.
+
+**P6 reverses O2, and reverses it narrowly.** O2 refused a placeholder because "an empty slot on
+every entry is worse than no slot", and the reason given was a reader who cannot write to that
+world being shown an invitation they cannot accept. That reason is sound and survives: the
+placeholder appears **only for somebody who can write**, so a reader still sees no slot at all.
+For a writer it is not decoration, it is the affordance that starts a generation, which is why it
+is worth the space O2 denied it. Guardrail 1 is untouched, because starting a generation produces
+a proposal and the accept is still the accept.
+
+**P7.** The three figures are entries, pending proposals and credit. Credit is already a meter in
+the shell footer, pending is already a count on the nav's Proposals row, and entries is already
+the count on the Voci row. The masthead's whole content is a third copy of the sidebar. Whatever
+replaces it has to say something the shell does not.
+
+### What round eleven does not answer
+
+Two things Lorenzo raised are defects rather than questions, and they are filed as defects so
+nobody looks for a decision that was never needed. The language control on the entry page
+contradicts **I5**, which put it in the account menu; it is on the reading surface by mistake.
+And Ask's citations are what retrieval returned rather than what the answer used: the own-canon
+layer takes its top six by lexical overlap with **no threshold at all**, so on a broad question
+about a seventeen-entry world it returns six sentences of noise and the panel presents them as
+sources. That is #270's rule, "an evidence field that is always populated is not evidence, it is
+decoration", applied to proposals and never to answers.
