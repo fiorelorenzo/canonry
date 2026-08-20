@@ -588,6 +588,14 @@ export interface Messages {
 			detectedPrefix: (name: string) => string;
 			detectedUnknown: string;
 		};
+		/** Round eleven P6 (#347): the empty cover slot a writer sees on an entry with no
+		 * cover, `EntryCoverPlaceholder.svelte`. Two strings and no picture: the action, and
+		 * one line saying where it leads, since it opens the Images section rather than
+		 * generating anything itself. A reader never receives either. */
+		cover: {
+			placeholderAction: string;
+			placeholderHint: string;
+		};
 		complete: {
 			button: string;
 			completing: string;

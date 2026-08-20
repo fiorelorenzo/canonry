@@ -2,8 +2,13 @@
 	/**
 	 * The entry read view, B1 = C: a document plus a right column that switches between
 	 * Relations, Facts, Images, History and Audit (C9 = B, #55). O2 (#284) changed what the
-	 * switch is, not the shape: the column is five collapsible sections now
-	 * (`EntrySections`), and a cover band sits above the title when the entry has one.
+	 * (`EntrySections`), and a cover band sits above the title when the entry has one. Round
+	 * eleven P6 reverses the one thing O2 refused: where there is no cover, somebody who can
+	 * write to this world gets a placeholder that opens the Images section, and a reader gets
+	 * nothing. The language control that used to sit under the title is gone from here
+	 * entirely, on the editor instead (#347): I5 keeps the only language switch in the
+	 * reading chrome to the account menu's own, and an entry's language is a claim about its
+	 * text, so it belongs where the text is written.
 	 *
 	 * Issue #148 (I10 = B): below `md` that right column can't sit beside the
 	 * document, so it becomes reachable rather than cropped - `EntrySections` renders
@@ -20,8 +25,9 @@
 		type SectionOpenState
 	} from '$lib/components/entry/EntrySections.svelte';
 	import EntryCover from '$lib/components/media/EntryCover.svelte';
+	import EntryCoverPlaceholder from '$lib/components/media/EntryCoverPlaceholder.svelte';
+	import { coverSlot } from '$lib/components/media/cover-crop';
 	import CompleteEntryControl from '$lib/components/entry/CompleteEntryControl.svelte';
-	import LanguageControl from '$lib/components/entry/LanguageControl.svelte';
 	import AuditFlagBadge from '$lib/components/audit/AuditFlagBadge.svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import type { FactRow } from '$lib/components/entry/FactsPanel.svelte';
@@ -61,10 +67,13 @@
 		variantsModel: data.media.generate.variants.model
 	});
 
-	// O2 (#284): no band and no dashed placeholder when there is no cover, so this is the
-	// whole condition - `EntryCover` has no absent state to render. The band reads the GM's
-	// own media route, which sits behind universe membership; `/p/<slug>` builds its own URL
-	// from its own published-only resolution (guardrail 6).
+	// O2 (#284) for the band, round eleven P6 (#347) for the empty case: `coverSlot` owns
+	// both answers, on `media.canWrite`, which the loader resolved from the caller's role.
+	// The band reads the GM's own media route, which sits behind universe membership;
+	// `/p/<slug>` builds its own URL from its own published-only resolution (guardrail 6).
+	let cover = $derived(
+		coverSlot({ coverAssetId: data.entity.coverAssetId, canWrite: data.media.canWrite })
+	);
 	let coverUrl = $derived(
 		data.entity.coverAssetId
 			? resolve(`/w/${data.universe.slug}/e/${data.entity.slug}/media/${data.entity.coverAssetId}`)
@@ -84,6 +93,20 @@
 			detailsOpen = true;
 		}
 	}
+
+	// The placeholder's whole job, and the reason it is not a second mechanism: it opens the
+	// aside's Images section, where generating and "use as cover" already live (#66, #71).
+	// Same two-viewport shape as `openAuditSection` above, for the same reason (#148).
+	function openImagesSection(): void {
+		sectionsOpen.images = true;
+		if (typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches) {
+			document
+				.getElementById('entry-detail-images')
+				?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		} else {
+			detailsOpen = true;
+		}
+	}
 </script>
 
 <svelte:head><title>{data.entity.name} &middot; {data.universe.name}</title></svelte:head>
@@ -96,8 +119,14 @@
 			<span class="text-ink-2">{data.entity.name}</span>
 		</p>
 
-		{#if coverUrl}
+		{#if cover === 'band' && coverUrl}
 			<EntryCover src={coverUrl} alt={data.entity.name} entityType={data.entity.type} />
+		{:else if cover === 'placeholder'}
+			<EntryCoverPlaceholder
+				entityType={data.entity.type}
+				onStart={openImagesSection}
+				locale={data.locale}
+			/>
 		{/if}
 
 		<div class="mb-6 flex items-start justify-between gap-4">
@@ -114,12 +143,6 @@
 					<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
 						{data.entity.type}
 					</span>
-					<LanguageControl
-						language={data.entity.language}
-						languageSource={data.entity.languageSource}
-						canWrite={data.media.canWrite}
-						locale={data.locale}
-					/>
 					{#if data.entity.aliases.length > 0}
 						<span>{t.entry.page.aliasesLabel(data.entity.aliases.join(', '))}</span>
 					{/if}

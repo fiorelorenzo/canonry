@@ -3,11 +3,24 @@
 	 * The editor page, B2 = C and G4 = A. No autosave: saving is an explicit action,
 	 * because propagation triggers on save (#5.1) and a debounced write would fire that
 	 * loop on half a sentence.
+	 *
+	 * #347: the entry's own language control lives here now, not under the title on the
+	 * read view. It governs `entity.language`, a per-entry claim about the prose that
+	 * cross-lingual retrieval and every proposal written into this entry read, and the GM
+	 * only ever touches it when detection got a mixed or too-short entry wrong. That is a
+	 * rare correction to the text, so it belongs beside the text rather than in the primary
+	 * reading position of every entry, and I5's language switch (the interface's own, in the
+	 * account menu) stays the only one in the reading chrome.
+	 *
+	 * It sits outside the body `<form>` on purpose: it is its own form posting to its own
+	 * action, so changing the language never submits an unsaved body, and saving the body
+	 * never re-posts a language.
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import MarkdownEditor from '$lib/components/entry/MarkdownEditor.svelte';
+	import LanguageControl from '$lib/components/entry/LanguageControl.svelte';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -37,7 +50,7 @@
 		<p class="mb-4 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.message}</p>
 	{/if}
 
-	<form method="POST">
+	<form method="POST" action="?/save">
 		<MarkdownEditor
 			bind:value={body}
 			targets={data.mentionTargets}
@@ -58,4 +71,13 @@
 			</Button>
 		</div>
 	</form>
+
+	<div class="mt-8 border-t border-line pt-4">
+		<LanguageControl
+			language={data.entity.language}
+			languageSource={data.entity.languageSource}
+			canWrite={data.canWrite}
+			locale={data.locale}
+		/>
+	</div>
 </div>

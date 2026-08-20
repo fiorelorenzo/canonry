@@ -5,10 +5,12 @@
 	 * straight into the entry.
 	 *
 	 * The thumbnail reads `entity.cover_asset_id` (O2, #284) and nothing else: an entry with
-	 * no cover gets no picture and no dashed placeholder, the same amendment `EntryCover`
-	 * carries, so a world with covers on two of six entries shows two pictures rather than
-	 * four invitations. The crop position comes from `cover-crop.ts`, shared with the band on
-	 * the entry page, so a portrait keeps its face at both sizes.
+	 * no cover gets no picture and no dashed placeholder here, so a world with covers on two
+	 * of six entries shows two pictures rather than four invitations. Round eleven P6 (#347)
+	 * reversed that for the entry page's own band, and deliberately not for these cards: one
+	 * empty slot where a writer is reading one entry is an affordance, six of them down a row
+	 * of recent work is the noise O2 refused. The crop position comes from `cover-crop.ts`,
+	 * shared with the band on the entry page, so a portrait keeps its face at both sizes.
 	 *
 	 * A row that scrolls sideways rather than a grid that reflows: the section is a short
 	 * list of recent work, and its length is decided by the loader (`CONTINUE_LIMIT`), not by

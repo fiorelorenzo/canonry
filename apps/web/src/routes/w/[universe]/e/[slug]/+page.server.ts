@@ -4,12 +4,10 @@ import {
 	mediaAssetsForEntity,
 	priceOf,
 	relationsFor,
-	resetEntityLanguageToDetected,
-	setEntityLanguage,
 	universeAccessBySlug,
 	type Db
 } from '@canonry/db';
-import { isLocale, messages, toLocale } from '$lib/i18n';
+import { messages } from '$lib/i18n';
 import { ImageModelNotConfiguredError, resolveImageModel, resolveStyle } from '@canonry/media';
 import { AiDisabledError, completeEntry, semanticDiff } from '@canonry/copilot';
 import { UnknownProviderError } from '@canonry/ai';
@@ -168,8 +166,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			slug: current.slug,
 			aliases: current.aliases,
 			body: current.body,
-			language: toLocale(current.language),
-			languageSource: current.languageSource,
+			// #347: `language` and `languageSource` are deliberately not here. The control that
+			// read them moved to the editor, which loads them itself, and this page has nothing
+			// left that shows an entry's language - a field nothing renders is a field the next
+			// reader of this loader has to work out the purpose of.
 			imagePromptModifier: current.imagePromptModifier,
 			// O2 (#284): the band above the title and the Images section's "cover" badge read
 			// this same field, so there is one answer to "which picture is the cover" on the
@@ -288,43 +288,5 @@ export const actions: Actions = {
 			}
 			throw err;
 		}
-	},
-
-	/** Issue #122, SPEC.md §17: the entry's own language control. `auto` reverts to
-	 * detection and re-runs it immediately against the body as it stands now, rather than
-	 * leaving a stale guess sitting under the new 'detected' provenance until the next
-	 * save; `unsure` is the explicit "not sure / mixed" answer, stored as `language: null`
-	 * under `languageSource: 'human'` so it is never re-guessed. */
-	setLanguage: async ({ request, params, locals }) => {
-		const { conn, world, role } = await requireAccess(locals, params.universe);
-		if (role === 'viewer')
-			error(403, messages(locals.locale).entry.errors.viewerCannotChangeLanguage);
-
-		const current = await conn.query.entity.findFirst({
-			where: (entity, { and, eq }) =>
-				and(eq(entity.universeId, world.id), eq(entity.slug, params.slug)),
-			columns: { id: true }
-		});
-		if (!current)
-			error(404, messages(locals.locale).entry.errors.entryNotFound(params.slug, world.name));
-
-		const form = await request.formData();
-		const choice = form.get('language');
-		if (typeof choice !== 'string')
-			return fail(400, {
-				languageError: messages(locals.locale).entry.errors.missingLanguageChoice
-			});
-
-		if (choice === 'auto') {
-			return await resetEntityLanguageToDetected(conn, { entityId: current.id });
-		}
-		if (choice === 'unsure') {
-			return await setEntityLanguage(conn, { entityId: current.id, language: null });
-		}
-		if (!isLocale(choice))
-			return fail(400, {
-				languageError: messages(locals.locale).entry.errors.unknownLanguage(choice)
-			});
-		return await setEntityLanguage(conn, { entityId: current.id, language: choice });
 	}
 };

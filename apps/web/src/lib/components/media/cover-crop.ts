@@ -32,3 +32,24 @@ export const COVER_POSITION: Record<EntityType, string> = {
 	event: 'center',
 	session: 'center'
 };
+
+/**
+ * Round eleven P6, which reverses O2 narrowly: an entry with no cover shows a placeholder
+ * to somebody who can write to that world, and nothing at all to anybody else. O2's own
+ * reason survives in the third branch, so it is worth stating as the whole answer rather
+ * than as two conditions on a page: a reader is never shown an invitation they cannot
+ * accept.
+ *
+ * This is a function and not an `{#if}` on the page because the second argument is a
+ * permission, resolved on the server (`media.canWrite`, which is `role !== 'viewer'`), and
+ * a gate written inline is a gate the next refactor of that markup can drop without any
+ * test noticing. `cover-gate.test.ts` covers the matrix, including the case that matters:
+ * `canWrite: false` with no cover is `'none'`, never `'placeholder'`.
+ */
+export function coverSlot(input: {
+	coverAssetId: string | null;
+	canWrite: boolean;
+}): 'band' | 'placeholder' | 'none' {
+	if (input.coverAssetId) return 'band';
+	return input.canWrite ? 'placeholder' : 'none';
+}

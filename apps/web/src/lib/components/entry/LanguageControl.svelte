@@ -1,11 +1,20 @@
 <script lang="ts">
 	/**
-	 * SPEC.md §17, issue #122: the entry's own language, next to its type rather than
-	 * buried in a settings panel. Four answers, not three: "Auto-detect" reverts to the
-	 * free heuristic (and re-runs it immediately), "Not sure / mixed" is the GM's own
-	 * explicit null, and the two locales are a hand-set claim. Only the last three ever
-	 * write `languageSource: 'human'` - "Auto-detect" is the one choice that puts the
-	 * entry back under detection instead of confirming a value.
+	 * SPEC.md §17, issue #122: the entry's own language, a per-entry claim about the prose
+	 * itself. Four answers, not three: "Auto-detect" reverts to the free heuristic (and
+	 * re-runs it immediately), "Not sure / mixed" is the GM's own explicit null, and the two
+	 * locales are a hand-set claim. Only the last three ever write `languageSource: 'human'`
+	 * - "Auto-detect" is the one choice that puts the entry back under detection instead of
+	 * confirming a value.
+	 *
+	 * **It lives on the editor, not on the entry's reading surface (#347).** It was under
+	 * every entry's title until round eleven, which is a defect against I5: the language
+	 * switch in the reading chrome is the interface's own, in the account menu, and this is a
+	 * different field with a different scope. What this one governs is read by cross-lingual
+	 * retrieval and by every proposal drafted into the entry, and the GM only reaches for it
+	 * when detection got a mixed or too-short entry wrong, which is a correction to the text
+	 * rather than something to read. Its action moved with it: `?/setLanguage` is the
+	 * editor's route now.
 	 *
 	 * The caption below the control is deliberately only shown while nothing has been
 	 * confirmed (`languageSource === 'detected'`): it is the machine's guess, worth
@@ -82,7 +91,7 @@
 	bind:this={formEl}
 	method="POST"
 	action="?/setLanguage"
-	class="flex-none text-right"
+	class="flex-none"
 	use:enhance={() => {
 		submitting = true;
 		return async ({ result }) => {
@@ -96,7 +105,7 @@
 		};
 	}}
 >
-	<div class="flex flex-wrap items-center justify-end gap-1.5 text-xs text-ink-2">
+	<div class="flex flex-wrap items-center gap-1.5 text-xs text-ink-2">
 		<span id="entry-language-label" class="font-mono text-[10px] tracking-wide text-muted uppercase"
 			>{t.entry.language.label}</span
 		>
