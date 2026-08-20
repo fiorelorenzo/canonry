@@ -10,7 +10,8 @@ import { randomUUID } from 'node:crypto';
 import { closeDb, createDb, eq, type Db } from '@canonry/db';
 import { imageStyle, universe, universeMember, user } from '@canonry/db/schema';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { actions } from './+page.server.js';
+import type { UniverseSetupItem } from '$lib/server/universe-setup';
+import { actions, load } from './+page.server.js';
 
 const DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
@@ -211,5 +212,81 @@ describe('/w/[universe]/settings actions (issue #378, decision R3)', () => {
 		await expect(
 			actions.setLoremasterVoice(postEvent(world.slug, locals, { description: 'anything' }))
 		).rejects.toMatchObject({ status: 403 });
+	});
+});
+
+describe('/w/[universe]/settings load: setupChecklist (issue #379, decision R4)', () => {
+	let db: Db;
+
+	beforeAll(() => {
+		db = createDb(DATABASE_URL, { max: 3 });
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	async function fixture() {
+		const [owner] = await db
+			.insert(user)
+			.values({
+				id: unique('checklist-user'),
+				name: 'Checklist Owner',
+				email: `${unique('c')}@canonry.invalid`
+			})
+			.returning();
+		if (!owner) throw new Error('user insert returned no row');
+
+		const [world] = await db
+			.insert(universe)
+			.values({
+				name: 'Checklist World',
+				slug: unique('checklist-world'),
+				ownerUserId: owner.id,
+				kind: 'homebrew'
+			})
+			.returning();
+		if (!world) throw new Error('universe insert returned no row');
+
+		const locals = {
+			user: { id: owner.id, name: owner.name, email: owner.email },
+			locale: 'en'
+		} as App.Locals;
+		return { world, locals };
+	}
+
+	// Same technique as `p/leak.test.ts`'s own `loadUniverseLayout` helper: calling a
+	// generated `PageServerLoad` directly infers a `void | (...)` union, since the
+	// type accounts for a route that never returns - cast to the one field this file
+	// reads instead of fighting that inference.
+	async function loadFor(
+		slug: string,
+		locals: App.Locals
+	): Promise<{ setupItems: UniverseSetupItem[] }> {
+		const result = await load({ params: { universe: slug }, locals } as Parameters<typeof load>[0]);
+		return result as { setupItems: UniverseSetupItem[] };
+	}
+
+	it('lists both items unset for a freshly created universe', async () => {
+		const { world, locals } = await fixture();
+		const data = await loadFor(world.slug, locals);
+		expect(data.setupItems).toEqual([
+			{ id: 'imageStyle', done: false },
+			{ id: 'loremasterVoice', done: false }
+		]);
+	});
+
+	it('drops an item once its action saves it, in the same load a page after the redirect would run', async () => {
+		const { world, locals } = await fixture();
+
+		await actions.setImageStyle(
+			postEvent(world.slug, locals, { name: 'Woodcut', promptModifier: 'monochrome woodcut' })
+		);
+		await actions.setLoremasterVoice(
+			postEvent(world.slug, locals, { description: 'Wry, understated.' })
+		);
+
+		const data = await loadFor(world.slug, locals);
+		expect(data.setupItems.every((item) => item.done)).toBe(true);
 	});
 });

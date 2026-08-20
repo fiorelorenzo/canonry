@@ -14,6 +14,11 @@
  * (`UniverseSummary`, the sidebar switcher's shape): that type deliberately does not
  * carry `ai_enabled`, `propagation_cap`, `image_style_id` or `loremaster_description`,
  * and this page needs all four.
+ *
+ * Issue #379, decision R4: `setupItems` is `universeSetupItems()` run against this
+ * same row, so the list `+page.svelte` renders at the top of the page reads the exact
+ * checklist the shell row counts - see that function's own doc comment for what
+ * joins the list and why `ai_enabled`/`propagation_cap` never will.
  */
 import { error, fail } from '@sveltejs/kit';
 import {
@@ -30,6 +35,7 @@ import {
 import { imageStyle, universe } from '@canonry/db/schema';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
+import { universeSetupItems } from '$lib/server/universe-setup';
 import type { Actions, PageServerLoad } from './$types';
 
 // Issue #378, decision R3: the same 500-character cap the settings textarea enforces
@@ -83,7 +89,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		ownRelationTypeCount: relationTypes.filter((type) => type.universeId !== null).length,
 		imageStyleName: currentImageStyle?.name ?? '',
 		imageStyleModifier: currentImageStyle?.promptModifier ?? '',
-		loremasterDescription: world.loremasterDescription
+		loremasterDescription: world.loremasterDescription,
+		// Issue #379, decision R4: the same checklist the shell row counts, so the list
+		// at the top of this page can never disagree with it about what is unset.
+		setupItems: universeSetupItems({
+			imageStyleId: world.imageStyleId,
+			loremasterDescription: world.loremasterDescription
+		})
 	};
 };
 

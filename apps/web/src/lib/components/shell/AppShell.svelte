@@ -28,7 +28,7 @@
 	import QuickAsk from '../copilot/QuickAsk.svelte';
 	import PhoneNav from './PhoneNav.svelte';
 	import Sidebar from './Sidebar.svelte';
-	import type { RecentEntity, ShellQuota, UniverseSummary } from './types';
+	import type { RecentEntity, ShellQuota, UniverseSetupItem, UniverseSummary } from './types';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -44,6 +44,10 @@
 		universeSlug?: string;
 		recent?: RecentEntity[];
 		navCounts?: { entries: number; proposals: number };
+		/** Issue #379, decision R4: present only under `/w/[universe]` - `?? []` reads
+		 * the same as an empty universe layout, and Sidebar/PhoneNav both already treat
+		 * an empty list as "nothing to warn about". */
+		setupItems?: UniverseSetupItem[];
 		shellQuota: ShellQuota | null;
 	}
 
@@ -72,6 +76,7 @@
 			recent={data.recent ?? []}
 			entryCount={data.navCounts?.entries ?? 0}
 			proposalsPending={data.navCounts?.proposals ?? 0}
+			setupItems={data.setupItems ?? []}
 			locale={data.locale}
 			user={data.user}
 			quota={data.shellQuota}
@@ -86,6 +91,7 @@
 					recent={data.recent ?? []}
 					entryCount={data.navCounts?.entries ?? 0}
 					proposalsPending={data.navCounts?.proposals ?? 0}
+					setupItems={data.setupItems ?? []}
 					locale={data.locale}
 					user={data.user}
 					quota={data.shellQuota}

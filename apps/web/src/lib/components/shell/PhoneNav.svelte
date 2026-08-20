@@ -35,6 +35,14 @@
 	 * same pattern already built for that surface, and stacking a second top bar
 	 * or a second bottom bar on top of them is exactly the "two navigation
 	 * patterns at once" this issue rules out.
+	 *
+	 * Issue #379, decision R4: neither piece has room for the setup-checklist row -
+	 * the top bar is three icon buttons and the bottom bar is icon tabs, and both
+	 * are already full below `md`. Rather than inventing a third placement (the
+	 * decision names exactly two), the row simply rides along inside the drawer:
+	 * `Sidebar.svelte` below is the same component the rail mounts, so opening
+	 * "More"/the menu trigger shows it there for free, one tap from either bar,
+	 * with no separate badge or dot on the trigger itself.
 	 */
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -45,7 +53,7 @@
 	import MenuIcon from '@lucide/svelte/icons/menu';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import Sidebar from './Sidebar.svelte';
-	import type { RecentEntity, ShellQuota, UniverseSummary } from './types';
+	import type { RecentEntity, ShellQuota, UniverseSetupItem, UniverseSummary } from './types';
 
 	let {
 		mode,
@@ -55,6 +63,7 @@
 		recent,
 		entryCount,
 		proposalsPending,
+		setupItems,
 		locale,
 		user,
 		quota
@@ -66,6 +75,10 @@
 		recent: RecentEntity[];
 		entryCount: number;
 		proposalsPending: number;
+		/** Issue #379, decision R4: threaded straight to the drawer's own `Sidebar`
+		 * mount below - see this file's own doc comment for why nothing else here
+		 * reads it. */
+		setupItems: UniverseSetupItem[];
 		locale: Locale;
 		user: { id: string; name: string; email: string };
 		quota: ShellQuota | null;
@@ -148,6 +161,7 @@
 				{recent}
 				{entryCount}
 				{proposalsPending}
+				{setupItems}
 				{locale}
 				{user}
 				{quota}

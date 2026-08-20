@@ -38,7 +38,7 @@
 	import QuotaMeter from './QuotaMeter.svelte';
 	import ShellUserRow from './ShellUserRow.svelte';
 	import UniverseSwitcher from './UniverseSwitcher.svelte';
-	import type { RecentEntity, ShellQuota, UniverseSummary } from './types';
+	import type { RecentEntity, ShellQuota, UniverseSetupItem, UniverseSummary } from './types';
 
 	let {
 		mode,
@@ -48,6 +48,7 @@
 		recent,
 		entryCount,
 		proposalsPending,
+		setupItems,
 		locale,
 		user,
 		quota,
@@ -60,6 +61,10 @@
 		recent: RecentEntity[];
 		entryCount: number;
 		proposalsPending: number;
+		/** Issue #379, decision R4: `universeSetupItems()`'s own output, unchanged -
+		 * this component only counts `done === false`, it never re-decides what
+		 * "unset" means. Empty in account mode, where there is no current universe. */
+		setupItems: UniverseSetupItem[];
 		locale: Locale;
 		user: { id: string; name: string; email: string };
 		quota: ShellQuota | null;
@@ -79,6 +84,12 @@
 		entries: entryCount,
 		proposals: proposalsPending
 	});
+
+	// Issue #379, decision R4: the count the shell row shows, and the gate for
+	// whether it renders at all - `undefined` (never present) reads the same as
+	// `[]` (nothing left unset), so account mode and a fully set-up universe both
+	// simply show nothing.
+	const unsetSetupCount = $derived(setupItems.filter((item) => !item.done).length);
 </script>
 
 <aside
@@ -162,6 +173,21 @@
 			</ul>
 		{/if}
 	</nav>
+
+	<!-- Issue #379, decision R4: a quiet row under the nav, never a toast, modal or
+	     per-page banner - gated on `unsetSetupCount > 0` so it is simply absent once
+	     the checklist is empty, and never dismissible, since a dismissed warning about
+	     an unset setting would lie the moment it was dismissed. -->
+	{#if mode === 'universe' && universeSlug && unsetSetupCount > 0}
+		<div class="border-t border-line p-3">
+			<a
+				href={resolve(`/w/${universeSlug}/settings`)}
+				class="block rounded-md border border-warn-bg bg-warn-bg px-2.5 py-1.5 text-xs text-warn hover:brightness-95"
+			>
+				{shellT.sidebar.setupWarning(unsetSetupCount)}
+			</a>
+		</div>
+	{/if}
 
 	<!-- Shared footer (issue #141, I3 = B). #150 (F2's quota meter) is the sibling
 	     above ShellUserRow; #143/#144 (I6 = B, I5 = B) turned ShellUserRow itself into
