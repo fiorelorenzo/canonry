@@ -624,22 +624,28 @@ export interface Messages {
 		/** `EntryProseWithSecrets.svelte` (`lib/components/players/**`, but only ever
 		 * rendered on this GM-facing entry page, never on `/p/**` - the public wiki's own
 		 * chrome lives entirely under the `players` namespace above): the secret/GM-note
-		 * block tags. The GM-view/player-preview switch beside them is `prose` below -
+		 * block tags. The GM-view/player-preview control beside them is `prose` below -
 		 * issue #383 split the two apart because only one of them is "the view strings"
-		 * the switch owns. */
+		 * the control owns. */
 		secrets: {
 			hiddenBlock: string;
 			gmNoteBlock: string;
 		};
-		/** `EntryProseWithSecrets.svelte`'s GM/player view switch (#383, R8, round
-		 * thirteen): mounted twice, on the entry page and in the editor's preview, and
-		 * reads identically in both. `playerPreview` is the switch's own accessible
-		 * label, which does not change with state; `gmView`/`playerPreviewActive` are
-		 * the adjacent status text that does. */
+		/** `EntryProseWithSecrets.svelte`'s GM/player view control (#383, R8, round thirteen;
+		 * #409, S4, round fourteen, replaces the Switch with a two-option `Segmented`: the old
+		 * label swapped between a short and a ~4.5x longer string, which wrapped and pushed the
+		 * article down every time a GM used it). `gmView`/`playersView` are the segmented
+		 * control's own two option labels, both fixed length so the control's box never resizes.
+		 * `viewAriaLabel` names the control for assistive tech (the options' own visible labels
+		 * are not otherwise announced as a group). `gmViewDescription`/`playerPreviewActive` are
+		 * the one-line sentence under the control - present, and the same single line, in both
+		 * states, saying which view is showing, so nothing reflows when it changes. */
 		prose: {
 			gmView: string;
+			playersView: string;
+			viewAriaLabel: string;
+			gmViewDescription: string;
 			playerPreviewActive: string;
-			playerPreview: string;
 		};
 		language: {
 			label: string;

@@ -26,8 +26,7 @@
 	} from '$lib/markdown';
 	import { splitSecretBlocks, stripSecretsForPlayers, type SecretBlockKind } from '@canonry/lang';
 	import { renderAiMarkedParagraph } from '$lib/components/ai/aiMarking';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Label } from '$lib/components/ui/label';
+	import { Segmented, type SegmentedOption } from '$lib/components/ui/segmented';
 	import { splitBodyIntoBlocks, markedSegmentsFor } from '$lib/components/ai/entryMarking';
 	import MentionPreview from '$lib/components/entry/MentionPreview.svelte';
 	import { messages, type Locale } from '$lib/i18n';
@@ -56,14 +55,25 @@
 
 	let t = $derived(messages(locale).entry);
 
-	let playerPreview = $state(false);
+	// #409, S4, round fourteen: the view is a two-option choice, not a checkbox, so it is
+	// `Segmented`'s own string value rather than a boolean - `playerPreview` below stays a
+	// derived boolean so the rest of this file (the html/`MentionPreview` surface it feeds)
+	// reads exactly as it did under the old Switch.
+	let view = $state<'gm' | 'player'>('gm');
+	let playerPreview = $derived(view === 'player');
 
-	// #148/#383: this component mounts twice (the entry page, the editor's preview),
-	// and a bare literal id would collide if either page ever nested them - `$props.id()`
-	// gives each mounted instance its own suffix, the same pattern `ShellUserRow.svelte`
-	// uses for its own locale form for the identical reason.
-	const switchUid = $props.id();
-	const switchId = `player-preview-${switchUid}`;
+	// #148/#383, updated #409: this component mounts twice (the entry page, the editor's
+	// preview), and a bare literal `name` would collide if either page ever nested them -
+	// `$props.id()` gives each mounted instance its own suffix, the same pattern
+	// `ShellUserRow.svelte` uses for its own locale form for the identical reason. Segmented
+	// groups its native radios by `name`, which is what this now keeps apart between mounts.
+	const viewUid = $props.id();
+	const viewName = `entry-view-${viewUid}`;
+
+	const viewOptions: SegmentedOption[] = $derived([
+		{ value: 'gm', label: t.prose.gmView },
+		{ value: 'player', label: t.prose.playersView }
+	]);
 
 	const BLOCK_LABEL: Record<SecretBlockKind, string> = $derived({
 		secret: t.secrets.hiddenBlock,
@@ -129,14 +139,21 @@
 	let container = $state<HTMLElement | null>(null);
 </script>
 
-<div class="mb-4 flex items-center justify-between gap-2 border-b border-line pb-2">
-	<span class="text-xs font-semibold tracking-wide text-muted uppercase">
-		{playerPreview ? t.prose.playerPreviewActive : t.prose.gmView}
-	</span>
-	<div class="flex items-center gap-2">
-		<Switch id={switchId} bind:checked={playerPreview} />
-		<Label for={switchId}>{t.prose.playerPreview}</Label>
-	</div>
+<div class="mb-4 border-b border-line pb-3">
+	<!-- O4 = B, #409 (S4, round fourteen, amends R8's Switch for this one control): a binary
+	     state gets a segmented control, the same shape the editor's own write/preview switch
+	     (MarkdownEditor.svelte) uses. Two fixed-length labels never resize the control's own
+	     box, and the sentence below is a second, always-present line rather than a label that
+	     swaps size - so using this never moves the article that follows it. -->
+	<Segmented
+		name={viewName}
+		bind:value={view}
+		options={viewOptions}
+		ariaLabel={t.prose.viewAriaLabel}
+	/>
+	<p class="mt-2 text-xs text-muted">
+		{playerPreview ? t.prose.playerPreviewActive : t.prose.gmViewDescription}
+	</p>
 </div>
 
 <div

@@ -512,8 +512,10 @@ export const it: Messages = {
 
 		prose: {
 			gmView: 'Vista GM',
-			playerPreviewActive: 'Anteprima giocatori, quello che vede il tavolo',
-			playerPreview: 'Anteprima giocatori'
+			playersView: 'Vista giocatori',
+			viewAriaLabel: 'Vista GM o giocatori',
+			gmViewDescription: 'Vista GM: segreti e note del master visibili.',
+			playerPreviewActive: 'Anteprima giocatori: quello che vede il tavolo.'
 		},
 
 		language: {

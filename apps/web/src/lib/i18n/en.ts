@@ -509,8 +509,10 @@ export const en: Messages = {
 
 		prose: {
 			gmView: 'GM view',
-			playerPreviewActive: 'Player preview, what the party sees',
-			playerPreview: 'Player preview'
+			playersView: 'Players view',
+			viewAriaLabel: 'GM or players view',
+			gmViewDescription: 'GM view: secrets and GM notes are visible.',
+			playerPreviewActive: 'Player preview: this is what the party sees.'
 		},
 
 		language: {
