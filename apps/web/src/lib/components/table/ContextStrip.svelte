@@ -58,10 +58,11 @@
 	<Button type="button" variant="secondary" size="sm" onclick={onExit}>
 		{t.exit}
 		{#if proposalCount > 0}
-			<!-- #147: bg-ai-bg/text-ai is the proposal-count marking C1/G8 already use for
-				this exact number (PhoneTabBar's queue badge matches) - not Badge's territory,
-				violet stays the copilot's. -->
-			<span class="ml-1 rounded-full bg-ai-bg px-1.5 py-0.5 font-mono text-[10px] text-ai">
+			<!-- Round eleven P2 (#344): the count pill, on the accent's tint. PhoneTabBar's
+				queue badge and the proposals inbox match it. -->
+			<span
+				class="ml-1 rounded-full bg-accent-bg px-1.5 py-0.5 font-mono text-[10px] text-accent-ink"
+			>
 				{proposalCount}
 			</span>
 		{/if}

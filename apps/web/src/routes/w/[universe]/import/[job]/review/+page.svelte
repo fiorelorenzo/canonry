@@ -96,8 +96,12 @@
 	<h1 class="mb-4 text-2xl font-semibold text-ink">{t.heading(data.job.playbook)}</h1>
 
 	{#if isRunning}
+		<!-- Round eleven P2 (#344): a job still running is furniture, not a word a model
+		     wrote, so it wears the theme's own panel and line rather than the copilot's
+		     hue, and the refresh control wears the accent because that is what interactive
+		     means here. -->
 		<div
-			class="mb-4 flex items-center justify-between gap-3 rounded-md border border-ai-line bg-ai-bg px-4 py-3 text-sm text-ink"
+			class="mb-4 flex items-center justify-between gap-3 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-ink"
 		>
 			<span>
 				{t.stillImporting(data.job.proposalsEmitted)}
@@ -106,7 +110,7 @@
 				type="button"
 				variant="link"
 				size="sm"
-				class="h-auto p-0 text-ai"
+				class="h-auto p-0 text-accent"
 				onclick={refreshNow}
 			>
 				{t.refresh}

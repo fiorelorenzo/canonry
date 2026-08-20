@@ -13,7 +13,7 @@
 	 * `currentColor` for both stroke and fill, always: the mark inherits
 	 * whatever ink/accent token the surrounding text already sits in, and never
 	 * a hardcoded hex (C1 - it must never be able to pick up the copilot's
-	 * violet by accident).
+	 * own hue by accident).
 	 *
 	 * `aria-hidden` by default, because every current use sits right beside the
 	 * wordmark or the product name - a screen reader should hear "Canonry" once,

@@ -286,7 +286,7 @@
 
 {#if docked}
 	<!-- No dialog, no overlay, no footer: the panel around this owns its own chrome, and
-	     wears the theme's colours rather than the copilot's violet (O3's amendment). -->
+	     wears the theme's colours rather than the copilot's own hue (O3's amendment). -->
 	<Command.Root shouldFilter={false} onkeydown={onDockedKeydown} class="bg-transparent p-0">
 		{@render input()}
 		{#if showResults}

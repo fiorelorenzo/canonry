@@ -186,7 +186,10 @@
 			>
 				<span>{tab.label}</span>
 				{#if tab.badge}
-					<span class="rounded-full bg-ai-bg px-1.5 py-0 font-mono text-[9px] text-ai"
+					<!-- Round eleven P2 (#344): the same count pill the proposals inbox uses, on
+					     the accent's tint rather than the copilot's hue. A number waiting is not
+					     AI text. -->
+					<span class="rounded-full bg-accent-bg px-1.5 py-0 font-mono text-[9px] text-accent-ink"
 						>{tab.badge}</span
 					>
 				{/if}
@@ -194,7 +197,7 @@
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{/each}
 		<!-- #285: the launcher, in the bar rather than over the content. It carries the
-		     panel's own name and glyph because O3 dropped the copilot's violet from this
+		     panel's own name and glyph because O3 dropped the copilot's hue from this
 		     chrome, so nothing else here says which tab is the Loremaster. -->
 		<button
 			type="button"

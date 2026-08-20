@@ -5,8 +5,8 @@
 	 * that already existed in the app as hand-written pills - `ok` (the live proposal
 	 * feed's accepted state, RevisionBadge's ai-accepted state) and `accent` (the
 	 * players' wiki entity type tag, a soft tint where `default`'s solid fill would
-	 * shout). Still no "outline"/"ghost"/"link" - see the note above - and no violet: the
-	 * copilot's own marking (C1) stays off this generic set on guardrail 2's say-so, not
+	 * shout). Still no "outline"/"ghost"/"link" - see the note above - and never the copilot's
+	 * hue: its own marking (C1) stays off this generic set on guardrail 2's say-so, not
 	 * this component's. */
 	export const badgeVariants = tv({
 		base: 'h-5 gap-1 rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium transition-all has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&>svg]:size-3! group/badge inline-flex w-fit shrink-0 items-center justify-center overflow-hidden whitespace-nowrap transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 [&>svg]:pointer-events-none',

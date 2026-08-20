@@ -191,11 +191,14 @@
 						? t.relationVocab.askWiden
 						: t.relationVocab.askNew}
 			</p>
-			<div class="rounded-md bg-ai-bg px-3 py-2">
+			<!-- Round eleven P3 (#344): this box holds what the proposal would change the
+				vocabulary to, so it is the diff's claim and it wears the diff's own tokens.
+				The words inside it that the model chose keep the copilot's hue, below. -->
+			<div class="rounded-md border border-diff-line bg-diff-bg px-3 py-2">
 				{#if vocab.kind === 'relation_type_reuse'}
 					<p class="text-ink">{t.relationVocab.reuseType(vocabLabel, vocabInverseLabel)}</p>
 					{#if vocab.proposedLabel}
-						<p class="mt-1 text-xs text-muted">
+						<p class="mt-1 text-xs text-ink-2">
 							"{vocab.proposedLabel}" &rarr; "{vocabLabel}"
 						</p>
 					{/if}
@@ -203,7 +206,7 @@
 					<p class="font-semibold text-ink">{vocabLabel} / {vocabInverseLabel}</p>
 				{/if}
 				{#if vocab.cardinality}
-					<p class="mt-1 text-xs text-muted">
+					<p class="mt-1 text-xs text-ink-2">
 						{t.relationVocab.cardinalityLabel(vocab.cardinality)}
 					</p>
 				{/if}
@@ -236,6 +239,8 @@
 					{#each vocab.relations as relation, i (i)}
 						<li class="rounded-md bg-panel-2 px-3 py-2 text-sm text-ink-2">
 							<span class="font-semibold text-ink">{relation.fromName ?? '?'}</span>
+							<!-- P3 (#344): the type name is wording the model proposed, so this one
+								stays on the copilot's hue while the box around it does not. -->
 							<span class="mx-1 text-ai">{vocabLabel}</span>
 							<span class="font-semibold text-ink">{relation.toName ?? '?'}</span>
 							{#if relation.evidenceViews.length > 0}
@@ -251,8 +256,9 @@
 			</div>
 		{/if}
 	{:else if candidate.kind === 'relation'}
-		<p class="mb-3 rounded-md bg-ai-bg px-3 py-2 text-sm text-ink-2">
+		<p class="mb-3 rounded-md border border-diff-line bg-diff-bg px-3 py-2 text-sm text-ink-2">
 			<span class="font-semibold text-ink">{candidate.targetName}</span>
+			<!-- P3 (#344): as above, the relation's own label is the model's wording. -->
 			<span class="mx-1 text-ai">{relationLabel}</span>
 			<span class="font-semibold text-ink">{candidate.relatedName}</span>
 			{#if candidate.evidenceViews.length > 0}
@@ -283,7 +289,16 @@
 							>
 						{/if}
 					{:else if change.kind === 'added' || change.kind === 'changed'}
-						<span class="rounded-sm bg-ai-bg px-1 py-0.5 text-ink">{change.statement}</span>
+						<!-- Round eleven P3 (#344), and the comparison the whole change exists for.
+							Two claims land on this one span and they run on two channels: the wash
+							plus its change bar is the diff saying "this clause is what changed", in
+							paper's own hue one lightness step down, and the dashed underline is
+							C1 saying "nobody has accepted this wording", in a hue 121 degrees away.
+							box-decoration-clone keeps both intact when the clause wraps. -->
+						<span
+							class="rounded-sm border border-diff-line bg-diff-bg box-decoration-clone px-1 py-0.5 text-ink underline decoration-ai decoration-dashed decoration-2 underline-offset-4"
+							>{change.statement}</span
+						>
 						{#if candidate.evidenceViews.length > 0 && i === 0}
 							<EvidencePopover
 								views={candidate.evidenceViews}

@@ -10,8 +10,8 @@
 	 * 2 makes `revision.author_kind` permanent rather than a marker that disappears on accept,
 	 * and this is the surface where that has to survive being summarised: "changed 4m ago"
 	 * with no author would be the one place in the product where a human edit and an accepted
-	 * draft read identically. It is a plain word, not the copilot's violet: C1 spends violet on
-	 * unaccepted AI text, and everything in this feed has already been accepted.
+	 * draft read identically. It is a plain word, not the copilot's hue: C1 spends that hue
+	 * on unaccepted AI text, and everything in this feed has already been accepted.
 	 */
 	import { resolve } from '$app/paths';
 	import type { ActivityItem } from '@canonry/db';

@@ -124,9 +124,9 @@ export const it: Messages = {
 			footerOpen: 'Apri',
 			footerClose: 'Chiudi'
 		},
-		// Issue #285 (decisione O3): la cornice non porta viola, quindi il nome e il glifo
-		// sono le sole cose che dicono che questo è il copilota. "Loremaster" è un nome di
-		// prodotto e resta invariato, come "Canonry".
+		// Issue #285 (decisione O3): la cornice non porta il colore del copilota, quindi il
+		// nome e il glifo sono le sole cose che dicono che questo è il copilota. "Loremaster"
+		// è un nome di prodotto e resta invariato, come "Canonry".
 		quickAsk: {
 			name: 'Loremaster',
 			openLabel: 'Apri il Loremaster',

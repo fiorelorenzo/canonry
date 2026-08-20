@@ -140,9 +140,13 @@
 										{/if}
 									{:else}
 										<div
-											class="src derived rounded-lg border border-ai-line bg-ai-bg px-2.5 py-2 text-xs"
+											class="src derived rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs"
 										>
-											<span class="badge rounded-full bg-ai px-1.5 py-0.5 text-[10px] text-paper"
+											<!-- Round eleven P2 (#344): same treatment as the Ask page's own
+												indexed chip. Retrieved writing from somebody else's site is not
+												a word a model wrote. -->
+											<span
+												class="badge rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
 												>{t.indexedBadge}</span
 											>
 											<b class="text-ink">{source.pageTitle}</b>

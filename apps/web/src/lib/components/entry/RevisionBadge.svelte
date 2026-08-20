@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
-	 * B4 = B: a permanent, non-violet badge distinguishing `human` from `ai_accepted`.
-	 * Deliberately not C1's violet - that hue means "not yet accepted", and an accepted
+	 * B4 = B: a permanent badge distinguishing `human` from `ai_accepted`, and never in the
+	 * copilot's own hue - that hue means "not yet accepted", and an accepted
 	 * revision from a month ago is exactly the thing this badge must never say that about.
 	 */
 	import { messages, type Locale } from '$lib/i18n';
