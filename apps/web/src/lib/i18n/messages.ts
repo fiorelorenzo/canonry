@@ -204,16 +204,42 @@ export interface Messages {
 			footerClose: string;
 		};
 
-		/** Issue #285 (decision O3): the floating pill and the panel it expands into. The
-		 * chrome wears the theme's own colours, so the name and the glyph are what say
-		 * "copilot" here; these strings carry that weight. */
+		/** Issue #285 (decision O3), amended by decisions R5 and R6 (round thirteen, #381):
+		 * the launcher and the panel it expands into. The chrome wears the theme's own
+		 * colours, so the name and the glyph are what say "copilot" here; these strings
+		 * carry that weight. */
 		quickAsk: {
 			name: string;
 			openLabel: string;
 			closeLabel: string;
+			/** R6: the sentence on the wide launcher naming what it can be asked, so the
+			 * front door says what the feature is for instead of a bare pill. */
+			launcherHint: string;
 			context: (pageName: string) => string;
 			streaming: string;
 			openInAsk: string;
+			/** R6: three deterministic chips picked by `quick-ask-suggestions.ts` from the
+			 * route and the entity type, never from a model. They fill the composer and
+			 * disappear once the conversation has a turn. */
+			suggestions: {
+				entry: {
+					summary: (entityName: string) => string;
+					/** Reads the six-value entity type, the same "one shape per type" pattern
+					 * `entityTypeLabel` uses elsewhere, rather than a key per type. */
+					connects: (entityType: string, entityName: string) => string;
+					gaps: (entityName: string) => string;
+				};
+				world: {
+					shape: string;
+					recent: string;
+					gaps: string;
+				};
+				proposals: {
+					pending: string;
+					oldest: string;
+					conflicts: string;
+				};
+			};
 		};
 	};
 

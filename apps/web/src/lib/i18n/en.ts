@@ -132,9 +132,40 @@ export const en: Messages = {
 			name: 'Loremaster',
 			openLabel: 'Open the Loremaster',
 			closeLabel: 'Close the Loremaster',
+			launcherHint: 'Ask what your canon already says.',
 			context: (pageName) => `about ${pageName}`,
 			streaming: 'streaming…',
-			openInAsk: 'Open in Ask'
+			openInAsk: 'Open in Ask',
+			// R6 (round thirteen, #381): three deterministic suggestions, never from a model.
+			// `connects` reads the six-value entity type, the same one-function-per-catalogue
+			// pattern `entityTypeLabel` uses below rather than a key per type.
+			suggestions: {
+				entry: {
+					summary: (entityName) => `What do we know about ${entityName}?`,
+					connects: (entityType, entityName) => {
+						const templates: Record<string, string> = {
+							character: `Who does ${entityName} know?`,
+							place: `What's happened at ${entityName}?`,
+							faction: `Who's aligned with ${entityName}?`,
+							item: `Where has ${entityName} turned up?`,
+							event: `Who was there when ${entityName} happened?`,
+							session: `What happened during ${entityName}?`
+						};
+						return templates[entityType] ?? `What connects to ${entityName}?`;
+					},
+					gaps: (entityName) => `What's still missing on ${entityName}?`
+				},
+				world: {
+					shape: "What's the shape of this world so far?",
+					recent: "What's been added recently?",
+					gaps: 'Where are the gaps?'
+				},
+				proposals: {
+					pending: "What's waiting for review?",
+					oldest: "What's the oldest pending proposal?",
+					conflicts: 'Is anything likely to conflict?'
+				}
+			}
 		}
 	},
 

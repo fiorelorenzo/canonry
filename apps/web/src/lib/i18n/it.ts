@@ -135,9 +135,41 @@ export const it: Messages = {
 			name: 'Loremaster',
 			openLabel: 'Apri il Loremaster',
 			closeLabel: 'Chiudi il Loremaster',
+			launcherHint: 'Chiedi cosa dice già il tuo canone.',
 			context: (pageName) => `su ${pageName}`,
 			streaming: 'in arrivo…',
-			openInAsk: 'Apri in Chiedi'
+			openInAsk: 'Apri in Chiedi',
+			// R6 (round tredici, #381): tre suggerimenti deterministici, mai da un modello.
+			// `connects` legge il tipo di entità (sei valori), lo stesso schema a una
+			// funzione per catalogo di `entityTypeLabel` più sotto, invece di una chiave
+			// per tipo.
+			suggestions: {
+				entry: {
+					summary: (entityName) => `Cosa sappiamo su ${entityName}?`,
+					connects: (entityType, entityName) => {
+						const templates: Record<string, string> = {
+							character: `Chi conosce ${entityName}?`,
+							place: `Cosa è successo a ${entityName}?`,
+							faction: `Chi è alleato con ${entityName}?`,
+							item: `Dove è comparso ${entityName}?`,
+							event: `Chi c'era quando è successo ${entityName}?`,
+							session: `Cosa è successo durante ${entityName}?`
+						};
+						return templates[entityType] ?? `Cosa si collega a ${entityName}?`;
+					},
+					gaps: (entityName) => `Cosa manca ancora su ${entityName}?`
+				},
+				world: {
+					shape: 'Qual è la forma di questo mondo finora?',
+					recent: 'Cosa è stato aggiunto di recente?',
+					gaps: 'Dove sono le lacune?'
+				},
+				proposals: {
+					pending: 'Cosa aspetta una revisione?',
+					oldest: 'Qual è la proposta in attesa più vecchia?',
+					conflicts: "C'è qualcosa che rischia di entrare in conflitto?"
+				}
+			}
 		}
 	},
 
