@@ -16,7 +16,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
 	closeDb,
 	createMediaAsset,
-	setMediaAssetPublished,
+	setMediaAssetGmOnly,
 	upsertImageModel,
 	type Db
 } from '../src/index.js';
@@ -133,7 +133,7 @@ describe('upsertImageModel (queries/media.ts, issue #235)', () => {
 	});
 });
 
-describe('setMediaAssetPublished (queries/media.ts, issue #254)', () => {
+describe('setMediaAssetGmOnly (queries/media.ts, issue #382)', () => {
 	let db: Db;
 
 	beforeAll(() => {
@@ -144,7 +144,7 @@ describe('setMediaAssetPublished (queries/media.ts, issue #254)', () => {
 		await closeDb(db);
 	});
 
-	it('flips published_to_players in both directions and touches nothing else on the row', async () => {
+	it('flips gm_only in both directions and touches nothing else on the row', async () => {
 		const u = await insertHomebrewUniverse(db);
 		const created = await createMediaAsset(db, {
 			universeId: u.id,
@@ -153,20 +153,20 @@ describe('setMediaAssetPublished (queries/media.ts, issue #254)', () => {
 			mimeType: 'image/png',
 			bytes: 128
 		});
-		expect(created.publishedToPlayers).toBe(false);
+		expect(created.gmOnly).toBe(false);
 
-		const published = await setMediaAssetPublished(db, created.id, true);
-		expect(published.publishedToPlayers).toBe(true);
-		expect(published.path).toBe(created.path);
-		expect(published.mimeType).toBe(created.mimeType);
-		expect(published.entityId).toBe(created.entityId);
-		expect(published.bytes).toBe(created.bytes);
+		const held = await setMediaAssetGmOnly(db, created.id, true);
+		expect(held.gmOnly).toBe(true);
+		expect(held.path).toBe(created.path);
+		expect(held.mimeType).toBe(created.mimeType);
+		expect(held.entityId).toBe(created.entityId);
+		expect(held.bytes).toBe(created.bytes);
 
-		const unpublished = await setMediaAssetPublished(db, created.id, false);
-		expect(unpublished.publishedToPlayers).toBe(false);
+		const released = await setMediaAssetGmOnly(db, created.id, false);
+		expect(released.gmOnly).toBe(false);
 	});
 
 	it('throws for an id that does not exist, rather than silently doing nothing', async () => {
-		await expect(setMediaAssetPublished(db, randomUUID(), true)).rejects.toThrow();
+		await expect(setMediaAssetGmOnly(db, randomUUID(), true)).rejects.toThrow();
 	});
 });

@@ -12,7 +12,7 @@ import {
 	revealFactLive,
 	revealRelationLive,
 	setEntityCover,
-	setMediaAssetPublished,
+	setMediaAssetGmOnly,
 	type Db
 } from '../src/index.js';
 import { entity } from '../src/schema/entity.js';
@@ -363,7 +363,7 @@ describe('players', () => {
 			expect(translatedLocale.relations[0]?.label).toBe('fa da mentore');
 		});
 
-		it('only a published image ever appears, never an unpublished one', async () => {
+		it('an image appears once attached and its entry is revealed, and stays out if marked gm_only (#382)', async () => {
 			const { u, session, aldric } = await worldFixture();
 			await revealEntityLive(db, {
 				universeId: u.id,
@@ -375,31 +375,31 @@ describe('players', () => {
 					universeId: u.id,
 					entityId: aldric.id,
 					kind: 'image',
-					path: '/media/unpublished-portrait.png',
+					path: '/media/gm-only-portrait.png',
 					mimeType: 'image/png',
 					generated: true,
-					publishedToPlayers: false,
+					gmOnly: true,
 					prompt: 'a secret prompt nobody should see'
 				},
 				{
 					universeId: u.id,
 					entityId: aldric.id,
 					kind: 'image',
-					path: '/media/published-portrait.png',
+					path: '/media/visible-portrait.png',
 					mimeType: 'image/png',
-					generated: true,
-					publishedToPlayers: true
+					generated: true
+					// gmOnly stays at its default false - attaching it above is the accept.
 				}
 			]);
 
 			const result = await publicEntityBySlug(db, u.id, aldric.slug);
 			if (result?.status !== 'full') throw new Error('expected a full entity');
 			expect(result.images).toHaveLength(1);
-			expect(JSON.stringify(result)).not.toContain('unpublished-portrait');
+			expect(JSON.stringify(result)).not.toContain('gm-only-portrait');
 			expect(JSON.stringify(result)).not.toContain('secret prompt');
 		});
 
-		it('carries a cover only once that image is published, and never one the GM set but kept private (O2, #284)', async () => {
+		it('carries a cover unless the GM marks it gm_only (O2, #284; #382)', async () => {
 			const { u, session, aldric } = await worldFixture();
 			await revealEntityLive(db, {
 				universeId: u.id,
@@ -415,33 +415,33 @@ describe('players', () => {
 					path: '/media/cover-gate-portrait.png',
 					mimeType: 'image/png',
 					generated: true,
-					publishedToPlayers: false
+					gmOnly: true
 				})
 				.returning();
 			if (!portrait) throw new Error('fixture setup failed');
 			await setEntityCover(db, { entityId: aldric.id, mediaAssetId: portrait.id });
 
 			// Guardrail 6 has no exception for images, and a cover is not a special case of a
-			// published one: setting it shows it to the GM and to nobody else.
-			const beforePublish = await publicEntityBySlug(db, u.id, aldric.slug);
-			if (beforePublish?.status !== 'full') throw new Error('expected a full entity');
-			expect(beforePublish.coverImageId).toBeNull();
-			expect(JSON.stringify(beforePublish)).not.toContain(portrait.id);
+			// visible one: setting it shows it to the GM and to nobody else while gm_only holds.
+			const whileHeldBack = await publicEntityBySlug(db, u.id, aldric.slug);
+			if (whileHeldBack?.status !== 'full') throw new Error('expected a full entity');
+			expect(whileHeldBack.coverImageId).toBeNull();
+			expect(JSON.stringify(whileHeldBack)).not.toContain(portrait.id);
 
-			await setMediaAssetPublished(db, portrait.id, true);
-			const afterPublish = await publicEntityBySlug(db, u.id, aldric.slug);
-			if (afterPublish?.status !== 'full') throw new Error('expected a full entity');
-			expect(afterPublish.coverImageId).toBe(portrait.id);
+			await setMediaAssetGmOnly(db, portrait.id, false);
+			const afterRelease = await publicEntityBySlug(db, u.id, aldric.slug);
+			if (afterRelease?.status !== 'full') throw new Error('expected a full entity');
+			expect(afterRelease.coverImageId).toBe(portrait.id);
 
-			// And back: unpublishing is the same deliberate act in reverse, so the band goes
-			// away again rather than surviving on the cover column alone.
-			await setMediaAssetPublished(db, portrait.id, false);
-			const afterUnpublish = await publicEntityBySlug(db, u.id, aldric.slug);
-			if (afterUnpublish?.status !== 'full') throw new Error('expected a full entity');
-			expect(afterUnpublish.coverImageId).toBeNull();
+			// And back: marking it gm_only again is the same deliberate act in reverse, so
+			// the band goes away again rather than surviving on the cover column alone.
+			await setMediaAssetGmOnly(db, portrait.id, true);
+			const afterHeldAgain = await publicEntityBySlug(db, u.id, aldric.slug);
+			if (afterHeldAgain?.status !== 'full') throw new Error('expected a full entity');
+			expect(afterHeldAgain.coverImageId).toBeNull();
 		});
 
-		it('carries no cover when the entity has none, published images notwithstanding (O2, #284)', async () => {
+		it('carries no cover when the entity has none, visible images notwithstanding (O2, #284)', async () => {
 			const { u, session, aldric } = await worldFixture();
 			await revealEntityLive(db, {
 				universeId: u.id,
@@ -454,11 +454,10 @@ describe('players', () => {
 				kind: 'image',
 				path: '/media/no-cover-portrait.png',
 				mimeType: 'image/png',
-				generated: true,
-				publishedToPlayers: true
+				generated: true
 			});
 
-			// A published picture is a gallery entry, never a cover by promotion: nothing but
+			// A visible picture is a gallery entry, never a cover by promotion: nothing but
 			// a GM's own "use as cover" click writes that column (guardrail 1).
 			const result = await publicEntityBySlug(db, u.id, aldric.slug);
 			if (result?.status !== 'full') throw new Error('expected a full entity');
@@ -593,8 +592,8 @@ describe('players', () => {
 		});
 	});
 
-	describe('publicMediaAssetById (#254)', () => {
-		it('walks every publish/unpublish transition: invisible, visible once published, invisible again once unpublished', async () => {
+	describe('publicMediaAssetById (#254, #382)', () => {
+		it('walks every gm_only transition: invisible while held back, visible once released, invisible again once held back', async () => {
 			const { u, session, aldric } = await worldFixture();
 			await revealEntityLive(db, {
 				universeId: u.id,
@@ -610,24 +609,24 @@ describe('players', () => {
 					path: '/media/publish-gate-portrait.png',
 					mimeType: 'image/png',
 					generated: true,
-					publishedToPlayers: false
+					gmOnly: true
 				})
 				.returning();
 			if (!asset) throw new Error('fixture setup failed');
 
 			expect(await publicMediaAssetById(db, u.id, asset.id)).toBeUndefined();
 
-			await setMediaAssetPublished(db, asset.id, true);
+			await setMediaAssetGmOnly(db, asset.id, false);
 			expect(await publicMediaAssetById(db, u.id, asset.id)).toEqual({
 				path: '/media/publish-gate-portrait.png',
 				mimeType: 'image/png'
 			});
 
-			await setMediaAssetPublished(db, asset.id, false);
+			await setMediaAssetGmOnly(db, asset.id, true);
 			expect(await publicMediaAssetById(db, u.id, asset.id)).toBeUndefined();
 		});
 
-		it('stays invisible for a gm_only entity even once its image is published - visibility outranks publication', async () => {
+		it('stays invisible for a gm_only entity even once its own image is visible - entity visibility outranks the image (#382)', async () => {
 			const { u, ledger } = await worldFixture();
 			const [asset] = await db
 				.insert(mediaAsset)
@@ -635,10 +634,9 @@ describe('players', () => {
 					universeId: u.id,
 					entityId: ledger.id,
 					kind: 'image',
-					path: '/media/gm-only-portrait.png',
+					path: '/media/gm-only-entity-portrait.png',
 					mimeType: 'image/png',
-					generated: true,
-					publishedToPlayers: true
+					generated: true
 				})
 				.returning();
 			if (!asset) throw new Error('fixture setup failed');
@@ -646,7 +644,7 @@ describe('players', () => {
 			expect(await publicMediaAssetById(db, u.id, asset.id)).toBeUndefined();
 		});
 
-		it('stays invisible for a published image whose entity carries no confirmed revelation', async () => {
+		it('stays invisible for an image whose entity carries no confirmed revelation', async () => {
 			const { u, aldric } = await worldFixture();
 			// Deliberately no revealEntityLive call - aldric is revealable, but nothing at
 			// the table has confirmed it yet.
@@ -658,13 +656,30 @@ describe('players', () => {
 					kind: 'image',
 					path: '/media/unrevealed-portrait.png',
 					mimeType: 'image/png',
-					generated: true,
-					publishedToPlayers: true
+					generated: true
 				})
 				.returning();
 			if (!asset) throw new Error('fixture setup failed');
 
 			expect(await publicMediaAssetById(db, u.id, asset.id)).toBeUndefined();
+		});
+
+		it('stays invisible for an unattached image, entity_id null and all - attaching is the accept, not a leg this query can skip (#382)', async () => {
+			const { u } = await worldFixture();
+			const [unattached] = await db
+				.insert(mediaAsset)
+				.values({
+					universeId: u.id,
+					kind: 'image',
+					path: '/media/unattached-portrait.png',
+					mimeType: 'image/png',
+					generated: true
+				})
+				.returning();
+			if (!unattached) throw new Error('fixture setup failed');
+			expect(unattached.entityId).toBeNull();
+
+			expect(await publicMediaAssetById(db, u.id, unattached.id)).toBeUndefined();
 		});
 	});
 });

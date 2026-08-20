@@ -135,7 +135,7 @@ describe('POST .../media/upload (#252)', () => {
 		expect(caught.status).toBe(status);
 	}
 
-	it('creates one media_asset row with generated: false, a matching byte count, and published_to_players false', async () => {
+	it('creates one media_asset row with generated: false, a matching byte count, and gm_only false', async () => {
 		const bytes = pngBytes();
 		const before = await rowsFor(db, entityId);
 
@@ -158,9 +158,9 @@ describe('POST .../media/upload (#252)', () => {
 		expect(row?.bytes).toBe(bytes.byteLength);
 		expect(row?.entityId).toBe(entityId);
 		expect(row?.kind).toBe('image');
-		// Guardrail 6: createMediaAsset does not accept publishedToPlayers as an input,
-		// so this can only ever be the schema default.
-		expect(row?.publishedToPlayers).toBe(false);
+		// Guardrail 6: createMediaAsset does not accept gmOnly as an input, so this can
+		// only ever be the schema default.
+		expect(row?.gmOnly).toBe(false);
 	});
 
 	it('refuses a disallowed mime type and stores nothing', async () => {

@@ -79,8 +79,8 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 
 	// `generated: false`, `prompt`/`provider`/`modelId` all null: this file is not a
 	// model's work, and must never carry the mark that says it is (schema comment on
-	// `media_asset.generated`, packages/db/src/schema/media.ts). `publishedToPlayers` is
-	// not passed - `createMediaAsset` does not even accept it as an input (guardrail 6).
+	// `media_asset.generated`, packages/db/src/schema/media.ts). `gmOnly` is not passed -
+	// `createMediaAsset` does not even accept it as an input (guardrail 6, issue #382).
 	const asset = await createMediaAsset(context.conn, {
 		universeId: context.universe.id,
 		entityId: context.entity.id,

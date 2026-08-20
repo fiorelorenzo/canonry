@@ -228,7 +228,7 @@ export {
 	attachMediaAsset,
 	mediaAssetById,
 	mediaAssetsByIds,
-	setMediaAssetPublished,
+	setMediaAssetGmOnly,
 	type ImageModelRow,
 	type UpsertImageModelInput,
 	type EntryStyleContext,

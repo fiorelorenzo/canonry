@@ -20,7 +20,7 @@ import {
 	eq,
 	isPubliclyVisible,
 	revealEntityLive,
-	setMediaAssetPublished,
+	setMediaAssetGmOnly,
 	type Db
 } from '@canonry/db';
 import { entity, mediaAsset, universe, user } from '@canonry/db/schema';
@@ -259,7 +259,7 @@ describe('loadPublicEntity body image resolution (#254)', () => {
 		await closeDb(db);
 	});
 
-	it('rewrites a published, visible image to the public route, and strips an unpublished one entirely - not a broken <img>, no leaked filename', async () => {
+	it('rewrites a visible image to the public route, and strips a gm_only one entirely - not a broken <img>, no leaked filename', async () => {
 		const entrySlug = unique('entry-with-image');
 		const [row] = await db
 			.insert(entity)
@@ -268,49 +268,47 @@ describe('loadPublicEntity body image resolution (#254)', () => {
 		if (!row) throw new Error('entity insert did not return a row');
 		await revealEntityLive(db, { universeId, entityId: row.id, sessionEntityId });
 
-		const [published] = await db
+		const [visible] = await db
 			.insert(mediaAsset)
 			.values({
 				universeId,
 				entityId: row.id,
 				kind: 'image',
-				path: '/media/body-image-published.png',
+				path: '/media/body-image-visible.png',
 				mimeType: 'image/png',
-				generated: true,
-				publishedToPlayers: false
+				generated: true
 			})
 			.returning({ id: mediaAsset.id });
-		if (!published) throw new Error('media asset insert did not return a row');
-		await setMediaAssetPublished(db, published.id, true);
+		if (!visible) throw new Error('media asset insert did not return a row');
 
-		const [unpublished] = await db
+		const [heldBack] = await db
 			.insert(mediaAsset)
 			.values({
 				universeId,
 				entityId: row.id,
 				kind: 'image',
-				path: '/media/body-image-unpublished.png',
+				path: '/media/body-image-gm-only.png',
 				mimeType: 'image/png',
-				generated: true,
-				publishedToPlayers: false
+				generated: true
 			})
 			.returning({ id: mediaAsset.id });
-		if (!unpublished) throw new Error('media asset insert did not return a row');
+		if (!heldBack) throw new Error('media asset insert did not return a row');
+		await setMediaAssetGmOnly(db, heldBack.id, true);
 
 		const body =
 			`Before the image.\n\n` +
-			`![the published one](/w/${universeSlug}/e/${entrySlug}/media/${published.id})\n\n` +
-			`![the unpublished one](/w/${universeSlug}/e/${entrySlug}/media/${unpublished.id})\n\n` +
+			`![the visible one](/w/${universeSlug}/e/${entrySlug}/media/${visible.id})\n\n` +
+			`![the gm-only one](/w/${universeSlug}/e/${entrySlug}/media/${heldBack.id})\n\n` +
 			`After the image.`;
 		await db.update(entity).set({ body }).where(eq(entity.id, row.id));
 
 		const result = await loadPublicEntity(db, universeId, universeSlug, entrySlug);
 		if (!result || result.entity.status !== 'full') throw new Error('expected a full entity');
 
-		expect(result.entity.body).toContain(`/p/${universeSlug}/media/${published.id}`);
+		expect(result.entity.body).toContain(`/p/${universeSlug}/media/${visible.id}`);
 		expect(result.entity.body).not.toContain(`/w/${universeSlug}`);
-		expect(result.entity.body).not.toContain(unpublished.id);
-		expect(result.entity.body).not.toContain('the unpublished one');
+		expect(result.entity.body).not.toContain(heldBack.id);
+		expect(result.entity.body).not.toContain('the gm-only one');
 		expect(result.entity.body).toContain('Before the image.');
 		expect(result.entity.body).toContain('After the image.');
 	});

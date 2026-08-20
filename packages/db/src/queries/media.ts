@@ -157,10 +157,10 @@ export interface CreateMediaAssetInput {
 	credits?: number;
 }
 
-/** Inserts one stored file's row. `publishedToPlayers` is never accepted as an input here
- * on purpose (#71, guardrail 6) - the column keeps its schema default of false, and this
- * is the only place a media_asset row is created, so there is nowhere for a caller to
- * smuggle it in true from day one. */
+/** Inserts one stored file's row. `gmOnly` is never accepted as an input here on purpose
+ * (#382, guardrail 6) - the column keeps its schema default of false, and this is the
+ * only place a media_asset row is created, so there is nowhere for a caller to smuggle
+ * it in true from day one. */
 export async function createMediaAsset(
 	db: Db,
 	input: CreateMediaAssetInput
@@ -187,10 +187,12 @@ export async function createMediaAsset(
 }
 
 /** "Insert" in the F1 = C dialog: attaches one already-generated, unattached asset to the
- * entry the GM picked it for. Only ever touches `entity_id` - never `published_to_players`
- * (#71). Requires the asset to currently be unattached, so accepting the same variant
- * twice or re-attaching an already-attached image is a no-op that throws rather than
- * silently moving a picture between entries. */
+ * entry the GM picked it for. Only ever touches `entity_id` - never `gm_only` (#382).
+ * Requires the asset to currently be unattached, so accepting the same variant twice or
+ * re-attaching an already-attached image is a no-op that throws rather than silently
+ * moving a picture between entries. This is the accept guardrail 6 asks for: an image
+ * with no entry can never reach players, so attaching it is the human review, not a
+ * second publish click. */
 export async function attachMediaAsset(
 	db: Db,
 	id: string,
@@ -220,22 +222,23 @@ export async function mediaAssetsByIds(db: Db, ids: readonly string[]): Promise<
 		.where(inArray(mediaAsset.id, [...ids]));
 }
 
-/** Guardrail 6 and issue #71/#254: the one function anywhere that writes
- * `published_to_players`. It exists precisely so that write stays in exactly one place -
- * a GM's own explicit click in the Images tab, never a side effect of `attachMediaAsset`,
- * `acceptProposal`, or revealing an entity, none of which touch this column. Flips both
- * directions on purpose: a GM who showed a picture too early needs to take it back, and
- * unpublish is that same deliberate act in reverse, not a special case. */
-export async function setMediaAssetPublished(
+/** Guardrail 6 and issue #382: the one function anywhere that writes `gm_only`. It
+ * exists precisely so that write stays in exactly one place - a GM's own explicit click
+ * in the Images tab marking the one exception to "attaching is the accept", never a side
+ * effect of `attachMediaAsset`, `acceptProposal`, or revealing an entity, none of which
+ * touch this column. Flips both directions on purpose: a GM who needs to hold a picture
+ * back mid-campaign needs to release it again too, and clearing `gm_only` is that same
+ * deliberate act in reverse, not a special case. */
+export async function setMediaAssetGmOnly(
 	db: Db,
 	id: string,
-	published: boolean
+	gmOnly: boolean
 ): Promise<MediaAssetRow> {
 	const [updated] = await db
 		.update(mediaAsset)
-		.set({ publishedToPlayers: published })
+		.set({ gmOnly })
 		.where(eq(mediaAsset.id, id))
 		.returning();
-	if (!updated) throw new Error(`setMediaAssetPublished: no media_asset row "${id}"`);
+	if (!updated) throw new Error(`setMediaAssetGmOnly: no media_asset row "${id}"`);
 	return updated;
 }

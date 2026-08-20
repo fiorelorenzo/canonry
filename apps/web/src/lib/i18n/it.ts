@@ -602,7 +602,7 @@ export const it: Messages = {
 				return form === 'one' ? `${n} credito` : `${n} crediti`;
 			},
 			privateHint:
-				'L\u2019immagine resta privata finché non la inserisci qui - non raggiunge mai da sola il wiki dei giocatori.',
+				'Un candidato generato non appartiene a nessuno finché non lo inserisci qui - non raggiunge mai da solo il wiki dei giocatori.',
 			generateAction: 'Genera',
 			generating: 'Generazione in corso\u2026',
 			upload: {
@@ -650,23 +650,20 @@ export const it: Messages = {
 				fromAssetIdMustBeString: 'fromAssetId deve essere una stringa',
 				sourceHasNoPrompt: 'Quell\u2019immagine non ha un prompt salvato da cui rigenerare.'
 			},
-			// #254: il controllo di pubblicazione/ritiro per singola immagine e la frase di
-			// riepilogo sotto la griglia. Sostituisce la vecchia `privateNote` incondizionata,
-			// che smetteva di essere vera non appena un'immagine poteva essere pubblicata -
-			// questa resta accurata sia con la griglia tutta privata, tutta pubblicata, o mista.
+			// #382, decisione R7: l'audience di un'immagine segue la sua voce, e collegarla è
+			// l'accettazione - questo blocco si riduce all'unica eccezione che un GM può ancora
+			// impostare, `gm_only`, più la frase sotto la griglia che spiega il comportamento
+			// predefinito.
 			publish: {
-				publishedBadge: 'Pubblicata',
-				publishedNote: 'Pubblicata nel wiki dei giocatori.',
-				privateNote: 'Privata.',
-				publishLabel: 'Pubblica',
-				unpublishLabel: 'Ritira dal wiki',
-				publishing: 'Pubblicazione in corso\u2026',
-				unpublishing: 'Ritiro in corso\u2026',
+				gmOnlyBadge: 'Solo GM',
+				gmOnlyLabel: 'Solo GM',
+				visibleLabel: 'Visibile',
+				toggleAriaLabel: 'Chi può vedere questa immagine',
 				explanation:
-					"Pubblica un'immagine per aggiungerla al wiki dei giocatori. Da qui nulla arriva ai giocatori da solo.",
-				publishedMustBeBoolean: 'published deve essere un booleano',
-				genericPublishFailedWithStatus: (status) => `Pubblicazione non riuscita (${status})`,
-				genericPublishFailed: 'Pubblicazione non riuscita'
+					'I giocatori vedono le immagini di una voce non appena la voce stessa viene rivelata. Segna un\u2019immagine come Solo GM per tenerla comunque nascosta.',
+				gmOnlyMustBeBoolean: 'gmOnly deve essere un booleano',
+				genericUpdateFailedWithStatus: (status) => `Aggiornamento non riuscito (${status})`,
+				genericUpdateFailed: 'Aggiornamento non riuscito'
 			},
 
 			cover: {

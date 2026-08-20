@@ -14,7 +14,7 @@
 	 * a person then keeps, so the candidate arrives as a candidate and "use as cover" is the
 	 * accept, exactly where O2 put it. Nothing here sets `entity.cover_asset_id` on its own:
 	 * both paths POST to `media/cover`, which is still the only writer of that column, and
-	 * neither touches `published_to_players` (guardrail 6).
+	 * neither touches `gm_only` (guardrail 6).
 	 *
 	 * **The wait is inside the click**, because `media/generate` awaits `generateImages()`.
 	 * #345's `ModelRunning` is what that looks like: a spinner, a sentence naming what is

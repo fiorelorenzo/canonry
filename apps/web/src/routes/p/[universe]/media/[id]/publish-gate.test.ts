@@ -1,7 +1,7 @@
 /**
- * #254 acceptance, run against the real `GET` handler: invisible before publish, visible
- * once published, invisible again after unpublish, invisible for a `gm_only` entity even
- * when its image is published, and invisible for a published image whose entity carries
+ * #254 acceptance, extended by #382 (decision R7): invisible while `gm_only`, visible
+ * once released, invisible again once held back, invisible for a `gm_only` entity even
+ * when its own image is visible, and invisible for a visible image whose entity carries
  * no confirmed revelation. Real Postgres and real bytes on disk through the same
  * `mediaStorage()` singleton the route itself imports (same "read the file back, don't
  * trust a return value" convention `packages/media`'s own generate tests already use),
@@ -9,14 +9,7 @@
  * criteria are about what this route serves, not just what the query returns.
  */
 import { randomUUID } from 'node:crypto';
-import {
-	closeDb,
-	createDb,
-	eq,
-	revealEntityLive,
-	setMediaAssetPublished,
-	type Db
-} from '@canonry/db';
+import { closeDb, createDb, eq, revealEntityLive, setMediaAssetGmOnly, type Db } from '@canonry/db';
 import { entity, mediaAsset, universe, user } from '@canonry/db/schema';
 import { isHttpError } from '@sveltejs/kit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -111,7 +104,7 @@ describe('GET /p/[universe]/media/[id] (#254)', () => {
 
 	async function makeAsset(input: {
 		entityId: string;
-		published: boolean;
+		gmOnly: boolean;
 		bytes: Uint8Array;
 	}): Promise<{ id: string }> {
 		const stored = await mediaStorage().save({
@@ -130,14 +123,14 @@ describe('GET /p/[universe]/media/[id] (#254)', () => {
 				mimeType: 'image/png',
 				bytes: stored.bytes,
 				generated: true,
-				publishedToPlayers: input.published
+				gmOnly: input.gmOnly
 			})
 			.returning({ id: mediaAsset.id });
 		if (!row) throw new Error('media asset insert did not return a row');
 		return row;
 	}
 
-	it('is invisible before publish, visible once published, and invisible again after unpublish', async () => {
+	it('is invisible while gm_only, visible once released, and invisible again once held back', async () => {
 		const revealed = await makeEntity();
 		await revealEntityLive(db, {
 			universeId: universeRow.id,
@@ -146,24 +139,24 @@ describe('GET /p/[universe]/media/[id] (#254)', () => {
 		});
 
 		const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-		const asset = await makeAsset({ entityId: revealed.id, published: false, bytes });
+		const asset = await makeAsset({ entityId: revealed.id, gmOnly: true, bytes });
 		const event = { params: { universe: universeRow.slug, id: asset.id } } as Parameters<
 			typeof GET
 		>[0];
 
 		expect(await statusOf(GET(event))).toBe(404);
 
-		await setMediaAssetPublished(db, asset.id, true);
+		await setMediaAssetGmOnly(db, asset.id, false);
 		const response = await GET(event);
 		expect(response.status).toBe(200);
 		expect(response.headers.get('content-type')).toBe('image/png');
 		expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
 
-		await setMediaAssetPublished(db, asset.id, false);
+		await setMediaAssetGmOnly(db, asset.id, true);
 		expect(await statusOf(GET(event))).toBe(404);
 	});
 
-	it('stays invisible for a gm_only entity even when its image is published - visibility outranks publication', async () => {
+	it('stays invisible for a gm_only entity even when its own image is visible - entity visibility outranks the image', async () => {
 		const gmOnly = await makeEntity({
 			visibility: 'gm_only',
 			slug: unique('publish-gate-gm-only')
@@ -175,7 +168,7 @@ describe('GET /p/[universe]/media/[id] (#254)', () => {
 		});
 		const asset = await makeAsset({
 			entityId: gmOnly.id,
-			published: true,
+			gmOnly: false,
 			bytes: new Uint8Array([1, 2, 3])
 		});
 
@@ -185,12 +178,12 @@ describe('GET /p/[universe]/media/[id] (#254)', () => {
 		expect(await statusOf(GET(event))).toBe(404);
 	});
 
-	it('stays invisible for a published image whose entity carries no confirmed revelation', async () => {
+	it('stays invisible for a visible image whose entity carries no confirmed revelation', async () => {
 		const unrevealed = await makeEntity({ slug: unique('publish-gate-unrevealed') });
 		// Deliberately no revealEntityLive call here.
 		const asset = await makeAsset({
 			entityId: unrevealed.id,
-			published: true,
+			gmOnly: false,
 			bytes: new Uint8Array([4, 5, 6])
 		});
 

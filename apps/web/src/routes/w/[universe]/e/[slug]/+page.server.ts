@@ -181,7 +181,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			// O2 (#284): the band above the title and the Images section's "cover" badge read
 			// this same field, so there is one answer to "which picture is the cover" on the
 			// page. Guardrail 6 is not this loader's business - this is the GM's own surface,
-			// and `/p/<slug>` resolves its own cover against published assets only.
+			// and `/p/<slug>` resolves its own cover against visible, revealed assets only.
 			coverAssetId: current.coverAssetId,
 			updatedAt: current.updatedAt
 		},
@@ -204,7 +204,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 				id: asset.id,
 				mimeType: asset.mimeType,
 				generated: asset.generated,
-				publishedToPlayers: asset.publishedToPlayers,
+				gmOnly: asset.gmOnly,
 				credits: asset.credits,
 				createdAt: asset.createdAt
 			})),

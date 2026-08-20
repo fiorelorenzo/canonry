@@ -8,9 +8,10 @@
  *
  * Two guardrails from SPEC.md §9 apply here even though this is an import path, not a
  * generation path:
- * - `published_to_players` stays at its schema default of `false` (guardrail 6) - this
+ * - `gm_only` stays at its schema default of `false` (guardrail 6, issue #382) - this
  *   module never sets it, the same way `@canonry/db`'s `createMediaAsset` never accepts
- *   it as an input.
+ *   it as an input. An imported image only ever reaches players once a GM attaches it
+ *   to an entry and that entry is revealed - the default alone never leaks it.
  * - `generated` is explicitly `false` - an imported image is not a generation, and
  *   nothing else about the row (`prompt`, `provider`, `modelId`) applies to it.
  *
@@ -270,10 +271,10 @@ export class MediaAssetImageStore implements ImageStore {
 				mimeType: input.mimeType,
 				bytes: bytes.byteLength,
 				generated: false
-				// publishedToPlayers, prompt, provider, modelId, similarityKey and credits are
-				// all left at their schema defaults (false / null / null / null / null / 0) -
-				// an imported image is not a generation and starts unpublished, same as
-				// @canonry/db's own createMediaAsset never accepting publishedToPlayers as input.
+				// gmOnly, prompt, provider, modelId, similarityKey and credits are all left at
+				// their schema defaults (false / null / null / null / null / 0) - an imported
+				// image is not a generation, and it starts unattached (entityId: null above),
+				// same as @canonry/db's own createMediaAsset never accepting gmOnly as input.
 			})
 			.returning();
 		if (!inserted) throw new Error('MediaAssetImageStore: insert returned no row');

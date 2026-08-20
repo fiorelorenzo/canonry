@@ -1,6 +1,8 @@
 // SPEC.md §9. Generation is part of the product, and three guardrails shape these tables:
-// images are born private to the GM, they never flow automatically into the players' wiki
-// (guardrail 6, issue #71), and they stay marked as generated for as long as they exist.
+// images are born private to the GM (no `entity_id`) and reach players only once a GM
+// attaches one - the accept guardrail 6 asks for (issue #382) - to an entry that is
+// itself revealed; `gm_only` is the one further exception, and they stay marked as
+// generated for as long as they exist.
 //
 // The active model lives in the database per feature and is the one always used, following
 // ai-game's `image_generation_feature_config` pattern, so switching model is an admin edit
@@ -82,9 +84,11 @@ export const mediaAsset = pgTable(
 		provider: text('provider'),
 		modelId: text('model_id'),
 		generated: boolean('generated').notNull().default(false),
-		// Guardrail 6 and issue #71: false until a human publishes it, and no code path
-		// flips this as a side effect of anything else.
-		publishedToPlayers: boolean('published_to_players').notNull().default(false),
+		// Guardrail 6 and issue #382: an image's audience follows its entry - attaching it
+		// is the accept, not a second publish click. `gm_only` is the deliberate exception
+		// that holds a picture back from players even after its entry is revealed, false
+		// by default, and no code path flips it as a side effect of anything else.
+		gmOnly: boolean('gm_only').notNull().default(false),
 		// For the similarity cache of SPEC.md §9: the vector lives in Qdrant, this is the
 		// key that ties a hit back to the stored file.
 		similarityKey: text('similarity_key'),

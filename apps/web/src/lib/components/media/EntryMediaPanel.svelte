@@ -1,21 +1,21 @@
 <script lang="ts">
 	/**
-	 * The Images section's real content (#65, #66, #71 - the handoff issue #66's own
+	 * The Images section's real content (#65, #66, #382 - the handoff issue #66's own
 	 * docstring in the old entry/ImagesPanel.svelte pointed at, now replaced by this
 	 * component).
 	 *
 	 * Two steps, always: generate produces one image or four to choose from, all
 	 * unattached; insert is a separate click that attaches the picked one to this entry.
-	 * Guardrail 6 (#71, #254): attaching, generating and uploading never touch
-	 * `published_to_players` - the only thing that does is the per-asset publish/unpublish
-	 * button below, a GM's own deliberate click, never a side effect of anything else on
-	 * this panel.
+	 * Guardrail 6, decision R7 (#382): attaching is the accept - once an image is
+	 * attached and its entry is revealed, players see it, with no second publish click.
+	 * `gm_only` is the one deliberate exception, a GM's own toggle in the grid below,
+	 * never a side effect of generating, uploading or attaching.
 	 *
 	 * O2 (#284) adds "use as cover" beside it, and the two stay strictly independent
 	 * switches. Setting a cover is the accept guardrail 1 asks for: an image a model made
 	 * becomes the entry's face because somebody pressed this, and nothing in the generation
-	 * path reaches it on its own. Publishing is the other switch, and it is the only one
-	 * players are affected by, which is why the explanation under the grid says so rather
+	 * path reaches it on its own. `gm_only` is the other switch, and it is the only one
+	 * players are affected by, which is why the sentence under the grid says so rather
 	 * than leaving a GM to assume a cover is public because it is prominent.
 	 */
 	import { resolve } from '$app/paths';
@@ -25,6 +25,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { ImageFeature } from '@canonry/db/schema';
+	import { Segmented, type SegmentedOption } from '$lib/components/ui/segmented';
 	import GenerateDialog from './GenerateDialog.svelte';
 
 	type ModelSummary = { provider: string; modelId: string } | null;
@@ -32,7 +33,7 @@
 		id: string;
 		mimeType: string;
 		generated: boolean;
-		publishedToPlayers: boolean;
+		gmOnly: boolean;
 		credits: number;
 		createdAt: string | Date;
 	}
@@ -234,33 +235,38 @@
 		}
 	}
 
-	// #254: which asset's publish/unpublish request is in flight, if any - one button at
-	// a time makes sense (an asset can only be mid-toggle once), a shared `publishing`
-	// boolean does not, since a GM might reasonably click a second asset's button while
-	// the first request is still in the air.
-	let publishingId = $state<string | null>(null);
+	// #382: which asset's `gm_only` toggle request is in flight, if any - one control at
+	// a time makes sense (an asset can only be mid-toggle once), a shared boolean does
+	// not, since a GM might reasonably toggle a second asset while the first request is
+	// still in the air.
+	let updatingGmOnlyId = $state<string | null>(null);
 
-	async function handleTogglePublish(asset: MediaAssetView): Promise<void> {
+	let gmOnlyOptions = $derived<SegmentedOption[]>([
+		{ value: 'visible', label: t.entry.media.publish.visibleLabel },
+		{ value: 'gmOnly', label: t.entry.media.publish.gmOnlyLabel }
+	]);
+
+	async function handleToggleGmOnly(asset: MediaAssetView, gmOnly: boolean): Promise<void> {
 		error = null;
-		publishingId = asset.id;
+		updatingGmOnlyId = asset.id;
 		try {
 			const res = await fetch(`${base}/publish`, {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ mediaAssetId: asset.id, published: !asset.publishedToPlayers })
+				body: JSON.stringify({ mediaAssetId: asset.id, gmOnly })
 			});
 			if (!res.ok) {
 				const text = await res.text();
-				throw new Error(text || t.entry.media.publish.genericPublishFailedWithStatus(res.status));
+				throw new Error(text || t.entry.media.publish.genericUpdateFailedWithStatus(res.status));
 			}
 			// Same reasoning as handleInsert/handleUpload above: `assets` only ever changes
 			// through the `assets` prop, so invalidateAll() is what brings the real row's
-			// new `publishedToPlayers` value into the grid.
+			// new `gmOnly` value into the grid.
 			await invalidateAll();
 		} catch (err) {
-			error = err instanceof Error ? err.message : t.entry.media.publish.genericPublishFailed;
+			error = err instanceof Error ? err.message : t.entry.media.publish.genericUpdateFailed;
 		} finally {
-			publishingId = null;
+			updatingGmOnlyId = null;
 		}
 	}
 
@@ -387,11 +393,11 @@
 							{t.entry.media.upload.uploadedBadge}
 						</span>
 					{/if}
-					{#if asset.publishedToPlayers}
+					{#if asset.gmOnly}
 						<span
-							class="absolute top-1 right-1 rounded-full border border-accent bg-accent-bg px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-accent-ink uppercase"
+							class="absolute top-1 right-1 rounded-full border border-warn bg-warn-bg px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-warn uppercase"
 						>
-							{t.entry.media.publish.publishedBadge}
+							{t.entry.media.publish.gmOnlyBadge}
 						</span>
 					{/if}
 					{#if coverAssetId === asset.id}
@@ -405,52 +411,40 @@
 						</span>
 					{/if}
 				</div>
-				<!-- #254: per-asset publish state has to be legible on the asset itself, not
-				     only in a summary sentence below the grid, since the grid is a mix of
-				     published and private pictures once publishing is a real action. -->
-				<div class="border-t border-line bg-panel-2 px-2 py-1.5">
-					<p class="text-[11px] text-ink-2">
-						{asset.publishedToPlayers
-							? t.entry.media.publish.publishedNote
-							: t.entry.media.publish.privateNote}
-					</p>
-					{#if canWrite}
-						<div class="mt-1.5 flex flex-wrap gap-1.5">
-							<Button
-								type="button"
-								variant="secondary"
-								size="sm"
-								disabled={publishingId === asset.id}
-								onclick={() => handleTogglePublish(asset)}
-							>
-								{#if publishingId === asset.id}
-									{asset.publishedToPlayers
-										? t.entry.media.publish.unpublishing
-										: t.entry.media.publish.publishing}
-								{:else}
-									{asset.publishedToPlayers
-										? t.entry.media.publish.unpublishLabel
-										: t.entry.media.publish.publishLabel}
-								{/if}
-							</Button>
-							<Button
-								type="button"
-								variant="secondary"
-								size="sm"
-								disabled={coveringId === asset.id}
-								onclick={() => handleToggleCover(asset)}
-							>
-								{#if coveringId === asset.id}
-									{t.entry.media.cover.saving}
-								{:else}
-									{coverAssetId === asset.id
-										? t.entry.media.cover.removeLabel
-										: t.entry.media.cover.useLabel}
-								{/if}
-							</Button>
-						</div>
-					{/if}
-				</div>
+				<!-- #382: an attached image needs no note of its own here - it is visible once
+				     its entry is revealed, and the `gm_only` badge above already names the one
+				     exception. This strip only carries the controls that change that exception
+				     and the cover, both gated on write access same as before. -->
+				{#if canWrite}
+					<div
+						class="flex flex-wrap items-center gap-1.5 border-t border-line bg-panel-2 px-2 py-1.5"
+					>
+						<Segmented
+							name={`gm-only-${asset.id}`}
+							value={asset.gmOnly ? 'gmOnly' : 'visible'}
+							options={gmOnlyOptions}
+							disabled={updatingGmOnlyId === asset.id}
+							ariaLabel={t.entry.media.publish.toggleAriaLabel}
+							onchange={(value) => handleToggleGmOnly(asset, value === 'gmOnly')}
+							class="text-xs"
+						/>
+						<Button
+							type="button"
+							variant="secondary"
+							size="sm"
+							disabled={coveringId === asset.id}
+							onclick={() => handleToggleCover(asset)}
+						>
+							{#if coveringId === asset.id}
+								{t.entry.media.cover.saving}
+							{:else}
+								{coverAssetId === asset.id
+									? t.entry.media.cover.removeLabel
+									: t.entry.media.cover.useLabel}
+							{/if}
+						</Button>
+					</div>
+				{/if}
 			</div>
 		{/each}
 	</div>
