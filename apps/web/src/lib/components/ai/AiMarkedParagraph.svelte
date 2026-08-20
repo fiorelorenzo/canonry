@@ -1,10 +1,14 @@
 <script lang="ts">
 	/**
 	 * C1 = B: unaccepted AI wording gets a dashed underline plus a numbered margin marker,
-	 * in the violet reserved for the copilot (A1). The shape (dashed, not solid) and the
-	 * marker (a number, not a dot) carry the meaning, so the marking still reads once
-	 * colour is taken away - see `aiMarking.ts` for the structural, colour-independent
-	 * markup this renders and its own tests.
+	 * in the hue reserved for the copilot (A1, re-derived by round eleven P1 in #344). The
+	 * shape (dashed, not solid) and the marker (a number, not a dot) carry the meaning, so
+	 * the marking still reads once colour is taken away - see `aiMarking.ts` for the
+	 * structural, colour-independent markup this renders and its own tests.
+	 *
+	 * The marker's glyph is --color-paper rather than a hardcoded white: white on the dark
+	 * palette's marker measured 2.18:1 at 9px bold, which is not AA by any reading, and
+	 * --color-paper is 6.17:1 in light and 7.69:1 in dark against the same fill.
 	 *
 	 * The entry's own written text never moves: `segments` marked `proposed: false` render
 	 * exactly as typed, and a proposal's wording lives only in the (not yet built, #47)
@@ -30,7 +34,7 @@
 		height: 0.95rem;
 		border-radius: 0.25rem;
 		background: var(--color-ai);
-		color: #fff;
+		color: var(--color-paper);
 		font-family: var(--font-mono);
 		font-size: 9px;
 		font-weight: 700;

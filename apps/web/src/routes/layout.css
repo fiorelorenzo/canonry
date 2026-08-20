@@ -12,8 +12,13 @@
  *          proportional face makes them harder to compare.
  * G1 = B, dark is a whole-app preference rather than a table-mode skin, so both
  *          palettes are first class and every surface has to hold up in both.
- * C1 = B, unaccepted AI text is an underline plus a margin marker, and violet is
- *          reserved for the copilot. Nothing else in the product may spend it.
+ * C1 = B, unaccepted AI text is a dashed underline plus a numbered margin marker, in
+ *          the one hue reserved for the copilot. Nothing else in the product may spend
+ *          it. Round eleven P1 (#344) re-derived which hue that is: see below.
+ * P3 = round eleven (#344), the diff owns its own pair of tokens. "This clause changed"
+ *          and "nobody has accepted this wording" are two different claims about the
+ *          same sentence, so they run on two channels: the diff moves on lightness
+ *          within paper's own hue, the marking moves on hue.
  * I9 = C (#147), shadcn-svelte is the control layer. Its components land as source
  *          under $lib/components/ui and are restyled onto the tokens below rather than
  *          carrying their own palette. `tw-animate-css` supplies the open/close
@@ -47,10 +52,35 @@
 	--color-accent-ink: #5c3714;
 	--color-accent-bg: #f3e7d5;
 
-	/* The copilot's hue, and only the copilot's. */
-	--color-ai: #6b4ee6;
-	--color-ai-bg: #f1ecff;
-	--color-ai-line: #c8bafa;
+	/* The copilot's hue, and only the copilot's.
+	 *
+	 * Round eleven P1 (#344). This was #6b4ee6, oklch(0.544 0.218 285): 161 degrees from
+	 * paper's 86 and 134 from the accent's 60, at 2.5 times the accent's chroma. In oklab
+	 * terms its blue component dominated its red one nearly four to one (a +0.058,
+	 * b -0.210), which is the measurement behind "a blue that has nothing to do with the
+	 * rest". The replacement keeps the job and changes the reading: a mulberry at
+	 * oklch(0.479 0.140 325), red-dominant (a +0.115, b -0.080), 121 degrees from paper,
+	 * 95 from the accent that means interactive, 70 from danger, at 1.6 times the accent's
+	 * chroma rather than 2.5. It carries 6.17:1 on paper and 7.69:1 on ink, so the dashed
+	 * underline clears the 3:1 that a non-text mark needs and the marker's glyph clears
+	 * AA at 9px in both palettes.
+	 *
+	 * What hue cannot do is carry this at tint lightness: at L 0.95 chroma is bounded to
+	 * about 0.026, and --color-ai-bg sits 1.03:1 from paper whatever hue it takes. That is
+	 * why C1's shape signals, the dashed underline and the numbered marker, stay the
+	 * primary carrier and the wash is only ever support. */
+	--color-ai: #833c88;
+	--color-ai-bg: #f9eaf9;
+	--color-ai-line: #d29bd4;
+
+	/* The diff's own pair (P3). Deliberately hue-less: --color-diff-bg is paper's hue and
+	 * paper's chroma at 0.874 lightness instead of 0.953, so "this clause changed" is a
+	 * value signal and nothing else, which is what makes it unconfusable with the marking
+	 * above when both land on one sentence. --color-diff-line is the printer's change bar
+	 * and carries the boundary: 4.05:1 against paper and 3.18:1 against its own fill in
+	 * light, 4.28:1 and 3.02:1 in dark. */
+	--color-diff-bg: #dad5cb;
+	--color-diff-line: #7a7466;
 
 	--color-ok: #2f6b45;
 	--color-ok-bg: #e6efe1;
@@ -137,9 +167,15 @@
 		--dark-accent: #d9a94a;
 		--dark-accent-ink: #ebc884;
 		--dark-accent-bg: #33270f;
-		--dark-ai: #b8a2ff;
-		--dark-ai-bg: #241f3a;
-		--dark-ai-line: #473d6d;
+		/* Round eleven P1/P3 (#344). The same mulberry lifted for ink, oklch(0.746 0.129
+		 * 325): 7.69:1 on --dark-paper, which is also what the marker's glyph now gets,
+		 * where the hardcoded #fff it used to carry was 2.18:1 and failed AA outright. */
+		--dark-ai: #d68fd9;
+		--dark-ai-bg: #311b32;
+		--dark-ai-line: #5e3661;
+		/* Dark paper's own hue and chroma, three lightness steps up. */
+		--dark-diff-bg: #34312b;
+		--dark-diff-line: #81796d;
 		--dark-ok: #7cc78f;
 		--dark-ok-bg: #16301f;
 		--dark-warn: #dcb45f;
@@ -163,6 +199,8 @@
 		--color-ai: var(--dark-ai);
 		--color-ai-bg: var(--dark-ai-bg);
 		--color-ai-line: var(--dark-ai-line);
+		--color-diff-bg: var(--dark-diff-bg);
+		--color-diff-line: var(--dark-diff-line);
 		--color-ok: var(--dark-ok);
 		--color-ok-bg: var(--dark-ok-bg);
 		--color-warn: var(--dark-warn);
@@ -218,6 +256,8 @@
 			--color-ai: var(--dark-ai);
 			--color-ai-bg: var(--dark-ai-bg);
 			--color-ai-line: var(--dark-ai-line);
+			--color-diff-bg: var(--dark-diff-bg);
+			--color-diff-line: var(--dark-diff-line);
 			--color-ok: var(--dark-ok);
 			--color-ok-bg: var(--dark-ok-bg);
 			--color-warn: var(--dark-warn);
