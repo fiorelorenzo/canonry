@@ -12,12 +12,16 @@
  * switch, issue #19's precedence panel) rather than the account-wide appearance page -
  * that page is still reachable, linked from the universe settings page itself, since
  * A2 gives this nav item to "this universe", not to the account.
+ *
+ * Round thirteen R11: this used to carry a `built` flag, false for Players and Import,
+ * that still drew a link - "a `built: false` flag that still draws a link is not a
+ * guard, it is a comment." Both destinations are real pages now, so the flag is gone
+ * rather than left false and unread.
  */
 export interface NavItem {
 	id: 'entries' | 'works' | 'proposals' | 'table' | 'players' | 'import' | 'settings';
 	label: string;
 	href: (universeSlug: string) => `/w/${string}`;
-	built: boolean;
 	/** Nearest roadmap issue for this destination, not necessarily a page-specific
 	 * ticket: the board has not filed one for every destination's UI yet. */
 	issue: number;
@@ -31,31 +35,27 @@ export const NAV_ITEMS: readonly NavItem[] = [
 		id: 'entries',
 		label: 'Entries',
 		href: (slug) => `/w/${slug}/entries`,
-		built: true,
 		issue: 283
 	},
-	{ id: 'works', label: 'Works', href: (slug) => `/w/${slug}/works`, built: true, issue: 20 },
+	{ id: 'works', label: 'Works', href: (slug) => `/w/${slug}/works`, issue: 20 },
 	{
 		id: 'proposals',
 		label: 'Proposals',
 		href: (slug) => `/w/${slug}/proposals`,
-		built: true,
 		issue: 51
 	},
-	{ id: 'table', label: 'Table', href: (slug) => `/w/${slug}/table`, built: true, issue: 72 },
+	{ id: 'table', label: 'Table', href: (slug) => `/w/${slug}/table`, issue: 72 },
 	{
 		id: 'players',
 		label: 'Players',
 		href: (slug) => `/w/${slug}/players`,
-		built: false,
 		issue: 82
 	},
-	{ id: 'import', label: 'Import', href: (slug) => `/w/${slug}/import`, built: false, issue: 26 },
+	{ id: 'import', label: 'Import', href: (slug) => `/w/${slug}/import`, issue: 26 },
 	{
 		id: 'settings',
 		label: 'Settings',
 		href: (slug) => `/w/${slug}/settings`,
-		built: true,
 		issue: 107
 	}
 ];

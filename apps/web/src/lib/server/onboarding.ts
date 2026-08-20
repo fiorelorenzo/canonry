@@ -76,6 +76,13 @@ export {
 	ImportQuotaExceededError
 };
 
+// SPEC.md §6.7: "a global concurrency limit" - generous rather than realistic, because no
+// queue promoter exists yet anywhere in this codebase (a queued-but-not-admitted job would
+// simply sit at 'queued' forever with nothing to advance it later). Shared by every route
+// that admits a job through this module (onboarding's own `/onboarding/import` and issue
+// R11's `/w/[universe]/import`), so the two never drift to two different limits.
+export const IMPORT_CONCURRENCY_LIMIT = 20;
+
 // ---------------------------------------------------------------------------------------
 // Universe creation (issue #108's other half: there is no creation UI anywhere yet).
 // ---------------------------------------------------------------------------------------

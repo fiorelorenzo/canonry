@@ -1209,6 +1209,15 @@ export const en: Messages = {
 			accept: 'Accept',
 			accepted: 'accepted',
 			outcome: { rejected: 'rejected', superseded: 'superseded' }
+		},
+		existing: {
+			fileInputLabel: 'Export file',
+			jobsHeading: 'Previous imports',
+			jobsEmpty: 'No import has run in this world yet.',
+			jobsEmptyAction: 'Start an import',
+			proposals: (count) => (count === 1 ? '1 proposal' : `${count} proposals`),
+			reviewLink: 'Review',
+			viewerNotice: 'Only an editor or owner can start an import.'
 		}
 	},
 
@@ -1463,8 +1472,7 @@ export const en: Messages = {
 		sidebar: {
 			navAriaLabel: 'Universe navigation',
 			primaryNavAriaLabel: 'Primary',
-			recentHeading: 'Recent',
-			notBuiltYet: 'Not built yet.'
+			recentHeading: 'Recent'
 		},
 
 		switcher: {
@@ -1854,6 +1862,34 @@ export const en: Messages = {
 					}
 				},
 				viewerForbiddenError: 'Viewers cannot change the relation catalogue.'
+			}
+		},
+		players: {
+			headTitle: (universeName) => `Players · ${universeName}`,
+			heading: 'Players',
+			description: 'What the party has learned, and what is still behind the screen.',
+			wikiLinkLabel: "The players' wiki",
+			openWikiLink: "Open the players' wiki",
+			invitationsNotice:
+				'There is no invitation to send yet: share the wiki address with your players directly.',
+			revealedHeading: 'Revealed',
+			revealedEmpty: 'Nothing has been revealed to the party yet.',
+			revealedEmptyAction: 'Go to Table mode',
+			kindLabel: { entity: 'Entity', fact: 'Fact', relation: 'Relation' },
+			sessionUnknown: 'an untracked session',
+			hiddenHeading: 'Still behind the screen',
+			hiddenDescription: 'Revealable, and not yet found.',
+			hiddenEmpty: 'Nothing is left to discover.',
+			entityTypeLabel: (type) => {
+				const labels: Record<string, string> = {
+					character: 'Character',
+					place: 'Place',
+					faction: 'Faction',
+					item: 'Item',
+					event: 'Event',
+					session: 'Session'
+				};
+				return labels[type] ?? type;
 			}
 		}
 	},

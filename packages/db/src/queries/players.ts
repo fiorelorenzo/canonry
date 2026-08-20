@@ -584,3 +584,162 @@ export async function publicMediaAssetById(
 
 	return { path: row.path, mimeType: row.mimeType };
 }
+
+// -----------------------------------------------------------------------------------------
+// Read: the GM's side of the same table (issue R11, round thirteen). `listPublicEntities`
+// above answers "what does a player see"; this answers "what happened and when" - every
+// confirmed `revelation` row, whatever it targets, with the session it was confirmed in.
+// Guardrail 6 does not apply here the way it applies to `/p/**`: this is GM chrome, read
+// by a member only (`/w/[universe]/players`'s own load), never rendered to a player.
+// -----------------------------------------------------------------------------------------
+
+export interface RevelationLogEntry {
+	id: string;
+	kind: RevelationKind;
+	confirmedAt: Date;
+	sessionName: string | null;
+	label: string;
+}
+
+const revelationLogSession = alias(entity, 'revelation_log_session');
+const revelationLogFromEntity = alias(entity, 'revelation_log_from_entity');
+const revelationLogToEntity = alias(entity, 'revelation_log_to_entity');
+
+/** Every confirmed `revelation` row for a universe, newest first, merged in TypeScript
+ * from three small per-kind selects rather than a `union all` whose branches share
+ * nothing but `id`/`confirmedAt`/session - the same call `recentActivity`
+ * (`queries/activity.ts`) makes for the same reason. `locale`, when given, resolves a
+ * relation's own #198 per-locale label exactly as `publicEntityBySlug`/`recentActivity`
+ * already do. */
+export async function revelationLogForUniverse(
+	db: Db,
+	universeId: string,
+	opts?: { limit?: number; locale?: string }
+): Promise<RevelationLogEntry[]> {
+	const limit = opts?.limit ?? 200;
+	const locale = opts?.locale;
+
+	const entityRowsRaw = await db
+		.select({
+			id: revelation.id,
+			confirmedAt: revelation.confirmedAt,
+			sessionName: revelationLogSession.name,
+			label: entity.name
+		})
+		.from(revelation)
+		.innerJoin(entity, eq(entity.id, revelation.entityId))
+		.leftJoin(revelationLogSession, eq(revelationLogSession.id, revelation.sessionEntityId))
+		.where(
+			and(
+				eq(revelation.universeId, universeId),
+				eq(revelation.kind, 'entity'),
+				isNotNull(revelation.confirmedAt)
+			)
+		)
+		.orderBy(desc(revelation.confirmedAt))
+		.limit(limit);
+
+	const factRowsRaw = await db
+		.select({
+			id: revelation.id,
+			confirmedAt: revelation.confirmedAt,
+			sessionName: revelationLogSession.name,
+			label: fact.statement
+		})
+		.from(revelation)
+		.innerJoin(fact, eq(fact.id, revelation.factId))
+		.leftJoin(revelationLogSession, eq(revelationLogSession.id, revelation.sessionEntityId))
+		.where(
+			and(
+				eq(revelation.universeId, universeId),
+				eq(revelation.kind, 'fact'),
+				isNotNull(revelation.confirmedAt)
+			)
+		)
+		.orderBy(desc(revelation.confirmedAt))
+		.limit(limit);
+
+	const relationLabel =
+		locale === undefined
+			? sql<string>`${relationType.label}`
+			: sql<string>`coalesce(${relationTypeLabel.label}, ${relationType.label})`;
+	let relationQuery = db
+		.select({
+			id: revelation.id,
+			confirmedAt: revelation.confirmedAt,
+			sessionName: revelationLogSession.name,
+			fromName: revelationLogFromEntity.name,
+			toName: revelationLogToEntity.name,
+			relationLabel
+		})
+		.from(revelation)
+		.innerJoin(relation, eq(relation.id, revelation.relationId))
+		.innerJoin(relationType, eq(relationType.id, relation.relationTypeId))
+		.innerJoin(revelationLogFromEntity, eq(revelationLogFromEntity.id, relation.fromEntityId))
+		.innerJoin(revelationLogToEntity, eq(revelationLogToEntity.id, relation.toEntityId))
+		.leftJoin(revelationLogSession, eq(revelationLogSession.id, revelation.sessionEntityId))
+		.$dynamic();
+	if (locale !== undefined) {
+		relationQuery = relationQuery.leftJoin(
+			relationTypeLabel,
+			and(
+				eq(relationTypeLabel.relationTypeId, relationType.id),
+				eq(relationTypeLabel.locale, locale)
+			)
+		);
+	}
+	const relationRowsRaw = await relationQuery
+		.where(
+			and(
+				eq(revelation.universeId, universeId),
+				eq(revelation.kind, 'relation'),
+				isNotNull(revelation.confirmedAt)
+			)
+		)
+		.orderBy(desc(revelation.confirmedAt))
+		.limit(limit);
+
+	const items: RevelationLogEntry[] = [
+		...entityRowsRaw.flatMap((row) =>
+			row.confirmedAt
+				? [
+						{
+							id: row.id,
+							kind: 'entity' as const,
+							confirmedAt: row.confirmedAt,
+							sessionName: row.sessionName,
+							label: row.label
+						}
+					]
+				: []
+		),
+		...factRowsRaw.flatMap((row) =>
+			row.confirmedAt
+				? [
+						{
+							id: row.id,
+							kind: 'fact' as const,
+							confirmedAt: row.confirmedAt,
+							sessionName: row.sessionName,
+							label: row.label
+						}
+					]
+				: []
+		),
+		...relationRowsRaw.flatMap((row) =>
+			row.confirmedAt
+				? [
+						{
+							id: row.id,
+							kind: 'relation' as const,
+							confirmedAt: row.confirmedAt,
+							sessionName: row.sessionName,
+							label: `${row.fromName} ${row.relationLabel} ${row.toName}`
+						}
+					]
+				: []
+		)
+	];
+
+	return items.sort((a, b) => b.confirmedAt.getTime() - a.confirmedAt.getTime()).slice(0, limit);
+}
