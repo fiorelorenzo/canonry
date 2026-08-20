@@ -10,12 +10,7 @@
 	import EvidencePopover from './EvidencePopover.svelte';
 	import RejectChips from './RejectChips.svelte';
 	import type { EvidenceCaveat, EvidenceView } from './evidence';
-
-	interface FactChangeLike {
-		kind: 'added' | 'removed' | 'changed';
-		statement: string;
-		previousStatement?: string;
-	}
+	import type { ProseDiff } from './proseDiff';
 
 	interface DiffCandidateWaitingRelationView {
 		fromName: string | null;
@@ -62,8 +57,9 @@
 		/** #196: `relationType.key`, null for anything that is not a plain `relation`
 		 * proposal - mirrors `relationLabel`'s own null case. */
 		relationKey: string | null;
-		diff: FactChangeLike[];
-		diffLayout: 'in-place' | 'side-by-side';
+		/** Q1 (round twelve): the whole diff, every changed region with its context, as
+		 * `proseDiff` derived it from the patch's `before` and `after`. */
+		diff: ProseDiff;
 		evidenceViews: EvidenceView[];
 		evidenceCaveat: EvidenceCaveat | null;
 		relationVocab: DiffCandidateRelationVocabView | null;
@@ -109,7 +105,12 @@
 			candidate.relationLabel
 	);
 
-	let showOld = $state(false);
+	/** C5's popover hangs off the first changed row, as it did off the first changed
+	 * sentence before Q1: one popover per proposal, on the evidence's own first claim,
+	 * rather than one per region repeating the same sources. */
+	let firstChangedRow = $derived(
+		candidate.diff.rows.findIndex((row) => row.kind !== 'gap' && row.kind !== 'kept')
+	);
 
 	let title = $derived(
 		candidate.relationVocab
@@ -269,74 +270,104 @@
 				/>
 			{/if}
 		</p>
-	{:else if candidate.diffLayout === 'in-place'}
+	{:else if candidate.diff.rows.length > 0}
+		<!-- Q1 (round twelve, docs/ux/DECISIONS.md): C4's toggle is repealed, so every
+		     changed region is here at once with the unchanged sentences around it, and
+		     comparing is reading rather than remembering. `proseDiff` decided what a region
+		     is and what context it keeps; this only paints it.
+
+		     P3 (#344) is the constraint, and it is why there is no red and green. Two
+		     claims land on one sentence and they run on two channels: the wash and its
+		     change bar are the diff saying "this is what changed", paper's own hue one
+		     lightness step down (1.44:1 against the card in light, 1.34:1 in dark, with
+		     the bar at 4.57:1 and 4.03:1); the dashed underline is C1 saying "nobody has
+		     accepted this wording", in a hue 121 degrees away (4.84:1 on the wash in
+		     light, 5.43:1 in dark). What leaves is struck through in the diff's own line
+		     colour (3.18:1 and 3.02:1, clear of the 3:1 a non-text mark needs) and never
+		     in a hue, so a reader who cannot see either colour still has the strike, the
+		     underline and the labels below. -->
 		<div class="mb-3 max-w-measure text-sm leading-relaxed text-ink-2">
-			{#if candidate.diff.length > 0}
-				<button
-					type="button"
-					class="mb-2 rounded-md border border-line-2 px-2 py-1 text-xs text-ink-2 hover:bg-panel-2"
-					onclick={() => (showOld = !showOld)}
-				>
-					{showOld ? t.diffCard.showCurrentWording : t.diffCard.showWhatThisReplaced}
-				</button>
+			{#if candidate.diff.regions > 1}
+				<!-- `text-muted` is 4.13:1 on this card at 11px, so these two labels take
+				     `text-ink-2` (9.63:1 light, 9.54:1 dark) rather than adding a fresh AA
+				     failure to the ten this palette already has at muted. -->
+				<p class="mb-2 font-mono text-[11px] text-ink-2">
+					{t.diffCard.changedRegions(candidate.diff.regions)}
+				</p>
 			{/if}
-			{#each candidate.diff as change, i (i)}
-				<p class="mb-1.5">
-					{#if showOld}
-						{#if change.kind === 'changed' || change.kind === 'removed'}
-							<span class="rm text-muted line-through decoration-line-2"
-								>{change.previousStatement ?? change.statement}</span
-							>
-						{/if}
-					{:else if change.kind === 'added' || change.kind === 'changed'}
-						<!-- Round eleven P3 (#344), and the comparison the whole change exists for.
-							Two claims land on this one span and they run on two channels: the wash
-							plus its change bar is the diff saying "this clause is what changed", in
-							paper's own hue one lightness step down, and the dashed underline is
-							C1 saying "nobody has accepted this wording", in a hue 121 degrees away.
-							box-decoration-clone keeps both intact when the clause wraps. -->
-						<span
-							class="rounded-sm border border-diff-line bg-diff-bg box-decoration-clone px-1 py-0.5 text-ink underline decoration-ai decoration-dashed decoration-2 underline-offset-4"
-							>{change.statement}</span
+			{#each candidate.diff.rows as row, i (i)}
+				{#if row.kind === 'gap'}
+					<p class="my-2 flex items-center gap-2 pl-3 font-mono text-[11px] text-ink-2">
+						<span aria-hidden="true" class="h-px w-4 bg-line-2"></span>
+						{t.diffCard.unchangedUnits(row.units)}
+					</p>
+				{:else if row.kind === 'kept'}
+					<p
+						class="mb-1.5 border-l-2 border-transparent pl-3"
+						class:font-semibold={row.heading}
+						class:text-ink={row.heading}
+					>
+						{row.text}
+					</p>
+				{:else}
+					<p
+						class="mb-1.5 border-l-2 border-diff-line bg-diff-bg py-0.5 pr-2 pl-3"
+						class:font-semibold={row.heading}
+					>
+						<!-- Removal and addition are carried by lightness and by shape, so the one
+						     reader who gets neither is the one using a screen reader: this says it
+						     in words. -->
+						<!-- The trailing space is an entity because a mustache holding a string
+						     literal is a lint error, and without it a screen reader runs the label
+						     into the sentence. -->
+						<span class="sr-only"
+							>{row.kind === 'removed'
+								? t.diffCard.removedLabel
+								: row.kind === 'added'
+									? t.diffCard.addedLabel
+									: t.diffCard.changedLabel}&#32;</span
 						>
-						{#if candidate.evidenceViews.length > 0 && i === 0}
+						{#if row.kind === 'removed'}
+							<span class="text-ink-2 line-through decoration-diff-line decoration-2"
+								>{row.text}</span
+							>
+						{:else if row.kind === 'added'}
+							<span
+								class="box-decoration-clone text-ink underline decoration-ai decoration-dashed decoration-2 underline-offset-4"
+								>{row.text}</span
+							>
+						{:else}
+							<!-- The words inside a reworded sentence, in the order it reads: what
+							     leaves is struck where it stood, what arrives carries the marking,
+							     and the words that survive carry neither. -->
+							{#each row.spans as span, s (s)}
+								<!-- The space between two runs is written here rather than left to the
+								     markup: whitespace between sibling blocks does not survive into the
+								     rendered text, which is how "kept bywhoever is" happens. -->
+								{#if span.kind === 'kept'}
+									<span>{s > 0 ? ' ' : ''}{span.text}</span>
+								{:else if span.kind === 'removed'}
+									<span class="text-ink-2 line-through decoration-diff-line decoration-2"
+										>{s > 0 ? ' ' : ''}{span.text}</span
+									>
+								{:else}
+									<span
+										class="box-decoration-clone text-ink underline decoration-ai decoration-dashed decoration-2 underline-offset-4"
+										>{s > 0 ? ' ' : ''}{span.text}</span
+									>
+								{/if}
+							{/each}
+						{/if}
+						{#if candidate.evidenceViews.length > 0 && i === firstChangedRow}
 							<EvidencePopover
 								views={candidate.evidenceViews}
 								caveat={candidate.evidenceCaveat}
 								{locale}
 							/>
 						{/if}
-					{/if}
-				</p>
+					</p>
+				{/if}
 			{/each}
-		</div>
-	{:else}
-		<div class="mb-3 grid grid-cols-2 gap-4 text-sm">
-			<div>
-				<h4 class="mb-1 font-mono text-xs text-muted uppercase">{t.diffCard.was}</h4>
-				<p class="text-ink-2">
-					{candidate.diff
-						.filter((c) => c.kind === 'changed' || c.kind === 'removed')
-						.map((c) => c.previousStatement ?? c.statement)
-						.join(' ')}
-				</p>
-			</div>
-			<div>
-				<h4 class="mb-1 font-mono text-xs text-muted uppercase">{t.diffCard.now}</h4>
-				<p class="text-ink">
-					{candidate.diff
-						.filter((c) => c.kind === 'changed' || c.kind === 'added')
-						.map((c) => c.statement)
-						.join(' ')}
-					{#if candidate.evidenceViews.length > 0}
-						<EvidencePopover
-							views={candidate.evidenceViews}
-							caveat={candidate.evidenceCaveat}
-							{locale}
-						/>
-					{/if}
-				</p>
-			</div>
 		</div>
 	{/if}
 

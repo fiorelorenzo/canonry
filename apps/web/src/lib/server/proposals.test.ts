@@ -87,9 +87,9 @@ describe('enrichCandidate, for a proposal that creates an entry', () => {
 				})
 			)
 		);
-		expect(enriched.diff.length).toBeGreaterThan(0);
-		expect(enriched.diff.every((change) => change.kind === 'added')).toBe(true);
-		expect(enriched.diff.map((change) => change.statement).join(' ')).toContain(
+		expect(enriched.diff.rows.length).toBeGreaterThan(0);
+		expect(enriched.diff.rows.every((row) => row.kind === 'added')).toBe(true);
+		expect(enriched.diff.rows.map((row) => ('text' in row ? row.text : '')).join(' ')).toContain(
 			'A farming community of twelve hundred souls.'
 		);
 	});
@@ -139,7 +139,7 @@ describe('enrichCandidate, for a proposal that updates an entry', () => {
 			filterType: 'character'
 		});
 		expect(enriched.targetName).toBe('Aldric Vane');
-		expect(enriched.diff.length).toBeGreaterThan(0);
-		expect(enriched.diff.some((change) => change.kind !== 'added')).toBe(true);
+		expect(enriched.diff.rows.length).toBeGreaterThan(0);
+		expect(enriched.diff.rows.some((row) => row.kind !== 'added')).toBe(true);
 	});
 });

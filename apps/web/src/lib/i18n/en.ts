@@ -788,10 +788,12 @@ export const en: Messages = {
 			accept: 'Accept',
 			reject: 'Reject',
 			undo: 'Undo',
-			showCurrentWording: 'Show current wording',
-			showWhatThisReplaced: 'Show what this replaced',
-			was: 'Was',
-			now: 'Now',
+			changedRegions: (count) => `${count} changed passages`,
+			unchangedUnits: (count) =>
+				count === 1 ? '1 sentence unchanged' : `${count} sentences unchanged`,
+			removedLabel: 'Removed:',
+			addedLabel: 'Added:',
+			changedLabel: 'Reworded:',
 			kindLabel: (kind) => {
 				const labels: Record<string, string> = {
 					create: 'new',
