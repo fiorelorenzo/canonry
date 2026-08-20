@@ -52,6 +52,11 @@
 	let generated = $state<boolean | null>(null);
 	let askAnswer = $state('');
 	let askSources = $state<AskSource[]>([]);
+	/** #346: whether the `sources` event has arrived. An empty list and a list that has not
+	 * been sent yet render differently, and only this tells them apart. Set by the handoff
+	 * too (#285's "open in Ask"), because an answer that already streamed in the panel has
+	 * already had its sources resolved. */
+	let sourcesSeen = $state(false);
 	let followUps = $state<string[]>([]);
 	let askProposals = $state<AskProposalEvent[]>([]);
 	let askProposalFailures = $state<AskProposalFailure[]>([]);
@@ -120,6 +125,7 @@
 		generated = null;
 		askAnswer = '';
 		askSources = [];
+		sourcesSeen = false;
 		followUps = [];
 		askProposals = [];
 		askProposalFailures = [];
@@ -136,6 +142,7 @@
 				{
 					onSources: (sources, follow) => {
 						askSources = sources;
+						sourcesSeen = true;
 						followUps = follow;
 					},
 					onToken: (delta) => {
@@ -175,6 +182,7 @@
 		detailLevel = carried.detailLevel;
 		askAnswer = carried.answer;
 		askSources = carried.sources;
+		sourcesSeen = true;
 		followUps = carried.followUps;
 		askProposals = carried.proposals;
 		askProposalFailures = carried.proposalFailures;
@@ -360,7 +368,16 @@
 		{/if}
 
 		{#if askSources.length > 0}
-			<div class="mt-4 flex flex-col gap-1.5">
+			<!-- #346: the cards say what they are before they say what is in them. A stack of
+			     source cards under an answer reads as "one of these backed every claim", and the
+			     statement that is actually true is narrower: the answer was written from these
+			     and from nothing else. Same sentence as the floating panel's, from the same
+			     catalogue key, because it is the same claim about the same list. No score is
+			     rendered on either surface: guardrail 3 says evidence is which entry and which
+			     sentence and never a bare confidence number, and `packages/copilot/src/ask.ts`
+			     records why a number on this scale could not carry meaning anyway. -->
+			<p class="mt-4 mb-0 max-w-measure text-xs text-ink-2">{t.sourcesNote}</p>
+			<div class="mt-1.5 flex flex-col gap-1.5">
 				{#each askSources as source, i (source.kind === 'own_canon' ? source.entityId : `${source.dataSourceId}-${i}`)}
 					{#if source.kind === 'own_canon'}
 						<!-- #147: this reads as a result card (title, label and a quoted excerpt
@@ -398,6 +415,11 @@
 					{/if}
 				{/each}
 			</div>
+		{:else if sourcesSeen}
+			<!-- #346's other half: retrieval that found nothing says so, rather than leaving a
+			     gap where the evidence goes. The answer says the same in its own words
+			     (`noSourcesInstruction` in `ask.ts`); this says it about the citation list. -->
+			<p class="mt-4 mb-0 max-w-measure text-xs text-ink-2">{t.sourcesEmpty}</p>
 		{/if}
 
 		{#if followUps.length > 0}

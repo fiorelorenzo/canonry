@@ -1493,6 +1493,10 @@ export const en: Messages = {
 			},
 			ownCanonLabel: 'your canon',
 			indexedBadge: 'indexed',
+			sourcesNote:
+				'The answer was written from these and from nothing else: the entries whose own wording matched your question.',
+			sourcesEmpty:
+				'Nothing to cite. No entry matched the words of this question, so this answer rests on nothing in your canon.',
 			close: 'Close',
 			loading: 'Loading…',
 			propose: {

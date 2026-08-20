@@ -12,6 +12,11 @@ export {
 	type Locale
 } from './locale.js';
 export { guessLanguage, detectLanguage, canonLanguageFor, type LanguageGuess } from './detect.js';
+// #346: which words in a locale carry no meaning of their own. Language data by
+// definition, so it lives here for the same reason the relation catalogue below does, and
+// it is data rather than a search: the tokenizer that compares it against canon belongs to
+// whoever is searching.
+export { functionWords, LOCALES_WITH_FUNCTION_WORDS } from './function-words.js';
 // #197, and moved here in the same wave: the shipped relation catalogue's per-locale
 // display strings are language data, and `apps/web`'s i18n bundle is imported by ordinary
 // components that ship to the browser. It lived in `packages/copilot` for one afternoon and

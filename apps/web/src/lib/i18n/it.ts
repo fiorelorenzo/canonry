@@ -1533,6 +1533,10 @@ export const it: Messages = {
 			},
 			ownCanonLabel: 'il tuo canone',
 			indexedBadge: 'indicizzata',
+			sourcesNote:
+				'La risposta è scritta da queste e da nient’altro: le voci le cui parole corrispondono alla tua domanda.',
+			sourcesEmpty:
+				'Niente da citare. Nessuna voce corrisponde alle parole di questa domanda, quindi questa risposta non si appoggia a nulla del tuo canone.',
 			close: 'Chiudi',
 			loading: 'Caricamento…',
 			propose: {

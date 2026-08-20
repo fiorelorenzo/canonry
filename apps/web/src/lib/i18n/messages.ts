@@ -1526,6 +1526,14 @@ export interface Messages {
 			};
 			ownCanonLabel: string;
 			indexedBadge: string;
+			/** issue #346: what the source list actually is, said once above it. It used to be
+			 * rendered as a bare list of chips, which reads as "here is what backed each claim"
+			 * when what it is is the entries whose own wording matched the question. */
+			sourcesNote: string;
+			/** issue #346: shown in the source list's place when retrieval found nothing worth
+			 * citing. A floor with no empty state behind it is six wrong chips replaced by
+			 * silence, which tells a reader less rather than more. */
+			sourcesEmpty: string;
 			close: string;
 			loading: string;
 			/** issue #256: the `entry_propose`/`entry_edit_propose` tools' own reserved
