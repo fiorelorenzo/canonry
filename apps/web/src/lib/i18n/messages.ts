@@ -1387,9 +1387,10 @@ export interface Messages {
 		sidebar: {
 			navAriaLabel: string;
 			primaryNavAriaLabel: string;
-			/** #285 (O3): the row that used to open a blank composer now points at what was
-			 * kept, and reuses `universe.ask.keep.historyLink` for its label rather than
-			 * carrying a second string for the same words. */
+			/** Issue #349 (round eleven P5): the kept-answers link used to live here, above
+			 * `nav.ts`'s `NAV_ITEMS`. It is a row in `ShellUserRow.svelte`'s account menu
+			 * now, still reusing this same `universe.ask.keep.historyLink` string for its
+			 * label; this namespace carries no field of its own for it. */
 			recentHeading: string;
 			notBuiltYet: string;
 		};

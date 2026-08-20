@@ -11,7 +11,12 @@
 	 * Appearance, Model keys, Plan and credits and Export all live under `/settings`
 	 * behind this same menu (#143), and Docs/Privacy ride along so guardrail 5's "stated
 	 * plainly" is true from every screen the shell wraps, universe mode included, where
-	 * neither used to have a link at all.
+	 * neither used to have a link at all. Issue #349 (round eleven P5) adds a further
+	 * row, universe mode only: what was kept from the Loremaster (`/w/<slug>/ask/kept`,
+	 * #290's persistence) used to be a standalone row above `Sidebar.svelte`'s own nav,
+	 * louder than any of A2's capped seven items for something that is not navigation.
+	 * It reads as one of this menu's own occasional destinations instead now, which is
+	 * what "goes with the account's own surfaces" means concretely.
 	 *
 	 * `quota` arrives as a prop, same as `QuotaMeter.svelte`'s sibling in the footer -
 	 * Sidebar.svelte already threads it down from `AppShell`'s `page.data.shellQuota`,
@@ -35,14 +40,21 @@
 	let {
 		user,
 		locale,
-		quota
+		quota,
+		universeSlug
 	}: {
 		user: { name: string; email: string };
 		locale: Locale;
 		quota: ShellQuota | null;
+		/** Null in account mode (no universe selected): the kept-answers row below is
+		 * universe-scoped (#290's `ask/kept` table has no account-wide view) and simply
+		 * does not render there, the same way `Sidebar.svelte`'s own primary nav swaps
+		 * to `ACCOUNT_NAV_ITEMS` when this is null. */
+		universeSlug: string | null;
 	} = $props();
 
 	const t = $derived(messages(locale).shell);
+	const askT = $derived(messages(locale).universe.ask);
 	const settingsT = $derived(messages(locale).settings);
 
 	/** Only the one field this component reads off the merged page data, typed
@@ -186,6 +198,17 @@
 				<a href={resolve('/settings/export')} {...props}>{t.accountMenu.export}</a>
 			{/snippet}
 		</DropdownMenu.Item>
+
+		{#if universeSlug}
+			<DropdownMenu.Separator />
+			<DropdownMenu.Item>
+				{#snippet child({ props })}
+					<a href={resolve(`/w/${universeSlug}/ask/kept`)} {...props}>
+						{askT.keep.historyLink}
+					</a>
+				{/snippet}
+			</DropdownMenu.Item>
+		{/if}
 
 		<DropdownMenu.Separator />
 

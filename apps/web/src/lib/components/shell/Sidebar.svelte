@@ -14,13 +14,15 @@
 	 * link to `/settings` plus sign-out); #143 (I6) replaces that one component with a
 	 * real account menu, and #150 (F2) adds the quota meter as a sibling above it -
 	 * both land inside the footer `<div>` marked below, touching nothing else here.
+	 * Issue #349 threads `universeSlug` through to ShellUserRow too, for the account
+	 * menu's own kept-answers row (see that file's doc comment).
 	 *
 	 * Issue #148 (I10 = B): `variant` picks which outer shell this same nav+footer
 	 * markup sits inside - 'rail' is A2's fixed 256px column, hidden below `md` now
 	 * that the shell has a real breakpoint, and 'drawer' is PhoneNav.svelte's second
 	 * mount of this exact component inside a Sheet, filling whatever the sheet gives
 	 * it. Only the `<aside>` tag's own class list branches on it - everything a
-	 * sibling issue owns inside this file (the footer, the kept-answers row)
+	 * sibling issue owns inside this file (the footer)
 	 * is written once and simply renders twice, one per variant, so neither has to
 	 * touch this prop or know it exists.
 	 *
@@ -91,23 +93,6 @@
 			<span class="text-xs font-semibold tracking-wide text-ink-2">Canonry</span>
 		</div>
 		<UniverseSwitcher {current} {universes} {locale} />
-		{#if mode === 'universe' && universeSlug}
-			<!-- Issue #285 (decision O3): this row used to be "Ask the Loremaster" and opened a
-			     blank composer. The composer is the floating pill now (`QuickAsk.svelte`), which
-			     also prints the mod+shift+A chord this row used to print, so what is left for a
-			     permanent nav row is the thing a blank box never was: the list of answers
-			     somebody chose to keep (#290's `ask/kept`). It wears the theme's own colours
-			     rather than the copilot's violet, for the same reason the pill does, and because
-			     a list of kept notes is not unaccepted AI text. -->
-			<a
-				href={resolve(`/w/${universeSlug}/ask/kept`)}
-				class="mt-2 flex items-center gap-2 rounded-md border border-line-2 bg-panel-2 px-2.5 py-1.5 text-sm text-ink hover:bg-accent-bg"
-				title={t.ask.keep.historyLink}
-			>
-				<span aria-hidden="true" class="text-accent">✦</span>
-				<span class="truncate">{t.ask.keep.historyLink}</span>
-			</a>
-		{/if}
 	</div>
 
 	<nav class="flex-1 overflow-y-auto p-2" aria-label={t.sidebar.primaryNavAriaLabel}>
@@ -184,7 +169,9 @@
 	     the real account menu - Docs and Privacy now live as rows inside that menu
 	     (docs/ux/product-pass.html#i6's own mock draws them there), which is also why
 	     there is no longer a standalone Privacy link in this div: one menu, not a menu
-	     plus a leftover link saying the same thing twice.
+	     plus a leftover link saying the same thing twice. #349 adds `universeSlug` to
+	     the props ShellUserRow reads: universe mode's own kept-answers link now lives
+	     in that menu instead of as a row above (see ShellUserRow.svelte).
 
 	     Issue #201: the meter also needs `universes.length > 0` - an account with no
 	     universe yet (mid-`/onboarding`) can't spend either budget, so the footer
@@ -195,6 +182,6 @@
 		{#if quota && universes.length > 0}
 			<QuotaMeter {quota} {locale} />
 		{/if}
-		<ShellUserRow {user} {locale} {quota} />
+		<ShellUserRow {user} {locale} {quota} {universeSlug} />
 	</div>
 </aside>
