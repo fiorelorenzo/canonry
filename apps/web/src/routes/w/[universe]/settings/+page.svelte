@@ -1,5 +1,21 @@
 <script lang="ts">
 	/**
+	 * Issue #406 (S1, DECISIONS.md "Round fourteen"): the universe's own settings
+	 * page takes the same two-pane shell issue #143 (I6 = B) built for the account -
+	 * a rail on the left, one content pane on the right - via `SettingsShell`
+	 * (`$lib/components/settings/SettingsShell.svelte`), extracted from `routes/
+	 * settings/+layout.svelte` rather than grown a second time here. Three named
+	 * groups replace the seven ungrouped cards this page used to be, in this order:
+	 * Images (the image style form, untouched - #407 lands a picker on top of it),
+	 * The Loremaster (the voice, the writing switch and the propagation cap - all
+	 * three about how much the copilot may do), and Canon (the relation catalogue
+	 * link and precedence for a derived world). The setup checklist card is gone -
+	 * `railItems` below turns the same `universeSetupItems()` payload the shell row
+	 * counts (`+page.server.ts`'s own `setupItems`) into a small mark on whichever
+	 * rail row owns the unset item, which is where somebody looking for what is
+	 * unfinished will look, rather than a fourth thing to read above the groups that
+	 * actually hold the settings.
+	 *
 	 * Decision C10 = B, wording from H1: the switch is named for what it stops
 	 * ("Stop writing"), not for AI as a category, because reading keeps working while it
 	 * is on. Decision A2 = A: precedence is visible, not a click away - a derived
@@ -30,6 +46,8 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import { NativeFallback } from '$lib/components/ui/native-fallback';
+	import { PageHeader } from '$lib/components/ui/page-header';
+	import SettingsShell from '$lib/components/settings/SettingsShell.svelte';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { ActionData, PageData } from './$types';
 
@@ -96,26 +114,55 @@
 		form && 'loremasterVoiceError' in form ? form.loremasterVoiceError : undefined
 	);
 
-	// Issue #379, decision R4: the list at the top of the page - the same checklist
-	// the shell row counts (`+page.server.ts`'s own `setupItems`), filtered to what
-	// is still unset. Each anchor points at the section #378 already built below;
-	// each label reuses that section's own heading rather than a new description.
-	const unsetSetupItems = $derived(data.setupItems.filter((item) => !item.done));
-	const setupItemHref: Record<(typeof data.setupItems)[number]['id'], string> = {
-		imageStyle: '#setup-image-style',
-		loremasterVoice: '#setup-loremaster-voice'
-	};
-	const setupItemLabel = $derived<Record<(typeof data.setupItems)[number]['id'], string>>({
-		imageStyle: t.imageStyle.heading,
-		loremasterVoice: t.loremasterVoice.heading
-	});
+	// Issue #406 (S1): the rail's own rows, one per group, in fixed order - each row's
+	// `unset` flag reads the same `universeSetupItems()` payload the old checklist card
+	// rendered as a list (issue #379, decision R4), filtered down to the one item (if
+	// any) that group owns. Canon owns no checklist item today, so its row never marks.
+	const railItems = $derived([
+		{
+			id: 'images',
+			href: '#group-images',
+			label: t.groups.images,
+			unset: data.setupItems.some((item) => item.id === 'imageStyle' && !item.done)
+		},
+		{
+			id: 'loremaster',
+			href: '#group-loremaster',
+			label: t.groups.loremaster,
+			unset: data.setupItems.some((item) => item.id === 'loremasterVoice' && !item.done)
+		},
+		{ id: 'canon', href: '#group-canon', label: t.groups.canon, unset: false }
+	]);
 </script>
 
 <svelte:head><title>{t.headTitle(data.current.name)}</title></svelte:head>
 
-<div class="mx-auto max-w-2xl px-8 py-10">
-	<h1 class="text-2xl font-semibold text-ink">{t.heading}</h1>
-	<p class="mt-2 max-w-measure text-sm text-ink-2">
+<SettingsShell>
+	{#snippet rail()}
+		<!-- eslint-disable svelte/no-navigation-without-resolve -- same-page fragment
+		     anchors into the groups below, not a route resolve() can rewrite. -->
+		<nav aria-label={t.rail.ariaLabel} class="flex shrink-0 flex-col gap-0.5 lg:w-48">
+			{#each railItems as item (item.id)}
+				<a
+					href={item.href}
+					class="flex items-center justify-between gap-2 rounded-md px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
+				>
+					<span>{item.label}</span>
+					{#if item.unset}
+						<span
+							class="shrink-0 rounded-full bg-warn-bg px-1.5 py-0.5 text-[10px] font-medium text-warn"
+						>
+							{t.rail.incompleteMark}
+						</span>
+					{/if}
+				</a>
+			{/each}
+		</nav>
+		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+	{/snippet}
+
+	<PageHeader title={t.heading} />
+	<p class="mt-4 max-w-measure text-sm text-ink-2">
 		{t.introBefore(data.current.name)}<a
 			class="text-accent hover:underline"
 			href={resolve('/settings/appearance')}>{t.appearanceLink}</a
@@ -125,268 +172,272 @@
 		>{t.introAfter}
 	</p>
 
-	{#if unsetSetupItems.length > 0}
-		<section class="mt-8 rounded-lg border border-warn-bg bg-warn-bg p-4">
-			<h2 class="text-sm font-semibold text-warn">{t.setupChecklist.heading}</h2>
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- a same-page fragment
-			     anchor into a section below, not a route resolve() can rewrite. -->
-			<ul class="mt-2 flex flex-col gap-1">
-				{#each unsetSetupItems as item (item.id)}
-					<li>
-						<a
-							href={setupItemHref[item.id]}
-							class="text-sm text-warn underline underline-offset-2 hover:brightness-95"
-						>
-							{setupItemLabel[item.id]}
-						</a>
-					</li>
-				{/each}
-			</ul>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
-		</section>
-	{/if}
-
-	<section class="mt-8 rounded-lg border border-line bg-panel p-4">
-		<div class="flex items-center justify-between gap-4">
-			<div>
-				<h2 class="text-sm font-semibold text-ink">{t.aiToggle.heading}</h2>
-				<p class="mt-1 max-w-measure text-sm text-ink-2">
-					{t.aiToggle.description(data.current.name)}
-				</p>
-			</div>
-			<form method="POST" action="?/setAiEnabled">
-				<input type="hidden" name="enabled" value={(!aiEnabled).toString()} />
-				<Button
-					type="submit"
-					variant="secondary"
-					class={aiEnabled
-						? 'border-line-2 text-ink-2'
-						: 'border-accent bg-accent-bg text-accent-ink'}
-				>
-					{aiEnabled ? t.aiToggle.stopWriting : t.aiToggle.resumeWriting}
-				</Button>
-			</form>
-		</div>
-		{#if !aiEnabled}
-			<!-- Round eleven P2 (#344), and guardrail 4 more than P2: the copilot's hue is
-			     the last thing that should announce that the copilot is off. This notice is
-			     the theme's own panel and line. -->
-			<p class="mt-3 rounded-md border border-line bg-panel-2 px-3 py-2 text-xs text-ink-2">
-				{t.aiToggle.offNotice(data.current.name)}
-			</p>
-		{/if}
-	</section>
-
-	<section class="mt-8 rounded-lg border border-line bg-panel p-4">
-		<h2 class="text-sm font-semibold text-ink">{t.propagationCap.heading}</h2>
-		<p class="mt-1 max-w-measure text-sm text-ink-2">
-			{t.propagationCap.description(data.current.name)}
-		</p>
-		<form method="POST" action="?/setPropagationCap" class="mt-3 flex flex-wrap items-center gap-3">
-			<label class="flex items-center gap-2 text-sm text-ink-2">
-				{t.propagationCap.capLabel}
-				<input
-					type="number"
-					name="cap"
-					min="1"
-					step="1"
-					bind:value={capInput}
-					disabled={noLimit}
-					class="h-9 w-20 rounded-md border border-line-2 bg-panel px-2 text-sm text-ink disabled:opacity-50"
-				/>
-			</label>
-			<label class="flex items-center gap-2 text-sm text-ink-2">
-				<input type="checkbox" name="noLimit" value="true" bind:checked={noLimit} class="h-4 w-4" />
-				{t.propagationCap.noLimitLabel}
-			</label>
-			<Button type="submit" variant="secondary" class="w-fit">
-				{t.propagationCap.save}
-			</Button>
-			{#if form?.message}
-				<p class="w-full text-sm text-danger">{form.message}</p>
-			{/if}
-		</form>
-		<p class="mt-3 text-xs text-muted">
-			{#if propagationCap === null}
-				{t.propagationCap.noLimitNotice}
-			{:else}
-				{@const notice = t.propagationCap.capNotice(propagationCap)}
-				{notice.prefix}<b class="text-ink-2">{propagationCap}</b>{notice.suffix}
-			{/if}
-		</p>
-	</section>
-
-	<section id="setup-image-style" class="mt-8 rounded-lg border border-line bg-panel p-4">
-		<h2 class="text-sm font-semibold text-ink">{t.imageStyle.heading}</h2>
-		<p class="mt-1 max-w-measure text-sm text-ink-2">
-			{t.imageStyle.description(data.current.name)}
-		</p>
-		<form method="POST" action="?/setImageStyle" class="mt-3 flex flex-col gap-3">
-			<label class="flex flex-col gap-1 text-sm text-ink-2">
-				{t.imageStyle.nameLabel}
-				<Input name="name" value={imageStyleName} required />
-			</label>
-			<label class="flex flex-col gap-1 text-sm text-ink-2">
-				{t.imageStyle.promptModifierLabel}
-				<Textarea name="promptModifier" rows={2} value={imageStyleModifier} required />
-			</label>
-			{#if imageStyleError}
-				<p class="text-sm text-danger">{imageStyleError}</p>
-			{/if}
-			<Button type="submit" variant="secondary" class="w-fit">
-				{t.imageStyle.save}
-			</Button>
-		</form>
-	</section>
-
-	<section id="setup-loremaster-voice" class="mt-8 rounded-lg border border-line bg-panel p-4">
-		<h2 class="text-sm font-semibold text-ink">{t.loremasterVoice.heading}</h2>
-		<p class="mt-1 max-w-measure text-sm text-ink-2">
-			{t.loremasterVoice.description(data.current.name)}
-		</p>
-		<form method="POST" action="?/setLoremasterVoice" class="mt-3 flex flex-col gap-2">
-			<label class="flex flex-col gap-1 text-sm text-ink-2" for="loremaster-voice">
-				{t.loremasterVoice.textareaLabel}
-			</label>
-			<!-- 500 mirrors `+page.server.ts`'s own LOREMASTER_DESCRIPTION_MAX_LENGTH - not
-			     authoritative here, the client attribute is only a courtesy that stops most
-			     GMs from ever seeing the server's rejection at all. -->
-			<Textarea
-				id="loremaster-voice"
-				name="description"
-				rows={3}
-				maxlength={500}
-				value={loremasterDescription}
-			/>
-			<p class="text-xs text-muted">{t.loremasterVoice.hint}</p>
-			{#if loremasterVoiceError}
-				<p class="text-sm text-danger">{loremasterVoiceError}</p>
-			{/if}
-			<Button type="submit" variant="secondary" class="w-fit">
-				{t.loremasterVoice.save}
-			</Button>
-		</form>
-	</section>
-
-	<section class="mt-8 rounded-lg border border-line bg-panel p-4">
-		<div class="flex items-center justify-between gap-4">
-			<div>
-				<h2 class="text-sm font-semibold text-ink">{tRelations.cardHeading}</h2>
-				<p class="mt-1 max-w-measure text-sm text-ink-2">
-					{tRelations.cardDescription(data.current.name)}
-				</p>
-				<p class="mt-1 text-xs text-muted">{tRelations.cardCountOwn(data.ownRelationTypeCount)}</p>
-			</div>
-			<Button href={resolve(`/w/${data.current.slug}/settings/relations`)} variant="secondary">
-				{tRelations.manageLink}
-			</Button>
-		</div>
-	</section>
-
-	{#if data.isDerived}
-		<section class="mt-8 rounded-lg border border-line bg-panel p-4">
-			<h2 class="text-sm font-semibold text-ink">{t.precedence.heading}</h2>
+	<section id="group-images" class="mt-8">
+		<h2 class="text-lg font-semibold text-ink">{t.groups.images}</h2>
+		<div class="mt-3 rounded-lg border border-line bg-panel p-4">
+			<h3 class="text-sm font-semibold text-ink">{t.imageStyle.heading}</h3>
 			<p class="mt-1 max-w-measure text-sm text-ink-2">
-				{t.precedence.description(data.current.name)}
+				{t.imageStyle.description(data.current.name)}
 			</p>
-
-			{#if data.supersedes.length === 0}
-				<p class="mt-3 text-sm text-muted">{t.precedence.empty}</p>
-			{:else}
-				<ul class="mt-3 flex flex-col divide-y divide-line">
-					{#each data.supersedes as row (row.id)}
-						<li class="flex items-center gap-3 py-2 text-sm">
-							<span class="flex-1 text-ink-2 line-through decoration-line-2">
-								{row.dataSourceName} &middot; {row.sourceUrl}
-							</span>
-							<Badge variant="secondary" class="text-muted uppercase">
-								{t.precedence.supersededBadge}
-							</Badge>
-							<a
-								href={resolve(`/w/${data.current.slug}/e/${row.entitySlug}`)}
-								class="text-accent hover:underline"
-							>
-								{row.entityName}
-							</a>
-							<form method="POST" action="?/removeSupersede">
-								<input type="hidden" name="id" value={row.id} />
-								<Button
-									type="submit"
-									variant="link"
-									size="sm"
-									class="h-auto p-0 text-xs text-muted hover:text-danger"
-								>
-									{t.precedence.remove}
-								</Button>
-							</form>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-
-			<form
-				method="POST"
-				action="?/addSupersede"
-				class="mt-4 flex flex-col gap-3 border-t border-line pt-4"
-			>
-				<h3 class="text-xs font-semibold tracking-wide text-muted uppercase">
-					{t.precedence.declareHeading}
-				</h3>
-				<div class="flex flex-col gap-1 text-sm text-ink-2">
-					<label for="supersede-entity">{t.precedence.entryLabel}</label>
-					<div data-js-only>
-						<Combobox
-							id="supersede-entity"
-							bind:value={supersedeEntityId}
-							options={entityOptions}
-							placeholder={t.precedence.entryLabel}
-							searchPlaceholder={tControls.search}
-							emptyText={tControls.noMatch}
-						/>
-					</div>
-					<NativeFallback
-						name="entityId"
-						value={supersedeEntityId}
-						options={entityOptions}
-						required
-						label={t.precedence.entryLabel}
-					/>
-				</div>
-				<div class="flex flex-col gap-1 text-sm text-ink-2">
-					<label for="supersede-source">{t.precedence.baseSourceLabel}</label>
-					<div data-js-only>
-						<Combobox
-							id="supersede-source"
-							bind:value={supersedeSourceId}
-							options={baseSourceOptions}
-							placeholder={t.precedence.baseSourceLabel}
-							searchPlaceholder={tControls.search}
-							emptyText={tControls.noMatch}
-						/>
-					</div>
-					<NativeFallback
-						name="dataSourceId"
-						value={supersedeSourceId}
-						options={baseSourceOptions}
-						required
-						label={t.precedence.baseSourceLabel}
-					/>
-				</div>
+			<form method="POST" action="?/setImageStyle" class="mt-3 flex flex-col gap-3">
 				<label class="flex flex-col gap-1 text-sm text-ink-2">
-					{t.precedence.sourceUrlLabel}
-					<Input name="sourceUrl" required />
+					{t.imageStyle.nameLabel}
+					<Input name="name" value={imageStyleName} required />
 				</label>
 				<label class="flex flex-col gap-1 text-sm text-ink-2">
-					{t.precedence.noteLabel} <span class="text-muted">{t.precedence.optional}</span>
-					<Input name="note" />
+					{t.imageStyle.promptModifierLabel}
+					<Textarea name="promptModifier" rows={2} value={imageStyleModifier} required />
 				</label>
-				{#if form?.message}
-					<p class="text-sm text-danger">{form.message}</p>
+				{#if imageStyleError}
+					<p class="text-sm text-danger">{imageStyleError}</p>
 				{/if}
 				<Button type="submit" variant="secondary" class="w-fit">
-					{t.precedence.submit}
+					{t.imageStyle.save}
 				</Button>
 			</form>
-		</section>
-	{/if}
-</div>
+		</div>
+	</section>
+
+	<section id="group-loremaster" class="mt-8">
+		<h2 class="text-lg font-semibold text-ink">{t.groups.loremaster}</h2>
+		<div class="mt-3 flex flex-col gap-4">
+			<div class="rounded-lg border border-line bg-panel p-4">
+				<h3 class="text-sm font-semibold text-ink">{t.loremasterVoice.heading}</h3>
+				<p class="mt-1 max-w-measure text-sm text-ink-2">
+					{t.loremasterVoice.description(data.current.name)}
+				</p>
+				<form method="POST" action="?/setLoremasterVoice" class="mt-3 flex flex-col gap-2">
+					<label class="flex flex-col gap-1 text-sm text-ink-2" for="loremaster-voice">
+						{t.loremasterVoice.textareaLabel}
+					</label>
+					<!-- 500 mirrors `+page.server.ts`'s own LOREMASTER_DESCRIPTION_MAX_LENGTH - not
+					     authoritative here, the client attribute is only a courtesy that stops most
+					     GMs from ever seeing the server's rejection at all. -->
+					<Textarea
+						id="loremaster-voice"
+						name="description"
+						rows={3}
+						maxlength={500}
+						value={loremasterDescription}
+					/>
+					<p class="text-xs text-muted">{t.loremasterVoice.hint}</p>
+					{#if loremasterVoiceError}
+						<p class="text-sm text-danger">{loremasterVoiceError}</p>
+					{/if}
+					<Button type="submit" variant="secondary" class="w-fit">
+						{t.loremasterVoice.save}
+					</Button>
+				</form>
+			</div>
+
+			<div class="rounded-lg border border-line bg-panel p-4">
+				<div class="flex items-center justify-between gap-4">
+					<div>
+						<h3 class="text-sm font-semibold text-ink">{t.aiToggle.heading}</h3>
+						<p class="mt-1 max-w-measure text-sm text-ink-2">
+							{t.aiToggle.description(data.current.name)}
+						</p>
+					</div>
+					<form method="POST" action="?/setAiEnabled">
+						<input type="hidden" name="enabled" value={(!aiEnabled).toString()} />
+						<Button
+							type="submit"
+							variant="secondary"
+							class={aiEnabled
+								? 'border-line-2 text-ink-2'
+								: 'border-accent bg-accent-bg text-accent-ink'}
+						>
+							{aiEnabled ? t.aiToggle.stopWriting : t.aiToggle.resumeWriting}
+						</Button>
+					</form>
+				</div>
+				{#if !aiEnabled}
+					<!-- Round eleven P2 (#344), and guardrail 4 more than P2: the copilot's hue is
+					     the last thing that should announce that the copilot is off. This notice is
+					     the theme's own panel and line. -->
+					<p class="mt-3 rounded-md border border-line bg-panel-2 px-3 py-2 text-xs text-ink-2">
+						{t.aiToggle.offNotice(data.current.name)}
+					</p>
+				{/if}
+			</div>
+
+			<div class="rounded-lg border border-line bg-panel p-4">
+				<h3 class="text-sm font-semibold text-ink">{t.propagationCap.heading}</h3>
+				<p class="mt-1 max-w-measure text-sm text-ink-2">
+					{t.propagationCap.description(data.current.name)}
+				</p>
+				<form
+					method="POST"
+					action="?/setPropagationCap"
+					class="mt-3 flex flex-wrap items-center gap-3"
+				>
+					<label class="flex items-center gap-2 text-sm text-ink-2">
+						{t.propagationCap.capLabel}
+						<input
+							type="number"
+							name="cap"
+							min="1"
+							step="1"
+							bind:value={capInput}
+							disabled={noLimit}
+							class="h-9 w-20 rounded-md border border-line-2 bg-panel px-2 text-sm text-ink disabled:opacity-50"
+						/>
+					</label>
+					<label class="flex items-center gap-2 text-sm text-ink-2">
+						<input
+							type="checkbox"
+							name="noLimit"
+							value="true"
+							bind:checked={noLimit}
+							class="h-4 w-4"
+						/>
+						{t.propagationCap.noLimitLabel}
+					</label>
+					<Button type="submit" variant="secondary" class="w-fit">
+						{t.propagationCap.save}
+					</Button>
+					{#if form?.message}
+						<p class="w-full text-sm text-danger">{form.message}</p>
+					{/if}
+				</form>
+				<p class="mt-3 text-xs text-muted">
+					{#if propagationCap === null}
+						{t.propagationCap.noLimitNotice}
+					{:else}
+						{@const notice = t.propagationCap.capNotice(propagationCap)}
+						{notice.prefix}<b class="text-ink-2">{propagationCap}</b>{notice.suffix}
+					{/if}
+				</p>
+			</div>
+		</div>
+	</section>
+
+	<section id="group-canon" class="mt-8">
+		<h2 class="text-lg font-semibold text-ink">{t.groups.canon}</h2>
+		<div class="mt-3 flex flex-col gap-4">
+			<div class="rounded-lg border border-line bg-panel p-4">
+				<div class="flex items-center justify-between gap-4">
+					<div>
+						<h3 class="text-sm font-semibold text-ink">{tRelations.cardHeading}</h3>
+						<p class="mt-1 max-w-measure text-sm text-ink-2">
+							{tRelations.cardDescription(data.current.name)}
+						</p>
+						<p class="mt-1 text-xs text-muted">
+							{tRelations.cardCountOwn(data.ownRelationTypeCount)}
+						</p>
+					</div>
+					<Button href={resolve(`/w/${data.current.slug}/settings/relations`)} variant="secondary">
+						{tRelations.manageLink}
+					</Button>
+				</div>
+			</div>
+
+			{#if data.isDerived}
+				<div class="rounded-lg border border-line bg-panel p-4">
+					<h3 class="text-sm font-semibold text-ink">{t.precedence.heading}</h3>
+					<p class="mt-1 max-w-measure text-sm text-ink-2">
+						{t.precedence.description(data.current.name)}
+					</p>
+
+					{#if data.supersedes.length === 0}
+						<p class="mt-3 text-sm text-muted">{t.precedence.empty}</p>
+					{:else}
+						<ul class="mt-3 flex flex-col divide-y divide-line">
+							{#each data.supersedes as row (row.id)}
+								<li class="flex items-center gap-3 py-2 text-sm">
+									<span class="flex-1 text-ink-2 line-through decoration-line-2">
+										{row.dataSourceName} &middot; {row.sourceUrl}
+									</span>
+									<Badge variant="secondary" class="text-muted uppercase">
+										{t.precedence.supersededBadge}
+									</Badge>
+									<a
+										href={resolve(`/w/${data.current.slug}/e/${row.entitySlug}`)}
+										class="text-accent hover:underline"
+									>
+										{row.entityName}
+									</a>
+									<form method="POST" action="?/removeSupersede">
+										<input type="hidden" name="id" value={row.id} />
+										<Button
+											type="submit"
+											variant="link"
+											size="sm"
+											class="h-auto p-0 text-xs text-muted hover:text-danger"
+										>
+											{t.precedence.remove}
+										</Button>
+									</form>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+
+					<form
+						method="POST"
+						action="?/addSupersede"
+						class="mt-4 flex flex-col gap-3 border-t border-line pt-4"
+					>
+						<h4 class="text-xs font-semibold tracking-wide text-muted uppercase">
+							{t.precedence.declareHeading}
+						</h4>
+						<div class="flex flex-col gap-1 text-sm text-ink-2">
+							<label for="supersede-entity">{t.precedence.entryLabel}</label>
+							<div data-js-only>
+								<Combobox
+									id="supersede-entity"
+									bind:value={supersedeEntityId}
+									options={entityOptions}
+									placeholder={t.precedence.entryLabel}
+									searchPlaceholder={tControls.search}
+									emptyText={tControls.noMatch}
+								/>
+							</div>
+							<NativeFallback
+								name="entityId"
+								value={supersedeEntityId}
+								options={entityOptions}
+								required
+								label={t.precedence.entryLabel}
+							/>
+						</div>
+						<div class="flex flex-col gap-1 text-sm text-ink-2">
+							<label for="supersede-source">{t.precedence.baseSourceLabel}</label>
+							<div data-js-only>
+								<Combobox
+									id="supersede-source"
+									bind:value={supersedeSourceId}
+									options={baseSourceOptions}
+									placeholder={t.precedence.baseSourceLabel}
+									searchPlaceholder={tControls.search}
+									emptyText={tControls.noMatch}
+								/>
+							</div>
+							<NativeFallback
+								name="dataSourceId"
+								value={supersedeSourceId}
+								options={baseSourceOptions}
+								required
+								label={t.precedence.baseSourceLabel}
+							/>
+						</div>
+						<label class="flex flex-col gap-1 text-sm text-ink-2">
+							{t.precedence.sourceUrlLabel}
+							<Input name="sourceUrl" required />
+						</label>
+						<label class="flex flex-col gap-1 text-sm text-ink-2">
+							{t.precedence.noteLabel} <span class="text-muted">{t.precedence.optional}</span>
+							<Input name="note" />
+						</label>
+						{#if form?.message}
+							<p class="text-sm text-danger">{form.message}</p>
+						{/if}
+						<Button type="submit" variant="secondary" class="w-fit">
+							{t.precedence.submit}
+						</Button>
+					</form>
+				</div>
+			{/if}
+		</div>
+	</section>
+</SettingsShell>

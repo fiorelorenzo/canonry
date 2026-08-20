@@ -1752,8 +1752,14 @@ export const it: Messages = {
 			exportLink: 'Esporta',
 			viewerForbiddenError:
 				'Chi ha accesso in sola visualizzazione non può modificare questa impostazione.',
-			setupChecklist: {
-				heading: 'Da completare'
+			groups: {
+				images: 'Immagini',
+				loremaster: 'Il Loremaster',
+				canon: 'Canone'
+			},
+			rail: {
+				ariaLabel: 'Gruppi delle impostazioni',
+				incompleteMark: 'Da impostare'
 			},
 			aiToggle: {
 				heading: 'Scrittura del Loremaster',
