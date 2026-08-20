@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
 	applyMentionSelection,
 	findActiveTrigger,
+	findImageTokens,
 	insertImage,
 	insertLink,
 	insertMentionTrigger,
 	matchTargets,
 	mentionMenuKeyAction,
+	setImageWidth,
 	toggleLinePrefix,
 	wrapSelection
 } from './editorState';
@@ -80,6 +82,81 @@ describe('insertImage', () => {
 		expect(result.selectionStart).toBe(result.selectionEnd);
 		expect(result.selectionStart).toBe(8 + inserted.length);
 		expect(result.source.slice(0, result.selectionStart)).toBe(`See the ${inserted}`);
+	});
+
+	// R9 (#384): the width lives in the body, written by the same insert as the rest of
+	// the token rather than as a second write somewhere else.
+	it.each([
+		[33, '=33%'],
+		[67, '=67%'],
+		[100, '=100%']
+	] as const)('writes a chosen width of %d%% as the body suffix', (widthPercent, suffix) => {
+		const result = insertImage('See the Rat.', 8, 11, '/w/w1/e/rat/media/a1', widthPercent);
+		expect(result.source).toBe(`See the ![Rat](/w/w1/e/rat/media/a1 ${suffix}).`);
+	});
+
+	it('writes no suffix at all when no width is chosen, exactly like before this existed', () => {
+		const result = insertImage('See the Rat.', 8, 11, '/w/w1/e/rat/media/a1', null);
+		expect(result.source).toBe('See the ![Rat](/w/w1/e/rat/media/a1).');
+	});
+
+	it('collapses the caret past a width suffix too', () => {
+		const result = insertImage('See the Rat.', 8, 11, '/w/w1/e/rat/media/a1', 67);
+		const inserted = '![Rat](/w/w1/e/rat/media/a1 =67%)';
+		expect(result.selectionStart).toBe(result.selectionEnd);
+		expect(result.selectionStart).toBe(8 + inserted.length);
+	});
+});
+
+describe('findImageTokens', () => {
+	it('finds a plain image with no width, in order, at its exact offsets', () => {
+		const source = 'Two images: ![A](/media/1) and ![B](/media/2 =67%).';
+		const tokens = findImageTokens(source);
+		expect(tokens).toHaveLength(2);
+		expect(tokens[0]).toMatchObject({ alt: 'A', url: '/media/1', widthPercent: null });
+		expect(source.slice(tokens[0]!.start, tokens[0]!.end)).toBe('![A](/media/1)');
+		expect(tokens[1]).toMatchObject({ alt: 'B', url: '/media/2', widthPercent: 67 });
+		expect(source.slice(tokens[1]!.start, tokens[1]!.end)).toBe('![B](/media/2 =67%)');
+	});
+
+	it('skips a malformed suffix, the same one markdown.ts leaves inert', () => {
+		const tokens = findImageTokens('![A](/media/1 =50px)');
+		expect(tokens).toHaveLength(0);
+	});
+
+	it('finds nothing in prose with no image markdown', () => {
+		expect(findImageTokens('Just an ordinary sentence about a cat.')).toHaveLength(0);
+	});
+});
+
+describe('setImageWidth', () => {
+	it('adds a width suffix to a token that had none', () => {
+		const source = 'See ![Rat](/media/1) here.';
+		const [token] = findImageTokens(source);
+		const result = setImageWidth(source, token!, 33);
+		expect(result.source).toBe('See ![Rat](/media/1 =33%) here.');
+	});
+
+	it('replaces an existing width suffix rather than appending a second one', () => {
+		const source = 'See ![Rat](/media/1 =33%) here.';
+		const [token] = findImageTokens(source);
+		const result = setImageWidth(source, token!, 100);
+		expect(result.source).toBe('See ![Rat](/media/1 =100%) here.');
+	});
+
+	it('clamps an out-of-range width the same way the parser does', () => {
+		const source = '![Rat](/media/1)';
+		const [token] = findImageTokens(source);
+		const result = setImageWidth(source, token!, 500);
+		expect(result.source).toBe('![Rat](/media/1 =100%)');
+	});
+
+	it('lands the caret just past the rewritten token, ready for applyEdit to restore it', () => {
+		const source = '![Rat](/media/1)';
+		const [token] = findImageTokens(source);
+		const result = setImageWidth(source, token!, 33);
+		expect(result.selectionStart).toBe(result.selectionEnd);
+		expect(result.selectionStart).toBe(result.source.length);
 	});
 });
 

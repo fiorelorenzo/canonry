@@ -760,6 +760,15 @@ export interface Messages {
 				generateFailed: string;
 				attachFailedWithStatus: (status: number) => string;
 				attachFailed: string;
+				/** R9, round thirteen (#384): the three widths offered when an image is
+				 * inserted - a third, two thirds, full - never a pixel value. */
+				width: {
+					heading: string;
+					ariaLabel: string;
+					third: string;
+					twoThirds: string;
+					full: string;
+				};
 			};
 			/** Issue #255: refine a candidate with an instruction instead of a fresh roll -
 			 * the "Refine with instruction" control in the candidates block, opening
@@ -820,6 +829,16 @@ export interface Messages {
 				preview: string;
 				previewAriaLabel: string;
 				previewEmpty: string;
+			};
+			/** R9, round thirteen (#384): hovering or focusing an image in the preview
+			 * offers the same three widths `inBody.width` does, and rewrites the token in
+			 * place. Same three labels, a separate copy: this namespace and `media.inBody`
+			 * are two different agents' i18n scope, and the words happen to coincide. */
+			imageWidth: {
+				ariaLabel: string;
+				third: string;
+				twoThirds: string;
+				full: string;
 			};
 		};
 		/** Round twelve, Q4: every string below is now one icon's tooltip *and* its

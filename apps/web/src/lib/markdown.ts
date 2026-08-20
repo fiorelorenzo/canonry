@@ -118,6 +118,121 @@ md.renderer.rules.mention = (tokens: Token[], idx: number, _options, env) => {
 	return `<span class="mention mention-unresolved" title="No entry named &ldquo;${label}&rdquo; yet">${label}</span>`;
 };
 
+/**
+ * R9, round thirteen (#384): an inserted image can carry a width, `![alt](/path =50%)` -
+ * markdown-it's own image-resize convention, restricted to a bare percentage.
+ * `matchImageToken` is the one definition of that grammar: the inline rule just below uses
+ * it to decide whether an `<img>` gets a `style="width:…"`, and `editorState.ts`'s
+ * `findImageTokens` (the editor preview's "hover an image, change its width" affordance)
+ * uses the same function to find and rewrite a token at its exact position in the raw
+ * body - one grammar, so rendering and editing can never disagree about what counts as a
+ * sized image.
+ *
+ * Deliberately simpler than CommonMark's own image grammar: no title, no reference form, no
+ * escaped brackets in the alt text - nothing this app ever writes uses any of those, and
+ * `decorate.ts`'s own live-typing heuristic already draws the same boundary. Anything this
+ * function does not recognise, including a malformed size suffix, returns `null`; the
+ * inline rule then defers entirely to markdown-it's own `image` rule, so an ordinary image
+ * and a botched suffix alike render exactly as they did before this existed - a malformed
+ * suffix is inert rather than a broken link.
+ */
+export interface ParsedImageToken {
+	/** Index just past the closing `)`, in whatever string `text` was. */
+	end: number;
+	alt: string;
+	url: string;
+	/** 1-100 when a well-formed `=NN%` suffix was present, already clamped into range;
+	 * `null` when there was no suffix at all. Never the *unclamped* number - nothing
+	 * downstream should have to re-derive the bound this module already enforces, because
+	 * a percentage written into canon prose is never trusted to be in range on its own. */
+	widthPercent: number | null;
+}
+
+export const IMAGE_WIDTH_MIN = 1;
+export const IMAGE_WIDTH_MAX = 100;
+
+/** The three widths `ImageInsertDialog.svelte` and the editor's preview offer - a measure,
+ * never a pixel value: "the measure is responsive and a pixel value is a promise the
+ * layout cannot keep." A third and two thirds round to the nearest percentage point. */
+export const IMAGE_WIDTH_PERCENTS = [33, 67, 100] as const;
+export type ImageWidthPercent = (typeof IMAGE_WIDTH_PERCENTS)[number];
+
+export function clampImageWidthPercent(percent: number): number {
+	return Math.min(IMAGE_WIDTH_MAX, Math.max(IMAGE_WIDTH_MIN, Math.round(percent)));
+}
+
+export function matchImageToken(
+	text: string,
+	start: number,
+	maxEnd: number = text.length
+): ParsedImageToken | null {
+	if (text.charCodeAt(start) !== 0x21 /* ! */ || text.charCodeAt(start + 1) !== 0x5b /* [ */) {
+		return null;
+	}
+	const altEnd = text.indexOf(']', start + 2);
+	if (altEnd < 0 || altEnd >= maxEnd || text.charCodeAt(altEnd + 1) !== 0x28 /* ( */) return null;
+	const alt = text.slice(start + 2, altEnd);
+
+	let pos = altEnd + 2;
+	const urlStart = pos;
+	while (pos < maxEnd) {
+		const code = text.charCodeAt(pos);
+		if (code === 0x20 || code === 0x09 || code === 0x28 || code === 0x29 || code === 0x0a) break;
+		pos++;
+	}
+	if (pos === urlStart) return null; // `![alt]()` - no destination
+	const url = text.slice(urlStart, pos);
+
+	const wsStart = pos;
+	while (pos < maxEnd && (text.charCodeAt(pos) === 0x20 || text.charCodeAt(pos) === 0x09)) pos++;
+
+	let widthPercent: number | null = null;
+	if (pos > wsStart) {
+		// Whitespace before the close paren means either a size suffix or nothing this
+		// syntax recognises - anything other than `=NN%` here is malformed, not sized.
+		if (text.charCodeAt(pos) !== 0x3d /* = */) return null;
+		const digitsStart = pos + 1;
+		let digitsEnd = digitsStart;
+		while (
+			digitsEnd < maxEnd &&
+			text.charCodeAt(digitsEnd) >= 0x30 &&
+			text.charCodeAt(digitsEnd) <= 0x39
+		) {
+			digitsEnd++;
+		}
+		if (digitsEnd === digitsStart || text.charCodeAt(digitsEnd) !== 0x25 /* % */) return null;
+		widthPercent = clampImageWidthPercent(Number(text.slice(digitsStart, digitsEnd)));
+		pos = digitsEnd + 1;
+	}
+
+	if (pos >= maxEnd || text.charCodeAt(pos) !== 0x29 /* ) */) return null;
+	return { end: pos + 1, alt, url, widthPercent };
+}
+
+md.inline.ruler.before('image', 'sized-image', (state, silent) => {
+	const matched = matchImageToken(state.src, state.pos, state.posMax);
+	// No suffix at all: defer to the core `image` rule so an ordinary `![alt](url)`
+	// renders exactly as it always has - this rule exists only for the sized case.
+	if (!matched || matched.widthPercent === null) return false;
+	const href = state.md.normalizeLink(matched.url);
+	if (!state.md.validateLink(href)) return false;
+
+	if (!silent) {
+		const tokens: Token[] = [];
+		state.md.inline.parse(matched.alt, state.md, state.env, tokens);
+		const token = state.push('image', 'img', 0);
+		token.attrs = [
+			['src', href],
+			['alt', ''],
+			['style', `width:${matched.widthPercent}%`]
+		];
+		token.children = tokens;
+		token.content = matched.alt;
+	}
+	state.pos = matched.end;
+	return true;
+});
+
 /** Full block render: paragraphs, headings, lists, the lot. Used for the entry read view. */
 export function renderMarkdown(
 	source: string,

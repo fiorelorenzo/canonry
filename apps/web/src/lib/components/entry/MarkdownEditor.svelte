@@ -53,6 +53,7 @@
 	import FormattingToolbar, { type FormatCommand } from './FormattingToolbar.svelte';
 	import MentionMenu from './MentionMenu.svelte';
 	import ImageInsertDialog, { type ImageInsertContext } from '../media/ImageInsertDialog.svelte';
+	import ImageWidthControl from './ImageWidthControl.svelte';
 	import EntryProseWithSecrets from '../players/EntryProseWithSecrets.svelte';
 	import { Segmented, type SegmentedOption } from '$lib/components/ui/segmented';
 	import {
@@ -69,6 +70,7 @@
 		type TextEdit
 	} from './editorState';
 	import { messages, type Locale } from '$lib/i18n';
+	import type { ImageWidthPercent } from '$lib/markdown';
 	// `MentionTarget` is imported by the module block above, whose scope this one sees.
 
 	let {
@@ -103,6 +105,7 @@
 
 	let textareaEl: HTMLTextAreaElement | undefined = $state();
 	let backdropEl: HTMLDivElement | undefined = $state();
+	let previewEl: HTMLDivElement | undefined = $state();
 	let caret = $state(0);
 	let dismissedTriggerStart = $state<number | null>(null);
 	let highlightedIndex = $state(0);
@@ -128,8 +131,11 @@
 		if (trigger) highlightedIndex = 0;
 	});
 
+	// R9, round thirteen (#384): raised from `min-h-64` so a short entry, in write or in
+	// preview, does not move the box under the switch that just changed it - the floor
+	// both modes share. The preview wrapper below caps its own images to match.
 	const editorBoxClasses =
-		'min-h-64 w-full resize-y whitespace-pre-wrap break-words px-4 py-3 text-[15px] leading-relaxed';
+		'min-h-96 w-full resize-y whitespace-pre-wrap break-words px-4 py-3 text-[15px] leading-relaxed';
 
 	function applyEdit(edit: TextEdit): void {
 		value = edit.source;
@@ -165,9 +171,12 @@
 
 	/** Passed to `ImageInsertDialog` as `onInsert`: the dialog already resolved which
 	 * asset (existing, or freshly generated and attached) and handed back the URL to
-	 * write - this just runs it through the same `applyEdit` every other command uses. */
-	function insertImageAtSelection(url: string): void {
-		applyEdit(insertImage(value, pendingImageSelection.start, pendingImageSelection.end, url));
+	 * write, plus the width the GM chose there (#384) - this just runs both through the
+	 * same `applyEdit` every other command uses. */
+	function insertImageAtSelection(url: string, widthPercent: ImageWidthPercent): void {
+		applyEdit(
+			insertImage(value, pendingImageSelection.start, pendingImageSelection.end, url, widthPercent)
+		);
 	}
 
 	function selectMention(target: MentionTarget): void {
@@ -280,10 +289,16 @@
 	{/if}
 
 	{#if preview && showPreview}
-		<!-- `min-h-64` is the writing box's own height, so switching does not make the
-		     page jump under the switch that caused it. -->
+		<!-- `min-h-96` is the writing box's own floor (R9, #384), so switching does not
+		     make the page jump under the switch that caused it. `[&_img]:max-h-64
+		     [&_img]:object-contain` is the other half of that fix: a portrait, at any
+		     chosen width, cannot grow the box past a sane cap here - the real entry page
+		     carries neither rule, only this preview does. `relative` is
+		     `ImageWidthControl`'s positioning context, the same contract
+		     `MentionPreview.svelte` already relies on inside `EntryProseWithSecrets`. -->
 		<div
-			class="min-h-64 rounded-b-lg border border-line-2 bg-panel px-4 py-3"
+			bind:this={previewEl}
+			class="relative min-h-96 rounded-b-lg border border-line-2 bg-panel px-4 py-3 [&_img]:max-h-64 [&_img]:object-contain"
 			role="region"
 			aria-label={t.entry.editor.view.previewAriaLabel}
 		>
@@ -295,6 +310,7 @@
 					publicMentionTargets={preview.publicMentionTargets}
 					{locale}
 				/>
+				<ImageWidthControl container={previewEl ?? null} {value} {locale} onApply={applyEdit} />
 			{:else}
 				<p class="text-sm text-muted">{t.entry.editor.view.previewEmpty}</p>
 			{/if}

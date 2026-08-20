@@ -50,6 +50,8 @@
 	import { messages, type Locale } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Dialog, DialogContent, DialogTitle } from '$lib/components/ui/dialog';
+	import { Segmented, type SegmentedOption } from '$lib/components/ui/segmented';
+	import { IMAGE_WIDTH_PERCENTS, type ImageWidthPercent } from '$lib/markdown';
 
 	// #258: a body image is a scene, not a portrait. This dialog used to offer the
 	// `portrait`/`variants` pair because those were the only two features with an
@@ -80,9 +82,12 @@
 		assets: ExistingAsset[];
 		aiEnabled: boolean;
 		scene: ImageInsertContext['scene'];
-		/** Called with the `/media/[id]` URL to write into the body; the dialog closes
-		 * itself right after. */
-		onInsert: (url: string) => void;
+		/** Called with the `/media/[id]` URL to write into the body, and the width the GM
+		 * picked below - R9, round thirteen (#384): one of the three widths this dialog
+		 * offers, always, so a fresh insert always carries an explicit choice rather than
+		 * leaning on "no suffix" as an implicit fourth one. The dialog closes itself right
+		 * after. */
+		onInsert: (url: string, widthPercent: ImageWidthPercent) => void;
 		locale: Locale;
 	} = $props();
 	let t = $derived(messages(locale));
@@ -92,6 +97,21 @@
 		return `${base}/${id}`;
 	}
 
+	// R9, round thirteen (#384). Full by default: that is what an image without a width
+	// suffix already renders as (the prose column's own measure), so leaving this alone
+	// changes nothing about how a first insert looks.
+	let widthChoice = $state<`${ImageWidthPercent}`>('100');
+	let widthOptions = $derived<SegmentedOption[]>(
+		IMAGE_WIDTH_PERCENTS.map((percent) => ({
+			value: `${percent}`,
+			label:
+				percent === 33
+					? t.entry.media.inBody.width.third
+					: percent === 67
+						? t.entry.media.inBody.width.twoThirds
+						: t.entry.media.inBody.width.full
+		}))
+	);
 	let generating = $state(false);
 	let inserting = $state(false);
 	let error = $state<string | null>(null);
@@ -125,7 +145,7 @@
 	}
 
 	function pickExisting(assetId: string): void {
-		onInsert(imageUrl(assetId));
+		onInsert(imageUrl(assetId), Number(widthChoice) as ImageWidthPercent);
 		close();
 	}
 
@@ -149,7 +169,7 @@
 			// Same as `useGenerated` below: bring the new row into `assets` for the next open,
 			// then hand the URL back to the editor, which places it at the caret.
 			await invalidateAll();
-			onInsert(imageUrl(asset.id));
+			onInsert(imageUrl(asset.id), Number(widthChoice) as ImageWidthPercent);
 			close();
 		} catch (err) {
 			error = err instanceof Error ? err.message : t.entry.media.upload.genericUploadFailed;
@@ -201,7 +221,7 @@
 			// `body`'s own state on the edit page survives this (it only seeds once, per
 			// that component's `state_referenced_locally` comment).
 			await invalidateAll();
-			onInsert(url);
+			onInsert(url, Number(widthChoice) as ImageWidthPercent);
 			close();
 		} catch (err) {
 			error = err instanceof Error ? err.message : t.entry.media.inBody.attachFailed;
@@ -227,6 +247,19 @@
 				</p>
 			{/if}
 
+			<!-- R9, round thirteen (#384): one choice, shared by all three ways to leave this
+			     dialog with a URL - existing, upload, generate - because the width belongs to
+			     the insert, not to which source produced the picture. -->
+			<h4 class="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">
+				{t.entry.media.inBody.width.heading}
+			</h4>
+			<Segmented
+				name="image-width"
+				bind:value={widthChoice}
+				options={widthOptions}
+				ariaLabel={t.entry.media.inBody.width.ariaLabel}
+				class="mt-2"
+			/>
 			<h4 class="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">
 				{t.entry.media.inBody.existingHeading}
 			</h4>
