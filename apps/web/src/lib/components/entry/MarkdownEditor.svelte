@@ -100,7 +100,8 @@
 		targets,
 		locale,
 		imageInsert,
-		preview
+		preview,
+		fill = false
 	}: {
 		value: string;
 		targets: MentionTarget[];
@@ -112,8 +113,27 @@
 		/** Round twelve, Q4: present means this editor has a reading surface to agree
 		 * with, and gains the write/preview switch. Absent means write only. */
 		preview?: EditorPreviewContext;
+		/** S7, round fourteen (#412): only the entry route passes this. It turns the
+		 * whole component into a flex column that stretches to its parent's height, so
+		 * the box (write or preview) grows into whatever the toolbar and the rows below
+		 * it leave rather than sitting at `min-h-96`'s floor with paper below. The
+		 * works/node editor has no full-height column to grow into and stays at the
+		 * floor, exactly as before. */
+		fill?: boolean;
 	} = $props();
 	let t = $derived(messages(locale));
+	// Only the two container divs below need this - the writing box (write mode) and
+	// the preview box (preview mode) - so they keep growing to the same available
+	// space and stay the same height as each other (R9, #384) at any viewport.
+	// `min-h-96` (not `min-h-0`) on the wrapper itself: both wrappers already carry
+	// `overflow-hidden`/`overflow-y-auto`, which the flex spec already treats as an
+	// automatic minimum size of 0, so nothing here needs to force that down further.
+	// What it does need is the same 384px floor `editorBoxClasses` puts on the
+	// textarea, so a short viewport can't hand this wrapper less space than its own
+	// child's floor and clip the overflow - the whole page grows past the viewport
+	// and `main`'s own scroll (`AppShell.svelte`) takes it from there, same as any
+	// other page that runs long.
+	let fillClasses = $derived(fill ? 'flex-1 min-h-96' : '');
 
 	// A plain string because that is what `Segmented` binds: it is a group of native
 	// radios, whose value is a string, and narrowing it to a union here would buy nothing
@@ -156,8 +176,14 @@
 	// R9, round thirteen (#384): raised from `min-h-64` so a short entry, in write or in
 	// preview, does not move the box under the switch that just changed it - the floor
 	// both modes share. The preview wrapper below caps its own images to match.
+	// `h-full` is S7, round fourteen (#412): when `fill` gives the box div a definite
+	// height (see `fillClasses` above), this lets the textarea and its backdrop reach
+	// it. `min-h-96` still wins as a floor when that height is under 384px, per CSS's
+	// own `max(height, min-height)` rule - and when there is no `fill` ancestor with a
+	// definite height at all (the works/node editor), a percentage height resolves to
+	// `auto`, so nothing here changes for that caller.
 	const editorBoxClasses =
-		'min-h-96 w-full resize-y whitespace-pre-wrap break-words px-4 py-3 text-[15px] leading-relaxed';
+		'h-full min-h-96 w-full resize-y whitespace-pre-wrap break-words px-4 py-3 text-[15px] leading-relaxed';
 
 	function applyEdit(edit: TextEdit): void {
 		value = edit.source;
@@ -244,13 +270,13 @@
 	}
 </script>
 
-<div>
+<div class={fill ? 'flex min-h-0 flex-1 flex-col' : undefined}>
 	<!-- One bar over the box, holding the formatting toolbar at one end and, where there
 	     is a reading surface to agree with, the write/preview switch at the other. The
 	     chrome lives here rather than in `FormattingToolbar` so both halves sit inside the
 	     same border; it wraps at 390px, where the switch drops under the icons. -->
 	<div
-		class="flex flex-wrap items-center justify-between gap-2 rounded-t-lg border border-b-0 border-line-2 bg-panel-2 p-1.5"
+		class="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-t-lg border border-b-0 border-line-2 bg-panel-2 p-1.5"
 	>
 		<FormattingToolbar
 			onCommand={runCommand}
@@ -273,7 +299,7 @@
 	</div>
 
 	<div
-		class="relative overflow-hidden rounded-b-lg border border-line-2 bg-panel"
+		class="{fillClasses} relative overflow-hidden rounded-b-lg border border-line-2 bg-panel"
 		class:hidden={showPreview}
 	>
 		<div
@@ -318,10 +344,16 @@
 		     chosen width, cannot grow the box past a sane cap here - the real entry page
 		     carries neither rule, only this preview does. `relative` is
 		     `ImageWidthControl`'s positioning context, the same contract
-		     `MentionPreview.svelte` already relies on inside `EntryProseWithSecrets`. -->
+		     `MentionPreview.svelte` already relies on inside `EntryProseWithSecrets`.
+		     `fillClasses` is S7 (#412): the write box and this box grow to the same
+		     height, and `overflow-y-auto` gives this one its own internal scroll for
+		     content past that height, the same job the write box's native textarea
+		     scrolling already does. -->
 		<div
 			bind:this={previewEl}
-			class="relative min-h-96 rounded-b-lg border border-line-2 bg-panel px-4 py-3 [&_img]:max-h-64 [&_img]:object-contain"
+			class="{fillClasses} relative min-h-96 rounded-b-lg border border-line-2 bg-panel px-4 py-3 [&_img]:max-h-64 [&_img]:object-contain{fill
+				? ' overflow-y-auto'
+				: ''}"
 			role="region"
 			aria-label={t.entry.editor.view.previewAriaLabel}
 		>
