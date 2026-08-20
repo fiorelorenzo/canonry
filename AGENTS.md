@@ -189,13 +189,32 @@ reaches a real stack a few minutes later. Merging a wave one PR at a time queues
 deploy per merge, and `deploy.yml`'s concurrency group cancels the superseded ones, which is
 expected rather than a failure to chase.
 
-**Two things collide between worktrees that are not the database.** The first is your own file
+**`git stash` is shared between worktrees, and it will swap two agents' work.** This is the
+worst collision found so far because nothing about it looks like a collision: `refs/stash`
+lives in the one `.git` directory every worktree of this repo shares, so it is a single stack
+rather than one per tree. On 2026-08-20 two agents ran `git stash push` seconds apart to take
+a before/after measurement, and each `pop` returned the other's diff: #412's two files landed
+applied in #409's worktree and #409's four in #412's. Both noticed only because `git status`
+listed files they had never touched. **Never `git stash` in a worktree while a wave is
+running.** For a before/after, `git diff > /tmp/mine.patch`, then `git checkout -- <files>`,
+then `git apply` to come back: purely local, no shared ref. `git show HEAD:<path>` reads the
+old version without touching the tree at all, and https://preview.canonry.io is `main` a few
+minutes old when what you need is a rendered baseline. If a pop has already gone wrong, the
+lost entry is usually still a dangling commit: `git fsck --unreachable` and look for `WIP on
+w<issue>`.
+
+**Two more things collide between worktrees that are not the database.** The first is your own file
 tools: a relative path resolves against the session's working directory, not the worktree, and
 in the first parallel wave three agents wrote part of their change into the main checkout that
-way. It happened again in round thirteen's two waves, to three more agents, and each of them
-caught it themselves within a few edits, so treat it as the default failure rather than an
-unlucky one: absolute paths under your own worktree for every read and edit, and if it happens
-anyway, say so immediately rather than reverting somebody else's uncommitted work by reflex.
+way. It happened again in round thirteen's two waves and again in round fourteen's, to five
+more agents across the three, and every one of them caught it themselves within a few edits,
+so treat it as the default failure rather than an unlucky one: absolute paths under your own
+worktree for every read and edit, and check `git status --short` in your own tree after a
+write when you are not sure. When it happens, say so immediately rather than reverting
+somebody else's uncommitted work by reflex: on 2026-08-20 #408's whole change was sitting in
+the main checkout, and the fix was one `git diff > /tmp/patch` there and one `git apply` in
+the worktree, with nothing retyped. The symptom to recognise is an edit tool reporting success
+while `git diff` in your worktree shows nothing: the write landed, in the other tree.
 The orchestrator's half of that lesson is sharper: **never `git add -A` in the main checkout
 while a wave is running.** On 2026-08-20 that swept three of #385's stray files into #399's
 commit, and the fix was a `reset --soft`, a `restore` of the four files and a force-push on a
