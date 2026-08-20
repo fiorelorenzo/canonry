@@ -1,5 +1,5 @@
 /**
- * issue #380, decision R5: `parseAskRequestBody`'s own contract - the wire shape
+ * issue #380, decision R5: `_parseAskRequestBody`'s own contract - the wire shape
  * `history`/`context` add to `POST /w/<universe>/ask`. Exercised directly, without a live
  * database or a real request, because the function itself takes neither (see its own
  * comment in `+server.ts`): the point of this file is the validate-then-clamp behaviour,
@@ -8,17 +8,17 @@
  */
 import { describe, expect, it } from 'vitest';
 import { MAX_HISTORY_TURNS, MAX_HISTORY_TURN_CHARS } from '@canonry/copilot';
-import { parseAskRequestBody } from './+server.js';
+import { _parseAskRequestBody } from './+server.js';
 
-describe('parseAskRequestBody (issue #380, decision R5)', () => {
+describe('_parseAskRequestBody (issue #380, decision R5)', () => {
 	it('rejects a missing or blank question, the one field this route still 400s on', () => {
-		expect(parseAskRequestBody({})).toBeNull();
-		expect(parseAskRequestBody({ question: '   ' })).toBeNull();
-		expect(parseAskRequestBody({ question: 42 })).toBeNull();
+		expect(_parseAskRequestBody({})).toBeNull();
+		expect(_parseAskRequestBody({ question: '   ' })).toBeNull();
+		expect(_parseAskRequestBody({ question: 42 })).toBeNull();
 	});
 
 	it('defaults detailLevel, history and context when the body carries none of them', () => {
-		const parsed = parseAskRequestBody({ question: '  Why was Aldric Vane dismissed?  ' });
+		const parsed = _parseAskRequestBody({ question: '  Why was Aldric Vane dismissed?  ' });
 		expect(parsed).toEqual({
 			question: 'Why was Aldric Vane dismissed?',
 			detailLevel: 'normal',
@@ -28,7 +28,7 @@ describe('parseAskRequestBody (issue #380, decision R5)', () => {
 	});
 
 	it('keeps a well-formed history in order, oldest first, under the cap', () => {
-		const parsed = parseAskRequestBody({
+		const parsed = _parseAskRequestBody({
 			question: 'Who commands the watch now?',
 			history: [
 				{ role: 'gm', text: 'What happened to the old commander?' },
@@ -48,7 +48,7 @@ describe('parseAskRequestBody (issue #380, decision R5)', () => {
 			text: `turn ${i}`
 		}));
 
-		const parsed = parseAskRequestBody({ question: 'Who commands the watch now?', history });
+		const parsed = _parseAskRequestBody({ question: 'Who commands the watch now?', history });
 		expect(parsed).not.toBeNull();
 		expect(parsed?.history).toHaveLength(MAX_HISTORY_TURNS);
 		expect(parsed?.history.map((turn) => turn.text)).toEqual(
@@ -61,7 +61,7 @@ describe('parseAskRequestBody (issue #380, decision R5)', () => {
 
 	it('truncates an over-long turn at the cap rather than rejecting the request', () => {
 		const longText = 'a'.repeat(MAX_HISTORY_TURN_CHARS + 500);
-		const parsed = parseAskRequestBody({
+		const parsed = _parseAskRequestBody({
 			question: 'Who commands the watch now?',
 			history: [{ role: 'gm', text: longText }]
 		});
@@ -69,7 +69,7 @@ describe('parseAskRequestBody (issue #380, decision R5)', () => {
 	});
 
 	it('falls back to an empty history on a malformed shape, without rejecting the question', () => {
-		const parsed = parseAskRequestBody({
+		const parsed = _parseAskRequestBody({
 			question: 'Who commands the watch now?',
 			history: [{ role: 'narrator', text: 'not a real role' }]
 		});
@@ -78,24 +78,24 @@ describe('parseAskRequestBody (issue #380, decision R5)', () => {
 	});
 
 	it('carries a well-formed entry context through, and a world context with no entityType', () => {
-		const entry = parseAskRequestBody({
+		const entry = _parseAskRequestBody({
 			question: 'Why was he dismissed?',
 			context: { kind: 'entry', name: 'Aldric Vane', entityType: 'character' }
 		});
 		expect(entry?.context).toEqual({ kind: 'entry', name: 'Aldric Vane', entityType: 'character' });
 
-		const world = parseAskRequestBody({
+		const world = _parseAskRequestBody({
 			question: 'What is going on?',
 			context: { kind: 'world', name: 'Valdoria Reach' }
 		});
 		expect(world?.context).toEqual({ kind: 'world', name: 'Valdoria Reach' });
 
-		const explicitNull = parseAskRequestBody({ question: 'What is going on?', context: null });
+		const explicitNull = _parseAskRequestBody({ question: 'What is going on?', context: null });
 		expect(explicitNull?.context).toBeNull();
 	});
 
 	it('falls back to a null context on a malformed shape, without rejecting the question', () => {
-		const parsed = parseAskRequestBody({
+		const parsed = _parseAskRequestBody({
 			question: 'Why was he dismissed?',
 			context: { kind: 'faction', name: 'The Ashen Ledger' }
 		});

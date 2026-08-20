@@ -64,10 +64,12 @@ export interface ParsedAskRequest {
  * below when it is not one of the five real levels - a client-side bug in a decoration (the
  * transcript, the context line) should never cost the GM their actual question.
  *
- * Exported, and free of `request`/`db`, so this route's own schema tests can exercise it
- * directly, without a live database or a real POST.
+ * Exported (with the `_` prefix SvelteKit requires on a `+server.ts` export that is not a
+ * method handler - anything else fails the framework's own build-time export check), and
+ * free of `request`/`db`, so this route's own schema tests can exercise it directly,
+ * without a live database or a real POST.
  */
-export function parseAskRequestBody(body: unknown): ParsedAskRequest | null {
+export function _parseAskRequestBody(body: unknown): ParsedAskRequest | null {
 	const question =
 		body && typeof body === 'object' && 'question' in body && typeof body.question === 'string'
 			? body.question.trim()
@@ -99,7 +101,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	const access = await universeAccessBySlug(conn, params.universe, locals.user.id);
 	if (!access) error(404, `no universe called "${params.universe}"`);
 
-	const parsed = parseAskRequestBody(await request.json());
+	const parsed = _parseAskRequestBody(await request.json());
 	if (!parsed) error(400, messages(locals.locale).universe.ask.questionRequired);
 	const { question, detailLevel, history, context } = parsed;
 
