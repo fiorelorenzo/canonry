@@ -18,6 +18,7 @@
 	 * shows next, and the sheet carries the same five sections with the same labels.
 	 */
 	import { resolve } from '$app/paths';
+	import { invalidateAll } from '$app/navigation';
 	import { messages } from '$lib/i18n';
 	import EntryProseWithSecrets from '$lib/components/players/EntryProseWithSecrets.svelte';
 	import EntrySections, {
@@ -29,6 +30,8 @@
 	import { coverSlot } from '$lib/components/media/cover-crop';
 	import CompleteEntryControl from '$lib/components/entry/CompleteEntryControl.svelte';
 	import AuditFlagBadge from '$lib/components/audit/AuditFlagBadge.svelte';
+	import InlineProposalReview from '$lib/components/proposals/InlineProposalReview.svelte';
+	import ModelRunning from '$lib/components/copilot/ModelRunning.svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import type { FactRow } from '$lib/components/entry/FactsPanel.svelte';
 	import type { FactSpan } from '$lib/markdown';
@@ -40,6 +43,26 @@
 	let activeFact = $state<FactRow | null>(null);
 	let sectionsOpen = $state<SectionOpenState>({ ...DEFAULT_SECTIONS_OPEN });
 	let detailsOpen = $state(false);
+
+	// #345: the two pieces the proposal region needs from the generator beside the title.
+	// `completing` puts the spinner where the draft will land instead of beside the button,
+	// and `reviewRegion` is what lets a finished draft take focus, so the keyboard path is
+	// "Complete entry, then a" with no Tab in between.
+	let completing = $state(false);
+	let reviewRegion = $state<ReturnType<typeof InlineProposalReview> | null>(null);
+
+	// An accept re-runs `load`, and the accepted proposal is no longer pending, so the region
+	// would unmount the moment it succeeded and take C6's undo window with it. This keeps it
+	// mounted for as long as we are still on the entry it did that work for, and drops it the
+	// moment the route swaps to another entry (SvelteKit reuses this component across
+	// `/e/<slug>` navigations, so a flag alone would carry the previous entry's card over).
+	let regionEntityId = $state<string | null>(null);
+	$effect(() => {
+		if (data.proposals.reviewable.length > 0) regionEntityId = data.entity.id;
+	});
+	let regionMounted = $derived(
+		data.proposals.reviewable.length > 0 || regionEntityId === data.entity.id
+	);
 
 	function toggleFact(fact: FactRow): void {
 		activeFact = activeFact?.id === fact.id ? null : fact;
@@ -149,7 +172,12 @@
 				</div>
 			</div>
 			<div class="flex flex-none items-start gap-2">
-				<CompleteEntryControl aiEnabled={data.universe.aiEnabled} locale={data.locale} />
+				<CompleteEntryControl
+					aiEnabled={data.universe.aiEnabled}
+					locale={data.locale}
+					bind:running={completing}
+					onDrafted={() => reviewRegion?.focusRegion()}
+				/>
 				<a
 					href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}/edit`)}
 					class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
@@ -159,21 +187,47 @@
 			</div>
 		</div>
 
-		{#if data.proposals.count > 0}
-			<!-- C1 = B: the marking below is the "unmistakable" cue on the sentences
-			     themselves; this line is the discoverable path from noticing a marker to
-			     actually reading the diff (#51), not a second marking treatment. -->
-			<a
-				href={data.proposals.planId
-					? resolve(`/w/${data.universe.slug}/proposals/${data.proposals.planId}`)
-					: resolve(`/w/${data.universe.slug}/proposals`)}
-				class="mb-6 flex items-center gap-2 rounded-md border border-ai-line bg-ai-bg px-3 py-2 text-sm text-ink-2 hover:brightness-95"
-			>
-				<span class="font-mono text-xs font-bold text-ai">{data.proposals.count}</span>
-				<span>
-					{t.entry.page.pendingProposalsText(data.proposals.count)}
-				</span>
-			</a>
+		<!-- #345: the review region, where the band used to point away from the page. C1 = B's
+		     marking on the sentences below is still the "unmistakable" cue that something is
+		     proposed; this is now the place the decision is actually made, in the reading
+		     context, rather than a signpost to a screen that has it. The inbox and the plan
+		     queue are unchanged and still own the twelve-at-once case (C2). -->
+		{#if completing || regionMounted || data.proposals.awaitingDiff.count > 0}
+			<div class="mb-6">
+				{#if completing}
+					<!-- The wait happens where the result will land, not up beside the button. -->
+					<div class="rounded-lg border border-line bg-panel-2 p-3">
+						<ModelRunning label={t.entry.complete.running} locale={data.locale} />
+					</div>
+				{/if}
+				{#if regionMounted}
+					<InlineProposalReview
+						bind:this={reviewRegion}
+						candidates={data.proposals.reviewable}
+						universeSlug={data.universe.slug}
+						locale={data.locale}
+						onDecided={() => invalidateAll()}
+					/>
+				{/if}
+				{#if data.proposals.awaitingDiff.count > 0}
+					<!-- C3: a candidate with no drafted text yet is a decision about spending, and
+					     that decision belongs on the plan's checklist. Accepting an empty diff in
+					     place would be accepting something nobody could read. -->
+					<p class="mb-0 text-xs text-muted">
+						{t.proposals.inline.awaitingDiff(data.proposals.awaitingDiff.count)}
+						<a
+							class="text-accent hover:underline"
+							href={data.proposals.awaitingDiff.planId
+								? resolve(
+										`/w/${data.universe.slug}/proposals/${data.proposals.awaitingDiff.planId}`
+									)
+								: resolve(`/w/${data.universe.slug}/proposals`)}
+						>
+							{t.proposals.inline.awaitingDiffLink}
+						</a>
+					</p>
+				{/if}
+			</div>
 		{/if}
 
 		<EntryProseWithSecrets

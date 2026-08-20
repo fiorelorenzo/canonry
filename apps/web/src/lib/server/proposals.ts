@@ -745,6 +745,83 @@ export async function pendingUpdateProposalsForEntity(
 }
 
 // ---------------------------------------------------------------------------
+// #345: the same rows again, but resolved and enriched, so a proposal can be reviewed on
+// the entry it targets instead of on a separate screen. Two rules decide what is allowed
+// in there, both of them guardrail 1 read carefully:
+//
+//  - one entry only. `targetEntityId` is the filter, so a region rendered on an entry can
+//    never show, let alone accept, a change to a different entry.
+//  - a drafted patch only. A propagation candidate exists before its diff does (C3's
+//    checklist is where those live, `hasNoDiffYet` in propagate.ts is the same test), and
+//    showing an empty diff with an Accept button beside it is exactly the "accepted
+//    something they did not read" this product refuses. Those stay counted and keep their
+//    link to the plan.
+// ---------------------------------------------------------------------------
+
+/** Empty `{}` is what `createProposalPlan` writes for a candidate whose diff has not been
+ * generated yet, and what `dropCandidateFromPlan`/`recordProposalDiff` in `@canonry/db`
+ * already use to tell an undiffed candidate apart from a drafted one. */
+function hasDraftedPatch(patch: unknown): boolean {
+	if (typeof patch !== 'object' || patch === null || Array.isArray(patch)) return false;
+	const record = patch as Record<string, unknown>;
+	return typeof record.after === 'string' || typeof record.body === 'string';
+}
+
+export interface EntityReviewProposals {
+	/** Ready to review in place, focused one at a time, newest last so the one just
+	 * generated is the one the region lands on. */
+	reviewable: DiffCandidate[];
+	/** Pending on this entry with no drafted text yet: a count and the plan that owns them,
+	 * which is where C3 says the decision to spend on a diff belongs. */
+	awaitingDiff: { count: number; planId: string | null };
+}
+
+export async function reviewableProposalsForEntity(
+	db: Db,
+	universeId: string,
+	entityId: string
+): Promise<EntityReviewProposals> {
+	const rows = await db
+		.select()
+		.from(proposal)
+		.where(
+			and(
+				eq(proposal.universeId, universeId),
+				eq(proposal.targetEntityId, entityId),
+				eq(proposal.kind, 'update'),
+				eq(proposal.outcome, 'pending')
+			)
+		)
+		.orderBy(proposal.createdAt);
+
+	const drafted = rows.filter((row) => hasDraftedPatch(row.patch));
+	const undrafted = rows.filter((row) => !hasDraftedPatch(row.patch));
+	const candidates = await resolveCandidates(db, drafted);
+
+	return {
+		reviewable: enrichCandidates(candidates),
+		awaitingDiff: {
+			count: undrafted.length,
+			planId: undrafted.find((row) => row.planId !== null)?.planId ?? null
+		}
+	};
+}
+
+/** One proposal, enriched exactly like the queue's own rows, for a surface that knows a
+ * proposal id and nothing else (Ask's drafted-proposal card). Universe-scoped: a proposal
+ * belonging to another universe reads as absent, never as forbidden-but-real. */
+export async function reviewableProposalById(
+	db: Db,
+	universeId: string,
+	proposalId: string
+): Promise<DiffCandidate | null> {
+	const row = await getProposal(db, proposalId);
+	if (!row || row.universeId !== universeId) return null;
+	const [candidate] = await resolveCandidates(db, [row]);
+	return candidate ? enrichCandidate(candidate) : null;
+}
+
+// ---------------------------------------------------------------------------
 // #106: the changed-sentence set the entry page's marking needs, derived from a live
 // re-diff against the entity's current body rather than the proposal's stored `before`
 // snapshot - the entry always marks what a proposal would actually change *now*, which

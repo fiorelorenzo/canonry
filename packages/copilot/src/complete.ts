@@ -14,7 +14,12 @@
  */
 import { chargeFor, resolveModel, withQuota } from '@canonry/ai';
 import type { Db } from '@canonry/db';
-import { createProposalPlan, recordProposalDiff, relationTypesForUniverse } from '@canonry/db';
+import {
+	createProposalPlan,
+	recordProposalDiff,
+	relationTypesForUniverse,
+	setProposalPlanStatus
+} from '@canonry/db';
 import type { ProposalRow } from '@canonry/db';
 import { canonLanguageFor, type Locale } from '@canonry/lang';
 import { generateObject } from 'ai';
@@ -219,7 +224,6 @@ export async function completeEntry(input: CompleteEntryInput): Promise<Complete
 			}
 		]
 	});
-	void plan;
 	const candidate = proposals[0];
 	if (!candidate) throw new Error('completeEntry: createProposalPlan returned no proposal');
 
@@ -230,6 +234,14 @@ export async function completeEntry(input: CompleteEntryInput): Promise<Complete
 		modelId: premiumModel.resolved.modelId,
 		credits: price.credits
 	});
+
+	// Issue #345: this plan's one diff exists the moment the line above returns, so the plan
+	// is spent, exactly as `draftEntityUpdate` in ask-propose.ts marks its own. Left at
+	// `ready` the plan page showed C3's checklist for a candidate that already had its prose,
+	// so reviewing a completion meant clicking "Generate diffs" (advertising a second charge
+	// it would not actually make, since `generatePlanDiffs` skips a candidate that has a
+	// patch) before the queue would even render the diff.
+	await setProposalPlanStatus(input.db, plan.id, 'spent');
 
 	return { proposal, evidence };
 }

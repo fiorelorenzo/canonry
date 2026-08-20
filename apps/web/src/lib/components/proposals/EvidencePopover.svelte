@@ -58,8 +58,14 @@
 			{t.button}
 		</button>
 		{#if open}
+			<!-- Issue #345: below `sm` the floating box is 288px anchored to a word that can sit
+			     anywhere on the line, so it hung 40px past the right edge and over the Accept
+			     button - measured at 390px on the plan queue, and the same box now renders on
+			     the entry itself, where a forced-open caveat (guardrail 3) is unmissable and
+			     therefore unmissably in the way. On a phone it stops floating and takes its own
+			     line under the sentence instead. -->
 			<span
-				class="pop absolute top-full left-0 z-10 mt-1 w-72 rounded-md border border-ai-line bg-panel p-3 text-xs shadow-lg"
+				class="pop z-10 mt-1 w-72 rounded-md border border-ai-line bg-panel p-3 text-xs shadow-lg max-sm:mt-2 max-sm:block max-sm:w-full sm:absolute sm:top-full sm:left-0"
 			>
 				{#if caveat !== null}
 					<span

@@ -27,7 +27,11 @@ export const en: Messages = {
 	controls: {
 		search: 'Search',
 		noMatch: 'No match',
-		apply: 'Apply'
+		apply: 'Apply',
+		modelRunning: {
+			elapsed: (seconds) => `${seconds}s`,
+			slow: 'A long draft can take a minute.'
+		}
 	},
 	shell: {
 		skipToContent: 'Skip to content',
@@ -457,11 +461,7 @@ export const en: Messages = {
 	entry: {
 		page: {
 			editLink: 'Edit',
-			aliasesLabel: (aliases) => `also: ${aliases}`,
-			pendingProposalsText: (count) =>
-				count === 1
-					? 'pending proposal on this entry \u00b7 review'
-					: 'pending proposals on this entry \u00b7 review'
+			aliasesLabel: (aliases) => `also: ${aliases}`
 		},
 
 		secrets: {
@@ -488,9 +488,8 @@ export const en: Messages = {
 
 		complete: {
 			button: 'Complete entry',
-			completing: 'Completing\u2026',
+			running: 'The Loremaster is drafting this entry',
 			empty: 'Nothing to complete right now.',
-			drafted: 'Drafted an update - now a pending proposal below.',
 			genericFailure: 'Complete could not run.',
 			aiOff: 'Writing is switched off for this universe.'
 		},
@@ -894,9 +893,30 @@ export const en: Messages = {
 			save: 'Save'
 		},
 
+		inline: {
+			regionLabel: 'Proposals waiting on this entry',
+			heading: (pending) =>
+				pending === 1 ? '1 proposal to review' : `${pending} proposals to review`,
+			headingSettled: 'Nothing waiting here',
+			position: (index, total) => `${index} of ${total}`,
+			keys: 'move, accept, reject, undo',
+			acceptedNote: 'Accepted, and it is canon above.',
+			failed: (message) => `That decision did not go through: ${message}`,
+			awaitingDiff: (count) =>
+				count === 1
+					? '1 candidate on this entry has no draft yet.'
+					: `${count} candidates on this entry have no draft yet.`,
+			awaitingDiffLink: 'open the plan'
+		},
+
 		errors: {
 			noDiffsToGenerate:
-				'This plan has no edited entry, so there are no propagation diffs to generate'
+				'This plan has no edited entry, so there are no propagation diffs to generate',
+			proposalNotFound: 'No such proposal in this universe.',
+			unknownAction: 'Unknown decision.',
+			viewerCannotDecide: 'Read-only access cannot decide a proposal.',
+			missingRejectReason: 'That reject reason is missing.',
+			notRejected: 'This proposal is not rejected.'
 		}
 	},
 

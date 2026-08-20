@@ -18,6 +18,7 @@
 	 * "open in Ask" handing over an answer that already streamed. That is G5's expand in
 	 * place, so the arrival re-renders rather than re-asks, and nothing is spent twice.
 	 */
+	import { untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -26,6 +27,9 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import AiMarkedParagraph from '$lib/components/ai/AiMarkedParagraph.svelte';
+	import InlineProposalReview from '$lib/components/proposals/InlineProposalReview.svelte';
+	import type { DiffCandidateView } from '$lib/components/proposals/ProposalDiffCard.svelte';
+	import { fetchCandidate } from '$lib/proposals/inline';
 	import {
 		ASK_DETAIL_LEVELS,
 		keepAnswer,
@@ -69,6 +73,14 @@
 	let keeping = $state(false);
 	let keptId = $state<string | null>(null);
 	let keepError = $state<string | null>(null);
+
+	// #345: an answer that drafted something used to end in a link to the plan screen, which
+	// is the same "here is a signpost, go elsewhere to act" the entry page had. The diff for
+	// each drafted proposal is fetched here and reviewed in place, in the same region and the
+	// same card the entry page and the inbox use. One proposal per card, still one accept per
+	// entry: nothing here decides more than the card a GM is reading.
+	let inlineCandidates = $state<Record<string, DiffCandidateView>>({});
+	let inlineUnavailable = $state<Record<string, true>>({});
 
 	async function keep() {
 		if (keeping || keptId !== null || askAnswer.length === 0) return;
@@ -116,6 +128,23 @@
 	function closePanel() {
 		panelEntry = null;
 	}
+
+	// One GET per drafted proposal, the first time it is seen. A failure is not an error the
+	// GM has to read: the card falls back to the plan link it used to carry, so a proposal is
+	// never left with no way to reach its own review.
+	$effect(() => {
+		for (const proposal of askProposals) {
+			const id = proposal.proposalId;
+			if (untrack(() => inlineCandidates[id] !== undefined || inlineUnavailable[id])) continue;
+			void fetchCandidate(data.universeSlug, id)
+				.then((candidate) => {
+					inlineCandidates[id] = candidate;
+				})
+				.catch(() => {
+					inlineUnavailable[id] = true;
+				});
+		}
+	});
 
 	async function ask(nextQuestion?: string) {
 		const q = (nextQuestion ?? question).trim();
@@ -341,7 +370,18 @@
 						<div class="mt-1">
 							<AiMarkedParagraph segments={[{ text: proposal.summary, proposed: true }]} />
 						</div>
-						{#if proposal.planId}
+						<!-- #345: the diff, the evidence and the accept, here. The plan link stays as
+						     the fallback for the case where fetching the diff failed, so a drafted
+						     proposal always has some way to reach a review. -->
+						{#if inlineCandidates[proposal.proposalId]}
+							<div class="mt-2">
+								<InlineProposalReview
+									candidates={[inlineCandidates[proposal.proposalId]]}
+									universeSlug={data.universeSlug}
+									locale={data.locale}
+								/>
+							</div>
+						{:else if proposal.planId}
 							<a
 								href={resolve(`/w/${data.universeSlug}/proposals/${proposal.planId}`)}
 								class="mt-1 inline-block text-[11px] text-ink-2 underline"
