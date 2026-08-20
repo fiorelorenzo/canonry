@@ -19,6 +19,14 @@
 	 *
 	 * The hint in the footer is not decoration either: a bare-key shortcut nobody can see is a
 	 * shortcut for whoever already knew, which is what C6's own keyboard row is for.
+	 *
+	 * #367 (Q6) reached this file for colour only, and the rest of the motion pass
+	 * deliberately did not. Rows do not stagger in, a page change does not slide, and the
+	 * sort arrow does not travel: `j`/`k` walk this table one row at a time and anything
+	 * with a duration on it would put itself between the key and the row. The two places
+	 * colour now crosses instead of snapping are the row under focus and the header link
+	 * under the pointer, both on the fade token, which reduced motion keeps because a
+	 * value changing in place is not travel.
 	 */
 	import { resolve } from '$app/paths';
 	import type { EntityBrowserSort } from '@canonry/db';
@@ -149,7 +157,7 @@
 					>
 						<a
 							href={headerHref(column)}
-							class="inline-flex items-center gap-1 hover:text-ink"
+							class="inline-flex items-center gap-1 transition-colors hover:text-ink"
 							class:text-ink={active}
 							title={t.sortBy(column.label)}
 						>
@@ -164,12 +172,14 @@
 		</thead>
 		<tbody>
 			{#each rows as row (row.id)}
-				<tr class="border-b border-line last:border-b-0 focus-within:bg-accent-bg">
+				<tr
+					class="border-b border-line transition-colors last:border-b-0 focus-within:bg-accent-bg"
+				>
 					<td class="max-w-measure px-3 py-2">
 						<a
 							data-row-link
 							href={resolve(`/w/${universeSlug}/e/${row.slug}`)}
-							class="font-medium text-ink hover:text-accent focus-visible:underline"
+							class="font-medium text-ink transition-colors hover:text-accent focus-visible:underline"
 						>
 							{row.name}
 						</a>

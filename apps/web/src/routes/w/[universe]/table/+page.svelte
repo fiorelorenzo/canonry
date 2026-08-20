@@ -234,15 +234,23 @@
 />
 
 <main class="mx-auto flex max-w-4xl flex-col gap-5 px-4 py-5">
+	<!-- #367 (Q6): four things on this page arrive rather than being there, and all four
+	     are the decision's own cases. This banner and the toast below it are a state that
+	     changed where a GM mid-session would otherwise wonder whether the tap registered;
+	     the two forms further down are panels expanding in place. Nothing leaves on an
+	     animation: at a table an action has to be over when the finger lifts. Table mode
+	     never renders `ModelRunning`, so none of this competes with a model. -->
 	{#if sessionEndedBanner}
-		<div class="rounded-md border border-line-2 bg-panel-2 p-3 text-sm text-ink-2">
+		<div
+			class="animate-in rounded-md border border-line-2 bg-panel-2 p-3 text-sm text-ink-2 duration-move ease-arrive fade-in-0 slide-in-from-top-1"
+		>
 			{sessionEndedBanner}
 		</div>
 	{/if}
 
 	{#if toast}
 		<div
-			class="rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-sm text-ink-2"
+			class="animate-in rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-sm text-ink-2 duration-move ease-arrive fade-in-0 slide-in-from-top-1"
 			role="status"
 		>
 			{toast}
@@ -250,15 +258,17 @@
 	{/if}
 
 	{#if showDeclareForm}
-		<DeclareContext
-			places={data.places}
-			sessions={data.sessions}
-			initialPlaceId={context?.placeEntityId ?? null}
-			initialSessionId={context?.sessionEntityId ?? null}
-			locale={data.locale}
-			onDeclare={declareContext}
-			onCancel={() => (showDeclareForm = false)}
-		/>
+		<div class="animate-in duration-move ease-arrive fade-in-0 slide-in-from-top-1">
+			<DeclareContext
+				places={data.places}
+				sessions={data.sessions}
+				initialPlaceId={context?.placeEntityId ?? null}
+				initialSessionId={context?.sessionEntityId ?? null}
+				locale={data.locale}
+				onDeclare={declareContext}
+				onCancel={() => (showDeclareForm = false)}
+			/>
+		</div>
 	{/if}
 
 	{#if !context?.placeEntityId}
@@ -295,7 +305,10 @@
 		</section>
 
 		{#if showNoteForm}
-			<section class="hidden md:block" class:!block={activeTab === 'actions'}>
+			<section
+				class="hidden animate-in duration-move ease-arrive fade-in-0 slide-in-from-top-1 md:block"
+				class:!block={activeTab === 'actions'}
+			>
 				<QuickNoteForm
 					targets={noteTargets}
 					locale={data.locale}

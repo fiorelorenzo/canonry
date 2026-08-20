@@ -291,9 +291,16 @@
 		<span><kbd class="rounded border border-line-2 px-1 font-mono">u</kbd> {t.keyboardUndo}</span>
 	</div>
 
+	<!-- #367 (Q6): "a proposal being accepted or rejected" is one of the five cases the
+	     decision names, and this strip plus the reject reasons below it are where that
+	     lands in this component. Both arrive on `duration-move`; neither animates away,
+	     because `u` has to undo an accept the instant it is pressed and the six-second
+	     timer is what ends the strip, not a fade. Nothing here touches the card: the diff
+	     itself is #362's, and a card that eased in under a keyboard queue would fight
+	     `j`/`k` anyway. -->
 	{#if toast}
 		<div
-			class="qtoast flex items-center justify-between gap-3 rounded-md bg-ink px-3 py-2 text-xs text-panel"
+			class="qtoast flex animate-in items-center justify-between gap-3 rounded-md bg-ink px-3 py-2 text-xs text-panel duration-move ease-arrive fade-in-0 slide-in-from-bottom-1"
 		>
 			<span>{toast.text}</span>
 			{#if toast.undoId}
@@ -303,7 +310,9 @@
 	{/if}
 
 	{#if rejectChipsFor}
-		<div class="rounded-md border border-line bg-panel-2 px-3 py-2">
+		<div
+			class="animate-in rounded-md border border-line bg-panel-2 px-3 py-2 duration-move ease-arrive fade-in-0 slide-in-from-bottom-1"
+		>
 			<RejectChips onPick={pickReason} {locale} />
 		</div>
 	{/if}

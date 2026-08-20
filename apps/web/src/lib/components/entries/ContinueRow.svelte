@@ -49,7 +49,7 @@
 		<li class="w-44 shrink-0 snap-start">
 			<a
 				href={resolve(`/w/${universeSlug}/e/${entry.slug}`)}
-				class="flex h-full flex-col overflow-hidden rounded-lg border border-line bg-panel hover:border-line-2"
+				class="flex h-full flex-col overflow-hidden rounded-lg border border-line bg-panel transition-colors hover:border-line-2"
 			>
 				{#if entry.coverAssetId}
 					<img
