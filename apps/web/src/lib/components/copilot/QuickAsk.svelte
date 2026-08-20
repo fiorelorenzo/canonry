@@ -123,6 +123,9 @@
 	let pillEl = $state<HTMLButtonElement | null>(null);
 	let scrollAreaEl = $state<HTMLDivElement | null>(null);
 	let composerQuestion = $state('');
+	/** The docked composer's own input node, bound out of `CommandPalette`, so a chip can
+	 * put the caret where the text just went. */
+	let composerInputEl = $state<HTMLInputElement | null>(null);
 
 	/** The page's own entity, if this route has one: present on an entry route (and its
 	 * `/edit` subroute, which carries the same `entity`), `null` everywhere else. The same
@@ -327,8 +330,17 @@
 		await goto(resolve(`/w/${universeSlug}/ask`));
 	}
 
-	function fillSuggestion(suggestion: string) {
+	/** A chip fills the composer and never sends it (G11: every paid action is confirmed),
+	 * so the caret has to end up where the GM's next keystroke is going. Without the focus
+	 * move, clicking a suggestion left the text in a box nobody was typing in and the
+	 * Enter that would have sent it went nowhere. The DOM node arrives from
+	 * `CommandPalette`'s docked input through `bind:inputEl`, so this waits for the flush
+	 * rather than assuming it is already mounted. */
+	async function fillSuggestion(suggestion: string) {
 		composerQuestion = suggestion;
+		await tick();
+		composerInputEl?.focus();
+		composerInputEl?.setSelectionRange(suggestion.length, suggestion.length);
 	}
 
 	// Instant, never smooth: Q6 refuses motion while a turn is streaming, and a jump is
@@ -609,6 +621,7 @@
 				{locale}
 				placement="docked"
 				bind:query={composerQuestion}
+				bind:inputEl={composerInputEl}
 				onAsk={ask}
 			/>
 		</div>
