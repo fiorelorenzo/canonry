@@ -71,6 +71,7 @@
 		locale,
 		placement = 'dialog',
 		query = $bindable(''),
+		inputEl = $bindable<HTMLInputElement | null>(null),
 		onAsk,
 		onNavigate
 	}: {
@@ -85,6 +86,10 @@
 		 * sending it, the one thing plain internal state could not do. Unbound (the
 		 * dialog placement) it behaves exactly as the local `$state` it replaces. */
 		query?: string;
+		/** Docked only, bindable: the input's own node, so the panel that mounts this can
+		 * put the caret back after filling `query` from outside. A chip that fills the box
+		 * without moving focus leaves the text somewhere nobody is typing. */
+		inputEl?: HTMLInputElement | null;
 		/** Docked only: the panel answers in place instead of routing. */
 		onAsk?: (question: string) => void;
 		/** Docked only: a row navigated away, so whatever mounted this can close. */
@@ -99,8 +104,8 @@
 	const paletteShortcut = SHORTCUTS.find((shortcut) => shortcut.id === 'palette')!;
 
 	/** Docked only: the dialog placement gets its focus from the dialog itself, and a
-	 * panel that expands without the caret in the box is a panel you have to click twice. */
-	let inputEl = $state<HTMLInputElement | null>(null);
+	 * panel that expands without the caret in the box is a panel you have to click twice.
+	 * Bindable above, so the panel can also focus it after a suggestion chip. */
 	let entityHits = $state<EntitySearchHit[]>([]);
 	let searching = $state(false);
 	let requestSeq = 0;
