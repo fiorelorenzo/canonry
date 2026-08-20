@@ -7,7 +7,7 @@
  * media.test.ts`.
  */
 import { randomUUID } from 'node:crypto';
-import { closeDb, createDb, eq, type Db } from '@canonry/db';
+import { closeDb, createDb, eq, isNull, type Db } from '@canonry/db';
 import { imageStyle, universe, universeMember, user } from '@canonry/db/schema';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { UniverseSetupItem } from '$lib/server/universe-setup';
@@ -173,6 +173,100 @@ describe('/w/[universe]/settings actions (issue #378, decision R3)', () => {
 		).rejects.toMatchObject({ status: 403 });
 	});
 
+	// Issue #407, decision S2.
+	it('selectImageStylePreset points the universe at a shipped preset without writing a new row', async () => {
+		const { world, locals } = await fixture();
+		const [preset] = await db
+			.select({ id: imageStyle.id })
+			.from(imageStyle)
+			.where(isNull(imageStyle.universeId))
+			.limit(1);
+		if (!preset) throw new Error('no seeded preset to test against');
+
+		const result = await actions.selectImageStylePreset(
+			postEvent(world.slug, locals, { presetId: preset.id })
+		);
+		expect(result).toMatchObject({ selectedPresetId: preset.id });
+
+		const [row] = await db.select().from(universe).where(eq(universe.id, world.id));
+		expect(row?.imageStyleId).toBe(preset.id);
+
+		// No universe-owned row was ever created - the universe only ever points at the
+		// preset itself.
+		const ownRows = await db.select().from(imageStyle).where(eq(imageStyle.universeId, world.id));
+		expect(ownRows).toHaveLength(0);
+	});
+
+	it('selectImageStylePreset rejects an id that is not a real preset', async () => {
+		const { world, locals } = await fixture();
+
+		const result = await actions.selectImageStylePreset(
+			postEvent(world.slug, locals, { presetId: randomUUID() })
+		);
+		expect(result).toMatchObject({ status: 400 });
+
+		const [row] = await db.select().from(universe).where(eq(universe.id, world.id));
+		expect(row?.imageStyleId).toBeNull();
+	});
+
+	it('a viewer cannot pick a preset', async () => {
+		const { world, locals } = await fixture('viewer');
+		const [preset] = await db
+			.select({ id: imageStyle.id })
+			.from(imageStyle)
+			.where(isNull(imageStyle.universeId))
+			.limit(1);
+		if (!preset) throw new Error('no seeded preset to test against');
+
+		await expect(
+			actions.selectImageStylePreset(postEvent(world.slug, locals, { presetId: preset.id }))
+		).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('picking a preset does not disturb an existing custom style row, and saving custom afterward never edits the preset', async () => {
+		const { world, locals } = await fixture();
+		await actions.setImageStyle(
+			postEvent(world.slug, locals, { name: 'My Style', promptModifier: 'my own look' })
+		);
+		const [customRow] = await db
+			.select()
+			.from(imageStyle)
+			.where(eq(imageStyle.universeId, world.id));
+		if (!customRow) throw new Error('custom row was not created');
+
+		const [preset] = await db
+			.select({
+				id: imageStyle.id,
+				name: imageStyle.name,
+				promptModifier: imageStyle.promptModifier
+			})
+			.from(imageStyle)
+			.where(isNull(imageStyle.universeId))
+			.limit(1);
+		if (!preset) throw new Error('no seeded preset to test against');
+
+		await actions.selectImageStylePreset(postEvent(world.slug, locals, { presetId: preset.id }));
+
+		// The universe now points at the preset, and the GM's own row survived untouched.
+		const [row] = await db.select().from(universe).where(eq(universe.id, world.id));
+		expect(row?.imageStyleId).toBe(preset.id);
+		const [customAfter] = await db.select().from(imageStyle).where(eq(imageStyle.id, customRow.id));
+		expect(customAfter).toMatchObject({ name: 'My Style', promptModifier: 'my own look' });
+
+		// Saving the custom card again switches back to it, and the preset itself is
+		// still exactly what it was.
+		await actions.setImageStyle(
+			postEvent(world.slug, locals, {
+				name: 'My Style Revised',
+				promptModifier: 'my own look, revised'
+			})
+		);
+		const [rowAfter] = await db.select().from(universe).where(eq(universe.id, world.id));
+		expect(rowAfter?.imageStyleId).toBe(customRow.id);
+		const [presetAfter] = await db.select().from(imageStyle).where(eq(imageStyle.id, preset.id));
+		expect(presetAfter).toMatchObject({ name: preset.name, promptModifier: preset.promptModifier });
+	});
+
 	it('setLoremasterVoice persists a description and an empty save clears it back to the column default', async () => {
 		const { world, locals } = await fixture();
 
@@ -292,5 +386,93 @@ describe('/w/[universe]/settings load: setupItems (issue #379 R4, issue #406 S1)
 
 		const data = await loadFor(world.slug, locals);
 		expect(data.setupItems.every((item) => item.done)).toBe(true);
+	});
+});
+
+// Issue #407, decision S2: the picker's own load fields.
+describe('/w/[universe]/settings load: image style picker (issue #407, decision S2)', () => {
+	let db: Db;
+
+	beforeAll(() => {
+		db = createDb(DATABASE_URL, { max: 3 });
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	async function fixture() {
+		const [owner] = await db
+			.insert(user)
+			.values({
+				id: unique('picker-user'),
+				name: 'Picker Owner',
+				email: `${unique('p')}@canonry.invalid`
+			})
+			.returning();
+		if (!owner) throw new Error('user insert returned no row');
+
+		const [world] = await db
+			.insert(universe)
+			.values({
+				name: 'Picker World',
+				slug: unique('picker-world'),
+				ownerUserId: owner.id,
+				kind: 'homebrew'
+			})
+			.returning();
+		if (!world) throw new Error('universe insert returned no row');
+
+		const locals = {
+			user: { id: owner.id, name: owner.name, email: owner.email },
+			locale: 'en'
+		} as App.Locals;
+		return { world, locals };
+	}
+
+	async function loadFor(
+		slug: string,
+		locals: App.Locals
+	): Promise<{
+		imageStylePresets: Array<{ id: string; slug: string; name: string }>;
+		currentImageStyleId: string | null;
+		imageStyleName: string;
+		imageStyleModifier: string;
+	}> {
+		const result = await load({ params: { universe: slug }, locals } as Parameters<typeof load>[0]);
+		return result as {
+			imageStylePresets: Array<{ id: string; slug: string; name: string }>;
+			currentImageStyleId: string | null;
+			imageStyleName: string;
+			imageStyleModifier: string;
+		};
+	}
+
+	it('lists the six shipped presets and no current selection for a freshly created universe', async () => {
+		const { world, locals } = await fixture();
+		const data = await loadFor(world.slug, locals);
+		expect(data.imageStylePresets.length).toBeGreaterThanOrEqual(6);
+		expect(data.imageStylePresets.some((p) => p.slug === 'ink-wash')).toBe(true);
+		expect(data.currentImageStyleId).toBeNull();
+		expect(data.imageStyleName).toBe('');
+	});
+
+	it('after picking a preset, currentImageStyleId matches it and the custom form stays blank', async () => {
+		const { world, locals } = await fixture();
+		const [preset] = await db
+			.select({ id: imageStyle.id })
+			.from(imageStyle)
+			.where(isNull(imageStyle.universeId))
+			.limit(1);
+		if (!preset) throw new Error('no seeded preset to test against');
+
+		await actions.selectImageStylePreset(postEvent(world.slug, locals, { presetId: preset.id }));
+
+		const data = await loadFor(world.slug, locals);
+		expect(data.currentImageStyleId).toBe(preset.id);
+		// The custom card's own form never prefills from a preset - it has nothing of
+		// its own to show until the GM saves one.
+		expect(data.imageStyleName).toBe('');
+		expect(data.imageStyleModifier).toBe('');
 	});
 });

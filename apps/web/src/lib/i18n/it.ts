@@ -1798,11 +1798,18 @@ export const it: Messages = {
 				heading: 'Stile delle immagini',
 				description: (universeName) =>
 					`Da cosa parte una nuova immagine in ${universeName} quando la sua voce non ha uno stile proprio. Una voce può comunque sostituirlo per sé.`,
+				pickerLegend: 'Scegli uno stile',
+				selectedLabel: 'Selezionato',
+				customCard: {
+					label: 'Stile personalizzato',
+					hint: 'Scrivi un tuo nome e un tuo modificatore del prompt invece di un preset già pronto.'
+				},
 				nameLabel: 'Nome',
 				promptModifierLabel: 'Modificatore del prompt',
 				save: 'Salva',
 				nameRequiredError: 'Dai un nome allo stile.',
-				promptModifierRequiredError: 'Descrivi cosa aggiunge lo stile a un prompt.'
+				promptModifierRequiredError: 'Descrivi cosa aggiunge lo stile a un prompt.',
+				pickError: 'Impossibile impostare quello stile. Riprova.'
 			},
 			loremasterVoice: {
 				heading: 'Voce del Loremaster',

@@ -225,6 +225,9 @@ export {
 	listImageModels,
 	upsertImageModel,
 	entryStyleContext,
+	listImageStylePresets,
+	selectUniverseImageStylePreset,
+	ImageStylePresetNotFoundError,
 	upsertUniverseImageStyle,
 	mediaAssetsForEntity,
 	createMediaAsset,
@@ -237,6 +240,7 @@ export {
 	type UpsertImageModelInput,
 	type EntryStyleContext,
 	type ImageStyleRow,
+	type ImageStylePreset,
 	type UpsertUniverseImageStyleInput,
 	type MediaAssetRow,
 	type CreateMediaAssetInput

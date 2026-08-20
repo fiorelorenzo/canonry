@@ -113,3 +113,73 @@ describe('resolveStyle (#65, against the real database)', () => {
 		await expect(resolveStyle(db, randomUUID())).rejects.toThrow(EntryNotFoundError);
 	});
 });
+
+// Issue #407, decision S2: a universe may now point at a shipped preset
+// (`universe_id IS NULL`, migration 0048) instead of only ever a per-universe custom
+// row - resolveStyle must not care which kind of image_style row it is reading, since
+// pickStyle's cascade only ever looks at the resolved modifier string.
+describe('resolveStyle resolves a shipped preset (#407, decision S2, against the real database)', () => {
+	let db: Db;
+	let universeId: string;
+	let userId: string;
+	let entityId: string;
+
+	beforeAll(async () => {
+		db = openTestDb();
+		userId = unique('media-style-preset-test-user');
+		await db
+			.insert(user)
+			.values({ id: userId, name: 'Preset Style Test Owner', email: `${userId}@example.test` });
+
+		const [preset] = await db
+			.select({ id: imageStyle.id, promptModifier: imageStyle.promptModifier })
+			.from(imageStyle)
+			.where(eq(imageStyle.slug, 'ink-wash'))
+			.limit(1);
+		if (!preset) throw new Error('ink-wash preset not seeded - migration 0048 did not run');
+
+		const [world] = await db
+			.insert(universe)
+			.values({
+				ownerUserId: userId,
+				name: 'Preset Style Test Universe',
+				slug: unique('media-style-preset-test-universe'),
+				kind: 'homebrew',
+				imageStyleId: preset.id
+			})
+			.returning();
+		if (!world) throw new Error('universe insert did not return a row');
+		universeId = world.id;
+
+		const [row] = await db
+			.insert(entity)
+			.values({
+				universeId,
+				type: 'character',
+				name: 'No Override',
+				slug: unique('no-override'),
+				imagePromptModifier: null
+			})
+			.returning();
+		if (!row) throw new Error('entity insert did not return a row');
+		entityId = row.id;
+	});
+
+	afterAll(async () => {
+		await db.delete(universe).where(eq(universe.id, universeId));
+		await db.delete(user).where(eq(user.id, userId));
+		await closeDb(db);
+	});
+
+	it("a universe pointing at a preset resolves that preset's own prompt modifier as the universe style", async () => {
+		const [preset] = await db
+			.select({ promptModifier: imageStyle.promptModifier })
+			.from(imageStyle)
+			.where(eq(imageStyle.slug, 'ink-wash'))
+			.limit(1);
+		if (!preset) throw new Error('ink-wash preset not seeded');
+
+		const style = await resolveStyle(db, entityId);
+		expect(style).toEqual({ modifier: preset.promptModifier, source: 'universe' });
+	});
+});

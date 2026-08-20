@@ -40,6 +40,7 @@
 	 * sort first, which is a wrong write rather than a degraded one.
 	 */
 	import { resolve } from '$app/paths';
+	import CheckIcon from '@lucide/svelte/icons/check';
 	import { messages } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -105,6 +106,29 @@
 	let imageStyleError = $derived(
 		form && 'imageStyleError' in form ? form.imageStyleError : undefined
 	);
+	// Issue #407, decision S2: a preset pick from `?/selectImageStylePreset` returns
+	// `selectedPresetId` on success - read here so the grid updates the instant the
+	// no-JS full-page reload lands, exactly the "read the last submission, fall back to
+	// the loaded row" shape the fields above already use. `?/setImageStyle`'s own
+	// success shape carries no such key, so a custom-style save always falls through to
+	// `data.currentImageStyleId`, which a full reload has already made fresh.
+	let currentImageStyleId = $derived(
+		form && 'selectedPresetId' in form && form.selectedPresetId !== undefined
+			? form.selectedPresetId
+			: data.currentImageStyleId
+	);
+	// A universe's own custom row is "whatever image_style_id points at that is not one
+	// of the six presets" - null (nothing chosen yet) reads as false here on purpose, so
+	// a brand new universe opens with no card selected and the custom disclosure closed.
+	let isCustomActive = $derived(
+		currentImageStyleId !== null &&
+			!data.imageStylePresets.some((preset) => preset.id === currentImageStyleId)
+	);
+	// svelte-ignore state_referenced_locally
+	let customOpen = $state(isCustomActive);
+	$effect(() => {
+		if (isCustomActive) customOpen = true;
+	});
 	let loremasterDescription = $derived(
 		form && 'loremasterDescription' in form && form.loremasterDescription !== undefined
 			? form.loremasterDescription
@@ -179,22 +203,99 @@
 			<p class="mt-1 max-w-measure text-sm text-ink-2">
 				{t.imageStyle.description(data.current.name)}
 			</p>
-			<form method="POST" action="?/setImageStyle" class="mt-3 flex flex-col gap-3">
-				<label class="flex flex-col gap-1 text-sm text-ink-2">
-					{t.imageStyle.nameLabel}
-					<Input name="name" value={imageStyleName} required />
-				</label>
-				<label class="flex flex-col gap-1 text-sm text-ink-2">
-					{t.imageStyle.promptModifierLabel}
-					<Textarea name="promptModifier" rows={2} value={imageStyleModifier} required />
-				</label>
-				{#if imageStyleError}
-					<p class="text-sm text-danger">{imageStyleError}</p>
-				{/if}
-				<Button type="submit" variant="secondary" class="w-fit">
-					{t.imageStyle.save}
-				</Button>
-			</form>
+
+			<!-- Issue #407, decision S2: a grid of cards - example, name, description,
+			     selected state - replacing the name-plus-prompt form that asked a GM to
+			     imagine what a sentence of prompt would do to an image. Picking a preset
+			     posts `?/selectImageStylePreset`, which only ever points universe.image_style_id
+			     at the shipped row (queries/media.ts's selectUniverseImageStylePreset) - it
+			     never copies the preset's prompt modifier anywhere, so an improved preset
+			     improves every world that chose it. The picker form is `class="contents"` so
+			     its six card labels lay out as direct children of the grid below, sibling to
+			     the "Custom style" disclosure rather than nesting one form inside another
+			     (invalid HTML) - the form itself still submits normally either way. -->
+			<div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+				<form method="POST" action="?/selectImageStylePreset" class="contents">
+					{#each data.imageStylePresets as preset (preset.id)}
+						<label
+							class="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line text-left transition-colors has-checked:border-accent has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
+						>
+							<input
+								type="radio"
+								name="presetId"
+								value={preset.id}
+								checked={currentImageStyleId === preset.id}
+								class="sr-only"
+								onchange={(event) => {
+									event.currentTarget.form?.requestSubmit();
+								}}
+							/>
+							<img
+								src={preset.examplePath}
+								alt=""
+								loading="lazy"
+								class="aspect-square w-full object-cover"
+							/>
+							<span class="flex flex-1 flex-col gap-0.5 px-2 py-2">
+								<span class="flex items-center gap-1 text-sm font-medium text-ink">
+									{preset.name}
+									{#if currentImageStyleId === preset.id}
+										<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+										<span class="sr-only">{t.imageStyle.selectedLabel}</span>
+									{/if}
+								</span>
+								<span class="text-xs text-ink-2">{preset.description}</span>
+							</span>
+						</label>
+					{/each}
+					<noscript>
+						<Button type="submit" variant="secondary" size="sm" class="col-span-full w-fit">
+							{tControls.apply}
+						</Button>
+					</noscript>
+				</form>
+
+				<details
+					class="flex flex-col overflow-hidden rounded-lg border text-left"
+					class:border-accent={isCustomActive}
+					class:border-line={!isCustomActive}
+					bind:open={customOpen}
+				>
+					<summary
+						class="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden"
+					>
+						<span
+							class="text-[10px] text-muted transition-transform"
+							class:rotate-90={customOpen}
+							aria-hidden="true">&#9656;</span
+						>
+						{t.imageStyle.customCard.label}
+						{#if isCustomActive}
+							<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+							<span class="sr-only">{t.imageStyle.selectedLabel}</span>
+						{/if}
+					</summary>
+					<div class="border-t border-line px-3 py-3">
+						<p class="text-xs text-ink-2">{t.imageStyle.customCard.hint}</p>
+						<form method="POST" action="?/setImageStyle" class="mt-3 flex flex-col gap-3">
+							<label class="flex flex-col gap-1 text-sm text-ink-2">
+								{t.imageStyle.nameLabel}
+								<Input name="name" value={imageStyleName} required />
+							</label>
+							<label class="flex flex-col gap-1 text-sm text-ink-2">
+								{t.imageStyle.promptModifierLabel}
+								<Textarea name="promptModifier" rows={2} value={imageStyleModifier} required />
+							</label>
+							<Button type="submit" variant="secondary" class="w-fit">
+								{t.imageStyle.save}
+							</Button>
+						</form>
+					</div>
+				</details>
+			</div>
+			{#if imageStyleError}
+				<p class="mt-2 text-sm text-danger">{imageStyleError}</p>
+			{/if}
 		</div>
 	</section>
 
