@@ -123,10 +123,19 @@
 <!-- Sticky with its own scroll, per the decision: the column is long now that five
 	sections can all be open at once, and a document longer than the aside should not drag
 	the aside off the top of the screen. `md:` only - inside #148's bottom sheet the sheet
-	itself is the scroller. -->
+	itself is the scroller.
+
+	Q2 (round twelve): `md:h-full` is load-bearing, not decorative. The caller wraps this
+	component in a plain block div for visibility toggling (`hidden md:block` in
+	+page.svelte), and that wrapper is what actually receives the row's stretched height
+	via the default flex `align-items: stretch` - this element does not inherit it just by
+	sitting inside a taller box, it still sizes itself by its own content unless told to
+	fill. `md:max-h-[calc(100vh-4rem)]` then re-caps that at the viewport for a page whose
+	document runs past it, and `md:overflow-y-auto` is what makes the cap a scroll rather
+	than a clip. -->
 <aside
 	{id}
-	class="w-full border-line bg-panel-2 md:sticky md:top-0 md:max-h-[calc(100vh-4rem)] md:w-64 md:flex-none md:overflow-y-auto md:border-l"
+	class="w-full border-line bg-panel-2 md:sticky md:top-0 md:h-full md:max-h-[calc(100vh-4rem)] md:w-64 md:flex-none md:overflow-y-auto md:border-l"
 	aria-label={t.entry.sections.ariaLabel}
 >
 	{#each sections as section (section.id)}

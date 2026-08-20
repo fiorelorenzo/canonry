@@ -134,7 +134,13 @@
 
 <svelte:head><title>{data.entity.name} &middot; {data.universe.name}</title></svelte:head>
 
-<div class="flex flex-col md:flex-row">
+<!-- Q2 (round twelve): `md:min-h-full` gives this row a floor equal to `main`'s own
+	resolved height (definite, since `main` is `flex-1` inside the shell's `h-screen`
+	flex column - see AppShell.svelte), so the row is never shorter than the viewport
+	even when the article is short. Without it, the row (and everything that stretches
+	against it) only ever grows to match the article's own content height, which is
+	exactly the near-empty-entry case that reads worst. -->
+<div class="flex flex-col md:min-h-full md:flex-row">
 	<article class="min-w-0 flex-1 px-4 py-6 md:px-10 md:py-8">
 		<p class="mb-3 text-xs text-muted">
 			<a class="hover:underline" href={resolve(`/w/${data.universe.slug}`)}>{data.universe.name}</a>
