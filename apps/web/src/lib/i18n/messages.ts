@@ -911,10 +911,18 @@ export interface Messages {
 			accept: string;
 			reject: string;
 			undo: string;
-			showCurrentWording: string;
-			showWhatThisReplaced: string;
-			was: string;
-			now: string;
+			/** Q1 (#362): "2 changed passages", shown only when there is more than one, so a
+			 * reader knows how many regions the card holds before scrolling it. */
+			changedRegions: (count: number) => string;
+			/** The unchanged sentences between two regions, counted rather than drawn:
+			 * prose has no line numbers, so this is the honest form of a hunk header. */
+			unchangedUnits: (count: number) => string;
+			/** Q1 (#362): the diff says removal and addition in lightness and in shape,
+			 * never in hue (P3), so these three carry the same distinction for a screen
+			 * reader, which sees neither. */
+			removedLabel: string;
+			addedLabel: string;
+			changedLabel: string;
 			/** Raw `proposal_kind` enum value ('create'/'update'/'relation'/'draft_entity'/'flag'). */
 			kindLabel: (kind: string) => string;
 			/** Raw entity type ('character'/'place'/...) or 'relation'. */

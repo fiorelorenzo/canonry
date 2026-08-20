@@ -55,7 +55,7 @@ import {
 	type RelationCardinality
 } from '@canonry/db/schema';
 import { ModelNotConfiguredError, resolveModel } from '@canonry/ai';
-import { semanticDiff, type FactChange } from '@canonry/copilot';
+import { semanticDiff } from '@canonry/copilot';
 import { deleteEntityLoreChunks, resolveOwnCanonCollection } from '@canonry/indexing';
 import { vectorClient } from '$lib/server/copilot';
 import {
@@ -63,7 +63,7 @@ import {
 	type EvidenceCaveat,
 	type EvidenceView
 } from '$lib/components/proposals/evidence';
-import { diffLayoutFor, type DiffLayout } from '$lib/components/proposals/diffLayout';
+import { proseDiff, EMPTY_PROSE_DIFF, type ProseDiff } from '$lib/components/proposals/proseDiff';
 
 export {
 	acceptProposal,
@@ -560,8 +560,9 @@ export interface DiffCandidate {
 	/** #196: `relationType.key` - null for anything that is not a plain `relation`
 	 * proposal, mirroring `relationLabel`'s own null case. */
 	relationKey: string | null;
-	diff: FactChange[];
-	diffLayout: DiffLayout;
+	/** Q1 (#362): the whole diff a reviewer reads, context and all, derived from the
+	 * patch's own `before`/`after` rather than stored. */
+	diff: ProseDiff;
 	evidenceViews: EvidenceView[];
 	evidenceCaveat: EvidenceCaveat | null;
 	relationVocab: DiffCandidateRelationVocab | null;
@@ -575,7 +576,7 @@ export interface DiffCandidate {
  * current content, exactly like `changedSentencesForEntity` above. */
 export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 	const p = candidate.proposal;
-	let diff: FactChange[] = [];
+	let diff: ProseDiff = EMPTY_PROSE_DIFF;
 	if (p.kind === 'update' || p.kind === 'create' || p.kind === 'draft_entity') {
 		// A `create`/`draft_entity` patch keeps its prose in `body`, not in `after`: that is
 		// the field `readEntityCreatePatch` reads in `packages/db`'s `acceptProposal`, so it
@@ -585,7 +586,7 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 		const after = readPatchAfter(p.patch) ?? readPatchBody(p.patch) ?? '';
 		const before =
 			p.kind === 'update' ? (readPatchBefore(p.patch) ?? candidate.targetEntity?.body ?? '') : '';
-		if (before || after) diff = semanticDiff(before, after);
+		if (before || after) diff = proseDiff(before, after);
 	}
 	const { views, caveat } = normalizeEvidence(p.trigger, p.evidence);
 
@@ -630,7 +631,6 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 		relationLabel: candidate.relationType?.label ?? null,
 		relationKey: candidate.relationType?.key ?? null,
 		diff,
-		diffLayout: diffLayoutFor(diff),
 		evidenceViews: views,
 		evidenceCaveat: caveat,
 		relationVocab

@@ -819,10 +819,12 @@ export const it: Messages = {
 			accept: 'Accetta',
 			reject: 'Rifiuta',
 			undo: 'Annulla',
-			showCurrentWording: 'Mostra il testo attuale',
-			showWhatThisReplaced: 'Mostra cosa sostituisce',
-			was: 'Prima',
-			now: 'Ora',
+			changedRegions: (count) => `${count} punti modificati`,
+			unchangedUnits: (count) =>
+				count === 1 ? '1 frase non modificata' : `${count} frasi non modificate`,
+			removedLabel: 'Rimosso:',
+			addedLabel: 'Aggiunto:',
+			changedLabel: 'Riscritto:',
 			kindLabel: (kind) => {
 				const labels: Record<string, string> = {
 					create: 'nuovo',

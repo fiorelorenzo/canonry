@@ -39,7 +39,9 @@ const AFTER_BODY = `${BEFORE_BODY} He employs forty people in the counting house
 /** Only the fields this file asserts on, parsed rather than cast: the response is JSON off
  * the wire, and `ProposalDiffCard`'s own type is the description of the rest of it. */
 const candidateSchema = z.object({
-	candidate: z.object({ diff: z.array(z.object({ statement: z.string() })) })
+	candidate: z.object({
+		diff: z.object({ rows: z.array(z.object({ kind: z.string() })), regions: z.number() })
+	})
 });
 
 async function statusOf(promise: Response | Promise<Response>): Promise<number> {
@@ -242,7 +244,8 @@ describe('/w/[universe]/review/[proposal] (#345)', () => {
 		// Guardrail 3 and guardrail 1 together: what the GM accepts inline is the diff, so a
 		// candidate served with an empty one would be an accept button over nothing.
 		const served = candidateSchema.parse(body);
-		expect(served.candidate.diff.length).toBeGreaterThan(0);
+		expect(served.candidate.diff.rows.length).toBeGreaterThan(0);
+		expect(served.candidate.diff.regions).toBeGreaterThan(0);
 	});
 
 	it('answers 404 for a proposal in another universe, whoever asks', async () => {
