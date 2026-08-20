@@ -31,7 +31,11 @@ export const it: Messages = {
 	controls: {
 		search: 'Cerca',
 		noMatch: 'Nessun risultato',
-		apply: 'Applica'
+		apply: 'Applica',
+		modelRunning: {
+			elapsed: (seconds) => `${seconds}s`,
+			slow: 'Una stesura lunga può richiedere un minuto.'
+		}
 	},
 	shell: {
 		skipToContent: 'Vai al contenuto',
@@ -457,11 +461,7 @@ export const it: Messages = {
 	entry: {
 		page: {
 			editLink: 'Modifica',
-			aliasesLabel: (aliases) => `anche: ${aliases}`,
-			pendingProposalsText: (count) =>
-				count === 1
-					? 'proposta in attesa su questa voce \u00b7 rivedi'
-					: 'proposte in attesa su questa voce \u00b7 rivedi'
+			aliasesLabel: (aliases) => `anche: ${aliases}`
 		},
 
 		secrets: {
@@ -488,9 +488,8 @@ export const it: Messages = {
 
 		complete: {
 			button: 'Completa la voce',
-			completing: 'Completamento in corso\u2026',
+			running: 'Il Loremaster sta scrivendo una bozza per questa voce',
 			empty: 'Al momento non c\u2019è nulla da completare.',
-			drafted: 'Bozza di aggiornamento pronta - ora è una proposta in attesa qui sotto.',
 			genericFailure: 'Non è stato possibile eseguire il completamento.',
 			aiOff: 'La scrittura è disattivata per questo universo.'
 		},
@@ -921,9 +920,30 @@ export const it: Messages = {
 			save: 'Salva'
 		},
 
+		inline: {
+			regionLabel: 'Proposte in attesa su questa voce',
+			heading: (pending) =>
+				pending === 1 ? '1 proposta da rivedere' : `${pending} proposte da rivedere`,
+			headingSettled: 'Nessuna proposta in attesa qui',
+			position: (index, total) => `${index} di ${total}`,
+			keys: 'muovi, accetta, rifiuta, annulla',
+			acceptedNote: 'Accettata: ora è nel canone qui sopra.',
+			failed: (message) => `Non è stato possibile registrare la decisione: ${message}`,
+			awaitingDiff: (count) =>
+				count === 1
+					? '1 candidata su questa voce non ha ancora una bozza.'
+					: `${count} candidate su questa voce non hanno ancora una bozza.`,
+			awaitingDiffLink: 'apri il piano'
+		},
+
 		errors: {
 			noDiffsToGenerate:
-				'Questo piano non ha una voce modificata, quindi non ci sono differenze di propagazione da generare.'
+				'Questo piano non ha una voce modificata, quindi non ci sono differenze di propagazione da generare.',
+			proposalNotFound: 'Questa proposta non esiste in questo universo.',
+			unknownAction: 'Decisione non riconosciuta.',
+			viewerCannotDecide: 'Chi ha accesso in sola lettura non può decidere una proposta.',
+			missingRejectReason: 'Manca il motivo del rifiuto.',
+			notRejected: 'Questa proposta non è stata rifiutata.'
 		}
 	},
 

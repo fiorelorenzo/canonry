@@ -20,6 +20,7 @@ import {
 	createProposalPlan,
 	recordProposalDiff,
 	revealEntityLive,
+	setProposalPlanStatus,
 	type Db,
 	type ProposalRow,
 	type RevelationRow
@@ -97,8 +98,7 @@ async function scaffoldNpcProposal(
 	});
 	const created = proposals[0];
 	if (!created) throw new Error('scaffoldNpcProposal: createProposalPlan returned no candidate');
-	void plan;
-	return recordProposalDiff(ctx.db, {
+	const recorded = await recordProposalDiff(ctx.db, {
 		proposalId: created.id,
 		patch: {
 			type: 'character',
@@ -111,6 +111,12 @@ async function scaffoldNpcProposal(
 		modelId: 'none (deterministic scaffold)',
 		credits: 0
 	});
+	// Issue #345: the scaffold is written, so nothing is left to generate and the plan says
+	// so. A plan left at `ready` sends the review surfaces to C3's checklist, which for a
+	// candidate that already carries its prose means an extra click through a "Generate
+	// diffs" button with nothing to generate.
+	await setProposalPlanStatus(ctx.db, plan.id, 'spent');
+	return recorded;
 }
 
 /** Attempts a real model-drafted NPC through `packages/warm`'s `regenerate` (so a fresh
@@ -207,7 +213,7 @@ export async function fireCreateChildLocation(
 	label: string
 ): Promise<ProposalRow> {
 	const t = messages(ctx.locale).table.server;
-	const { proposals } = await createProposalPlan(ctx.db, {
+	const { plan, proposals } = await createProposalPlan(ctx.db, {
 		universeId: ctx.universeId,
 		trigger: 'table',
 		triggerEntityId: ctx.placeEntityId,
@@ -232,7 +238,7 @@ export async function fireCreateChildLocation(
 	const created = proposals[0];
 	if (!created)
 		throw new Error('fireCreateChildLocation: createProposalPlan returned no candidate');
-	return recordProposalDiff(ctx.db, {
+	const recorded = await recordProposalDiff(ctx.db, {
 		proposalId: created.id,
 		patch: {
 			type: 'place',
@@ -248,6 +254,9 @@ export async function fireCreateChildLocation(
 		modelId: 'none (deterministic scaffold)',
 		credits: 0
 	});
+	// Issue #345, same reason as `scaffoldNpcProposal` above.
+	await setProposalPlanStatus(ctx.db, plan.id, 'spent');
+	return recorded;
 }
 
 export class NoSessionDeclaredError extends Error {

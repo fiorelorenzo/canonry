@@ -62,6 +62,15 @@ export interface Messages {
 		/** The submit button a form only shows when scripting is off, because with
 		 * scripting on the choice submits itself. */
 		apply: string;
+		/** Issue #345: what a running model says while a generator waits on one. The label
+		 * beside these comes from the caller (each generator names its own work); these two
+		 * are the parts every one of them shares. */
+		modelRunning: {
+			/** The elapsed-seconds counter, e.g. "14s" - never an estimate of what is left. */
+			elapsed: (seconds: number) => string;
+			/** Added once the wait runs long, so a slow draft reads as slow rather than stuck. */
+			slow: string;
+		};
 	};
 	shell: {
 		/** The visually-hidden "skip to content" link every page starts with. */
@@ -567,7 +576,6 @@ export interface Messages {
 		page: {
 			editLink: string;
 			aliasesLabel: (aliases: string) => string;
-			pendingProposalsText: (count: number) => string;
 		};
 		/** `EntryProseWithSecrets.svelte` (`lib/components/players/**`, but only ever
 		 * rendered on this GM-facing entry page, never on `/p/**` - the public wiki's own
@@ -598,9 +606,11 @@ export interface Messages {
 		};
 		complete: {
 			button: string;
-			completing: string;
+			/** Issue #345: the sentence beside the spinner while the model drafts, in the
+			 * reading flow where the proposal itself will land. It names what is being
+			 * written, never how long it will take. */
+			running: string;
 			empty: string;
-			drafted: string;
 			genericFailure: string;
 			aiOff: string;
 		};
@@ -968,8 +978,36 @@ export interface Messages {
 			otherPlaceholder: string;
 			save: string;
 		};
+		/** Issue #345: C6's queue rendered in place, on the entry a proposal targets and on
+		 * Ask's drafted card. The card's own words stay in `diffCard` - these are only the
+		 * region's frame around it. */
+		inline: {
+			/** The region's accessible name, since it is a focusable landmark carrying
+			 * keystrokes rather than decoration. */
+			regionLabel: string;
+			heading: (pending: number) => string;
+			/** Once every proposal in the region has been decided. */
+			headingSettled: string;
+			/** "2 of 3", shown only when the region holds more than one. */
+			position: (index: number, total: number) => string;
+			/** Names the five keys the region listens for, beside the keys themselves. */
+			keys: string;
+			/** Confirms an accept landed in canon, where the reader is already looking. */
+			acceptedNote: string;
+			failed: (message: string) => string;
+			/** Pending on this entry with no drafted text yet, so C3's checklist on the plan
+			 * is where the decision to spend on a diff still belongs. */
+			awaitingDiff: (count: number) => string;
+			awaitingDiffLink: string;
+		};
 		errors: {
 			noDiffsToGenerate: string;
+			/** `/w/[universe]/review/[proposal]`, issue #345. */
+			proposalNotFound: string;
+			unknownAction: string;
+			viewerCannotDecide: string;
+			missingRejectReason: string;
+			notRejected: string;
 		};
 	};
 

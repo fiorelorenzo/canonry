@@ -9,6 +9,7 @@
 	import { messages, type Locale } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
+	import ModelRunning from '$lib/components/copilot/ModelRunning.svelte';
 
 	interface ChecklistRow {
 		id: string;
@@ -96,9 +97,15 @@
 			}}
 			class="mt-3"
 		>
-			<Button type="submit" disabled={generating}>
-				{generating ? t.generating : t.generateDiffs(kept.length)}
-			</Button>
+			<Button type="submit" disabled={generating}>{t.generateDiffs(kept.length)}</Button>
+			{#if generating}
+				<!-- #345: the premium model writes one diff per kept row inside this request, so
+				     this is the longest wait in the product. The button used to relabel itself
+				     and nothing else. -->
+				<div class="mt-2">
+					<ModelRunning label={t.generating} {locale} />
+				</div>
+			{/if}
 		</form>
 	{/if}
 </div>

@@ -4,7 +4,7 @@
  * normal pending `update` proposal, so it goes through the same accept flow as any other.
  */
 import { and, closeDb, eq, isNull, type Db } from '@canonry/db';
-import { modelCall, relationType } from '@canonry/db/schema';
+import { modelCall, proposalPlan, relationType } from '@canonry/db/schema';
 import { MockLanguageModelV4 } from 'ai/test';
 import type { LanguageModel } from 'ai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -148,6 +148,16 @@ describe('completeEntry (issue #54, SPEC.md §5)', () => {
 		const matching = calls.filter((c) => c.userId === owner.id);
 		expect(matching).toHaveLength(1);
 		expect(matching[0]?.agent).toBe('loremaster');
+
+		// Issue #345: the diff is written here and now, so the plan it belongs to is spent and
+		// says so. Left at `ready` the review surfaces offer C3's "Generate diffs" for a
+		// candidate that already has its prose, which is two clicks and a round trip in front
+		// of every completion.
+		const [plan] = await db
+			.select()
+			.from(proposalPlan)
+			.where(eq(proposalPlan.id, result.proposal.planId ?? ''));
+		expect(plan?.status).toBe('spent');
 	});
 
 	it('refuses to run when the universe has generation switched off (guardrail 4)', async () => {

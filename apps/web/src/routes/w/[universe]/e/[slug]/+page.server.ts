@@ -17,6 +17,7 @@ import { stripMentionSyntax } from '$lib/markdown';
 import {
 	changedSentencesForEntity,
 	pendingUpdateProposalsForEntity,
+	reviewableProposalsForEntity,
 	ProposalAlreadyDecidedError,
 	ProposalNotFoundError,
 	rejectProposal
@@ -105,6 +106,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		portraitModel,
 		variantsModel,
 		pendingProposals,
+		review,
 		openFlags
 	] = await Promise.all([
 		relationsFor(conn, current.id, locals.locale),
@@ -116,6 +118,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		modelSummary(conn, 'portrait'),
 		modelSummary(conn, 'variants'),
 		pendingUpdateProposalsForEntity(conn, world.id, current.id),
+		// #345: the same pending proposals again, resolved and enriched, so the entry can be
+		// where they are reviewed. Deliberately a second read rather than derived from the
+		// line above: the marking needs only patches, the review needs every joined name,
+		// diff, layout and evidence view the queue renders, and collapsing the two would
+		// make the C1 marking pay for the joins it has no use for.
+		reviewableProposalsForEntity(conn, world.id, current.id),
 		openAuditFlagsForEntity(conn, world.id, current.id)
 	]);
 
@@ -125,7 +133,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// `Set`) so the page component owns reconstructing it, matching every other derived
 	// prop this load already returns as plain JSON.
 	const markedSentences = [...changedSentencesForEntity(current.body, pendingProposals)];
-	const pendingProposalPlanId = pendingProposals[0]?.planId ?? null;
 
 	// C9 = B, #55: the badge's count and the aside's list read the same resolved flags -
 	// mapped to a plain view here (statement text and current entity slugs only) so the
@@ -182,8 +189,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		publicMentionTargets: publicMentionTargetsFrom(universeEntities),
 		proposals: {
 			markedSentences,
-			count: pendingProposals.length,
-			planId: pendingProposalPlanId
+			// #345: what the region renders, and what stays a link because it has no text yet.
+			reviewable: review.reviewable,
+			awaitingDiff: review.awaitingDiff
 		},
 		audit: {
 			flags: auditFlags

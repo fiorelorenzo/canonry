@@ -9,7 +9,12 @@
  * taken during play turn into entry proposals after the session, not during it").
  */
 import { error, json } from '@sveltejs/kit';
-import { createProposalPlan, recordProposalDiff, runningSessionContext } from '@canonry/db';
+import {
+	createProposalPlan,
+	recordProposalDiff,
+	runningSessionContext,
+	setProposalPlanStatus
+} from '@canonry/db';
 import { dateFormat, messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { publishTableEvent } from '$lib/server/table-stream';
@@ -53,7 +58,7 @@ export const POST: RequestHandler = async (event) => {
 			? `${target.body}\n\n**Table note, ${when}:** ${note}`
 			: `**Table note, ${when}:** ${note}`;
 
-	const { proposals } = await createProposalPlan(conn, {
+	const { plan, proposals } = await createProposalPlan(conn, {
 		universeId: access.universe.id,
 		trigger: 'table',
 		triggerEntityId: target.id,
@@ -85,6 +90,10 @@ export const POST: RequestHandler = async (event) => {
 		modelId: 'none (verbatim capture)',
 		credits: 0
 	});
+	// Issue #345: the note's full `after` text is written above, so this plan has nothing
+	// left to generate. Left at `ready` the review surfaces show C3's checklist and a
+	// "Generate diffs" button for a candidate that already carries its prose.
+	await setProposalPlanStatus(conn, plan.id, 'spent');
 
 	publishTableEvent(access.universe.id, 'proposal', {
 		proposalId: proposal.id,
