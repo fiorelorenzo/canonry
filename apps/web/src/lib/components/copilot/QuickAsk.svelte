@@ -22,14 +22,17 @@
 	 * - **Keep is the only write.** Closing this loses everything, exactly as closing the
 	 *   palette already does, which is what lets `ask/kept` be a history rather than a
 	 *   transcript.
-	 * - **The theme's own colours, not the copilot's violet.** Paper, `--line`, `--ink` and
+	 * - **The theme's own colours, not the copilot's hue.** Paper, `--line`, `--ink` and
 	 *   the umber accent for the pill, the panel, the context chip and the input, in both
 	 *   palettes (G1). **This does not repeal C1**: the streamed answer renders through
-	 *   `AiMarkedParagraph`, which is the violet dashed underline plus the numbered margin
-	 *   marker C1 reserves for AI text nobody has accepted, and the indexed-source chips
-	 *   keep the same violet treatment the Ask route gives them. What lost the violet is
-	 *   the furniture, which was never AI text. Do not paint the chrome violet again
-	 *   without reading `docs/ux/DECISIONS.md` round ten first.
+	 *   `AiMarkedParagraph`, which is the dashed underline plus the numbered margin marker
+	 *   C1 reserves for AI text nobody has accepted. Round eleven P2 (#344) finished the
+	 *   job on the two chips this panel draws below: the proposal chip and the
+	 *   indexed-source chip are chrome around a link and a kind label, so they wear panel
+	 *   and line here exactly as they now do on the Ask route, and the marked wording
+	 *   inside the proposal chip is what says "not yet accepted". Do not paint the chrome
+	 *   in the copilot's hue again without reading `docs/ux/DECISIONS.md` round ten and
+	 *   round eleven first.
 	 * - **An icon closes the panel, not the word.** With its accessible name on
 	 *   `aria-label`, so the control is still named for anything that is not looking at it.
 	 *
@@ -334,9 +337,9 @@
 			{/if}
 
 			{#if answer.length > 0 || asking}
-				<!-- C1 = B, untouched by O3's colour amendment: unaccepted AI wording keeps the
-				     dashed violet underline and the numbered margin marker, here as on every
-				     other surface that renders it. -->
+				<!-- C1 = B, untouched by O3's colour amendment and by round eleven's: unaccepted AI
+				     wording keeps the dashed underline and the numbered margin marker, here as on
+				     every other surface that renders it. -->
 				<div class="px-3 pt-3 text-sm">
 					{#if answer.length > 0}
 						<AiMarkedParagraph segments={[{ text: answer, proposed: true }]} />
@@ -352,8 +355,10 @@
 					{#each proposals as proposal (proposal.proposalId)}
 						<!-- issue #256, guardrail 1 and 6: an answer that also drafted something says
 						     so, and says which way round it went, wherever it was asked from. -->
-						<div class="rounded-lg border border-ai-line bg-ai-bg px-2.5 py-1.5 text-xs">
-							<span class="rounded-full bg-ai px-1.5 py-0.5 text-[10px] text-paper">
+						<div class="rounded-lg border border-line bg-panel-2 px-2.5 py-1.5 text-xs">
+							<span
+								class="rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
+							>
 								{proposal.kind === 'draft_entity'
 									? askT.propose.badgeCreated
 									: askT.propose.badgeEdited}
@@ -407,9 +412,9 @@
 									target="_blank"
 									rel="noreferrer"
 									title={source.text}
-									class="inline-flex max-w-64 items-center gap-1 rounded-full border border-ai-line bg-ai-bg px-2 py-0.5 text-xs"
+									class="inline-flex max-w-64 items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-xs"
 								>
-									<span class="shrink-0 text-[10px] text-ai">{askT.indexedBadge}</span>
+									<span class="shrink-0 text-[10px] text-ink-2">{askT.indexedBadge}</span>
 									<span class="truncate text-ink">{source.pageTitle}</span>
 									<span class="shrink-0 font-mono text-[10px] text-muted">
 										{source.attribution}{#if source.licence}
