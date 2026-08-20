@@ -192,12 +192,15 @@ export interface Messages {
 			/** #285: the same input, docked in the Loremaster panel, where the box is the
 			 * copilot's own composer rather than a router. */
 			askPlaceholder: string;
+			/** #416, S11: the docked composer's own send control, next to the input
+			 * rather than a row below it - the accessible name on the icon-only button,
+			 * and its tooltip. */
+			sendLabel: string;
+			/** #416, S11: dialog placement only now - the docked composer's Enter and
+			 * send control do this job without a row to click. */
 			askHeading: string;
 			askAction: (question: string) => string;
 			askHint: string;
-			/** #285: the docked placement answers in place, so the row's hint says so
-			 * rather than naming a route. */
-			askHereHint: string;
 			entriesHeading: string;
 			noEntryMatches: (query: string) => string;
 			loadingMessage: string;
