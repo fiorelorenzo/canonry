@@ -4,9 +4,10 @@
  * retrieval layers, both real:
  *
  * 1. **Your canon** - a deterministic Jaccard sentence search directly over this
- *    universe's `entity` bodies, zero cost, no model call. This is guardrail 4's "search
- *    over their own canon" (H1: "reading is free"), and it is the layer that stays up
- *    when generation is switched off: `runAsk` never gates this half on `aiEnabled`.
+ *    universe's `entity` bodies, over content words only (issue #346: sharing the word
+ *    `the` used to be enough to be cited), zero cost, no model call. This is guardrail 4's
+ *    "search over their own canon" (H1: "reading is free"), and it is the layer that stays
+ *    up when generation is switched off: `runAsk` never gates this half on `aiEnabled`.
  * 2. **Indexed / derived corpus** - real retrieval through `@canonry/indexing`'s
  *    `retrieveForUniverse` against a real Qdrant collection. Top-k and threshold are not
  *    restated here as numbers on purpose (see `retriever.ts`'s own `DEFAULT_TOP_K`/
@@ -47,7 +48,7 @@ import {
 	retrieveForUniverse,
 	type RetrievalHit
 } from '@canonry/indexing';
-import { type Locale } from '@canonry/lang';
+import { functionWords, type Locale } from '@canonry/lang';
 import { stepCountIs, streamText, tool } from 'ai';
 import { z } from 'zod';
 import { jaccard, splitIntoSentences, tokenize } from './diff.js';
@@ -107,30 +108,103 @@ export type QueryEmbedder = (texts: string[]) => Promise<number[][]>;
 // split per consumer: the UI list is a plain flex column with no fixed-height clip (it
 // scrolls with the page), so there's no rendering reason for the UI to want fewer than
 // the model gets, and nothing here has ever measured a token-cost or relevance cliff
-// that would justify giving the model and the screen different limits.
+// that would justify giving the model and the screen different limits. Since #346 it is
+// rarely the binding constraint: on the sample world the content-word gate below leaves
+// between 0 and 7 candidates for a real question, where every question used to leave
+// enough to fill it.
 const OWN_CANON_LIMIT = 6;
+
+/** The tokenized form of a locale's function words, built once per locale from
+ * `@canonry/lang`'s list through this package's own `tokenize`, because the comparison has
+ * to happen in the tokenizer's alphabet: it drops accents, so Italian `perché` and a canon
+ * sentence's `perché` both arrive here as `perch`, and a list compared in its written form
+ * would miss both. */
+const functionTokensByLocale = new Map<Locale, ReadonlySet<string>>();
+
+function functionTokens(locale: Locale): ReadonlySet<string> {
+	const cached = functionTokensByLocale.get(locale);
+	if (cached) return cached;
+	const tokens = new Set<string>();
+	for (const word of functionWords(locale)) for (const token of tokenize(word)) tokens.add(token);
+	functionTokensByLocale.set(locale, tokens);
+	return tokens;
+}
+
+function contentTokens(text: string, functionTokenSet: ReadonlySet<string>): Set<string> {
+	const tokens = tokenize(text);
+	for (const token of tokens) if (functionTokenSet.has(token)) tokens.delete(token);
+	return tokens;
+}
 
 /** Layer 1, SPEC.md §5's "search over their own canon": every sentence in every entity's
  * current body, scored against the question by word overlap, best sentence per entity,
  * highest-scoring entities first. Deterministic, free, and never gated on `aiEnabled` -
- * this is what "reading is free" and "AI off still reads" mean in code. */
+ * this is what "reading is free" and "AI off still reads" mean in code.
+ *
+ * **Function words are dropped from both sides first, and that is the whole of issue
+ * #346's fix to this layer.** The overlap used to be scored over every word, and the only
+ * condition for calling a sentence a source was a score above zero, so sharing the word
+ * `the` was enough. Measured against the seeded sample world, 17 entries, nine broad
+ * questions in both locales: every match all nine produced rested on exactly that, `of`,
+ * `is`, `the`, `in`, `this`, `about`, `di`, `i`, `e`, `chi`, `questo`. Scoring content
+ * words only takes their candidate counts from 14, 16, 11, 17, 4, 2, 2, 6 and 2 down to 1,
+ * 0, 0, 0, 0, 0, 0, 0 and 0. The one survivor is honest: "What kind of world is this?"
+ * still matches Mother Sennah on `kind`, in the other sense of the word, which is a
+ * coincidence word overlap cannot see through and one chip rather than six.
+ *
+ * Nothing a targeted question should return is lost. In the same run "Who keeps The Gilded
+ * Rat?" goes from 16 candidates to 5 with Mother Sennah still first at 1.0000, "What
+ * happened during The Sable Winter?" from 16 to exactly the 5 entries that mention that
+ * winter (the sixth was Corvin Ashe on `the`), "Why was Aldric Vane dismissed from the
+ * watch?" from 16 to 7, "Who holds the debt of the Lantern Quarter?" from 17 to 6, and the
+ * Italian "Chi tiene i registri della Casa dei Mercanti?" from 3 to 2. It also stops the
+ * ranking depending on how long the question is: the same Sable Winter question asked in
+ * 18 words instead of 6 returns the same five entries in the same order, where the union in
+ * the denominator used to move every score.
+ *
+ * **There is no similarity floor, and the same measurement is why.** A floor was the
+ * obvious half of #346 and no number does this job. Before the change a coincidence scored
+ * 0.2000 ("Give me an overview of the setting." against Corvin Ashe, shared words `of the`)
+ * while a real citation scored 0.1200 ("What happened during The Sable Winter?" against
+ * Mother Sennah, shared words `the sable winter`), so any floor that drops the first drops
+ * the second. That is not a badly chosen number, it is the wrong shape: Jaccard is a ratio
+ * over the union of two token sets, so it moves with how long the question and the sentence
+ * happen to be, and it is therefore not comparable between two different questions. A
+ * relative floor fails for the same reason, measured: on the Sable Winter question the
+ * top entry and the fifth sit at 0.1667 and 0.1200, a narrower spread than the one between
+ * a coincidence and a citation across questions. What separates a citation from a
+ * coincidence is not how much overlap there is but which words overlap, exactly as issue
+ * #270 found for proposal evidence, and this is that finding applied to the layer #270
+ * left alone. It is also why nothing here reports a score to a GM: guardrail 3 says
+ * evidence is which entry and which sentence and never a bare confidence number, and a
+ * number this scale cannot support would be the same lie in smaller print.
+ *
+ * A question with no content words at all (a pure "Tell me about this world.") returns
+ * nothing rather than everything: layer 1 has no lexical handle on the canon, so it says
+ * so, and both Ask surfaces carry the sentence that explains it. The embedding layer has
+ * no such blind spot and is unchanged, so a world with an indexed corpus still answers a
+ * question whose words appear nowhere in it. */
 async function searchOwnCanon(
 	db: Db,
 	universeId: string,
-	question: string
+	question: string,
+	locale: Locale
 ): Promise<OwnCanonSource[]> {
+	const functionTokenSet = functionTokens(locale);
+	const questionTokens = contentTokens(question, functionTokenSet);
+	if (questionTokens.size === 0) return [];
+
 	const rows = await db
 		.select({ id: entity.id, name: entity.name, slug: entity.slug, body: entity.body })
 		.from(entity)
 		.where(eq(entity.universeId, universeId));
 
-	const questionTokens = tokenize(question);
 	const scored: OwnCanonSource[] = [];
 	for (const row of rows) {
 		const sentences = splitIntoSentences(row.body).filter((s) => !s.startsWith('#'));
 		let best: { sentence: string; score: number } | null = null;
 		for (const sentence of sentences) {
-			const score = jaccard(tokenize(sentence), questionTokens);
+			const score = jaccard(contentTokens(sentence, functionTokenSet), questionTokens);
 			if (!best || score > best.score) best = { sentence, score };
 		}
 		if (best && best.score > 0) {
@@ -262,6 +336,28 @@ function renderSourcesForPrompt(sources: AskSource[]): string {
 		.join('\n');
 }
 
+/** issue #346: the other half of the empty state, and the half a UI string cannot cover.
+ * With `(none found)` in the prompt the model already refuses to invent, which is right,
+ * but left to its own words it explains the refusal wrongly: against a real gateway it
+ * answered "if you share canon text or world notes, I can identify the most important
+ * people", to a GM who has seventeen entries. The refusal has to name the real reason,
+ * that this question's words touched none of them, or it reads as the product not being
+ * able to see the canon it is looking at. The suggestion is in it for the same reason:
+ * naming a person, a place or an event is what actually gets layer 1 to bite, so saying so
+ * turns a dead end into the next thing to type. Empty string when there are sources, so
+ * the ordinary path carries no instruction about a case it is not in. */
+function noSourcesInstruction(sourceCount: number): string {
+	if (sourceCount > 0) return '';
+	return (
+		"Nothing in the GM's canon matched the words of this question, so there are no " +
+		'sources at all. Say that in one sentence: their entries were searched, and no ' +
+		'wording in them matched this question. Then suggest naming a person, a place or an ' +
+		'event from their world. Never suggest they share, paste or provide canon - they have ' +
+		'canon, this question simply did not touch any of it - and never answer from general ' +
+		'knowledge instead. '
+	);
+}
+
 /** Layer 1's own honest fallback answer when generation is off: the best-matching
  * sentences quoted verbatim, never a synthesized claim - there is no model call here to
  * make one. */
@@ -371,7 +467,11 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 	if (!universeRow) throw new Error(`no universe row for id "${input.universeId}"`);
 
 	const [ownCanon, indexed] = await Promise.all([
-		searchOwnCanon(input.db, input.universeId, input.question),
+		// #346: the locale is the asker's, and it decides which of their words carry no
+		// meaning of their own. SPEC.md §17 rule two already fixes the question's language as
+		// the interface locale, so this is the same fact read for a second purpose, never a
+		// guess about what language the canon is written in.
+		searchOwnCanon(input.db, input.universeId, input.question, input.locale),
 		searchIndexed({
 			db: input.db,
 			vectorClient: input.vectorClient,
@@ -486,6 +586,7 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 						'proposal was NOT created - tell the GM the attempt failed and repeat the ' +
 						'"error" field verbatim; never say you proposed or created anything for that ' +
 						'call. ' +
+						noSourcesInstruction(sources.length) +
 						speechInstruction(input.locale),
 					prompt:
 						`Sources:\n${renderSourcesForPrompt(sources) || '(none found)'}\n\n` +

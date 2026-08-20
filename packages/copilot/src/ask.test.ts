@@ -781,4 +781,143 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		// proposals written but nothing ever said about them.
 		expect(result.answer).toBe('Proposed a blacksmith and a herbalist, both pending review.');
 	});
+
+	it('issue #346: a broad question that shares only function words with the canon cites nothing, where a targeted question still cites the entry', async () => {
+		const { owner, universe } = await fixture();
+
+		// Shares `in`, `the` and `now` with the fixture's own body ("Dismissed from the watch
+		// in the thaw after the Sable Winter, he now answers to the Ashen Ledger."), which is
+		// exactly the overlap that used to be enough: `score > 0` was the whole condition, so
+		// Aldric Vane came back as a source for a question that is not about him. It is a real
+		// question a GM asks, and it is #346's own report ("general questions about the
+		// universe... answers by taking from particular pages apparently at random").
+		const broad = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'What is going on in the world now?',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(streamingModel('Nothing here matches that question.')),
+			gateway: IDENTITY_GATEWAY
+		});
+		expect(broad.sources.filter((s) => s.kind === 'own_canon')).toEqual([]);
+		// And nothing is offered to click on either: the follow-ups are derived from the
+		// sources, so a coincidence used to become a "tell me more about Aldric Vane" button.
+		expect(broad.followUps).toEqual([]);
+
+		// The same canon, a question that names it: unchanged.
+		const targeted = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Why was Aldric Vane dismissed from the watch?',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(streamingModel('After the Sable Winter.')),
+			gateway: IDENTITY_GATEWAY
+		});
+		expect(
+			targeted.sources.some((s) => s.kind === 'own_canon' && s.entityName === 'Aldric Vane')
+		).toBe(true);
+	});
+
+	it('issue #346: the same rule holds for an Italian question, whose function words are its own', async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, {
+			ownerUserId: owner.id,
+			name: 'Valdoria Reach'
+		});
+		await insertEntity(db, universe.id, {
+			type: 'faction',
+			name: 'La Casa dei Mercanti',
+			body: 'La Casa dei Mercanti tiene i suoi registri nel Quartiere della Lanterna.'
+		});
+
+		// `di`, `i`, `e` and `questo` are what this used to match on, which is why an Italian
+		// GM asking a general question got the Casa's bookkeeping sentence back.
+		const broad = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Che tipo di mondo e questo?',
+			detailLevel: 'normal',
+			locale: 'it',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(streamingModel('Non trovo nulla.')),
+			gateway: IDENTITY_GATEWAY
+		});
+		expect(broad.sources).toEqual([]);
+
+		const targeted = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Chi tiene i registri della Casa dei Mercanti?',
+			detailLevel: 'normal',
+			locale: 'it',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(streamingModel('Il vecchio Contabile.')),
+			gateway: IDENTITY_GATEWAY
+		});
+		expect(
+			targeted.sources.some(
+				(s) => s.kind === 'own_canon' && s.entityName === 'La Casa dei Mercanti'
+			)
+		).toBe(true);
+	});
+
+	it('issue #346: with nothing retrieved, the answer is told to say why rather than to ask the GM for canon they already have', async () => {
+		const { owner, universe } = await fixture();
+
+		let emptyPrompt: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+		await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'What is going on in the world now?',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(
+				capturingStreamingModel('placeholder answer', (options) => {
+					emptyPrompt = options;
+				})
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+		// Against a real gateway, `(none found)` alone produced "if you share canon text or
+		// world notes, I can identify the most important people" to a GM with seventeen
+		// entries. The instruction exists so the refusal names the real reason.
+		const emptySystem = systemPromptOf(emptyPrompt!);
+		expect(emptySystem).toContain('no sources at all');
+		expect(emptySystem).toContain('Never suggest they share, paste or provide canon');
+
+		let sourcedPrompt: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+		await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Why was Aldric Vane dismissed from the watch?',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(
+				capturingStreamingModel('placeholder answer', (options) => {
+					sourcedPrompt = options;
+				})
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+		// And an ordinary answer carries no instruction about a case it is not in.
+		expect(systemPromptOf(sourcedPrompt!)).not.toContain('no sources at all');
+	});
 });
