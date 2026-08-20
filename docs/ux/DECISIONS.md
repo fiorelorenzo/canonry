@@ -242,9 +242,10 @@ document icon, which is the moment a mark stops being decoration:
   that it also claims an authority guardrail 7 forbids. A check in a frame was drawn
   precisely so nobody proposes it later: a check means verified, and this product says
   what does not add up rather than certifying that anything adds up.
-- **The brand spends the accent and nothing else.** C1 reserves violet for the copilot,
-  so the mark never borrows it: a logo in the copilot's hue makes every marked proposal
-  mean slightly less. Burnt umber on paper, amber on ink, and the favicon carries a
+- **The brand spends the accent and nothing else.** C1 reserves the copilot's own hue for the
+  copilot (violet when this was written, mulberry since round eleven's P1), so the mark never
+  borrows it: a logo in the copilot's hue makes every marked proposal mean slightly less.
+  Burnt umber on paper, amber on ink, and the favicon carries a
   `prefers-color-scheme` block so one file serves both tab strips.
 - **The wordmark is the product's own serif.** G2 allowed no exceptions and a logo is not
   one, which also retires the landing header's uppercase-with-tracking treatment.
@@ -756,6 +757,11 @@ convention, so it is written here rather than left to a component:
   text in the first place. The cost is real and accepted: the launcher no longer announces
   itself as the copilot by colour, so the name and the icon carry that job alone. Nobody should
   "fix" this back to violet later without reading this paragraph first.
+  **Round eleven overtook the second half of this.** The furniture amendment above stands and was
+  in fact under-applied, which P2 finished. What no longer holds is "violet stays reserved": P1
+  re-derived that hue to `oklch(0.479 0.140 325)` because the marked text had the same problem as
+  the pill, in the middle of the reading surface instead of in a corner. Read this paragraph for
+  why the furniture lost the hue, and P1 for which hue it is now.
 - **An icon closes the panel, not the word "Close".** The mock's text button is the only control
   in that corner competing with the answer for attention, and a close affordance is the one
   control a reader never needs a label for. It keeps an accessible name, so the label moves to
