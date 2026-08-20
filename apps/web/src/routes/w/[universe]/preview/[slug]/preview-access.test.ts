@@ -10,8 +10,8 @@
  * regresses on its own.
  */
 import { randomUUID } from 'node:crypto';
-import { closeDb, createDb, eq, type Db } from '@canonry/db';
-import { entity, universe, user } from '@canonry/db/schema';
+import { closeDb, createDb, eq, setEntityCover, type Db } from '@canonry/db';
+import { entity, mediaAsset, universe, user } from '@canonry/db/schema';
 import { isHttpError } from '@sveltejs/kit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { GET } from './+server.js';
@@ -34,9 +34,9 @@ describe('GET /w/[universe]/preview/[slug] (#364)', () => {
 	let db: Db;
 	let universeRow: { id: string; ownerUserId: string; slug: string };
 	let strangerId: string;
+	let entryId: string;
 	let entrySlug: string;
 	let gmOnlySlug: string;
-
 	beforeAll(async () => {
 		db = createDb(DATABASE_URL, { max: 3 });
 
@@ -83,8 +83,9 @@ describe('GET /w/[universe]/preview/[slug] (#364)', () => {
 					body: 'A body only the table owner reads.'
 				}
 			])
-			.returning({ slug: entity.slug });
+			.returning({ id: entity.id, slug: entity.slug });
 		if (!entry || !gmOnly) throw new Error('fixture entity insert failed');
+		entryId = entry.id;
 		entrySlug = entry.slug;
 		gmOnlySlug = gmOnly.slug;
 	});
@@ -143,5 +144,27 @@ describe('GET /w/[universe]/preview/[slug] (#364)', () => {
 
 	it('404s for an entry slug this universe does not have', async () => {
 		expect(await statusOf(request('no-such-entry-here', universeRow.ownerUserId))).toBe(404);
+	});
+
+	it('carries the cover straight through, untouched by any filter, on the GM surface (S6, #411)', async () => {
+		const [cover] = await db
+			.insert(mediaAsset)
+			.values({
+				universeId: universeRow.id,
+				entityId: entryId,
+				kind: 'image',
+				path: '/media/preview-access-cover-test.png',
+				mimeType: 'image/png',
+				generated: true
+			})
+			.returning();
+		if (!cover) throw new Error('media asset insert did not return a row');
+		await setEntityCover(db, { entityId: entryId, mediaAssetId: cover.id });
+
+		const response = await request(entrySlug, universeRow.ownerUserId);
+		const payload = await response.json();
+		expect(payload.coverId).toBe(cover.id);
+
+		await setEntityCover(db, { entityId: entryId, mediaAssetId: null });
 	});
 });

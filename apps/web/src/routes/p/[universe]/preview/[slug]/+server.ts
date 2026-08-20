@@ -15,7 +15,7 @@
  * reads are a handful of indexed lookups on a first hover, and the alternative buys a few
  * milliseconds with a copy of the filter.
  *
- * Guardrail 6 in three places:
+ * Guardrail 6 in four places:
  *
  * - A `gm_only` entity, a deleted entity and a name that never existed all leave here as the
  *   same 404 with the same message, so the response carries no signal that the entry exists.
@@ -26,6 +26,11 @@
  * - The excerpt is `mentionPreviewExcerpt`, so it is `stripSecretsForPlayers`'s output, run
  *   over a body that had already been through it. Belt and braces on the one thing #355 is
  *   open about: a quoted slice that still carries what a GM fenced off.
+ * - S6 (#411): `coverId` is `entity.coverImageId`, unchanged from what `loadPublicEntity`
+ *   already resolved - attached, not `gm_only`, on an entry that is itself not `gm_only`
+ *   and has been revealed (R7, #382). No second check here for the same reason the excerpt
+ *   gets none: a filter this file re-derived is a filter this file could get wrong, and
+ *   `p/leak.test.ts` is what would have to catch it if it ever did.
  */
 import { error, json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
@@ -56,6 +61,7 @@ export const GET: RequestHandler = async ({ params }) => {
 		name: entity.name,
 		type: entity.type,
 		status: 'full',
-		excerpt: mentionPreviewExcerpt(entity.body)
+		excerpt: mentionPreviewExcerpt(entity.body),
+		coverId: entity.coverImageId ?? undefined
 	} satisfies MentionPreviewData);
 };
