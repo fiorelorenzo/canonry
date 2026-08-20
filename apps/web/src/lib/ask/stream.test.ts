@@ -7,9 +7,15 @@
  * test because the shape the client sends is validated by `keepRequestSchema` on the other
  * side of a fetch, where a mismatch is a 400 in a browser rather than a type error here.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { keepRequestSchema } from '$lib/server/ask/keep-request';
-import { consumeAskStream, keepSourcePayload, type AskDone, type AskSource } from '$lib/ask/stream';
+import {
+	consumeAskStream,
+	keepSourcePayload,
+	streamAsk,
+	type AskDone,
+	type AskSource
+} from '$lib/ask/stream';
 
 function streamOf(chunks: string[]): ReadableStream<Uint8Array> {
 	const encoder = new TextEncoder();
@@ -126,5 +132,46 @@ describe('keepSourcePayload', () => {
 				statement: 'The Ashen Ledger keeps the debts of the drowned quarter.'
 			}
 		]);
+	});
+});
+
+describe('streamAsk (issue #380, decision R5)', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('forwards history and context in the request body, unchanged, alongside question and detailLevel', async () => {
+		let requestBody: unknown;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_url: string, init: RequestInit) => {
+				requestBody = JSON.parse(init.body as string);
+				return new Response(new ReadableStream({ start: (c) => c.close() }), { status: 200 });
+			})
+		);
+
+		const history = [
+			{ role: 'gm' as const, text: 'What happened to the old commander?' },
+			{ role: 'loremaster' as const, text: 'He was dismissed after the Sable Winter.' }
+		];
+		const context = { kind: 'entry' as const, name: 'Aldric Vane', entityType: 'character' };
+
+		await streamAsk(
+			{
+				universeSlug: 'valdoria-reach',
+				question: 'Who commands the watch now?',
+				detailLevel: 'normal',
+				history,
+				context
+			},
+			{}
+		);
+
+		expect(requestBody).toEqual({
+			question: 'Who commands the watch now?',
+			detailLevel: 'normal',
+			history,
+			context
+		});
 	});
 });
