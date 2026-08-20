@@ -481,6 +481,11 @@ export const it: Messages = {
 			detectedUnknown: 'testo insufficiente per stabilirlo'
 		},
 
+		cover: {
+			placeholderAction: 'Aggiungi una copertina',
+			placeholderHint: 'Genera un\u2019immagine in Immagini, poi usala come copertina.'
+		},
+
 		complete: {
 			button: 'Completa la voce',
 			completing: 'Completamento in corso\u2026',

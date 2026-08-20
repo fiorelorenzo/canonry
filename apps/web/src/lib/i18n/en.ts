@@ -481,6 +481,11 @@ export const en: Messages = {
 			detectedUnknown: 'not enough text to tell'
 		},
 
+		cover: {
+			placeholderAction: 'Add a cover',
+			placeholderHint: 'Generate an image under Images, then use it as the cover.'
+		},
+
 		complete: {
 			button: 'Complete entry',
 			completing: 'Completing\u2026',

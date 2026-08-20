@@ -20,12 +20,14 @@
 	 *    where a face is, and everything else keeps the middle. Nothing is ever squashed to
 	 *    fit.
 	 *
-	 * There is deliberately no empty state. An entry with no cover renders no band and no
-	 * dashed placeholder either, which is the amendment the decision carried: a slot that is
-	 * empty on every thin entry reads worse than no slot, and a GM who cannot write to that
-	 * world would be looking at an invitation they cannot accept. The caller therefore
-	 * mounts this component only when there is a cover, and this component has no "absent"
-	 * branch to get wrong.
+	 * There is deliberately no empty state in *this* component, and that is no longer the
+	 * whole decision. O2 refused a placeholder outright; round eleven P6 reverses that
+	 * narrowly, for somebody who can write to the world only, and
+	 * `EntryCoverPlaceholder.svelte` is where that lives. The split is the point: this file
+	 * still takes a `src: string` and still has no "absent" branch to get wrong, the
+	 * placeholder is a separate mount behind `coverSlot`, and the players' wiki imports this
+	 * one alone. O2's reason for the refusal survives inside P6 rather than being overruled
+	 * by it: a reader who cannot write is shown no slot at all.
 	 *
 	 * `src` arrives already resolved, so this component knows nothing about which surface it
 	 * is on and cannot second-guess who may see the picture. Guardrail 6 lives in the two

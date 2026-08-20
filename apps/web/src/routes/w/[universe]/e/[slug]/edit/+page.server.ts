@@ -4,11 +4,13 @@ import {
 	historyFor,
 	mediaAssetsForEntity,
 	priceOf,
+	resetEntityLanguageToDetected,
 	saveEntityBody,
+	setEntityLanguage,
 	universeAccessBySlug
 } from '@canonry/db';
 import { ImageModelNotConfiguredError, resolveImageModel } from '@canonry/media';
-import { messages } from '$lib/i18n';
+import { isLocale, messages, toLocale } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { scheduleCanonSaveJob } from '$lib/server/jobs';
 import { normalizeMentions } from '$lib/markdown';
@@ -61,7 +63,7 @@ async function sceneModel(conn: Db) {
 }
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-	const { conn, world, current } = await loadUniverseAndEntity(
+	const { conn, world, current, role } = await loadUniverseAndEntity(
 		locals,
 		params.universe,
 		params.slug
@@ -91,8 +93,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			name: current.name,
 			slug: current.slug,
 			aliases: current.aliases,
-			body: current.body
+			body: current.body,
+			// #347: the entry's own language (SPEC.md §17) is read here rather than on the read
+			// page, because this is where the body that detection runs over gets written.
+			language: toLocale(current.language),
+			languageSource: current.languageSource
 		},
+		// The same answer `media.canWrite` gives on the read page, from the same role: a
+		// viewer can open this page (the layout lets them in) and cannot write from it, so
+		// the language control is disabled rather than absent, and its action 403s anyway.
+		canWrite: role !== 'viewer',
 		mentionTargets: universeEntities,
 		media: {
 			assets: imageAssets.map((asset) => ({
@@ -106,7 +116,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, params, locals }) => {
+	/** Named rather than `default` since #347 gave this route a second action, and
+	 * SvelteKit refuses a file that has both. The editor's own form posts to `?/save`. */
+	save: async ({ request, params, locals }) => {
 		const { conn, world, current, role, userId } = await loadUniverseAndEntity(
 			locals,
 			params.universe,
@@ -171,5 +183,45 @@ export const actions: Actions = {
 		});
 
 		redirect(303, `/w/${params.universe}/e/${params.slug}`);
+	},
+
+	/** Issue #122, SPEC.md §17: the entry's own language control. `auto` reverts to
+	 * detection and re-runs it immediately against the body as it stands now, rather than
+	 * leaving a stale guess sitting under the new 'detected' provenance until the next
+	 * save; `unsure` is the explicit "not sure / mixed" answer, stored as `language: null`
+	 * under `languageSource: 'human'` so it is never re-guessed.
+	 *
+	 * Moved here from the read page with the control itself (#347). It reads the same
+	 * `loadUniverseAndEntity` gate the save above does, so a raw POST from a viewer is a
+	 * 403 on this route exactly as it was on the other one: SvelteKit runs an action before
+	 * any layout load, and membership is re-checked per action rather than assumed.
+	 */
+	setLanguage: async ({ request, params, locals }) => {
+		const { conn, current, role } = await loadUniverseAndEntity(
+			locals,
+			params.universe,
+			params.slug
+		);
+		if (role === 'viewer')
+			error(403, messages(locals.locale).entry.errors.viewerCannotChangeLanguage);
+
+		const form = await request.formData();
+		const choice = form.get('language');
+		if (typeof choice !== 'string')
+			return fail(400, {
+				languageError: messages(locals.locale).entry.errors.missingLanguageChoice
+			});
+
+		if (choice === 'auto') {
+			return await resetEntityLanguageToDetected(conn, { entityId: current.id });
+		}
+		if (choice === 'unsure') {
+			return await setEntityLanguage(conn, { entityId: current.id, language: null });
+		}
+		if (!isLocale(choice))
+			return fail(400, {
+				languageError: messages(locals.locale).entry.errors.unknownLanguage(choice)
+			});
+		return await setEntityLanguage(conn, { entityId: current.id, language: choice });
 	}
 };
