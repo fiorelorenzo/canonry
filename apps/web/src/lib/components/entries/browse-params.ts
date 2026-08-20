@@ -37,8 +37,11 @@ export function isBrowsableType(value: string | null | undefined): value is Enti
 }
 
 /** Recency first: what a GM most often wants is what they just touched, and it is the order
- * the flat list this replaces already had. */
-const DEFAULT_SORT: EntityBrowserSort = 'changed';
+ * the flat list this replaces already had. Exported so a plain GET form (the search box in
+ * `+page.svelte`) can omit its own hidden `sort`/`dir` fields against the same default
+ * `browseQuery` below omits them against, rather than a second copy of 'changed' drifting
+ * out of step with it. */
+export const DEFAULT_SORT: EntityBrowserSort = 'changed';
 
 /** Names read a-z, numbers and dates read biggest-first, which is what each column is for. */
 export function defaultDirectionFor(sort: EntityBrowserSort): 'asc' | 'desc' {

@@ -205,6 +205,35 @@ describe('entityBrowserPage', () => {
 		expect(composed.rows).toEqual([]);
 	});
 
+	it('finds an entity by a word that only appears in its body (R12, round thirteen)', async () => {
+		const u = await insertHomebrewUniverse(db);
+		await insertEntity(u.id, 'Aldric Vane', {
+			body: 'Aldric argued with the guild over the payroll for three weeks.'
+		});
+		await insertEntity(u.id, 'Cairnmouth', { type: 'place', body: 'A quiet fishing town.' });
+
+		const byBody = await entityBrowserPage(db, u.id, { query: 'payroll' });
+		expect(byBody.total).toBe(1);
+		expect(byBody.rows[0]?.name).toBe('Aldric Vane');
+	});
+
+	it('counts a body match with the same predicate the page reads, not with rows.length', async () => {
+		const u = await insertHomebrewUniverse(db);
+		await insertEntity(u.id, 'Aldric Vane', { body: 'The payroll dispute started here.' });
+		await insertEntity(u.id, 'Cairnmouth', {
+			type: 'place',
+			body: 'The payroll office moved to Cairnmouth after the freeze.'
+		});
+		await insertEntity(u.id, 'The Gilded Rat', { type: 'place', body: 'No mention of that word.' });
+
+		// A page narrower than the total is exactly the case that breaks a footer built off
+		// `rows.length`: the count subquery has to read the same predicate as the row query
+		// for "2 entries match" to stay true under a `limit` of 1.
+		const byBody = await entityBrowserPage(db, u.id, { query: 'payroll', limit: 1 });
+		expect(byBody.total).toBe(2);
+		expect(byBody.rows).toHaveLength(1);
+	});
+
 	it('never reads another world’s entries', async () => {
 		const mine = await insertHomebrewUniverse(db);
 		const theirs = await insertHomebrewUniverse(db);

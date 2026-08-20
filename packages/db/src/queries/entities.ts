@@ -145,8 +145,9 @@ export type EntityBrowserSort = 'name' | 'type' | 'relations' | 'facts' | 'chang
 
 export interface EntityBrowserPageOptions {
 	type?: EntityType;
-	/** Narrows by name or alias, the same substring predicate `searchEntitiesByNameOrAlias`
-	 * uses. It filters and never reorders: see `EntityBrowserSort`. */
+	/** Narrows by name, alias or body - unlike `searchEntitiesByNameOrAlias`'s ranked
+	 * name/alias match for the palette (#149), a word only the prose uses still has to
+	 * find its entry here. It filters and never reorders: see `EntityBrowserSort`. */
 	query?: string;
 	sort?: EntityBrowserSort;
 	direction?: 'asc' | 'desc';
@@ -202,6 +203,7 @@ export async function entityBrowserPage(
 		? sql`and (
 				e.name ilike ${'%' + q + '%'}
 				or exists (select 1 from unnest(e.aliases) a where a ilike ${'%' + q + '%'})
+				or e.body ilike ${'%' + q + '%'}
 			)`
 		: sql``;
 	const where = sql`where e.universe_id = ${universeId} ${typeFilter} ${queryFilter}`;
