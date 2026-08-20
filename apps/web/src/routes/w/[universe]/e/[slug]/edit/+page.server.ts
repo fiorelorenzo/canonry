@@ -14,6 +14,7 @@ import { isLocale, messages, toLocale } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { scheduleCanonSaveJob } from '$lib/server/jobs';
 import { normalizeMentions } from '$lib/markdown';
+import { publicMentionTargetsFrom } from '$lib/server/players';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -42,10 +43,15 @@ async function loadUniverseAndEntity(locals: App.Locals, universeSlug: string, e
 	return { conn, world, current, role: access.role, userId: locals.user.id };
 }
 
+/** `visibility` rides along with the name and the aliases for the same reason the read
+ * page carries it (#220): `publicMentionTargetsFrom` filters this one already-fetched
+ * list down to what `/p/**` would resolve, so the editor's preview can render the
+ * player's view of the body without a second query and without a second copy of the
+ * `gm_only` rule. */
 async function mentionTargetsFor(conn: Db, universeId: string) {
 	return conn.query.entity.findMany({
 		where: (entity, { eq }) => eq(entity.universeId, universeId),
-		columns: { name: true, slug: true, aliases: true }
+		columns: { name: true, slug: true, aliases: true, visibility: true }
 	});
 }
 
@@ -104,6 +110,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		// the language control is disabled rather than absent, and its action 403s anyway.
 		canWrite: role !== 'viewer',
 		mentionTargets: universeEntities,
+		publicMentionTargets: publicMentionTargetsFrom(universeEntities),
 		media: {
 			assets: imageAssets.map((asset) => ({
 				id: asset.id,

@@ -1,3 +1,22 @@
+<script lang="ts" module>
+	import type { MentionTarget } from '$lib/markdown';
+
+	/** What the preview needs that the writing surface does not, passed straight through
+	 * from the entry route's `load`. Optional at the call site for the same reason
+	 * `ImageInsertContext` is: the works/node editor mounts this component with no entity
+	 * behind it, so there is no entry page for its preview to agree with, and it gets the
+	 * writing surface alone rather than a preview that renders through a different
+	 * component than the one its own reader will see. */
+	export interface EditorPreviewContext {
+		universeSlug: string;
+		/** `publicMentionTargetsFrom(mentionTargets)`, computed server-side in the route's
+		 * own `load` (#220) exactly as the read page computes it: this is what
+		 * `EntryProseWithSecrets` resolves mentions against inside its player preview, and
+		 * deriving it here in the browser would mean a second copy of the `gm_only` rule. */
+		publicMentionTargets: MentionTarget[];
+	}
+</script>
+
 <script lang="ts">
 	/**
 	 * The editor, B2 = C and G4 = A: text stays markdown (the `<textarea>` underneath is
@@ -7,11 +26,35 @@
 	 * string. A real `<textarea>` is what's typed into, so the browser owns typing, the
 	 * caret, undo/redo and IME composition; this component only restores the selection
 	 * after a *programmatic* edit (a toolbar click or a mention pick), never during typing.
+	 *
+	 * Round twelve, Q4, adds the preview, and the shape it takes falls out of the two
+	 * layers above rather than out of taste. A live third layer is the one thing this
+	 * component cannot have: the backdrop is behind the textarea *because* the two are the
+	 * same string at the same pixels, and a rendered preview is neither. Side by side is
+	 * out for a different reason: the reading room sets prose at a measure, and half of
+	 * `max-w-3xl` is narrower than that, so a two-column preview would misreport every
+	 * line break and heading rhythm it exists to show, and at 390px there is no second
+	 * column at all. So it is a **write/preview switch over one box**: the preview reads
+	 * at the width the writing does, there is one thing on screen at a time, and the
+	 * phone gets the same feature as the desktop instead of a degraded one.
+	 *
+	 * The write layers are hidden rather than unmounted when the preview shows. Removing
+	 * the textarea from the DOM would throw away the browser's own undo stack and the
+	 * caret with it, so a round trip through the preview would quietly cost the writer
+	 * their history.
+	 *
+	 * What renders the preview is `EntryProseWithSecrets`, the entry page's own body
+	 * component, not a second renderer: same `renderMarkdown`, same `MentionTarget` set,
+	 * same secret and GM-note fences with the same tags, and the same player-preview
+	 * toggle. A preview that could disagree with the page would be worse than none, and
+	 * the only way to be sure it cannot is for it to be the page's component.
 	 */
 	import { decorateMarkdown } from './decorate';
 	import FormattingToolbar, { type FormatCommand } from './FormattingToolbar.svelte';
 	import MentionMenu from './MentionMenu.svelte';
 	import ImageInsertDialog, { type ImageInsertContext } from '../media/ImageInsertDialog.svelte';
+	import EntryProseWithSecrets from '../players/EntryProseWithSecrets.svelte';
+	import { Segmented, type SegmentedOption } from '$lib/components/ui/segmented';
 	import {
 		applyMentionSelection,
 		findActiveTrigger,
@@ -26,13 +69,14 @@
 		type TextEdit
 	} from './editorState';
 	import { messages, type Locale } from '$lib/i18n';
-	import type { MentionTarget } from '$lib/markdown';
+	// `MentionTarget` is imported by the module block above, whose scope this one sees.
 
 	let {
 		value = $bindable(''),
 		targets,
 		locale,
-		imageInsert
+		imageInsert,
+		preview
 	}: {
 		value: string;
 		targets: MentionTarget[];
@@ -41,8 +85,21 @@
 		 * this same component with no entity behind it, so the toolbar's image button
 		 * stays hidden there rather than opening a picker with nothing to place. */
 		imageInsert?: ImageInsertContext;
+		/** Round twelve, Q4: present means this editor has a reading surface to agree
+		 * with, and gains the write/preview switch. Absent means write only. */
+		preview?: EditorPreviewContext;
 	} = $props();
 	let t = $derived(messages(locale));
+
+	// A plain string because that is what `Segmented` binds: it is a group of native
+	// radios, whose value is a string, and narrowing it to a union here would buy nothing
+	// the one comparison below does not already give.
+	let view = $state('write');
+	let showPreview = $derived(preview !== undefined && view === 'preview');
+	let viewOptions = $derived<SegmentedOption[]>([
+		{ value: 'write', label: t.entry.editor.view.write },
+		{ value: 'preview', label: t.entry.editor.view.preview }
+	]);
 
 	let textareaEl: HTMLTextAreaElement | undefined = $state();
 	let backdropEl: HTMLDivElement | undefined = $state();
@@ -155,9 +212,37 @@
 </script>
 
 <div>
-	<FormattingToolbar onCommand={runCommand} {locale} imageInsertEnabled={!!imageInsert} />
+	<!-- One bar over the box, holding the formatting toolbar at one end and, where there
+	     is a reading surface to agree with, the write/preview switch at the other. The
+	     chrome lives here rather than in `FormattingToolbar` so both halves sit inside the
+	     same border; it wraps at 390px, where the switch drops under the icons. -->
+	<div
+		class="flex flex-wrap items-center justify-between gap-2 rounded-t-lg border border-b-0 border-line-2 bg-panel-2 p-1.5"
+	>
+		<FormattingToolbar
+			onCommand={runCommand}
+			{locale}
+			imageInsertEnabled={!!imageInsert}
+			disabled={showPreview}
+		/>
+		{#if preview}
+			<!-- O4 = B: a binary state gets a segmented control, and this one is a view
+			     switch rather than a field, so it deliberately sits outside the entry
+			     form (see the edit route's own comment) and posts nothing. -->
+			<Segmented
+				name="editor-view"
+				bind:value={view}
+				options={viewOptions}
+				ariaLabel={t.entry.editor.view.ariaLabel}
+				class="shrink-0"
+			/>
+		{/if}
+	</div>
 
-	<div class="relative overflow-hidden rounded-b-lg border border-line-2 bg-panel">
+	<div
+		class="relative overflow-hidden rounded-b-lg border border-line-2 bg-panel"
+		class:hidden={showPreview}
+	>
 		<div
 			bind:this={backdropEl}
 			class="{editorBoxClasses} pointer-events-none absolute inset-0 overflow-auto text-ink-2 select-none"
@@ -183,7 +268,7 @@
 			onkeydown={handleKeydown}></textarea>
 	</div>
 
-	{#if menuOpen && trigger}
+	{#if !showPreview && menuOpen && trigger}
 		<MentionMenu
 			query={trigger.query}
 			{matches}
@@ -191,6 +276,28 @@
 			onSelect={selectMention}
 			{locale}
 		/>
+	{/if}
+
+	{#if preview && showPreview}
+		<!-- `min-h-64` is the writing box's own height, so switching does not make the
+		     page jump under the switch that caused it. -->
+		<div
+			class="min-h-64 rounded-b-lg border border-line-2 bg-panel px-4 py-3"
+			role="region"
+			aria-label={t.entry.editor.view.previewAriaLabel}
+		>
+			{#if value.trim()}
+				<EntryProseWithSecrets
+					body={value}
+					universeSlug={preview.universeSlug}
+					mentionTargets={targets}
+					publicMentionTargets={preview.publicMentionTargets}
+					{locale}
+				/>
+			{:else}
+				<p class="text-sm text-muted">{t.entry.editor.view.previewEmpty}</p>
+			{/if}
+		</div>
 	{/if}
 
 	{#if imageInsert}

@@ -15,6 +15,13 @@
 	 * It sits outside the body `<form>` on purpose: it is its own form posting to its own
 	 * action, so changing the language never submits an unsaved body, and saving the body
 	 * never re-posts a language.
+	 *
+	 * Round twelve, Q4: the editor itself moved outside that form for the same reason. Its
+	 * controls are not the entry's data, and the write/preview switch is a group of native
+	 * radios, so inside the form Enter on it would submit the entry rather than change the
+	 * view. Nothing is lost by moving it: the body has always been posted by the hidden
+	 * input below, which reads the same `body` state the editor binds, never by the
+	 * textarea itself.
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
@@ -50,19 +57,24 @@
 		<p class="mb-4 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.message}</p>
 	{/if}
 
+	<MarkdownEditor
+		bind:value={body}
+		targets={data.mentionTargets}
+		locale={data.locale}
+		imageInsert={{
+			universeSlug: data.universe.slug,
+			entrySlug: data.entity.slug,
+			assets: data.media.assets,
+			aiEnabled: data.universe.aiEnabled,
+			scene: data.media.scene
+		}}
+		preview={{
+			universeSlug: data.universe.slug,
+			publicMentionTargets: data.publicMentionTargets
+		}}
+	/>
+
 	<form method="POST" action="?/save">
-		<MarkdownEditor
-			bind:value={body}
-			targets={data.mentionTargets}
-			locale={data.locale}
-			imageInsert={{
-				universeSlug: data.universe.slug,
-				entrySlug: data.entity.slug,
-				assets: data.media.assets,
-				aiEnabled: data.universe.aiEnabled,
-				scene: data.media.scene
-			}}
-		/>
 		<input type="hidden" name="body" value={body} />
 
 		<div class="mt-4 flex justify-end">
