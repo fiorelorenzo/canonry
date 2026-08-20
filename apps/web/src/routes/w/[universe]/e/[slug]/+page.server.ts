@@ -164,7 +164,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			slug: world.slug,
 			name: world.name,
 			id: world.id,
-			aiEnabled: world.aiEnabled
+			aiEnabled: world.aiEnabled,
+			// Issue #408, decision S3: the one condition every generate control and the
+			// generate endpoint itself gate on - read straight off the row `_context.ts`
+			// already loads for the endpoint, never redefined as a second query.
+			hasImageStyle: world.imageStyleId !== null
 		},
 		entity: {
 			id: current.id,

@@ -32,6 +32,9 @@
 		canWrite: boolean;
 		assets: MediaGalleryData['assets'];
 		aiEnabled: boolean;
+		/** Issue #408, decision S3: threaded straight through into the pick-mode
+		 * `MediaGallery` below - the actual generate-control gating lives there. */
+		hasImageStyle: boolean;
 		/** #258: what one in-body image costs and which model draws it. `model` is null
 		 * when `image_model_config` has no active `scene` row, which is the only state in
 		 * which the generate button is withheld. */
@@ -350,7 +353,8 @@
 				entityType: imageInsert.entityType,
 				canWrite: imageInsert.canWrite,
 				assets: imageInsert.assets,
-				aiEnabled: imageInsert.aiEnabled
+				aiEnabled: imageInsert.aiEnabled,
+				hasImageStyle: imageInsert.hasImageStyle
 			}}
 			scene={imageInsert.scene}
 			onPick={insertImageAtSelection}

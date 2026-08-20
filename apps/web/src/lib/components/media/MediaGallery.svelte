@@ -23,6 +23,13 @@
 		entityName: string;
 		entityType: string;
 		aiEnabled: boolean;
+		/** Issue #408, decision S3: pickStyle() falls through to null when the universe
+		 * has no image_style row, and generation used to run anyway with nothing to
+		 * inherit. Every generate/refine control below refuses and points at settings
+		 * instead - a sentence with a link in the control's own place, never a disabled
+		 * button with a tooltip. Required, not optional like the five style/price fields
+		 * above: pick mode's own scene-generate section (#253) needs the same answer. */
+		hasImageStyle: boolean;
 		canWrite: boolean;
 		assets: MediaGalleryAsset[];
 		coverAssetId?: string | null;
@@ -417,6 +424,24 @@
 	}
 </script>
 
+<!-- Issue #408, decision S3: shared by every generate/refine control below - a
+	     sentence plus a link to the settings page's image style section, in the
+	     control's own place, never a disabled button with a tooltip. -->
+{#snippet noStyleNotice(noteClass: string)}
+	<p class={noteClass}>
+		{t.entry.media.noStyle.notice}
+		<!-- eslint-disable svelte/no-navigation-without-resolve -- settings anchor:
+			     resolve() plus a same-page fragment the rule cannot see through. -->
+		<a
+			href={`${resolve(`/w/${data.universeSlug}/settings`)}#setup-image-style`}
+			class="font-medium text-accent-ink hover:underline"
+		>
+			{t.entry.media.noStyle.link}
+		</a>
+		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+	</p>
+{/snippet}
+
 <Dialog bind:open>
 	<!-- `sm:max-w-3xl`, not `max-w-3xl`: `DialogContent`'s own base class ends in
 	     `sm:max-w-md`, and tailwind-merge treats a responsive variant as a different group
@@ -527,18 +552,22 @@
 							<Button type="button" variant="secondary" size="sm" onclick={discardCandidates}>
 								{t.entry.media.discard}
 							</Button>
-							<Button
-								type="button"
-								variant="secondary"
-								size="sm"
-								disabled={!selectedCandidateId || !data.aiEnabled}
-								onclick={() => {
-									regenerateSourceId = selectedCandidateId;
-									dialogOpen = true;
-								}}
-							>
-								{t.entry.media.regenerate.trigger}
-							</Button>
+							{#if data.hasImageStyle}
+								<Button
+									type="button"
+									variant="secondary"
+									size="sm"
+									disabled={!selectedCandidateId || !data.aiEnabled}
+									onclick={() => {
+										regenerateSourceId = selectedCandidateId;
+										dialogOpen = true;
+									}}
+								>
+									{t.entry.media.regenerate.trigger}
+								</Button>
+							{:else}
+								{@render noStyleNotice('text-xs text-ink-2')}
+							{/if}
 						</div>
 					</div>
 				{/if}
@@ -647,15 +676,19 @@
 											{/if}
 										</Button>
 										{#if asset.generated}
-											<Button
-												type="button"
-												variant="secondary"
-												size="sm"
-												disabled={!data.aiEnabled}
-												onclick={() => startRefine(asset.id)}
-											>
-												{t.entry.media.regenerate.trigger}
-											</Button>
+											{#if data.hasImageStyle}
+												<Button
+													type="button"
+													variant="secondary"
+													size="sm"
+													disabled={!data.aiEnabled}
+													onclick={() => startRefine(asset.id)}
+												>
+													{t.entry.media.regenerate.trigger}
+												</Button>
+											{:else}
+												{@render noStyleNotice('text-xs text-ink-2')}
+											{/if}
 										{/if}
 										<Button
 											type="button"
@@ -714,16 +747,20 @@
 							{uploading ? t.entry.media.upload.uploading : t.entry.media.upload.button}
 						</Button>
 						{#if !pickMode}
-							<Button
-								type="button"
-								disabled={!data.aiEnabled}
-								onclick={() => {
-									regenerateSourceId = null;
-									dialogOpen = true;
-								}}
-							>
-								{t.entry.media.generateButton}
-							</Button>
+							{#if data.hasImageStyle}
+								<Button
+									type="button"
+									disabled={!data.aiEnabled}
+									onclick={() => {
+										regenerateSourceId = null;
+										dialogOpen = true;
+									}}
+								>
+									{t.entry.media.generateButton}
+								</Button>
+							{:else}
+								{@render noStyleNotice('text-sm text-ink-2')}
+							{/if}
 						{/if}
 					</div>
 
@@ -732,7 +769,9 @@
 							{t.entry.media.inBody.generateHeading}
 						</h4>
 						{#if candidates.length === 0}
-							{#if scene?.model}
+							{#if !data.hasImageStyle}
+								{@render noStyleNotice('mt-2 text-sm text-ink-2')}
+							{:else if scene?.model}
 								<p class="mt-2 text-sm text-ink-2">
 									{t.entry.media.inBody.sceneCost(scene.price)}
 								</p>

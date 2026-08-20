@@ -72,6 +72,16 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	const context = await loadMediaContext(locals, params.universe, params.slug);
 	requireWriter(locals, context.role);
 
+	// Issue #408, decision S3: pickStyle() (packages/media/src/style.ts) falls through to
+	// null when the universe has no image_style row, and generateImages would charge for a
+	// picture that carries no style at all. Every generate control refuses first (#408's own
+	// client-side change), but a raw POST bypasses that, so this route re-checks the same
+	// field `_context.ts` already loaded rather than trusting the interface it is given -
+	// same posture the header above already states for the whole route.
+	if (context.universe.imageStyleId === null) {
+		error(409, messages(locals.locale).entry.media.noStyle.notice);
+	}
+
 	const body: unknown = await request.json();
 	const feature =
 		typeof body === 'object' && body !== null && 'feature' in body ? body.feature : undefined;

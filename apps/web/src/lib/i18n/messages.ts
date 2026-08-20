@@ -739,6 +739,15 @@ export interface Messages {
 			explanation: string;
 			generatedBadge: string;
 			generateButton: string;
+			/** Issue #408, decision S3: pickStyle() (packages/media/src/style.ts) falls through
+			 * to null when the universe has no image_style row, and generation used to run
+			 * anyway with nothing to inherit. Every generate/refine control shows this sentence
+			 * plus a link to the settings page's image style section in the control's own
+			 * place instead - never a disabled button with a tooltip. */
+			noStyle: {
+				notice: string;
+				link: string;
+			};
 			candidatesSummary: (reusedFromCache: boolean, multiple: boolean) => string;
 			insert: string;
 			inserting: string;

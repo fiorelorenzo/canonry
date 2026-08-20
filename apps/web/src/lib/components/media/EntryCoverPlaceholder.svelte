@@ -52,6 +52,7 @@
 		entityName,
 		entityType,
 		aiEnabled,
+		hasImageStyle,
 		canWrite,
 		assets,
 		coverAssetId,
@@ -68,6 +69,10 @@
 		entityName: string;
 		entityType: EntityType;
 		aiEnabled: boolean;
+		/** Issue #408, decision S3: threaded straight through into `galleryData` below -
+		 * the actual generate-control gating lives in `MediaGallery.svelte` itself, since
+		 * this placeholder only ever opens that same dialog. */
+		hasImageStyle: boolean;
 		canWrite: boolean;
 		assets: MediaGalleryData['assets'];
 		coverAssetId: string | null;
@@ -92,6 +97,7 @@
 		entityName,
 		entityType,
 		aiEnabled,
+		hasImageStyle,
 		canWrite,
 		assets,
 		coverAssetId,
