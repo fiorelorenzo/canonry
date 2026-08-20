@@ -471,10 +471,12 @@ export const en: Messages = {
 
 		secrets: {
 			hiddenBlock: 'Hidden \u00b7 unlocks on reveal',
-			gmNoteBlock: 'GM note \u00b7 never shown to players',
+			gmNoteBlock: 'GM note \u00b7 never shown to players'
+		},
+
+		prose: {
 			gmView: 'GM view',
 			playerPreviewActive: 'Player preview, what the party sees',
-			showGmView: 'Show GM view',
 			playerPreview: 'Player preview'
 		},
 

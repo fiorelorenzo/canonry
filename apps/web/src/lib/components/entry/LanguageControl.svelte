@@ -23,21 +23,32 @@
 	 * ("not enough text to tell") reads the same as any other guess - unknown is not a
 	 * defect, so there is nothing here shaped like a warning.
 	 *
-	 * Issue #286, decision O4 = B: this is a state rather than a list, so it is the
-	 * segmented control. Guardrail 1 is the reason the shape matters here and not only
-	 * the paint: the four choices have to stay four visibly separate answers, because
-	 * "the machine is guessing" and "a person decided" are exactly what this field
-	 * records, and a control that collapses them behind one trigger hides the bit the
-	 * guardrail exists to protect.
+	 * Issue #383, decision R8 (docs/ux/DECISIONS.md, "Round thirteen"): this was the
+	 * segmented control issue #286/O4 = B put here, and R8 moves it to the Select. The
+	 * reasoning that used to justify the segmented control - "the machine is guessing"
+	 * versus "a person decided" are different enough that they should stay four visibly
+	 * separate answers - is exactly what R8 weighs against a shipped vocabulary that
+	 * grows by one every time a locale is added, and decides the other way: this is a
+	 * vocabulary control, not a state, O4's own boundary, and it was misclassified. The
+	 * vocabulary itself is unchanged - still four members, still the same four meanings -
+	 * only the control they are offered through is different.
 	 *
-	 * **Without JavaScript this form keeps working, and it did not before.** The radios
-	 * are native, so the value posts on its own; what needed JavaScript was the submit,
-	 * since `onchange` below is the only trigger there has ever been. The `<noscript>`
-	 * button supplies the other one, so a reader with scripting off can change the
-	 * language rather than looking at a control that does nothing.
+	 * **Without JavaScript this form keeps working, and it did not before #383.** A
+	 * popover cannot open without scripting, so `ui/native-fallback` renders a real
+	 * `<select>` inside `<noscript>` and the trigger is marked `data-js-only`, the same
+	 * split `works/[work]/+page.svelte` uses; `Select.Root` carries no `name` of its own,
+	 * so the fallback is the only value carrier in either mode. `onValueChange` calls
+	 * `flushSync` before `requestSubmit()` for the same reason `ProposalQueue.svelte`
+	 * does: `bind:value` updates `choice` immediately, but `NativeFallback`'s hidden
+	 * input only reflects it once Svelte's own effect queue runs, which `requestSubmit()`
+	 * does not wait for on its own - without the flush the request carries the value
+	 * from before the click. The `<noscript>` button supplies the submit that scripting
+	 * would otherwise give it via `onValueChange`.
 	 */
 	import { enhance } from '$app/forms';
-	import { Segmented, type SegmentedOption } from '$lib/components/ui/segmented';
+	import { flushSync } from 'svelte';
+	import * as Select from '$lib/components/ui/select';
+	import { NativeFallback } from '$lib/components/ui/native-fallback';
 	import { Button } from '$lib/components/ui/button';
 	import { LOCALES, LOCALE_NAMES, messages, type Locale } from '$lib/i18n';
 	import type { LanguageSource } from '@canonry/db/schema';
@@ -76,15 +87,18 @@
 	let submitting = $state(false);
 
 	let formEl: HTMLFormElement | undefined;
+	const uid = $props.id();
+	const labelId = `entry-language-label-${uid}`;
 
-	const options = $derived<SegmentedOption[]>([
+	const options = $derived([
 		{ value: 'auto', label: t.entry.language.autoDetect },
 		...LOCALES.map((entityLocale) => ({
-			value: entityLocale,
+			value: entityLocale as string,
 			label: LOCALE_NAMES[entityLocale]
 		})),
 		{ value: 'unsure', label: t.entry.language.unsure }
-	]);
+	] satisfies { value: string; label: string }[]);
+	const choiceLabel = $derived(options.find((option) => option.value === choice)?.label ?? choice);
 </script>
 
 <form
@@ -106,19 +120,41 @@
 	}}
 >
 	<div class="flex flex-wrap items-center gap-1.5 text-xs text-ink-2">
-		<span id="entry-language-label" class="font-mono text-[10px] tracking-wide text-muted uppercase"
+		<span id={labelId} class="font-mono text-[10px] tracking-wide text-muted uppercase"
 			>{t.entry.language.label}</span
 		>
-		<Segmented
+		<div data-js-only>
+			<Select.Root
+				type="single"
+				bind:value={choice}
+				onValueChange={() => {
+					flushSync();
+					formEl?.requestSubmit();
+				}}
+			>
+				<Select.Trigger
+					size="sm"
+					aria-labelledby={labelId}
+					disabled={!canWrite || submitting}
+					class="text-xs"
+				>
+					{choiceLabel}
+				</Select.Trigger>
+				<Select.Content>
+					{#each options as option (option.value)}
+						<Select.Item value={option.value} label={option.label}>{option.label}</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+		</div>
+		<NativeFallback
 			name="language"
-			bind:value={choice}
+			value={choice}
 			{options}
-			disabled={!canWrite || submitting}
-			labelledby="entry-language-label"
-			onchange={() => formEl?.requestSubmit()}
-			class="text-xs"
+			disabled={!canWrite}
+			label={t.entry.language.label}
 		/>
-		<!-- The one submit trigger that is not `onchange` above. Parsed as inert text
+		<!-- The one submit trigger that is not `onValueChange` above. Parsed as inert text
 		     whenever scripting is on, so the enhanced path never shows a button the GM
 		     would have to press. -->
 		<noscript>

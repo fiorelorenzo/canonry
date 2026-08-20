@@ -26,7 +26,8 @@
 	} from '$lib/markdown';
 	import { splitSecretBlocks, stripSecretsForPlayers, type SecretBlockKind } from '@canonry/lang';
 	import { renderAiMarkedParagraph } from '$lib/components/ai/aiMarking';
-	import { Button } from '$lib/components/ui/button';
+	import { Switch } from '$lib/components/ui/switch';
+	import { Label } from '$lib/components/ui/label';
 	import { splitBodyIntoBlocks, markedSegmentsFor } from '$lib/components/ai/entryMarking';
 	import MentionPreview from '$lib/components/entry/MentionPreview.svelte';
 	import { messages, type Locale } from '$lib/i18n';
@@ -53,13 +54,20 @@
 		markedSentences?: ReadonlySet<string>;
 	} = $props();
 
-	let t = $derived(messages(locale).entry.secrets);
+	let t = $derived(messages(locale).entry);
 
 	let playerPreview = $state(false);
 
+	// #148/#383: this component mounts twice (the entry page, the editor's preview),
+	// and a bare literal id would collide if either page ever nested them - `$props.id()`
+	// gives each mounted instance its own suffix, the same pattern `ShellUserRow.svelte`
+	// uses for its own locale form for the identical reason.
+	const switchUid = $props.id();
+	const switchId = `player-preview-${switchUid}`;
+
 	const BLOCK_LABEL: Record<SecretBlockKind, string> = $derived({
-		secret: t.hiddenBlock,
-		gmnote: t.gmNoteBlock
+		secret: t.secrets.hiddenBlock,
+		gmnote: t.secrets.gmNoteBlock
 	});
 
 	// The GM view only, never the player preview: highlighting is Facts-panel span
@@ -123,16 +131,12 @@
 
 <div class="mb-4 flex items-center justify-between gap-2 border-b border-line pb-2">
 	<span class="text-xs font-semibold tracking-wide text-muted uppercase">
-		{playerPreview ? t.playerPreviewActive : t.gmView}
+		{playerPreview ? t.prose.playerPreviewActive : t.prose.gmView}
 	</span>
-	<Button
-		variant="secondary"
-		size="sm"
-		aria-pressed={playerPreview}
-		onclick={() => (playerPreview = !playerPreview)}
-	>
-		{playerPreview ? t.showGmView : t.playerPreview}
-	</Button>
+	<div class="flex items-center gap-2">
+		<Switch id={switchId} bind:checked={playerPreview} />
+		<Label for={switchId}>{t.prose.playerPreview}</Label>
+	</div>
 </div>
 
 <div

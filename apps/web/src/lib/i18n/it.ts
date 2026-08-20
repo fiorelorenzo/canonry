@@ -471,10 +471,12 @@ export const it: Messages = {
 
 		secrets: {
 			hiddenBlock: 'Nascosto \u00b7 si sblocca alla rivelazione',
-			gmNoteBlock: 'Nota del GM \u00b7 mai mostrata ai giocatori',
+			gmNoteBlock: 'Nota del GM \u00b7 mai mostrata ai giocatori'
+		},
+
+		prose: {
 			gmView: 'Vista GM',
 			playerPreviewActive: 'Anteprima giocatori, quello che vede il tavolo',
-			showGmView: 'Mostra vista GM',
 			playerPreview: 'Anteprima giocatori'
 		},
 

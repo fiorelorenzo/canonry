@@ -12,6 +12,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Select from '$lib/components/ui/select';
 	import { Segmented } from '$lib/components/ui/segmented';
+	import { Switch } from '$lib/components/ui/switch';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -69,6 +70,13 @@
 	];
 	let segmentedValue = $state<Record<string, string>>({ light: 'auto', dark: 'auto' });
 	let comboboxValue = $state<Record<string, string | null>>({ light: null, dark: null });
+
+	// Issue #383 (R8, round thirteen): not an O4 = B case at all - see the component's
+	// own doc comment - so it is checked on its own rather than beside the O4 trio
+	// above. `switchDisabledValue` pins the disabled/checked combination that a plain
+	// `disabled` boolean on an unchecked switch can't demonstrate.
+	let switchValue = $state<Record<string, boolean>>({ light: false, dark: false });
+	let switchDisabledValue = $state<Record<string, boolean>>({ light: true, dark: true });
 
 	// Issue #367 (Q6): the motion row below. The token list is written out rather than read
 	// from the stylesheet on purpose - this page's job is to catch a mistake, and a table
@@ -181,6 +189,28 @@
 					<p class="mt-2 font-mono text-xs text-muted">
 						value: {comboboxValue[pane.theme] ?? 'null'}
 					</p>
+				</div>
+
+				<h3 class="mb-2 text-sm font-semibold text-ink">Switch (#383, R8)</h3>
+				<div class="mb-6 flex flex-wrap items-center gap-6 rounded border border-line bg-panel p-4">
+					<div class="flex items-center gap-2">
+						<Switch id="gallery-switch-{pane.theme}" bind:checked={switchValue[pane.theme]} />
+						<Label for="gallery-switch-{pane.theme}">
+							{switchValue[pane.theme] ? 'On' : 'Off'}
+						</Label>
+					</div>
+					<div class="flex items-center gap-2">
+						<Switch id="gallery-switch-disabled-off-{pane.theme}" checked={false} disabled />
+						<Label for="gallery-switch-disabled-off-{pane.theme}">Disabled, off</Label>
+					</div>
+					<div class="flex items-center gap-2">
+						<Switch
+							id="gallery-switch-disabled-on-{pane.theme}"
+							checked={switchDisabledValue[pane.theme]}
+							disabled
+						/>
+						<Label for="gallery-switch-disabled-on-{pane.theme}">Disabled, on</Label>
+					</div>
 				</div>
 
 				<h3 class="mb-2 text-sm font-semibold text-ink">Separator</h3>

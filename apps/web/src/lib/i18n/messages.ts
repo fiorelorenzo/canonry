@@ -590,13 +590,21 @@ export interface Messages {
 		/** `EntryProseWithSecrets.svelte` (`lib/components/players/**`, but only ever
 		 * rendered on this GM-facing entry page, never on `/p/**` - the public wiki's own
 		 * chrome lives entirely under the `players` namespace above): the secret/GM-note
-		 * block tags and the GM-view/player-preview toggle. */
+		 * block tags. The GM-view/player-preview switch beside them is `prose` below -
+		 * issue #383 split the two apart because only one of them is "the view strings"
+		 * the switch owns. */
 		secrets: {
 			hiddenBlock: string;
 			gmNoteBlock: string;
+		};
+		/** `EntryProseWithSecrets.svelte`'s GM/player view switch (#383, R8, round
+		 * thirteen): mounted twice, on the entry page and in the editor's preview, and
+		 * reads identically in both. `playerPreview` is the switch's own accessible
+		 * label, which does not change with state; `gmView`/`playerPreviewActive` are
+		 * the adjacent status text that does. */
+		prose: {
 			gmView: string;
 			playerPreviewActive: string;
-			showGmView: string;
 			playerPreview: string;
 		};
 		language: {
