@@ -24,10 +24,12 @@ export {
 export { historyFor } from './queries/revisions.js';
 export {
 	recentActivity,
+	weeklyChangeCounts,
 	type ActivityItem,
 	type RevisionActivity,
 	type RelationActivity,
-	type WorkActivity
+	type WorkActivity,
+	type WeeklyChangeCount
 } from './queries/activity.js';
 export {
 	nextEntityLanguage,
