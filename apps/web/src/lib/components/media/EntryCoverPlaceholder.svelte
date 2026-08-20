@@ -11,8 +11,8 @@
 	 * `coverSlot` in `cover-crop.ts` decides whether this is mounted at all, on data the
 	 * server resolved, and the players' wiki (`/p/<universe>/<slug>`) imports `EntryCover`
 	 * alone, so that surface cannot render this even by mistake. A reader receives no slot
-	 * in their HTML, not a slot hidden with CSS. The dialog is mounted inside this component
-	 * for the same reason: one gate, not two.
+	 * in their HTML, not a slot hidden with CSS. The gallery is mounted inside this
+	 * component for the same reason: one gate, not two.
 	 *
 	 * Three things it borrows from the real band, because the point of a placeholder is that
 	 * the page does not move when a cover arrives:
@@ -24,12 +24,12 @@
 	 *    `alt` text standing in for a picture that was never there, because nothing failed to
 	 *    load.
 	 *
-	 * **It is an affordance, not a signpost.** Pressing it opens `EntryCoverDialog`, which
-	 * carries both paths and states what each costs; the accept for a generated image is
-	 * still "use as cover" and still lands on `media/cover`, which is where O2 put it. The
-	 * price and the model name live in the dialog rather than on this button, because a
-	 * button that has not been pressed yet has no business quoting a price for a path the
-	 * reader may not take.
+	 * **It is an affordance, not a signpost.** Issue #385 (decision R10) retires the
+	 * cover-only `EntryCoverDialog`: pressing this now opens the same `MediaGallery` the
+	 * rail and the editor open, in full mode. "Use as cover" is still the accept and still
+	 * lands on `media/cover`, which is where O2 put it - it is simply one action among the
+	 * gallery's five now, upload and generate are its own ways in at the top, and there is
+	 * no second, narrower surface duplicating any of that.
 	 *
 	 * Colours are the theme's own furniture tokens. Not the copilot's family: round eleven
 	 * P2 is explicit that a hue marking chrome marks nothing, and an empty cover slot is
@@ -43,26 +43,40 @@
 	 */
 	import type { EntityType } from '@canonry/db/schema';
 	import { coverBandStyle, coverFigureStyle, coverPlacement } from './cover-crop';
-	import EntryCoverDialog from './EntryCoverDialog.svelte';
+	import MediaGallery, { type MediaGalleryData } from './MediaGallery.svelte';
 	import { messages, type Locale } from '$lib/i18n';
 
 	let {
-		entityType,
 		universeSlug,
-		entrySlug,
+		entitySlug,
 		entityName,
+		entityType,
 		aiEnabled,
+		canWrite,
+		assets,
+		coverAssetId,
+		styleModifier,
+		entityImagePromptModifier,
 		portraitPrice,
+		variantsPrice,
 		portraitModel,
+		variantsModel,
 		locale
 	}: {
-		entityType: EntityType;
 		universeSlug: string;
-		entrySlug: string;
+		entitySlug: string;
 		entityName: string;
+		entityType: EntityType;
 		aiEnabled: boolean;
+		canWrite: boolean;
+		assets: MediaGalleryData['assets'];
+		coverAssetId: string | null;
+		styleModifier: string | null;
+		entityImagePromptModifier: string | null;
 		portraitPrice: number;
-		portraitModel: { provider: string; modelId: string } | null;
+		variantsPrice: number;
+		portraitModel: MediaGalleryData['portraitModel'];
+		variantsModel: MediaGalleryData['variantsModel'];
 		locale: Locale;
 	} = $props();
 
@@ -70,13 +84,30 @@
 	let placement = $derived(coverPlacement(entityType));
 	let bandStyle = $derived(coverBandStyle(entityType));
 	let figureStyle = $derived(coverFigureStyle(entityType));
-	let dialogOpen = $state(false);
+	let galleryOpen = $state(false);
+
+	let galleryData = $derived<MediaGalleryData>({
+		universeSlug,
+		entitySlug,
+		entityName,
+		entityType,
+		aiEnabled,
+		canWrite,
+		assets,
+		coverAssetId,
+		styleModifier,
+		entityImagePromptModifier,
+		portraitPrice,
+		variantsPrice,
+		portraitModel,
+		variantsModel
+	});
 </script>
 
 {#if placement === 'figure'}
 	<button
 		type="button"
-		onclick={() => (dialogOpen = true)}
+		onclick={() => (galleryOpen = true)}
 		class="mb-6 flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line-2 bg-panel-2 px-4 text-center text-muted hover:border-accent hover:bg-panel hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
 		style={bandStyle}
 	>
@@ -85,7 +116,7 @@
 	</button>
 	<button
 		type="button"
-		onclick={() => (dialogOpen = true)}
+		onclick={() => (galleryOpen = true)}
 		class="mb-6 hidden flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line-2 bg-panel-2 px-3 text-center text-muted hover:border-accent hover:bg-panel hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:flex"
 		style={figureStyle}
 	>
@@ -95,7 +126,7 @@
 {:else}
 	<button
 		type="button"
-		onclick={() => (dialogOpen = true)}
+		onclick={() => (galleryOpen = true)}
 		class="mb-6 flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line-2 bg-panel-2 px-4 text-center text-muted hover:border-accent hover:bg-panel hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 		style={bandStyle}
 	>
@@ -104,13 +135,4 @@
 	</button>
 {/if}
 
-<EntryCoverDialog
-	bind:open={dialogOpen}
-	{universeSlug}
-	{entrySlug}
-	{entityName}
-	{aiEnabled}
-	{portraitPrice}
-	{portraitModel}
-	{locale}
-/>
+<MediaGallery bind:open={galleryOpen} data={galleryData} {locale} />

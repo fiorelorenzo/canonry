@@ -25,6 +25,7 @@ import {
 } from '@canonry/db';
 import type { EntityVisibility } from '@canonry/db/schema';
 import { detectLanguage, stripSecretsForPlayers, type Locale } from '@canonry/lang';
+import { matchImageToken } from '$lib/markdown';
 
 export interface PublicUniverse {
 	id: string;
@@ -107,7 +108,31 @@ export interface PublicEntityPageData {
  * from a published body degrades to nothing, never a broken `<img>` and never a leaked
  * filename hinting at what a player has not been shown (guardrail 6).
  */
-const BODY_IMAGE_RE = /!\[[^\]]*\]\(\/w\/[^/)]+\/e\/[^/)]+\/media\/([^/)]+\))/g;
+interface BodyImageToken {
+	start: number;
+	end: number;
+	assetId: string;
+	widthPercent: number | null;
+}
+
+/** Issue #385: rewritten to share `matchImageToken` with `markdown.ts`'s own render
+ * rule and `imageUrlsIn` (the delete route's in-body check) instead of a second,
+ * looser regex - the old one captured up to the closing `)`, which happily swallowed
+ * R9's `=NN%` width suffix (#384) into the "asset id" and sent a malformed uuid
+ * straight into `publicMediaAssetById`. One grammar, so a body a GM can save is a
+ * body this route can always parse. */
+function bodyImageTokens(body: string): BodyImageToken[] {
+	const tokens: BodyImageToken[] = [];
+	for (let i = 0; i < body.length; i++) {
+		if (body.charCodeAt(i) !== 0x21 /* ! */) continue;
+		const matched = matchImageToken(body, i);
+		if (!matched) continue;
+		const assetId = matched.url.split('/').pop();
+		if (assetId)
+			tokens.push({ start: i, end: matched.end, assetId, widthPercent: matched.widthPercent });
+	}
+	return tokens;
+}
 
 async function resolvePublicBodyImages(
 	db: Db,
@@ -115,19 +140,26 @@ async function resolvePublicBodyImages(
 	universeSlug: string,
 	body: string
 ): Promise<string> {
-	const assetIds = new Set([...body.matchAll(BODY_IMAGE_RE)].map((m) => m[1].slice(0, -1)));
-	if (assetIds.size === 0) return body;
+	const tokens = bodyImageTokens(body);
+	if (tokens.length === 0) return body;
 
 	const visible = new Map<string, boolean>();
-	for (const assetId of assetIds) {
+	for (const assetId of new Set(tokens.map((token) => token.assetId))) {
 		visible.set(assetId, (await publicMediaAssetById(db, universeId, assetId)) !== undefined);
 	}
 
-	return body.replace(BODY_IMAGE_RE, (whole, closedAssetId: string) => {
-		const assetId = closedAssetId.slice(0, -1);
-		if (!visible.get(assetId)) return '';
-		return `![](/p/${universeSlug}/media/${assetId})`;
-	});
+	let result = '';
+	let cursor = 0;
+	for (const token of tokens) {
+		result += body.slice(cursor, token.start);
+		if (visible.get(token.assetId)) {
+			const suffix = token.widthPercent ? ` =${token.widthPercent}%` : '';
+			result += `![](/p/${universeSlug}/media/${token.assetId}${suffix})`;
+		}
+		cursor = token.end;
+	}
+	result += body.slice(cursor);
+	return result;
 }
 
 /** #83's detail page and #85's leak test both call this. `entity.body` on the returned

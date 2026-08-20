@@ -767,9 +767,12 @@ export interface Messages {
 				genericUploadFailedWithStatus: (status: number) => string;
 				genericUploadFailed: string;
 			};
-			/** Issue #253: the toolbar's "insert image into the body" picker. Reuses several
-			 * leaf strings from this same `media` object (generating, cancel, discard,
-			 * generatedBadge) rather than duplicating them under this namespace. */
+			/** Issue #253, extended by #385: the toolbar's image button, and the pick-one
+			 * mode it opens on the shared gallery (`MediaGallery.svelte`, decision R10) -
+			 * the same surface full mode uses, trimmed down to picking a width and an
+			 * image. Reuses several leaf strings from this same `media` object
+			 * (generating, cancel, discard, generatedBadge) rather than duplicating them
+			 * under this namespace. */
 			inBody: {
 				toolbarLabel: string;
 				toolbarTitle: string;
@@ -805,8 +808,11 @@ export interface Messages {
 				};
 			};
 			/** Issue #255: refine a candidate with an instruction instead of a fresh roll -
-			 * the "Refine with instruction" control in the candidates block, opening
-			 * GenerateDialog in its regenerate mode. */
+			 * the "Refine with instruction" control, opening GenerateDialog in its
+			 * regenerate mode. Issue #385 widens where it shows: not only a just-generated
+			 * candidate in the accept row, but any already-attached generated asset in the
+			 * gallery - refining a picture from a previous session had nowhere to happen
+			 * before this. */
 			regenerate: {
 				trigger: string;
 				dialogTitle: (entityName: string) => string;
@@ -819,25 +825,24 @@ export interface Messages {
 				fromAssetIdMustBeString: string;
 				sourceHasNoPrompt: string;
 			};
-			/** Issue #382, decision R7: an image's audience now follows its entry, and
-			 * attaching one is the accept - so this is down to the one exception a GM can
-			 * still set, `gm_only`, plus the summary sentence below the grid that explains
-			 * the default for the whole entry at once. */
+			/** Issue #382/#385, decision R7/R10: an image's audience follows its entry,
+			 * and attaching one is the accept - so this is down to the one exception a GM
+			 * can still set, `gm_only`, shown as a single Solo GM switch on each card in
+			 * the gallery (O4/R8's "turning one lens on", not a two-option segmented
+			 * control choosing between "visible" and "gm only") plus the summary sentence
+			 * below the grid explaining the default for the whole entry at once. */
 			publish: {
 				gmOnlyBadge: string;
-				gmOnlyLabel: string;
-				visibleLabel: string;
-				toggleAriaLabel: string;
+				label: string;
+				ariaLabel: string;
 				explanation: string;
 				gmOnlyMustBeBoolean: string;
 				genericUpdateFailedWithStatus: (status: number) => string;
 				genericUpdateFailed: string;
 			};
-			/** O2 (#284): the Images panel's "use as cover" action, which is that image's
-			 * accept - a generated picture becomes the entry's face because a person pressed
-			 * this, never as a side effect of generating it. `explanation` has to keep saying
-			 * that publishing is a separate switch, because setting a cover shows it to the
-			 * GM and to nobody else. */
+			/** O2 (#284): the gallery's "use as cover" action, which is that image's
+			 * accept - a generated picture becomes the entry's face because a person
+			 * pressed this, never as a side effect of generating it. */
 			cover: {
 				badge: string;
 				useLabel: string;
@@ -848,6 +853,32 @@ export interface Messages {
 				mustBeAnImage: string;
 				genericCoverFailedWithStatus: (status: number) => string;
 				genericCoverFailed: string;
+			};
+			/** Issue #385, decision R10: the gallery's own delete, which none of the three
+			 * surfaces it replaces had a place for. A two-click confirm (`label` then
+			 * `confirmLabel`) rather than a native `confirm()`, so it stays in the same
+			 * translated, themed control set as everything else here. `refusedCover` and
+			 * `refusedInBody` are the DELETE route's two refusals, verbatim: a body
+			 * pointing at a missing image is worse than a cover somebody has to remove
+			 * first. */
+			delete: {
+				label: string;
+				confirmLabel: string;
+				deleting: string;
+				refusedCover: string;
+				refusedInBody: string;
+				genericDeleteFailedWithStatus: (status: number) => string;
+				genericDeleteFailed: string;
+			};
+			/** Issue #385, decision R10: one media surface per entry instead of three that
+			 * disagree - the gallery all three entry points open. `EntryMediaPanel.svelte`
+			 * keeps only `count` and an `openLabel` button for its own compact preview;
+			 * everything else here belongs to `MediaGallery.svelte` itself. */
+			gallery: {
+				dialogTitle: (entityName: string) => string;
+				closeLabel: string;
+				openLabel: string;
+				count: (n: number) => string;
 			};
 		};
 		editor: {

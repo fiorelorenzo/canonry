@@ -209,6 +209,23 @@ export function matchImageToken(
 	return { end: pos + 1, alt, url, widthPercent };
 }
 
+/** Every image URL referenced anywhere in `source`'s markdown, in document order -
+ * issue #385: what a delete confirms against before removing a `media_asset` row, so
+ * a body pointing at a missing image (a broken reference nobody can fix without also
+ * knowing to re-type the alt text) never happens. Shares `matchImageToken` with
+ * `editorState.ts`'s own `findImageTokens`, the editor preview's hover-to-resize scan
+ * - same grammar, so a delete and a render can never disagree about what the body
+ * still points at. */
+export function imageUrlsIn(source: string): string[] {
+	const urls: string[] = [];
+	for (let i = 0; i < source.length; i++) {
+		if (source.charCodeAt(i) !== 0x21 /* ! */) continue;
+		const matched = matchImageToken(source, i);
+		if (matched) urls.push(matched.url);
+	}
+	return urls;
+}
+
 md.inline.ruler.before('image', 'sized-image', (state, silent) => {
 	const matched = matchImageToken(state.src, state.pos, state.posMax);
 	// No suffix at all: defer to the core `image` rule so an ordinary `![alt](url)`

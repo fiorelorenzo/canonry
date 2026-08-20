@@ -158,13 +158,8 @@
 					<EntryCover src={coverUrl} alt={data.entity.name} entityType={data.entity.type} />
 				{:else if cover === 'placeholder'}
 					<EntryCoverPlaceholder
-						entityType={data.entity.type}
 						universeSlug={data.universe.slug}
-						entrySlug={data.entity.slug}
-						entityName={data.entity.name}
-						aiEnabled={data.universe.aiEnabled}
-						portraitPrice={data.media.generate.portrait.price}
-						portraitModel={data.media.generate.portrait.model}
+						{...mediaSectionData}
 						locale={data.locale}
 					/>
 				{/if}

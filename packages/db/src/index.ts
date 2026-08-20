@@ -232,6 +232,7 @@ export {
 	mediaAssetById,
 	mediaAssetsByIds,
 	setMediaAssetGmOnly,
+	deleteMediaAsset,
 	type ImageModelRow,
 	type UpsertImageModelInput,
 	type EntryStyleContext,

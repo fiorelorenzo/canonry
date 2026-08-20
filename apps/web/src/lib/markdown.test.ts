@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	clampImageWidthPercent,
+	imageUrlsIn,
 	matchImageToken,
 	mentionPreviewExcerpt,
 	normalizeMentions,
@@ -364,5 +365,32 @@ describe('clampImageWidthPercent', () => {
 	it('clamps at or below zero up to the minimum', () => {
 		expect(clampImageWidthPercent(0)).toBe(1);
 		expect(clampImageWidthPercent(-40)).toBe(1);
+	});
+});
+
+describe('imageUrlsIn (#385)', () => {
+	it('returns every image URL in document order, sized or not', () => {
+		const source = [
+			'Some prose first.',
+			'![alt one](/w/w1/e/rat/media/a1)',
+			'More prose in between.',
+			'![alt two](/w/w1/e/rat/media/a2 =50%)'
+		].join('\n\n');
+		expect(imageUrlsIn(source)).toEqual(['/w/w1/e/rat/media/a1', '/w/w1/e/rat/media/a2']);
+	});
+
+	it('returns an empty array for a body with no images', () => {
+		expect(imageUrlsIn('Just prose, [[a mention]], and a [link](https://example.test).')).toEqual(
+			[]
+		);
+	});
+
+	it('ignores a bare "!" that starts no image token', () => {
+		expect(imageUrlsIn('Wait! Is that [[The Gilded Rat]]?')).toEqual([]);
+	});
+
+	it('finds the same image twice if the body references it twice', () => {
+		const source = '![first](/w/w1/e/rat/media/a1) and again ![second](/w/w1/e/rat/media/a1 =33%)';
+		expect(imageUrlsIn(source)).toEqual(['/w/w1/e/rat/media/a1', '/w/w1/e/rat/media/a1']);
 	});
 });

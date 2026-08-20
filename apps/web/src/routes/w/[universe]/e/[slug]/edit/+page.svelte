@@ -63,7 +63,10 @@
 		locale={data.locale}
 		imageInsert={{
 			universeSlug: data.universe.slug,
-			entrySlug: data.entity.slug,
+			entitySlug: data.entity.slug,
+			entityName: data.entity.name,
+			entityType: data.entity.type,
+			canWrite: data.canWrite,
 			assets: data.media.assets,
 			aiEnabled: data.universe.aiEnabled,
 			scene: data.media.scene

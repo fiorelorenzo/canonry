@@ -16,6 +16,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
 	closeDb,
 	createMediaAsset,
+	deleteMediaAsset,
+	mediaAssetById,
 	setMediaAssetGmOnly,
 	upsertImageModel,
 	upsertUniverseImageStyle,
@@ -256,5 +258,38 @@ describe('upsertUniverseImageStyle (queries/media.ts, issue #378, decision R3)',
 				promptModifier: 'monochrome woodcut'
 			})
 		).rejects.toThrow();
+	});
+});
+
+describe('deleteMediaAsset (queries/media.ts, issue #385)', () => {
+	let db: Db;
+
+	beforeAll(() => {
+		db = testDb();
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	it('removes the row and returns it', async () => {
+		const u = await insertHomebrewUniverse(db);
+		const created = await createMediaAsset(db, {
+			universeId: u.id,
+			kind: 'image',
+			path: '/media/delete-query-test.png',
+			mimeType: 'image/png',
+			bytes: 64
+		});
+
+		const deleted = await deleteMediaAsset(db, created.id);
+		expect(deleted.id).toBe(created.id);
+		expect(deleted.path).toBe(created.path);
+
+		expect(await mediaAssetById(db, created.id)).toBeUndefined();
+	});
+
+	it('throws for an id that does not exist, rather than silently doing nothing', async () => {
+		await expect(deleteMediaAsset(db, randomUUID())).rejects.toThrow();
 	});
 });
