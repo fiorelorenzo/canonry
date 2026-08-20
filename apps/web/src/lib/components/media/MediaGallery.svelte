@@ -418,9 +418,15 @@
 </script>
 
 <Dialog bind:open>
+	<!-- `sm:max-w-3xl`, not `max-w-3xl`: `DialogContent`'s own base class ends in
+	     `sm:max-w-md`, and tailwind-merge treats a responsive variant as a different group
+	     from the bare utility, so both survived the merge and the `sm` one won at every
+	     viewport above 640px. The gallery rendered at 448px, the width of the dialog this
+	     decision exists to replace, with the cover button's own label clipped by the edge.
+	     Measured after the change: 768px at 1440. -->
 	<DialogContent
 		closeLabel={t.entry.media.gallery.closeLabel}
-		class="flex max-h-[85vh] w-[min(56rem,calc(100vw-2rem))] max-w-3xl flex-col overflow-y-auto rounded-lg border border-line bg-panel p-0 text-ink"
+		class="flex max-h-[85vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-y-auto rounded-lg border border-line bg-panel p-0 text-ink sm:max-w-3xl"
 	>
 		<div class="p-5">
 			<DialogTitle class="text-base font-semibold text-ink">
