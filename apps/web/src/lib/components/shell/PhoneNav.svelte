@@ -19,10 +19,16 @@
 	 *
 	 * Issue #285 (decision O3): the third tab used to be a link to `/ask`. It is
 	 * the floating Loremaster's launcher now, flipping the same `quickAskState`
-	 * the desktop pill does, because O3 puts the launcher in this bar below `md`
-	 * rather than drawing a circle over the content. The panel itself is
+	 * the desktop launcher does, because O3 puts the launcher in this bar below
+	 * `md` rather than drawing a circle over the content. The panel itself is
 	 * `QuickAsk.svelte`, mounted once by AppShell for both breakpoints, so this
-	 * bar owns a trigger and not a second copy of the composer.
+	 * bar owns a trigger and not a second copy of the composer. R6 (round
+	 * thirteen, #381) widens the desktop launcher and moves it to the bottom
+	 * centre; this tab keeps its own shape, one of E4's four equals rather than
+	 * a fifth thing competing with them for width. R5 (same round) means tapping
+	 * `Entries` or `Proposals` while the panel is open no longer closes it - the
+	 * effect that used to do that on any navigation is gone, and this bar's own
+	 * tabs are ordinary links, so nothing here has to know the panel exists.
 	 *
 	 * AppShell does not mount this at all under `/w/[universe]/table`: that
 	 * route's own `ContextStrip` and `PhoneTabBar` (#81, E4's original) are this

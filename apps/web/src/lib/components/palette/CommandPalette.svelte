@@ -19,7 +19,7 @@
 	 * going to need: `placement="docked"` renders the same `Command.Root` and the same
 	 * `Command.Input` inline, with no dialog around it, which is what the floating
 	 * Loremaster panel mounts. One input implementation in two positions rather than a
-	 * second composer beside this one. Three differences, all of them because a docked
+	 * second composer beside this one. Five differences, all of them because a docked
 	 * copilot composer is not a command runner:
 	 *
 	 * - The Ask row is not gated on `looksLikeQuestion`. In the palette that gate keeps
@@ -30,6 +30,13 @@
 	 *   and `onNavigate` lets the panel close behind them.
 	 * - Actions, the account-mode universe list and the keyboard footer stay out. mod+K
 	 *   is still the command runner; the panel has its own two exits.
+	 * - `query` is a bindable prop rather than pure internal state (#381, R6): the
+	 *   panel's suggestion chips fill it from outside without sending it. Unbound, as
+	 *   the dialog placement leaves it, it behaves exactly like the local `$state` it
+	 *   replaced.
+	 * - Results render above the input, not below (#381, R6): the panel now pins this
+	 *   composer to its own bottom edge, so a dropdown opening downward would have
+	 *   nowhere to go.
 	 *
 	 * Every row is a real `Command.LinkItem` (a real `<a href>`), not an `onSelect`-only
 	 * click handler - the same mod/ctrl-click-opens-a-tab behaviour a GM expects from
@@ -63,6 +70,7 @@
 		universes,
 		locale,
 		placement = 'dialog',
+		query = $bindable(''),
 		onAsk,
 		onNavigate
 	}: {
@@ -73,6 +81,10 @@
 		/** 'dialog' (default): A3's own overlay, opened by mod+K. 'docked': #285's
 		 * floating panel, which mounts this same input inline. */
 		placement?: 'dialog' | 'docked';
+		/** Docked only, bindable: #381's suggestion chips fill this from outside without
+		 * sending it, the one thing plain internal state could not do. Unbound (the
+		 * dialog placement) it behaves exactly as the local `$state` it replaces. */
+		query?: string;
 		/** Docked only: the panel answers in place instead of routing. */
 		onAsk?: (question: string) => void;
 		/** Docked only: a row navigated away, so whatever mounted this can close. */
@@ -86,7 +98,6 @@
 	// file's SHORTCUTS table.
 	const paletteShortcut = SHORTCUTS.find((shortcut) => shortcut.id === 'palette')!;
 
-	let query = $state('');
 	/** Docked only: the dialog placement gets its focus from the dialog itself, and a
 	 * panel that expands without the caret in the box is a panel you have to click twice. */
 	let inputEl = $state<HTMLInputElement | null>(null);
@@ -286,14 +297,24 @@
 
 {#if docked}
 	<!-- No dialog, no overlay, no footer: the panel around this owns its own chrome, and
-	     wears the theme's colours rather than the copilot's own hue (O3's amendment). -->
+	     wears the theme's colours rather than the copilot's own hue (O3's amendment).
+	     #381 (R6): results render above the input rather than below it, the one
+	     difference from the dialog placement's order - the docked composer is pinned to
+	     the bottom of the conversation panel now, so a dropdown that opened downward
+	     would have nowhere to go.
+	     `Command.List` itself stays mounted regardless of `showResults` - only its
+	     contents are conditional - because bits-ui's `Command.Input` reads its
+	     `aria-controls` off the mounted list's id (axe: "Required ARIA attribute not
+	     present" the moment the list unmounts). An empty `Command.List` has no padding
+	     of its own, so this changes nothing visible: a childless list still collapses to
+	     zero height exactly as the old conditional wrapper did. -->
 	<Command.Root shouldFilter={false} onkeydown={onDockedKeydown} class="bg-transparent p-0">
-		{@render input()}
-		{#if showResults}
-			<Command.List class="max-h-56">
+		<Command.List class="max-h-56">
+			{#if showResults}
 				{@render results()}
-			</Command.List>
-		{/if}
+			{/if}
+		</Command.List>
+		{@render input()}
 	</Command.Root>
 {:else}
 	<Command.Dialog
