@@ -68,8 +68,11 @@
 				{current ? current.name : t.allUniverses}
 			</span>
 			{#if current?.kind === 'derived'}
+				<!-- Round eleven P2 (#344): a derived universe is a player-facing copy, which
+				     has nothing to do with the copilot, so this badge wears the theme's own
+				     panel and line. -->
 				<span
-					class="shrink-0 rounded-full border border-ai-line bg-ai-bg px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ai uppercase"
+					class="shrink-0 rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-2 uppercase"
 				>
 					{t.derivedBadge}
 				</span>

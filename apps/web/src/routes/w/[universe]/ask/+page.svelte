@@ -355,8 +355,14 @@
 						for an unaccepted proposal's wording, reused rather than a second visual
 						language. Guardrail 6: a redirected outcome says so, so the GM never reads
 						this as "did what I asked" when it did the other thing instead. -->
-					<div class="rounded-lg border border-ai-line bg-ai-bg px-2.5 py-2 text-xs">
-						<span class="badge rounded-full bg-ai px-1.5 py-0.5 text-[10px] text-paper">
+					<div class="rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs">
+						<!-- Round eleven P2 (#344): the card and the kind label are furniture. What
+							says "not yet accepted" is AiMarkedParagraph below, which is C1's dashed
+							underline and numbered marker in the copilot's own hue, and it says it on
+							the wording rather than on the box around it. -->
+						<span
+							class="badge rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
+						>
 							{proposal.kind === 'draft_entity' ? t.propose.badgeCreated : t.propose.badgeEdited}
 						</span>
 						<b class="text-ink">{proposal.entityName}</b>
@@ -436,11 +442,13 @@
 							<span class="mt-0.5 block text-ink-2">"{source.statement}"</span>
 						</button>
 					{:else}
-						<div class="src derived rounded-lg border border-ai-line bg-ai-bg px-2.5 py-2 text-xs">
-							<!-- #147: bg-ai/text-paper is C1's AI-marking treatment - violet is the
-								copilot's colour and nothing else may spend it, so this indexed-source
-								chip keeps its own styling rather than becoming Badge. -->
-							<span class="badge rounded-full bg-ai px-1.5 py-0.5 text-[10px] text-paper"
+						<div class="src derived rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs">
+							<!-- Round eleven P2 (#344): an indexed corpus page is somebody else's
+								writing, retrieved, not a word a model wrote, so it wears the same
+								panel and line as the own-canon result above it and the badge names
+								which of the two it is. -->
+							<span
+								class="badge rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
 								>{t.indexedBadge}</span
 							>
 							<b class="text-ink">{source.pageTitle}</b>

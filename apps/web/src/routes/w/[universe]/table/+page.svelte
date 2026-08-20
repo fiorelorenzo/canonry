@@ -333,15 +333,19 @@
 				<ul class="flex flex-col gap-1.5">
 					{#each proposals as proposal (proposal.proposalId)}
 						<li class="rounded-md border border-line bg-panel p-2.5 text-sm">
-							<!-- #147: bg-ai-bg/text-ai below is C1/G8's proposal-marking colour, not
-							Badge's territory - violet stays the copilot's. -->
-							<span class="rounded-full bg-ai-bg px-1.5 py-0.5 font-mono text-[10px] text-ai">
+							<!-- Round eleven P2 (#344): both of these name a kind, they are not wording
+								a model produced, so they wear the theme's own panel and line. The one
+								below sits next to a Badge variant="secondary" for the scaffold case and
+								now matches it, which is what it should have been doing. -->
+							<span
+								class="rounded-full border border-line-2 bg-panel-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-2"
+							>
 								{t.home.proposalLabel} &middot; {proposal.kind}
 							</span>
 							<span class="ml-2 text-muted">{t.home.from(actionLabel(proposal.via))}</span>
 							{#if proposal.drafted === 'model'}
 								<span
-									class="ml-2 rounded-full bg-ai-bg px-1.5 py-0.5 font-mono text-[10px] text-ai"
+									class="ml-2 rounded-full border border-line-2 bg-panel-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-2"
 									title={t.home.aiDraftedTooltip}
 								>
 									{t.home.aiDraftedBadge}

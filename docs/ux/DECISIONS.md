@@ -820,12 +820,22 @@ never decided at all. Separating those was most of the work, because "I do not l
 ### P1, and why this is A1's amendment rather than C1's
 
 The complaint was "a blue that has nothing to do with the rest", and it is measurable rather
-than a matter of taste. `--color-ai` is `#6b4ee6`, which is oklch hue **294°**. Every other
-colour in the reading room sits on a warm axis: paper `#f4efe4` at 36°, the burnt umber
-accent `#7a4a1f` at 30°. Paper and accent are six degrees apart. The copilot's hue is 258
-degrees from paper, a quarter turn across the wheel, at nearly double the accent's chroma.
-It does not read as "the copilot's colour" in this palette, it reads as the one element that
-came from a different design.
+than a matter of taste. `--color-ai` is `#6b4ee6`, which is oklch hue **285.3°**. Every other
+colour in the reading room sits on a warm axis: paper `#f4efe4` at **86.4°**, the burnt umber
+accent `#7a4a1f` at **59.5°**, and eleven of the palette's twenty tokens between them. Paper
+and accent are 27 degrees apart, and every neutral plus `warn` lies in that span, so the warm
+axis is where the palette lives rather than a coincidence between two tokens. The copilot's
+hue is 161 degrees from paper, most of a quarter turn across the wheel, at nearly double the
+accent's chroma. It does not read as "the copilot's colour" in this palette, it reads as the
+one element that came from a different design.
+
+**Those three figures were wrong when this section was first written**, and the correction is
+recorded rather than quietly applied: a read-only scout reported paper at 36°, the accent at
+30° and `--color-ai` at 294°, which are HSL hues for the first two and not oklch at all, and
+they went into #344 and into this file unchecked. #344's own implementation recomputed them
+from the hex values before deriving anything. The chromas quoted (0.0156, 0.0867, 0.218) were
+always right, and the argument survives the correction and gets stronger, since "six degrees
+apart" understated how much of the wheel the warm axis actually owns.
 
 O3 already found this and only half-fixed it. Its own amendment says the pill drawn in `--ai`
 "reads as a cold purple blob stuck to the corner", and it moved the furniture off the hue
@@ -840,6 +850,26 @@ violet on the copilot in the first place. The replacement has to satisfy three t
 which is why it is a measurement and not a swatch: it must be unmistakably not-canon at a
 glance, it must not be confusable with the umber accent that means "interactive", and it must
 hold at AA on paper and on ink both, since G1 made dark half the design system.
+
+**What that derivation landed on (#344), so nobody re-picks a hue by eye.** `--color-ai` is
+`oklch(0.479 0.140 325)`, `#833c88`, a mulberry, with the dark palette's counterpart at
+`oklch(0.746 0.129 325)`. It passes four measured tests: 121.4 degrees from paper and 111 to
+120 from every neutral, so it is unmistakably not canon; 94.5 degrees from the accent, 69.5
+from `danger` and 116.9 from `warn`, so it collides with no other meaning; chroma 0.140, which
+is 1.6 times the accent's rather than the old value's 2.51 times, so it no longer shouts; and
+6.17:1 on paper with 7.69:1 on ink, so AA holds in both palettes at the sizes it is used. In
+oklab the old value was blue-dominant (a +0.058, b −0.210) and this one is red-dominant
+(a +0.115, b −0.080), which is the whole of "it stopped being a blue" as a number.
+
+**Hue alone cannot carry this marking, and that is why C1's shape signals had to be
+strengthened rather than the wash retinted.** At L 0.95, which is where `--color-ai-bg` has to
+sit to hold ink text on paper, chroma is bounded to about 0.026 whatever hue is chosen, so the
+tint measures **1.03:1** against paper: the old one was 1.01:1. The wash never marked anything
+and no hue could have made it. What carries C1 is the dashed underline at full token strength
+(6.17:1 on paper, 7.69:1 on ink, both clear of the 3:1 a non-text mark needs) and the numbered
+margin marker, whose glyph was a hardcoded `#fff` measuring **2.18:1 at 9px bold** on the dark
+palette until #344 moved it to `--color-paper`. Retinting a wash is not an answer to this
+question, and a future round proposing one should read this paragraph first.
 
 ### P2, and the rule O3 was always making
 
@@ -867,6 +897,16 @@ point of showing a diff before an accept.
 The diff gets its own treatment, derived from the palette rather than borrowed. Guardrail 3 is
 what makes this more than tidiness: a proposal has to show its evidence, and a reader who cannot
 tell the two signals apart cannot read the evidence.
+
+**How it was answered (#344): two channels, not two hues.** The diff moves only in
+**lightness** and the marking only in **hue**, which is what makes them unconfusable when both
+land on one sentence, the normal case. `--color-diff-bg` is paper's own hue and paper's own
+chroma at 0.874 lightness instead of 0.953, the same paper in shadow, carrying no hue of its
+own; `--color-diff-line` is the printers' change bar and does the work the wash cannot, at
+4.05:1 against paper. C1's dashed underline sits on top of that wash at 4.84:1 in light and
+5.43:1 in dark, 121 degrees away in hue. A changed clause therefore says "this is what changed"
+and "nobody has accepted this wording" at the same time, and a reader can read either without
+decoding the other.
 
 ### P4, P5, P6 and P7, briefly, because none of them is contested
 

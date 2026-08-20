@@ -96,14 +96,19 @@
 				<Button
 					type="submit"
 					variant="secondary"
-					class={aiEnabled ? 'border-line-2 text-ink-2' : 'border-ai-line bg-ai-bg text-ai'}
+					class={aiEnabled
+						? 'border-line-2 text-ink-2'
+						: 'border-accent bg-accent-bg text-accent-ink'}
 				>
 					{aiEnabled ? t.aiToggle.stopWriting : t.aiToggle.resumeWriting}
 				</Button>
 			</form>
 		</div>
 		{#if !aiEnabled}
-			<p class="mt-3 rounded-md border border-ai-line bg-ai-bg px-3 py-2 text-xs text-ai">
+			<!-- Round eleven P2 (#344), and guardrail 4 more than P2: the copilot's hue is
+			     the last thing that should announce that the copilot is off. This notice is
+			     the theme's own panel and line. -->
+			<p class="mt-3 rounded-md border border-line bg-panel-2 px-3 py-2 text-xs text-ink-2">
 				{t.aiToggle.offNotice(data.current.name)}
 			</p>
 		{/if}

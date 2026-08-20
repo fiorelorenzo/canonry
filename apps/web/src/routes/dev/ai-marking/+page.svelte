@@ -51,9 +51,9 @@
 	<h1 class="mb-2 text-2xl font-semibold text-ink">AI text marking</h1>
 	<p class="mb-8 max-w-measure text-ink-2">
 		Decision C1 = B: unaccepted AI wording gets a dashed underline plus a numbered margin marker, in
-		the violet reserved for the copilot, never hue alone. Proposals do not exist in the database yet
-		(<a class="underline" href="https://github.com/fiorelorenzo/canonry/issues/47">#47</a>), so this
-		renders <code>AiMarkedParagraph</code> directly against fixture text rather than a real entry.
+		the one hue reserved for the copilot, never hue alone. Proposals do not exist in the database
+		yet (<a class="underline" href="https://github.com/fiorelorenzo/canonry/issues/47">#47</a>), so
+		this renders <code>AiMarkedParagraph</code> directly against fixture text rather than a real entry.
 	</p>
 
 	{#each [{ theme: 'light', label: 'Light palette' }, { theme: 'dark', label: 'Dark palette' }] as pane (pane.theme)}

@@ -32,8 +32,9 @@
 </script>
 
 <!-- #147: raw tab strip on purpose - the active tab reads through text-accent-ink plus
-	font-semibold, which none of Button's variants draw, and the queue badge below reuses
-	C1/G8's proposal-count colours (bg-ai-bg/text-ai), which stay off limits to Badge. -->
+	font-semibold, which none of Button's variants draw. Round eleven P2 (#344): the queue
+	badge is the count pill on the accent's tint, matching ContextStrip and the proposals
+	inbox, because a number waiting is not AI text. -->
 <nav
 	class="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-panel md:hidden"
 	aria-label={t.navLabel}
@@ -50,7 +51,7 @@
 		>
 			<span>{tab.label}</span>
 			{#if tab.id === 'queue' && queueCount > 0}
-				<span class="rounded-full bg-ai-bg px-1.5 py-0 font-mono text-[9px] text-ai"
+				<span class="rounded-full bg-accent-bg px-1.5 py-0 font-mono text-[9px] text-accent-ink"
 					>{queueCount}</span
 				>
 			{/if}

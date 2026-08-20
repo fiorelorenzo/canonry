@@ -56,7 +56,7 @@
 		color: var(--color-danger);
 		border-bottom: 1px dashed var(--color-line-2);
 	}
-	/* Deliberately not C1's violet and not B4's ai_accepted green: a fact span is evidence,
+	/* Deliberately not C1's copilot hue and not B4's ai_accepted green: a fact span is evidence,
 	   not a pending proposal and not a settled provenance badge, so it gets a third colour. */
 	.entry-prose :global(mark.factspan) {
 		background: var(--color-warn-bg);

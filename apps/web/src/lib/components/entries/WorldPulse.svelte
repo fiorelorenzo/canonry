@@ -13,7 +13,7 @@
 	 * `title` on each bar answers the one follow-up a mouse asks, which week that was.
 	 *
 	 * Colours are the theme's own: `--color-line-2` for a week that happened,
-	 * `--color-accent` for the newest one. Never `--color-ai` (C1 reserves violet for
+	 * `--color-accent` for the newest one. Never `--color-ai` (C1 reserves that hue for
 	 * unaccepted copilot text, and a bar chart of a GM's own edits is neither).
 	 *
 	 * G2 needs nothing here: `html { font-variant-numeric: tabular-nums }` in layout.css

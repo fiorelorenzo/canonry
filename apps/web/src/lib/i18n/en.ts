@@ -125,9 +125,9 @@ export const en: Messages = {
 			footerOpen: 'Open',
 			footerClose: 'Close'
 		},
-		// Issue #285 (decision O3): the chrome carries no violet, so the name and the glyph
-		// are the only things saying this is the copilot. "Loremaster" is a product name and
-		// stays untranslated in both catalogues, like "Canonry" itself.
+		// Issue #285 (decision O3): the chrome carries none of the copilot's hue, so the name
+		// and the glyph are the only things saying this is the copilot. "Loremaster" is a
+		// product name and stays untranslated in both catalogues, like "Canonry" itself.
 		quickAsk: {
 			name: 'Loremaster',
 			openLabel: 'Open the Loremaster',

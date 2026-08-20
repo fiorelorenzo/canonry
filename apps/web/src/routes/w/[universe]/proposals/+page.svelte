@@ -28,7 +28,7 @@
 	{#each data.plans as plan (plan.id)}
 		<a
 			href={resolve(`/w/${data.universe.slug}/proposals/${plan.id}`)}
-			class="mb-2 flex items-center justify-between gap-3 rounded-md border border-line bg-panel px-4 py-3 hover:border-ai-line"
+			class="mb-2 flex items-center justify-between gap-3 rounded-md border border-line bg-panel px-4 py-3 hover:border-line-2"
 		>
 			<div class="min-w-0">
 				<p class="font-medium text-ink">
@@ -38,7 +38,10 @@
 					{t.inbox.entriesLabel(plan.total)} &middot; {formatWhen(plan.createdAt)}
 				</p>
 			</div>
-			<span class="flex-none rounded-full bg-ai-bg px-2 py-1 font-mono text-xs text-ai">
+			<!-- Round eleven P2 (#344): a count of what is waiting is not AI text. It keeps
+			     its presence through the accent's own tint, which is what says "there is
+			     something for you here" everywhere else in the shell. -->
+			<span class="flex-none rounded-full bg-accent-bg px-2 py-1 font-mono text-xs text-accent-ink">
 				{t.inbox.pendingLabel(plan.pending)}
 			</span>
 		</a>
@@ -47,7 +50,7 @@
 	{#each data.importJobs as job (job.id)}
 		<a
 			href={resolve(`/w/${data.universe.slug}/import/${job.id}/review`)}
-			class="mb-2 flex items-center justify-between gap-3 rounded-md border border-line bg-panel px-4 py-3 hover:border-ai-line"
+			class="mb-2 flex items-center justify-between gap-3 rounded-md border border-line bg-panel px-4 py-3 hover:border-line-2"
 		>
 			<div class="min-w-0">
 				<p class="font-medium text-ink">{t.inbox.importFrom(job.playbook)}</p>

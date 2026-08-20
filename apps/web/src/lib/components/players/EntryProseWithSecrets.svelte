@@ -191,7 +191,7 @@
 		height: 0.95rem;
 		border-radius: 0.25rem;
 		background: var(--color-ai);
-		color: #fff;
+		color: var(--color-paper);
 		font-family: var(--font-mono);
 		font-size: 9px;
 		font-weight: 700;
