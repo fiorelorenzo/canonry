@@ -140,8 +140,11 @@
 	against it) only ever grows to match the article's own content height, which is
 	exactly the near-empty-entry case that reads worst. -->
 <div class="flex flex-col md:min-h-full md:flex-row">
-	<article class="min-w-0 flex-1 px-4 py-6 md:px-10 md:py-8">
-		<div class="cover-header" class:cover-header--figure={coverBeside}>
+	<article
+		class="entry-article min-w-0 flex-1 px-4 py-6 md:px-10 md:py-8"
+		class:entry-article--figure={coverBeside}
+	>
+		<div class="cover-header">
 			<p class="cover-header__breadcrumb mb-3 text-xs text-muted">
 				<a class="hover:underline" href={resolve(`/w/${data.universe.slug}`)}
 					>{data.universe.name}</a
@@ -167,7 +170,7 @@
 				{/if}
 			</div>
 
-			<div class="cover-header__title mb-6 flex items-start justify-between gap-4">
+			<div class="cover-header__title mb-6 flex flex-wrap items-start justify-between gap-4">
 				<div>
 					<div class="mb-1 flex flex-wrap items-center gap-2">
 						<h1 class="text-3xl font-semibold text-ink">{data.entity.name}</h1>
@@ -308,39 +311,66 @@
 </div>
 
 <style>
-	/* Round thirteen R1 (#376): a portrait cover stands beside the title once the row has
-	 * the room for it - `64rem` is Tailwind's own `lg`, the same breakpoint `EntryCover`
-	 * and `EntryCoverPlaceholder` switch their own box on, so the two never disagree
-	 * about which shape is showing. Below it, and for any entity type that never gets the
-	 * `.cover-header--figure` class at all (`+page.svelte`'s own `coverBeside`), this is a
-	 * plain single column in source order - breadcrumb, cover, title - exactly what it was
-	 * before this decision, which is what keeps a landscape entry unchanged.
+	/* Round thirteen R1 (#376), amended in review: a portrait cover stands beside the title
+	 * once the row has the room for it - `64rem` is Tailwind's own `lg`, the same breakpoint
+	 * `EntryCover` and `EntryCoverPlaceholder` switch their own box on, so the two never
+	 * disagree about which shape is showing. Below it, and for any entity type that never
+	 * gets `.entry-article--figure` at all (`coverBeside` above), this is a plain block in
+	 * source order - breadcrumb, cover, title - exactly what it was before the decision,
+	 * which is what keeps a landscape entry unchanged.
 	 *
-	 * `12.5rem` is `COVER_FIGURE_WIDTH` in `cover-crop.ts`, restated here because a grid
-	 * column and a child's own `aspect-ratio` box are two different CSS properties with no
-	 * single declaration that sets both; the constant's own doc comment is the note that
-	 * keeps the two from drifting apart. The first column is `--container-measure` itself,
-	 * capped with `minmax` rather than fixed, so a `lg` viewport with less width than
-	 * measure-plus-figure still fits instead of overflowing the row. */
+	 * The grid is on the article rather than on the header, and that is the part worth
+	 * reading. #376 first put it on the header alone, with areas `title cover`, which made
+	 * the header's second row as tall as the figure: a 3:4 cover at 12.5rem is about 330px,
+	 * so the body started 250px of blank paper below the aliases line. Rendered, it looked
+	 * like a bug rather than a decision. Here the header is `display: contents`, so the
+	 * breadcrumb, the title block and the cover are grid items of the article itself, and
+	 * the cover spans `2 / -1`: its height is absorbed by the title plus everything below
+	 * instead of forcing one row open. `align-self: start` keeps it at the top of that span,
+	 * beside the title, which is where R1 says it goes.
+	 *
+	 * Everything else in the article is column 1, so the prose keeps the measure it had and
+	 * no line moves because a cover exists. `12.5rem` is `COVER_FIGURE_WIDTH` in
+	 * `cover-crop.ts`, restated here because a grid column and a child's own `aspect-ratio`
+	 * box are two different properties with no single declaration that sets both; that
+	 * constant's doc comment is the note that keeps the two from drifting. The first column
+	 * is `--container-measure` capped with `minmax` rather than fixed, so a `lg` viewport
+	 * narrower than measure-plus-figure still fits instead of overflowing the row. */
 	@media (min-width: 64rem) {
-		.cover-header--figure {
+		.entry-article--figure {
 			display: grid;
 			grid-template-columns: minmax(0, var(--container-measure)) 12.5rem;
 			column-gap: 1.5rem;
-			align-items: start;
-			grid-template-areas: 'breadcrumb breadcrumb' 'title cover';
+			align-content: start;
 		}
 
-		.cover-header--figure .cover-header__breadcrumb {
-			grid-area: breadcrumb;
+		.entry-article--figure > :global(*) {
+			grid-column: 1;
+			min-width: 0;
 		}
 
-		.cover-header--figure .cover-header__title {
-			grid-area: title;
+		.entry-article--figure .cover-header {
+			display: contents;
 		}
 
-		.cover-header--figure .cover-header__cover {
-			grid-area: cover;
+		.entry-article--figure .cover-header__breadcrumb {
+			grid-column: 1 / -1;
+		}
+
+		.entry-article--figure .cover-header__title {
+			grid-column: 1;
+		}
+
+		.entry-article--figure .cover-header__cover {
+			grid-column: 2;
+			/* `span 100`, not `2 / -1`: a negative row line resolves against the EXPLICIT grid,
+			 * and this grid declares no rows at all, so `-1` is line 1 and the browser swaps
+			 * the pair into a single row 1. Rendered, that put the figure above the breadcrumb
+			 * and opened a 330px row anyway, which is the same defect one line further up. A
+			 * plain large span reaches the implicit rows, which is where the article's content
+			 * actually lives. */
+			grid-row: 2 / span 100;
+			align-self: start;
 		}
 	}
 </style>
