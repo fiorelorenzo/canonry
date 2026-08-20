@@ -11,21 +11,26 @@
  * which share `portrait`/`variants` across two files and take an advisory lock for it.
  */
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
 	closeDb,
 	createMediaAsset,
 	deleteMediaAsset,
+	entryStyleContext,
+	ImageStylePresetNotFoundError,
+	listImageStylePresets,
 	mediaAssetById,
+	selectUniverseImageStylePreset,
 	setMediaAssetGmOnly,
 	upsertImageModel,
 	upsertUniverseImageStyle,
 	type Db
 } from '../src/index.js';
+import { entity } from '../src/schema/entity.js';
 import { imageModelConfig, imageStyle } from '../src/schema/media.js';
 import { universe } from '../src/schema/universe.js';
-import { insertHomebrewUniverse, testDb } from './helpers.js';
+import { insertHomebrewUniverse, testDb, unique } from './helpers.js';
 
 const FEATURE = 'scene' as const;
 const IMAGE_PRICE_PARAM_KEYS = ['pricePerImage', 'currency'] as const;
@@ -258,6 +263,293 @@ describe('upsertUniverseImageStyle (queries/media.ts, issue #378, decision R3)',
 				promptModifier: 'monochrome woodcut'
 			})
 		).rejects.toThrow();
+	});
+
+	it('issue #407: never edits a preset a universe currently points at - saving a custom style creates the universe its own row instead', async () => {
+		const u = await insertHomebrewUniverse(db);
+		const [preset] = await db
+			.select({
+				id: imageStyle.id,
+				name: imageStyle.name,
+				promptModifier: imageStyle.promptModifier
+			})
+			.from(imageStyle)
+			.where(isNull(imageStyle.universeId))
+			.limit(1);
+		if (!preset) throw new Error('no seeded preset to test against');
+
+		await selectUniverseImageStylePreset(db, u.id, preset.id);
+		const [pointed] = await db.select().from(universe).where(eq(universe.id, u.id));
+		expect(pointed?.imageStyleId).toBe(preset.id);
+
+		const custom = await upsertUniverseImageStyle(db, {
+			universeId: u.id,
+			name: 'My Own Style',
+			promptModifier: 'a look nobody else gets'
+		});
+
+		// The preset itself never changed.
+		const [presetAfter] = await db.select().from(imageStyle).where(eq(imageStyle.id, preset.id));
+		expect(presetAfter).toMatchObject({ name: preset.name, promptModifier: preset.promptModifier });
+
+		// A new, separate row belongs to this universe, and the universe now points at it.
+		expect(custom.id).not.toBe(preset.id);
+		expect(custom.universeId).toBe(u.id);
+		const [row] = await db.select().from(universe).where(eq(universe.id, u.id));
+		expect(row?.imageStyleId).toBe(custom.id);
+	});
+});
+
+describe('listImageStylePresets (queries/media.ts, issue #407, decision S2)', () => {
+	let db: Db;
+
+	beforeAll(() => {
+		db = testDb();
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	it('returns the shipped catalogue in English by default, ordered by sort_order', async () => {
+		const presets = await listImageStylePresets(db, 'en');
+		const inkWash = presets.find((p) => p.slug === 'ink-wash');
+		const woodcut = presets.find((p) => p.slug === 'woodcut');
+		expect(inkWash).toMatchObject({ name: 'Ink Wash' });
+		expect(woodcut).toMatchObject({ name: 'Woodcut' });
+		expect(inkWash?.description.length).toBeGreaterThan(0);
+		expect(inkWash?.examplePath).toBe('/style-examples/ink-wash.webp');
+		expect(inkWash?.promptModifier.length).toBeGreaterThan(0);
+
+		const sortOrders = presets.map((p) => p.sortOrder);
+		expect(sortOrders).toEqual([...sortOrders].sort((a, b) => a - b));
+	});
+
+	it('returns the Italian translation when asked for it', async () => {
+		const presets = await listImageStylePresets(db, 'it');
+		const inkWash = presets.find((p) => p.slug === 'ink-wash');
+		expect(inkWash?.name).toBe('Inchiostro e Acquerello');
+		expect(inkWash?.name).not.toBe('Ink Wash');
+	});
+
+	it('falls back to the English row for a locale with no translation', async () => {
+		const presets = await listImageStylePresets(db, 'fr');
+		const inkWash = presets.find((p) => p.slug === 'ink-wash');
+		expect(inkWash?.name).toBe('Ink Wash');
+	});
+
+	it('never includes a universe-owned custom row', async () => {
+		const u = await insertHomebrewUniverse(db);
+		await upsertUniverseImageStyle(db, {
+			universeId: u.id,
+			name: 'Should Never Appear In The Catalogue',
+			promptModifier: 'x'
+		});
+		const presets = await listImageStylePresets(db, 'en');
+		expect(presets.some((p) => p.name === 'Should Never Appear In The Catalogue')).toBe(false);
+	});
+});
+
+describe('selectUniverseImageStylePreset (queries/media.ts, issue #407, decision S2)', () => {
+	let db: Db;
+
+	beforeAll(() => {
+		db = testDb();
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	it('points the universe at a real preset', async () => {
+		const u = await insertHomebrewUniverse(db);
+		const [preset] = await db
+			.select({ id: imageStyle.id })
+			.from(imageStyle)
+			.where(isNull(imageStyle.universeId))
+			.limit(1);
+		if (!preset) throw new Error('no seeded preset to test against');
+
+		await selectUniverseImageStylePreset(db, u.id, preset.id);
+		const [row] = await db.select().from(universe).where(eq(universe.id, u.id));
+		expect(row?.imageStyleId).toBe(preset.id);
+	});
+
+	it('refuses a target id that does not exist', async () => {
+		const u = await insertHomebrewUniverse(db);
+		await expect(selectUniverseImageStylePreset(db, u.id, randomUUID())).rejects.toThrow(
+			ImageStylePresetNotFoundError
+		);
+	});
+
+	it('refuses a target that is another universe custom row, so a GM cannot point at private content by guessing its id', async () => {
+		const owner = await insertHomebrewUniverse(db);
+		const attacker = await insertHomebrewUniverse(db);
+		const ownersCustomStyle = await upsertUniverseImageStyle(db, {
+			universeId: owner.id,
+			name: 'Owners Private Style',
+			promptModifier: 'secret sauce'
+		});
+
+		await expect(
+			selectUniverseImageStylePreset(db, attacker.id, ownersCustomStyle.id)
+		).rejects.toThrow(ImageStylePresetNotFoundError);
+
+		const [attackerRow] = await db.select().from(universe).where(eq(universe.id, attacker.id));
+		expect(attackerRow?.imageStyleId).toBeNull();
+	});
+
+	it('throws for a universe id that does not exist', async () => {
+		const [preset] = await db
+			.select({ id: imageStyle.id })
+			.from(imageStyle)
+			.where(isNull(imageStyle.universeId))
+			.limit(1);
+		if (!preset) throw new Error('no seeded preset to test against');
+		await expect(selectUniverseImageStylePreset(db, randomUUID(), preset.id)).rejects.toThrow();
+	});
+});
+
+describe('image_style presets: re-seed in place (migration 0048, issue #407, decision S2)', () => {
+	let db: Db;
+
+	beforeAll(() => {
+		db = testDb();
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	// Exercises the exact mechanism migration 0048's `ON CONFLICT ("slug") DO UPDATE`
+	// depends on - the `slug` unique constraint schema/media.ts declares - against a
+	// throwaway slug rather than one of the six shipped presets, so this never risks
+	// leaving the real catalogue (and the screenshots taken against it) in a mutated
+	// state for another test or a later run in the same suite to trip over.
+	it('a second insert with the same slug updates the row in place and never duplicates it', async () => {
+		const slug = unique('reseed-preset');
+
+		const [first] = await db
+			.insert(imageStyle)
+			.values({
+				slug,
+				name: 'Draft Name',
+				description: 'Draft description.',
+				promptModifier: 'draft modifier',
+				examplePath: '/style-examples/draft.webp',
+				sortOrder: 99
+			})
+			.onConflictDoUpdate({
+				target: imageStyle.slug,
+				set: {
+					name: 'Draft Name',
+					description: 'Draft description.',
+					promptModifier: 'draft modifier',
+					examplePath: '/style-examples/draft.webp',
+					sortOrder: 99
+				}
+			})
+			.returning();
+		if (!first) throw new Error('first seed insert returned no row');
+
+		const [second] = await db
+			.insert(imageStyle)
+			.values({
+				slug,
+				name: 'Corrected Name',
+				description: 'Corrected description.',
+				promptModifier: 'corrected modifier',
+				examplePath: '/style-examples/corrected.webp',
+				sortOrder: 42
+			})
+			.onConflictDoUpdate({
+				target: imageStyle.slug,
+				set: {
+					name: 'Corrected Name',
+					description: 'Corrected description.',
+					promptModifier: 'corrected modifier',
+					examplePath: '/style-examples/corrected.webp',
+					sortOrder: 42
+				}
+			})
+			.returning();
+		if (!second) throw new Error('second seed insert returned no row');
+
+		expect(second.id).toBe(first.id);
+
+		const rows = await db.select().from(imageStyle).where(eq(imageStyle.slug, slug));
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			name: 'Corrected Name',
+			description: 'Corrected description.',
+			promptModifier: 'corrected modifier',
+			sortOrder: 42
+		});
+
+		await db.delete(imageStyle).where(eq(imageStyle.slug, slug));
+	});
+
+	it('the six shipped presets from migration 0048 exist exactly once each', async () => {
+		const slugs = [
+			'ink-wash',
+			'woodcut',
+			'painterly-fantasy',
+			'parchment-sketch',
+			'stained-glass',
+			'low-poly-diorama'
+		];
+		for (const slug of slugs) {
+			const rows = await db.select().from(imageStyle).where(eq(imageStyle.slug, slug));
+			expect(rows).toHaveLength(1);
+			expect(rows[0]?.universeId).toBeNull();
+		}
+	});
+});
+
+describe('entryStyleContext resolves a preset (queries/media.ts, issue #407, decision S2)', () => {
+	let db: Db;
+
+	beforeAll(() => {
+		db = testDb();
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	// `resolveStyle` (packages/media/src/style.ts) is `pickStyle(await entryStyleContext(db,
+	// entityId))`, and packages/db must never depend on @canonry/media (see queries/
+	// models.ts's own doc comment) - so this proves the half of that pipeline this
+	// package owns: with no entry-level override, entryStyleContext's
+	// universeStyleModifier is exactly the preset's prompt_modifier once the universe
+	// points at one. pickStyle's cascade is a pure passthrough of this same field and is
+	// already covered on its own in packages/media/src/style.test.ts, which also proves
+	// the same scenario end to end through resolveStyle itself.
+	it('a universe pointing at a preset resolves that preset as the universe style, with no entry override', async () => {
+		const u = await insertHomebrewUniverse(db);
+		const [e] = await db
+			.insert(entity)
+			.values({
+				universeId: u.id,
+				type: 'character',
+				name: 'Test Subject',
+				slug: unique('subject')
+			})
+			.returning();
+		if (!e) throw new Error('entity insert returned no row');
+
+		const [preset] = await db
+			.select({ id: imageStyle.id, promptModifier: imageStyle.promptModifier })
+			.from(imageStyle)
+			.where(eq(imageStyle.slug, 'ink-wash'))
+			.limit(1);
+		if (!preset) throw new Error('ink-wash preset not seeded');
+
+		await selectUniverseImageStylePreset(db, u.id, preset.id);
+
+		const context = await entryStyleContext(db, e.id);
+		expect(context?.entityOverride).toBeNull();
+		expect(context?.universeStyleModifier).toBe(preset.promptModifier);
 	});
 });
 

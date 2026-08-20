@@ -1745,11 +1745,18 @@ export const en: Messages = {
 				heading: 'Image style',
 				description: (universeName) =>
 					`What a new image in ${universeName} starts from when its entry has no style of its own. An entry can still override it for itself.`,
+				pickerLegend: 'Choose a style',
+				selectedLabel: 'Selected',
+				customCard: {
+					label: 'Custom style',
+					hint: 'Write your own name and prompt modifier instead of a shipped preset.'
+				},
 				nameLabel: 'Name',
 				promptModifierLabel: 'Prompt modifier',
 				save: 'Save',
 				nameRequiredError: 'Give the style a name.',
-				promptModifierRequiredError: 'Describe what the style adds to a prompt.'
+				promptModifierRequiredError: 'Describe what the style adds to a prompt.',
+				pickError: 'Could not set that style. Try again.'
 			},
 			loremasterVoice: {
 				heading: "Loremaster's voice",

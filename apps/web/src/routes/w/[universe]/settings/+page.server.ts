@@ -24,10 +24,13 @@ import { error, fail } from '@sveltejs/kit';
 import {
 	createSupersede,
 	eq,
+	ImageStylePresetNotFoundError,
 	listDataSourcesForUniverse,
+	listImageStylePresets,
 	listRelationTypesForUniverse,
 	listSupersedesForUniverse,
 	removeSupersede,
+	selectUniverseImageStylePreset,
 	SupersedeAlreadyExistsError,
 	universeAccessBySlug,
 	upsertUniverseImageStyle
@@ -55,22 +58,25 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!access) error(404, `No universe named "${params.universe}"`);
 	const world = access.universe;
 
-	const [supersedes, baseDataSources, relationTypes, currentImageStyle] = await Promise.all([
-		listSupersedesForUniverse(conn, world.id),
-		world.baseUniverseId ? listDataSourcesForUniverse(conn, world.baseUniverseId) : [],
-		listRelationTypesForUniverse(conn, world.id),
-		// Issue #378, decision R3: the row `world.imageStyleId` already points at, if any -
-		// `pickStyle`'s cascade (packages/media/src/style.ts) is the only thing that reads
-		// this at generation time, this is only for prefilling the form.
-		world.imageStyleId
-			? conn
-					.select({ name: imageStyle.name, promptModifier: imageStyle.promptModifier })
-					.from(imageStyle)
-					.where(eq(imageStyle.id, world.imageStyleId))
-					.limit(1)
-					.then(([row]) => row)
-			: undefined
-	]);
+	const [supersedes, baseDataSources, relationTypes, imageStylePresets, ownCustomStyle] =
+		await Promise.all([
+			listSupersedesForUniverse(conn, world.id),
+			world.baseUniverseId ? listDataSourcesForUniverse(conn, world.baseUniverseId) : [],
+			listRelationTypesForUniverse(conn, world.id),
+			// Issue #407, decision S2: the shipped catalogue the picker's grid renders.
+			listImageStylePresets(conn, locals.locale),
+			// Issue #378/#407: this universe's own custom row, found by universe_id -
+			// never by world.imageStyleId, which might currently point at a preset
+			// instead. This is only for prefilling the custom card's form; pickStyle's
+			// cascade (packages/media/src/style.ts) reads image_style_id at generation
+			// time and does not care which kind of row it points at.
+			conn
+				.select({ name: imageStyle.name, promptModifier: imageStyle.promptModifier })
+				.from(imageStyle)
+				.where(eq(imageStyle.universeId, world.id))
+				.limit(1)
+				.then(([row]) => row)
+		]);
 
 	const universeEntities = world.baseUniverseId
 		? await conn.query.entity.findMany({
@@ -87,8 +93,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		baseDataSources: baseDataSources.map((source) => ({ id: source.id, name: source.name })),
 		universeEntities,
 		ownRelationTypeCount: relationTypes.filter((type) => type.universeId !== null).length,
-		imageStyleName: currentImageStyle?.name ?? '',
-		imageStyleModifier: currentImageStyle?.promptModifier ?? '',
+		imageStylePresets,
+		currentImageStyleId: world.imageStyleId,
+		imageStyleName: ownCustomStyle?.name ?? '',
+		imageStyleModifier: ownCustomStyle?.promptModifier ?? '',
 		loremasterDescription: world.loremasterDescription,
 		// Issue #379, decision R4: the same checklist the shell row counts, so the list
 		// at the top of this page can never disagree with it about what is unset.
@@ -147,11 +155,42 @@ export const actions: Actions = {
 		return { propagationCap };
 	},
 
+	// Issue #407, decision S2: points the universe at a shipped preset without ever
+	// touching the preset row itself - the "Custom style" card's own submit
+	// (setImageStyle below) is the only action that ever writes to image_style.
+	selectImageStylePreset: async ({ request, params, locals }) => {
+		if (!locals.user) error(404, `No universe named "${params.universe}"`);
+		const conn = db();
+		const access = await universeAccessBySlug(conn, params.universe, locals.user.id);
+		if (!access) error(404, `No universe named "${params.universe}"`);
+		if (access.role === 'viewer') {
+			error(403, messages(locals.locale).universe.settings.viewerForbiddenError);
+		}
+
+		const tStyle = messages(locals.locale).universe.settings.imageStyle;
+		const form = await request.formData();
+		const presetId = form.get('presetId');
+		if (typeof presetId !== 'string' || presetId.length === 0) {
+			return fail(400, { imageStyleError: tStyle.pickError });
+		}
+
+		try {
+			await selectUniverseImageStylePreset(conn, access.universe.id, presetId);
+		} catch (err) {
+			if (err instanceof ImageStylePresetNotFoundError) {
+				return fail(400, { imageStyleError: tStyle.pickError });
+			}
+			throw err;
+		}
+		return { selectedPresetId: presetId };
+	},
+
 	// Issue #378, decision R3: one `image_style` row per universe, updated in place -
-	// `upsertUniverseImageStyle` finds the row `image_style_id` already points at (if
-	// any) and updates it, or inserts the first one and points the column at it.
-	// `pickStyle`'s cascade (packages/media/src/style.ts) does not change: this only
-	// ever writes the universe half of it.
+	// `upsertUniverseImageStyle` finds this universe's own row by `universe_id` (never
+	// by `image_style_id`, which might currently point at a preset instead - #407) and
+	// updates it, or inserts the first one and points the column at it. `pickStyle`'s
+	// cascade (packages/media/src/style.ts) does not change: this only ever writes the
+	// universe half of it.
 	setImageStyle: async ({ request, params, locals }) => {
 		if (!locals.user) error(404, `No universe named "${params.universe}"`);
 		const conn = db();

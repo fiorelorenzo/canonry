@@ -1897,11 +1897,25 @@ export interface Messages {
 			imageStyle: {
 				heading: string;
 				description: (universeName: string) => string;
+				/** Issue #407, decision S2: sr-only legend on the `<fieldset>` wrapping the
+				 * picker grid - interface chrome, unlike a preset's own name/description,
+				 * which are content and live in the seed (migration 0048) rather than here. */
+				pickerLegend: string;
+				/** sr-only text paired with the checkmark on whichever card is selected. */
+				selectedLabel: string;
+				customCard: {
+					label: string;
+					hint: string;
+				};
 				nameLabel: string;
 				promptModifierLabel: string;
 				save: string;
 				nameRequiredError: string;
 				promptModifierRequiredError: string;
+				/** A preset pick that failed server-side - an invalid id or a permission
+				 * refusal already worded by viewerForbiddenError, so this only ever covers
+				 * the generic case. */
+				pickError: string;
 			};
 			/** Issue #378, decision R3: a textarea over `universe.loremaster_description`,
 			 * which `runAsk` and `completeEntry` (packages/copilot) read directly - see

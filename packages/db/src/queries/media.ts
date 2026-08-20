@@ -3,11 +3,11 @@
 // that actually generates and caches images) is the one caller that turns these rows into
 // a resolved model, a built prompt or a stored file; this module only reads and writes
 // Postgres.
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import type { ImageFeature } from '../schema/enums.js';
 import { entity } from '../schema/entity.js';
-import { imageModelConfig, imageStyle, mediaAsset } from '../schema/media.js';
+import { imageModelConfig, imageStyle, imageStyleLabel, mediaAsset } from '../schema/media.js';
 import { mergeOwnedParams } from './params.js';
 import { universe } from '../schema/universe.js';
 
@@ -133,6 +133,92 @@ export async function entryStyleContext(
 
 export type ImageStyleRow = typeof imageStyle.$inferSelect;
 
+export interface ImageStylePreset {
+	id: string;
+	slug: string;
+	name: string;
+	description: string;
+	promptModifier: string;
+	examplePath: string;
+	sortOrder: number;
+}
+
+/** Issue #407, decision S2: the shipped catalogue the settings picker renders - the
+ * six presets (`universe_id IS NULL`), ordered by `sort_order`. `locale`'s translation
+ * (`image_style_label`) wins when one exists, the row's own English text otherwise -
+ * same coalesce idiom queries/activity.ts uses for `relation_type_label`. */
+export async function listImageStylePresets(db: Db, locale: string): Promise<ImageStylePreset[]> {
+	const rows = await db
+		.select({
+			id: imageStyle.id,
+			slug: imageStyle.slug,
+			name: sql<string>`coalesce(${imageStyleLabel.name}, ${imageStyle.name})`,
+			description: sql<string>`coalesce(${imageStyleLabel.description}, ${imageStyle.description})`,
+			promptModifier: imageStyle.promptModifier,
+			examplePath: imageStyle.examplePath,
+			sortOrder: imageStyle.sortOrder
+		})
+		.from(imageStyle)
+		.leftJoin(
+			imageStyleLabel,
+			and(eq(imageStyleLabel.imageStyleId, imageStyle.id), eq(imageStyleLabel.locale, locale))
+		)
+		.where(isNull(imageStyle.universeId))
+		.orderBy(asc(imageStyle.sortOrder));
+	return rows.map((row) => ({
+		id: row.id,
+		slug: row.slug ?? '',
+		name: row.name,
+		description: row.description ?? '',
+		promptModifier: row.promptModifier,
+		examplePath: row.examplePath ?? '',
+		sortOrder: row.sortOrder
+	}));
+}
+
+/** #407: `presetId` named a row that either does not exist or is not actually a shipped
+ * preset (`universe_id` not null) - same "one message either way" posture
+ * MediaAssetNotOwnedError documents (packages/media/src/generate.ts): which of the two
+ * it is is not this caller's business, only that the target is refused. */
+export class ImageStylePresetNotFoundError extends Error {
+	constructor(presetId: string) {
+		super(`no shipped image style preset with id "${presetId}"`);
+		this.name = 'ImageStylePresetNotFoundError';
+	}
+}
+
+/** #407: points `universe.image_style_id` at a shipped preset - never copies its prompt
+ * modifier into a per-universe row, so improving a preset improves every world that
+ * already chose it (the invariant pickStyle's cascade, packages/media/src/style.ts,
+ * depends on). Refuses a target whose `universe_id` is not null, so a GM can never point
+ * their universe at another universe's private custom row by guessing its id - a preset
+ * is the only kind of row this may ever point at. */
+export async function selectUniverseImageStylePreset(
+	db: Db,
+	universeId: string,
+	presetId: string
+): Promise<void> {
+	await db.transaction(async (tx) => {
+		const [preset] = await tx
+			.select({ id: imageStyle.id })
+			.from(imageStyle)
+			.where(and(eq(imageStyle.id, presetId), isNull(imageStyle.universeId)))
+			.limit(1);
+		if (!preset) throw new ImageStylePresetNotFoundError(presetId);
+
+		const [world] = await tx
+			.select({ id: universe.id })
+			.from(universe)
+			.where(eq(universe.id, universeId))
+			.for('update');
+		if (!world) {
+			throw new Error(`selectUniverseImageStylePreset: no universe row for id "${universeId}"`);
+		}
+
+		await tx.update(universe).set({ imageStyleId: presetId }).where(eq(universe.id, universeId));
+	});
+}
+
 export interface UpsertUniverseImageStyleInput {
 	universeId: string;
 	name: string;
@@ -143,36 +229,46 @@ export interface UpsertUniverseImageStyleInput {
  * row per universe, updated in place rather than accumulated - `pickStyle`'s cascade
  * (packages/media/src/style.ts, entry override then universe then none) only ever
  * follows `universe.image_style_id`, so a second, orphaned row would just be dead data
- * nothing reads. Finds the row the universe's own `image_style_id` already points at and
- * updates it in place if there is one; the first save for a universe inserts a fresh row
- * and points the column at it, both inside one transaction so the row and the pointer
- * never disagree. */
+ * nothing reads. Found by `universe_id` (issue #407), never by `universe.image_style_id` -
+ * a universe currently pointed at a shipped preset still owns at most one custom row of
+ * its own, and this is the only place that may ever write to it. Reading
+ * `image_style_id` instead would have updated whichever row the universe happened to be
+ * pointed at, preset included - exactly the "a universe can edit a preset" bug S2's own
+ * invariant forbids. Saving always re-points the universe at the found-or-created row,
+ * which is what "Save" on the custom card means: switch back to my own style. */
 export async function upsertUniverseImageStyle(
 	db: Db,
 	input: UpsertUniverseImageStyleInput
 ): Promise<ImageStyleRow> {
 	return db.transaction(async (tx) => {
 		const [world] = await tx
-			.select({ imageStyleId: universe.imageStyleId })
+			.select({ id: universe.id })
 			.from(universe)
 			.where(eq(universe.id, input.universeId))
-			.for('update')
-			.limit(1);
+			.for('update');
 		if (!world) {
 			throw new Error(`upsertUniverseImageStyle: no universe row for id "${input.universeId}"`);
 		}
 
-		if (world.imageStyleId) {
+		const [existing] = await tx
+			.select({ id: imageStyle.id })
+			.from(imageStyle)
+			.where(eq(imageStyle.universeId, input.universeId))
+			.limit(1);
+
+		if (existing) {
 			const [updated] = await tx
 				.update(imageStyle)
 				.set({ name: input.name, promptModifier: input.promptModifier })
-				.where(eq(imageStyle.id, world.imageStyleId))
+				.where(eq(imageStyle.id, existing.id))
 				.returning();
 			if (!updated) {
-				throw new Error(
-					`upsertUniverseImageStyle: update returned no row for "${world.imageStyleId}"`
-				);
+				throw new Error(`upsertUniverseImageStyle: update returned no row for "${existing.id}"`);
 			}
+			await tx
+				.update(universe)
+				.set({ imageStyleId: updated.id })
+				.where(eq(universe.id, input.universeId));
 			return updated;
 		}
 
