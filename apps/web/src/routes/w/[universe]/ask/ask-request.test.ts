@@ -52,7 +52,10 @@ describe('parseAskRequestBody (issue #380, decision R5)', () => {
 		expect(parsed).not.toBeNull();
 		expect(parsed?.history).toHaveLength(MAX_HISTORY_TURNS);
 		expect(parsed?.history.map((turn) => turn.text)).toEqual(
-			Array.from({ length: MAX_HISTORY_TURNS }, (_, i) => `turn ${totalTurns - MAX_HISTORY_TURNS + i}`)
+			Array.from(
+				{ length: MAX_HISTORY_TURNS },
+				(_, i) => `turn ${totalTurns - MAX_HISTORY_TURNS + i}`
+			)
 		);
 	});
 
