@@ -95,6 +95,20 @@
 	let loremasterVoiceError = $derived(
 		form && 'loremasterVoiceError' in form ? form.loremasterVoiceError : undefined
 	);
+
+	// Issue #379, decision R4: the list at the top of the page - the same checklist
+	// the shell row counts (`+page.server.ts`'s own `setupItems`), filtered to what
+	// is still unset. Each anchor points at the section #378 already built below;
+	// each label reuses that section's own heading rather than a new description.
+	const unsetSetupItems = $derived(data.setupItems.filter((item) => !item.done));
+	const setupItemHref: Record<(typeof data.setupItems)[number]['id'], string> = {
+		imageStyle: '#setup-image-style',
+		loremasterVoice: '#setup-loremaster-voice'
+	};
+	const setupItemLabel = $derived<Record<(typeof data.setupItems)[number]['id'], string>>({
+		imageStyle: t.imageStyle.heading,
+		loremasterVoice: t.loremasterVoice.heading
+	});
 </script>
 
 <svelte:head><title>{t.headTitle(data.current.name)}</title></svelte:head>
@@ -110,6 +124,27 @@
 			href={resolve(`/settings/export/${data.current.slug}`)}>{t.exportLink}</a
 		>{t.introAfter}
 	</p>
+
+	{#if unsetSetupItems.length > 0}
+		<section class="mt-8 rounded-lg border border-warn-bg bg-warn-bg p-4">
+			<h2 class="text-sm font-semibold text-warn">{t.setupChecklist.heading}</h2>
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- a same-page fragment
+			     anchor into a section below, not a route resolve() can rewrite. -->
+			<ul class="mt-2 flex flex-col gap-1">
+				{#each unsetSetupItems as item (item.id)}
+					<li>
+						<a
+							href={setupItemHref[item.id]}
+							class="text-sm text-warn underline underline-offset-2 hover:brightness-95"
+						>
+							{setupItemLabel[item.id]}
+						</a>
+					</li>
+				{/each}
+			</ul>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		</section>
+	{/if}
 
 	<section class="mt-8 rounded-lg border border-line bg-panel p-4">
 		<div class="flex items-center justify-between gap-4">
@@ -181,7 +216,7 @@
 		</p>
 	</section>
 
-	<section class="mt-8 rounded-lg border border-line bg-panel p-4">
+	<section id="setup-image-style" class="mt-8 rounded-lg border border-line bg-panel p-4">
 		<h2 class="text-sm font-semibold text-ink">{t.imageStyle.heading}</h2>
 		<p class="mt-1 max-w-measure text-sm text-ink-2">
 			{t.imageStyle.description(data.current.name)}
@@ -204,7 +239,7 @@
 		</form>
 	</section>
 
-	<section class="mt-8 rounded-lg border border-line bg-panel p-4">
+	<section id="setup-loremaster-voice" class="mt-8 rounded-lg border border-line bg-panel p-4">
 		<h2 class="text-sm font-semibold text-ink">{t.loremasterVoice.heading}</h2>
 		<p class="mt-1 max-w-measure text-sm text-ink-2">
 			{t.loremasterVoice.description(data.current.name)}

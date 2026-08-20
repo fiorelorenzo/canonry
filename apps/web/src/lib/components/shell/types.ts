@@ -1,3 +1,8 @@
+/** Issue #379, decision R4: re-exported rather than re-declared, so the shell reads
+ * the same shape `universeSetupItems()` (`$lib/server/universe-setup`) produces -
+ * type-only, so it never pulls that server module into the client bundle. */
+export type { UniverseSetupItem } from '$lib/server/universe-setup';
+
 import type { EntityType, UniverseKind } from '@canonry/db/schema';
 
 /**

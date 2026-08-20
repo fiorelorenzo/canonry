@@ -53,7 +53,11 @@ export const it: Messages = {
 				universes: 'Universi',
 				settings: 'Impostazioni',
 				docs: 'Documentazione'
-			}
+			},
+			setupWarning: (count) =>
+				count === 1
+					? "Manca ancora un'impostazione da completare"
+					: `Mancano ancora ${count} impostazioni da completare`
 		},
 		quota: {
 			includedHeading: 'Quota inclusa',
@@ -1672,6 +1676,9 @@ export const it: Messages = {
 			exportLink: 'Esporta',
 			viewerForbiddenError:
 				'Chi ha accesso in sola visualizzazione non può modificare questa impostazione.',
+			setupChecklist: {
+				heading: 'Da completare'
+			},
 			aiToggle: {
 				heading: 'Scrittura del Loremaster',
 				description: (universeName) =>

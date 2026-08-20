@@ -95,6 +95,14 @@ export interface Messages {
 				settings: string;
 				docs: string;
 			};
+			/** Issue #379, decision R4 (DECISIONS.md "Round thirteen"): the quiet row
+			 * under the universe nav (Sidebar.svelte), shown only while
+			 * `universeSetupItems()` (apps/web/src/lib/server/universe-setup.ts) still
+			 * has something unset - never dismissible, since a dismissed warning about
+			 * an unset setting would lie the moment it was dismissed. A third setting
+			 * joins the count by joining that function's list, not by growing a second
+			 * string here. */
+			setupWarning: (count: number) => string;
 		};
 		/** Issue #150 (F2 = A, H1's spend rule): the shell footer's quota meter
 		 * (QuotaMeter.svelte). Two lines, not one - included quota and warm budget
@@ -1723,6 +1731,14 @@ export interface Messages {
 			appearanceLink: string;
 			exportLink: string;
 			viewerForbiddenError: string;
+			/** Issue #379, decision R4: the list at the top of this page, rendered only
+			 * while `universeSetupItems()` still has an unset item. Each link's text
+			 * reuses `imageStyle.heading`/`loremasterVoice.heading` below rather than a
+			 * new description - #378 already named these sections, this only points at
+			 * them. */
+			setupChecklist: {
+				heading: string;
+			};
 			aiToggle: {
 				heading: string;
 				description: (universeName: string) => string;

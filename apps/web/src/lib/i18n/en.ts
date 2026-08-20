@@ -49,7 +49,9 @@ export const en: Messages = {
 				universes: 'Universes',
 				settings: 'Settings',
 				docs: 'Docs'
-			}
+			},
+			setupWarning: (count) =>
+				count === 1 ? '1 setting left to finish' : `${count} settings left to finish`
 		},
 		quota: {
 			includedHeading: 'Included quota',
@@ -1622,6 +1624,9 @@ export const en: Messages = {
 			appearanceLink: 'Appearance',
 			exportLink: 'Export',
 			viewerForbiddenError: 'Viewers cannot change this setting.',
+			setupChecklist: {
+				heading: 'Left to finish'
+			},
 			aiToggle: {
 				heading: 'Loremaster writing',
 				description: (universeName) =>
