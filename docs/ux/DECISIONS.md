@@ -47,7 +47,7 @@ option is what stops it being reopened in six months.
 | Id | Decision | Chosen |
 | --- | --- | --- |
 | B1 | Entry page anatomy | **C, document plus a switching right column**: relations, facts, images, history |
-| B2 | Editor and mentions | **C, markdown with live decorations.** Amended: a graphical menu for anyone who does not want to type markdown |
+| B2 | Editor and mentions | **C, markdown with live decorations.** Amended: a graphical menu for anyone who does not want to type markdown; round twelve's Q4 makes that menu icon buttons with a tooltip each, and adds a preview, since decoration is not a preview |
 | B3 | Relations and inference | **A, in the margin**, with one-click confirm and retype |
 | B4 | Facts and provenance | **B, on demand.** Facts closed by default, a permanent non-violet human against ai-accepted badge in history |
 | B5 | Works and scenes | **A, tree beside a scene editor**, with the affected-scene signal read only |
@@ -59,7 +59,7 @@ option is what stops it being reopened in six months.
 | C1 | AI text marking | **B, underline and margin marker.** Unaccepted wording never enters the entry's own reading flow. The mechanism is unamended; only its hue moved, see P1 |
 | C2 | Proposal routing | **A, an inbox**, with a quiet arrival signal and never a modal |
 | C3 | The plan | **A, flat checklist** ordered by relevance, entries droppable before any diff is written |
-| C4 | Diff layout | **C, in place with a toggle.** Amended round eleven: the diff has its own colour, distinct from C1's marking, see P3 |
+| C4 | Diff layout | **C, in place**, and the toggle is repealed by round twelve's Q1: every changed part shows at once with its context. Amended round eleven: the diff has its own colour, distinct from C1's marking, see P3 |
 | C5 | Evidence | **B, popover on the changed text**, forced open where nothing but weak evidence backs the candidate. Amended (#270): weak means embedding similarity, or the GM's own request for a proposal made from Ask, and the popover names which of the two |
 | C6 | Accept and reject | **B, keyboard queue**, `j k a r u`, buttons always visible |
 | C7 | Reject reasons | **A, chips with a free text escape** |
@@ -820,7 +820,7 @@ never decided at all. Separating those was most of the work, because "I do not l
 | P3 | C4 never named the diff's colours and the diff inherited the marking's. Same colour or two? | **Two.** "This clause changed" and "nobody has accepted this wording" are different claims |
 | P4 | The floating panel is 352px wide. Is that the size? | **No.** It grows, most of all horizontally, and the width is stated rather than inherited |
 | P5 | Where does a history of kept answers live, given A2's cap of seven? | **In the account menu's own surface**, not as a tenth thing shouting above the nav |
-| P6 | Does an entry with no cover show a placeholder? | **Yes, for somebody who can write to that world**, and it is the affordance that starts a generation |
+| P6 | Does an entry with no cover show a placeholder? | **Yes, for somebody who can write to that world**, and it is the affordance that starts a generation. Amended next day by Q5: it offers upload or generate where it stands, rather than pointing at the Images panel |
 | P7 | The world home opens on three figures nobody needed. What goes there? | **Nothing that is already in the shell.** The masthead earns its space or loses it |
 
 ### P1, and why this is A1's amendment rather than C1's
@@ -950,3 +950,131 @@ layer takes its top six by lexical overlap with **no threshold at all**, so on a
 about a seventeen-entry world it returns six sentences of noise and the panel presents them as
 sources. That is #270's rule, "an evidence field that is always populated is not evidence, it is
 decoration", applied to proposals and never to answers.
+
+## Round twelve, decided 2026-08-20
+
+Six more from using the preview, the day after round eleven landed. Same shape as round
+eleven and for the same reason: the answers came from working in the thing, so there are no
+artifacts and the register keeps no rows. Two amend a decision, one amends a decision taken
+**yesterday**, one is a defect against what a decision claimed, and two are new.
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| Q1 | The diff hides half of itself behind a toggle. One wording at a time, or every changed part at once? | **Every changed part, with its context, and the toggle goes.** C4's toggle is repealed |
+| Q2 | The entry's right column stops where its content stops. Does it run the page? | **Full height.** B1's switching column becomes a column, not a box |
+| Q3 | A mention is a link and nothing else. Does it preview? | **Yes, on hover and on focus**, through the same filter that decides whether it resolves at all |
+| Q4 | The editor's controls are text buttons and there is no preview. | **Icon buttons with a tooltip each, and a preview.** No control in this product ships an unlabelled icon |
+| Q5 | The cover placeholder points at another panel, and no entity type is portrait. | **The placeholder offers upload or generate where it stands**, and the ratios gain portrait |
+| Q6 | There is no motion system and `prefers-reduced-motion` is honoured in one place. | **A motion system, with reduced motion as a first-class preference**, the way G1 made dark one |
+
+### Q1 repeals C4's toggle, and the data was always there
+
+C4 chose "in place with a toggle" and `ProposalDiffCard.svelte:117` implements it as
+`showOld`, a boolean that swaps the whole card between the old wording and the new. So half
+the information is always hidden, and the reader has to remember what they just saw in order
+to compare it. That is the wrong shape for the one decision this product exists to support.
+
+**Every changed part is shown at once, with enough unchanged text around it to read**, which
+is the arrangement anybody who has reviewed a pull request already knows. The toggle goes
+rather than gaining a third state.
+
+That this is a rendering change and not a schema one is worth writing down, because the first
+instinct is that it needs new data: `proposal.patch` is `{ summary, before, after }` and has
+been since migration 0005, so **both whole bodies are already persisted**. The per-clause list
+the card renders today is derived at render time, not stored. A diff with context is derived
+from the same two strings, exactly as a forge diffs two blobs. Nothing new is written and no
+migration is needed.
+
+P3 is untouched and is the constraint on how this looks: the diff moves in lightness and C1's
+marking moves in hue, so a sentence that is both changed and unaccepted still reads as both. A
+unified diff colouring removals red and additions green would throw that away and import a
+palette from a different product; the change bar and the wash already say it.
+
+### Q2, and why this is not a new decision about the entry page
+
+`EntrySections.svelte:129` is `md:sticky md:top-0 md:max-h-[calc(100vh-4rem)] md:w-64`, so the
+column is capped at the viewport and 256px wide, and with its five sections closed it is a
+short box with a lot of paper underneath. B1 said "document plus a switching right column", and
+a column that stops a third of the way down is not what that describes. It runs the height of
+the page. #148's mobile sheet keeps its own 85vh, because a phone is not a second column, and
+nothing here reaches it.
+
+### Q3, and the one thing that makes it dangerous
+
+A preview on a mention is worth it because following a link costs you your place, and half the
+time you only wanted to remember who somebody was. On hover **and on focus**, so it is not a
+pointer-only feature.
+
+`MentionTarget` is `{ name, slug, aliases }` (`apps/web/src/lib/markdown.ts:24-28`), so the
+renderer does not have enough to preview with and the data has to come from somewhere. That is
+the easy half. The dangerous half is that **a preview is a second way to read an entry**, and
+every rule about who may read what has to hold inside it exactly as it holds on the page:
+`publicMentionTargets` already decides what resolves on `/p/**` and a preview goes through that
+same filter rather than a new query, and `isPlayerVisibleSpan` from #322 applies to whatever
+text a preview shows, or #355 recurs inside a tooltip. A preview that leaks is worse than no
+preview, because nobody thinks to audit a hover.
+
+### Q4, and the rule that comes with it
+
+B2's graphical menu shipped as `FormattingToolbar.svelte` and it works; the request is about
+what it looks like. Icons, and **a tooltip on every one of them**, which is the part that is a
+rule rather than a restyle: an unlabelled icon is a guess, and this product already vendors a
+tooltip primitive under `ui/tooltip/` that nothing uses. So the rule is that a control whose
+label is an icon carries its name in a tooltip and in `aria-label`, everywhere, not only here.
+
+The editor also gains a **preview**. Live decoration is not a preview: it shows styled markdown
+while you type, and it cannot show a resolved mention, an inserted image at its real size, or a
+heading in the reading room's own serif. Markdown stays the stored form, so F4's lossless
+export is untouched.
+
+### Q5 amends P6 a day after it was taken, and fixes a ratio table that never matched its own decision
+
+**The placeholder.** P6 made it "the affordance that starts a generation", and #347 built it as
+a pointer: it opens the Images section, from where a cover costs four clicks to generate or
+three to upload. Pointing at another panel is not an affordance, it is a signpost, which is the
+same mistake round eleven's P8 took out of the review flow. Clicking the placeholder now asks
+the only question worth asking, upload or generate, and asks it where you clicked.
+
+O2's "use as cover is the accept" survives and is why this is safe: a generated image still
+becomes the cover because a person chose it. **Upload and generate are not the same act** and
+the record has never said so out loud: an upload is a human handing over a file, which needs no
+accept beyond the choosing, while a generation is a model producing something a human then
+keeps. Guardrail 1 governs the second and has nothing to say about the first.
+
+**The ratios.** O2 said "wide for a place, closer to square for a person", and `COVER_RATIO`
+gives a character `3 / 2`, which is landscape and barely closer to square than a faction's
+`16 / 9`. **No entity type is portrait today.** A person's portrait being landscape is a defect
+against O2's own words rather than a change of taste, and it is why the request arrived as
+"landscape or portrait depending on the type". The table is re-derived so a character and an
+item read as portrait, a faction sits between, and a place, an event and a session stay wide.
+
+That reaches further than a constant, and the part to get right is where the shape is decided.
+#332 put `aspectRatio` on the `image_model_config` row, one per feature, because a model that
+cannot honour a ratio must fail on save rather than silently return 16:9. A ratio that varies by
+entity type cannot live on a per-feature row. However that is resolved, the two must not end up
+disagreeing: the shape a cover is *generated* at and the shape it is *displayed* at being
+different is how an image arrives pre-cropped wrong.
+
+### Q6, and why reduced motion is in the decision rather than in a review comment
+
+There is no motion system: `tw-animate-css` is a dependency, the vendored popover, dialog and
+sheet animate their own open and close, and nothing else moves. Motion is worth adding where it
+explains a change of state and worth refusing where it only decorates one.
+
+`prefers-reduced-motion` appears **once in the whole application**, in `ModelRunning.svelte`'s
+spinner, and the vendored components that animate do not honour it at all. So the decision is
+not "add animations", it is: motion arrives with reduced motion honoured at the system level,
+in the same breath, the way G1 made dark a whole-app preference rather than a table-mode skin.
+A surface that animates without checking is an accessibility regression that ships looking like
+polish.
+
+What earns motion: a thing arriving or leaving, a panel expanding in place per O3 and G5, a
+section opening per O2, a proposal being accepted or rejected, a state that changed where a
+reader would otherwise wonder whether their click registered. What does not: text on load,
+anything on a canon reading surface, anything that delays an action behind its own animation,
+and anything that moves while a model is already making the reader wait.
+
+### Where round twelve lands
+
+Epic [#360](https://github.com/fiorelorenzo/canonry/issues/360), one issue per question. Q5
+carries the only change that may need a migration, so it owns that slot.
