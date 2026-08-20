@@ -36,12 +36,18 @@
 		value,
 		options,
 		required = false,
+		disabled = false,
 		label
 	}: {
 		name: string;
 		value: string | null | undefined;
 		options: readonly NativeFallbackOption[];
 		required?: boolean;
+		/** #383: a call site whose enhanced control can be disabled (a permission gate,
+		 * not a busy flag - see `LanguageControl.svelte`) needs its `<noscript>` fallback
+		 * to refuse the same submission, since a reader with scripting off has no other
+		 * signal that the field is not theirs to change. */
+		disabled?: boolean;
 		/** Accessible name for the fallback select, which has no visible label of its own. */
 		label: string;
 	} = $props();
@@ -59,6 +65,7 @@
 		<select
 			{name}
 			{required}
+			{disabled}
 			aria-label={label}
 			class="h-9 w-full rounded-md border border-input bg-transparent px-2.5 py-1 text-sm text-ink shadow-xs"
 		>
