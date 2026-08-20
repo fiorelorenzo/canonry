@@ -1199,6 +1199,15 @@ export const it: Messages = {
 			accept: 'Accetta',
 			accepted: 'accettata',
 			outcome: { rejected: 'rifiutata', superseded: 'sostituita' }
+		},
+		existing: {
+			fileInputLabel: 'File di esportazione',
+			jobsHeading: 'Importazioni precedenti',
+			jobsEmpty: 'Nessuna importazione è stata ancora eseguita in questo mondo.',
+			jobsEmptyAction: "Avvia un'importazione",
+			proposals: (count) => (count === 1 ? '1 proposta' : `${count} proposte`),
+			reviewLink: 'Revisiona',
+			viewerNotice: "Solo chi ha un ruolo di editor o proprietario può avviare un'importazione."
 		}
 	},
 
@@ -1464,8 +1473,7 @@ export const it: Messages = {
 		sidebar: {
 			navAriaLabel: 'Navigazione universo',
 			primaryNavAriaLabel: 'Principale',
-			recentHeading: 'Recenti',
-			notBuiltYet: 'Non ancora disponibile.'
+			recentHeading: 'Recenti'
 		},
 
 		switcher: {
@@ -1845,6 +1853,34 @@ export const it: Messages = {
 				},
 				viewerForbiddenError:
 					'Chi ha accesso in sola visualizzazione non può modificare il catalogo delle relazioni.'
+			}
+		},
+		players: {
+			headTitle: (universeName) => `Giocatori · ${universeName}`,
+			heading: 'Giocatori',
+			description: 'Cosa ha scoperto il gruppo, e cosa è ancora dietro lo schermo.',
+			wikiLinkLabel: 'Il wiki dei giocatori',
+			openWikiLink: 'Apri il wiki dei giocatori',
+			invitationsNotice:
+				"Non esiste ancora un invito da inviare: condividi l'indirizzo del wiki direttamente con i tuoi giocatori.",
+			revealedHeading: 'Rivelato',
+			revealedEmpty: 'Nulla è stato ancora rivelato al gruppo.',
+			revealedEmptyAction: 'Vai alla modalità Tavolo',
+			kindLabel: { entity: 'Voce', fact: 'Fatto', relation: 'Relazione' },
+			sessionUnknown: 'una sessione non tracciata',
+			hiddenHeading: 'Ancora dietro lo schermo',
+			hiddenDescription: 'Rivelabile, e non ancora trovato.',
+			hiddenEmpty: "Non c'è più nulla da scoprire.",
+			entityTypeLabel: (type) => {
+				const labels: Record<string, string> = {
+					character: 'Personaggio',
+					place: 'Luogo',
+					faction: 'Fazione',
+					item: 'Oggetto',
+					event: 'Evento',
+					session: 'Sessione'
+				};
+				return labels[type] ?? type;
 			}
 		}
 	},

@@ -6,7 +6,7 @@
 // acceptProposal - "nothing else in the codebase may write canon from a proposal" holds
 // here too, this file only adds the import-specific bookkeeping (entity_source_ref)
 // around that boundary.
-import { and, count, eq, gte, inArray, isNotNull, lt, notInArray, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, isNotNull, lt, notInArray, sql } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import { entity } from '../schema/entity.js';
 import type { EntityType, ImportJobStatus, RelationCardinality } from '../schema/enums.js';
@@ -70,6 +70,18 @@ export async function getImportJob(db: Db, jobId: string): Promise<ImportJobRow>
 	const [row] = await db.select().from(importJob).where(eq(importJob.id, jobId)).limit(1);
 	if (!row) throw new ImportJobNotFoundError(jobId);
 	return row;
+}
+
+/** Every import job this universe has run, whatever its status, newest first - issue
+ * R11 (round thirteen)'s `/w/[universe]/import` index: "lists the jobs it has already
+ * run with their status and their review link." `getImportJob` above answers for one
+ * job by id; this is the index that page reads. */
+export async function importJobsForUniverse(db: Db, universeId: string): Promise<ImportJobRow[]> {
+	return db
+		.select()
+		.from(importJob)
+		.where(eq(importJob.universeId, universeId))
+		.orderBy(desc(importJob.createdAt));
 }
 
 export async function countRunningImportJobs(db: Db): Promise<number> {

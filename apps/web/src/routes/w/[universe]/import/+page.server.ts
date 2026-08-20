@@ -1,15 +1,26 @@
 /**
- * Issue #108. Three states on one page, matching the artifacts' own shape:
- * D1 = C ("detect then confirm") for `upload` -> `confirm`, then D2 = B's estimate card
- * ("Import estimate... Start import") for `confirm` -> `start`. Guardrail 1 extended to
- * spend (D2's own doc comment): "the estimate is a consent screen for spending real money
- * and quota... never an auto-start the instant a file lands" - so `confirm` only computes
- * numbers, `start` is the one action that actually admits and runs a job.
+ * Issue R11, round thirteen (docs/ux/DECISIONS.md): `/w/[universe]/import`, the door for
+ * a world that already exists. `/onboarding/import` runs the identical D1/D2 flow
+ * (upload -> confirm -> estimate -> start) for a universe being created; this route
+ * reuses the same server helpers (`$lib/server/onboarding`) rather than a second
+ * uploader, scoped to `params.universe` instead of a query-string universe, and adds the
+ * one thing onboarding's own page has no use for: the jobs this universe has already
+ * run, each with its status and its review link (`/w/[universe]/import/[job]/review`,
+ * already built).
+ *
+ * `packages/import` exposes `startJob`/`cancel` on its `ImportDriver` seam and nothing
+ * outside that package may learn which driver answers them (AGENTS.md) - this file
+ * never touches `ImportDriver` itself, only `startImportRun`/`admitAndCreateImportJob`,
+ * the same boundary onboarding's own page already respects.
+ *
+ * Role: any member may load this page - a viewer sees the job list read-only, same as
+ * every other `/w/` route. Starting a job is an editor/owner action, guarded in every
+ * action below the way `works/+page.server.ts`'s `create` action guards a viewer.
  */
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { error, fail, redirect } from '@sveltejs/kit';
-import { universeAccessBySlug, type UniverseAccess } from '@canonry/db';
+import { importJobsForUniverse, universeAccessBySlug, type UniverseAccess } from '@canonry/db';
 import { ArchiveSourceReader, DEFAULT_ARCHIVE_LIMITS } from '@canonry/import';
 import { messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
@@ -33,44 +44,64 @@ import {
 } from '$lib/server/onboarding';
 import type { Actions, PageServerLoad } from './$types';
 
-async function requireImportAccess(
+async function requireMembership(
 	userId: string | undefined,
-	slug: string,
-	locale: Locale
+	slug: string
 ): Promise<UniverseAccess> {
-	if (!userId) redirect(303, '/auth/sign-in');
+	if (!userId) error(404, `No universe named "${slug}"`);
 	const access = await universeAccessBySlug(db(), slug, userId);
-	if (!access || access.role === 'viewer') {
-		error(404, messages(locale).import.upload.errors.universeNotFound(slug));
-	}
+	if (!access) error(404, `No universe named "${slug}"`);
 	return access;
+}
+
+/** The write half of role gating: a viewer may load this page but never start a job.
+ * Guards every action below, defence in depth behind the upload form the page itself
+ * hides from a viewer (`data.canStart`). */
+function requireWriteAccess(access: UniverseAccess, locale: Locale): void {
+	if (access.role === 'viewer') {
+		error(403, messages(locale).import.existing.viewerNotice);
+	}
 }
 
 function isKnownPlaybookId(value: FormDataEntryValue | null): value is KnownPlaybookId {
 	return typeof value === 'string' && (KNOWN_PLAYBOOK_IDS as readonly string[]).includes(value);
 }
 
-export const load: PageServerLoad = async ({ url, locals }) => {
-	const slug = url.searchParams.get('universe');
-	if (!slug) error(400, messages(locals.locale).import.upload.errors.noUniverseGiven);
-	const access = await requireImportAccess(locals.user?.id, slug, locals.locale);
+export const load: PageServerLoad = async ({ params, locals }) => {
+	const access = await requireMembership(locals.user?.id, params.universe);
+	const jobs = await importJobsForUniverse(db(), access.universe.id);
 
 	return {
 		universe: { slug: access.universe.slug, name: access.universe.name },
+		canStart: access.role !== 'viewer',
 		playbookLabels: PLAYBOOK_LABELS,
 		playbookIds: KNOWN_PLAYBOOK_IDS,
-		fakeDriverSupported: hasLiveGatewayCredentials() ? null : [...FAKE_DRIVER_SUPPORTED_PLAYBOOKS]
+		fakeDriverSupported: hasLiveGatewayCredentials() ? null : [...FAKE_DRIVER_SUPPORTED_PLAYBOOKS],
+		jobs: jobs.map((job) => ({
+			id: job.id,
+			// A job's `source_type` is always written from `KNOWN_PLAYBOOK_IDS` by the
+			// `start` action below, but the column itself is a plain string - resolved
+			// against the same label map the confirm dropdown uses rather than indexing
+			// `PLAYBOOK_LABELS` with a wider `string` on the client.
+			playbookLabel: isKnownPlaybookId(job.sourceType)
+				? PLAYBOOK_LABELS[job.sourceType]
+				: job.sourceType,
+			status: job.status,
+			documentCount: job.documentCount,
+			proposalsEmitted: job.proposalsEmitted,
+			createdAt: job.createdAt
+		}))
 	};
 };
 
 export const actions: Actions = {
 	// D1's first state: drop a file, see what Canonry thinks it is.
-	upload: async ({ request, locals }) => {
-		const data = await request.formData();
-		const slug = String(data.get('universe') ?? '');
-		await requireImportAccess(locals.user?.id, slug, locals.locale);
+	upload: async ({ request, params, locals }) => {
+		const access = await requireMembership(locals.user?.id, params.universe);
+		requireWriteAccess(access, locals.locale);
 		const t = messages(locals.locale).import.upload.errors;
 
+		const data = await request.formData();
 		const file = data.get('file');
 		if (!(file instanceof File) || file.size === 0) {
 			return fail(400, { stage: 'upload' as const, error: t.chooseFile });
@@ -82,10 +113,7 @@ export const actions: Actions = {
 			reader = ArchiveSourceReader.open(bytes, DEFAULT_ARCHIVE_LIMITS);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
-			return fail(400, {
-				stage: 'upload' as const,
-				error: t.unreadableFile(file.name, message)
-			});
+			return fail(400, { stage: 'upload' as const, error: t.unreadableFile(file.name, message) });
 		}
 
 		const detected = await detectSource(reader);
@@ -104,12 +132,12 @@ export const actions: Actions = {
 
 	// D1's second state: confirm (or override) the detected playbook. Computes D2's
 	// estimate but spends nothing yet - `start` below is the consent click.
-	confirm: async ({ request, locals }) => {
-		const data = await request.formData();
-		const slug = String(data.get('universe') ?? '');
-		await requireImportAccess(locals.user?.id, slug, locals.locale);
+	confirm: async ({ request, params, locals }) => {
+		const access = await requireMembership(locals.user?.id, params.universe);
+		requireWriteAccess(access, locals.locale);
 		const t = messages(locals.locale).import.upload.errors;
 
+		const data = await request.formData();
 		const tempId = String(data.get('tempId') ?? '');
 		const playbookIdRaw = data.get('playbookId');
 		const fileName = String(data.get('fileName') ?? 'upload');
@@ -160,12 +188,12 @@ export const actions: Actions = {
 	},
 
 	// D2's consent click: this is the one action that actually spends anything.
-	start: async ({ request, locals }) => {
-		const data = await request.formData();
-		const slug = String(data.get('universe') ?? '');
-		const access = await requireImportAccess(locals.user?.id, slug, locals.locale);
+	start: async ({ request, params, locals }) => {
+		const access = await requireMembership(locals.user?.id, params.universe);
+		requireWriteAccess(access, locals.locale);
 		const t = messages(locals.locale).import.upload.errors;
 
+		const data = await request.formData();
 		const tempId = String(data.get('tempId') ?? '');
 		const playbookIdRaw = data.get('playbookId');
 		if (!tempId || !isKnownPlaybookId(playbookIdRaw)) {
@@ -234,6 +262,6 @@ export const actions: Actions = {
 			});
 		}
 
-		redirect(303, `/onboarding/import/${admission.jobId}`);
+		redirect(303, `/w/${params.universe}/import/${admission.jobId}/review`);
 	}
 };

@@ -1233,6 +1233,24 @@ export interface Messages {
 			accepted: string;
 			outcome: { rejected: string; superseded: string };
 		};
+		/** Issue R11 (round thirteen, DECISIONS.md): the door for a world that already
+		 * exists, at `/w/[universe]/import` - the same D1/D2 upload flow above (`upload`),
+		 * reused verbatim rather than duplicated, plus the jobs this universe has already
+		 * run. `review` (this same namespace, above) is where each one is actually read;
+		 * this is only the index. */
+		existing: {
+			/** #386's own axe run: `input[type=file]` needs a real accessible name, which
+			 * onboarding's identical upload form (`import.upload`) never gave it either -
+			 * fixed here rather than there, since touching that shared namespace is outside
+			 * this issue's own scope. `sr-only`, matching admin/models's same pattern. */
+			fileInputLabel: string;
+			jobsHeading: string;
+			jobsEmpty: string;
+			jobsEmptyAction: string;
+			proposals: (count: number) => string;
+			reviewLink: string;
+			viewerNotice: string;
+		};
 	};
 
 	/** Issue #121's sweep: table mode - the context strip, pinned cards, quick actions,
@@ -1496,7 +1514,6 @@ export interface Messages {
 			 * now, still reusing this same `universe.ask.keep.historyLink` string for its
 			 * label; this namespace carries no field of its own for it. */
 			recentHeading: string;
-			notBuiltYet: string;
 		};
 		switcher: {
 			switchAriaLabel: string;
@@ -1849,6 +1866,30 @@ export interface Messages {
 				};
 				viewerForbiddenError: string;
 			};
+		};
+		/** Issue R11 (round thirteen, DECISIONS.md): the GM's side of `players.*` above -
+		 * what the party has learned and when (a `revelation` row, kept by session), and
+		 * what is still behind the screen. No invitation exists anywhere in the product
+		 * yet, so `invitationsNotice` says that plainly instead of the page growing a
+		 * button that writes nothing. */
+		players: {
+			headTitle: (universeName: string) => string;
+			heading: string;
+			description: string;
+			wikiLinkLabel: string;
+			openWikiLink: string;
+			invitationsNotice: string;
+			revealedHeading: string;
+			revealedEmpty: string;
+			revealedEmptyAction: string;
+			kindLabel: Record<'entity' | 'fact' | 'relation', string>;
+			sessionUnknown: string;
+			hiddenHeading: string;
+			hiddenDescription: string;
+			hiddenEmpty: string;
+			/** Duplicated per surface rather than shared - see this file's own doc comment
+			 * on `entityTypeLabel`'s existing duplication above `relationTypeLabel`. */
+			entityTypeLabel: (type: string) => string;
 		};
 	};
 

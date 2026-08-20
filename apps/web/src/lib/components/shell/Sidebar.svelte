@@ -108,7 +108,6 @@
 							class:text-ink={active}
 							class:font-semibold={active}
 							class:text-ink-2={!active}
-							title={item.built ? undefined : t.sidebar.notBuiltYet}
 						>
 							<span>{t.nav[item.id]}</span>
 							{#if counts[item.id] !== undefined}

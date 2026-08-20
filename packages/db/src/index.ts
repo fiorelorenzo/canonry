@@ -181,7 +181,9 @@ export {
 	listPublicEntities,
 	publicEntityBySlug,
 	publicMediaAssetById,
+	revelationLogForUniverse,
 	type RevelationRow,
+	type RevelationLogEntry,
 	type RevealEntityInput,
 	type RevealFactInput,
 	type RevealRelationInput,
@@ -244,6 +246,7 @@ export {
 export {
 	createImportJob,
 	getImportJob,
+	importJobsForUniverse,
 	countRunningImportJobs,
 	queuePositionFor,
 	admitImportJob,
