@@ -669,7 +669,14 @@ export const it: Messages = {
 				generateFailed: 'Generazione non riuscita',
 				attachFailedWithStatus: (status) =>
 					`Collegamento dell\u2019immagine non riuscito (${status})`,
-				attachFailed: 'Collegamento dell\u2019immagine non riuscito'
+				attachFailed: 'Collegamento dell\u2019immagine non riuscito',
+				width: {
+					heading: 'Larghezza',
+					ariaLabel: 'Larghezza dell\u2019immagine nel testo',
+					third: 'Un terzo',
+					twoThirds: 'Due terzi',
+					full: 'Intera'
+				}
 			},
 			/** Issue #255: affina un candidato con un'istruzione invece di un tiro nuovo. */
 			regenerate: {
@@ -726,6 +733,12 @@ export const it: Messages = {
 				preview: 'Anteprima',
 				previewAriaLabel: 'Anteprima della voce, come la mostra la pagina',
 				previewEmpty: 'Non c\u2019\u00e8 ancora niente da vedere in anteprima.'
+			},
+			imageWidth: {
+				ariaLabel: 'Cambia la larghezza di questa immagine',
+				third: 'Un terzo',
+				twoThirds: 'Due terzi',
+				full: 'Intera'
 			}
 		},
 

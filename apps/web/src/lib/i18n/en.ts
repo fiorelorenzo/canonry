@@ -663,7 +663,14 @@ export const en: Messages = {
 				generateFailedWithStatus: (status) => `Could not generate an image (${status})`,
 				generateFailed: 'Could not generate an image',
 				attachFailedWithStatus: (status) => `Could not attach the generated image (${status})`,
-				attachFailed: 'Could not attach the generated image'
+				attachFailed: 'Could not attach the generated image',
+				width: {
+					heading: 'Width',
+					ariaLabel: 'Image width in the body',
+					third: 'A third',
+					twoThirds: 'Two thirds',
+					full: 'Full'
+				}
 			},
 			/** Issue #255: refine a candidate with an instruction instead of a fresh roll. */
 			regenerate: {
@@ -718,6 +725,12 @@ export const en: Messages = {
 				preview: 'Preview',
 				previewAriaLabel: 'Preview of the entry, as the page renders it',
 				previewEmpty: 'Nothing written yet, so there is nothing to preview.'
+			},
+			imageWidth: {
+				ariaLabel: "Change this image's width",
+				third: 'A third',
+				twoThirds: 'Two thirds',
+				full: 'Full'
 			}
 		},
 

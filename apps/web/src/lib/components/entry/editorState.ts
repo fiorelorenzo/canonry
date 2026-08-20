@@ -6,7 +6,12 @@
  * module does is compute what the next string and the next selection should be, so it is
  * exercised directly in tests rather than through a mounted component and a fake DOM.
  */
-import { type MentionTarget } from '../../markdown';
+import {
+	clampImageWidthPercent,
+	matchImageToken,
+	type ImageWidthPercent,
+	type MentionTarget
+} from '../../markdown';
 
 export interface TextEdit {
 	source: string;
@@ -76,14 +81,70 @@ export function insertLink(source: string, start: number, end: number): TextEdit
  * selection, with a default alt when there is none. Unlike `insertLink`, `url` is already
  * known when this runs - the picker resolves an asset (or a freshly generated one) before
  * this is ever called - so the markdown is complete on insert and the caret lands just past
- * it, ready for the next sentence, rather than parked inside an argument still to be typed. */
-export function insertImage(source: string, start: number, end: number, url: string): TextEdit {
+ * it, ready for the next sentence, rather than parked inside an argument still to be typed.
+ *
+ * `widthPercent` is R9's addition (#384): omitted or `null`, the body carries no size
+ * suffix at all, exactly as before this existed; one of the three widths
+ * `ImageInsertDialog.svelte` offers writes `=NN%` into the token so the width lives in the
+ * body itself, alongside the image, rather than beside it in a second place. */
+export function insertImage(
+	source: string,
+	start: number,
+	end: number,
+	url: string,
+	widthPercent?: ImageWidthPercent | null
+): TextEdit {
 	const alt = source.slice(start, end) || 'image';
 	const before = source.slice(0, start);
 	const after = source.slice(end);
-	const markdown = `![${alt}](${url})`;
+	const suffix = widthPercent ? ` =${widthPercent}%` : '';
+	const markdown = `![${alt}](${url}${suffix})`;
 	const next = before + markdown + after;
 	const caret = start + markdown.length;
+	return { source: next, selectionStart: caret, selectionEnd: caret };
+}
+
+/** One `![alt](url)`, with or without a size suffix, at its exact position in `source` -
+ * what the editor preview's hover-to-resize affordance (#384) scans for so it can tell
+ * which on-screen `<img>` a rewrite has to land on. */
+export interface ImageToken {
+	start: number;
+	end: number;
+	alt: string;
+	url: string;
+	/** `null` means this image carries no size suffix yet - offering a width still makes
+	 * sense, it just has nothing to show as "current". */
+	widthPercent: number | null;
+}
+
+/** Scans `source` for every image token in document order, mirroring exactly what
+ * `markdown.ts`'s `sized-image` rule turns into an `<img>` - the two share `matchImageToken`
+ * so this list and the rendered preview's `<img>` elements can only ever agree. */
+export function findImageTokens(source: string): ImageToken[] {
+	const tokens: ImageToken[] = [];
+	for (let i = 0; i < source.length; i++) {
+		if (source.charCodeAt(i) !== 0x21 /* ! */) continue;
+		const match = matchImageToken(source, i);
+		if (!match) continue;
+		tokens.push({
+			start: i,
+			end: match.end,
+			alt: match.alt,
+			url: match.url,
+			widthPercent: match.widthPercent
+		});
+		i = match.end - 1; // the loop's own `i++` resumes right after this token
+	}
+	return tokens;
+}
+
+/** Rewrites one image token's width suffix in place, replacing whatever suffix (or lack of
+ * one) it had - the editor preview's hover control uses this through `applyEdit`, the same
+ * path the toolbar's own commands use, so undo and caret restore keep working (#384). */
+export function setImageWidth(source: string, token: ImageToken, widthPercent: number): TextEdit {
+	const markdown = `![${token.alt}](${token.url} =${clampImageWidthPercent(widthPercent)}%)`;
+	const next = source.slice(0, token.start) + markdown + source.slice(token.end);
+	const caret = token.start + markdown.length;
 	return { source: next, selectionStart: caret, selectionEnd: caret };
 }
 

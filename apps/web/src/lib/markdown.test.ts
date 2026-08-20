@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+	clampImageWidthPercent,
+	matchImageToken,
 	mentionPreviewExcerpt,
 	normalizeMentions,
 	renderMarkdown,
@@ -290,5 +292,77 @@ describe('mentionPreviewExcerpt (#364)', () => {
 	it('is empty for an entry nobody has written yet', () => {
 		expect(mentionPreviewExcerpt('')).toBe('');
 		expect(mentionPreviewExcerpt('   \n\n  ')).toBe('');
+	});
+});
+
+describe('sized images (R9, #384)', () => {
+	it.each([
+		['a third', '=33%', 'width:33%'],
+		['two thirds', '=67%', 'width:67%'],
+		['full', '=100%', 'width:100%']
+	])('parses %s as a width on the <img>', (_label, suffix, style) => {
+		const html = renderMarkdown(`![A cat](/w/w1/e/rat/media/a1 ${suffix})`, 'w1', [], 'gm');
+		expect(html).toContain(`<img src="/w/w1/e/rat/media/a1" alt="A cat" style="${style}">`);
+	});
+
+	it('renders an image with no size suffix exactly as before - no style attribute', () => {
+		const html = renderMarkdown('![A cat](/w/w1/e/rat/media/a1)', 'w1', [], 'gm');
+		expect(html).toContain('<img src="/w/w1/e/rat/media/a1" alt="A cat">');
+		expect(html).not.toContain('style=');
+	});
+
+	it.each([
+		['a pixel unit', '=50px'],
+		['no unit at all', '=50'],
+		['a non-numeric value', '=abc%'],
+		['a bare equals sign', '=']
+	])('leaves a malformed suffix (%s) inert rather than a broken link', (_label, suffix) => {
+		const source = `![A cat](/w/w1/e/rat/media/a1 ${suffix})`;
+		const html = renderMarkdown(source, 'w1', [], 'gm');
+		// Not recognised as an image at all - markdown-it's own `image` rule fails to
+		// close the paren either, so the literal source reappears as plain text, exactly
+		// as it would have before this syntax existed.
+		expect(html).not.toContain('<img');
+		expect(html).toContain('/w/w1/e/rat/media/a1');
+	});
+
+	it('clamps a percentage above 100 down to the maximum', () => {
+		const html = renderMarkdown('![A cat](/w/w1/e/rat/media/a1 =250%)', 'w1', [], 'gm');
+		expect(html).toContain('style="width:100%"');
+	});
+
+	it('clamps a percentage of 0 up to the minimum rather than collapsing the image', () => {
+		const html = renderMarkdown('![A cat](/w/w1/e/rat/media/a1 =0%)', 'w1', [], 'gm');
+		expect(html).toContain('style="width:1%"');
+	});
+});
+
+describe('matchImageToken', () => {
+	it('returns null with no width suffix and null widthPercent, distinct from malformed', () => {
+		const match = matchImageToken('![A cat](/media/1)', 0);
+		expect(match).toEqual({ end: 18, alt: 'A cat', url: '/media/1', widthPercent: null });
+	});
+
+	it('returns null for a malformed suffix rather than throwing', () => {
+		expect(matchImageToken('![A cat](/media/1 =50px)', 0)).toBeNull();
+	});
+
+	it('returns null when the string at `start` is not an image at all', () => {
+		expect(matchImageToken('Not an image.', 0)).toBeNull();
+	});
+});
+
+describe('clampImageWidthPercent', () => {
+	it('leaves an in-range value alone', () => {
+		expect(clampImageWidthPercent(67)).toBe(67);
+	});
+
+	it('clamps above the maximum', () => {
+		expect(clampImageWidthPercent(500)).toBe(100);
+	});
+
+	it('clamps at or below zero up to the minimum', () => {
+		expect(clampImageWidthPercent(0)).toBe(1);
+		expect(clampImageWidthPercent(-40)).toBe(1);
 	});
 });
