@@ -118,12 +118,13 @@
 			</InputGroup.Addon>
 		</InputGroup.Root>
 		{#if data.params.query}
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- `clearSearchHref`
-			     is a `resolve()` result plus `browseQuery`'s query string, which the rule cannot
-			     see through. -->
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- `clearSearchHref` is a
+			     `resolve()` result plus `browseQuery`'s query string, which the rule cannot see
+			     through. -->
 			<a href={clearSearchHref} class="shrink-0 text-xs font-medium text-muted hover:text-ink">
 				{t.searchClear}
 			</a>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{/if}
 	</form>
 </div>
