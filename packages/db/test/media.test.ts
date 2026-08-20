@@ -18,9 +18,11 @@ import {
 	createMediaAsset,
 	setMediaAssetPublished,
 	upsertImageModel,
+	upsertUniverseImageStyle,
 	type Db
 } from '../src/index.js';
-import { imageModelConfig } from '../src/schema/media.js';
+import { imageModelConfig, imageStyle } from '../src/schema/media.js';
+import { universe } from '../src/schema/universe.js';
 import { insertHomebrewUniverse, testDb } from './helpers.js';
 
 const FEATURE = 'scene' as const;
@@ -168,5 +170,91 @@ describe('setMediaAssetPublished (queries/media.ts, issue #254)', () => {
 
 	it('throws for an id that does not exist, rather than silently doing nothing', async () => {
 		await expect(setMediaAssetPublished(db, randomUUID(), true)).rejects.toThrow();
+	});
+});
+
+describe('upsertUniverseImageStyle (queries/media.ts, issue #378, decision R3)', () => {
+	let db: Db;
+
+	beforeAll(() => {
+		db = testDb();
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	it('inserts a row for the first save and points universe.image_style_id at it', async () => {
+		const u = await insertHomebrewUniverse(db);
+		expect(u.imageStyleId).toBeNull();
+
+		const style = await upsertUniverseImageStyle(db, {
+			universeId: u.id,
+			name: 'Woodcut',
+			promptModifier: 'monochrome woodcut, heavy crosshatching'
+		});
+		expect(style.name).toBe('Woodcut');
+		expect(style.universeId).toBe(u.id);
+
+		const [row] = await db.select().from(universe).where(eq(universe.id, u.id));
+		expect(row?.imageStyleId).toBe(style.id);
+	});
+
+	it('a second save updates the same row in place rather than accumulating a second one', async () => {
+		const u = await insertHomebrewUniverse(db);
+		const first = await upsertUniverseImageStyle(db, {
+			universeId: u.id,
+			name: 'Woodcut',
+			promptModifier: 'monochrome woodcut'
+		});
+
+		const second = await upsertUniverseImageStyle(db, {
+			universeId: u.id,
+			name: 'Ink wash',
+			promptModifier: 'loose ink wash, visible brush strokes'
+		});
+		expect(second.id).toBe(first.id);
+
+		const rows = await db.select().from(imageStyle).where(eq(imageStyle.universeId, u.id));
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			name: 'Ink wash',
+			promptModifier: 'loose ink wash, visible brush strokes'
+		});
+
+		const [row] = await db.select().from(universe).where(eq(universe.id, u.id));
+		expect(row?.imageStyleId).toBe(first.id);
+	});
+
+	it('two different universes never share a row, even with the same name', async () => {
+		const a = await insertHomebrewUniverse(db);
+		const b = await insertHomebrewUniverse(db);
+
+		const styleA = await upsertUniverseImageStyle(db, {
+			universeId: a.id,
+			name: 'Woodcut',
+			promptModifier: 'monochrome woodcut'
+		});
+		const styleB = await upsertUniverseImageStyle(db, {
+			universeId: b.id,
+			name: 'Woodcut',
+			promptModifier: 'different modifier entirely'
+		});
+
+		expect(styleA.id).not.toBe(styleB.id);
+		const [rowA] = await db.select().from(universe).where(eq(universe.id, a.id));
+		const [rowB] = await db.select().from(universe).where(eq(universe.id, b.id));
+		expect(rowA?.imageStyleId).toBe(styleA.id);
+		expect(rowB?.imageStyleId).toBe(styleB.id);
+	});
+
+	it('throws for a universe id that does not exist', async () => {
+		await expect(
+			upsertUniverseImageStyle(db, {
+				universeId: randomUUID(),
+				name: 'Woodcut',
+				promptModifier: 'monochrome woodcut'
+			})
+		).rejects.toThrow();
 	});
 });

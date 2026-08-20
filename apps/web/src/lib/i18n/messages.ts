@@ -1740,6 +1740,31 @@ export interface Messages {
 				noLimitNotice: string;
 				invalidCapError: string;
 			};
+			/** Issue #378, decision R3 (DECISIONS.md "Round thirteen"): the universe-level
+			 * image style `pickStyle`'s cascade falls back to (packages/media/src/style.ts,
+			 * `entryStyleContext`) when an entry has no override of its own. One row per
+			 * universe, updated in place. */
+			imageStyle: {
+				heading: string;
+				description: (universeName: string) => string;
+				nameLabel: string;
+				promptModifierLabel: string;
+				save: string;
+				nameRequiredError: string;
+				promptModifierRequiredError: string;
+			};
+			/** Issue #378, decision R3: a textarea over `universe.loremaster_description`,
+			 * which `runAsk` and `completeEntry` (packages/copilot) read directly - see
+			 * `loremasterVoiceInstruction` in packages/copilot/src/speech.ts for what it
+			 * becomes in the prompt. */
+			loremasterVoice: {
+				heading: string;
+				description: (universeName: string) => string;
+				textareaLabel: string;
+				hint: string;
+				save: string;
+				tooLongError: string;
+			};
 			precedence: {
 				heading: string;
 				description: (universeName: string) => string;

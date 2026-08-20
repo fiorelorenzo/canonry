@@ -52,7 +52,12 @@ import { functionWords, type Locale } from '@canonry/lang';
 import { stepCountIs, streamText, tool } from 'ai';
 import { z } from 'zod';
 import { jaccard, splitIntoSentences, tokenize } from './diff.js';
-import { READING_ONLY_FALLBACK, TELL_ME_MORE, speechInstruction } from './speech.js';
+import {
+	READING_ONLY_FALLBACK,
+	TELL_ME_MORE,
+	loremasterVoiceInstruction,
+	speechInstruction
+} from './speech.js';
 import { routeModel } from './models.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
 import { requireAiEnabled } from './propagate.js';
@@ -459,7 +464,12 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 		.select({
 			aiEnabled: universe.aiEnabled,
 			kind: universe.kind,
-			baseUniverseId: universe.baseUniverseId
+			baseUniverseId: universe.baseUniverseId,
+			// Issue #378, decision R3: the GM's own description of how their Loremaster
+			// talks, read here because this is already the one place `runAsk` selects from
+			// `universe` - see `speech.ts`'s `loremasterVoiceInstruction` for what it becomes
+			// and why it lands where it does in the system prompt below.
+			loremasterDescription: universe.loremasterDescription
 		})
 		.from(universe)
 		.where(eq(universe.id, input.universeId))
@@ -587,7 +597,12 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 						'"error" field verbatim; never say you proposed or created anything for that ' +
 						'call. ' +
 						noSourcesInstruction(sources.length) +
-						speechInstruction(input.locale),
+						speechInstruction(input.locale) +
+						// Issue #378, decision R3: last in the system prompt, after every guardrail
+						// and the locale rule above it, so an adversarial description can only ever
+						// colour tone, never read as though it arrived before the rules that bind
+						// this call. Empty input contributes nothing here.
+						loremasterVoiceInstruction(universeRow.loremasterDescription),
 					prompt:
 						`Sources:\n${renderSourcesForPrompt(sources) || '(none found)'}\n\n` +
 						`Question: ${input.question}`,
