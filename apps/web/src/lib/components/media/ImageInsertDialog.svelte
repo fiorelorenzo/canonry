@@ -22,18 +22,28 @@
 
 <script lang="ts">
 	/**
-	 * Issue #253: the toolbar's "Image" button opens this. Two ways to leave it with a
+	 * Issue #253: the toolbar's "Image" button opens this. Three ways to leave it with a
 	 * URL to hand back to `insertImage`: click one of the entry's existing images
-	 * (`assets`, already attached - see `mediaAssetsForEntity`), or generate a fresh one
-	 * on the spot through the same `media/generate` endpoint the Images tab uses and
-	 * attach it (`media/attach`) before handing it back, so a generated-from-here image
+	 * (`assets`, already attached - see `mediaAssetsForEntity`), upload a file, or generate
+	 * a fresh one on the spot through the same `media/generate` endpoint the Images tab uses
+	 * and attach it (`media/attach`) before handing it back, so a generated-from-here image
 	 * is not an orphan invisible to the Images tab. Generation and attach stay two calls,
 	 * same as `EntryMediaPanel.svelte`'s own two-step shape (#71) - this dialog does not
 	 * reinvent that.
 	 *
-	 * No price or model display here (unlike `GenerateDialog.svelte`): the Images tab
-	 * already shows cost and lets a GM choose there before spending; duplicating that
-	 * here would just be the same two numbers rendered a second time.
+	 * **Upload is #366.** The editor's image button could offer a model's work and the
+	 * entry's archive but not the GM's own file, which is the same hole in the same place
+	 * `media/upload` was written for (#252): the endpoint existed and only the Images panel
+	 * called it. The uploaded file is attached by that endpoint, so it lands in `assets` for
+	 * next time as well as in the body now.
+	 *
+	 * Every path hands its URL to `onInsert`, which is `MarkdownEditor`'s
+	 * `insertImageAtSelection`, so an insert lands where the caret was rather than at the
+	 * end of the body.
+	 *
+	 * No price or model display for the generate path (unlike `GenerateDialog.svelte`): the
+	 * Images tab already shows cost and lets a GM choose there before spending; duplicating
+	 * that here would just be the same two numbers rendered a second time.
 	 */
 	import { resolve } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
@@ -87,6 +97,11 @@
 	let error = $state<string | null>(null);
 	let candidates = $state<Candidate[]>([]);
 	let selectedCandidateId = $state<string | null>(null);
+	// #366. Same plain-ref convention as `EntryMediaPanel.svelte`'s own upload input: it is
+	// written by the DOM binding and read imperatively from the click handler, never read
+	// reactively in the template.
+	let uploadInput: HTMLInputElement | undefined;
+	let uploading = $state(false);
 
 	$effect(() => {
 		if (!dialogEl) return;
@@ -110,6 +125,36 @@
 	function pickExisting(assetId: string): void {
 		onInsert(imageUrl(assetId));
 		close();
+	}
+
+	/** #366: the GM's own file, straight into the body. `media/upload` attaches it to this
+	 * entry, so it needs no `media/attach` call the way a generated image does, and it
+	 * carries no `generated` mark because no model made it. */
+	async function uploadAndInsert(): Promise<void> {
+		const chosen = uploadInput?.files?.[0];
+		if (!chosen) return;
+		error = null;
+		uploading = true;
+		try {
+			const form = new FormData();
+			form.set('file', chosen);
+			const res = await fetch(`${base}/upload`, { method: 'POST', body: form });
+			if (!res.ok) {
+				const text = await res.text();
+				throw new Error(text || t.entry.media.upload.genericUploadFailedWithStatus(res.status));
+			}
+			const asset = (await res.json()) as { id: string };
+			// Same as `useGenerated` below: bring the new row into `assets` for the next open,
+			// then hand the URL back to the editor, which places it at the caret.
+			await invalidateAll();
+			onInsert(imageUrl(asset.id));
+			close();
+		} catch (err) {
+			error = err instanceof Error ? err.message : t.entry.media.upload.genericUploadFailed;
+		} finally {
+			uploading = false;
+			if (uploadInput) uploadInput.value = '';
+		}
 	}
 
 	async function generate(): Promise<void> {
@@ -207,6 +252,29 @@
 				{/each}
 			</div>
 		{/if}
+
+		<!-- #366: above the generate block on purpose. Uploading is free, needs no model and
+		     works with the AI switched off (guardrail 4), so it is not a fallback for when
+		     generation is unavailable. -->
+		<h4 class="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">
+			{t.entry.media.inBody.uploadHeading}
+		</h4>
+		<input
+			bind:this={uploadInput}
+			type="file"
+			accept="image/png,image/jpeg,image/webp"
+			class="hidden"
+			onchange={uploadAndInsert}
+		/>
+		<Button
+			type="button"
+			size="sm"
+			class="mt-2"
+			disabled={uploading}
+			onclick={() => uploadInput?.click()}
+		>
+			{uploading ? t.entry.media.upload.uploading : t.entry.media.upload.button}
+		</Button>
 
 		{#if !aiEnabled}
 			<p class="mt-3 text-sm text-ink-2">{t.entry.media.aiOffBanner}</p>

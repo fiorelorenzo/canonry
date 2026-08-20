@@ -28,7 +28,9 @@ import {
 	UnsupportedImageFeatureError,
 	generateImages
 } from '@canonry/media';
+import type { EntityType } from '@canonry/db/schema';
 import { stripMentionSyntax } from '$lib/markdown';
+import { COVER_ASPECT_RATIO } from '$lib/components/media/cover-crop';
 import { messages } from '$lib/i18n';
 import {
 	embeddingProviderFor,
@@ -44,6 +46,26 @@ import { loadMediaContext, requireWriter } from '../_context.js';
  * the body is JSON a client sent, and `generateImages` charges for whatever it is handed. */
 function isImageFeature(value: unknown): value is 'portrait' | 'variants' | 'scene' {
 	return value === 'portrait' || value === 'variants' || value === 'scene';
+}
+
+/**
+ * Round twelve Q5 (#366): which shape this request asks for.
+ *
+ * `portrait` and `variants` are the two features that draw a cover, and a cover's shape is
+ * a property of the entity type rather than of the feature: a character is portrait, a
+ * place is wide. So the entity type answers for them, from the same table
+ * `EntryCover.svelte` sets `aspect-ratio` from, which is the whole point - a generated
+ * cover arrives at the shape the band will draw it at, and no crop happens on the way in.
+ *
+ * `scene` is left to its row. A body image is not a cover, its shape is a property of the
+ * feature (16:9, measured in #258), and an entity type has nothing to say about it.
+ */
+function coverAspectRatioFor(
+	feature: 'portrait' | 'variants' | 'scene',
+	entityType: EntityType
+): string | undefined {
+	if (feature === 'scene') return undefined;
+	return COVER_ASPECT_RATIO[entityType];
 }
 
 export const POST: RequestHandler = async ({ request, params, locals }) => {
@@ -90,7 +112,8 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 			feature,
 			userId: context.userId,
 			instruction,
-			fromAssetId
+			fromAssetId,
+			aspectRatio: coverAspectRatioFor(feature, context.entity.type)
 		});
 
 		return json({

@@ -7,6 +7,7 @@
 	import { PageHeader } from '$lib/components/ui/page-header';
 	import ProviderSelect from '$lib/components/admin/ProviderSelect.svelte';
 	import CurrencySelect from '$lib/components/admin/CurrencySelect.svelte';
+	import { COVER_ASPECT_RATIOS } from '$lib/components/media/cover-crop';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -211,6 +212,14 @@
 									>{paramsAspectRatio(model.params) ?? t.models.imageTable.aspectRatioNotSet}</span
 								>
 							</div>
+							{#if model.feature === 'portrait' || model.feature === 'variants'}
+								<!-- #366: a cover's shape comes from the entity type, so the row's own value is
+								     only the default for a caller with no entity. Saying so here stops the row
+								     reading as the whole answer, and the save checks every shape in this list. -->
+								<div class="text-xs text-muted">
+									{t.models.imageTable.coverAspectRatios(COVER_ASPECT_RATIOS.join(', '))}
+								</div>
+							{/if}
 						</td>
 						<td colspan="3" class="px-3 py-3">
 							<form method="POST" action="?/image" class="flex flex-wrap items-center gap-2">

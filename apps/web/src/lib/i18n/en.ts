@@ -483,7 +483,22 @@ export const en: Messages = {
 
 		cover: {
 			placeholderAction: 'Add a cover',
-			placeholderHint: 'Generate an image under Images, then use it as the cover.'
+			placeholderHint: 'Upload an image, or generate one.',
+			dialogTitle: (entityName) => `Cover for ${entityName}`,
+			dialogHint:
+				'An image you upload becomes the cover straight away. A generated one becomes the cover when you say so.',
+			uploadAction: 'Upload an image',
+			uploadHint: 'A PNG, JPEG or WEBP of your own.',
+			uploading: 'Uploading\u2026',
+			generateAction: 'Generate an image',
+			generateHint: (credits) =>
+				`One image drawn for this entry, ${credits} ${credits === 1 ? 'credit' : 'credits'}.`,
+			generateRunning: 'Drawing a cover for this entry',
+			generatedHint: 'Nothing is the cover until you choose it.',
+			notConfigured: 'No image model is configured yet, so only an upload can be a cover.',
+			aiOff:
+				'Generation is switched off for this universe. You can still upload an image of your own.',
+			cancel: 'Cancel'
 		},
 
 		complete: {
@@ -598,7 +613,8 @@ export const en: Messages = {
 				toolbarTitle: 'Insert image into the body',
 				dialogTitle: 'Insert an image',
 				existingHeading: "This entry's images",
-				emptyExisting: 'No images attached to this entry yet - generate one below.',
+				emptyExisting: 'No images attached to this entry yet - upload or generate one below.',
+				uploadHeading: 'Upload one',
 				generateHeading: 'Generate a new one',
 				sceneCost: (credits) =>
 					`One wide scene image of this entry, ${credits} ${credits === 1 ? 'credit' : 'credits'}.`,
@@ -1808,6 +1824,8 @@ export const en: Messages = {
 				currency: 'Currency',
 				aspectRatio: 'Shape',
 				aspectRatioNotSet: 'model default',
+				coverAspectRatios: (shapes) =>
+					`A cover is drawn at the entity type's own shape, so this model has to accept ${shapes}.`,
 				active: 'active',
 				inactive: 'inactive'
 			},

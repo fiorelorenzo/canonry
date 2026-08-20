@@ -117,19 +117,9 @@
 		}
 	}
 
-	// The placeholder's whole job, and the reason it is not a second mechanism: it opens the
-	// aside's Images section, where generating and "use as cover" already live (#66, #71).
-	// Same two-viewport shape as `openAuditSection` above, for the same reason (#148).
-	function openImagesSection(): void {
-		sectionsOpen.images = true;
-		if (typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches) {
-			document
-				.getElementById('entry-detail-images')
-				?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-		} else {
-			detailsOpen = true;
-		}
-	}
+	// Round twelve Q5 (#366): the placeholder no longer points here. `openImagesSection` went
+	// with it - the Images section is still reachable in the aside, and a cover is now
+	// started where the placeholder stands.
 </script>
 
 <svelte:head><title>{data.entity.name} &middot; {data.universe.name}</title></svelte:head>
@@ -153,7 +143,12 @@
 		{:else if cover === 'placeholder'}
 			<EntryCoverPlaceholder
 				entityType={data.entity.type}
-				onStart={openImagesSection}
+				universeSlug={data.universe.slug}
+				entrySlug={data.entity.slug}
+				entityName={data.entity.name}
+				aiEnabled={data.universe.aiEnabled}
+				portraitPrice={data.media.generate.portrait.price}
+				portraitModel={data.media.generate.portrait.model}
 				locale={data.locale}
 			/>
 		{/if}

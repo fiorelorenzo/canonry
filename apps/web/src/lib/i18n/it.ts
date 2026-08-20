@@ -483,7 +483,23 @@ export const it: Messages = {
 
 		cover: {
 			placeholderAction: 'Aggiungi una copertina',
-			placeholderHint: 'Genera un\u2019immagine in Immagini, poi usala come copertina.'
+			placeholderHint: 'Carica un\u2019immagine, oppure generane una.',
+			dialogTitle: (entityName) => `Copertina di ${entityName}`,
+			dialogHint:
+				'Un\u2019immagine che carichi diventa subito la copertina. Una generata lo diventa quando lo decidi tu.',
+			uploadAction: 'Carica un\u2019immagine',
+			uploadHint: 'Un file PNG, JPEG o WEBP tuo.',
+			uploading: 'Caricamento\u2026',
+			generateAction: 'Genera un\u2019immagine',
+			generateHint: (credits) =>
+				`Un\u2019immagine disegnata per questa voce, ${credits} ${credits === 1 ? 'credito' : 'crediti'}.`,
+			generateRunning: 'Sto disegnando una copertina per questa voce',
+			generatedHint: 'Niente diventa copertina finché non la scegli tu.',
+			notConfigured:
+				'Non c\u2019è ancora un modello di immagini configurato, quindi solo un caricamento può diventare copertina.',
+			aiOff:
+				'La generazione è disattivata per questo universo. Puoi comunque caricare un\u2019immagine tua.',
+			cancel: 'Annulla'
 		},
 
 		complete: {
@@ -600,7 +616,9 @@ export const it: Messages = {
 				toolbarTitle: 'Inserisci un\u2019immagine nel testo',
 				dialogTitle: 'Inserisci un\u2019immagine',
 				existingHeading: 'Le immagini di questa voce',
-				emptyExisting: 'Nessuna immagine collegata a questa voce - generane una qui sotto.',
+				uploadHeading: 'Caricane una',
+				emptyExisting:
+					'Nessuna immagine collegata a questa voce - caricane o generane una qui sotto.',
 				generateHeading: 'Generane una nuova',
 				sceneCost: (credits) =>
 					`Un\u2019immagine panoramica della scena di questa voce, ${credits} ${credits === 1 ? 'credito' : 'crediti'}.`,
@@ -1859,6 +1877,8 @@ export const it: Messages = {
 				currency: 'Valuta',
 				aspectRatio: 'Formato',
 				aspectRatioNotSet: 'predefinito del modello',
+				coverAspectRatios: (shapes) =>
+					`Una copertina viene disegnata nel formato del tipo di voce, quindi questo modello deve accettare ${shapes}.`,
 				active: 'attivo',
 				inactive: 'inattivo'
 			},

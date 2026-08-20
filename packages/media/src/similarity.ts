@@ -41,6 +41,13 @@ export function mediaSimilarityCollectionName(provider: string, modelId: string)
 interface SimilarityPayload {
 	universeId: string;
 	feature: ImageFeature;
+	/** Round twelve Q5 (#366): the shape the cached images were actually drawn at. A
+	 * feature's shape used to be a property of the feature alone, so a hit could not be the
+	 * wrong shape; now that a cover's shape comes from the entity type, two prompts similar
+	 * enough to share a cache entry can want different shapes, and serving one for the other
+	 * would hand back a picture pre-cropped for a different band. Absent on every point
+	 * written before this, which simply makes those points miss once and be replaced. */
+	aspectRatio?: string;
 	mediaAssetIds: string[];
 }
 
@@ -51,10 +58,16 @@ function isImageFeature(value: string): value is ImageFeature {
 function parseSimilarityPayload(value: Record<string, unknown>): SimilarityPayload | null {
 	if (typeof value.universeId !== 'string') return null;
 	if (typeof value.feature !== 'string' || !isImageFeature(value.feature)) return null;
+	if (value.aspectRatio !== undefined && typeof value.aspectRatio !== 'string') return null;
 	if (!Array.isArray(value.mediaAssetIds)) return null;
 	const mediaAssetIds = value.mediaAssetIds;
 	if (!mediaAssetIds.every((id): id is string => typeof id === 'string')) return null;
-	return { universeId: value.universeId, feature: value.feature, mediaAssetIds };
+	return {
+		universeId: value.universeId,
+		feature: value.feature,
+		...(typeof value.aspectRatio === 'string' ? { aspectRatio: value.aspectRatio } : {}),
+		mediaAssetIds
+	};
 }
 
 export interface SimilarityCacheDeps {
@@ -87,6 +100,9 @@ export interface FindSimilarInput {
 	vector: number[];
 	universeId: string;
 	feature: ImageFeature;
+	/** #366: part of the key, not a hint. Omitted means the caller asked for no particular
+	 * shape, which only matches points recorded the same way. */
+	aspectRatio?: string;
 }
 
 /** Null means a genuine miss (nothing scored at or above the threshold), not an error. */
@@ -100,7 +116,8 @@ export async function findSimilarMedia(
 		filter: {
 			must: [
 				{ key: 'universeId', value: input.universeId },
-				{ key: 'feature', value: input.feature }
+				{ key: 'feature', value: input.feature },
+				...(input.aspectRatio ? [{ key: 'aspectRatio', value: input.aspectRatio }] : [])
 			]
 		},
 		limit: 1,
@@ -121,6 +138,8 @@ export interface RecordVectorInput {
 	vector: number[];
 	universeId: string;
 	feature: ImageFeature;
+	/** #366: recorded so a later lookup for a different shape cannot match these images. */
+	aspectRatio?: string;
 	mediaAssetIds: string[];
 }
 
@@ -137,6 +156,7 @@ export async function recordMediaVector(
 			payload: {
 				universeId: input.universeId,
 				feature: input.feature,
+				...(input.aspectRatio ? { aspectRatio: input.aspectRatio } : {}),
 				mediaAssetIds: input.mediaAssetIds
 			}
 		}

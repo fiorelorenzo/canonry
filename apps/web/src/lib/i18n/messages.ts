@@ -596,13 +596,37 @@ export interface Messages {
 			detectedPrefix: (name: string) => string;
 			detectedUnknown: string;
 		};
-		/** Round eleven P6 (#347): the empty cover slot a writer sees on an entry with no
-		 * cover, `EntryCoverPlaceholder.svelte`. Two strings and no picture: the action, and
-		 * one line saying where it leads, since it opens the Images section rather than
-		 * generating anything itself. A reader never receives either. */
+		/**
+		 * Round eleven P6 (#347) put an empty cover slot in front of a writer, and round
+		 * twelve's Q5 (#366) made it ask the question instead of pointing at the Images
+		 * panel: `EntryCoverPlaceholder.svelte` and the dialog it opens. A reader never
+		 * receives any of these.
+		 *
+		 * The two paths are worded as the different acts they are. An upload is a person
+		 * handing over a file and becomes the cover as soon as it is chosen; a generated
+		 * image is a model's work and becomes the cover only when somebody presses "use as
+		 * cover", which is the accept O2 named. The copy says so rather than making the two
+		 * look like one button with two sources.
+		 */
 		cover: {
 			placeholderAction: string;
 			placeholderHint: string;
+			dialogTitle: (entityName: string) => string;
+			dialogHint: string;
+			uploadAction: string;
+			uploadHint: string;
+			uploading: string;
+			generateAction: string;
+			/** What one cover costs, stated before the click that spends it (G11). */
+			generateHint: (credits: number) => string;
+			/** The sentence beside `ModelRunning`'s spinner (#345): generation is synchronous,
+			 * so this wait happens inside the click that started it. */
+			generateRunning: string;
+			/** Above the candidate, saying in one line why there is still a button to press. */
+			generatedHint: string;
+			notConfigured: string;
+			aiOff: string;
+			cancel: string;
 		};
 		complete: {
 			button: string;
@@ -708,6 +732,10 @@ export interface Messages {
 				dialogTitle: string;
 				existingHeading: string;
 				emptyExisting: string;
+				/** #366: this dialog could not upload at all, which left the editor's image
+				 * button offering a model and an archive but not the GM's own file. The button
+				 * itself reuses `entry.media.upload.button` and its errors. */
+				uploadHeading: string;
 				generateHeading: string;
 				/** #258: this dialog always asks for `scene`, so there is no feature to pick
 				 * and one price to state. It states it because the Images tab prices
@@ -1847,6 +1875,10 @@ export interface Messages {
 				 * admin retypes, but a swap can invalidate it so the page has to show it. */
 				aspectRatio: string;
 				aspectRatioNotSet: string;
+				/** #366: for the two cover features the row's shape is only a default, since a
+				 * cover is drawn at the entity type's shape. The save checks every value in
+				 * this list, so an admin is told what they are choosing a model against. */
+				coverAspectRatios: (shapes: string) => string;
 				active: string;
 				inactive: string;
 			};
