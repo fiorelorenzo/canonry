@@ -62,6 +62,28 @@ function toCssRatios<T extends string>(source: Record<T, string>): Record<T, str
 export const COVER_RATIO: Record<EntityType, string> = toCssRatios(COVER_ASPECT_RATIO);
 
 /**
+ * Round thirteen R1 (#376): O2 put every cover in a band above the title, and Q5 gave
+ * a character and an item a portrait ratio without asking whether a band still fit
+ * one. It does not - `coverBandStyle` caps at 20vh, so a 3:4 cover reads as a
+ * thumbnail with ceremony around it. This decides where a cover stands from the ratio
+ * alone, not from a second entity-type table it could someday disagree with: a shape
+ * taller than it is wide is a subject to stand beside the title, and everything else
+ * is still a strip too wide to read as anything but a band above the text.
+ *
+ * `EntryCover.svelte` and `EntryCoverPlaceholder.svelte` both call this rather than
+ * each keeping its own answer, so a portrait entry's placeholder is already standing
+ * where its real cover will land - the point of P6 borrowing the band's own shape,
+ * carried forward to the figure.
+ */
+export type CoverPlacement = 'band' | 'figure';
+
+export function coverPlacement(entityType: EntityType): CoverPlacement {
+	const [width, height] = COVER_ASPECT_RATIO[entityType].split(':').map(Number);
+	if (!width || !height) throw new Error(`COVER_ASPECT_RATIO[${entityType}] is not a ratio`);
+	return height > width ? 'figure' : 'band';
+}
+
+/**
  * O2's cap and the type's own shape, in one style string, used by the band and by the
  * placeholder so an arriving cover does not move the page.
  *
@@ -81,6 +103,19 @@ export function coverBandStyle(entityType: EntityType): string {
 	const [width, height] = COVER_ASPECT_RATIO[entityType].split(':').map(Number);
 	if (!width || !height) throw new Error(`COVER_ASPECT_RATIO[${entityType}] is not a ratio`);
 	return `aspect-ratio: ${COVER_RATIO[entityType]}; width: calc(20vh * ${width / height}); max-width: 100%`;
+}
+
+/**
+ * The figure's own width, about 200px - the same number `+page.svelte`'s header grid
+ * reserves beside the measure column for it, so the box and its slot cannot drift
+ * apart. `coverBandStyle`'s 20vh cap has no part here: a figure is not fighting a
+ * band's height limit, so its width is simply fixed and the ratio decides the height
+ * that follows from it.
+ */
+export const COVER_FIGURE_WIDTH = '12.5rem';
+
+export function coverFigureStyle(entityType: EntityType): string {
+	return `aspect-ratio: ${COVER_RATIO[entityType]}; width: ${COVER_FIGURE_WIDTH}`;
 }
 
 /**
