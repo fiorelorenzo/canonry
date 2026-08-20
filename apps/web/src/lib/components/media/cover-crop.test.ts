@@ -17,9 +17,12 @@ import { entityTypeEnum } from '@canonry/db/schema';
 import {
 	COVER_ASPECT_RATIO,
 	COVER_ASPECT_RATIOS,
+	COVER_FIGURE_WIDTH,
 	COVER_POSITION,
 	COVER_RATIO,
-	coverBandStyle
+	coverBandStyle,
+	coverFigureStyle,
+	coverPlacement
 } from './cover-crop';
 
 /** '3:4' -> 0.75. Below 1 is portrait, above 1 is landscape. */
@@ -97,6 +100,41 @@ describe('coverBandStyle (#366)', () => {
 	it('states one shape per entity type and never a bare height', () => {
 		for (const type of entityTypeEnum.enumValues) {
 			const style = coverBandStyle(type);
+			expect(style).toContain(`aspect-ratio: ${COVER_RATIO[type]}`);
+			expect(style).not.toContain('height:');
+		}
+	});
+});
+
+describe('coverPlacement (#376)', () => {
+	it('stands a character and an item beside the title', () => {
+		expect(coverPlacement('character')).toBe('figure');
+		expect(coverPlacement('item')).toBe('figure');
+	});
+
+	it('keeps a faction, a place, an event and a session in the band', () => {
+		for (const type of ['faction', 'place', 'event', 'session'] as const) {
+			expect(coverPlacement(type)).toBe('band');
+		}
+	});
+
+	it('answers every entity type from the ratio alone, not a second table (#376)', () => {
+		for (const type of entityTypeEnum.enumValues) {
+			const wantsFigure = ratioValue(COVER_ASPECT_RATIO[type]) < 1;
+			expect(coverPlacement(type)).toBe(wantsFigure ? 'figure' : 'band');
+		}
+	});
+});
+
+describe('coverFigureStyle (#376)', () => {
+	it('fixes the width and lets the ratio decide the height, unlike the band', () => {
+		expect(coverFigureStyle('character')).toBe(`aspect-ratio: 3 / 4; width: ${COVER_FIGURE_WIDTH}`);
+		expect(coverFigureStyle('character')).not.toContain('max-width');
+	});
+
+	it('states one shape per entity type and never a bare height', () => {
+		for (const type of entityTypeEnum.enumValues) {
+			const style = coverFigureStyle(type);
 			expect(style).toContain(`aspect-ratio: ${COVER_RATIO[type]}`);
 			expect(style).not.toContain('height:');
 		}

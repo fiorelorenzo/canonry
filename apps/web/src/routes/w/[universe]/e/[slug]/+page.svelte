@@ -27,7 +27,7 @@
 	} from '$lib/components/entry/EntrySections.svelte';
 	import EntryCover from '$lib/components/media/EntryCover.svelte';
 	import EntryCoverPlaceholder from '$lib/components/media/EntryCoverPlaceholder.svelte';
-	import { coverSlot } from '$lib/components/media/cover-crop';
+	import { coverPlacement, coverSlot } from '$lib/components/media/cover-crop';
 	import CompleteEntryControl from '$lib/components/entry/CompleteEntryControl.svelte';
 	import AuditFlagBadge from '$lib/components/audit/AuditFlagBadge.svelte';
 	import InlineProposalReview from '$lib/components/proposals/InlineProposalReview.svelte';
@@ -103,6 +103,15 @@
 			: null
 	);
 
+	// Round thirteen R1 (#376): the placement is the ratio's answer, not a second table
+	// keyed on entity type, so `EntryCover`/`EntryCoverPlaceholder` and this page's own
+	// header grid can never disagree about which shape a given entity gets. `coverBeside`
+	// only reserves the header's figure column when there is actually something to put in
+	// it - the `cover === 'none'` reader never gets a slot, so there is nothing for that
+	// reader's header to move around either.
+	let placement = $derived(coverPlacement(data.entity.type));
+	let coverBeside = $derived(placement === 'figure' && cover !== 'none');
+
 	// C9 = B: the title badge is a pointer into the aside's own Audit section, not a second
 	// copy of the flag list - clicking it opens that section and, below `md` where the
 	// inline copy is hidden (#148), opens the sheet holding the other one instead.
@@ -132,59 +141,65 @@
 	exactly the near-empty-entry case that reads worst. -->
 <div class="flex flex-col md:min-h-full md:flex-row">
 	<article class="min-w-0 flex-1 px-4 py-6 md:px-10 md:py-8">
-		<p class="mb-3 text-xs text-muted">
-			<a class="hover:underline" href={resolve(`/w/${data.universe.slug}`)}>{data.universe.name}</a>
-			/ {data.entity.type} /
-			<span class="text-ink-2">{data.entity.name}</span>
-		</p>
+		<div class="cover-header" class:cover-header--figure={coverBeside}>
+			<p class="cover-header__breadcrumb mb-3 text-xs text-muted">
+				<a class="hover:underline" href={resolve(`/w/${data.universe.slug}`)}
+					>{data.universe.name}</a
+				>
+				/ {data.entity.type} /
+				<span class="text-ink-2">{data.entity.name}</span>
+			</p>
 
-		{#if cover === 'band' && coverUrl}
-			<EntryCover src={coverUrl} alt={data.entity.name} entityType={data.entity.type} />
-		{:else if cover === 'placeholder'}
-			<EntryCoverPlaceholder
-				entityType={data.entity.type}
-				universeSlug={data.universe.slug}
-				entrySlug={data.entity.slug}
-				entityName={data.entity.name}
-				aiEnabled={data.universe.aiEnabled}
-				portraitPrice={data.media.generate.portrait.price}
-				portraitModel={data.media.generate.portrait.model}
-				locale={data.locale}
-			/>
-		{/if}
-
-		<div class="mb-6 flex items-start justify-between gap-4">
-			<div>
-				<div class="mb-1 flex flex-wrap items-center gap-2">
-					<h1 class="text-3xl font-semibold text-ink">{data.entity.name}</h1>
-					<AuditFlagBadge
-						count={data.audit.flags.length}
-						onOpen={openAuditSection}
+			<div class="cover-header__cover">
+				{#if cover === 'band' && coverUrl}
+					<EntryCover src={coverUrl} alt={data.entity.name} entityType={data.entity.type} />
+				{:else if cover === 'placeholder'}
+					<EntryCoverPlaceholder
+						entityType={data.entity.type}
+						universeSlug={data.universe.slug}
+						entrySlug={data.entity.slug}
+						entityName={data.entity.name}
+						aiEnabled={data.universe.aiEnabled}
+						portraitPrice={data.media.generate.portrait.price}
+						portraitModel={data.media.generate.portrait.model}
 						locale={data.locale}
 					/>
-				</div>
-				<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
-					<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
-						{data.entity.type}
-					</span>
-					{#if data.entity.aliases.length > 0}
-						<span>{t.entry.page.aliasesLabel(data.entity.aliases.join(', '))}</span>
-					{/if}
-				</div>
+				{/if}
 			</div>
-			<div class="flex flex-none items-start gap-2">
-				<CompleteEntryControl
-					aiEnabled={data.universe.aiEnabled}
-					locale={data.locale}
-					bind:running={completing}
-					onDrafted={() => reviewRegion?.focusRegion()}
-				/>
-				<a
-					href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}/edit`)}
-					class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
-				>
-					{t.entry.page.editLink}
-				</a>
+
+			<div class="cover-header__title mb-6 flex items-start justify-between gap-4">
+				<div>
+					<div class="mb-1 flex flex-wrap items-center gap-2">
+						<h1 class="text-3xl font-semibold text-ink">{data.entity.name}</h1>
+						<AuditFlagBadge
+							count={data.audit.flags.length}
+							onOpen={openAuditSection}
+							locale={data.locale}
+						/>
+					</div>
+					<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
+						<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
+							{data.entity.type}
+						</span>
+						{#if data.entity.aliases.length > 0}
+							<span>{t.entry.page.aliasesLabel(data.entity.aliases.join(', '))}</span>
+						{/if}
+					</div>
+				</div>
+				<div class="flex flex-none items-start gap-2">
+					<CompleteEntryControl
+						aiEnabled={data.universe.aiEnabled}
+						locale={data.locale}
+						bind:running={completing}
+						onDrafted={() => reviewRegion?.focusRegion()}
+					/>
+					<a
+						href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}/edit`)}
+						class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
+					>
+						{t.entry.page.editLink}
+					</a>
+				</div>
 			</div>
 		</div>
 
@@ -291,3 +306,41 @@
 		</Sheet.Root>
 	</div>
 </div>
+
+<style>
+	/* Round thirteen R1 (#376): a portrait cover stands beside the title once the row has
+	 * the room for it - `64rem` is Tailwind's own `lg`, the same breakpoint `EntryCover`
+	 * and `EntryCoverPlaceholder` switch their own box on, so the two never disagree
+	 * about which shape is showing. Below it, and for any entity type that never gets the
+	 * `.cover-header--figure` class at all (`+page.svelte`'s own `coverBeside`), this is a
+	 * plain single column in source order - breadcrumb, cover, title - exactly what it was
+	 * before this decision, which is what keeps a landscape entry unchanged.
+	 *
+	 * `12.5rem` is `COVER_FIGURE_WIDTH` in `cover-crop.ts`, restated here because a grid
+	 * column and a child's own `aspect-ratio` box are two different CSS properties with no
+	 * single declaration that sets both; the constant's own doc comment is the note that
+	 * keeps the two from drifting apart. The first column is `--container-measure` itself,
+	 * capped with `minmax` rather than fixed, so a `lg` viewport with less width than
+	 * measure-plus-figure still fits instead of overflowing the row. */
+	@media (min-width: 64rem) {
+		.cover-header--figure {
+			display: grid;
+			grid-template-columns: minmax(0, var(--container-measure)) 12.5rem;
+			column-gap: 1.5rem;
+			align-items: start;
+			grid-template-areas: 'breadcrumb breadcrumb' 'title cover';
+		}
+
+		.cover-header--figure .cover-header__breadcrumb {
+			grid-area: breadcrumb;
+		}
+
+		.cover-header--figure .cover-header__title {
+			grid-area: title;
+		}
+
+		.cover-header--figure .cover-header__cover {
+			grid-area: cover;
+		}
+	}
+</style>

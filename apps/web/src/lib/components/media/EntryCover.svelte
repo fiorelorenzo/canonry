@@ -34,20 +34,43 @@
 	 * loaders: the GM page passes `entity.coverAssetId` straight through, and the players'
 	 * page passes `coverImageId`, which `publicEntityBySlug` only fills in for an asset that
 	 * already cleared the published/gm_only/revelation gate.
+	 *
+	 * Round thirteen R1 (#376): a shape taller than it is wide (`coverPlacement`) stands
+	 * beside the title instead, once `+page.svelte`'s header grid has the ~200px to give
+	 * it (`lg` and up). Below that, or for any other shape, this still draws the band
+	 * above - the two boxes below are the same picture at the same two sizes the band
+	 * always had, swapped by breakpoint rather than by a second component, so there is
+	 * still one place that draws a cover and nowhere for the two to disagree.
 	 */
 	import type { EntityType } from '@canonry/db/schema';
-	import { COVER_POSITION, coverBandStyle } from './cover-crop';
+	import { COVER_POSITION, coverBandStyle, coverFigureStyle, coverPlacement } from './cover-crop';
 
 	let { src, alt, entityType }: { src: string; alt: string; entityType: EntityType } = $props();
 
 	// Both maps moved to `cover-crop.ts` when O1 (#283) gave a cover its second surface, the
 	// world home's Continue cards: rules 2 and 3 above are the same decision at both sizes.
 	let position = $derived(COVER_POSITION[entityType]);
+	let placement = $derived(coverPlacement(entityType));
 </script>
 
-<div
-	class="mb-6 overflow-hidden rounded-md border border-line bg-panel-2"
-	style={coverBandStyle(entityType)}
->
-	<img {src} {alt} class="h-full w-full object-cover" style="object-position: {position}" />
-</div>
+{#if placement === 'figure'}
+	<div
+		class="mb-6 overflow-hidden rounded-md border border-line bg-panel-2 lg:hidden"
+		style={coverBandStyle(entityType)}
+	>
+		<img {src} {alt} class="h-full w-full object-cover" style="object-position: {position}" />
+	</div>
+	<div
+		class="mb-6 hidden overflow-hidden rounded-md border border-line bg-panel-2 lg:block"
+		style={coverFigureStyle(entityType)}
+	>
+		<img {src} {alt} class="h-full w-full object-cover" style="object-position: {position}" />
+	</div>
+{:else}
+	<div
+		class="mb-6 overflow-hidden rounded-md border border-line bg-panel-2"
+		style={coverBandStyle(entityType)}
+	>
+		<img {src} {alt} class="h-full w-full object-cover" style="object-position: {position}" />
+	</div>
+{/if}

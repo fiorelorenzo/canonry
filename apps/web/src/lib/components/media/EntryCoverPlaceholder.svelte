@@ -34,9 +34,15 @@
 	 * Colours are the theme's own furniture tokens. Not the copilot's family: round eleven
 	 * P2 is explicit that a hue marking chrome marks nothing, and an empty cover slot is
 	 * furniture, with no word a model wrote anywhere near it.
+	 *
+	 * Round thirteen R1 (#376): the placeholder follows `coverPlacement`, the same call
+	 * `EntryCover.svelte` makes, so a portrait entry's empty slot is already standing
+	 * beside the title before it has a picture - the one thing that would defeat P6's own
+	 * promise ("the page does not move when a cover arrives") is a placeholder that sits
+	 * above the title while its own cover, once accepted, would stand beside it.
 	 */
 	import type { EntityType } from '@canonry/db/schema';
-	import { coverBandStyle } from './cover-crop';
+	import { coverBandStyle, coverFigureStyle, coverPlacement } from './cover-crop';
 	import EntryCoverDialog from './EntryCoverDialog.svelte';
 	import { messages, type Locale } from '$lib/i18n';
 
@@ -61,19 +67,42 @@
 	} = $props();
 
 	let t = $derived(messages(locale).entry.cover);
+	let placement = $derived(coverPlacement(entityType));
 	let bandStyle = $derived(coverBandStyle(entityType));
+	let figureStyle = $derived(coverFigureStyle(entityType));
 	let dialogOpen = $state(false);
 </script>
 
-<button
-	type="button"
-	onclick={() => (dialogOpen = true)}
-	class="mb-6 flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line-2 bg-panel-2 px-4 text-center text-muted hover:border-accent hover:bg-panel hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-	style={bandStyle}
->
-	<span class="text-sm font-medium">{t.placeholderAction}</span>
-	<span class="text-xs">{t.placeholderHint}</span>
-</button>
+{#if placement === 'figure'}
+	<button
+		type="button"
+		onclick={() => (dialogOpen = true)}
+		class="mb-6 flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line-2 bg-panel-2 px-4 text-center text-muted hover:border-accent hover:bg-panel hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
+		style={bandStyle}
+	>
+		<span class="text-sm font-medium">{t.placeholderAction}</span>
+		<span class="text-xs">{t.placeholderHint}</span>
+	</button>
+	<button
+		type="button"
+		onclick={() => (dialogOpen = true)}
+		class="mb-6 hidden flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line-2 bg-panel-2 px-3 text-center text-muted hover:border-accent hover:bg-panel hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:flex"
+		style={figureStyle}
+	>
+		<span class="text-xs font-medium">{t.placeholderAction}</span>
+		<span class="text-[11px]">{t.placeholderHint}</span>
+	</button>
+{:else}
+	<button
+		type="button"
+		onclick={() => (dialogOpen = true)}
+		class="mb-6 flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line-2 bg-panel-2 px-4 text-center text-muted hover:border-accent hover:bg-panel hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+		style={bandStyle}
+	>
+		<span class="text-sm font-medium">{t.placeholderAction}</span>
+		<span class="text-xs">{t.placeholderHint}</span>
+	</button>
+{/if}
 
 <EntryCoverDialog
 	bind:open={dialogOpen}
