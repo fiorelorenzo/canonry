@@ -1605,9 +1605,16 @@ export const it: Messages = {
 				}
 			},
 			searchPlaceholder: 'Cerca per nome o alias\u2026',
+			searchSubmit: 'Cerca',
+			searchClear: 'Cancella ricerca',
+			searchResultCount: (query, count) => {
+				const verb = count === 1 ? '1 voce corrisponde' : `${count} voci corrispondono`;
+				return `${verb} a "${query}".`;
+			},
 			changedAt: (when) => `cambiata ${when}`,
 			emptyColdMessage: 'Ancora niente qui. Comincia con la prima voce.',
-			emptyFilteredMessage: 'Nessuna voce corrisponde a questo filtro o a questa ricerca.',
+			emptyFilteredMessage: 'Nessuna voce corrisponde a questo filtro.',
+			emptySearchMessage: (query) => `Nessuna voce corrisponde a "${query}".`,
 			relativeTime: {
 				justNow: 'proprio ora',
 				minutesAgo: (minutes) => `${minutes} min fa`,

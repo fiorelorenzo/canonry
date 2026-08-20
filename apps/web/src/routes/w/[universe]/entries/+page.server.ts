@@ -13,9 +13,10 @@
  * **Search narrows, a column header orders.** The old page swapped in
  * `searchEntitiesByNameOrAlias`, whose whole point is a relevance ranking (exact name, then
  * prefix, then alias). A table cannot honestly do both: with a caret drawn on "Relations", a
- * hidden relevance order would make that caret a lie. So the same name-or-alias substring
- * predicate lives inside `entityBrowserPage` as a filter, and the order is always the column
- * the header says. The palette (#149) is still where ranked, "who is this" search belongs.
+ * hidden relevance order would make that caret a lie. So `entityBrowserPage`'s own
+ * name-or-alias-or-body substring predicate (R12, round thirteen) lives inside it as a
+ * filter, and the order is always the column the header says. The palette (#149) is still
+ * where ranked, "who is this" search belongs.
  *
  * The "New entry" dialog and its action moved here with the list, since this is where a GM is
  * looking at entries; the palette's `?new=entry` action points here too, and the home's cold

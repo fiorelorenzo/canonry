@@ -1655,9 +1655,20 @@ export interface Messages {
 				typeLabel: (type: string) => string;
 			};
 			searchPlaceholder: string;
+			searchSubmit: string;
+			searchClear: string;
+			/** The result line naming the query and how many entries it matched, in the
+			 * reader's language - what makes a search that narrowed the table say so, rather
+			 * than leaving the type chips (deliberately unfiltered by search) as the only
+			 * numbers on screen. */
+			searchResultCount: (query: string, count: number) => string;
 			changedAt: (when: string) => string;
 			emptyColdMessage: string;
 			emptyFilteredMessage: string;
+			/** The filtered empty state's search-specific wording: names the query, so an
+			 * empty table under a live search reads as "this query matched nothing" rather
+			 * than borrowing the type filter's generic sentence. */
+			emptySearchMessage: (query: string) => string;
 			relativeTime: {
 				justNow: string;
 				minutesAgo: (minutes: number) => string;

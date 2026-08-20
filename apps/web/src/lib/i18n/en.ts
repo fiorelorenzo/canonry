@@ -1558,9 +1558,16 @@ export const en: Messages = {
 				}
 			},
 			searchPlaceholder: 'Search by name or alias\u2026',
+			searchSubmit: 'Search',
+			searchClear: 'Clear search',
+			searchResultCount: (query, count) => {
+				const entries = count === 1 ? '1 entry matches' : `${count} entries match`;
+				return `${entries} "${query}".`;
+			},
 			changedAt: (when) => `changed ${when}`,
 			emptyColdMessage: 'Nothing here yet. Start with your first entry.',
-			emptyFilteredMessage: 'No entries match this filter or search.',
+			emptyFilteredMessage: 'No entries match this filter.',
+			emptySearchMessage: (query) => `No entries match "${query}".`,
 			relativeTime: {
 				justNow: 'just now',
 				minutesAgo: (minutes) => `${minutes}m ago`,
