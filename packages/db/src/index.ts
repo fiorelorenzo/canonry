@@ -223,6 +223,7 @@ export {
 	listImageModels,
 	upsertImageModel,
 	entryStyleContext,
+	upsertUniverseImageStyle,
 	mediaAssetsForEntity,
 	createMediaAsset,
 	attachMediaAsset,
@@ -232,6 +233,8 @@ export {
 	type ImageModelRow,
 	type UpsertImageModelInput,
 	type EntryStyleContext,
+	type ImageStyleRow,
+	type UpsertUniverseImageStyleInput,
 	type MediaAssetRow,
 	type CreateMediaAssetInput
 } from './queries/media.js';

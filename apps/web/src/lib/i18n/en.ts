@@ -1651,6 +1651,25 @@ export const en: Messages = {
 					'No limit: every candidate the copilot finds gets a diff. You still confirm the spend before diffs are generated.',
 				invalidCapError: 'Enter a number of 1 or more, or turn the limit off.'
 			},
+			imageStyle: {
+				heading: 'Image style',
+				description: (universeName) =>
+					`What a new image in ${universeName} starts from when its entry has no style of its own. An entry can still override it for itself.`,
+				nameLabel: 'Name',
+				promptModifierLabel: 'Prompt modifier',
+				save: 'Save',
+				nameRequiredError: 'Give the style a name.',
+				promptModifierRequiredError: 'Describe what the style adds to a prompt.'
+			},
+			loremasterVoice: {
+				heading: "Loremaster's voice",
+				description: (universeName) =>
+					`How the Loremaster sounds when it answers a question or fills in a thin entry for ${universeName} - never what it is allowed to write, only how it phrases it.`,
+				textareaLabel: 'Voice',
+				hint: 'Up to 500 characters.',
+				save: 'Save',
+				tooLongError: 'Keep the description under 500 characters.'
+			},
 			precedence: {
 				heading: 'Precedence',
 				description: (universeName) =>

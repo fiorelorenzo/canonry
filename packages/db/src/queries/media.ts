@@ -131,6 +131,72 @@ export async function entryStyleContext(
 	return rows[0];
 }
 
+export type ImageStyleRow = typeof imageStyle.$inferSelect;
+
+export interface UpsertUniverseImageStyleInput {
+	universeId: string;
+	name: string;
+	promptModifier: string;
+}
+
+/** Universe settings' "image style" section (issue #378, decision R3): one `image_style`
+ * row per universe, updated in place rather than accumulated - `pickStyle`'s cascade
+ * (packages/media/src/style.ts, entry override then universe then none) only ever
+ * follows `universe.image_style_id`, so a second, orphaned row would just be dead data
+ * nothing reads. Finds the row the universe's own `image_style_id` already points at and
+ * updates it in place if there is one; the first save for a universe inserts a fresh row
+ * and points the column at it, both inside one transaction so the row and the pointer
+ * never disagree. */
+export async function upsertUniverseImageStyle(
+	db: Db,
+	input: UpsertUniverseImageStyleInput
+): Promise<ImageStyleRow> {
+	return db.transaction(async (tx) => {
+		const [world] = await tx
+			.select({ imageStyleId: universe.imageStyleId })
+			.from(universe)
+			.where(eq(universe.id, input.universeId))
+			.for('update')
+			.limit(1);
+		if (!world) {
+			throw new Error(`upsertUniverseImageStyle: no universe row for id "${input.universeId}"`);
+		}
+
+		if (world.imageStyleId) {
+			const [updated] = await tx
+				.update(imageStyle)
+				.set({ name: input.name, promptModifier: input.promptModifier })
+				.where(eq(imageStyle.id, world.imageStyleId))
+				.returning();
+			if (!updated) {
+				throw new Error(
+					`upsertUniverseImageStyle: update returned no row for "${world.imageStyleId}"`
+				);
+			}
+			return updated;
+		}
+
+		const [inserted] = await tx
+			.insert(imageStyle)
+			.values({
+				universeId: input.universeId,
+				name: input.name,
+				promptModifier: input.promptModifier
+			})
+			.returning();
+		if (!inserted) {
+			throw new Error(
+				`upsertUniverseImageStyle: insert returned no row for universe "${input.universeId}"`
+			);
+		}
+		await tx
+			.update(universe)
+			.set({ imageStyleId: inserted.id })
+			.where(eq(universe.id, input.universeId));
+		return inserted;
+	});
+}
+
 /** Attached images for an entry's gallery (#66), oldest first. Unattached rows (a
  * generated variant nobody picked yet) never show here - that is exactly what "attached"
  * means. */

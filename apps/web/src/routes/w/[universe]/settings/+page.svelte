@@ -30,6 +30,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import { NativeFallback } from '$lib/components/ui/native-fallback';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -67,6 +68,33 @@
 		noLimit = propagationCap === null;
 		if (propagationCap !== null) capInput = propagationCap;
 	});
+
+	// Issue #378, decision R3: same "read the last submission, fall back to the loaded
+	// row" shape as `aiEnabled`/`propagationCap` above - a successful save shows what was
+	// just written without a full reload, a failed one leaves whatever the GM typed
+	// alone (the action never returns these keys on failure, so the `in`/`undefined`
+	// checks fall through to `data` exactly as they do for the two older fields).
+	let imageStyleName = $derived(
+		form && 'imageStyleName' in form && form.imageStyleName !== undefined
+			? form.imageStyleName
+			: data.imageStyleName
+	);
+	let imageStyleModifier = $derived(
+		form && 'imageStyleModifier' in form && form.imageStyleModifier !== undefined
+			? form.imageStyleModifier
+			: data.imageStyleModifier
+	);
+	let imageStyleError = $derived(
+		form && 'imageStyleError' in form ? form.imageStyleError : undefined
+	);
+	let loremasterDescription = $derived(
+		form && 'loremasterDescription' in form && form.loremasterDescription !== undefined
+			? form.loremasterDescription
+			: data.loremasterDescription
+	);
+	let loremasterVoiceError = $derived(
+		form && 'loremasterVoiceError' in form ? form.loremasterVoiceError : undefined
+	);
 </script>
 
 <svelte:head><title>{t.headTitle(data.current.name)}</title></svelte:head>
@@ -151,6 +179,58 @@
 				{notice.prefix}<b class="text-ink-2">{propagationCap}</b>{notice.suffix}
 			{/if}
 		</p>
+	</section>
+
+	<section class="mt-8 rounded-lg border border-line bg-panel p-4">
+		<h2 class="text-sm font-semibold text-ink">{t.imageStyle.heading}</h2>
+		<p class="mt-1 max-w-measure text-sm text-ink-2">
+			{t.imageStyle.description(data.current.name)}
+		</p>
+		<form method="POST" action="?/setImageStyle" class="mt-3 flex flex-col gap-3">
+			<label class="flex flex-col gap-1 text-sm text-ink-2">
+				{t.imageStyle.nameLabel}
+				<Input name="name" value={imageStyleName} required />
+			</label>
+			<label class="flex flex-col gap-1 text-sm text-ink-2">
+				{t.imageStyle.promptModifierLabel}
+				<Textarea name="promptModifier" rows={2} value={imageStyleModifier} required />
+			</label>
+			{#if imageStyleError}
+				<p class="text-sm text-danger">{imageStyleError}</p>
+			{/if}
+			<Button type="submit" variant="secondary" class="w-fit">
+				{t.imageStyle.save}
+			</Button>
+		</form>
+	</section>
+
+	<section class="mt-8 rounded-lg border border-line bg-panel p-4">
+		<h2 class="text-sm font-semibold text-ink">{t.loremasterVoice.heading}</h2>
+		<p class="mt-1 max-w-measure text-sm text-ink-2">
+			{t.loremasterVoice.description(data.current.name)}
+		</p>
+		<form method="POST" action="?/setLoremasterVoice" class="mt-3 flex flex-col gap-2">
+			<label class="flex flex-col gap-1 text-sm text-ink-2" for="loremaster-voice">
+				{t.loremasterVoice.textareaLabel}
+			</label>
+			<!-- 500 mirrors `+page.server.ts`'s own LOREMASTER_DESCRIPTION_MAX_LENGTH - not
+			     authoritative here, the client attribute is only a courtesy that stops most
+			     GMs from ever seeing the server's rejection at all. -->
+			<Textarea
+				id="loremaster-voice"
+				name="description"
+				rows={3}
+				maxlength={500}
+				value={loremasterDescription}
+			/>
+			<p class="text-xs text-muted">{t.loremasterVoice.hint}</p>
+			{#if loremasterVoiceError}
+				<p class="text-sm text-danger">{loremasterVoiceError}</p>
+			{/if}
+			<Button type="submit" variant="secondary" class="w-fit">
+				{t.loremasterVoice.save}
+			</Button>
+		</form>
 	</section>
 
 	<section class="mt-8 rounded-lg border border-line bg-panel p-4">

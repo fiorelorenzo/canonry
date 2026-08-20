@@ -16,11 +16,13 @@ import { chargeFor, resolveModel, withQuota } from '@canonry/ai';
 import type { Db } from '@canonry/db';
 import {
 	createProposalPlan,
+	eq,
 	recordProposalDiff,
 	relationTypesForUniverse,
 	setProposalPlanStatus
 } from '@canonry/db';
 import type { ProposalRow } from '@canonry/db';
+import { universe } from '@canonry/db/schema';
 import { canonLanguageFor, type Locale } from '@canonry/lang';
 import { generateObject } from 'ai';
 import { z } from 'zod';
@@ -31,7 +33,7 @@ import { splitIntoSentences } from './diff.js';
 import { routeModel } from './models.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
 import { requireAiEnabled } from './propagate.js';
-import { canonInstruction, speechInstruction } from './speech.js';
+import { canonInstruction, loremasterVoiceInstruction, speechInstruction } from './speech.js';
 import { localizedRelationLabel, preferredRelationTypeByKey } from '@canonry/lang';
 
 export interface CompleteEntryInput {
@@ -120,9 +122,19 @@ const completeSchema = z.object({
 export async function completeEntry(input: CompleteEntryInput): Promise<CompleteEntryResult> {
 	await requireAiEnabled(input.db, input.universeId);
 
-	const [graph, relationTypes] = await Promise.all([
+	const [graph, relationTypes, loremasterDescription] = await Promise.all([
 		loadCandidateGraph(input.db, input.universeId),
-		relationTypesForUniverse(input.db, input.universeId)
+		relationTypesForUniverse(input.db, input.universeId),
+		// Issue #378, decision R3: the GM's own description of how their Loremaster
+		// talks, fetched here rather than folded into `requireAiEnabled` above (which
+		// every other caller of that function shares and has no use for this column) -
+		// see `speech.ts`'s `loremasterVoiceInstruction` for what it becomes below.
+		input.db
+			.select({ loremasterDescription: universe.loremasterDescription })
+			.from(universe)
+			.where(eq(universe.id, input.universeId))
+			.limit(1)
+			.then(([row]) => row?.loremasterDescription ?? '')
 	]);
 	const target = graph.entities.find((e) => e.id === input.entityId);
 	if (!target) throw new Error(`completeEntry: unknown entity "${input.entityId}"`);
@@ -189,6 +201,13 @@ export async function completeEntry(input: CompleteEntryInput): Promise<Complete
 						'GM; the new body text is the entry itself - different language rules apply to ' +
 						'each, stated separately below. ' +
 						speechInstruction(input.locale) +
+						// Issue #378, decision R3: beside `speechInstruction`, which governs this
+						// same GM-addressed summary - never folded into `canonInstruction` below,
+						// whose span is the entry's own third-person body, not the Loremaster
+						// talking. Positioned after every guardrail and language rule above it, so
+						// an adversarial description can only ever colour tone. Empty input
+						// contributes nothing.
+						loremasterVoiceInstruction(loremasterDescription) +
 						' ' +
 						canonInstruction(contentLanguage),
 					prompt:

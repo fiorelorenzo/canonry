@@ -1700,6 +1700,25 @@ export const it: Messages = {
 					'Nessun limite: ogni candidato trovato dal copilota riceve una differenza. La spesa viene comunque confermata prima di generare le differenze.',
 				invalidCapError: 'Inserisci un numero maggiore o uguale a 1, oppure disattiva il limite.'
 			},
+			imageStyle: {
+				heading: 'Stile delle immagini',
+				description: (universeName) =>
+					`Da cosa parte una nuova immagine in ${universeName} quando la sua voce non ha uno stile proprio. Una voce può comunque sostituirlo per sé.`,
+				nameLabel: 'Nome',
+				promptModifierLabel: 'Modificatore del prompt',
+				save: 'Salva',
+				nameRequiredError: 'Dai un nome allo stile.',
+				promptModifierRequiredError: 'Descrivi cosa aggiunge lo stile a un prompt.'
+			},
+			loremasterVoice: {
+				heading: 'Voce del Loremaster',
+				description: (universeName) =>
+					`Come suona il Loremaster quando risponde a una domanda o completa una voce esile per ${universeName} - mai cosa può scrivere, solo come lo dice.`,
+				textareaLabel: 'Voce',
+				hint: 'Fino a 500 caratteri.',
+				save: 'Salva',
+				tooLongError: 'Mantieni la descrizione entro i 500 caratteri.'
+			},
 			precedence: {
 				heading: 'Precedenza',
 				description: (universeName) =>

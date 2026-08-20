@@ -242,6 +242,68 @@ describe('completeEntry (issue #54, SPEC.md §5)', () => {
 		});
 	});
 
+	it('issue #378, decision R3: a set Loremaster voice reaches the completion system prompt beside speechInstruction, and an empty one adds no clause', async () => {
+		const owner = await insertUser(db);
+		const voice = 'Formal, archival, never a wasted word.';
+		const universe = await insertHomebrewUniverse(db, {
+			ownerUserId: owner.id,
+			loremasterDescription: voice
+		});
+		const thin = await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Corvin Ashe',
+			body: ''
+		});
+
+		let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+		await completeEntry({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			entityId: thin.id,
+			locale: 'en',
+			modelFactory: modelFactoryFor(
+				capturingScriptedModel({ summary: 's', after: 'a' }, (options) => {
+					captured = options;
+				})
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		const system = systemPromptOf(captured!);
+		expect(system).toContain(voice);
+		expect(system).toContain('how their Loremaster sounds');
+		expect(system).toContain('Let it shape your tone and word choice only');
+
+		// A universe nobody described (the column's own empty default) gets no clause at
+		// all, not an empty one.
+		const silentOwner = await insertUser(db);
+		const silentUniverse = await insertHomebrewUniverse(db, { ownerUserId: silentOwner.id });
+		const silentThin = await insertEntity(db, silentUniverse.id, {
+			type: 'character',
+			name: 'Unnamed',
+			body: ''
+		});
+		let silentCaptured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+		await completeEntry({
+			db,
+			userId: silentOwner.id,
+			universeId: silentUniverse.id,
+			entityId: silentThin.id,
+			locale: 'en',
+			modelFactory: modelFactoryFor(
+				capturingScriptedModel({ summary: 's', after: 'a' }, (options) => {
+					silentCaptured = options;
+				})
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		const silentSystem = systemPromptOf(silentCaptured!);
+		expect(silentSystem).not.toContain('how their Loremaster sounds');
+		expect(silentSystem).not.toContain('Let it shape your tone');
+	});
+
 	it("issue #197: an Italian-locale GM's completion prompt carries the shipped relation's Italian label, not its English key", async () => {
 		const owner = await insertUser(db);
 		const universe = await insertHomebrewUniverse(db, { ownerUserId: owner.id });

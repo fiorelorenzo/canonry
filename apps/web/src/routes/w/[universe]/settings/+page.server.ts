@@ -1,17 +1,19 @@
 /**
- * `/w/[universe]/settings`: per-universe settings. Three things live here this wave -
+ * `/w/[universe]/settings`: per-universe settings. Five things live here this wave -
  * issue #107's "Stop writing" switch (decision C10 = B, per universe; wording from H1),
  * the propagation cap (decision C3 amendment, "Round nine": a nullable integer, null
  * meaning no limit, defaulting to 25 - see `packages/db/src/schema/universe.ts`'s
- * column comment for the arithmetic), and issue #19's precedence panel (decision A2 =
- * A's "superseded, struck through" row, made real) for a derived universe.
- * Account-wide settings (appearance, export) stay at `/settings/*`, linked from here
- * rather than duplicated.
+ * column comment for the arithmetic), issue #19's precedence panel (decision A2 = A's
+ * "superseded, struck through" row, made real) for a derived universe, and issue #378's
+ * two sections (decision R3, DECISIONS.md "Round thirteen"): the universe's shared
+ * image style and its Loremaster voice, neither of which had an interface anywhere in
+ * the product before this. Account-wide settings (appearance, export) stay at
+ * `/settings/*`, linked from here rather than duplicated.
  *
  * Loads the full universe row itself rather than trusting the layout's `current`
  * (`UniverseSummary`, the sidebar switcher's shape): that type deliberately does not
- * carry `ai_enabled`, `propagation_cap` or the raw `base_universe_id`, and this page
- * needs all three.
+ * carry `ai_enabled`, `propagation_cap`, `image_style_id` or `loremaster_description`,
+ * and this page needs all four.
  */
 import { error, fail } from '@sveltejs/kit';
 import {
@@ -22,12 +24,23 @@ import {
 	listSupersedesForUniverse,
 	removeSupersede,
 	SupersedeAlreadyExistsError,
-	universeAccessBySlug
+	universeAccessBySlug,
+	upsertUniverseImageStyle
 } from '@canonry/db';
-import { universe } from '@canonry/db/schema';
+import { imageStyle, universe } from '@canonry/db/schema';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
+
+// Issue #378, decision R3: the same 500-character cap the settings textarea enforces
+// client-side via `maxlength` - restated here because a form post never trusts what the
+// client claims it validated. Kept as one constant rather than a magic number in the
+// action below. Not exported: a `+page.server.ts` module only permits SvelteKit's own
+// named exports (`load`, `actions`, ...) at runtime - vite's dev server 500s on
+// anything else - and the svelte file could not import it either way, since a server
+// module never reaches the client bundle; its `maxlength` attribute restates 500
+// directly instead, with a comment pointing back here.
+const LOREMASTER_DESCRIPTION_MAX_LENGTH = 500;
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!locals.user) error(404, `No universe named "${params.universe}"`);
@@ -36,10 +49,21 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!access) error(404, `No universe named "${params.universe}"`);
 	const world = access.universe;
 
-	const [supersedes, baseDataSources, relationTypes] = await Promise.all([
+	const [supersedes, baseDataSources, relationTypes, currentImageStyle] = await Promise.all([
 		listSupersedesForUniverse(conn, world.id),
 		world.baseUniverseId ? listDataSourcesForUniverse(conn, world.baseUniverseId) : [],
-		listRelationTypesForUniverse(conn, world.id)
+		listRelationTypesForUniverse(conn, world.id),
+		// Issue #378, decision R3: the row `world.imageStyleId` already points at, if any -
+		// `pickStyle`'s cascade (packages/media/src/style.ts) is the only thing that reads
+		// this at generation time, this is only for prefilling the form.
+		world.imageStyleId
+			? conn
+					.select({ name: imageStyle.name, promptModifier: imageStyle.promptModifier })
+					.from(imageStyle)
+					.where(eq(imageStyle.id, world.imageStyleId))
+					.limit(1)
+					.then(([row]) => row)
+			: undefined
 	]);
 
 	const universeEntities = world.baseUniverseId
@@ -56,7 +80,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		supersedes,
 		baseDataSources: baseDataSources.map((source) => ({ id: source.id, name: source.name })),
 		universeEntities,
-		ownRelationTypeCount: relationTypes.filter((type) => type.universeId !== null).length
+		ownRelationTypeCount: relationTypes.filter((type) => type.universeId !== null).length,
+		imageStyleName: currentImageStyle?.name ?? '',
+		imageStyleModifier: currentImageStyle?.promptModifier ?? '',
+		loremasterDescription: world.loremasterDescription
 	};
 };
 
@@ -106,6 +133,68 @@ export const actions: Actions = {
 
 		await conn.update(universe).set({ propagationCap }).where(eq(universe.id, access.universe.id));
 		return { propagationCap };
+	},
+
+	// Issue #378, decision R3: one `image_style` row per universe, updated in place -
+	// `upsertUniverseImageStyle` finds the row `image_style_id` already points at (if
+	// any) and updates it, or inserts the first one and points the column at it.
+	// `pickStyle`'s cascade (packages/media/src/style.ts) does not change: this only
+	// ever writes the universe half of it.
+	setImageStyle: async ({ request, params, locals }) => {
+		if (!locals.user) error(404, `No universe named "${params.universe}"`);
+		const conn = db();
+		const access = await universeAccessBySlug(conn, params.universe, locals.user.id);
+		if (!access) error(404, `No universe named "${params.universe}"`);
+		if (access.role === 'viewer') {
+			error(403, messages(locals.locale).universe.settings.viewerForbiddenError);
+		}
+
+		const tStyle = messages(locals.locale).universe.settings.imageStyle;
+		const form = await request.formData();
+		const name = form.get('name');
+		const promptModifier = form.get('promptModifier');
+		if (typeof name !== 'string' || name.trim().length === 0) {
+			return fail(400, { imageStyleError: tStyle.nameRequiredError });
+		}
+		if (typeof promptModifier !== 'string' || promptModifier.trim().length === 0) {
+			return fail(400, { imageStyleError: tStyle.promptModifierRequiredError });
+		}
+
+		const style = await upsertUniverseImageStyle(conn, {
+			universeId: access.universe.id,
+			name: name.trim(),
+			promptModifier: promptModifier.trim()
+		});
+		return { imageStyleName: style.name, imageStyleModifier: style.promptModifier };
+	},
+
+	// Issue #378, decision R3: a textarea over `universe.loremaster_description`, capped
+	// at LOREMASTER_DESCRIPTION_MAX_LENGTH characters, the empty default preserved when a
+	// GM clears it rather than turned back into a sentinel. `runAsk` and `completeEntry`
+	// (packages/copilot) read this column directly - nothing here caches or denormalises
+	// it.
+	setLoremasterVoice: async ({ request, params, locals }) => {
+		if (!locals.user) error(404, `No universe named "${params.universe}"`);
+		const conn = db();
+		const access = await universeAccessBySlug(conn, params.universe, locals.user.id);
+		if (!access) error(404, `No universe named "${params.universe}"`);
+		if (access.role === 'viewer') {
+			error(403, messages(locals.locale).universe.settings.viewerForbiddenError);
+		}
+
+		const tVoice = messages(locals.locale).universe.settings.loremasterVoice;
+		const form = await request.formData();
+		const raw = form.get('description');
+		const description = (typeof raw === 'string' ? raw : '').trim();
+		if (description.length > LOREMASTER_DESCRIPTION_MAX_LENGTH) {
+			return fail(400, { loremasterVoiceError: tVoice.tooLongError });
+		}
+
+		await conn
+			.update(universe)
+			.set({ loremasterDescription: description })
+			.where(eq(universe.id, access.universe.id));
+		return { loremasterDescription: description };
 	},
 
 	addSupersede: async ({ request, params, locals }) => {
