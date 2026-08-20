@@ -1374,3 +1374,195 @@ Epic [#375](https://github.com/fiorelorenzo/canonry/issues/375), one issue per d
 two waves because twelve is more than the eight an agent wave holds and because R10 needs
 R7's column and R2's dialog to exist first. R7 owns the first wave's migration slot and R10
 the second's.
+
+## Round fourteen, decided 2026-08-20
+
+Eleven, from using what round thirteen shipped, an hour after it deployed. That is the
+shortest gap between a round and the round that corrects it so far, and the reason is worth
+writing down: three of these are surfaces round thirteen touched and did not finish, two are
+choices I made inside a component that Lorenzo has now looked at and rejected, and one is a
+decision I applied to the wrong surface. A round that lands in the morning and is amended in
+the evening is the process working, not failing, so long as the amendment says which line it
+replaces.
+
+| Id  | Question                                                                             | Chosen                                                                                                               |
+| --- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| S1  | The universe settings page is six stacked cards and I do not like any of it.         | **The two-pane shape the account settings already have**, with named groups and one sentence per setting             |
+| S2  | A universe's image style is a name and a prompt nobody can picture.                  | **A catalogue of shipped styles with an example image each**, plus one custom style per universe                     |
+| S3  | With no style set, generation still runs and inherits nothing.                       | **No style, no generation.** A refusal with the link that fixes it, not a warning beside the button                  |
+| S4  | The GM/players switch changes the page's layout when you use it.                     | **A two-option control at the head of the article**, the editor's own write/preview shape, fixed size in both states |
+| S5  | A portrait cover stands beside the title and looks like it landed there by accident. | **Every cover goes to the top of the aside**, whatever its ratio. R1's margin figure is repealed                     |
+| S6  | A mention popover names an entry and never shows its face.                           | **The cover rides along**, through the same filter that decides whether the mention resolves                         |
+| S7  | The editor gives the writing area 384px and the page 900.                            | **The writing area takes the page**                                                                                  |
+| S8  | A suggestion chip fills the box and then asks for a second click.                    | **The chip asks.** Its own words are the confirmation G11 wants                                                      |
+| S9  | The dock's answer wears a dashed underline and a numbered marker.                    | **An answer is not proposed canon, so it stops wearing C1's mark.** The Ask route already did this                   |
+| S10 | Open in Ask navigates to a full page and leaves the panel floating over it.          | **It closes the panel**                                                                                              |
+| S11 | The composer is a command palette wearing a chat's job.                              | **It becomes a composer**: a send control, no palette furniture, entry rows only when there are any                  |
+
+### S1, and what is actually wrong with that page
+
+It is not ugly, it is unstructured. Seven sections in source order, each a `rounded-lg border
+p-4` card with a heading and a sentence: a setup checklist, an AI kill switch, a numeric
+propagation cap, an image style, a Loremaster voice, a link to the relation catalogue, and a
+precedence list that only exists for a derived world. Nothing groups them, nothing ranks
+them, and the two most consequential controls in the product (turn the copilot off, cap what
+a save may touch) sit in the same visual box as a link to another page. It grew by accretion,
+one issue at a time, which is exactly what it looks like.
+
+I6 = B already decided the shape for the account: "an account menu in the shell plus one
+two-pane settings page, with a real Account pane." The universe's own settings never got that
+decision and should have. So it takes the same shell: a left rail of named groups, a right
+pane, one group open at a time, with the groups being **Images** (the style), **The
+Loremaster** (voice, the generation switch, the propagation cap), and **Canon** (the relation
+catalogue, and precedence where a world is derived). The setup checklist stops being a
+seventh card and becomes a mark on the rail's own rows, which is where somebody looking for
+what is unfinished will look.
+
+Two consequences to hold on to. The first is that grouping is not decoration here: "stop
+writing" and "cap a propagation" are both about how much the copilot is allowed to do, and a
+GM who wants to turn the volume down should find them together rather than three cards apart.
+The second is that this page and the account's pages are now the same component in two
+places, so a change to the shell lands on both, which is the point.
+
+### S2, and borrowing a shape that already works
+
+"Style: none set" with a name field and a prompt textarea asks the GM to imagine what a
+sentence of prompt will do to an image. Nobody can. ai-game solved this two products ago and
+the shape is worth copying rather than reinventing: `image_styles` there carries a name, a
+description, a `prompt_modifier`, an `example_images` array and a sort order, and the picker
+shows the example, the name and the description, so choosing is looking rather than guessing.
+
+Canonry's own `image_style` is most of the way there by accident: `universe_id` is already
+**nullable**, which is exactly the split this needs. A shipped preset is a row with no
+universe, a custom style is a row that belongs to one, and `universe.image_style_id` points
+at whichever the GM chose. What the table lacks is a stable slug so a re-seed updates rather
+than duplicates, a description, an example image and an order. The picker becomes a grid of
+cards, and "Custom style" is the last card, with the prompt textarea behind it, so the escape
+hatch is there without being the first thing anybody sees.
+
+**The example images are generated once and committed**, as static files under
+`apps/web/static`, through the product's own `variants` model. That is a paid action, about
+three credits per image and six presets, and I am authorising it here rather than leaving a
+placeholder in the interface: a style catalogue whose examples are grey boxes is worse than
+the textarea it replaces. They are committed rather than generated per universe because every
+world sees the same six presets, and paying six times per world for an identical picture is
+the kind of spend G11 exists to prevent.
+
+### S3, and a refusal rather than a nudge
+
+R4 put "the image style is not set" on a checklist and R3 made the style settable. Generation
+still runs regardless and silently inherits nothing, which means the first images a new world
+produces are the ones least likely to match it, and the GM finds out after paying for four of
+them.
+
+So: with no style set, every generate control refuses, everywhere it appears, and says where
+to set one. Not disabled-with-a-tooltip; a short sentence with the link, in the place the
+button was. **Upload is unaffected**, and that distinction is the same one Q5 drew: an upload
+is a human handing over a file, which needs no style, no model and no AI at all (guardrail 4).
+A world with the copilot switched off keeps a working images feature, and a world with no
+style keeps a working upload.
+
+### S4 amends R8 for one control, and the reason is measurable
+
+The switch works and the layout moves when you use it. The label beside it swaps between
+`Vista GM` and `Anteprima giocatori, quello che vede il tavolo`, which is 4.5 times longer,
+wraps to two lines at the article's width, and pushes the body down; the switch's own label
+wraps too. Every state change in that row costs the reader their place in the text, on a
+reading surface, which is the one place this product is supposed to hold still.
+
+A binary state gets a segmented control (O4 = B) and the editor already ships the shape,
+`Scrivi | Anteprima`, two fixed labels in a fixed box. The view control becomes that, with
+`Vista GM | Vista giocatori`, at the head of the article, and the explanatory sentence stops
+being a label that changes size: it moves to a single fixed line under the control, present in
+both states. R8's Switch primitive stays in the layer and stays used, by the media gallery's
+`Solo GM` toggle, which is a real on/off on one object rather than a choice between two views
+of a page.
+
+### S5 repeals R1, one day later, and takes O2's band with it
+
+R1 moved a portrait cover out of the band and into the margin beside the title, #399 stopped
+it pushing the body down, and the result is a picture floating in a gutter that belongs to
+nothing: aligned with the title on one side, with the aside's own edge on the other, in a
+column that exists only for it. "It looks like it was put there at random" is a fair reading
+of a figure whose column has no other content.
+
+The aside is where this belongs and it was there all along. It is the entry's structured
+column, it already runs the full height of the page (Q2), it is 256px wide, and everything
+else that describes the entry rather than narrating it already lives there: relations, facts,
+images, history, audit. A cover at the top of that column is a wiki infobox, which is a shape
+every reader of this kind of page already knows, and it touches the prose measure not at all.
+
+So **every cover goes there, whatever its ratio**, at the aside's own width and its own
+natural height: tall for a character, short for a place. That gives the two ratios one home
+instead of two, which is the part R1 got wrong and O2 got wrong before it. Below `md`, where
+the aside is a bottom sheet rather than a column, the cover stays a band above the title,
+because a sheet the reader has to open is not where a page's own picture goes.
+
+What this costs: the cover is smaller than the band was at the top of a wide page, and it is
+no longer the first thing on the page. I am taking that trade because the entry page is a
+reading surface first, and the picture has never been the reason anybody opens it.
+
+### S6, and the one thing to be careful about
+
+A mention popover already resolves a name, a type, a status and an excerpt through two
+endpoints, a GM one and a public one, and the public one goes through `loadPublicEntity` so
+that an unrevealed entry answers as a gap. The cover joins that payload as an optional field,
+which means it must pass the same gate on the public side: the cover of an entry a player may
+read, that is not `gm_only`, served by the public media route (R7's chain, #382). On the GM
+side there is no such filter to satisfy because the GM may see everything in their own world.
+
+### S7, and where the space went
+
+The edit route is `max-w-3xl px-6 py-8`, and inside it a title, a breadcrumb, a toolbar, an
+editor box with a 384px floor, a save row and a language row. At 900px of viewport the writing
+area gets 384 of it and the rest is spent on furniture and empty paper below. Writing is the
+main interaction on that page and it should have the page: the editor becomes a full-height
+column, the box grows to fill what is left after the toolbar and the two rows, and the title
+shrinks to the breadcrumb that is already there. #384's floor stays as a floor for a short
+viewport, not as the height.
+
+### S8 reverses a call I made yesterday
+
+I built the chips to fill the composer without sending, and #401 then moved the caret so the
+text was somewhere you could type. Both were wrong in the same way: the chip is already an
+explicit act naming exactly what will be asked, so a second click adds a step and confirms
+nothing. G11's "confirm every paid action" is about not spending silently, and a button whose
+label is the question is not silent. The chip asks.
+
+### S9, and applying C1 to the wrong thing
+
+C1 gives AI text that nobody has accepted a dashed underline and a numbered margin marker,
+and guardrail 2 requires exactly that. The dock renders its answer through it, with
+`proposed: true`. The Ask route, rendering the same answer, does not.
+
+The route is right. An Ask answer is not proposed canon: it is not in an entry, it cannot be
+accepted, and nothing about it is waiting for a decision. What can become canon from the dock
+is a proposal, and a proposal's own summary keeps its marking there and on the route. The
+numbered marker is worse than redundant on an answer, because the number points at a sequence
+that does not exist while the sources sit two lines below it, which is what "I do not
+understand what that 1 is for" is telling us.
+
+**The hue is not what changed.** Round eleven P1 measured mulberry against paper, ink, the
+accent and danger specifically for this mark and wrote the numbers down; the complaint arrived
+about a surface that should never have carried the mark at all. The mark stays as it is where
+it belongs, which is a sentence of canon somebody has not accepted yet.
+
+### S10 and S11, the two smallest and the two most obvious in use
+
+Open in Ask hands the answer to the route and navigates there. R5 kept the panel open across
+a navigation on purpose, and this is the one navigation that makes the panel redundant, since
+the thing it holds is now the page. It closes.
+
+And the composer is a command palette with a chat's job, which is visible the moment you type
+a question into it: it offers a `Chiedi "..."` row for something Enter already does, and under
+it a `Voci` section that says "no entry matches" about a sentence that was never a name. O3
+mounted the palette here to get the "in case a name was meant" behaviour for free, and free is
+the right price for the entry rows and the wrong one for the rest. In the docked placement:
+the palette's ask row goes, the empty entry state goes, entry rows appear only when there is
+at least one match, and the input becomes a composer with a send control on it, in the panel's
+own paper rather than the palette's chrome.
+
+### Where round fourteen lands
+
+Epic [#405](https://github.com/fiorelorenzo/canonry/issues/405), one issue per decision, and
+S2 owns the wave's migration slot because the style catalogue is the only schema change.
