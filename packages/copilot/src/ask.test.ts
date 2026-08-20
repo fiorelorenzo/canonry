@@ -962,7 +962,11 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 
 		it('names the context in one line above the question, for an entry and for the world', async () => {
 			const { owner, universe } = await fixture();
-			const entryContext: AskContext = { kind: 'entry', name: 'Aldric Vane', entityType: 'character' };
+			const entryContext: AskContext = {
+				kind: 'entry',
+				name: 'Aldric Vane',
+				entityType: 'character'
+			};
 
 			let entryCaptured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
 			await runAsk({
@@ -984,7 +988,9 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 			});
 			const entryPrompt = userPromptOf(entryCaptured!);
 			expect(entryPrompt).toContain('The GM is reading the entry Aldric Vane, a character.');
-			expect(entryPrompt.indexOf('The GM is reading')).toBeLessThan(entryPrompt.indexOf('Question:'));
+			expect(entryPrompt.indexOf('The GM is reading')).toBeLessThan(
+				entryPrompt.indexOf('Question:')
+			);
 
 			const worldContext: AskContext = { kind: 'world', name: 'Valdoria Reach' };
 			let worldCaptured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
