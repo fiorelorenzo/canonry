@@ -651,7 +651,7 @@ export const en: Messages = {
 			inBody: {
 				toolbarLabel: 'Image',
 				toolbarTitle: 'Insert image into the body',
-				dialogTitle: 'Insert an image',
+				dialogTitle: 'Choose an image',
 				existingHeading: "This entry's images",
 				emptyExisting: 'No images attached to this entry yet - upload or generate one below.',
 				uploadHeading: 'Upload one',
@@ -687,16 +687,15 @@ export const en: Messages = {
 				fromAssetIdMustBeString: 'fromAssetId must be a string',
 				sourceHasNoPrompt: 'That image has no stored prompt to regenerate from.'
 			},
-			// Issue #382, decision R7: an image's audience follows its entry, and attaching
-			// is the accept - this block is down to the one exception a GM can still set,
-			// `gm_only`, plus the sentence below the grid explaining the default.
+			// Issue #382/#385, decision R7/R10: an image's audience follows its entry, and
+			// attaching is the accept - this block is down to the one exception a GM can
+			// still set, `gm_only`, plus the sentence below the grid explaining the default.
 			publish: {
 				gmOnlyBadge: 'GM only',
-				gmOnlyLabel: 'GM only',
-				visibleLabel: 'Visible',
-				toggleAriaLabel: 'Who can see this image',
+				label: 'Solo GM',
+				ariaLabel: 'Who can see this image',
 				explanation:
-					"The party sees an entry's images once the entry itself is revealed. Mark an image GM only to hold it back regardless.",
+					"The party sees an entry's images once the entry itself is revealed. Mark an image Solo GM to hold it back regardless.",
 				gmOnlyMustBeBoolean: 'gmOnly must be a boolean',
 				genericUpdateFailedWithStatus: (status) => `Updating failed (${status})`,
 				genericUpdateFailed: 'Updating failed'
@@ -708,11 +707,28 @@ export const en: Messages = {
 				removeLabel: 'Remove as cover',
 				saving: 'Saving\u2026',
 				explanation:
-					'A cover shows above the title of this entry. Players see it only once the image itself is published.',
+					'A cover shows above the title of this entry. Players see it once the entry is revealed, unless it is marked Solo GM - the same rule as any other image here.',
 				mediaAssetIdMustBeStringOrNull: 'mediaAssetId must be a string or null',
 				mustBeAnImage: 'Only an image can be a cover',
 				genericCoverFailedWithStatus: (status) => `Setting the cover failed (${status})`,
 				genericCoverFailed: 'Setting the cover failed'
+			},
+			delete: {
+				label: 'Delete',
+				confirmLabel: 'Confirm delete',
+				deleting: 'Deleting\u2026',
+				refusedCover:
+					'This image is the cover for this entry. Remove it as cover first, then delete it.',
+				refusedInBody:
+					'This image is used in the body of this entry. Remove it from the text first, then delete it.',
+				genericDeleteFailedWithStatus: (status) => `Delete failed (${status})`,
+				genericDeleteFailed: 'Delete failed'
+			},
+			gallery: {
+				dialogTitle: (entityName) => `Images: ${entityName}`,
+				closeLabel: 'Close',
+				openLabel: 'Open gallery',
+				count: (n) => (n === 1 ? '1 image' : `${n} images`)
 			}
 		},
 

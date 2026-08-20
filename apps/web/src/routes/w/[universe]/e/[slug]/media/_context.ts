@@ -24,6 +24,10 @@ export interface MediaRequestContext {
 		type: EntityType;
 		body: string;
 		imagePromptModifier: string | null;
+		/** Issue #385: the DELETE route's cover refusal reads this straight off the
+		 * context instead of a second query - one round trip already carries the row,
+		 * so there is no reason to fetch it twice. */
+		coverAssetId: string | null;
 	};
 	role: UniverseMemberRole;
 	userId: string;
@@ -56,7 +60,8 @@ export async function loadMediaContext(
 			name: current.name,
 			type: current.type,
 			body: current.body,
-			imagePromptModifier: current.imagePromptModifier
+			imagePromptModifier: current.imagePromptModifier,
+			coverAssetId: current.coverAssetId
 		},
 		role: access.role,
 		userId: locals.user.id

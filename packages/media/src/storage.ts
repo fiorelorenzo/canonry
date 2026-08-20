@@ -5,7 +5,7 @@
  * portrait at the same moment never collide on a name.
  */
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { MediaKind } from '@canonry/db/schema';
 
@@ -26,6 +26,11 @@ export interface SaveMediaInput {
 export interface MediaStorage {
 	save(input: SaveMediaInput): Promise<StoredFile>;
 	read(relativePath: string): Promise<Uint8Array>;
+	/** Issue #385: the file half of a real delete. Idempotent on a file that is
+	 * already gone (ENOENT) - the desired end state (this path has no stored bytes)
+	 * already holds, and a caller that already checked the row exists should not have
+	 * to also handle a storage/database mismatch it did not cause. */
+	delete(relativePath: string): Promise<void>;
 }
 
 const EXTENSION_BY_MIME: Record<string, string> = {
@@ -67,6 +72,10 @@ export class FilesystemMediaStorage implements MediaStorage {
 
 	async read(relativePath: string): Promise<Uint8Array> {
 		return readFile(this.resolve(relativePath));
+	}
+
+	async delete(relativePath: string): Promise<void> {
+		await rm(this.resolve(relativePath), { force: true });
 	}
 
 	/** Rejects a stored path that would resolve outside the root - media_asset.path is

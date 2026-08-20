@@ -308,3 +308,16 @@ export async function setMediaAssetGmOnly(
 	if (!updated) throw new Error(`setMediaAssetGmOnly: no media_asset row "${id}"`);
 	return updated;
 }
+
+/**
+ * Issue #385, decision R10: the row half of a real delete - `mediaStorage().delete`
+ * handles the file. The caller (the DELETE route) is responsible for every guard
+ * before this runs: ownership, whether the asset is the entry's cover, whether the
+ * entry's body still points at it. This module only reads and writes Postgres, same
+ * as every other function here - it does not re-check what the route already checked.
+ */
+export async function deleteMediaAsset(db: Db, id: string): Promise<MediaAssetRow> {
+	const [deleted] = await db.delete(mediaAsset).where(eq(mediaAsset.id, id)).returning();
+	if (!deleted) throw new Error(`deleteMediaAsset: no media_asset row "${id}"`);
+	return deleted;
+}

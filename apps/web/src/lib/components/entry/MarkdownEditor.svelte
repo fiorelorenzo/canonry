@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	import type { MentionTarget } from '$lib/markdown';
+	import type { MediaGalleryData } from '../media/MediaGallery.svelte';
 
 	/** What the preview needs that the writing surface does not, passed straight through
 	 * from the entry route's `load`. Optional at the call site for the same reason
@@ -14,6 +15,27 @@
 		 * `EntryProseWithSecrets` resolves mentions against inside its player preview, and
 		 * deriving it here in the browser would mean a second copy of the `gm_only` rule. */
 		publicMentionTargets: MentionTarget[];
+	}
+
+	/** What the editor's own image button needs to open `MediaGallery.svelte` in pick
+	 * mode (issue #253, #385) - the works/node editor mounts this component with no
+	 * entity behind it, so the toolbar's image button stays hidden there instead of
+	 * opening a picker with nothing to place. `entityName`/`entityType`/`canWrite` are
+	 * threaded through from the edit route's own `load` rather than re-derived, so a
+	 * pick-mode gallery and a full-mode one never disagree about what an entry can and
+	 * cannot do. */
+	export interface ImageInsertContext {
+		universeSlug: string;
+		entitySlug: string;
+		entityName: string;
+		entityType: string;
+		canWrite: boolean;
+		assets: MediaGalleryData['assets'];
+		aiEnabled: boolean;
+		/** #258: what one in-body image costs and which model draws it. `model` is null
+		 * when `image_model_config` has no active `scene` row, which is the only state in
+		 * which the generate button is withheld. */
+		scene: { price: number; model: { provider: string; modelId: string } | null };
 	}
 </script>
 
@@ -52,7 +74,7 @@
 	import { decorateMarkdown } from './decorate';
 	import FormattingToolbar, { type FormatCommand } from './FormattingToolbar.svelte';
 	import MentionMenu from './MentionMenu.svelte';
-	import ImageInsertDialog, { type ImageInsertContext } from '../media/ImageInsertDialog.svelte';
+	import MediaGallery from '../media/MediaGallery.svelte';
 	import ImageWidthControl from './ImageWidthControl.svelte';
 	import EntryProseWithSecrets from '../players/EntryProseWithSecrets.svelte';
 	import { Segmented, type SegmentedOption } from '$lib/components/ui/segmented';
@@ -169,10 +191,11 @@
 		} else applyEdit(insertMentionTrigger(value, start, end));
 	}
 
-	/** Passed to `ImageInsertDialog` as `onInsert`: the dialog already resolved which
-	 * asset (existing, or freshly generated and attached) and handed back the URL to
-	 * write, plus the width the GM chose there (#384) - this just runs both through the
-	 * same `applyEdit` every other command uses. */
+	/** Passed to `MediaGallery` as `onPick` (issue #385): the gallery, in pick mode,
+	 * already resolved which asset - existing, uploaded, or freshly generated and
+	 * attached - and handed back the URL to write, plus the width the GM chose there
+	 * (#384) - this just runs both through the same `applyEdit` every other command
+	 * uses. */
 	function insertImageAtSelection(url: string, widthPercent: ImageWidthPercent): void {
 		applyEdit(
 			insertImage(value, pendingImageSelection.start, pendingImageSelection.end, url, widthPercent)
@@ -318,14 +341,19 @@
 	{/if}
 
 	{#if imageInsert}
-		<ImageInsertDialog
+		<MediaGallery
 			bind:open={imageDialogOpen}
-			universeSlug={imageInsert.universeSlug}
-			entrySlug={imageInsert.entrySlug}
-			assets={imageInsert.assets}
-			aiEnabled={imageInsert.aiEnabled}
+			data={{
+				universeSlug: imageInsert.universeSlug,
+				entitySlug: imageInsert.entitySlug,
+				entityName: imageInsert.entityName,
+				entityType: imageInsert.entityType,
+				canWrite: imageInsert.canWrite,
+				assets: imageInsert.assets,
+				aiEnabled: imageInsert.aiEnabled
+			}}
 			scene={imageInsert.scene}
-			onInsert={insertImageAtSelection}
+			onPick={insertImageAtSelection}
 			{locale}
 		/>
 	{/if}

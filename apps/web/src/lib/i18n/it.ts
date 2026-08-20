@@ -657,7 +657,7 @@ export const it: Messages = {
 			inBody: {
 				toolbarLabel: 'Immagine',
 				toolbarTitle: 'Inserisci un\u2019immagine nel testo',
-				dialogTitle: 'Inserisci un\u2019immagine',
+				dialogTitle: 'Scegli un\u2019immagine',
 				existingHeading: 'Le immagini di questa voce',
 				uploadHeading: 'Caricane una',
 				emptyExisting:
@@ -695,15 +695,14 @@ export const it: Messages = {
 				fromAssetIdMustBeString: 'fromAssetId deve essere una stringa',
 				sourceHasNoPrompt: 'Quell\u2019immagine non ha un prompt salvato da cui rigenerare.'
 			},
-			// #382, decisione R7: l'audience di un'immagine segue la sua voce, e collegarla è
-			// l'accettazione - questo blocco si riduce all'unica eccezione che un GM può ancora
-			// impostare, `gm_only`, più la frase sotto la griglia che spiega il comportamento
-			// predefinito.
+			// #382/#385, decisioni R7/R10: l'audience di un'immagine segue la sua voce, e
+			// collegarla è l'accettazione - questo blocco si riduce all'unica eccezione che un
+			// GM può ancora impostare, `gm_only`, più la frase sotto la griglia che spiega il
+			// comportamento predefinito.
 			publish: {
 				gmOnlyBadge: 'Solo GM',
-				gmOnlyLabel: 'Solo GM',
-				visibleLabel: 'Visibile',
-				toggleAriaLabel: 'Chi può vedere questa immagine',
+				label: 'Solo GM',
+				ariaLabel: 'Chi può vedere questa immagine',
 				explanation:
 					'I giocatori vedono le immagini di una voce non appena la voce stessa viene rivelata. Segna un\u2019immagine come Solo GM per tenerla comunque nascosta.',
 				gmOnlyMustBeBoolean: 'gmOnly deve essere un booleano',
@@ -717,12 +716,29 @@ export const it: Messages = {
 				removeLabel: 'Rimuovi da copertina',
 				saving: 'Salvataggio in corso\u2026',
 				explanation:
-					'La copertina compare sopra il titolo di questa voce. I giocatori la vedono solo quando l\u2019immagine stessa è pubblicata.',
+					'La copertina compare sopra il titolo di questa voce. I giocatori la vedono quando la voce viene rivelata, a meno che non sia segnata come Solo GM - la stessa regola di ogni altra immagine qui.',
 				mediaAssetIdMustBeStringOrNull: 'mediaAssetId deve essere una stringa oppure null',
 				mustBeAnImage: 'Solo un\u2019immagine può essere una copertina',
 				genericCoverFailedWithStatus: (status) =>
 					`Impostazione della copertina non riuscita (${status})`,
 				genericCoverFailed: 'Impostazione della copertina non riuscita'
+			},
+			delete: {
+				label: 'Elimina',
+				confirmLabel: 'Conferma eliminazione',
+				deleting: 'Eliminazione in corso\u2026',
+				refusedCover:
+					'Questa immagine è la copertina di questa voce. Rimuovila da copertina prima di eliminarla.',
+				refusedInBody:
+					'Questa immagine è usata nel testo di questa voce. Rimuovila dal testo prima di eliminarla.',
+				genericDeleteFailedWithStatus: (status) => `Eliminazione non riuscita (${status})`,
+				genericDeleteFailed: 'Eliminazione non riuscita'
+			},
+			gallery: {
+				dialogTitle: (entityName) => `Immagini: ${entityName}`,
+				closeLabel: 'Chiudi',
+				openLabel: 'Apri la galleria',
+				count: (n) => (n === 1 ? '1 immagine' : `${n} immagini`)
 			}
 		},
 

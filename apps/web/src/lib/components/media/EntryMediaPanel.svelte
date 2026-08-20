@@ -1,42 +1,18 @@
 <script lang="ts">
 	/**
-	 * The Images section's real content (#65, #66, #382 - the handoff issue #66's own
-	 * docstring in the old entry/ImagesPanel.svelte pointed at, now replaced by this
-	 * component).
-	 *
-	 * Two steps, always: generate produces one image or four to choose from, all
-	 * unattached; insert is a separate click that attaches the picked one to this entry.
-	 * Guardrail 6, decision R7 (#382): attaching is the accept - once an image is
-	 * attached and its entry is revealed, players see it, with no second publish click.
-	 * `gm_only` is the one deliberate exception, a GM's own toggle in the grid below,
-	 * never a side effect of generating, uploading or attaching.
-	 *
-	 * O2 (#284) adds "use as cover" beside it, and the two stay strictly independent
-	 * switches. Setting a cover is the accept guardrail 1 asks for: an image a model made
-	 * becomes the entry's face because somebody pressed this, and nothing in the generation
-	 * path reaches it on its own. `gm_only` is the other switch, and it is the only one
-	 * players are affected by, which is why the sentence under the grid says so rather
-	 * than leaving a GM to assume a cover is public because it is prominent.
+	 * The Images section's own content (#65, #66, #382), reduced by issue #385
+	 * (decision R10) to a compact preview: a count, a few thumbnails, and a button
+	 * that opens `MediaGallery.svelte` - the one surface generate, upload, cover,
+	 * visibility, refine and delete all live on now. This component used to be that
+	 * surface itself, in a 256px rail with its own rule set; the rail is not wide
+	 * enough to hold five per-image actions legibly, so it points at the gallery
+	 * instead of trying to be it.
 	 */
-	import { resolve } from '$app/paths';
-	import { invalidateAll } from '$app/navigation';
 	import { messages, type Locale } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import type { ImageFeature } from '@canonry/db/schema';
-	import { Segmented, type SegmentedOption } from '$lib/components/ui/segmented';
-	import GenerateDialog from './GenerateDialog.svelte';
-
-	type ModelSummary = { provider: string; modelId: string } | null;
-	interface MediaAssetView {
-		id: string;
-		mimeType: string;
-		generated: boolean;
-		gmOnly: boolean;
-		credits: number;
-		createdAt: string | Date;
-	}
+	import { resolve } from '$app/paths';
+	import MediaGallery, { type MediaGalleryData } from './MediaGallery.svelte';
 
 	let {
 		universeSlug,
@@ -45,7 +21,7 @@
 		entityType,
 		aiEnabled,
 		canWrite,
-		assets: initialAssets,
+		assets,
 		coverAssetId,
 		styleModifier,
 		entityImagePromptModifier,
@@ -61,467 +37,73 @@
 		entityType: string;
 		aiEnabled: boolean;
 		canWrite: boolean;
-		assets: MediaAssetView[];
+		assets: MediaGalleryData['assets'];
 		coverAssetId: string | null;
 		styleModifier: string | null;
 		entityImagePromptModifier: string | null;
 		portraitPrice: number;
 		variantsPrice: number;
-		portraitModel: ModelSummary;
-		variantsModel: ModelSummary;
+		portraitModel: MediaGalleryData['portraitModel'];
+		variantsModel: MediaGalleryData['variantsModel'];
 		locale: Locale;
 	} = $props();
 	let t = $derived(messages(locale));
 
-	let base = $derived(resolve(`/w/${universeSlug}/e/${entitySlug}/media`));
+	let galleryOpen = $state(false);
 
-	let assets = $derived(initialAssets);
-	let dialogOpen = $state(false);
-	let generating = $state(false);
-	let error = $state<string | null>(null);
+	let galleryData = $derived<MediaGalleryData>({
+		universeSlug,
+		entitySlug,
+		entityName,
+		entityType,
+		aiEnabled,
+		canWrite,
+		assets,
+		coverAssetId,
+		styleModifier,
+		entityImagePromptModifier,
+		portraitPrice,
+		variantsPrice,
+		portraitModel,
+		variantsModel
+	});
 
-	interface Candidate {
-		id: string;
-		mimeType: string;
-	}
-	let candidates = $state<Candidate[]>([]);
-	let selectedCandidateId = $state<string | null>(null);
-	// #255: the candidate being refined when the dialog is opened in regenerate mode -
-	// null means the next `dialogOpen = true` is a fresh generation. Set by the "Refine"
-	// button below, cleared on a fresh "Generate image" click and after a successful
-	// generation of either kind.
-	let regenerateSourceId = $state<string | null>(null);
-	let reusedFromCache = $state(false);
-	let inserting = $state(false);
-
-	let styleEditorOpen = $state(false);
-	// Seeded fresh each time the editor opens (see the "edit" closure below), not read
-	// here at mount, since EntryMediaPanel is reused across a navigation to a different
-	// entry (SvelteKit does not remount on a route param change alone) and a bare
-	// `$state(entityImagePromptModifier)` would otherwise keep showing the previous
-	// entry's override text.
-	let styleDraft = $state('');
-	let savingStyle = $state(false);
+	// A handful of thumbnails, most recent first (`assets` itself is oldest-first, the
+	// gallery's own reading order) - enough to recognise at a glance that there are
+	// pictures here, not a second gallery in miniature.
+	const PREVIEW_COUNT = 4;
+	let preview = $derived([...assets].reverse().slice(0, PREVIEW_COUNT));
 
 	function imageUrl(id: string): string {
-		return `${base}/${id}`;
-	}
-
-	async function handleGenerate(feature: ImageFeature, instruction?: string): Promise<void> {
-		error = null;
-		generating = true;
-		const fromAssetId = regenerateSourceId;
-		try {
-			const res = await fetch(`${base}/generate`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					feature,
-					...(instruction ? { instruction } : {}),
-					...(fromAssetId ? { fromAssetId } : {})
-				})
-			});
-			if (!res.ok) {
-				const text = await res.text();
-				throw new Error(text || t.entry.media.genericGenerationFailedWithStatus(res.status));
-			}
-			const data = (await res.json()) as {
-				reusedFromCache: boolean;
-				assets: Candidate[];
-			};
-			// #255: a regeneration's result joins the candidate it refined instead of
-			// replacing the whole batch, so the user can compare and keep either; a fresh
-			// "Generate image" always starts a clean batch.
-			if (fromAssetId) {
-				candidates = [...candidates, ...data.assets];
-				selectedCandidateId = data.assets[0]?.id ?? selectedCandidateId;
-			} else {
-				candidates = data.assets;
-				selectedCandidateId = data.assets[0]?.id ?? null;
-			}
-			reusedFromCache = data.reusedFromCache;
-			dialogOpen = false;
-			regenerateSourceId = null;
-		} catch (err) {
-			error = err instanceof Error ? err.message : t.entry.media.genericGenerationFailed;
-		} finally {
-			generating = false;
-		}
-	}
-
-	async function handleInsert(): Promise<void> {
-		if (!selectedCandidateId) return;
-		error = null;
-		inserting = true;
-		try {
-			const res = await fetch(`${base}/attach`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ mediaAssetId: selectedCandidateId })
-			});
-			if (!res.ok) {
-				const text = await res.text();
-				throw new Error(text || t.entry.media.genericInsertFailedWithStatus(res.status));
-			}
-			// `assets` is derived from the `assets` prop (see its declaration above), so
-			// there is nothing to push locally here - awaiting `invalidateAll()` below is
-			// what brings the newly attached image into view, with the real row the server
-			// just wrote (real credits, real createdAt) rather than a guessed one.
-			candidates = [];
-			selectedCandidateId = null;
-			await invalidateAll();
-		} catch (err) {
-			error = err instanceof Error ? err.message : t.entry.media.genericInsertFailed;
-		} finally {
-			inserting = false;
-		}
-	}
-
-	function discardCandidates(): void {
-		candidates = [];
-		selectedCandidateId = null;
-	}
-
-	async function saveStyle(): Promise<void> {
-		savingStyle = true;
-		error = null;
-		try {
-			const res = await fetch(`${base}/style`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ modifier: styleDraft })
-			});
-			if (!res.ok) throw new Error(t.entry.media.styleSaveFailedWithStatus(res.status));
-			styleEditorOpen = false;
-			await invalidateAll();
-		} catch (err) {
-			error = err instanceof Error ? err.message : t.entry.media.genericStyleSaveFailed;
-		} finally {
-			savingStyle = false;
-		}
-	}
-
-	// #252: nothing here calls a model, so this control stays enabled even with
-	// `aiEnabled` false (guardrail 4 - the wiki, including a GM's own pictures, keeps
-	// working with the AI switched off). `uploadInput` is a plain ref, not `$state`,
-	// same convention as `LanguageControl.svelte`'s `formEl`: it is only ever written by
-	// the DOM binding and read imperatively from the click handler below, never read
-	// reactively in the template.
-	let uploadInput: HTMLInputElement | undefined;
-	let uploading = $state(false);
-
-	async function handleUpload(): Promise<void> {
-		const chosen = uploadInput?.files?.[0];
-		if (!chosen) return;
-		error = null;
-		uploading = true;
-		try {
-			const body = new FormData();
-			body.set('file', chosen);
-			const res = await fetch(`${base}/upload`, { method: 'POST', body });
-			if (!res.ok) {
-				const text = await res.text();
-				throw new Error(text || t.entry.media.upload.genericUploadFailedWithStatus(res.status));
-			}
-			// Same reasoning as handleInsert above: `assets` only ever changes through the
-			// `assets` prop, so invalidateAll() is what brings the new row into the grid,
-			// with the server's own id/createdAt rather than a locally guessed one.
-			await invalidateAll();
-		} catch (err) {
-			error = err instanceof Error ? err.message : t.entry.media.upload.genericUploadFailed;
-		} finally {
-			uploading = false;
-			if (uploadInput) uploadInput.value = '';
-		}
-	}
-
-	// #382: which asset's `gm_only` toggle request is in flight, if any - one control at
-	// a time makes sense (an asset can only be mid-toggle once), a shared boolean does
-	// not, since a GM might reasonably toggle a second asset while the first request is
-	// still in the air.
-	let updatingGmOnlyId = $state<string | null>(null);
-
-	let gmOnlyOptions = $derived<SegmentedOption[]>([
-		{ value: 'visible', label: t.entry.media.publish.visibleLabel },
-		{ value: 'gmOnly', label: t.entry.media.publish.gmOnlyLabel }
-	]);
-
-	async function handleToggleGmOnly(asset: MediaAssetView, gmOnly: boolean): Promise<void> {
-		error = null;
-		updatingGmOnlyId = asset.id;
-		try {
-			const res = await fetch(`${base}/publish`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ mediaAssetId: asset.id, gmOnly })
-			});
-			if (!res.ok) {
-				const text = await res.text();
-				throw new Error(text || t.entry.media.publish.genericUpdateFailedWithStatus(res.status));
-			}
-			// Same reasoning as handleInsert/handleUpload above: `assets` only ever changes
-			// through the `assets` prop, so invalidateAll() is what brings the real row's
-			// new `gmOnly` value into the grid.
-			await invalidateAll();
-		} catch (err) {
-			error = err instanceof Error ? err.message : t.entry.media.publish.genericUpdateFailed;
-		} finally {
-			updatingGmOnlyId = null;
-		}
-	}
-
-	// O2 (#284): same one-at-a-time shape as `publishingId` above, and a separate variable
-	// rather than a shared "busy" flag, because cover and publish are independent switches
-	// and a GM setting a cover while a publish is still in flight is not a mistake to
-	// prevent.
-	let coveringId = $state<string | null>(null);
-
-	/** The accept guardrail 1 asks for on an image: this is the only call in the app that
-	 * sets `entity.cover_asset_id`, and it exists only behind a button a person presses.
-	 * Pressing it on the asset that is already the cover clears it, so removing a cover is
-	 * the same deliberate act in reverse rather than a second surface. */
-	async function handleToggleCover(asset: MediaAssetView): Promise<void> {
-		error = null;
-		coveringId = asset.id;
-		try {
-			const res = await fetch(`${base}/cover`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ mediaAssetId: coverAssetId === asset.id ? null : asset.id })
-			});
-			if (!res.ok) {
-				const text = await res.text();
-				throw new Error(text || t.entry.media.cover.genericCoverFailedWithStatus(res.status));
-			}
-			// Same reasoning as handleTogglePublish above: `coverAssetId` only ever changes
-			// through its prop, and the band above the title reads the same loader field, so
-			// invalidateAll() is what moves both at once.
-			await invalidateAll();
-		} catch (err) {
-			error = err instanceof Error ? err.message : t.entry.media.cover.genericCoverFailed;
-		} finally {
-			coveringId = null;
-		}
+		return resolve(`/w/${universeSlug}/e/${entitySlug}/media/${id}`);
 	}
 </script>
 
-{#if !aiEnabled}
-	<p class="rounded-md border border-line bg-panel-2 px-3 py-2 text-sm text-ink-2">
-		{t.entry.media.aiOffBanner}
-	</p>
-{/if}
-
-{#if error}
-	<p class="mt-2 rounded-md border border-danger bg-danger-bg px-3 py-2 text-sm text-danger">
-		{error}
-	</p>
-{/if}
-
-{#if candidates.length > 0}
-	<div class="mt-3 rounded-md border border-line bg-panel-2 p-3">
-		<p class="text-xs text-ink-2">
-			{t.entry.media.candidatesSummary(reusedFromCache, candidates.length > 1)}
-		</p>
-		<div class="mt-2 grid grid-cols-2 gap-2">
-			{#each candidates as candidate (candidate.id)}
-				<button
-					type="button"
-					class="overflow-hidden rounded-md border-2"
-					class:border-accent={selectedCandidateId === candidate.id}
-					class:border-transparent={selectedCandidateId !== candidate.id}
-					onclick={() => (selectedCandidateId = candidate.id)}
-				>
-					<img src={imageUrl(candidate.id)} alt="Generated candidate" class="block h-auto w-full" />
-				</button>
-			{/each}
-		</div>
-		<div class="mt-2 flex flex-wrap gap-2">
-			<Button
-				type="button"
-				size="sm"
-				disabled={!selectedCandidateId || inserting}
-				onclick={handleInsert}
-			>
-				{inserting ? t.entry.media.inserting : t.entry.media.insert}
-			</Button>
-			<Button type="button" variant="secondary" size="sm" onclick={discardCandidates}>
-				{t.entry.media.discard}
-			</Button>
-			<Button
-				type="button"
-				variant="secondary"
-				size="sm"
-				disabled={!selectedCandidateId || !aiEnabled}
-				onclick={() => {
-					regenerateSourceId = selectedCandidateId;
-					dialogOpen = true;
-				}}
-			>
-				{t.entry.media.regenerate.trigger}
-			</Button>
-		</div>
-	</div>
-{/if}
-
-{#if assets.length === 0 && candidates.length === 0}
+{#if assets.length === 0}
 	<EmptyState
 		kind="derived"
 		message={t.entry.media.empty}
 		explanation={t.entry.media.explanation}
 	/>
-{:else if assets.length > 0}
-	<!-- O2 (#284): one column rather than two. The aside is 256px, so a two-up grid gave
-	     each cell about 108px, and two per-asset controls do not fit in that at any label
-	     length - which is the same mistake the tab strip this panel now sits inside was
-	     making. The row below wraps as well, so nothing here depends on how long a
-	     translated word happens to be. -->
-	<div class="mt-2 grid grid-cols-1 gap-2">
-		{#each assets as asset (asset.id)}
-			<div class="overflow-hidden rounded-md border border-line">
-				<div class="relative">
-					<img src={imageUrl(asset.id)} alt={entityName} class="block h-auto w-full" />
-					{#if asset.generated}
-						<span
-							class="absolute top-1 left-1 rounded-full border border-ai-line bg-ai-bg px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ai uppercase"
-						>
-							{t.entry.media.generatedBadge}
-						</span>
-					{:else}
-						<span
-							class="absolute top-1 left-1 rounded-full border border-line bg-panel-2 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-2 uppercase"
-						>
-							{t.entry.media.upload.uploadedBadge}
-						</span>
-					{/if}
-					{#if asset.gmOnly}
-						<span
-							class="absolute top-1 right-1 rounded-full border border-warn bg-warn-bg px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-warn uppercase"
-						>
-							{t.entry.media.publish.gmOnlyBadge}
-						</span>
-					{/if}
-					{#if coverAssetId === asset.id}
-						<!-- O2 (#284): which picture is the cover has to be legible on the
-						     picture, the same argument #254 made for publish state - a GM
-						     should not have to scroll up to the band to find out. -->
-						<span
-							class="absolute bottom-1 left-1 rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink uppercase"
-						>
-							{t.entry.media.cover.badge}
-						</span>
-					{/if}
-				</div>
-				<!-- #382: an attached image needs no note of its own here - it is visible once
-				     its entry is revealed, and the `gm_only` badge above already names the one
-				     exception. This strip only carries the controls that change that exception
-				     and the cover, both gated on write access same as before. -->
-				{#if canWrite}
-					<div
-						class="flex flex-wrap items-center gap-1.5 border-t border-line bg-panel-2 px-2 py-1.5"
-					>
-						<Segmented
-							name={`gm-only-${asset.id}`}
-							value={asset.gmOnly ? 'gmOnly' : 'visible'}
-							options={gmOnlyOptions}
-							disabled={updatingGmOnlyId === asset.id}
-							ariaLabel={t.entry.media.publish.toggleAriaLabel}
-							onchange={(value) => handleToggleGmOnly(asset, value === 'gmOnly')}
-							class="text-xs"
-						/>
-						<Button
-							type="button"
-							variant="secondary"
-							size="sm"
-							disabled={coveringId === asset.id}
-							onclick={() => handleToggleCover(asset)}
-						>
-							{#if coveringId === asset.id}
-								{t.entry.media.cover.saving}
-							{:else}
-								{coverAssetId === asset.id
-									? t.entry.media.cover.removeLabel
-									: t.entry.media.cover.useLabel}
-							{/if}
-						</Button>
-					</div>
-				{/if}
+{:else}
+	<div class="grid grid-cols-4 gap-1">
+		{#each preview as asset (asset.id)}
+			<div class="aspect-square overflow-hidden rounded-md border border-line">
+				<img src={imageUrl(asset.id)} alt={entityName} class="h-full w-full object-cover" />
 			</div>
 		{/each}
 	</div>
-	<p class="mt-1 text-xs text-muted">{t.entry.media.publish.explanation}</p>
-	<p class="mt-1 text-xs text-muted">{t.entry.media.cover.explanation}</p>
+	<p class="mt-2 text-xs text-muted">{t.entry.media.gallery.count(assets.length)}</p>
 {/if}
 
-{#if canWrite}
-	<Button
-		type="button"
-		class="mt-3"
-		disabled={!aiEnabled}
-		onclick={() => {
-			regenerateSourceId = null;
-			dialogOpen = true;
-		}}
-	>
-		{t.entry.media.generateButton}
-	</Button>
+<Button
+	type="button"
+	variant="secondary"
+	size="sm"
+	class="mt-2"
+	onclick={() => (galleryOpen = true)}
+>
+	{t.entry.media.gallery.openLabel}
+</Button>
 
-	<input
-		bind:this={uploadInput}
-		type="file"
-		accept="image/png,image/jpeg,image/webp"
-		class="hidden"
-		onchange={handleUpload}
-	/>
-	<Button
-		type="button"
-		variant="secondary"
-		class="mt-3 ml-2"
-		disabled={uploading}
-		onclick={() => uploadInput?.click()}
-	>
-		{uploading ? t.entry.media.upload.uploading : t.entry.media.upload.button}
-	</Button>
-
-	{#if styleEditorOpen}
-		<div class="mt-3 rounded-md border border-line bg-panel-2 p-3">
-			<label class="block text-xs font-medium text-ink-2" for="style-override">
-				{t.entry.media.styleOverrideLabel}
-			</label>
-			<Textarea id="style-override" bind:value={styleDraft} rows={2} class="mt-1" />
-			<div class="mt-2 flex gap-2">
-				<Button type="button" size="sm" disabled={savingStyle} onclick={saveStyle}>
-					{t.entry.media.save}
-				</Button>
-				<Button
-					type="button"
-					variant="secondary"
-					size="sm"
-					onclick={() => (styleEditorOpen = false)}
-				>
-					{t.entry.media.cancel}
-				</Button>
-			</div>
-		</div>
-	{/if}
-
-	<GenerateDialog
-		bind:open={dialogOpen}
-		{entityName}
-		{entityType}
-		{styleModifier}
-		{portraitPrice}
-		{variantsPrice}
-		{portraitModel}
-		{variantsModel}
-		busy={generating}
-		regenerateSource={regenerateSourceId
-			? { id: regenerateSourceId, imageUrl: imageUrl(regenerateSourceId) }
-			: null}
-		onGenerate={handleGenerate}
-		onEditStyle={() => {
-			styleDraft = entityImagePromptModifier ?? '';
-			styleEditorOpen = true;
-		}}
-		{locale}
-	/>
-{/if}
+<MediaGallery bind:open={galleryOpen} data={galleryData} {locale} />

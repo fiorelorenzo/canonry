@@ -115,7 +115,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			assets: imageAssets.map((asset) => ({
 				id: asset.id,
 				mimeType: asset.mimeType,
-				generated: asset.generated
+				generated: asset.generated,
+				gmOnly: asset.gmOnly,
+				credits: asset.credits,
+				createdAt: asset.createdAt
 			})),
 			scene: { price: scenePrice.credits, model: sceneModelSummary }
 		}
