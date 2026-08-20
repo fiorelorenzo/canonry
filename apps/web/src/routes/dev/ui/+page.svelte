@@ -69,6 +69,20 @@
 	];
 	let segmentedValue = $state<Record<string, string>>({ light: 'auto', dark: 'auto' });
 	let comboboxValue = $state<Record<string, string | null>>({ light: null, dark: null });
+
+	// Issue #367 (Q6): the motion row below. The token list is written out rather than read
+	// from the stylesheet on purpose - this page's job is to catch a mistake, and a table
+	// that reports whatever the CSS currently says can never disagree with it.
+	const motionTokens = [
+		{ name: '--transition-duration-fade', note: '140ms, opacity and colour, survives reduce' },
+		{ name: '--transition-duration-move', note: '200ms, position and size, 1ms under reduce' },
+		{ name: '--ease-arrive', note: 'cubic-bezier(0.16, 0.84, 0.44, 1)' },
+		{ name: '--ease-leave', note: 'cubic-bezier(0.4, 0, 1, 1)' }
+	];
+	let motionRun = $state<Record<string, number>>({ light: 0, dark: 0 });
+	function replay(theme: string): void {
+		motionRun[theme] = (motionRun[theme] ?? 0) + 1;
+	}
 </script>
 
 <svelte:head><title>Component gallery: shadcn-svelte control layer (dev only)</title></svelte:head>
@@ -328,6 +342,36 @@
 							<Button variant="link">Open the editor</Button>
 						{/snippet}
 					</EmptyState>
+				</div>
+
+				<!-- Issue #367 (Q6): the motion system's own row. The four tokens with the
+				     values they resolve to, and a box that replays the one enter animation
+				     every surface in the app uses. This is the surface to point CDP's
+				     `Emulation.setEmulatedMedia` at: with `prefers-reduced-motion: reduce`
+				     the box still appears and still fades, and stops sliding. -->
+				<h3 class="mt-6 mb-2 text-sm font-semibold text-ink">Motion tokens (Q6)</h3>
+				<div class="flex flex-col gap-3 rounded border border-line bg-panel p-4">
+					<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 font-mono text-xs">
+						{#each motionTokens as token (token.name)}
+							<dt class="text-ink-2">{token.name}</dt>
+							<dd class="m-0 text-muted">{token.note}</dd>
+						{/each}
+					</dl>
+					<div class="flex items-center gap-3">
+						<Button variant="secondary" size="sm" onclick={() => replay(pane.theme)}>Replay</Button>
+						{#key motionRun[pane.theme]}
+							<span
+								class="animate-in rounded-md border border-line-2 bg-panel-2 px-2.5 py-1 text-xs text-ink duration-move ease-arrive fade-in-0 slide-in-from-bottom-2"
+							>
+								duration-move, arriving
+							</span>
+							<span
+								class="animate-in rounded-md border border-line-2 bg-panel-2 px-2.5 py-1 text-xs text-ink duration-fade ease-arrive fade-in-0"
+							>
+								duration-fade, no travel
+							</span>
+						{/key}
+					</div>
 				</div>
 			</section>
 		{/each}

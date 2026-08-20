@@ -24,6 +24,13 @@
 	 * - **No count of anything the sidebar counts.** That is the whole of #348, and a
 	 *   figure put back here later should have an answer to why the sidebar's copy of it is
 	 *   not enough.
+	 * - **No entrance animation, and this is #367's own answer rather than an omission.**
+	 *   Q6 gives motion to a thing arriving, a panel expanding and a state that changed
+	 *   under somebody's click, and refuses text on load. Nothing on this page is any of
+	 *   the first three: three sections and a masthead are simply what the page is, so
+	 *   three sections easing in one after another would be the refused case wearing the
+	 *   decision's clothes. What the motion pass did reach here is the Continue cards'
+	 *   hover, which now crosses on the fade token instead of snapping.
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';

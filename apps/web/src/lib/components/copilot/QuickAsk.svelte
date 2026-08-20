@@ -288,8 +288,15 @@
 	     inert - at the `md` breakpoint itself 568px plus the two 24px gutters leaves the
 	     page visible beside it. Height is deliberately unchanged: at 390x844 the phone
 	     panel already reaches 590px above a 64px bar, and the ribbon was a width problem. -->
+	<!-- #367 (Q6): O3 chose a pill that expands in place, and until now it did not expand,
+	     it cut. The panel is the clearest case the decision names, so it arrives on
+	     `duration-move` from the corner the pill was in. The answer inside it does not
+	     animate and must not: `ModelRunning` and a streaming answer are the reader already
+	     being made to wait, and Q6 refuses anything that moves during that. Closing is
+	     instant, because a panel that takes 200ms to get out of the way is the "delays an
+	     action behind its own animation" case. -->
 	<section
-		class="fixed inset-x-2 bottom-16 z-30 flex max-h-[70vh] flex-col overflow-hidden rounded-xl border border-line-2 bg-panel shadow-2xl md:inset-x-auto md:right-6 md:bottom-6 md:w-[calc(var(--container-measure)+1.5rem)]"
+		class="fixed inset-x-2 bottom-16 z-30 flex max-h-[70vh] animate-in flex-col overflow-hidden rounded-xl border border-line-2 bg-panel shadow-2xl duration-move ease-arrive fade-in-0 slide-in-from-bottom-2 md:inset-x-auto md:right-6 md:bottom-6 md:w-[calc(var(--container-measure)+1.5rem)]"
 		aria-label={t.name}
 	>
 		<div class="flex items-center gap-2 border-b border-line px-3 py-2">

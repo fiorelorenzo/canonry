@@ -143,6 +143,30 @@
 	--radius-2xl: calc(var(--radius) * 1.8);
 	--radius-3xl: calc(var(--radius) * 2.2);
 	--radius-4xl: calc(var(--radius) * 2.6);
+
+	/* Motion (Q6, round twelve, #367). Two durations, named by what each one is allowed
+	 * to move rather than by how long it lasts, because the name is what decides whether
+	 * a value survives `prefers-reduced-motion` further down:
+	 *
+	 * - `duration-fade` is for opacity and colour. It survives reduced motion, because a
+	 *   cross-fade moves nothing: the pixels change value in place.
+	 * - `duration-move` is for position, size and scale. It collapses to 1ms under
+	 *   reduced motion, so the same state change still happens and simply arrives at
+	 *   once.
+	 *
+	 * Two easings, and only two: `--ease-arrive` decelerates, for a thing coming in, and
+	 * `--ease-leave` accelerates, for one going away, because nothing leaving deserves to
+	 * be waited for. Tailwind's own --default-transition-duration is repointed at the
+	 * fade token so a bare `transition-colors` anywhere in the app, including the
+	 * shadcn components' `transition-[color,box-shadow]`, lands on our number rather
+	 * than on the framework's 150ms.
+	 *
+	 * docs/ux/MOTION.md is the whole pattern, and it is four rules long. */
+	--transition-duration-fade: 140ms;
+	--transition-duration-move: 200ms;
+	--ease-arrive: cubic-bezier(0.16, 0.84, 0.44, 1);
+	--ease-leave: cubic-bezier(0.4, 0, 1, 1);
+	--default-transition-duration: var(--transition-duration-fade);
 }
 
 /* Dark is the same palette after dark, not a second design language. Applied by an
@@ -283,6 +307,87 @@
 			--color-border: var(--color-line);
 			--color-input: var(--color-line-2);
 			--color-ring: var(--color-accent);
+		}
+	}
+
+	/* Reduced motion, and what it means here (Q6, #367).
+	 *
+	 * It does not mean nothing happens. It means **nothing travels**: every state change
+	 * still happens and still shows, and the ones that would have moved across the
+	 * screen arrive at once instead. Opacity and colour keep their transition, because
+	 * a cross-fade is a value changing in place and is the cheapest honest way to say
+	 * "this is different now" to somebody who asked the system for less movement.
+	 *
+	 * Three things do that, and this is the whole of it. Nothing per component.
+	 *
+	 * 1. The move token collapses. Anything on `duration-move` becomes instant, and
+	 *    1ms rather than 0 on purpose: bits-ui unmounts a popover, dialog or sheet when
+	 *    its exit animation ends, and a zero-length animation is a category some
+	 *    engines and libraries treat as "no animation at all", which is how an overlay
+	 *    gets stranded on screen. 1ms fires the event and is imperceptible.
+	 * 2. tw-animate-css's own offsets go to their no-op values. Its `enter`/`exit`
+	 *    keyframes read one variable per axis (see dist/tw-animate.css), so zeroing the
+	 *    translate, scale, rotate and blur ones leaves the opacity half of the exact
+	 *    same keyframe intact: `animate-in fade-in-0 slide-in-from-bottom-2` becomes a
+	 *    fade with no slide, rather than being switched off. They are declared
+	 *    `inherits: false`, so this has to land on every element and not only on the
+	 *    root, and `!important` is what outranks the utility class that set them.
+	 * 3. Nothing waits. A delay is time during which a reader sees the old state.
+	 *
+	 * A loop is the one case with no end state to make instant, so it stops outright.
+	 * `animate-pulse` is deliberately not in that list: it runs on opacity alone.
+	 * ModelRunning.svelte's spinner keeps its own rule because it also has to put its
+	 * accent-coloured arc back to a plain ring once it stops turning.
+	 *
+	 * There is no in-product setting for this, and that is a decision rather than an
+	 * omission. G1 gave dark one because a reader's room is a fact the OS cannot know;
+	 * a vestibular preference is not, it is set once per machine and meant for every
+	 * app on it. */
+	@media (prefers-reduced-motion: reduce) {
+		:root {
+			--transition-duration-move: 1ms;
+		}
+
+		*,
+		*::before,
+		*::after {
+			--tw-enter-translate-x: 0 !important;
+			--tw-enter-translate-y: 0 !important;
+			--tw-enter-scale: 1 !important;
+			--tw-enter-rotate: 0 !important;
+			--tw-enter-blur: 0 !important;
+			--tw-exit-translate-x: 0 !important;
+			--tw-exit-translate-y: 0 !important;
+			--tw-exit-scale: 1 !important;
+			--tw-exit-rotate: 0 !important;
+			--tw-exit-blur: 0 !important;
+			animation-delay: 0ms !important;
+			transition-delay: 0ms !important;
+		}
+
+		/* A transition can move something too, and CSS has no selector for "transitions
+		 * transform". The utility that declared it is the handle: `transition`,
+		 * `transition-all` and `transition-transform` are the three in Tailwind's
+		 * vocabulary whose property list carries transform, translate, scale and rotate.
+		 * They collapse whole rather than per property, so a button's colour goes instant
+		 * here as well, which is the permitted half of this rule rather than a compromise.
+		 * `transition-colors` and `transition-[color,box-shadow]`, which is what every
+		 * hover in this app actually uses, are untouched and keep their 140ms.
+		 *
+		 * This is the reason the rule lives here rather than in each component: a
+		 * `transition-transform` chevron in EntrySections.svelte and a `transition-all`
+		 * on every button both stop travelling without either file knowing this exists,
+		 * and so does the next one somebody writes. */
+		.transition,
+		.transition-all,
+		.transition-transform {
+			transition-duration: var(--transition-duration-move) !important;
+		}
+
+		.animate-spin,
+		.animate-ping,
+		.animate-bounce {
+			animation: none !important;
 		}
 	}
 }

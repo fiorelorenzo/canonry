@@ -244,6 +244,13 @@ Follows the shared UI pipeline (`ui-brief-first`, `ui-design-tokens`, `ui-visual
   surface.
 - Dark mode is real and whole-app (`G1 = B`), toggled via `[data-theme='dark']`, so a
   light/dark screenshot pair should differ, not come back identical.
+- Motion is a system, and `prefers-reduced-motion` is honoured at the system level
+  (`Q6`, #367): two duration tokens named by what they may move, two easings, one
+  reduced-motion rule in `layout.css`, and `docs/ux/MOTION.md` as the four-rule pattern a
+  component follows. A hardcoded `duration-200` is a violated rule the same way a raw hex
+  is. Reduced motion means nothing travels, not that nothing happens, so verify it by
+  emulating the preference (CDP `Emulation.setEmulatedMedia`) rather than by reading the
+  media query, and expect the two runs to differ.
 
 ## Deployment
 
