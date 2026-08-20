@@ -17,6 +17,7 @@
  */
 import MarkdownIt from 'markdown-it';
 import type { Env, Token } from 'markdown-it';
+import { stripSecretsForPlayers } from '@canonry/lang';
 
 /** The slice of an entity a mention needs to resolve and link to it. Deliberately not the
  * full entity row: this travels into `env` on every render call. */
@@ -232,4 +233,40 @@ export function normalizeMentions(body: string, targets: MentionTarget[]): strin
  */
 export function stripMentionSyntax(text: string): string {
 	return text.replace(/\[\[([^\]\n]+)\]\]/g, '$1');
+}
+
+/**
+ * The opening of a body as plain prose, for the mention preview card (#364).
+ *
+ * `stripSecretsForPlayers` runs first, on both surfaces, always. `@canonry/lang` holds the
+ * one definition of what a fence hides, and a preview that sliced a body itself would be a
+ * second one living inside a floating box nobody thinks to audit, which is #355 all over
+ * again. The GM's own card strips too, even though the GM may read the whole entry on the
+ * page below: a glance card is exactly the surface that gets read over a shoulder at a
+ * table, and one code path for both surfaces means the players' side cannot be the one that
+ * quietly regresses.
+ *
+ * Then markdown becomes prose, because the card renders this as text and never as HTML: a
+ * heading marker, an emphasis pair or an image reference would otherwise show up as
+ * punctuation in the middle of a sentence. Truncation lands on a word boundary when there
+ * is one close enough to the limit, and adds an ellipsis so a cut sentence reads as cut.
+ */
+export function mentionPreviewExcerpt(body: string, limit = 200): string {
+	const plain = stripMentionSyntax(stripSecretsForPlayers(body))
+		// Thematic breaks first: `---` is not a list bullet and must not become one.
+		.replace(/^[ \t]{0,3}(?:-{3,}|\*{3,}|_{3,})[ \t]*$/gm, ' ')
+		// An image's alt text is a description of a picture, not the entry's prose.
+		.replace(/!\[[^\]\n]*\]\([^)\n]*\)/g, ' ')
+		.replace(/\[([^\]\n]*)\]\([^)\n]*\)/g, '$1')
+		.replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, '')
+		.replace(/^[ \t]{0,3}>[ \t]?/gm, '')
+		.replace(/^[ \t]{0,3}(?:[-*+]|\d+[.)])[ \t]+/gm, '')
+		.replace(/\*\*|__|~~|`+|[*_]/g, '')
+		.replace(/\s+/g, ' ')
+		.trim();
+	if (plain.length <= limit) return plain;
+	const cut = plain.slice(0, limit);
+	const lastSpace = cut.lastIndexOf(' ');
+	const kept = lastSpace > limit * 0.6 ? cut.slice(0, lastSpace) : cut;
+	return `${kept.trimEnd()}\u2026`;
 }

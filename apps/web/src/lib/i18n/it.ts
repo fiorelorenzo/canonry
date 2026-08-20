@@ -427,6 +427,11 @@ export const it: Messages = {
 		}
 	},
 
+	mentionPreview: {
+		gap: 'Se ne è sentito parlare, ma non è ancora stato scoperto.',
+		empty: 'Nessuno ha ancora scritto questa pagina.'
+	},
+
 	docsLanguages: {
 		title: 'Cosa traduciamo, e cosa no',
 		intro:

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	mentionPreviewExcerpt,
 	normalizeMentions,
 	renderMarkdown,
 	renderMarkdownWithHighlight,
@@ -200,5 +201,94 @@ describe('stripMentionSyntax', () => {
 		expect(stripMentionSyntax('[[Aldric Vane]] and [[The Ashen Ledger]]')).toBe(
 			'Aldric Vane and The Ashen Ledger'
 		);
+	});
+});
+
+/**
+ * #364, the half of the issue that is about guardrail 6 rather than about a tooltip. A
+ * preview is a second way to read an entry, and #355 is open because a quoted slice can
+ * carry a fenced sentence, so these assert the excerpt against the fixture world's own
+ * shape: The Ashen Ledger carries both a `:::secret` and a `:::gmnote` fence.
+ *
+ * The needles are the fenced sentences themselves and the markers around them. A future
+ * refactor that reached for `body.slice(0, 200)` because it is faster would pass every
+ * other test in this file and fail these.
+ */
+describe('mentionPreviewExcerpt (#364)', () => {
+	const FENCED_BODY = [
+		'A merchant bank that lends at knife point.',
+		'',
+		':::secret',
+		'Aldric Vane is on the Ledger payroll.',
+		':::',
+		'',
+		':::gmnote',
+		'GM only: play this as her fault circling back.',
+		':::',
+		'',
+		'Its writ runs the length of the Lantern Quarter.'
+	].join('\n');
+
+	it('never carries a sentence from inside a secret or a GM note fence', () => {
+		const excerpt = mentionPreviewExcerpt(FENCED_BODY);
+		expect(excerpt).not.toContain('Aldric Vane is on the Ledger payroll');
+		expect(excerpt).not.toContain('play this as her fault circling back');
+		expect(excerpt).toContain('A merchant bank that lends at knife point.');
+		expect(excerpt).toContain('Its writ runs the length of the Lantern Quarter.');
+	});
+
+	it('never carries a fence marker, which would say there is something hidden here', () => {
+		expect(mentionPreviewExcerpt(FENCED_BODY)).not.toContain(':::');
+	});
+
+	it('fails closed on an unclosed fence, hiding the rest of the body with it', () => {
+		const excerpt = mentionPreviewExcerpt(
+			['The public opening.', '', ':::secret', 'Everything after a typo stays hidden.'].join('\n')
+		);
+		expect(excerpt).toBe('The public opening.');
+	});
+
+	it('withholds everything when the whole body is fenced', () => {
+		expect(mentionPreviewExcerpt([':::secret', 'All of it is a secret.', ':::'].join('\n'))).toBe(
+			''
+		);
+	});
+
+	it('reads as prose, not as markup: no heading marks, bullets, emphasis or image refs', () => {
+		const excerpt = mentionPreviewExcerpt(
+			[
+				'## The Ledger',
+				'',
+				'![a portrait](/w/valdoria-reach/e/the-ashen-ledger/media/abc)',
+				'',
+				'- **Founded** in the year of the _long rain_',
+				'- Holds the debt of [the Quarter](/p/valdoria-reach/lantern-quarter)',
+				'',
+				'> They lend at knife point.'
+			].join('\n')
+		);
+		expect(excerpt).toBe(
+			'The Ledger Founded in the year of the long rain Holds the debt of the Quarter They lend at knife point.'
+		);
+	});
+
+	it('shows a mention as the name it reads as, not as its brackets', () => {
+		expect(mentionPreviewExcerpt('Sworn to [[The Ashen Ledger]] since the siege.')).toBe(
+			'Sworn to The Ashen Ledger since the siege.'
+		);
+	});
+
+	it('cuts on a word boundary and says it cut', () => {
+		const excerpt = mentionPreviewExcerpt('one two three four five six seven', 20);
+		expect(excerpt).toBe('one two three four\u2026');
+	});
+
+	it('leaves a body shorter than the limit whole, with no ellipsis', () => {
+		expect(mentionPreviewExcerpt('Short enough.', 20)).toBe('Short enough.');
+	});
+
+	it('is empty for an entry nobody has written yet', () => {
+		expect(mentionPreviewExcerpt('')).toBe('');
+		expect(mentionPreviewExcerpt('   \n\n  ')).toBe('');
 	});
 });

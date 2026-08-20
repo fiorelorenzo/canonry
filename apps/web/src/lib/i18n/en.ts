@@ -428,6 +428,11 @@ export const en: Messages = {
 		}
 	},
 
+	mentionPreview: {
+		gap: 'Heard of, not yet discovered.',
+		empty: 'Nobody has written this one yet.'
+	},
+
 	docsLanguages: {
 		title: 'What we translate, and what we do not',
 		intro:
