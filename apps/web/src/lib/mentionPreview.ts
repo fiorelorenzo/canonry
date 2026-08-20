@@ -33,6 +33,15 @@ export interface MentionPreviewData {
 	/** Already through `mentionPreviewExcerpt`, so already through `stripSecretsForPlayers`.
 	 * Empty when the entry has no prose. */
 	excerpt: string;
+	/** S6, round fourteen (#411): the entry's cover, already through the same gate its own
+	 * page reads it through - the GM route sends `entity.coverAssetId` untouched (nothing to
+	 * filter, its own doc comment says why), the players' route sends `coverImageId`, which
+	 * `publicEntityBySlug` only fills for an asset that is attached, not `gm_only`, on an
+	 * entry that is itself not `gm_only` and has been revealed (R7, #382) - the same chain
+	 * `/p/<slug>`'s own band reads. Absent, never `null`, so an older client that has never
+	 * heard of a cover still parses this payload, and `MentionPreview.svelte` draws nothing
+	 * beside the text for the entry-with-no-cover case, exactly the same nothing. */
+	coverId?: string;
 }
 
 /** The GM surface and the players' surface have separate endpoints on purpose, mirroring the
@@ -74,7 +83,8 @@ function isPreviewData(value: unknown): value is MentionPreviewData {
 		typeof candidate.name === 'string' &&
 		typeof candidate.type === 'string' &&
 		typeof candidate.excerpt === 'string' &&
-		(candidate.status === 'full' || candidate.status === 'gap')
+		(candidate.status === 'full' || candidate.status === 'gap') &&
+		(candidate.coverId === undefined || typeof candidate.coverId === 'string')
 	);
 }
 

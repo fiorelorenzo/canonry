@@ -33,6 +33,7 @@ import {
 	eq,
 	revealEntityLive,
 	revealFactLive,
+	setEntityCover,
 	type Db,
 	type RevealedEntityListItem
 } from '@canonry/db';
@@ -47,11 +48,13 @@ import {
 	user
 } from '@canonry/db/schema';
 import type { PublicEntityPageData, PublicUniverse } from '$lib/server/players';
+import type { MentionPreviewData } from '$lib/mentionPreview';
 import { isHttpError } from '@sveltejs/kit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { load as loadLayout } from './[universe]/+layout.server.js';
 import { load as loadIndex } from './[universe]/+page.server.js';
 import { load as loadEntity } from './[universe]/[slug]/+page.server.js';
+import { GET as getPreview } from './[universe]/preview/[slug]/+server.js';
 
 const DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
@@ -545,5 +548,95 @@ describe('players wiki: leak test (#85)', () => {
 		assertNoLeak(result);
 		expect(result.entity).toEqual({ status: 'gap', name: UNDISCOVERED_NAME, type: 'faction' });
 		expect(result.mentionTargets).toEqual([]);
+	});
+
+	function requestPreview(slug: string): Promise<Response> {
+		return Promise.resolve(
+			getPreview({ params: { universe: universeRow.slug, slug } } as Parameters<
+				typeof getPreview
+			>[0])
+		);
+	}
+
+	it("the preview endpoint carries a revealed entry's published cover (S6, #411)", async () => {
+		const PREVIEW_COVER_PATH = '/media/preview-cover-leak-test.png';
+		const [unattached] = await db
+			.insert(mediaAsset)
+			.values({
+				universeId: universeRow.id,
+				kind: 'image',
+				path: PREVIEW_COVER_PATH,
+				mimeType: 'image/png',
+				generated: true
+			})
+			.returning();
+		if (!unattached) throw new Error('media asset insert did not return a row');
+		const attached = await attachMediaAsset(db, unattached.id, revealedEntity.id);
+		await setEntityCover(db, { entityId: revealedEntity.id, mediaAssetId: attached.id });
+
+		const payload = (await (
+			await requestPreview(revealedEntity.slug)
+		).json()) as MentionPreviewData;
+		assertNoLeak(payload);
+		expect(payload.coverId).toBe(attached.id);
+	});
+
+	it('the preview endpoint never carries a cover for an entity nobody has discovered yet, even when one is attached and set as its cover (S6, #411)', async () => {
+		const GAP_COVER_PATH = '/media/gap-entity-preview-cover-leak-test.png';
+		const [unattached] = await db
+			.insert(mediaAsset)
+			.values({
+				universeId: universeRow.id,
+				kind: 'image',
+				path: GAP_COVER_PATH,
+				mimeType: 'image/png',
+				generated: true
+			})
+			.returning();
+		if (!unattached) throw new Error('media asset insert did not return a row');
+		const attached = await attachMediaAsset(db, unattached.id, undiscoveredEntity.id);
+		await setEntityCover(db, { entityId: undiscoveredEntity.id, mediaAssetId: attached.id });
+
+		const response = await requestPreview(undiscoveredEntity.slug);
+		const payload = await response.json();
+		assertNoLeak(payload);
+		expect(payload).toEqual({
+			name: UNDISCOVERED_NAME,
+			type: 'faction',
+			status: 'gap',
+			excerpt: ''
+		});
+		const text = JSON.stringify(payload);
+		expect(text).not.toContain(attached.id);
+		expect(text).not.toContain(GAP_COVER_PATH);
+	});
+
+	it('the preview endpoint never carries a gm_only cover, even on a fully revealed entity (S6, #411, R7/#382)', async () => {
+		const GM_ONLY_COVER_PATH = '/media/gm-only-preview-cover-leak-test.png';
+		const [unattached] = await db
+			.insert(mediaAsset)
+			.values({
+				universeId: universeRow.id,
+				kind: 'image',
+				path: GM_ONLY_COVER_PATH,
+				mimeType: 'image/png',
+				generated: true,
+				gmOnly: true
+			})
+			.returning();
+		if (!unattached) throw new Error('media asset insert did not return a row');
+		const attached = await attachMediaAsset(db, unattached.id, revealedEntity.id);
+		expect(attached.gmOnly).toBe(true);
+		await setEntityCover(db, { entityId: revealedEntity.id, mediaAssetId: attached.id });
+
+		const payload = (await (
+			await requestPreview(revealedEntity.slug)
+		).json()) as MentionPreviewData;
+		assertNoLeak(payload);
+		expect(payload.status).toBe('full');
+		expect(payload.coverId).toBeUndefined();
+		const text = JSON.stringify(payload);
+		expect(text).not.toContain(attached.id);
+		expect(text).not.toContain(GM_ONLY_COVER_PATH);
 	});
 });

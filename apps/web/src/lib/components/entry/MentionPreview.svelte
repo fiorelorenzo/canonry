@@ -38,6 +38,7 @@
 	 *   be left belongs to the browser's own context menu. `pointerType` is the gate, so a
 	 *   mouse plugged into a tablet still previews.
 	 */
+	import { resolve } from '$app/paths';
 	import { messages, type Locale } from '$lib/i18n';
 	import type { MentionSurface } from '$lib/markdown';
 	import {
@@ -45,6 +46,7 @@
 		mentionSlugFromHref,
 		type MentionPreviewData
 	} from '$lib/mentionPreview';
+	import { COVER_POSITION, COVER_RATIO } from '$lib/components/media/cover-crop';
 
 	let {
 		container,
@@ -74,9 +76,29 @@
 
 	let anchor = $state<HTMLAnchorElement | null>(null);
 	let data = $state<MentionPreviewData | null>(null);
+	/** The mention's own entity slug, captured alongside `data` in `open()`: the GM cover
+	 * route needs it (`/w/<universe>/e/<entry>/media/<id>`, unlike the players' one) and
+	 * `mentionSlugFromHref` is not itself reactive state, so it has to live here rather
+	 * than be re-derived from `anchor` on every render. */
+	let entitySlug = $state<string | null>(null);
 	let left = $state(0);
 	let top = $state(0);
 	let width = $state(MAX_CARD_WIDTH);
+
+	/** S6 (#411): built from the id alone, not carried as a ready URL from the server - the
+	 * two surfaces' media routes have different shapes (the GM one needs the entity slug
+	 * too, the players' one does not), and `resolve` only accepts a route it can match
+	 * against the app's own generated route table, which means the template literal has to
+	 * sit at this call site rather than come back from a helper typed `string` (that widens
+	 * away the literal shape `resolve` checks against). `null` for both "no cover" and "no
+	 * card open", which is the same nothing the markup below already treats identically. */
+	let coverSrc = $derived(
+		data?.coverId && entitySlug
+			? surface === 'public'
+				? resolve(`/p/${universeSlug}/media/${data.coverId}`)
+				: resolve(`/w/${universeSlug}/e/${entitySlug}/media/${data.coverId}`)
+			: null
+	);
 
 	let openTimer: ReturnType<typeof setTimeout> | null = null;
 	let closeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -100,6 +122,7 @@
 		anchor?.removeAttribute('aria-describedby');
 		anchor = null;
 		data = null;
+		entitySlug = null;
 	}
 
 	async function open(trigger: HTMLAnchorElement): Promise<void> {
@@ -123,6 +146,7 @@
 		left = Math.min(Math.max(0, anchorRect.left - containerRect.left), root.clientWidth - width);
 		top = anchorRect.bottom - containerRect.top + 6;
 		data = found;
+		entitySlug = slug;
 		anchor = trigger;
 		trigger.setAttribute('aria-describedby', cardId);
 	}
@@ -204,22 +228,40 @@
 	<span
 		id={cardId}
 		role="tooltip"
-		class="pointer-events-none absolute z-20 block rounded-md border border-line-2 bg-panel p-3 shadow-lg"
+		class="pointer-events-none absolute z-20 flex gap-3 rounded-md border border-line-2 bg-panel p-3 shadow-lg"
 		style="left: {left}px; top: {top}px; width: {width}px"
 	>
-		<span class="block text-sm font-semibold text-ink">{data.name}</span>
-		<!-- `text-ink-2` and not `text-muted`: at 10px the muted ink is 4.13:1 on `bg-panel`,
-		     which axe fails and a phone in daylight fails harder. The mono uppercase is what
-		     makes this read as a label, not the lighter colour. -->
-		<span class="mt-0.5 block font-mono text-[10px] tracking-wide text-ink-2 uppercase">
-			{data.type}
-		</span>
-		{#if data.status === 'gap'}
-			<span class="mt-1.5 block text-xs text-ink-2 italic">{t.gap}</span>
-		{:else if data.excerpt}
-			<span class="mt-1.5 line-clamp-4 block text-xs text-ink-2">{data.excerpt}</span>
-		{:else}
-			<span class="mt-1.5 block text-xs text-ink-2 italic">{t.empty}</span>
+		{#if coverSrc}
+			<!-- Sized from the ratio `cover-crop.ts` already keeps per entity type (S6, #411),
+			     so the box is reserved before the image request even starts - the card never
+			     resizes once the picture has loaded in. -->
+			<span
+				class="block shrink-0 overflow-hidden rounded border border-line bg-panel-2"
+				style="width: 3rem; aspect-ratio: {COVER_RATIO[data.type]}"
+			>
+				<img
+					src={coverSrc}
+					alt={data.name}
+					class="h-full w-full object-cover"
+					style="object-position: {COVER_POSITION[data.type]}"
+				/>
+			</span>
 		{/if}
+		<span class="min-w-0 flex-1">
+			<span class="block text-sm font-semibold text-ink">{data.name}</span>
+			<!-- `text-ink-2` and not `text-muted`: at 10px the muted ink is 4.13:1 on `bg-panel`,
+			     which axe fails and a phone in daylight fails harder. The mono uppercase is what
+			     makes this read as a label, not the lighter colour. -->
+			<span class="mt-0.5 block font-mono text-[10px] tracking-wide text-ink-2 uppercase">
+				{data.type}
+			</span>
+			{#if data.status === 'gap'}
+				<span class="mt-1.5 block text-xs text-ink-2 italic">{t.gap}</span>
+			{:else if data.excerpt}
+				<span class="mt-1.5 line-clamp-4 block text-xs text-ink-2">{data.excerpt}</span>
+			{:else}
+				<span class="mt-1.5 block text-xs text-ink-2 italic">{t.empty}</span>
+			{/if}
+		</span>
 	</span>
 {/if}

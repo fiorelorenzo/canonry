@@ -10,6 +10,12 @@
  * does share with the public endpoint is the excerpt: `mentionPreviewExcerpt` runs
  * `stripSecretsForPlayers` on both surfaces, so a fenced sentence never reaches a floating
  * card even here. See that function's own comment for why the GM side strips too.
+ *
+ * S6 (#411): `coverId` is `entity.coverAssetId` passed straight through, for the same
+ * reason the excerpt carries no filter - this is the GM's own surface, and `/p/<slug>`'s
+ * own doc comment already covers guardrail 6 for the picture this entity is showing
+ * players. Undefined rather than null when there is none, so an entry with no cover
+ * answers exactly as it did before this field existed.
  */
 import { error, json } from '@sveltejs/kit';
 import { universeAccessBySlug } from '@canonry/db';
@@ -27,7 +33,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	const row = await conn.query.entity.findFirst({
 		where: (entity, { and, eq }) =>
 			and(eq(entity.universeId, access.universe.id), eq(entity.slug, params.slug)),
-		columns: { name: true, type: true, body: true }
+		columns: { name: true, type: true, body: true, coverAssetId: true }
 	});
 	if (!row) error(404, `no entry named "${params.slug}"`);
 
@@ -38,6 +44,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		// surface there is no such thing. An entry with nothing written in it comes back with
 		// an empty excerpt and the card says so.
 		status: 'full',
-		excerpt: mentionPreviewExcerpt(row.body)
+		excerpt: mentionPreviewExcerpt(row.body),
+		coverId: row.coverAssetId ?? undefined
 	} satisfies MentionPreviewData);
 };
