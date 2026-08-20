@@ -42,14 +42,35 @@
 	 * B1 = C itself is not reopened. The page is still a document plus a switching right
 	 * column: what changed is the switch, and the five panels keep exactly what they held
 	 * before.
+	 *
+	 * Round fourteen S5 (#410) puts the entry's cover here too, above Relations: the aside
+	 * "is where a cover belongs and it was there all along" - it is already the entry's
+	 * structured column, and it already runs the full height of the page (Q2). `cover` and
+	 * `coverUrl` carry `+page.svelte`'s own `coverSlot()`/`resolve()` answers rather than
+	 * being re-derived here, so the gate (`canWrite`) still lives in exactly one place.
+	 * `EntryCover`/`EntryCoverPlaceholder` render with `variant="aside"`, which takes the
+	 * width the aside already has (`md:w-64` below) and a height that follows from the
+	 * ratio alone - "natural height", tall for a character, short for a place. The aside's
+	 * own `md:overflow-y-auto` (see the comment on `<aside>` below) is what keeps a tall
+	 * portrait from breaking the sticky column or hiding a section under it: the cover is
+	 * simply the first thing that scrolls past, the same way a sixth open section would.
+	 *
+	 * The caller passes `cover="none"` for the mobile sheet mount (`+page.svelte`'s second
+	 * `EntrySections`, id `entry-detail-mobile`): a mobile reader already sees the cover as
+	 * a band above the title before opening anything (`EntryCover` with the default
+	 * `variant="band"`, mounted separately there), so drawing it again behind the sheet
+	 * trigger would be the same picture twice for one tap.
 	 */
 	import { messages, type Locale } from '$lib/i18n';
 	import type { RelationView } from '@canonry/db';
+	import type { EntityType } from '@canonry/db/schema';
 	import RelationsPanel from './RelationsPanel.svelte';
 	import FactsPanel, { type FactRow } from './FactsPanel.svelte';
 	import EntryMediaPanel from '../media/EntryMediaPanel.svelte';
 	import HistoryPanel, { type RevisionRow } from './HistoryPanel.svelte';
 	import AuditFlagsPanel, { type AuditFlagView } from '../audit/AuditFlagsPanel.svelte';
+	import EntryCover from '../media/EntryCover.svelte';
+	import EntryCoverPlaceholder from '../media/EntryCoverPlaceholder.svelte';
 
 	type ModelSummary = { provider: string; modelId: string } | null;
 	interface MediaAssetView {
@@ -63,7 +84,7 @@
 	interface MediaSectionData {
 		entitySlug: string;
 		entityName: string;
-		entityType: string;
+		entityType: EntityType;
 		aiEnabled: boolean;
 		canWrite: boolean;
 		assets: MediaAssetView[];
@@ -88,6 +109,8 @@
 		activeFactId,
 		onFactToggle,
 		media,
+		cover,
+		coverUrl,
 		audit,
 		locale,
 		open = $bindable({ ...DEFAULT_SECTIONS_OPEN })
@@ -105,6 +128,10 @@
 		activeFactId: string | null;
 		onFactToggle: (fact: FactRow) => void;
 		media: MediaSectionData;
+		/** Round fourteen S5 (#410): `coverSlot()`'s own answer, resolved once by the
+		 * caller so this component's `canWrite` gate cannot drift from `media`'s. */
+		cover: 'band' | 'placeholder' | 'none';
+		coverUrl: string | null;
 		audit: AuditFlagView[];
 		locale: Locale;
 		open?: SectionOpenState;
@@ -138,6 +165,28 @@
 	class="w-full border-line bg-panel-2 md:sticky md:top-0 md:h-full md:max-h-[calc(100vh-4rem)] md:w-64 md:flex-none md:overflow-y-auto md:border-l"
 	aria-label={t.entry.sections.ariaLabel}
 >
+	<!-- Round fourteen S5 (#410): the cover, above Relations, at the aside's own width and
+		its natural height for the ratio. `border-b` matches the rhythm the sections below
+		already use, so the cover reads as this column's own first item rather than a
+		second thing bolted above it. No extra scroll handling needed here: the aside above
+		is already `md:overflow-y-auto` with a viewport-relative `max-h`, so a tall portrait
+		is simply the first content that scrolls past - the sticky column and the sections
+		under it are unaffected whatever the cover's height turns out to be. -->
+	{#if cover === 'band' && coverUrl}
+		<div class="border-b border-line p-4">
+			<EntryCover
+				src={coverUrl}
+				alt={media.entityName}
+				entityType={media.entityType}
+				variant="aside"
+			/>
+		</div>
+	{:else if cover === 'placeholder'}
+		<div class="border-b border-line p-4">
+			<EntryCoverPlaceholder {universeSlug} {...media} {locale} variant="aside" />
+		</div>
+	{/if}
+
 	{#each sections as section (section.id)}
 		<details
 			id={`${id}-${section.id}`}

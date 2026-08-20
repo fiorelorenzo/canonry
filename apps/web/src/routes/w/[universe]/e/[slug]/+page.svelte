@@ -1,14 +1,20 @@
 <script lang="ts">
 	/**
 	 * The entry read view, B1 = C: a document plus a right column that switches between
-	 * Relations, Facts, Images, History and Audit (C9 = B, #55). O2 (#284) changed what the
-	 * (`EntrySections`), and a cover band sits above the title when the entry has one. Round
-	 * eleven P6 reverses the one thing O2 refused: where there is no cover, somebody who can
-	 * write to this world gets a placeholder that opens the Images section, and a reader gets
-	 * nothing. The language control that used to sit under the title is gone from here
-	 * entirely, on the editor instead (#347): I5 keeps the only language switch in the
-	 * reading chrome to the account menu's own, and an entry's language is a claim about its
-	 * text, so it belongs where the text is written.
+	 * Relations, Facts, Images, History and Audit (C9 = B, #55). O2 (#284) put a cover band
+	 * above the title, and round fourteen S5 (#410) moves it: every cover now lives at the
+	 * top of that right column instead (`EntrySections.svelte`), at the column's own width
+	 * and its natural height for the ratio, whatever the ratio is. S5 repeals round
+	 * thirteen R1 (#376), which had stood a portrait cover beside the title in a header grid
+	 * of its own, and #399's amendment of it - the article is a single measure column again.
+	 * Below `md`, where that column is a bottom sheet the reader has to open (#148), the
+	 * cover still draws as a band above the title here, because a sheet is not where a
+	 * page's own picture belongs. Round eleven P6 reverses the one thing O2 refused: where
+	 * there is no cover, somebody who can write to this world gets a placeholder that opens
+	 * the media gallery, and a reader gets nothing. The language control that used to sit
+	 * under the title is gone from here entirely, on the editor instead (#347): I5 keeps the
+	 * only language switch in the reading chrome to the account menu's own, and an entry's
+	 * language is a claim about its text, so it belongs where the text is written.
 	 *
 	 * Issue #148 (I10 = B): below `md` that right column can't sit beside the
 	 * document, so it becomes reachable rather than cropped - `EntrySections` renders
@@ -27,7 +33,7 @@
 	} from '$lib/components/entry/EntrySections.svelte';
 	import EntryCover from '$lib/components/media/EntryCover.svelte';
 	import EntryCoverPlaceholder from '$lib/components/media/EntryCoverPlaceholder.svelte';
-	import { coverPlacement, coverSlot } from '$lib/components/media/cover-crop';
+	import { coverSlot } from '$lib/components/media/cover-crop';
 	import CompleteEntryControl from '$lib/components/entry/CompleteEntryControl.svelte';
 	import AuditFlagBadge from '$lib/components/audit/AuditFlagBadge.svelte';
 	import InlineProposalReview from '$lib/components/proposals/InlineProposalReview.svelte';
@@ -94,6 +100,9 @@
 	// both answers, on `media.canWrite`, which the loader resolved from the caller's role.
 	// The band reads the GM's own media route, which sits behind universe membership;
 	// `/p/<slug>` builds its own URL from its own published-only resolution (guardrail 6).
+	// Round fourteen S5 (#410): `cover`/`coverUrl` are also handed straight to
+	// `EntrySections` for its own copy of the cover, `md` and up - one gate, read once,
+	// rather than a second derivation that could someday disagree with this one.
 	let cover = $derived(
 		coverSlot({ coverAssetId: data.entity.coverAssetId, canWrite: data.media.canWrite })
 	);
@@ -102,15 +111,6 @@
 			? resolve(`/w/${data.universe.slug}/e/${data.entity.slug}/media/${data.entity.coverAssetId}`)
 			: null
 	);
-
-	// Round thirteen R1 (#376): the placement is the ratio's answer, not a second table
-	// keyed on entity type, so `EntryCover`/`EntryCoverPlaceholder` and this page's own
-	// header grid can never disagree about which shape a given entity gets. `coverBeside`
-	// only reserves the header's figure column when there is actually something to put in
-	// it - the `cover === 'none'` reader never gets a slot, so there is nothing for that
-	// reader's header to move around either.
-	let placement = $derived(coverPlacement(data.entity.type));
-	let coverBeside = $derived(placement === 'figure' && cover !== 'none');
 
 	// C9 = B: the title badge is a pointer into the aside's own Audit section, not a second
 	// copy of the flag list - clicking it opens that section and, below `md` where the
@@ -140,64 +140,61 @@
 	against it) only ever grows to match the article's own content height, which is
 	exactly the near-empty-entry case that reads worst. -->
 <div class="flex flex-col md:min-h-full md:flex-row">
-	<article
-		class="entry-article min-w-0 flex-1 px-4 py-6 md:px-10 md:py-8"
-		class:entry-article--figure={coverBeside}
-	>
-		<div class="cover-header">
-			<p class="cover-header__breadcrumb mb-3 text-xs text-muted">
-				<a class="hover:underline" href={resolve(`/w/${data.universe.slug}`)}
-					>{data.universe.name}</a
-				>
-				/ {data.entity.type} /
-				<span class="text-ink-2">{data.entity.name}</span>
-			</p>
+	<article class="entry-article min-w-0 flex-1 px-4 py-6 md:px-10 md:py-8">
+		<p class="mb-3 text-xs text-muted">
+			<a class="hover:underline" href={resolve(`/w/${data.universe.slug}`)}>{data.universe.name}</a>
+			/ {data.entity.type} /
+			<span class="text-ink-2">{data.entity.name}</span>
+		</p>
 
-			<div class="cover-header__cover">
-				{#if cover === 'band' && coverUrl}
-					<EntryCover src={coverUrl} alt={data.entity.name} entityType={data.entity.type} />
-				{:else if cover === 'placeholder'}
-					<EntryCoverPlaceholder
-						universeSlug={data.universe.slug}
-						{...mediaSectionData}
+		<!-- Round fourteen S5 (#410): the aside's own copy of the cover (`EntrySections.svelte`)
+		     only shows `md` and up, so this is the only copy a reader below `md` ever sees -
+		     the aside there is a bottom sheet (#148), and a sheet the reader has to open is
+		     not where a page's own picture goes. `variant="band"` is `EntryCover`'s default. -->
+		<div class="md:hidden">
+			{#if cover === 'band' && coverUrl}
+				<EntryCover src={coverUrl} alt={data.entity.name} entityType={data.entity.type} />
+			{:else if cover === 'placeholder'}
+				<EntryCoverPlaceholder
+					universeSlug={data.universe.slug}
+					{...mediaSectionData}
+					locale={data.locale}
+				/>
+			{/if}
+		</div>
+
+		<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+			<div>
+				<div class="mb-1 flex flex-wrap items-center gap-2">
+					<h1 class="text-3xl font-semibold text-ink">{data.entity.name}</h1>
+					<AuditFlagBadge
+						count={data.audit.flags.length}
+						onOpen={openAuditSection}
 						locale={data.locale}
 					/>
-				{/if}
+				</div>
+				<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
+					<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
+						{data.entity.type}
+					</span>
+					{#if data.entity.aliases.length > 0}
+						<span>{t.entry.page.aliasesLabel(data.entity.aliases.join(', '))}</span>
+					{/if}
+				</div>
 			</div>
-
-			<div class="cover-header__title mb-6 flex flex-wrap items-start justify-between gap-4">
-				<div>
-					<div class="mb-1 flex flex-wrap items-center gap-2">
-						<h1 class="text-3xl font-semibold text-ink">{data.entity.name}</h1>
-						<AuditFlagBadge
-							count={data.audit.flags.length}
-							onOpen={openAuditSection}
-							locale={data.locale}
-						/>
-					</div>
-					<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
-						<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
-							{data.entity.type}
-						</span>
-						{#if data.entity.aliases.length > 0}
-							<span>{t.entry.page.aliasesLabel(data.entity.aliases.join(', '))}</span>
-						{/if}
-					</div>
-				</div>
-				<div class="flex flex-none items-start gap-2">
-					<CompleteEntryControl
-						aiEnabled={data.universe.aiEnabled}
-						locale={data.locale}
-						bind:running={completing}
-						onDrafted={() => reviewRegion?.focusRegion()}
-					/>
-					<a
-						href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}/edit`)}
-						class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
-					>
-						{t.entry.page.editLink}
-					</a>
-				</div>
+			<div class="flex flex-none items-start gap-2">
+				<CompleteEntryControl
+					aiEnabled={data.universe.aiEnabled}
+					locale={data.locale}
+					bind:running={completing}
+					onDrafted={() => reviewRegion?.focusRegion()}
+				/>
+				<a
+					href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}/edit`)}
+					class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
+				>
+					{t.entry.page.editLink}
+				</a>
 			</div>
 		</div>
 
@@ -266,6 +263,8 @@
 			activeFactId={activeFact?.id ?? null}
 			onFactToggle={toggleFact}
 			media={mediaSectionData}
+			{cover}
+			{coverUrl}
 			locale={data.locale}
 		/>
 	</div>
@@ -287,6 +286,12 @@
 				<Sheet.Description class="sr-only">
 					{t.entry.sections.mobile.description}
 				</Sheet.Description>
+				<!-- Round fourteen S5 (#410): `cover="none"`, not `{cover}` - the mobile band
+				     above the title (in the article, `md:hidden`) is already this reader's one
+				     copy of the cover, visible without opening the sheet at all. Showing it
+				     again as the first thing inside the sheet would be the same picture twice
+				     for one tap, and the placeholder's gallery affordance is reachable from
+				     the band already. -->
 				<EntrySections
 					id="entry-detail-mobile"
 					universeSlug={data.universe.slug}
@@ -298,74 +303,11 @@
 					activeFactId={activeFact?.id ?? null}
 					onFactToggle={toggleFact}
 					media={mediaSectionData}
+					cover="none"
+					coverUrl={null}
 					locale={data.locale}
 				/>
 			</Sheet.Content>
 		</Sheet.Root>
 	</div>
 </div>
-
-<style>
-	/* Round thirteen R1 (#376), amended in review: a portrait cover stands beside the title
-	 * once the row has the room for it - `64rem` is Tailwind's own `lg`, the same breakpoint
-	 * `EntryCover` and `EntryCoverPlaceholder` switch their own box on, so the two never
-	 * disagree about which shape is showing. Below it, and for any entity type that never
-	 * gets `.entry-article--figure` at all (`coverBeside` above), this is a plain block in
-	 * source order - breadcrumb, cover, title - exactly what it was before the decision,
-	 * which is what keeps a landscape entry unchanged.
-	 *
-	 * The grid is on the article rather than on the header, and that is the part worth
-	 * reading. #376 first put it on the header alone, with areas `title cover`, which made
-	 * the header's second row as tall as the figure: a 3:4 cover at 12.5rem is about 330px,
-	 * so the body started 250px of blank paper below the aliases line. Rendered, it looked
-	 * like a bug rather than a decision. Here the header is `display: contents`, so the
-	 * breadcrumb, the title block and the cover are grid items of the article itself, and
-	 * the cover spans `2 / -1`: its height is absorbed by the title plus everything below
-	 * instead of forcing one row open. `align-self: start` keeps it at the top of that span,
-	 * beside the title, which is where R1 says it goes.
-	 *
-	 * Everything else in the article is column 1, so the prose keeps the measure it had and
-	 * no line moves because a cover exists. `12.5rem` is `COVER_FIGURE_WIDTH` in
-	 * `cover-crop.ts`, restated here because a grid column and a child's own `aspect-ratio`
-	 * box are two different properties with no single declaration that sets both; that
-	 * constant's doc comment is the note that keeps the two from drifting. The first column
-	 * is `--container-measure` capped with `minmax` rather than fixed, so a `lg` viewport
-	 * narrower than measure-plus-figure still fits instead of overflowing the row. */
-	@media (min-width: 64rem) {
-		.entry-article--figure {
-			display: grid;
-			grid-template-columns: minmax(0, var(--container-measure)) 12.5rem;
-			column-gap: 1.5rem;
-			align-content: start;
-		}
-
-		.entry-article--figure > :global(*) {
-			grid-column: 1;
-			min-width: 0;
-		}
-
-		.entry-article--figure .cover-header {
-			display: contents;
-		}
-
-		.entry-article--figure .cover-header__breadcrumb {
-			grid-column: 1 / -1;
-		}
-
-		.entry-article--figure .cover-header__title {
-			grid-column: 1;
-		}
-
-		.entry-article--figure .cover-header__cover {
-			grid-column: 2;
-			/* `span 100`, not `2 / -1`: a negative row line resolves against the EXPLICIT grid,
-			 * and this grid declares no rows at all, so `-1` is line 1 and the browser swaps
-			 * the pair into a single row 1. Rendered, that put the figure above the breadcrumb
-			 * and opened a 330px row anyway, which is the same defect one line further up. A
-			 * plain large span reaches the implicit rows, which is where the article's content
-			 * actually lives. */
-			grid-row: 2 / span 100;
-			align-self: start;
-		}
-	}
-</style>
