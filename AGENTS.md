@@ -223,6 +223,28 @@ accident inside a component: that is the whole reason this set exists. Changing 
 decision means editing `DECISIONS.md` and the register together, and saying so on the
 issues it blocks.
 
+## Design and UI
+
+Follows the shared UI pipeline (`ui-brief-first`, `ui-design-tokens`, `ui-visual-review`;
+`uishot` renders, `uislop` scores).
+
+- `pnpm dev` (vite) needs Postgres and Qdrant up first: `pnpm db:up`
+  (`docker/compose.dev.yml`), plus a `.env` (copy `.env.example`) with at least
+  `DATABASE_URL` and `BETTER_AUTH_SECRET`, since `$lib/server/auth.ts` has no insecure
+  fallback for the secret. No dev port is pinned; pick a free one per the worktree
+  convention above.
+- Screenshot `/dev/ui` first: it renders every shadcn-svelte component in both palettes
+  side by side, needs no signed-in session or seeded universe, and is the lightest route
+  once the db is up.
+- Tokens: `apps/web/src/routes/layout.css`'s `@theme` block. This is the canonical file;
+  the landing repo hand-copies it. A raw hex in a component is a violated rule
+  (`I9 = C`, `docs/ux/DECISIONS.md`), not a style choice.
+- `/dev/ui` (issue #147) is the `/design` gallery: a fresh repo without one should add
+  exactly this, a dev-only route enumerating every component and state, not a product
+  surface.
+- Dark mode is real and whole-app (`G1 = B`), toggled via `[data-theme='dark']`, so a
+  light/dark screenshot pair should differ, not come back identical.
+
 ## Deployment
 
 Two isolated stacks on prodbox, `preview` and `prod`: separate database, secrets,
