@@ -1078,3 +1078,299 @@ and anything that moves while a model is already making the reader wait.
 
 Epic [#360](https://github.com/fiorelorenzo/canonry/issues/360), one issue per question. Q5
 carries the only change that may need a migration, so it owns that slot.
+
+## Round thirteen, decided 2026-08-20
+
+Twelve more from the same preview, the same evening as round twelve. Same shape and the
+same reason: these came out of using the thing, so there are no artifacts and the register
+in `docs/ux/assets/ux.js` keeps no rows. What is different is how many of them are defects
+rather than taste. Four are a page or a control doing something nobody chose (a modal in
+the top-left corner, two navigation items pointing at a 404, a search that reads names and
+not prose, a control that O4 already ruled on), one reverses a decision taken three days
+ago, and the rest are the product's answer being incomplete rather than wrong.
+
+I checked each of the four defects rather than trusting the screenshot, because a defect
+and a dislike want different answers and because two of them turned out not to be what the
+symptom said. The evidence is in each section.
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| R1 | A portrait cover sits in a band above the title, where its own ratio makes it small. Where does a portrait go? | **Beside the title, as a margin figure.** The band stays for the wide ratios |
+| R2 | The generate modal opens in the top-left corner of the window. | **The three native `<dialog>`s become the vendored Dialog.** Tailwind's preflight zeroed the margin the browser centres a modal with |
+| R3 | The generate modal says "style: none set" and there is nowhere to set one. | **The universe's image style and the Loremaster's voice become settable**, and the voice reaches the prompt it was written for |
+| R4 | A setting that changes what the product does is unset, and only one surface says so. | **One checklist, said twice**: at the point of use, and once in the shell |
+| R5 | The dock throws the conversation away on every navigation. | **It keeps it. Only the context changes.** O3's "abandoned stays abandoned" is repealed for the panel |
+| R6 | The pill sits in the bottom-right corner, small, and says nothing about what it can do. | **Bottom centre, bigger, with three suggestions** drawn from where the GM is standing |
+| R7 | A generated cover is still "private", and publishing it is a second click nobody asked for. | **An image's audience follows its entry.** Attaching is the accept, and `published_to_players` becomes `gm_only` |
+| R8 | The GM/player view is a label beside a button, and the language switch is a row of buttons that will not scale. | **A switch for the view, a Select for both languages.** O4 applied rather than reopened |
+| R9 | An inserted image has one size, and write and preview are two different heights. | **The image carries a width**, and the two modes share one box |
+| R10 | The entry's images live in three places with three different rules, and the insert modal lists them in a 448px column. | **One media surface per entry**, reached from the rail, the placeholder and the editor |
+| R11 | Players and Import are in the sidebar and both 404. | **Both become real pages.** A nav item that cannot be reached is not a nav item |
+| R12 | Search on the entries page looks broken. | **It reads bodies too, and says what it did.** It was never broken, which is the finding |
+
+### R1, and why the band was right and still is
+
+O2 = A put a cover band above the title and Q5 gave the ratio table a portrait, both of
+which I still want. What Q5 did not think about is that a 3:4 image in a band whose height
+is capped at 20vh is 135px wide on a 900px window, which is a thumbnail with a lot of
+ceremony around it. The band is a band: it works for 16:9 and it cannot work for 3:4,
+because the two shapes want opposite things from the same slot.
+
+So the slot goes by ratio rather than by decision. A wide cover keeps the band. A portrait
+cover becomes a figure in the margin beside the title, at the head of the article, about
+200px wide, and the prose never wraps around it: the article stays a single column at
+`--container-measure` and the figure sits outside it, which is the one shape that adds an
+image without moving a line of the text. Below the breakpoint where that margin does not
+exist, a portrait goes back to being a band, because a 200px figure floated into a 390px
+screen is worse than either.
+
+The reason to be careful here is that the entry page is a reading surface, and the thing I
+keep refusing on it is text that moves. A figure the prose flows around reads better in a
+magazine and worse in a wiki, where the same page is read twice and edited once.
+
+### R2 is a defect, and its cause is one line in a stylesheet nobody wrote
+
+The generate modal opens against the top-left corner of the window. So do the cover dialog
+and the editor's image dialog, because all three are a native `<dialog>` and the cause is
+shared: a modal `<dialog>` is centred by the user-agent stylesheet's `margin: auto`, and
+Tailwind 4's preflight sets `margin: 0` on `*`, `::before`, `::after` and `::backdrop`.
+Measured rather than reasoned: a bare `<dialog>` with the same classes, opened with
+`showModal()` on the entry page, reports `margin: 0px` and a rect at `x: 0, y: 0`.
+
+That makes the fix a choice rather than a patch. Adding `m-auto` three times fixes the
+symptom and leaves three hand-rolled modals in a product whose control layer is
+shadcn-svelte (I9 = C), each with its own scrim, its own escape handling and no focus trap
+at all. All three move to the vendored Dialog, which is centred, traps focus, locks the
+scroll, animates on the round twelve tokens and is already in `/dev/ui`. The native element
+was the right first move when the alternative was writing a modal by hand; it stopped being
+that the moment I9 landed.
+
+### R3, and a column the spec has always had and nothing has ever read
+
+The modal says `Stile: nessuno impostato` and offers a `modifica` link, and that link edits
+the *entry's* override (`entity.image_prompt_modifier`). The universe's own style,
+`universe.image_style_id` and the `image_style` row behind it, has no interface anywhere in
+the product. F1 said style is shared at the universe level and overridable per entry, and
+only the override was ever built, so the shared half has been unreachable since #65. The
+first thing every generated image in a new world inherits is nothing.
+
+Next to it, `universe.loremaster_description` is in the schema, is in SPEC.md §4.1's own
+table as "the voice the Loremaster uses for this world", is written by three fixtures, and
+is read by no code at all. A field that exists, is documented, and does nothing is worse
+than a missing one, because the seed makes it look done.
+
+Both become sections on the universe settings page, and the voice reaches the two prompts
+it was written for: `runAsk`'s system prompt and the completion path's. It is the GM's
+description of how their Loremaster talks, so it goes where `speechInstruction` already
+goes, and it changes no guardrail: a voice does not make the copilot write canon, it makes
+the sentences it proposes sound like the world they are for.
+
+### R4, and what "everywhere" is allowed to mean
+
+"Tell me a bit everywhere that I have not set this" is right about the problem and dangerous
+as an instruction, because the version of it that ships is a banner on every page that
+everybody learns to ignore in a week. Two placements, and a rule for what earns a place on
+the list.
+
+A setting is on the checklist when it changes what the product does and has no sensible
+default. Today that is exactly two, the image style and the Loremaster's voice, both of
+which R3 makes settable, and the list is built to be read rather than counted: it is a
+function in one place, so a third setting joins it by being added there instead of by
+growing a third warning somewhere else. `ai_enabled` and `propagation_cap` are not on it:
+they have real defaults, and a default is an answer.
+
+Where it shows: at the point of use, which is the generate surface already saying "none
+set" and now saying it with the link that fixes it, and once in the shell, as a quiet row
+under the navigation with a count. Not a toast, not a modal, not a per-page banner, and
+never on a canon reading surface, which is the same rule motion got in Q6. The settings
+page itself grows the same list at the top, because that is where somebody who followed the
+link arrives.
+
+### R5 repeals half of O3, and I am the one who asked for the half being repealed
+
+O3's fourth amendment reads "keep is the only write. Closing this loses everything, exactly
+as closing the palette already does, which is what lets `ask/kept` be a history rather than
+a transcript." `QuickAsk.svelte` implements it twice over: `close()` calls `reset()`, and an
+effect watching `page.url.pathname` closes the panel on any navigation, with the comment
+that a panel left open would be "talking about somewhere else".
+
+Having used it, that argument is exactly backwards. The reason to ask the copilot from
+inside the page is that the next thing you do is *go and look*, and going to look is a
+navigation. Losing the answer at the moment it becomes useful is the worst possible time to
+lose it. And the panel is not talking about somewhere else: it is talking about what I
+asked, which does not stop being true because I clicked a source chip.
+
+So: the panel stays open across a navigation, the turns stay, and the context line follows
+the page. What does not change is the write. Keep is still the only thing that records
+anything, `ask/kept` is still a history of kept answers and not a transcript, and closing
+the panel still throws the conversation away, because the alternative is a copilot that
+remembers something the GM never chose to keep. Nothing is persisted server-side and
+nothing survives a reload. That is the whole of the reversal: from "dies on navigation" to
+"dies when you close it".
+
+It follows that the dock becomes a conversation rather than a question and an answer. The
+turns are held in the same rune module the open flag lives in, the panel renders them in
+order, and each new question carries the previous turns plus the page the GM is standing on
+into the request. Both are capped, because a prompt that grows without bound is a bill that
+grows without bound: the last few turns, and the entry's name and type rather than its body.
+
+### R6, and why the corner was the wrong corner
+
+E3 = C gave table mode a two-tier dock in the bottom-right and O3 put the pill in the same
+corner for the same reason, that it is out of the way. Out of the way is right for a thing
+you already know is there and wrong for the front door of the feature the product is named
+after. Bottom centre, wider, with the shortcut visible on it and a line saying what it can
+be asked, is the same affordance every command bar of the last five years has trained
+people to look for.
+
+The suggestions are the part I want to be careful about. Three, deterministic, drawn from
+the route and the entity type, never from a model: they cost nothing, they arrive before the
+panel finishes opening, and they cannot be wrong in the way a generated suggestion can. On
+an entry they are about that entry, on the browser they are about the world, in the review
+queue they are about what is pending. They are chips, they fill the composer rather than
+sending it, and they disappear once there is a conversation, because a suggestion is for
+somebody who does not know what to type and not for somebody mid-thought.
+
+The animation is the one Q6 already specifies and does not need a new token: the panel is a
+thing expanding in place, so it arrives on `duration-move` with `ease-arrive` and it leaves
+at once.
+
+### R7, and the state that has never made sense
+
+Generate an image, use it as the cover, and the panel says `Privata.` with a `Pubblica`
+button under a `COPERTINA` badge. Both things are true and together they are nonsense: the
+cover of the entry is not shown to the people the entry is shown to, and the only way to
+find that out is to notice a word in a narrow column.
+
+The two-switch model came from guardrail 6, and it is worth saying precisely which part of
+it is real. Guardrail 6 says nothing unreviewed is ever published to players. It does not
+say every image needs its own publish click; it says a human has to have looked. And a
+human has looked: generation puts an image in `media_asset` with `entity_id` null, and
+nothing shows it anywhere until the GM picks it out of the candidate grid and attaches it.
+That act is the review. Q5 already said this out loud for the cover, "use as cover is the
+accept", and then left the second gate standing next to it.
+
+So an image's audience follows the entry it is attached to. `published_to_players` becomes
+`gm_only`, default false, and the player-side gate becomes: the entry is not `gm_only`, the
+entry has been revealed, and the image is not marked `gm_only`. Three legs instead of four,
+and the leg that goes is the one that was always redundant with attaching. The flag that
+stays is a real product need pointed the other way: the villain's true face, illustrated on
+an entry the party can read.
+
+The migration writes `gm_only = not published_to_players` for every existing row, so
+nothing that is invisible today becomes visible on deploy. New attachments are visible,
+old private ones stay private, and the difference is legible in one line of SQL rather than
+in a paragraph explaining what changed under people's feet. The leak test keeps its
+unpublished-image needle and gains the case this creates: an attached, not-`gm_only` image
+on an unrevealed entry stays out of the payload.
+
+What the panel says changes with it. No `Pubblica` button, no `Privata.` on an image that
+is in the entry, one `Solo GM` toggle for the exception, and one sentence saying that the
+party sees an entry's images when the entry itself is revealed.
+
+### R8, which is O4 arriving where it already applies
+
+O4 = B drew the boundary by what the list is: a binary or ternary state gets a segmented
+control, a vocabulary the product ships gets a Select, and the GM's own data gets a
+Combobox. Two call sites never got the memo. The interface locale is a row of native
+buttons in `LocaleSwitcher.svelte`, one per locale, which is a shipped vocabulary rendered
+as neither of the three and which stops fitting the moment there is a third language. The
+entry's own language control is a four-option segmented control, which is a shipped
+vocabulary too, and grows by one every time a locale is added. Both become Selects, and
+both keep posting a form, because I5 = B put the interface switch in the account menu and a
+`<select>` in a form still works with no JavaScript.
+
+The GM/player view is the different one, and it is not an O4 case at all: it is not choosing
+a value out of a list, it is turning one lens on. That gets a switch, which the control
+layer does not have yet and which is worth having once rather than five times. It replaces
+the label-and-button pair on the entry page and in the editor's preview, and it reads the
+same way in both: off is the GM's view, on is what the party sees.
+
+### R9, and where a width is allowed to live
+
+An inserted image is `![image](/w/.../media/<id>)` and renders at whatever width the prose
+column gives it, which for a portrait means an image taller than the screen in the middle of
+a paragraph. The width has to live in the body, because the body is the whole record of the
+entry: anything kept beside it is a second source of truth about a document a model also
+reads and writes.
+
+So the markdown carries it, as a percentage of the measure appended to the URL in the shape
+markdown-it's own size convention already uses: `![alt](/path =50%)`. Three widths offered,
+a third, two thirds and full, rather than a number to type, because the measure is
+responsive and a pixel value is a promise the layout cannot keep. Chosen when the image is
+inserted, and changeable afterwards from the preview, where hovering an image shows the same
+three.
+
+The jump between write and preview is the other half of the same complaint and has a duller
+cause: the two modes share their padding and their minimum height but not their content, so
+one line of image markdown in write mode becomes 400px of image in preview and the box
+resizes under the cursor. Both modes get the same floor, tall enough that a short entry does
+not move at all, and an image in preview gets a maximum height so a portrait cannot blow the
+box open. This is spacing, not a new surface: nothing about Q4's toolbar or the preview
+toggle changes.
+
+### R10, and the three-headed feature underneath the complaint
+
+The insert modal lists the entry's images as a three-column grid of thumbnails inside a
+448px box, under a heading, above an upload button, above a generate block. It is not that
+the list is ugly. It is that it is the third place the same images are managed, and the
+three disagree: the rail's Images section can publish and set a cover but not insert into
+the body, the insert dialog can insert and generate but knows nothing about covers or
+visibility, and the cover dialog does one image for one purpose. None of the three can
+delete an image, which is why there is no delete endpoint: nobody had a place to put the
+button.
+
+One surface, then. An entry's images are a gallery wide enough to see them in, with every
+action on the image it applies to: use as cover, insert into the body, hide from the party,
+regenerate, delete. Two ways in at the top, upload and generate. The rail keeps a compact
+preview, a count and a few thumbnails, and opens it. The placeholder opens it. The editor
+opens it in a pick-one mode that returns a URL and a width to the caret, which is R9's other
+end. Delete is a real delete, of the row and the stored file, refused while the image is the
+cover or referenced in the body, because a body pointing at a missing image is worse than a
+cover somebody has to remove first.
+
+### R11, and the two pages the sidebar promises
+
+`NAV_ITEMS` carries a `built` flag, and the two items where it is false, Players and Import,
+render as ordinary links with a `title` attribute nobody reads and 404 when clicked.
+Confirmed against the dev server on the seeded world: both return 404 while Table, Works and
+Proposals return 200. A `built: false` flag that still draws a link is not a guard, it is a
+comment.
+
+The flag goes, because the answer is the pages. Import for an existing world is the one that
+matters most: the import engine, the playbooks, the review surface and the job status route
+all exist, and the only thing missing is a door for a world that already exists rather than
+one being created, so `/w/<slug>/import` starts a job into this universe and lists the jobs
+it has already run with their review links. Players is what the party can see: the wiki's
+own address, what has been revealed and when, and what is still behind the screen. Neither
+invents a product decision. E7 already settled what an unrevealed entry looks like to a
+player, and this page is the GM's side of exactly that list. Invitations are not in it,
+because there is no membership invitation anywhere in the product yet and inventing one on a
+nav-fix is how a page ends up with a button that writes nothing.
+
+### R12, and a search that works being the actual finding
+
+"Search on the entries page does not seem to work" turned out to be three things, and the
+one it sounds like is not among them. It works: typing a name and pressing Enter navigates
+to `?q=` and the table narrows, which I checked in a browser rather than reading the code.
+
+What is wrong is that nothing says so. The field has no button, no icon and no hint, so the
+only way to discover that Enter is the trigger is to try it; there is no line saying how
+many rows matched what, and no way to clear the search except emptying the field and
+pressing Enter again. And the substance: it matches names and aliases only, so a word from
+the prose finds nothing. `payroll` and `freeze` both appear in the seeded world's bodies and
+both return an empty table under an empty-state sentence that says the filter matched
+nothing, which is exactly what a GM reads as "search is broken".
+
+So the field gets a visible submit and a clear, a result line naming the query and the
+count, and the query reads bodies as well as names and aliases. It stays a filter and not a
+ranking: O1's table is sorted by the column the reader chose, and a relevance order hiding
+behind a caret that says "changed" would be a lie in the header. Ranked "who is this" search
+is the palette's job and stays there.
+
+### Where round thirteen lands
+
+Epic [#375](https://github.com/fiorelorenzo/canonry/issues/375), one issue per decision, in
+two waves because twelve is more than the eight an agent wave holds and because R10 needs
+R7's column and R2's dialog to exist first. R7 owns the first wave's migration slot and R10
+the second's.
