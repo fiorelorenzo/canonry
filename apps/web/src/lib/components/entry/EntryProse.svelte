@@ -14,18 +14,25 @@
 		type MentionSurface,
 		type MentionTarget
 	} from '$lib/markdown';
+	import type { Locale } from '$lib/i18n';
+	import MentionPreview from './MentionPreview.svelte';
 
 	let {
 		body,
 		universeSlug,
 		mentionTargets,
 		surface,
+		locale,
 		highlightSpan = null
 	}: {
 		body: string;
 		universeSlug: string;
 		mentionTargets: MentionTarget[];
 		surface: MentionSurface;
+		/** #364: only the preview card's own copy needs this. Required rather than defaulted
+		 * for the same reason `surface` is - a reading surface that does not say which
+		 * language it is in has guessed. */
+		locale: Locale;
 		highlightSpan?: FactSpan | null;
 	} = $props();
 
@@ -34,13 +41,20 @@
 			? renderMarkdownWithHighlight(body, universeSlug, mentionTargets, highlightSpan, surface)
 			: renderMarkdown(body, universeSlug, mentionTargets, surface)
 	);
+
+	// The mention preview's positioning context (#364), which is why the wrapper below is
+	// `relative`. The card is a child of it rather than a portal, so it scrolls with the
+	// prose it belongs to and needs no scroll listener to stay put.
+	let container = $state<HTMLElement | null>(null);
 </script>
 
 <div
-	class="entry-prose max-w-measure text-ink [&_blockquote]:border-l-2 [&_blockquote]:border-line-2 [&_blockquote]:pl-4 [&_blockquote]:text-ink-2 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_li]:mb-1 [&_p]:mb-4 [&_p]:leading-relaxed [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-6"
+	bind:this={container}
+	class="entry-prose relative max-w-measure text-ink [&_blockquote]:border-l-2 [&_blockquote]:border-line-2 [&_blockquote]:pl-4 [&_blockquote]:text-ink-2 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_li]:mb-1 [&_p]:mb-4 [&_p]:leading-relaxed [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-6"
 >
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- markdown.ts escapes raw HTML -->
 	{@html html}
+	<MentionPreview {container} {universeSlug} {surface} {locale} />
 </div>
 
 <style>

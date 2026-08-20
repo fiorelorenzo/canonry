@@ -28,6 +28,7 @@
 	import { renderAiMarkedParagraph } from '$lib/components/ai/aiMarking';
 	import { Button } from '$lib/components/ui/button';
 	import { splitBodyIntoBlocks, markedSegmentsFor } from '$lib/components/ai/entryMarking';
+	import MentionPreview from '$lib/components/entry/MentionPreview.svelte';
 	import { messages, type Locale } from '$lib/i18n';
 
 	let {
@@ -111,6 +112,13 @@
 	let playerHtml = $derived(
 		renderMarkdown(stripSecretsForPlayers(body), universeSlug, publicMentionTargets, 'public')
 	);
+
+	// #364. The card follows the surface the prose was rendered for rather than the route it
+	// sits on: in player preview the mentions carry `/p/**` hrefs resolved against
+	// `publicMentionTargets`, so their cards come from the public endpoint too and a GM
+	// checking the preview sees the same excerpt, and the same withheld `gm_only` entry, a
+	// player would. Anything less and the toggle would stop being a preview of the real thing.
+	let container = $state<HTMLElement | null>(null);
 </script>
 
 <div class="mb-4 flex items-center justify-between gap-2 border-b border-line pb-2">
@@ -128,7 +136,8 @@
 </div>
 
 <div
-	class="entry-prose-secrets max-w-measure text-ink [&_blockquote]:border-l-2 [&_blockquote]:border-line-2 [&_blockquote]:pl-4 [&_blockquote]:text-ink-2 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_li]:mb-1 [&_p]:mb-4 [&_p]:leading-relaxed [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-6"
+	bind:this={container}
+	class="entry-prose-secrets relative max-w-measure text-ink [&_blockquote]:border-l-2 [&_blockquote]:border-line-2 [&_blockquote]:pl-4 [&_blockquote]:text-ink-2 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_li]:mb-1 [&_p]:mb-4 [&_p]:leading-relaxed [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-6"
 >
 	<!-- markdown.ts renders with html:false so raw HTML in a body is escaped, and the secret
 	     and gmnote wrappers come from this file's own fixed label table rather than from
@@ -136,6 +145,7 @@
 	     the comment's last line to apply, which is why this is not one multi-line comment. -->
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 	{@html playerPreview ? playerHtml : gmHtml}
+	<MentionPreview {container} {universeSlug} surface={playerPreview ? 'public' : 'gm'} {locale} />
 </div>
 
 <style>

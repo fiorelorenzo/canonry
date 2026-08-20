@@ -90,6 +90,7 @@
 			universeSlug={data.universe.slug}
 			mentionTargets={data.mentionTargets}
 			surface="public"
+			locale={data.locale}
 		/>
 		<PublicFactsList facts={data.entity.facts} locale={data.locale} />
 		<PublicRelationsList

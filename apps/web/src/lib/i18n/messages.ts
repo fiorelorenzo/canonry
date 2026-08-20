@@ -544,6 +544,16 @@ export interface Messages {
 		};
 	};
 
+	/** Issue #364: the card a mention opens on hover or on focus. Two strings, and they are
+	 * two rather than one because the states they name are different: a page the table has
+	 * heard of but never discovered, and a page somebody has made but not written yet. The
+	 * name, the type and the opening of the body all come from the entry itself, so nothing
+	 * about them belongs here. */
+	mentionPreview: {
+		gap: string;
+		empty: string;
+	};
+
 	/** Issue #131's "what we translate" doc at `/docs/languages`, linked from
 	 * `settings.language.learnMorePrompt` (SPEC.md §17). Six sections: the three rules
 	 * the product keeps as a promise (interface+copilot follow you, canon keeps its own
