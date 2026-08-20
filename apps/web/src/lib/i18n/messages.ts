@@ -1421,11 +1421,20 @@ export interface Messages {
 			derivedNoticeAfter: string;
 			newEntryAction: string;
 			home: {
-				/** The three masthead figures, tabular per G2. */
-				entriesStat: string;
-				waitingStat: string;
-				quotaStat: string;
-				quotaValue: (used: number, total: number) => string;
+				/** #348: the masthead's own line. The three figures that used to sit here
+				 * (entries, waiting review, credits spent) were a third copy of the
+				 * sidebar's two counts and of F2's meter, so they are gone rather than
+				 * restyled. What replaces them is the world's own movement over twelve
+				 * rolling weeks, which nothing else in the product says. `weeks` is
+				 * interpolated rather than spelled out, so the copy stays honest if
+				 * `PULSE_WEEKS` ever changes. */
+				pulseMoving: (total: number, latest: number, weeks: number) => string;
+				/** `lastChange` is already formatted for the locale, or null when the world
+				 * carries no dated event at all. Guardrail 7: it reports silence, it never
+				 * calls the canon settled. */
+				pulseQuiet: (weeks: number, lastChange: string | null) => string;
+				/** The hover title on one bar. `weeksAgo` 0 is the last seven days. */
+				pulseWeekTitle: (count: number, weeksAgo: number) => string;
 				continueHeading: string;
 				continueEmpty: string;
 				waitingHeading: string;

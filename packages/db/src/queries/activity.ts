@@ -146,3 +146,65 @@ export async function recentActivity(
 
 	return items.sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, limit);
 }
+
+/** One rolling seven-day bucket of the world's changes, `weeksAgo` 0 being the last seven
+ * days. Only buckets that actually carry a change come back, so a quiet world returns a
+ * short array or an empty one rather than a row of zeroes. */
+export interface WeeklyChangeCount {
+	weeksAgo: number;
+	count: number;
+}
+
+/**
+ * How much a world changed, week by week, over the last `weeks` rolling weeks (#348).
+ *
+ * Four sources, which is `recentActivity`'s three plus entity creation. The three shared
+ * ones are shared on purpose: the pulse and the feed under it have to agree about what
+ * happened in a world, or the masthead counts events the list never shows. Creation is the
+ * one the feed does not carry and this cannot do without, because `createEntity` writes no
+ * `revision` (see `entities.ts`: `saveEntityBody` is guardrail 2's single write path), so a
+ * world where a GM created six entries this afternoon and has not edited a body yet has
+ * six new entries and no revision row at all. Counting only the feed's three sources there
+ * put "nothing has changed in twelve weeks" above six cards saying "changed 10m ago",
+ * which is the masthead calling the page under it a liar. A line in the feed for a created
+ * entry is a separate question and belongs to the feed, not here.
+ *
+ * What differs from the feed is the resolution, and that is the point: the feed says which
+ * eight things happened, this says how the last three months were shaped, which is the one
+ * thing neither the feed nor the sidebar nor the quota meter answers.
+ *
+ * One round trip: four range scans unioned, bucketed and grouped in Postgres, at most
+ * `weeks` rows back. The buckets are arithmetic on the epoch rather than
+ * `date_trunc('week', ...)`, so the answer does not depend on the server's `TimeZone`
+ * setting and "the last seven days" means exactly that rather than "since Monday".
+ */
+export async function weeklyChangeCounts(
+	db: Db,
+	universeId: string,
+	opts?: { weeks?: number }
+): Promise<WeeklyChangeCount[]> {
+	const weeks = opts?.weeks ?? 12;
+	const rows = await db.execute<{ weeks_ago: number; count: string }>(sql`
+		with changes as (
+			select created_at as at from ${entity} where universe_id = ${universeId}::uuid
+			union all
+			select created_at as at from ${revision} where universe_id = ${universeId}::uuid
+			union all
+			select created_at as at from ${relation} where universe_id = ${universeId}::uuid
+			union all
+			select wn.updated_at as at
+			from ${workNode} wn
+			join ${work} w on w.id = wn.work_id
+			where w.universe_id = ${universeId}::uuid
+		)
+		select
+			floor(extract(epoch from (now() - at)) / 604800)::int as weeks_ago,
+			count(*) as count
+		from changes
+		where at > now() - make_interval(weeks => ${weeks})
+		group by weeks_ago
+		order by weeks_ago
+	`);
+
+	return rows.map((row) => ({ weeksAgo: Number(row.weeks_ago), count: Number(row.count) }));
+}

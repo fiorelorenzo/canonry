@@ -1387,12 +1387,23 @@ export const en: Messages = {
 			derivedNoticeAfter: "'s indexed corpus, read-only. Your canon always wins.",
 			newEntryAction: 'New entry',
 			home: {
-				entriesStat: 'Entries',
-				waitingStat: 'Waiting review',
-				quotaStat: 'Quota',
-				quotaValue: (used, total) => {
+				pulseMoving: (total, latest, weeks) => {
 					const fmt = numberFormat('en', { maximumFractionDigits: 0, useGrouping: 'always' });
-					return `${fmt.format(used)} / ${fmt.format(total)}`;
+					const changes = total === 1 ? '1 change' : `${fmt.format(total)} changes`;
+					const tail =
+						latest === 0
+							? 'none in the last seven days'
+							: `${fmt.format(latest)} in the last seven days`;
+					return `${changes} in the last ${weeks} weeks, ${tail}.`;
+				},
+				pulseQuiet: (weeks, lastChange) =>
+					lastChange
+						? `Nothing has changed in ${weeks} weeks. Last change: ${lastChange}.`
+						: `Nothing has changed in ${weeks} weeks.`,
+				pulseWeekTitle: (count, weeksAgo) => {
+					const changes = count === 1 ? '1 change' : `${count} changes`;
+					if (weeksAgo === 0) return `last seven days: ${changes}`;
+					return weeksAgo === 1 ? `1 week ago: ${changes}` : `${weeksAgo} weeks ago: ${changes}`;
 				},
 				continueHeading: 'Continue',
 				continueEmpty: 'Nothing changed yet.',

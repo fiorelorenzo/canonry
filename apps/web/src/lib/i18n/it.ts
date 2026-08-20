@@ -1428,12 +1428,25 @@ export const it: Messages = {
 			derivedNoticeAfter: ', in sola lettura. Il tuo canone vince sempre.',
 			newEntryAction: 'Nuova voce',
 			home: {
-				entriesStat: 'Voci',
-				waitingStat: 'Da revisionare',
-				quotaStat: 'Credito',
-				quotaValue: (used, total) => {
+				pulseMoving: (total, latest, weeks) => {
 					const fmt = numberFormat('it', { maximumFractionDigits: 0, useGrouping: 'always' });
-					return `${fmt.format(used)} di ${fmt.format(total)}`;
+					const changes = total === 1 ? '1 modifica' : `${fmt.format(total)} modifiche`;
+					const tail =
+						latest === 0
+							? 'nessuna negli ultimi sette giorni'
+							: `${fmt.format(latest)} negli ultimi sette giorni`;
+					return `${changes} nelle ultime ${weeks} settimane, ${tail}.`;
+				},
+				pulseQuiet: (weeks, lastChange) =>
+					lastChange
+						? `Niente è cambiato da ${weeks} settimane. Ultima modifica: ${lastChange}.`
+						: `Niente è cambiato da ${weeks} settimane.`,
+				pulseWeekTitle: (count, weeksAgo) => {
+					const changes = count === 1 ? '1 modifica' : `${count} modifiche`;
+					if (weeksAgo === 0) return `ultimi sette giorni: ${changes}`;
+					return weeksAgo === 1
+						? `1 settimana fa: ${changes}`
+						: `${weeksAgo} settimane fa: ${changes}`;
 				},
 				continueHeading: 'Riprendi',
 				continueEmpty: 'Ancora nessun cambiamento.',
