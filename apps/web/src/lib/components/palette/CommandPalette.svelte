@@ -19,21 +19,29 @@
 	 * going to need: `placement="docked"` renders the same `Command.Root` and the same
 	 * `Command.Input` inline, with no dialog around it, which is what the floating
 	 * Loremaster panel mounts. One input implementation in two positions rather than a
-	 * second composer beside this one. Five differences, all of them because a docked
+	 * second composer beside this one. Six differences, all of them because a docked
 	 * copilot composer is not a command runner:
 	 *
-	 * - The Ask row is not gated on `looksLikeQuestion`. In the palette that gate keeps
-	 *   a typed name from looking like a question; in the panel everything typed is a
-	 *   question, and a composer whose Enter key sometimes does nothing is broken.
+	 * - No ask row, and Enter always sends (#416, S11, reversing #285's own first cut).
+	 *   `onDockedKeydown` intercepts Enter unconditionally now rather than only when the
+	 *   entry list is empty, because a composer whose Enter key sometimes selects a link
+	 *   instead of sending the question is not a composer.
+	 * - No empty-entry state, and entries render only when there is at least one match
+	 *   (#416, S11): "no entries match that sentence" was never true of a question,
+	 *   because a question was never a name. The chrome changes with it: no leading
+	 *   search icon, a trailing send button, and the input group's own paper and line
+	 *   colours rather than the translucent input/ring pair the dialog placement keeps.
 	 * - It calls `onAsk` instead of linking to the route, because O3's whole point is
-	 *   that the answer arrives without leaving the page. Entry rows stay real links
-	 *   and `onNavigate` lets the panel close behind them.
+	 *   that the answer arrives without leaving the page. Entry rows stay real links;
+	 *   `onNavigate` is the caller's own choice, and QuickAsk does not pass it (R5), so a
+	 *   row navigates like any other link and the panel stays open behind it.
 	 * - Actions, the account-mode universe list and the keyboard footer stay out. mod+K
 	 *   is still the command runner; the panel has its own two exits.
-	 * - `query` is a bindable prop rather than pure internal state (#381, R6): the
-	 *   panel's suggestion chips fill it from outside without sending it. Unbound, as
-	 *   the dialog placement leaves it, it behaves exactly like the local `$state` it
-	 *   replaced.
+	 * - `query` is a bindable prop rather than pure internal state (#381, R6), and stays
+	 *   that way after #413 stopped a suggestion chip writing it: QuickAsk still needs to
+	 *   clear the box once a turn it started has actually been asked, and only the caller
+	 *   knows when that is. Unbound, as the dialog placement leaves it, it behaves
+	 *   exactly like the local `$state` it replaced.
 	 * - Results render above the input, not below (#381, R6): the panel now pins this
 	 *   composer to its own bottom edge, so a dropdown opening downward would have
 	 *   nowhere to go.
@@ -54,8 +62,10 @@
 	 * panel nobody can see.
 	 */
 	import { resolve } from '$app/paths';
+	import SendIcon from '@lucide/svelte/icons/send';
 	import * as Command from '$lib/components/ui/command';
 	import { Badge } from '$lib/components/ui/badge';
+	import * as InputGroup from '$lib/components/ui/input-group';
 	import { messages, type Locale } from '$lib/i18n';
 	import { matchesShortcut, SHORTCUTS } from '$lib/keys';
 	import type { EntitySearchHit } from '@canonry/db';
@@ -71,7 +81,6 @@
 		locale,
 		placement = 'dialog',
 		query = $bindable(''),
-		inputEl = $bindable<HTMLInputElement | null>(null),
 		onAsk,
 		onNavigate
 	}: {
@@ -82,14 +91,14 @@
 		/** 'dialog' (default): A3's own overlay, opened by mod+K. 'docked': #285's
 		 * floating panel, which mounts this same input inline. */
 		placement?: 'dialog' | 'docked';
-		/** Docked only, bindable: #381's suggestion chips fill this from outside without
-		 * sending it, the one thing plain internal state could not do. Unbound (the
-		 * dialog placement) it behaves exactly as the local `$state` it replaces. */
+		/** Docked only, bindable: the panel that mounts this clears the box once the
+		 * question it holds has actually been asked (`ask()` below reads `query`,
+		 * QuickAsk's own `ask()` then empties it) - the one thing plain internal state
+		 * could not do. #413 stopped a suggestion chip being what writes it; the
+		 * composer's own Enter and send control are what write it now, exactly as
+		 * before. Unbound (the dialog placement) it behaves exactly as the local
+		 * `$state` it replaces. */
 		query?: string;
-		/** Docked only, bindable: the input's own node, so the panel that mounts this can
-		 * put the caret back after filling `query` from outside. A chip that fills the box
-		 * without moving focus leaves the text somewhere nobody is typing. */
-		inputEl?: HTMLInputElement | null;
 		/** Docked only: the panel answers in place instead of routing. */
 		onAsk?: (question: string) => void;
 		/** Docked only: a row navigated away, so whatever mounted this can close. */
@@ -104,8 +113,11 @@
 	const paletteShortcut = SHORTCUTS.find((shortcut) => shortcut.id === 'palette')!;
 
 	/** Docked only: the dialog placement gets its focus from the dialog itself, and a
-	 * panel that expands without the caret in the box is a panel you have to click twice.
-	 * Bindable above, so the panel can also focus it after a suggestion chip. */
+	 * panel that expands without the caret in the box is a panel you have to click
+	 * twice. Local rather than bindable (#416, S11): nothing outside this component
+	 * moves focus into it any more now that a suggestion chip asks instead of filling
+	 * the box (#413). */
+	let inputEl = $state<HTMLInputElement | null>(null);
 	let entityHits = $state<EntitySearchHit[]>([]);
 	let searching = $state(false);
 	let requestSeq = 0;
@@ -204,10 +216,14 @@
 		}
 	}
 
-	// Enter with the suggestion list folded away has no highlighted row for Command to
-	// select, so re-asking the same question would silently do nothing.
+	// The composer's Enter always sends (#416, S11): there is no ask row left to
+	// highlight, and letting Command's own combobox handling run instead would select
+	// whichever entry row happens to be first rather than asking the typed question.
+	// `preventDefault` here reaches that internal handling too - `composeHandlers`
+	// (svelte-toolbelt, underneath bits-ui's `Command.Root`) stops at the first handler
+	// that has already prevented the default, and this one runs first.
 	function onDockedKeydown(event: KeyboardEvent) {
-		if (event.key !== 'Enter' || showResults) return;
+		if (event.key !== 'Enter') return;
 		event.preventDefault();
 		ask();
 	}
@@ -220,54 +236,80 @@
 		bind:value={query}
 		bind:ref={inputEl}
 		placeholder={docked ? t.askPlaceholder : t.placeholder}
+		showSearchIcon={!docked}
+		groupClass={docked ? 'rounded-lg! border-line-2 bg-panel shadow-none!' : undefined}
+		trailing={docked ? sendControl : undefined}
 	/>
+{/snippet}
+
+{#snippet sendControl()}
+	<InputGroup.Button
+		type="button"
+		size="icon-xs"
+		aria-label={t.sendLabel}
+		title={t.sendLabel}
+		disabled={trimmedQuery.length === 0}
+		onclick={ask}
+	>
+		<SendIcon aria-hidden="true" />
+	</InputGroup.Button>
 {/snippet}
 
 {#snippet results()}
 	{#if mode === 'universe' && universeSlug}
+		{#snippet entryRow(hit: EntitySearchHit)}
+			<Command.LinkItem href={resolve(`/w/${universeSlug}/e/${hit.slug}`)} onSelect={rowSelected}>
+				<span class="min-w-0 truncate">{hit.name}</span>
+				{#if hit.matchedAlias}
+					<span class="shrink-0 text-xs text-muted">{t.akaHint(hit.matchedAlias)}</span>
+				{/if}
+				<Badge variant="secondary" class="ml-auto shrink-0 font-mono uppercase">
+					{messages(locale).universe.index.filters.typeLabel(hit.type)}
+				</Badge>
+			</Command.LinkItem>
+		{/snippet}
+
 		{#if docked}
+			<!-- #416, S11: no ask row (Enter and the send control beside the input do
+			     that job) and no empty-entry state - "no entries match that sentence"
+			     was never true of a question, because a question was never a name. -->
 			{#if trimmedQuery.length > 0}
+				{#if searching}
+					<Command.Group heading={t.entriesHeading}>
+						<Command.Loading>{t.loadingMessage}</Command.Loading>
+					</Command.Group>
+				{:else if entityHits.length > 0}
+					<Command.Group heading={t.entriesHeading}>
+						{#each entityHits as hit (hit.id)}
+							{@render entryRow(hit)}
+						{/each}
+					</Command.Group>
+				{/if}
+			{/if}
+		{:else}
+			{#if isQuestion && askHref}
 				<Command.Group heading={t.askHeading}>
-					<Command.Item onSelect={ask} class="text-ink">
+					<Command.LinkItem href={askHref} onSelect={rowSelected} class="text-ai">
 						<span aria-hidden="true">✦</span>
 						<span class="min-w-0 truncate">{t.askAction(trimmedQuery)}</span>
-						<Command.Shortcut>{t.askHereHint}</Command.Shortcut>
-					</Command.Item>
+						<Command.Shortcut>{t.askHint}</Command.Shortcut>
+					</Command.LinkItem>
 				</Command.Group>
 			{/if}
-		{:else if isQuestion && askHref}
-			<Command.Group heading={t.askHeading}>
-				<Command.LinkItem href={askHref} onSelect={rowSelected} class="text-ai">
-					<span aria-hidden="true">✦</span>
-					<span class="min-w-0 truncate">{t.askAction(trimmedQuery)}</span>
-					<Command.Shortcut>{t.askHint}</Command.Shortcut>
-				</Command.LinkItem>
-			</Command.Group>
-		{/if}
 
-		{#if trimmedQuery.length > 0}
-			<Command.Group heading={t.entriesHeading}>
-				{#if searching}
-					<Command.Loading>{t.loadingMessage}</Command.Loading>
-				{:else if entityHits.length === 0}
-					<p class="px-2 py-3 text-sm text-muted">{t.noEntryMatches(trimmedQuery)}</p>
-				{:else}
-					{#each entityHits as hit (hit.id)}
-						<Command.LinkItem
-							href={resolve(`/w/${universeSlug}/e/${hit.slug}`)}
-							onSelect={rowSelected}
-						>
-							<span class="min-w-0 truncate">{hit.name}</span>
-							{#if hit.matchedAlias}
-								<span class="shrink-0 text-xs text-muted">{t.akaHint(hit.matchedAlias)}</span>
-							{/if}
-							<Badge variant="secondary" class="ml-auto shrink-0 font-mono uppercase">
-								{messages(locale).universe.index.filters.typeLabel(hit.type)}
-							</Badge>
-						</Command.LinkItem>
-					{/each}
-				{/if}
-			</Command.Group>
+			{#if trimmedQuery.length > 0}
+				<Command.Group heading={t.entriesHeading}>
+					{#if searching}
+						<Command.Loading>{t.loadingMessage}</Command.Loading>
+					{:else if entityHits.length === 0}
+						<p class="px-2 py-3 text-sm text-muted">{t.noEntryMatches(trimmedQuery)}</p>
+					{:else}
+						{#each entityHits as hit (hit.id)}
+							{@render entryRow(hit)}
+						{/each}
+					{/if}
+				</Command.Group>
+			{/if}
 		{/if}
 	{/if}
 

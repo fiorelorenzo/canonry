@@ -44,15 +44,24 @@
 	 *   rather than a transcript.
 	 * - **The theme's own colours, not the copilot's hue.** Paper, `--line`, `--ink` and
 	 *   the umber accent for the launcher, the panel, the context chip and the input, in
-	 *   both palettes (G1). **This does not repeal C1**: every turn's answer renders
-	 *   through `AiMarkedParagraph`, which is the dashed underline plus the numbered margin
-	 *   marker C1 reserves for AI text nobody has accepted. Round eleven P2 (#344) finished
-	 *   the job on the two chips drawn per turn below: the proposal chip and the indexed-
-	 *   source chip are chrome around a link and a kind label, so they wear panel and line
-	 *   here exactly as they now do on the Ask route, and the marked wording inside the
-	 *   proposal chip is what says "not yet accepted". Do not paint the chrome in the
-	 *   copilot's hue again without reading `docs/ux/DECISIONS.md` round ten and round
-	 *   eleven first.
+	 *   both palettes (G1).
+	 * - **The answer itself carries no mark (#414, S9, round fourteen).** It used to
+	 *   render through `AiMarkedParagraph` with `proposed: true` - C1's dashed underline
+	 *   plus the numbered margin marker reserved for AI wording nobody has accepted -
+	 *   which was wrong here: an Ask answer is not proposed canon, it lives in no entry,
+	 *   nothing about it can be accepted, and the number pointed at a sequence that did
+	 *   not exist while the sources sat two lines below it. The Ask route never marked
+	 *   its own copy of the same answer (`routes/w/[universe]/ask/+page.svelte`), which
+	 *   is the precedent this follows. Attribution did not disappear, it moved: this
+	 *   panel's own header and the keep disclosure below each turn already say a copilot
+	 *   generated this and which provider, the job the marker used to do less directly.
+	 *   **C1 is not repealed.** A proposal's own summary still wears the mark wherever it
+	 *   is shown (`aiMarking.ts`, `EntryProseWithSecrets.svelte`, `/dev/ai-marking`),
+	 *   because that text really can become canon. Do not touch `--color-ai` or
+	 *   `AiMarkedParagraph` itself for this reason: round eleven P1 measured mulberry
+	 *   against paper, ink, the accent and danger specifically for that mark, and the
+	 *   complaint that opened #414 was about a surface that should never have carried it,
+	 *   not about the mark's colour.
 	 * - **An icon closes the panel, not the word.** With its accessible name on
 	 *   `aria-label`, so the control is still named for anything that is not looking at it.
 	 *
@@ -71,7 +80,6 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import XIcon from '@lucide/svelte/icons/x';
-	import AiMarkedParagraph from '$lib/components/ai/AiMarkedParagraph.svelte';
 	import CommandPalette from '$lib/components/palette/CommandPalette.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { messages, type Locale } from '$lib/i18n';
@@ -123,9 +131,6 @@
 	let pillEl = $state<HTMLButtonElement | null>(null);
 	let scrollAreaEl = $state<HTMLDivElement | null>(null);
 	let composerQuestion = $state('');
-	/** The docked composer's own input node, bound out of `CommandPalette`, so a chip can
-	 * put the caret where the text just went. */
-	let composerInputEl = $state<HTMLInputElement | null>(null);
 
 	/** The page's own entity, if this route has one: present on an entry route (and its
 	 * `/edit` subroute, which carries the same `entity`), `null` everywhere else. The same
@@ -309,11 +314,14 @@
 		}
 	}
 
-	/** G5's expand in place: the answer moves onto the route rather than being asked a
-	 * second time there. R5: unlike before this round, the navigation no longer closes the
-	 * panel behind it - there is no effect left to do that - so the same turn stays visible
-	 * in both places at once, which is the same "does not stop being true" argument R5
-	 * makes for any other link inside the panel. */
+	/** G5's expand in place: the answer moves onto the route, and #415 (S10, round
+	 * fourteen) closes the panel behind it - R5 keeps the panel open across every other
+	 * navigation from inside it (a source chip, an entry row), but this is the one
+	 * navigation that hands the very thing the panel was holding to the page underneath
+	 * it, which makes a second open copy redundant rather than worth keeping. `close()`
+	 * is still the only write-nothing event (R5): the conversation goes with it, which is
+	 * correct here because the route now owns this answer via `askHandoff`, a one-shot
+	 * handoff it consumes exactly once. */
 	async function openInAsk(turn: QuickAskTurn) {
 		askHandoff.put({
 			question: turn.question,
@@ -328,19 +336,20 @@
 			keptId: turn.keptId
 		});
 		await goto(resolve(`/w/${universeSlug}/ask`));
+		await close();
 	}
 
-	/** A chip fills the composer and never sends it (G11: every paid action is confirmed),
-	 * so the caret has to end up where the GM's next keystroke is going. Without the focus
-	 * move, clicking a suggestion left the text in a box nobody was typing in and the
-	 * Enter that would have sent it went nowhere. The DOM node arrives from
-	 * `CommandPalette`'s docked input through `bind:inputEl`, so this waits for the flush
-	 * rather than assuming it is already mounted. */
-	async function fillSuggestion(suggestion: string) {
-		composerQuestion = suggestion;
-		await tick();
-		composerInputEl?.focus();
-		composerInputEl?.setSelectionRange(suggestion.length, suggestion.length);
+	/** #413, S8, round fourteen: reverses the call above `ask()` and #401 both made -
+	 * filling the box and moving the caret there so the GM could send it themselves. A
+	 * suggestion chip already names, in full, the exact question it asks: that is the
+	 * explicit act G11 wants ("confirm every paid action"), not a second click on a
+	 * button whose entire label is the question - this is not a regression against G11,
+	 * it is what G11 actually asks for. Calls the same `ask()` the composer's own submit
+	 * calls, so it is one paid call either way, and inherits `ask()`'s own in-flight
+	 * guard: a chip cannot fire a second turn while one is still streaming, and it is
+	 * gone from the screen the moment the first turn exists regardless. */
+	function askSuggestion(suggestion: string): void {
+		void ask(suggestion);
 	}
 
 	// Instant, never smooth: Q6 refuses motion while a turn is streaming, and a jump is
@@ -424,13 +433,16 @@
 			{#if quickAskState.turns.length === 0}
 				<!-- R6: three deterministic suggestions, gone once there is a turn - "a
 				     suggestion is for somebody who does not know what to type and not for
-				     somebody mid-thought." Chips fill the composer, they never send it. -->
+				     somebody mid-thought." #413 (S8, round fourteen) reverses R6's own
+				     "chips fill, they never send": a chip already names the exact question
+				     it asks, so clicking one sends it immediately through `askSuggestion`,
+				     the same `ask()` the composer's own Enter and send control call. -->
 				<ul class="m-0 flex list-none flex-wrap gap-1.5 p-3">
 					{#each suggestions as suggestion (suggestion)}
 						<li>
 							<button
 								type="button"
-								onclick={() => fillSuggestion(suggestion)}
+								onclick={() => askSuggestion(suggestion)}
 								class="rounded-full border border-line-2 bg-panel-2 px-2.5 py-1 text-left text-xs text-ink-2 hover:bg-accent-bg hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
 							>
 								{suggestion}
@@ -461,15 +473,17 @@
 					{/if}
 
 					{#if turn.answer.length > 0 || turn.asking}
-						<!-- C1 = B, untouched by O3's colour amendment and by round eleven's:
-						     unaccepted AI wording keeps the dashed underline and the numbered
-						     margin marker, here as on every other surface that renders it. -->
+						<!-- #414, S9: not C1's mark - an Ask answer is not proposed canon, so it
+						     renders as plain prose exactly as
+						     `routes/w/[universe]/ask/+page.svelte` already renders the same
+						     answer. Attribution is the header above and the keep disclosure
+						     below, not a mark on the text. -->
 						<div class="pt-2 text-sm">
 							{#if turn.answer.length > 0}
-								<AiMarkedParagraph segments={[{ text: turn.answer, proposed: true }]} />
+								<p class="m-0 leading-relaxed text-ink">{turn.answer}</p>
 							{/if}
 							{#if turn.asking}
-								<p class="ai-note mt-1 mb-0 pl-6 text-xs text-ai">{t.streaming}</p>
+								<p class="ai-note mt-1 mb-0 text-xs text-ai">{t.streaming}</p>
 							{/if}
 						</div>
 					{/if}
@@ -621,7 +635,6 @@
 				{locale}
 				placement="docked"
 				bind:query={composerQuestion}
-				bind:inputEl={composerInputEl}
 				onAsk={ask}
 			/>
 		</div>
