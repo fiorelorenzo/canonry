@@ -45,19 +45,29 @@
 	></svelte:head
 >
 
-<div class="mx-auto max-w-3xl px-6 py-8">
-	<p class="mb-3 text-xs text-muted">
+<div class="mx-auto flex h-full max-w-3xl flex-col px-6 py-8">
+	<p class="mb-1 shrink-0 text-xs text-muted">
 		<a class="hover:underline" href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}`)}
 			>{data.entity.name}</a
 		>
 		/ {t.entry.editor.breadcrumbEdit}
 	</p>
-	<h1 class="mb-6 text-2xl font-semibold text-ink">{t.entry.editor.heading(data.entity.name)}</h1>
+	<!-- S7, round fourteen (#412): shrunk to the breadcrumb's own scale, since the
+	     breadcrumb one line up already says the entry's name - this stays a real `h1`
+	     for the page's outline, it just no longer spends `text-2xl` and `mb-6` telling
+	     you something you were told a line ago. That reclaims the vertical space the
+	     writing area gets below. -->
+	<h1 class="mb-4 shrink-0 text-xs font-medium text-ink">
+		{t.entry.editor.heading(data.entity.name)}
+	</h1>
 	{#if form?.message}
-		<p class="mb-4 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.message}</p>
+		<p class="mb-4 shrink-0 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
+			{form.message}
+		</p>
 	{/if}
 
 	<MarkdownEditor
+		fill
 		bind:value={body}
 		targets={data.mentionTargets}
 		locale={data.locale}
@@ -77,7 +87,7 @@
 		}}
 	/>
 
-	<form method="POST" action="?/save">
+	<form method="POST" action="?/save" class="shrink-0">
 		<input type="hidden" name="body" value={body} />
 
 		<div class="mt-4 flex justify-end">
@@ -87,7 +97,7 @@
 		</div>
 	</form>
 
-	<div class="mt-8 border-t border-line pt-4">
+	<div class="mt-8 shrink-0 border-t border-line pt-4">
 		<LanguageControl
 			language={data.entity.language}
 			languageSource={data.entity.languageSource}
