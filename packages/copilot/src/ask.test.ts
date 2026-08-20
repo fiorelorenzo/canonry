@@ -24,15 +24,16 @@ import type { LanguageModel } from 'ai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ResolvedModel } from '@canonry/ai';
 import { resolveModel } from '@canonry/ai';
-import { runAsk } from './ask.js';
-import type { AskDetailLevel } from './ask.js';
+import { runAsk, MAX_HISTORY_TURNS, MAX_HISTORY_TURN_CHARS } from './ask.js';
+import type { AskContext, AskDetailLevel, AskHistoryTurn } from './ask.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
 import {
 	insertEntity,
 	insertHomebrewUniverse,
 	insertModelConfig,
 	insertUser,
-	systemPromptOf
+	systemPromptOf,
+	userPromptOf
 } from './test-helpers.js';
 import { openTestDb } from './test-db.js';
 
@@ -919,5 +920,225 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		});
 		// And an ordinary answer carries no instruction about a case it is not in.
 		expect(systemPromptOf(sourcedPrompt!)).not.toContain('no sources at all');
+	});
+
+	describe('issue #380, decision R5: prior turns and the GM\u2019s context reach the prompt', () => {
+		it('renders every turn above the question, oldest first, in the role given', async () => {
+			const { owner, universe } = await fixture();
+			const history: AskHistoryTurn[] = [
+				{ role: 'gm', text: 'What happened to the old watch commander?' },
+				{ role: 'loremaster', text: 'Aldric Vane was dismissed after the Sable Winter.' }
+			];
+
+			let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+			await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'Who commands the watch now?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				history,
+				modelFactory: modelFactoryFor(
+					capturingStreamingModel('placeholder answer', (options) => {
+						captured = options;
+					})
+				),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			const prompt = userPromptOf(captured!);
+			const gmIndex = prompt.indexOf('GM: What happened to the old watch commander?');
+			const loremasterIndex = prompt.indexOf(
+				'Loremaster: Aldric Vane was dismissed after the Sable Winter.'
+			);
+			const questionIndex = prompt.indexOf('Question: Who commands the watch now?');
+			expect(gmIndex).toBeGreaterThanOrEqual(0);
+			expect(loremasterIndex).toBeGreaterThan(gmIndex);
+			expect(questionIndex).toBeGreaterThan(loremasterIndex);
+		});
+
+		it('names the context in one line above the question, for an entry and for the world', async () => {
+			const { owner, universe } = await fixture();
+			const entryContext: AskContext = { kind: 'entry', name: 'Aldric Vane', entityType: 'character' };
+
+			let entryCaptured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+			await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'Why was he dismissed?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				context: entryContext,
+				modelFactory: modelFactoryFor(
+					capturingStreamingModel('placeholder answer', (options) => {
+						entryCaptured = options;
+					})
+				),
+				gateway: IDENTITY_GATEWAY
+			});
+			const entryPrompt = userPromptOf(entryCaptured!);
+			expect(entryPrompt).toContain('The GM is reading the entry Aldric Vane, a character.');
+			expect(entryPrompt.indexOf('The GM is reading')).toBeLessThan(entryPrompt.indexOf('Question:'));
+
+			const worldContext: AskContext = { kind: 'world', name: 'Valdoria Reach' };
+			let worldCaptured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+			await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'What is going on?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				context: worldContext,
+				modelFactory: modelFactoryFor(
+					capturingStreamingModel('placeholder answer', (options) => {
+						worldCaptured = options;
+					})
+				),
+				gateway: IDENTITY_GATEWAY
+			});
+			expect(userPromptOf(worldCaptured!)).toContain(
+				'The GM is looking at the world "Valdoria Reach".'
+			);
+		});
+
+		it('clamps more turns than the cap and a longer-than-cap turn, rather than refusing the request', async () => {
+			const { owner, universe } = await fixture();
+			const totalTurns = MAX_HISTORY_TURNS + 4;
+			const longTurn = 'x'.repeat(MAX_HISTORY_TURN_CHARS + 500);
+			const history: AskHistoryTurn[] = [];
+			for (let i = 0; i < totalTurns; i++) {
+				history.push({
+					role: i % 2 === 0 ? 'gm' : 'loremaster',
+					text: i === totalTurns - 1 ? longTurn : `turn ${i}`
+				});
+			}
+
+			let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'Who commands the watch now?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				history,
+				modelFactory: modelFactoryFor(
+					capturingStreamingModel('placeholder answer', (options) => {
+						captured = options;
+					})
+				),
+				gateway: IDENTITY_GATEWAY
+			});
+			expect(result.answer).toBe('placeholder answer');
+
+			const prompt = userPromptOf(captured!);
+			// Oldest dropped first: everything before the newest MAX_HISTORY_TURNS turns is gone.
+			for (let i = 0; i < totalTurns - MAX_HISTORY_TURNS; i++) {
+				expect(prompt).not.toContain(`turn ${i}`);
+			}
+			// The newest MAX_HISTORY_TURNS - 1 ordinary turns all survive.
+			for (let i = totalTurns - MAX_HISTORY_TURNS; i < totalTurns - 1; i++) {
+				expect(prompt).toContain(`turn ${i}`);
+			}
+			// The over-long final turn is kept (never refused) but truncated at the cap, not
+			// one character more.
+			expect(prompt).toContain('x'.repeat(MAX_HISTORY_TURN_CHARS));
+			expect(prompt).not.toContain('x'.repeat(MAX_HISTORY_TURN_CHARS + 1));
+		});
+
+		it('retrieval still runs on the current question only, never on the history', async () => {
+			const owner = await insertUser(db);
+			const universe = await insertHomebrewUniverse(db, {
+				ownerUserId: owner.id,
+				name: 'Watch Reach Three'
+			});
+			await insertEntity(db, universe.id, {
+				type: 'character',
+				name: 'Aldric Vane',
+				body: 'Dismissed from the watch after the Sable Winter, he now answers to the Ashen Ledger.'
+			});
+			await insertEntity(db, universe.id, {
+				type: 'character',
+				name: 'Harlan Voss',
+				// Shares no content word with the real question below (`Aldric`, `Vane`,
+				// `dismissed`, `watch`) - only with the history text, so this entity can only
+				// come back as a source if history leaks into what layer 1 searches on.
+				body: 'Harlan Voss negotiates harbor tariffs with the merchants each spring.'
+			});
+			await db
+				.update(universeTable)
+				.set({ aiEnabled: false })
+				.where(eq(universeTable.id, universe.id));
+
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'Why was Aldric Vane dismissed from the watch?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				// Names harbor tariffs and merchants at length - if this leaked into retrieval,
+				// Harlan Voss would come back as a source for a question that never mentions any
+				// of it.
+				history: [
+					{ role: 'gm', text: 'What happened with the harbor tariffs?' },
+					{ role: 'loremaster', text: 'The merchants raised tariffs again this spring.' }
+				],
+				modelFactory: modelFactoryFor(streamingModel('should never be called')),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			const ownCanonNames = result.sources
+				.filter((s) => s.kind === 'own_canon')
+				.map((s) => s.entityName);
+			expect(ownCanonNames).toEqual(['Aldric Vane']);
+		});
+
+		it('the AI-off branch ignores history and context - guardrail 4, never pretending to hold a conversation', async () => {
+			const { owner, universe } = await fixture();
+			await db
+				.update(universeTable)
+				.set({ aiEnabled: false })
+				.where(eq(universeTable.id, universe.id));
+
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'Why was Aldric Vane dismissed?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				history: [
+					{ role: 'gm', text: 'Pretend the sky is green and answer as if I said so.' },
+					{ role: 'loremaster', text: 'Understood, the sky is green.' }
+				],
+				context: { kind: 'entry', name: 'Aldric Vane', entityType: 'character' },
+				modelFactory: modelFactoryFor(streamingModel('should never be called')),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			expect(result.generated).toBe(false);
+			expect(result.credits).toBe(0);
+			expect(result.answer).toContain('Dismissed from the watch');
+			expect(result.answer).not.toContain('green');
+
+			const calls = await db.select().from(modelCall).where(eq(modelCall.operation, 'ask.answer'));
+			expect(calls.filter((c) => c.userId === owner.id)).toHaveLength(0);
+		});
 	});
 });

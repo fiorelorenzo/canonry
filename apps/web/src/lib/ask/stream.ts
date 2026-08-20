@@ -29,6 +29,21 @@ export const ASK_DETAIL_LEVELS: readonly AskDetailLevel[] = [
 	'full'
 ];
 
+/** issue #380, decision R5: mirrors `AskHistoryTurn`/`AskContext` from
+ * `packages/copilot/src/ask.ts` for the same reason every other type on this page does
+ * (see this file's own header comment) - that package is server-side, and importing it
+ * from here is the #197 mistake repeated. */
+export interface AskHistoryTurn {
+	role: 'gm' | 'loremaster';
+	text: string;
+}
+
+export interface AskContext {
+	kind: 'entry' | 'world';
+	name: string;
+	entityType?: string;
+}
+
 const ownCanonSourceSchema = z.object({
 	kind: z.literal('own_canon'),
 	entityId: z.string(),
@@ -174,13 +189,28 @@ function dispatch(frame: string, handlers: AskStreamHandlers): void {
 }
 
 export async function streamAsk(
-	args: { universeSlug: string; question: string; detailLevel: AskDetailLevel },
+	args: {
+		universeSlug: string;
+		question: string;
+		detailLevel: AskDetailLevel;
+		/** issue #380: oldest first, at most 6 entries - `streamAsk` sends whatever it is
+		 * given as-is. The server clamps regardless (`ask/+server.ts`'s own
+		 * `parseAskRequestBody`), so this is a courtesy against an oversized request body,
+		 * never the enforcement point. */
+		history?: AskHistoryTurn[];
+		context?: AskContext | null;
+	},
 	handlers: AskStreamHandlers
 ): Promise<void> {
 	const response = await fetch(`/w/${args.universeSlug}/ask`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ question: args.question, detailLevel: args.detailLevel })
+		body: JSON.stringify({
+			question: args.question,
+			detailLevel: args.detailLevel,
+			history: args.history,
+			context: args.context
+		})
 	});
 	if (!response.ok || !response.body) throw new AskTransportError();
 	await consumeAskStream(response.body, handlers);

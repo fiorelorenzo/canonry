@@ -95,7 +95,12 @@ export {
 
 export {
 	runAsk,
+	clampAskHistory,
+	MAX_HISTORY_TURNS,
+	MAX_HISTORY_TURN_CHARS,
+	type AskContext,
 	type AskDetailLevel,
+	type AskHistoryTurn,
 	type AskInput,
 	type AskProposalEvent,
 	type AskResult,
