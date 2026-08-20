@@ -215,7 +215,11 @@ describe('/w/[universe]/settings actions (issue #378, decision R3)', () => {
 	});
 });
 
-describe('/w/[universe]/settings load: setupChecklist (issue #379, decision R4)', () => {
+// Issue #406 (S1, DECISIONS.md "Round fourteen"): `setupItems` no longer feeds a
+// checklist card - `+page.svelte`'s rail turns the same payload into a mark on
+// whichever group row owns the unset item instead. The payload's own contract
+// (ids, `done`, what counts as unset) is unchanged, so these assertions stay put.
+describe('/w/[universe]/settings load: setupItems (issue #379 R4, issue #406 S1)', () => {
 	let db: Db;
 
 	beforeAll(() => {

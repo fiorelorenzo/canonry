@@ -7,16 +7,22 @@
 	 * `<main id="main">` plus a "← Universes" back link pointed at a screen the
 	 * sidebar already reaches from anywhere - both removed rather than duplicated once
 	 * per pane.
+	 *
+	 * Issue #406 (S1, DECISIONS.md "Round fourteen"): the two-column div itself moved
+	 * to `SettingsShell` (`$lib/components/settings/SettingsShell.svelte`) once the
+	 * universe's own settings page needed the same shape - this file now only
+	 * supplies the rail's contents for the account (`SettingsNav`).
 	 */
 	import type { Snippet } from 'svelte';
 	import SettingsNav from '$lib/components/account/SettingsNav.svelte';
+	import SettingsShell from '$lib/components/settings/SettingsShell.svelte';
 
 	let { children }: { children: Snippet } = $props();
 </script>
 
-<div class="flex flex-col gap-8 lg:flex-row lg:gap-10">
-	<SettingsNav />
-	<div class="min-w-0 flex-1">
-		{@render children()}
-	</div>
-</div>
+<SettingsShell>
+	{#snippet rail()}
+		<SettingsNav />
+	{/snippet}
+	{@render children()}
+</SettingsShell>

@@ -1701,8 +1701,14 @@ export const en: Messages = {
 			appearanceLink: 'Appearance',
 			exportLink: 'Export',
 			viewerForbiddenError: 'Viewers cannot change this setting.',
-			setupChecklist: {
-				heading: 'Left to finish'
+			groups: {
+				images: 'Images',
+				loremaster: 'The Loremaster',
+				canon: 'Canon'
+			},
+			rail: {
+				ariaLabel: 'Settings groups',
+				incompleteMark: 'Unset'
 			},
 			aiToggle: {
 				heading: 'Loremaster writing',

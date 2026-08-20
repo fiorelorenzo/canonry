@@ -1841,13 +1841,20 @@ export interface Messages {
 			appearanceLink: string;
 			exportLink: string;
 			viewerForbiddenError: string;
-			/** Issue #379, decision R4: the list at the top of this page, rendered only
-			 * while `universeSetupItems()` still has an unset item. Each link's text
-			 * reuses `imageStyle.heading`/`loremasterVoice.heading` below rather than a
-			 * new description - #378 already named these sections, this only points at
-			 * them. */
-			setupChecklist: {
-				heading: string;
+			/** Issue #406 (S1, DECISIONS.md "Round fourteen"): the two-pane page's own
+			 * rail - the three group names below, in fixed order (Images, then the
+			 * Loremaster, then Canon) - and the small mark a row carries while
+			 * `universeSetupItems()` still has the one item that group owns unset.
+			 * Replaces the `setupChecklist` card this page used to render at the top:
+			 * the array itself is unchanged, only where its output surfaces. */
+			groups: {
+				images: string;
+				loremaster: string;
+				canon: string;
+			};
+			rail: {
+				ariaLabel: string;
+				incompleteMark: string;
 			};
 			aiToggle: {
 				heading: string;
