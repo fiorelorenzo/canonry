@@ -599,7 +599,7 @@ export const en: Messages = {
 				return form === 'one' ? `${n} credit` : `${n} credits`;
 			},
 			privateHint:
-				"The image stays private to you until you insert it here - it never reaches the players' wiki on its own.",
+				"A generated candidate is nobody's until you insert it here - it never reaches the players' wiki on its own.",
 			generateAction: 'Generate',
 			generating: 'Generating\u2026',
 			upload: {
@@ -645,23 +645,19 @@ export const en: Messages = {
 				fromAssetIdMustBeString: 'fromAssetId must be a string',
 				sourceHasNoPrompt: 'That image has no stored prompt to regenerate from.'
 			},
-			// #254: the per-asset publish/unpublish control and the summary sentence below
-			// the grid. Replaces the old unconditional `privateNote`, which stopped being
-			// true the moment an asset could be published - this stays accurate whether the
-			// grid is all-private, all-published, or a mix of the two.
+			// Issue #382, decision R7: an image's audience follows its entry, and attaching
+			// is the accept - this block is down to the one exception a GM can still set,
+			// `gm_only`, plus the sentence below the grid explaining the default.
 			publish: {
-				publishedBadge: 'Published',
-				publishedNote: "Published to the players' wiki.",
-				privateNote: 'Private.',
-				publishLabel: 'Publish',
-				unpublishLabel: 'Unpublish',
-				publishing: 'Publishing\u2026',
-				unpublishing: 'Unpublishing\u2026',
+				gmOnlyBadge: 'GM only',
+				gmOnlyLabel: 'GM only',
+				visibleLabel: 'Visible',
+				toggleAriaLabel: 'Who can see this image',
 				explanation:
-					"Publish an image to add it to the players' wiki. Nothing here reaches players on its own.",
-				publishedMustBeBoolean: 'published must be a boolean',
-				genericPublishFailedWithStatus: (status) => `Publishing failed (${status})`,
-				genericPublishFailed: 'Publishing failed'
+					"The party sees an entry's images once the entry itself is revealed. Mark an image GM only to hold it back regardless.",
+				gmOnlyMustBeBoolean: 'gmOnly must be a boolean',
+				genericUpdateFailedWithStatus: (status) => `Updating failed (${status})`,
+				genericUpdateFailed: 'Updating failed'
 			},
 
 			cover: {

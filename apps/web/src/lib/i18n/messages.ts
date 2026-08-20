@@ -776,22 +776,19 @@ export interface Messages {
 				fromAssetIdMustBeString: string;
 				sourceHasNoPrompt: string;
 			};
-			/** Issue #254: the per-asset publish/unpublish control and its legible state,
-			 * plus the summary sentence below the grid - unlike the old unconditional
-			 * `privateNote` it replaced, this has to stay true in the mixed state where some
-			 * assets are published and some are not. */
+			/** Issue #382, decision R7: an image's audience now follows its entry, and
+			 * attaching one is the accept - so this is down to the one exception a GM can
+			 * still set, `gm_only`, plus the summary sentence below the grid that explains
+			 * the default for the whole entry at once. */
 			publish: {
-				publishedBadge: string;
-				publishedNote: string;
-				privateNote: string;
-				publishLabel: string;
-				unpublishLabel: string;
-				publishing: string;
-				unpublishing: string;
+				gmOnlyBadge: string;
+				gmOnlyLabel: string;
+				visibleLabel: string;
+				toggleAriaLabel: string;
 				explanation: string;
-				publishedMustBeBoolean: string;
-				genericPublishFailedWithStatus: (status: number) => string;
-				genericPublishFailed: string;
+				gmOnlyMustBeBoolean: string;
+				genericUpdateFailedWithStatus: (status: number) => string;
+				genericUpdateFailed: string;
 			};
 			/** O2 (#284): the Images panel's "use as cover" action, which is that image's
 			 * accept - a generated picture becomes the entry's face because a person pressed

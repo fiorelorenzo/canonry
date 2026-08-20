@@ -7,9 +7,11 @@
  * concurrency-limited provider, stores the files, and inserts unattached media_asset rows
  * for the GM to pick from.
  *
- * Guardrail 6 / #71: this function never sets `published_to_players`. createMediaAsset's
- * own schema default (false) is the only thing that ever decides that column's value -
- * there is no parameter here for a caller to pass true, on a cache hit or otherwise.
+ * Guardrail 6 / #382: this function never sets `gm_only`. createMediaAsset's own schema
+ * default (false) is the only thing that ever decides that column's value - there is no
+ * parameter here for a caller to pass true, on a cache hit or otherwise. A generated
+ * image is unattached until the GM picks it (`entity_id` null), which is what keeps it
+ * from players regardless of the default.
  *
  * #255 and untrusted input: `instruction` is a string a universe member typed, and it
  * ends up inside the prompt sent to the image model. This is not a tool-calling loop -

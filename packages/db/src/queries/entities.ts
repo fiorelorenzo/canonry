@@ -422,11 +422,11 @@ export async function resetEntityLanguageToDetected(
 
 /**
  * O2 (#284): the one function anywhere that writes `entity.cover_asset_id`, kept alone the
- * same way `setMediaAssetPublished` is the only writer of `published_to_players` and for
- * the same reason. "Use as cover" in the Images panel is an accept (guardrail 1): a picture
+ * same way `setMediaAssetGmOnly` is the only writer of `media_asset.gm_only` and for the
+ * same reason. "Use as cover" in the Images panel is an accept (guardrail 1): a picture
  * a model generated becomes the entry's face because a person pressed something that says
  * so, so there must be exactly one place that write can come from, and no code path may
- * reach it as a side effect of generating, attaching, uploading or publishing.
+ * reach it as a side effect of generating, attaching, uploading or marking gm_only.
  *
  * `mediaAssetId: null` clears the cover, which is the same deliberate act in reverse rather
  * than a separate undo surface. Whether the asset belongs to this entry, and whether it is

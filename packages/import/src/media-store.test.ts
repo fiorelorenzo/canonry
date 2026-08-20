@@ -62,7 +62,7 @@ describe('MediaAssetImageStore (issue #40, SPEC.md §6.3, §6.6)', () => {
 		await closeDb(db);
 	});
 
-	it('stores a real PNG under the media root and inserts an unattached, unpublished, non-generated media_asset row', async () => {
+	it('stores a real PNG under the media root and inserts an unattached, gm_only-false, non-generated media_asset row', async () => {
 		const bytes = await readFile(`${FIXTURE_ROOT}small.png`);
 		const store = new MediaAssetImageStore({ db, universeId, mediaRoot });
 
@@ -81,8 +81,9 @@ describe('MediaAssetImageStore (issue #40, SPEC.md §6.3, §6.6)', () => {
 		expect(row.mimeType).toBe('image/png');
 		expect(row.bytes).toBe(bytes.byteLength);
 		expect(row.generated).toBe(false);
-		// Guardrail 6 (#71's cousin for imports): stays false until a human publishes it.
-		expect(row.publishedToPlayers).toBe(false);
+		// Guardrail 6 (#382's cousin for imports): stays false, but the row is unattached
+		// (entityId null) until a human attaches it - the default alone never leaks it.
+		expect(row.gmOnly).toBe(false);
 		expect(row.path.startsWith(universeId)).toBe(true);
 
 		const onDisk = await readFile(path.join(mediaRoot, row.path));

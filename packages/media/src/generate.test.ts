@@ -180,8 +180,8 @@ describe('generateImages (#64-#67, #71)', () => {
 		const asset = result.assets[0];
 		if (!asset) throw new Error('expected one generated asset');
 		expect(asset.generated).toBe(true);
-		expect(asset.entityId).toBeNull(); // unattached until the GM picks "Insert" (#71)
-		expect(asset.publishedToPlayers).toBe(false);
+		expect(asset.entityId).toBeNull(); // unattached until the GM picks "Insert" (#382)
+		expect(asset.gmOnly).toBe(false);
 		expect(asset.provider).toBe('replicate');
 		expect(asset.modelId).toBe('prunaai/p-image');
 		expect(asset.credits).toBeCloseTo(3, 6); // the real seeded image.portrait price
@@ -446,7 +446,7 @@ describe('generateImages (#64-#67, #71)', () => {
 		expect(images.calls).toHaveLength(0);
 	});
 
-	it('generate, attach, and reveal the entity to players - the image is still not published (#71 acceptance)', async () => {
+	it('generate, attach, and reveal the entity to players - gm_only stays untouched throughout (#382 acceptance)', async () => {
 		const target = await makeEntity();
 
 		const result = await generateImages({
@@ -463,26 +463,29 @@ describe('generateImages (#64-#67, #71)', () => {
 		});
 		const generated = result.assets[0];
 		if (!generated) throw new Error('expected one generated asset');
-		expect(generated.publishedToPlayers).toBe(false);
+		expect(generated.gmOnly).toBe(false);
 
 		// Attach: the GM picks this image for the entry (the "Insert" step of the F1 = C
-		// dialog). Still no code path here touches published_to_players.
+		// dialog). Still no code path here touches gm_only - attaching is the accept
+		// (#382), not a trigger for a second write.
 		const [attached] = await db
 			.update(mediaAsset)
 			.set({ entityId: target.id })
 			.where(eq(mediaAsset.id, generated.id))
 			.returning();
 		if (!attached) throw new Error('attach update did not return a row');
-		expect(attached.publishedToPlayers).toBe(false);
+		expect(attached.gmOnly).toBe(false);
 
 		// Reveal the entity to players - a revelation row is the only thing that makes an
-		// entity show up in the players' wiki (SPEC.md §10), and the players' query
-		// (packages/db/src/queries/players.ts) filters media_asset on published_to_players
-		// itself, so this is the realistic trigger a real GM action would fire.
+		// entity show up in the players' wiki (SPEC.md §10). This attach-then-reveal
+		// sequence is now exactly what makes the image visible there too (the players'
+		// query, packages/db/test/players.test.ts, proves that positive case); this test's
+		// own job is narrower - proving gm_only itself, the one remaining exception,
+		// never moves as a side effect of any of the three calls above.
 		await db.insert(revelation).values({ universeId, kind: 'entity', entityId: target.id });
 
 		const [afterReveal] = await db.select().from(mediaAsset).where(eq(mediaAsset.id, generated.id));
-		expect(afterReveal?.publishedToPlayers).toBe(false);
+		expect(afterReveal?.gmOnly).toBe(false);
 	});
 
 	it('a regeneration can itself be regenerated, each round building on the full prompt before it (#255 acceptance)', async () => {

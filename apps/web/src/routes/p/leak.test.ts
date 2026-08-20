@@ -284,7 +284,9 @@ describe('players wiki: leak test (#85)', () => {
 			authorKind: 'human'
 		});
 
-		// An unpublished generated image, plus a published one for contrast.
+		// An image marked gm_only, plus an attached-but-visible one for contrast (#382:
+		// attaching is the accept, so the second needs no explicit action to become
+		// visible once the entity is revealed below).
 		await db.insert(mediaAsset).values([
 			{
 				universeId: uni.id,
@@ -293,7 +295,7 @@ describe('players wiki: leak test (#85)', () => {
 				path: UNPUBLISHED_IMAGE_PATH,
 				mimeType: 'image/png',
 				generated: true,
-				publishedToPlayers: false,
+				gmOnly: true,
 				prompt: UNPUBLISHED_IMAGE_PROMPT
 			},
 			{
@@ -302,8 +304,8 @@ describe('players wiki: leak test (#85)', () => {
 				kind: 'image',
 				path: '/media/published-portrait.png',
 				mimeType: 'image/png',
-				generated: true,
-				publishedToPlayers: true
+				generated: true
+				// gmOnly stays at its default false - visible once revealed below.
 			}
 		]);
 
@@ -430,34 +432,62 @@ describe('players wiki: leak test (#85)', () => {
 		expect(payload).not.toContain('now on the Ledger payroll');
 	});
 
-	it('a media asset attached to the revealed entity after the fact still never appears to players, in the payload or the markup (#71 surface guardrail)', async () => {
-		// Mirrors the real "Insert" step of the F1 = C dialog: generateImages always
-		// creates an unattached row (entity_id null - see packages/media/src/generate.ts's
-		// own guardrail comment), and attachMediaAsset - the exact function
-		// apps/web/src/routes/w/[universe]/e/[slug]/media/attach/+server.ts calls - is the
-		// only thing that ever sets entity_id. Neither one ever touches
-		// published_to_players; packages/media's own generate.test.ts already proves that
-		// at the row level, so this test proves the other half: the players' route
-		// (queries/players.ts's publishedToPlayers filter, exercised through the real
-		// loadEntity, not a re-derivation of it) never surfaces this asset either.
-		const SURFACE_GUARD_IMAGE_PATH = '/media/surface-guard-test-portrait.png';
+	it('an attached, not-gm_only image on an unrevealed entry stays out of the payload - the entry still has to be revealed too (#382)', async () => {
+		// The other half of "attaching is the accept": attaching alone is not enough, the
+		// entry itself still has to be revealed. undiscoveredEntity above is never
+		// revealed - it renders as E7's gap page - so an image attached to it, gmOnly
+		// false and all, must still never surface.
+		const GAP_ENTITY_IMAGE_PATH = '/media/gap-entity-leak-test-portrait.png';
 		const [unattached] = await db
 			.insert(mediaAsset)
 			.values({
 				universeId: universeRow.id,
 				kind: 'image',
-				path: SURFACE_GUARD_IMAGE_PATH,
+				path: GAP_ENTITY_IMAGE_PATH,
 				mimeType: 'image/png',
 				generated: true,
-				prompt: 'surface guardrail test portrait, never shown to players'
+				prompt: 'gap entity leak test portrait, never shown to players'
 			})
 			.returning();
 		if (!unattached) throw new Error('media asset insert did not return a row');
-		expect(unattached.entityId).toBeNull();
-		expect(unattached.publishedToPlayers).toBe(false);
+
+		const attached = await attachMediaAsset(db, unattached.id, undiscoveredEntity.id);
+		expect(attached.gmOnly).toBe(false);
+
+		const layoutData = await loadUniverseLayout();
+		const raw = await loadEntity({
+			params: { universe: universeRow.slug, slug: undiscoveredEntity.slug },
+			parent: async () => layoutData
+		} as Parameters<typeof loadEntity>[0]);
+		const result = raw as PublicEntityPageData;
+
+		assertNoLeak(result);
+		expect(result.entity).toEqual({ status: 'gap', name: UNDISCOVERED_NAME, type: 'faction' });
+		const payload = JSON.stringify(result);
+		expect(payload).not.toContain(attached.id);
+		expect(payload).not.toContain(GAP_ENTITY_IMAGE_PATH);
+	});
+
+	it('a gm_only image attached to the revealed entity stays out of the payload too, even though the entity itself is fully visible (#382)', async () => {
+		// The deliberate exception decision R7 keeps beside "attaching is the accept": a
+		// GM can still hold one picture back on an otherwise fully revealed entry.
+		const GM_ONLY_IMAGE_PATH = '/media/gm-only-leak-test-portrait.png';
+		const [unattached] = await db
+			.insert(mediaAsset)
+			.values({
+				universeId: universeRow.id,
+				kind: 'image',
+				path: GM_ONLY_IMAGE_PATH,
+				mimeType: 'image/png',
+				generated: true,
+				gmOnly: true,
+				prompt: 'gm only leak test portrait, never shown to players'
+			})
+			.returning();
+		if (!unattached) throw new Error('media asset insert did not return a row');
 
 		const attached = await attachMediaAsset(db, unattached.id, revealedEntity.id);
-		expect(attached.publishedToPlayers).toBe(false);
+		expect(attached.gmOnly).toBe(true);
 
 		const layoutData = await loadUniverseLayout();
 		const raw = await loadEntity({
@@ -467,22 +497,10 @@ describe('players wiki: leak test (#85)', () => {
 		const result = raw as PublicEntityPageData;
 		if (result.entity.status !== 'full') throw new Error('expected a full entity');
 
-		// In the payload: the newly attached image is structurally absent from the
-		// images array the page ships to the client - the exact field a gallery would
-		// render an <img src> from - even though it is now attached to an entity that
-		// is fully revealed.
 		expect(result.entity.images.map((img) => img.id)).not.toContain(attached.id);
-
-		// In the markup: nothing in the serialised page data - what SvelteKit turns
-		// into rendered HTML - contains this asset's id or its storage path either,
-		// the same JSON.stringify check this file's header explains and every other
-		// assertion in this file relies on.
 		const payload = JSON.stringify(result);
 		expect(payload).not.toContain(attached.id);
-		expect(payload).not.toContain(SURFACE_GUARD_IMAGE_PATH);
-
-		const [row] = await db.select().from(mediaAsset).where(eq(mediaAsset.id, attached.id));
-		expect(row?.publishedToPlayers).toBe(false);
+		expect(payload).not.toContain(GM_ONLY_IMAGE_PATH);
 	});
 
 	it('a gm_only entity 404s exactly like a slug that does not exist, even though it has a revelation row', async () => {

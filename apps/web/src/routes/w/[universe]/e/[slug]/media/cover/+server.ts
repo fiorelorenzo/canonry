@@ -12,10 +12,10 @@
  * same deliberate act in reverse rather than a separate undo surface.
  *
  * It says nothing at all about players. Guardrail 6 has no exception for images, so
- * `published_to_players` stays untouched here and remains the only thing that decides
- * whether the cover appears on `/p/<slug>`: `publicEntityBySlug` resolves the cover against
- * the published rows it already fetched, so a cover a GM set but never published is simply
- * absent there.
+ * `gm_only` stays untouched here and, together with the entry's own revelation, remains
+ * what decides whether the cover appears on `/p/<slug>`: `publicEntityBySlug` resolves
+ * the cover against the visible rows it already fetched, so a cover the GM marked
+ * `gm_only` is simply absent there.
  */
 import { error, json } from '@sveltejs/kit';
 import { mediaAssetById, setEntityCover } from '@canonry/db';

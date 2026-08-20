@@ -56,7 +56,7 @@
 		id: string;
 		mimeType: string;
 		generated: boolean;
-		publishedToPlayers: boolean;
+		gmOnly: boolean;
 		credits: number;
 		createdAt: string | Date;
 	}

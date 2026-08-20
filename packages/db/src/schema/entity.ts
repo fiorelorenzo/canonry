@@ -57,8 +57,9 @@ export const entity = pgTable(
 		//
 		// Guardrail 1: nothing writes this except a GM pressing "use as cover" in the Images
 		// panel, which is that image's accept. Guardrail 6: this column says nothing about
-		// players - `media_asset.published_to_players` still decides whether the cover
-		// reaches `/p/<slug>`, and a cover is not a special case of a published image.
+		// players - `media_asset.gm_only` still decides whether the cover reaches
+		// `/p/<slug>`, and a cover is not a special case of an image the rest of guardrail
+		// 6's gate already lets through.
 		//
 		// The `AnyPgColumn` annotation is what lets this reference `media_asset` while
 		// `media_asset.entity_id` references back: the cycle is real in the database and

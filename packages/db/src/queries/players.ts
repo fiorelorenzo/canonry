@@ -492,9 +492,9 @@ export async function publicEntityBySlug(
 	const imageRows = await db
 		.select({ id: mediaAsset.id, kind: mediaAsset.kind })
 		.from(mediaAsset)
-		.where(and(eq(mediaAsset.entityId, row.id), eq(mediaAsset.publishedToPlayers, true)));
+		.where(and(eq(mediaAsset.entityId, row.id), eq(mediaAsset.gmOnly, false)));
 
-	// O2 (#284): resolved against the published rows just fetched rather than by a second
+	// O2 (#284): resolved against the visible rows just fetched rather than by a second
 	// query on `cover_asset_id`, so the cover cannot pass a weaker gate than the gallery
 	// does - it is a cover only if it is already one of the pictures this player may see
 	// (guardrail 6). `kind === 'image'` because an audio asset has no business in an
@@ -536,11 +536,13 @@ export interface PublicMediaAssetRow {
  * `apps/web/src/lib/server/players.ts`. Deliberately built as the same two steps
  * `publicEntityBySlug` above already takes for its own entity - first the row joined
  * against `entity.visibility != 'gm_only'`, then a confirmed `'entity'` revelation check
- * - plus one more leg, `published_to_players`, since publication and visibility are two
- * independent switches and an image needs both: a GM's publish click is not itself a
- * revelation, and a revealed entity's images are not published by that reveal (guardrail
- * 6, issue #71). Undefined for any leg failing: wrong universe, unpublished, gm_only
- * entity, unrevealed entity, or an asset with no entity at all - a caller renders all of
+ * - plus one more leg, the image's own `gm_only`, since #382 keeps that one exception
+ * standing beside "attaching is the accept": a GM can still hold a single picture back
+ * from an otherwise-visible entry. The inner join against `entity` on `entity_id` is what
+ * makes an unattached image (`entity_id` null) fail this query structurally, not by
+ * convention - there is no separate "attached" leg to check once the join itself
+ * requires it. Undefined for any leg failing: wrong universe, unattached, the image
+ * marked `gm_only`, a `gm_only` entity, or an unrevealed entity - a caller renders all of
  * those identically, the same "nothing here" `publicEntityBySlug`'s own doc comment
  * describes for its entity lookup. */
 export async function publicMediaAssetById(
@@ -560,7 +562,7 @@ export async function publicMediaAssetById(
 			and(
 				eq(mediaAsset.id, id),
 				eq(mediaAsset.universeId, universeId),
-				eq(mediaAsset.publishedToPlayers, true),
+				eq(mediaAsset.gmOnly, false),
 				ne(entity.visibility, GM_ONLY_VISIBILITY)
 			)
 		)
