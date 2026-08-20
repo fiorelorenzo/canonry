@@ -16,6 +16,7 @@
 	 * way to a thumbnail of what is being refined and the instruction field itself.
 	 */
 	import { messages, type Locale } from '$lib/i18n';
+	import { Dialog, DialogContent, DialogTitle } from '$lib/components/ui/dialog';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { ImageFeature } from '@canonry/db/schema';
 
@@ -56,20 +57,20 @@
 	let feature = $state<'portrait' | 'variants'>('portrait');
 	let instruction = $state('');
 
-	let dialogEl: HTMLDialogElement | undefined;
-
+	// Round thirteen R2 (#377): the vendored Dialog owns showModal/close, escape,
+	// scrim-click and focus-return, so the old effect's `dialogEl.open` check goes
+	// away. What has to survive is the per-open reset below, tracked against the
+	// closed-to-open transition the same way that check did: EntryMediaPanel
+	// persists across a navigation to a different entry, so a bare
+	// `$state(entityType === ...)` would keep suggesting the previous entry's
+	// default.
+	let wasOpen = false;
 	$effect(() => {
-		if (!dialogEl) return;
-		if (open && !dialogEl.open) {
-			dialogEl.showModal();
-			// Reset the suggested default every time the dialog opens, reading entityType
-			// here rather than at declaration time: the dialog is not remounted per entity
-			// (EntryMediaPanel persists across a navigation to a different entry), so a
-			// bare `$state(entityType === ...)` would keep suggesting the previous entry's
-			// default. A user's own radio pick is never touched while the dialog stays
-			// open, since this branch only runs on the open transition. A regeneration is
-			// always exactly one new candidate (#255) - there is no batch-of-four reading
-			// of "refine this one picture" - so it forces portrait rather than reading
+		if (open && !wasOpen) {
+			// A user's own radio pick is never touched while the dialog stays open,
+			// since this only runs on the open transition. A regeneration is always
+			// exactly one new candidate (#255) - there is no batch-of-four reading of
+			// "refine this one picture" - so it forces portrait rather than reading
 			// entityType at all.
 			feature = regenerateSource
 				? 'portrait'
@@ -78,7 +79,7 @@
 					: 'portrait';
 			instruction = '';
 		}
-		if (!open && dialogEl.open) dialogEl.close();
+		wasOpen = open;
 	});
 
 	function close(): void {
@@ -86,139 +87,144 @@
 	}
 </script>
 
-<dialog
-	bind:this={dialogEl}
-	onclose={close}
-	onclick={(e) => {
-		if (e.target === dialogEl) close();
-	}}
-	class="max-w-md rounded-lg border border-line bg-panel p-0 text-ink backdrop:bg-ink/40"
->
-	<div class="p-5">
-		<h3 class="text-base font-semibold text-ink">
-			{regenerateSource
-				? t.entry.media.regenerate.dialogTitle(entityName)
-				: t.entry.media.dialogTitle(entityName)}
-		</h3>
+<Dialog bind:open>
+	<!-- Round thirteen R2 (#377): every native <dialog> in the app opened flush to
+	     the window's top-left corner instead of centred. The user-agent stylesheet
+	     centres a modal dialog with `margin: auto`, and Tailwind 4's preflight sets
+	     `margin: 0` on `*`, `::before`, `::after` and `::backdrop` - measured on the
+	     entry page, a bare <dialog> with these same classes reported `margin: 0px`
+	     and a rect at `x: 0, y: 0`. The vendored Dialog below positions itself with
+	     `fixed` + a transform, which preflight's margin reset cannot touch. -->
+	<DialogContent
+		closeLabel={t.entry.media.cancel}
+		class="max-w-md rounded-lg border border-line bg-panel p-0 text-ink"
+	>
+		<div class="p-5">
+			<DialogTitle class="text-base font-semibold text-ink">
+				{regenerateSource
+					? t.entry.media.regenerate.dialogTitle(entityName)
+					: t.entry.media.dialogTitle(entityName)}
+			</DialogTitle>
 
-		{#if regenerateSource}
-			<p class="mt-2 text-xs text-muted">{t.entry.media.regenerate.hint}</p>
-			<div class="mt-3 flex gap-3">
-				<img
-					src={regenerateSource.imageUrl}
-					alt=""
-					class="h-20 w-20 shrink-0 rounded-md border border-line object-cover"
-				/>
-				<div class="flex-1">
-					<label class="block text-xs font-medium text-ink-2" for="regenerate-instruction">
-						{t.entry.media.regenerate.instructionLabel}
-					</label>
-					<Textarea
-						id="regenerate-instruction"
-						bind:value={instruction}
-						rows={3}
-						class="mt-1"
-						placeholder={t.entry.media.regenerate.instructionPlaceholder}
+			{#if regenerateSource}
+				<p class="mt-2 text-xs text-muted">{t.entry.media.regenerate.hint}</p>
+				<div class="mt-3 flex gap-3">
+					<img
+						src={regenerateSource.imageUrl}
+						alt=""
+						class="h-20 w-20 shrink-0 rounded-md border border-line object-cover"
 					/>
+					<div class="flex-1">
+						<label class="block text-xs font-medium text-ink-2" for="regenerate-instruction">
+							{t.entry.media.regenerate.instructionLabel}
+						</label>
+						<Textarea
+							id="regenerate-instruction"
+							bind:value={instruction}
+							rows={3}
+							class="mt-1"
+							placeholder={t.entry.media.regenerate.instructionPlaceholder}
+						/>
+					</div>
 				</div>
-			</div>
-			<p class="mt-3 text-xs text-muted">
-				{portraitModel ? t.entry.media.creditsLabel(portraitPrice) : t.entry.media.notConfigured}
-			</p>
-		{:else}
-			<div
-				class="mt-3 flex items-center gap-2 rounded-full border border-dashed border-line-2 bg-panel-2 px-3 py-1.5 text-xs text-ink-2"
-			>
-				<span class="flex-1">
-					{t.entry.media.styleLabel(styleModifier)}
-				</span>
+				<p class="mt-3 text-xs text-muted">
+					{portraitModel ? t.entry.media.creditsLabel(portraitPrice) : t.entry.media.notConfigured}
+				</p>
+			{:else}
+				<div
+					class="mt-3 flex items-center gap-2 rounded-full border border-dashed border-line-2 bg-panel-2 px-3 py-1.5 text-xs text-ink-2"
+				>
+					<span class="flex-1">
+						{t.entry.media.styleLabel(styleModifier)}
+					</span>
+					<button
+						type="button"
+						class="font-medium text-accent-ink hover:underline"
+						onclick={() => {
+							close();
+							onEditStyle();
+						}}
+					>
+						{t.entry.media.editStyle}
+					</button>
+				</div>
+
+				<div
+					class="mt-4 flex flex-col gap-2"
+					role="radiogroup"
+					aria-label={t.entry.media.howManyAriaLabel}
+				>
+					<label
+						class="flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2"
+						class:border-accent={feature === 'variants'}
+						class:border-line={feature !== 'variants'}
+					>
+						<input type="radio" name="feature" value="variants" bind:group={feature} class="mt-1" />
+						<span class="flex-1">
+							<span class="block text-sm text-ink">{t.entry.media.fourOptions}</span>
+							<span class="block text-xs text-muted">
+								{variantsModel ? variantsModel.modelId : t.entry.media.notConfigured}
+								{entityType === 'character' ? ` ${t.entry.media.suggestedForCharacter}` : ''}
+							</span>
+						</span>
+						<span
+							class="rounded-full bg-panel-2 px-2 py-0.5 text-xs font-medium text-ink-2 tabular-nums"
+						>
+							{t.entry.media.creditsLabel(variantsPrice)}
+						</span>
+					</label>
+
+					<label
+						class="flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2"
+						class:border-accent={feature === 'portrait'}
+						class:border-line={feature !== 'portrait'}
+					>
+						<input type="radio" name="feature" value="portrait" bind:group={feature} class="mt-1" />
+						<span class="flex-1">
+							<span class="block text-sm text-ink">{t.entry.media.oneImage}</span>
+							<span class="block text-xs text-muted"
+								>{portraitModel ? portraitModel.modelId : t.entry.media.notConfigured}</span
+							>
+						</span>
+						<span
+							class="rounded-full bg-panel-2 px-2 py-0.5 text-xs font-medium text-ink-2 tabular-nums"
+						>
+							{t.entry.media.creditsLabel(portraitPrice)}
+						</span>
+					</label>
+				</div>
+
+				<p class="mt-3 text-xs text-muted">
+					{t.entry.media.privateHint}
+				</p>
+			{/if}
+
+			<div class="mt-4 flex gap-2">
 				<button
 					type="button"
-					class="font-medium text-accent-ink hover:underline"
-					onclick={() => {
-						close();
-						onEditStyle();
-					}}
+					class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:opacity-50"
+					disabled={busy ||
+						(regenerateSource
+							? !portraitModel || instruction.trim().length === 0
+							: feature === 'portrait'
+								? !portraitModel
+								: !variantsModel)}
+					onclick={() => onGenerate(feature, regenerateSource ? instruction.trim() : undefined)}
 				>
-					{t.entry.media.editStyle}
+					{#if regenerateSource}
+						{busy ? t.entry.media.regenerate.regenerating : t.entry.media.regenerate.action}
+					{:else}
+						{busy ? t.entry.media.generating : t.entry.media.generateAction}
+					{/if}
+				</button>
+				<button
+					type="button"
+					class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
+					onclick={close}
+				>
+					{t.entry.media.cancel}
 				</button>
 			</div>
-
-			<div
-				class="mt-4 flex flex-col gap-2"
-				role="radiogroup"
-				aria-label={t.entry.media.howManyAriaLabel}
-			>
-				<label
-					class="flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2"
-					class:border-accent={feature === 'variants'}
-					class:border-line={feature !== 'variants'}
-				>
-					<input type="radio" name="feature" value="variants" bind:group={feature} class="mt-1" />
-					<span class="flex-1">
-						<span class="block text-sm text-ink">{t.entry.media.fourOptions}</span>
-						<span class="block text-xs text-muted">
-							{variantsModel ? variantsModel.modelId : t.entry.media.notConfigured}
-							{entityType === 'character' ? ` ${t.entry.media.suggestedForCharacter}` : ''}
-						</span>
-					</span>
-					<span
-						class="rounded-full bg-panel-2 px-2 py-0.5 text-xs font-medium text-ink-2 tabular-nums"
-					>
-						{t.entry.media.creditsLabel(variantsPrice)}
-					</span>
-				</label>
-
-				<label
-					class="flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2"
-					class:border-accent={feature === 'portrait'}
-					class:border-line={feature !== 'portrait'}
-				>
-					<input type="radio" name="feature" value="portrait" bind:group={feature} class="mt-1" />
-					<span class="flex-1">
-						<span class="block text-sm text-ink">{t.entry.media.oneImage}</span>
-						<span class="block text-xs text-muted"
-							>{portraitModel ? portraitModel.modelId : t.entry.media.notConfigured}</span
-						>
-					</span>
-					<span
-						class="rounded-full bg-panel-2 px-2 py-0.5 text-xs font-medium text-ink-2 tabular-nums"
-					>
-						{t.entry.media.creditsLabel(portraitPrice)}
-					</span>
-				</label>
-			</div>
-
-			<p class="mt-3 text-xs text-muted">
-				{t.entry.media.privateHint}
-			</p>
-		{/if}
-
-		<div class="mt-4 flex gap-2">
-			<button
-				type="button"
-				class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:opacity-50"
-				disabled={busy ||
-					(regenerateSource
-						? !portraitModel || instruction.trim().length === 0
-						: feature === 'portrait'
-							? !portraitModel
-							: !variantsModel)}
-				onclick={() => onGenerate(feature, regenerateSource ? instruction.trim() : undefined)}
-			>
-				{#if regenerateSource}
-					{busy ? t.entry.media.regenerate.regenerating : t.entry.media.regenerate.action}
-				{:else}
-					{busy ? t.entry.media.generating : t.entry.media.generateAction}
-				{/if}
-			</button>
-			<button
-				type="button"
-				class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
-				onclick={close}
-			>
-				{t.entry.media.cancel}
-			</button>
 		</div>
-	</div>
-</dialog>
+	</DialogContent>
+</Dialog>

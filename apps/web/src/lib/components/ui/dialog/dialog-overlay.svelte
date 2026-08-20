@@ -9,8 +9,9 @@
 	}: DialogPrimitive.OverlayProps = $props();
 </script>
 
-<!-- #147: bg-ink/40, matching the scrim GenerateDialog.svelte's native <dialog> already
-     uses (backdrop:bg-ink/40) - not a raw color, ink already flips with the palette. -->
+<!-- #147: bg-ink/40, matching the scrim GenerateDialog.svelte's own <dialog> used to
+     carry by hand (backdrop:bg-ink/40) before round thirteen R2 (#377) moved it here -
+     not a raw color, ink already flips with the palette. -->
 <DialogPrimitive.Overlay
 	bind:ref
 	data-slot="dialog-overlay"

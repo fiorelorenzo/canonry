@@ -49,6 +49,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { messages, type Locale } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
+	import { Dialog, DialogContent, DialogTitle } from '$lib/components/ui/dialog';
 
 	// #258: a body image is a scene, not a portrait. This dialog used to offer the
 	// `portrait`/`variants` pair because those were the only two features with an
@@ -91,7 +92,6 @@
 		return `${base}/${id}`;
 	}
 
-	let dialogEl: HTMLDialogElement | undefined;
 	let generating = $state(false);
 	let inserting = $state(false);
 	let error = $state<string | null>(null);
@@ -103,19 +103,21 @@
 	let uploadInput: HTMLInputElement | undefined;
 	let uploading = $state(false);
 
+	// Round thirteen R2 (#377): the vendored Dialog owns showModal/close, escape,
+	// scrim-click and focus-return now, so this only has to track the closed-to-open
+	// transition the way the old effect's `dialogEl.open` check did. Reset on every
+	// open, not just at mount: this dialog persists across a navigation to a
+	// different entry (`MarkdownEditor` stays mounted while the edit route's dynamic
+	// `[slug]` changes body underneath it), so a leftover candidate or error from
+	// the previous entry must not bleed into this one.
+	let wasOpen = false;
 	$effect(() => {
-		if (!dialogEl) return;
-		if (open && !dialogEl.open) {
-			dialogEl.showModal();
-			// Reset on every open, not just at mount: this dialog persists across a
-			// navigation to a different entry (`MarkdownEditor` stays mounted while the
-			// edit route's dynamic `[slug]` changes body underneath it), so a leftover
-			// candidate or error from the previous entry must not bleed into this one.
+		if (open && !wasOpen) {
 			error = null;
 			candidates = [];
 			selectedCandidateId = null;
 		}
-		if (!open && dialogEl.open) dialogEl.close();
+		wasOpen = open;
 	});
 
 	function close(): void {
@@ -209,138 +211,138 @@
 	}
 </script>
 
-<dialog
-	bind:this={dialogEl}
-	onclose={close}
-	onclick={(e) => {
-		if (e.target === dialogEl) close();
-	}}
-	class="max-w-md rounded-lg border border-line bg-panel p-0 text-ink backdrop:bg-ink/40"
->
-	<div class="p-5">
-		<h3 class="text-base font-semibold text-ink">{t.entry.media.inBody.dialogTitle}</h3>
+<Dialog bind:open>
+	<DialogContent
+		closeLabel={t.entry.media.cancel}
+		class="max-w-md rounded-lg border border-line bg-panel p-0 text-ink"
+	>
+		<div class="p-5">
+			<DialogTitle class="text-base font-semibold text-ink"
+				>{t.entry.media.inBody.dialogTitle}</DialogTitle
+			>
 
-		{#if error}
-			<p class="mt-3 rounded-md border border-danger bg-danger-bg px-3 py-2 text-sm text-danger">
-				{error}
-			</p>
-		{/if}
+			{#if error}
+				<p class="mt-3 rounded-md border border-danger bg-danger-bg px-3 py-2 text-sm text-danger">
+					{error}
+				</p>
+			{/if}
 
-		<h4 class="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">
-			{t.entry.media.inBody.existingHeading}
-		</h4>
-		{#if assets.length === 0}
-			<p class="mt-1 text-sm text-ink-2">{t.entry.media.inBody.emptyExisting}</p>
-		{:else}
-			<div class="mt-2 grid grid-cols-3 gap-2">
-				{#each assets as asset (asset.id)}
-					<button
-						type="button"
-						class="relative overflow-hidden rounded-md border border-line hover:border-accent"
-						aria-label={t.entry.media.inBody.insertThisImage}
-						onclick={() => pickExisting(asset.id)}
-					>
-						<img src={imageUrl(asset.id)} alt="" class="block h-auto w-full" />
-						{#if asset.generated}
-							<span
-								class="absolute top-1 left-1 rounded-full border border-ai-line bg-ai-bg px-1 py-0.5 text-[9px] font-semibold tracking-wide text-ai uppercase"
-							>
-								{t.entry.media.generatedBadge}
-							</span>
-						{/if}
-					</button>
-				{/each}
-			</div>
-		{/if}
-
-		<!-- #366: above the generate block on purpose. Uploading is free, needs no model and
-		     works with the AI switched off (guardrail 4), so it is not a fallback for when
-		     generation is unavailable. -->
-		<h4 class="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">
-			{t.entry.media.inBody.uploadHeading}
-		</h4>
-		<input
-			bind:this={uploadInput}
-			type="file"
-			accept="image/png,image/jpeg,image/webp"
-			class="hidden"
-			onchange={uploadAndInsert}
-		/>
-		<Button
-			type="button"
-			size="sm"
-			class="mt-2"
-			disabled={uploading}
-			onclick={() => uploadInput?.click()}
-		>
-			{uploading ? t.entry.media.upload.uploading : t.entry.media.upload.button}
-		</Button>
-
-		{#if !aiEnabled}
-			<p class="mt-3 text-sm text-ink-2">{t.entry.media.aiOffBanner}</p>
-		{:else}
 			<h4 class="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">
-				{t.entry.media.inBody.generateHeading}
+				{t.entry.media.inBody.existingHeading}
 			</h4>
-
-			{#if candidates.length === 0}
-				{#if scene.model}
-					<p class="mt-2 text-sm text-ink-2">
-						{t.entry.media.inBody.sceneCost(scene.price)}
-					</p>
-					<p class="text-xs text-muted">
-						{scene.model.provider}/{scene.model.modelId}
-					</p>
-					<Button type="button" size="sm" class="mt-2" disabled={generating} onclick={generate}>
-						{generating ? t.entry.media.generating : t.entry.media.inBody.generateButton}
-					</Button>
-				{:else}
-					<p class="mt-2 text-sm text-ink-2">{t.entry.media.inBody.sceneNotConfigured}</p>
-				{/if}
+			{#if assets.length === 0}
+				<p class="mt-1 text-sm text-ink-2">{t.entry.media.inBody.emptyExisting}</p>
 			{:else}
 				<div class="mt-2 grid grid-cols-3 gap-2">
-					{#each candidates as candidate (candidate.id)}
+					{#each assets as asset (asset.id)}
 						<button
 							type="button"
-							class="overflow-hidden rounded-md border-2"
-							class:border-accent={selectedCandidateId === candidate.id}
-							class:border-transparent={selectedCandidateId !== candidate.id}
-							aria-pressed={selectedCandidateId === candidate.id}
+							class="relative overflow-hidden rounded-md border border-line hover:border-accent"
 							aria-label={t.entry.media.inBody.insertThisImage}
-							onclick={() => (selectedCandidateId = candidate.id)}
+							onclick={() => pickExisting(asset.id)}
 						>
-							<img src={imageUrl(candidate.id)} alt="" class="block h-auto w-full" />
+							<img src={imageUrl(asset.id)} alt="" class="block h-auto w-full" />
+							{#if asset.generated}
+								<span
+									class="absolute top-1 left-1 rounded-full border border-ai-line bg-ai-bg px-1 py-0.5 text-[9px] font-semibold tracking-wide text-ai uppercase"
+								>
+									{t.entry.media.generatedBadge}
+								</span>
+							{/if}
 						</button>
 					{/each}
 				</div>
-				<div class="mt-2 flex gap-2">
-					<Button
-						type="button"
-						size="sm"
-						disabled={!selectedCandidateId || inserting}
-						onclick={() => selectedCandidateId && useGenerated(selectedCandidateId)}
-					>
-						{inserting ? t.entry.media.inserting : t.entry.media.inBody.useThisOne}
-					</Button>
-					<Button
-						type="button"
-						variant="secondary"
-						size="sm"
-						onclick={() => {
-							candidates = [];
-							selectedCandidateId = null;
-						}}
-					>
-						{t.entry.media.discard}
-					</Button>
-				</div>
 			{/if}
-		{/if}
 
-		<div class="mt-4">
-			<Button type="button" variant="secondary" size="sm" onclick={close}>
-				{t.entry.media.cancel}
+			<!-- #366: above the generate block on purpose. Uploading is free, needs no model and
+		     works with the AI switched off (guardrail 4), so it is not a fallback for when
+		     generation is unavailable. -->
+			<h4 class="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">
+				{t.entry.media.inBody.uploadHeading}
+			</h4>
+			<input
+				bind:this={uploadInput}
+				type="file"
+				accept="image/png,image/jpeg,image/webp"
+				class="hidden"
+				onchange={uploadAndInsert}
+			/>
+			<Button
+				type="button"
+				size="sm"
+				class="mt-2"
+				disabled={uploading}
+				onclick={() => uploadInput?.click()}
+			>
+				{uploading ? t.entry.media.upload.uploading : t.entry.media.upload.button}
 			</Button>
+
+			{#if !aiEnabled}
+				<p class="mt-3 text-sm text-ink-2">{t.entry.media.aiOffBanner}</p>
+			{:else}
+				<h4 class="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">
+					{t.entry.media.inBody.generateHeading}
+				</h4>
+
+				{#if candidates.length === 0}
+					{#if scene.model}
+						<p class="mt-2 text-sm text-ink-2">
+							{t.entry.media.inBody.sceneCost(scene.price)}
+						</p>
+						<p class="text-xs text-muted">
+							{scene.model.provider}/{scene.model.modelId}
+						</p>
+						<Button type="button" size="sm" class="mt-2" disabled={generating} onclick={generate}>
+							{generating ? t.entry.media.generating : t.entry.media.inBody.generateButton}
+						</Button>
+					{:else}
+						<p class="mt-2 text-sm text-ink-2">{t.entry.media.inBody.sceneNotConfigured}</p>
+					{/if}
+				{:else}
+					<div class="mt-2 grid grid-cols-3 gap-2">
+						{#each candidates as candidate (candidate.id)}
+							<button
+								type="button"
+								class="overflow-hidden rounded-md border-2"
+								class:border-accent={selectedCandidateId === candidate.id}
+								class:border-transparent={selectedCandidateId !== candidate.id}
+								aria-pressed={selectedCandidateId === candidate.id}
+								aria-label={t.entry.media.inBody.insertThisImage}
+								onclick={() => (selectedCandidateId = candidate.id)}
+							>
+								<img src={imageUrl(candidate.id)} alt="" class="block h-auto w-full" />
+							</button>
+						{/each}
+					</div>
+					<div class="mt-2 flex gap-2">
+						<Button
+							type="button"
+							size="sm"
+							disabled={!selectedCandidateId || inserting}
+							onclick={() => selectedCandidateId && useGenerated(selectedCandidateId)}
+						>
+							{inserting ? t.entry.media.inserting : t.entry.media.inBody.useThisOne}
+						</Button>
+						<Button
+							type="button"
+							variant="secondary"
+							size="sm"
+							onclick={() => {
+								candidates = [];
+								selectedCandidateId = null;
+							}}
+						>
+							{t.entry.media.discard}
+						</Button>
+					</div>
+				{/if}
+			{/if}
+
+			<div class="mt-4">
+				<Button type="button" variant="secondary" size="sm" onclick={close}>
+					{t.entry.media.cancel}
+				</Button>
+			</div>
 		</div>
-	</div>
-</dialog>
+	</DialogContent>
+</Dialog>
