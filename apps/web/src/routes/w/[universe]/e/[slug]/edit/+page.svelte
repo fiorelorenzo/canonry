@@ -79,6 +79,7 @@
 			canWrite: data.canWrite,
 			assets: data.media.assets,
 			aiEnabled: data.universe.aiEnabled,
+			hasImageStyle: data.universe.hasImageStyle,
 			scene: data.media.scene
 		}}
 		preview={{

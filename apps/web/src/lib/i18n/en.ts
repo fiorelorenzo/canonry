@@ -601,6 +601,10 @@ export const en: Messages = {
 				'Images are generated on request, one click that always confirms the spend first.',
 			generatedBadge: 'Generated',
 			generateButton: 'Generate image',
+			noStyle: {
+				notice: 'This universe has no image style set.',
+				link: 'Set one in settings'
+			},
 			candidatesSummary: (reusedFromCache, multiple) => {
 				const lead = reusedFromCache
 					? 'Reused from the similarity cache - not charged.'

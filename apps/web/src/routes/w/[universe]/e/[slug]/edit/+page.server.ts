@@ -92,7 +92,15 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	]);
 
 	return {
-		universe: { slug: world.slug, name: world.name, aiEnabled: world.aiEnabled },
+		universe: {
+			slug: world.slug,
+			name: world.name,
+			aiEnabled: world.aiEnabled,
+			// Issue #408, decision S3: same condition +page.server.ts's own load computes,
+			// off the same row - the editor's image button is the gallery in pick mode
+			// (MediaGallery.svelte), and it needs the identical answer.
+			hasImageStyle: world.imageStyleId !== null
+		},
 		entity: {
 			id: current.id,
 			type: current.type,

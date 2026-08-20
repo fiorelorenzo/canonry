@@ -86,6 +86,10 @@
 		entityName: string;
 		entityType: EntityType;
 		aiEnabled: boolean;
+		/** Issue #408, decision S3: threaded straight through to `EntryMediaPanel.svelte`,
+		 * which threads it to `MediaGallery.svelte` - the actual generate-control gating
+		 * lives there. */
+		hasImageStyle: boolean;
 		canWrite: boolean;
 		assets: MediaAssetView[];
 		coverAssetId: string | null;
@@ -212,10 +216,11 @@
 				{:else if section.id === 'images'}
 					<EntryMediaPanel
 						{universeSlug}
+						aiEnabled={media.aiEnabled}
+						hasImageStyle={media.hasImageStyle}
 						entitySlug={media.entitySlug}
 						entityName={media.entityName}
 						entityType={media.entityType}
-						aiEnabled={media.aiEnabled}
 						canWrite={media.canWrite}
 						assets={media.assets}
 						coverAssetId={media.coverAssetId}

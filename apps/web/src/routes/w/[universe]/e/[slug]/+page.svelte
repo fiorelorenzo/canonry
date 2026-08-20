@@ -85,6 +85,7 @@
 		entityName: data.entity.name,
 		entityType: data.entity.type,
 		aiEnabled: data.universe.aiEnabled,
+		hasImageStyle: data.universe.hasImageStyle,
 		canWrite: data.media.canWrite,
 		assets: data.media.assets,
 		coverAssetId: data.entity.coverAssetId,

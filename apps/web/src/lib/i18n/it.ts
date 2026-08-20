@@ -606,6 +606,10 @@ export const it: Messages = {
 				'Le immagini si generano su richiesta, con un clic che chiede sempre conferma della spesa.',
 			generatedBadge: 'Generata',
 			generateButton: 'Genera immagine',
+			noStyle: {
+				notice: 'Questo universo non ha ancora uno stile immagine impostato.',
+				link: 'Impostane uno nelle impostazioni'
+			},
 			candidatesSummary: (reusedFromCache, multiple) => {
 				const lead = reusedFromCache
 					? 'Recuperata dalla cache di similarità - nessun addebito.'
