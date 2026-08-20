@@ -108,8 +108,9 @@
 	let highlightedIndex = $state(0);
 	let imageDialogOpen = $state(false);
 	// Captured when the toolbar button opens the dialog, not read again once it's open:
-	// the native <dialog> is modal, so the textarea's own selection can't move underneath
-	// it while the user is picking or generating an image.
+	// the dialog is modal (round thirteen R2, #377: the vendored Dialog, not a native
+	// <dialog> anymore), so the textarea's own selection can't move underneath it while
+	// the user is picking or generating an image.
 	let pendingImageSelection = { start: 0, end: 0 };
 
 	let decorated = $derived(decorateMarkdown(value, targets));

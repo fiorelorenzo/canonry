@@ -31,6 +31,7 @@
 	import { messages, type Locale } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import ModelRunning from '$lib/components/copilot/ModelRunning.svelte';
+	import { Dialog, DialogContent, DialogTitle } from '$lib/components/ui/dialog';
 
 	/** One image, not four: this is the shortest path to a cover, and `variants` would put a
 	 * chooser between the click and the picture for a shape the band is going to crop the
@@ -67,7 +68,6 @@
 	let t = $derived(messages(locale));
 	let base = $derived(resolve(`/w/${universeSlug}/e/${entrySlug}/media`));
 
-	let dialogEl: HTMLDialogElement | undefined;
 	let uploadInput: HTMLInputElement | undefined;
 	let uploading = $state(false);
 	let generating = $state(false);
@@ -75,17 +75,19 @@
 	let error = $state<string | null>(null);
 	let candidate = $state<Candidate | null>(null);
 
+	// Round thirteen R2 (#377): the vendored Dialog owns showModal/close, escape,
+	// scrim-click and focus-return now, so this only has to track the closed-to-open
+	// transition the way the old effect's `dialogEl.open` check did. Reset on every
+	// open rather than at mount: the entry page keeps this component mounted across
+	// a navigation to another entry, so a candidate generated for the previous one
+	// must not be offered as this one's cover.
+	let wasOpen = false;
 	$effect(() => {
-		if (!dialogEl) return;
-		if (open && !dialogEl.open) {
-			dialogEl.showModal();
-			// Reset on every open rather than at mount: the entry page keeps this component
-			// mounted across a navigation to another entry, so a candidate generated for the
-			// previous one must not be offered as this one's cover.
+		if (open && !wasOpen) {
 			error = null;
 			candidate = null;
 		}
-		if (!open && dialogEl.open) dialogEl.close();
+		wasOpen = open;
 	});
 
 	function close(): void {
@@ -187,87 +189,87 @@
 	let busy = $derived(uploading || generating || accepting);
 </script>
 
-<dialog
-	bind:this={dialogEl}
-	onclose={close}
-	onclick={(e) => {
-		if (e.target === dialogEl) close();
-	}}
-	class="w-[min(28rem,calc(100vw-2rem))] max-w-md rounded-lg border border-line bg-panel p-0 text-ink backdrop:bg-ink/40"
->
-	<div class="p-5">
-		<h3 class="text-base font-semibold text-ink">{t.entry.cover.dialogTitle(entityName)}</h3>
-		<p class="mt-1 text-xs text-muted">{t.entry.cover.dialogHint}</p>
+<Dialog bind:open>
+	<DialogContent
+		closeLabel={t.entry.cover.cancel}
+		class="w-[min(28rem,calc(100vw-2rem))] max-w-md rounded-lg border border-line bg-panel p-0 text-ink"
+	>
+		<div class="p-5">
+			<DialogTitle class="text-base font-semibold text-ink"
+				>{t.entry.cover.dialogTitle(entityName)}</DialogTitle
+			>
+			<p class="mt-1 text-xs text-muted">{t.entry.cover.dialogHint}</p>
 
-		{#if error}
-			<p class="mt-3 rounded-md border border-danger bg-danger-bg px-3 py-2 text-sm text-danger">
-				{error}
-			</p>
-		{/if}
+			{#if error}
+				<p class="mt-3 rounded-md border border-danger bg-danger-bg px-3 py-2 text-sm text-danger">
+					{error}
+				</p>
+			{/if}
 
-		{#if candidate}
-			<!-- The accept, and the only place in this dialog where a model's work is on
+			{#if candidate}
+				<!-- The accept, and the only place in this dialog where a model's work is on
 			     screen: it is a candidate until the button below is pressed. -->
-			<img
-				src={imageUrl(candidate.id)}
-				alt=""
-				class="mt-4 max-h-64 w-full rounded-md border border-ai-line object-contain"
-			/>
-			<p class="mt-2 text-xs text-muted">{t.entry.cover.generatedHint}</p>
-			<div class="mt-3 flex flex-wrap gap-2">
-				<Button type="button" size="sm" disabled={accepting} onclick={handleUseAsCover}>
-					{accepting ? t.entry.media.cover.saving : t.entry.media.cover.useLabel}
-				</Button>
-				<Button
-					type="button"
-					variant="secondary"
-					size="sm"
-					disabled={accepting}
-					onclick={() => (candidate = null)}
-				>
-					{t.entry.media.discard}
-				</Button>
-			</div>
-		{:else if generating}
-			<div class="mt-4 rounded-md border border-line bg-panel-2 p-3">
-				<ModelRunning label={t.entry.cover.generateRunning} {locale} />
-			</div>
-		{:else}
-			<div class="mt-4 flex flex-col gap-3">
-				<div class="rounded-md border border-line bg-panel-2 p-3">
-					<Button type="button" size="sm" disabled={busy} onclick={() => uploadInput?.click()}>
-						{uploading ? t.entry.cover.uploading : t.entry.cover.uploadAction}
+				<img
+					src={imageUrl(candidate.id)}
+					alt=""
+					class="mt-4 max-h-64 w-full rounded-md border border-ai-line object-contain"
+				/>
+				<p class="mt-2 text-xs text-muted">{t.entry.cover.generatedHint}</p>
+				<div class="mt-3 flex flex-wrap gap-2">
+					<Button type="button" size="sm" disabled={accepting} onclick={handleUseAsCover}>
+						{accepting ? t.entry.media.cover.saving : t.entry.media.cover.useLabel}
 					</Button>
-					<p class="mt-2 text-xs text-muted">{t.entry.cover.uploadHint}</p>
-					<input
-						bind:this={uploadInput}
-						type="file"
-						accept="image/png,image/jpeg,image/webp"
-						class="hidden"
-						onchange={handleUpload}
-					/>
+					<Button
+						type="button"
+						variant="secondary"
+						size="sm"
+						disabled={accepting}
+						onclick={() => (candidate = null)}
+					>
+						{t.entry.media.discard}
+					</Button>
 				</div>
-
-				<div class="rounded-md border border-line bg-panel-2 p-3">
-					{#if !aiEnabled}
-						<p class="text-sm text-ink-2">{t.entry.cover.aiOff}</p>
-					{:else if !portraitModel}
-						<p class="text-sm text-ink-2">{t.entry.cover.notConfigured}</p>
-					{:else}
-						<Button type="button" size="sm" disabled={busy} onclick={handleGenerate}>
-							{t.entry.cover.generateAction}
+			{:else if generating}
+				<div class="mt-4 rounded-md border border-line bg-panel-2 p-3">
+					<ModelRunning label={t.entry.cover.generateRunning} {locale} />
+				</div>
+			{:else}
+				<div class="mt-4 flex flex-col gap-3">
+					<div class="rounded-md border border-line bg-panel-2 p-3">
+						<Button type="button" size="sm" disabled={busy} onclick={() => uploadInput?.click()}>
+							{uploading ? t.entry.cover.uploading : t.entry.cover.uploadAction}
 						</Button>
-						<p class="mt-2 text-xs text-muted">{t.entry.cover.generateHint(portraitPrice)}</p>
-						<p class="text-xs text-muted">{portraitModel.provider}/{portraitModel.modelId}</p>
-					{/if}
-				</div>
-			</div>
-		{/if}
+						<p class="mt-2 text-xs text-muted">{t.entry.cover.uploadHint}</p>
+						<input
+							bind:this={uploadInput}
+							type="file"
+							accept="image/png,image/jpeg,image/webp"
+							class="hidden"
+							onchange={handleUpload}
+						/>
+					</div>
 
-		<div class="mt-4">
-			<Button type="button" variant="secondary" size="sm" disabled={busy} onclick={close}>
-				{t.entry.cover.cancel}
-			</Button>
+					<div class="rounded-md border border-line bg-panel-2 p-3">
+						{#if !aiEnabled}
+							<p class="text-sm text-ink-2">{t.entry.cover.aiOff}</p>
+						{:else if !portraitModel}
+							<p class="text-sm text-ink-2">{t.entry.cover.notConfigured}</p>
+						{:else}
+							<Button type="button" size="sm" disabled={busy} onclick={handleGenerate}>
+								{t.entry.cover.generateAction}
+							</Button>
+							<p class="mt-2 text-xs text-muted">{t.entry.cover.generateHint(portraitPrice)}</p>
+							<p class="text-xs text-muted">{portraitModel.provider}/{portraitModel.modelId}</p>
+						{/if}
+					</div>
+				</div>
+			{/if}
+
+			<div class="mt-4">
+				<Button type="button" variant="secondary" size="sm" disabled={busy} onclick={close}>
+					{t.entry.cover.cancel}
+				</Button>
+			</div>
 		</div>
-	</div>
-</dialog>
+	</DialogContent>
+</Dialog>
