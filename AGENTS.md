@@ -192,13 +192,58 @@ expected rather than a failure to chase.
 **Two things collide between worktrees that are not the database.** The first is your own file
 tools: a relative path resolves against the session's working directory, not the worktree, and
 in the first parallel wave three agents wrote part of their change into the main checkout that
-way. Use absolute paths under your own worktree for every read and edit, and if it happens
+way. It happened again in round thirteen's two waves, to three more agents, and each of them
+caught it themselves within a few edits, so treat it as the default failure rather than an
+unlucky one: absolute paths under your own worktree for every read and edit, and if it happens
 anyway, say so immediately rather than reverting somebody else's uncommitted work by reflex.
+The orchestrator's half of that lesson is sharper: **never `git add -A` in the main checkout
+while a wave is running.** On 2026-08-20 that swept three of #385's stray files into #399's
+commit, and the fix was a `reset --soft`, a `restore` of the four files and a force-push on a
+PR that had already been opened.
+
 The second is the dev server: pick a port per worktree and announce it, because `vite` will
 happily take the next free one and then you are reading a sibling's app. A signed-in browser
-check is worse than that and cannot be parallelised at all: cookies are scoped by host and
-path and ignore the port (RFC 6265), so every dev server on `localhost` shares one session and
-whoever signed in last wins. Sequence those, or give each one its own hostname.
+check used to be the thing that could not be parallelised at all, because cookies are scoped
+by host and path and ignore the port (RFC 6265), so every dev server on `localhost` shares one
+session and whoever signed in last wins. **Give each worktree its own loopback address and the
+problem goes away**: `127.0.0.11`, `127.0.0.12` and so on are different hosts to the cookie
+jar, they all exist on this box with no setup, and eight agents held eight independent
+sessions at once through them in round thirteen. `--host 127.0.0.N --port 52NN --strictPort`,
+and note that vite prints `Network:` rather than `Local:` for a non-loopback-default host, so
+a readiness pattern matching `Local:` waits forever.
+
+The signed-in recipe itself, which every agent otherwise re-derives: create a
+`canonry_w<issue>_demo` database, migrate and seed it, start the dev server against it, create
+the account through the app's own `POST /api/auth/sign-up/email`, grant it `owner` on the
+seeded universes with one `INSERT INTO universe_member ... ON CONFLICT DO UPDATE`, then read
+the `better-auth.session_token` cookie out of `curl -c -` and hand it to `uishot --cookie`.
+`scripts/demo-reset.sh` is the same thing for the shared `canonry_demo`, and its ordering trap
+is worth knowing: it drops the database the app is holding a pool on, so the app exits and the
+script then waits for it to come back.
+
+**Formatting is a CI gate, and `pnpm check` does not stand in for `pnpm build`.** Two ways a
+PR goes red after a clean `check`. The Lint job is `prettier --check .` plus `eslint .` per
+package, so one unformatted file you touched is a red run on its own: run
+`pnpm --filter <pkg> lint` before committing and fix with `npx prettier --write` on your own
+files only, from inside `apps/web` for a Svelte file, since the plugin resolves from the
+package rather than the root. And SvelteKit allows only its own named exports from
+`+server.ts` and `+page.server.ts` (`GET`, `POST`, `load`, `actions`, and anything prefixed
+`_`); `tsc` and `svelte-check` are happy with a helper exported for a test, and the build
+fails. Two agents in round thirteen shipped that same red build within an hour of each other,
+one from `ask/+server.ts` and one from the settings page's own `+page.server.ts`, where the
+symptom was a 500 in the dev server rather than a type error. Run `pnpm --filter web build`
+once before pushing anything that touches either kind of file.
+
+**`eslint .` over `apps/web` takes minutes under a wide wave.** Eight worktrees linting the
+same graph at once pushed one run past seven minutes and another past a 300s tool timeout,
+which reads like a hang and is contention. Scope eslint to your own files while you work and
+let CI run the package.
+
+**The board's own API is a shared quota.** Projects v2 fields are GraphQL-only, and GraphQL is
+5000 points an hour **per account**, not per repo. Setting four fields on thirteen issues plus
+`gh pr create` (also GraphQL) exhausted it in one wave and every later call failed with "API
+rate limit already exceeded" while REST still had its full 5000. `gh api repos/<owner>/<repo>/pulls`
+opens a PR over REST when that happens, and `gh api rate_limit` says which budget is gone.
 
 ## The UX decisions live in `docs/ux/`
 
@@ -243,7 +288,18 @@ Follows the shared UI pipeline (`ui-brief-first`, `ui-design-tokens`, `ui-visual
   exactly this, a dev-only route enumerating every component and state, not a product
   surface.
 - Dark mode is real and whole-app (`G1 = B`), toggled via `[data-theme='dark']`, so a
-  light/dark screenshot pair should differ, not come back identical.
+  light/dark screenshot pair should differ, not come back identical. The theme is also a
+  cookie (`canonry_theme`), which is what a signed-in shot needs when the account has chosen
+  one: `uishot --theme dark` sets the media preference, and if the app has a stored choice
+  the cookie is what actually decides, so pass both rather than wondering why the pixels
+  came back light.
+- **A native `<dialog>` is not centred in this app**, and the cause is not in our code:
+  Tailwind 4's preflight sets `margin: 0` on `*`, `::before`, `::after` and `::backdrop`,
+  which is the margin the user-agent stylesheet centres a modal `<dialog>` with. Three of
+  them shipped pinned to the top-left corner before anybody looked (round thirteen R2,
+  #377). Use the vendored `ui/dialog`, which is centred, traps focus, locks the scroll and
+  animates on the motion tokens, and remember that its accessible name comes from
+  `Dialog.Title`: a bare `<h3>` inside it leaves the dialog unnamed and axe says so.
 - Motion is a system, and `prefers-reduced-motion` is honoured at the system level
   (`Q6`, #367): two duration tokens named by what they may move, two easings, one
   reduced-motion rule in `layout.css`, and `docs/ux/MOTION.md` as the four-rule pattern a
