@@ -128,9 +128,7 @@ describe('coverPlacement (#376)', () => {
 
 describe('coverFigureStyle (#376)', () => {
 	it('fixes the width and lets the ratio decide the height, unlike the band', () => {
-		expect(coverFigureStyle('character')).toBe(
-			`aspect-ratio: 3 / 4; width: ${COVER_FIGURE_WIDTH}`
-		);
+		expect(coverFigureStyle('character')).toBe(`aspect-ratio: 3 / 4; width: ${COVER_FIGURE_WIDTH}`);
 		expect(coverFigureStyle('character')).not.toContain('max-width');
 	});
 
