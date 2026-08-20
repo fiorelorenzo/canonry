@@ -35,42 +35,40 @@
 	 * page passes `coverImageId`, which `publicEntityBySlug` only fills in for an asset that
 	 * already cleared the published/gm_only/revelation gate.
 	 *
-	 * Round thirteen R1 (#376): a shape taller than it is wide (`coverPlacement`) stands
-	 * beside the title instead, once `+page.svelte`'s header grid has the ~200px to give
-	 * it (`lg` and up). Below that, or for any other shape, this still draws the band
-	 * above - the two boxes below are the same picture at the same two sizes the band
-	 * always had, swapped by breakpoint rather than by a second component, so there is
-	 * still one place that draws a cover and nowhere for the two to disagree.
+	 * Round fourteen S5 (#410) repeals round thirteen R1 (#376) and #399's amendment of it:
+	 * every cover goes to the top of the aside now, whatever its ratio, so there is no more
+	 * shape-driven placement to derive and no breakpoint at which this component used to
+	 * swap one box for another. The two contexts that remain are picked by the caller, not
+	 * by the ratio: `variant="band"` (the default) is the strip above the title - on the
+	 * players' wiki always, and on the GM page only below `md`, where the aside is a bottom
+	 * sheet the reader has to open (#148) and a page's own picture does not belong behind a
+	 * tap. `variant="aside"` is the aside's own copy, `EntrySections.svelte`'s first child,
+	 * `md` and up: `coverAsideStyle` states only the ratio and lets the aside's `md:w-64`
+	 * decide the width, its natural height following from that rather than from a second
+	 * fixed number this file or `+page.svelte`'s old header grid had to keep in step.
 	 */
 	import type { EntityType } from '@canonry/db/schema';
-	import { COVER_POSITION, coverBandStyle, coverFigureStyle, coverPlacement } from './cover-crop';
+	import { COVER_POSITION, coverAsideStyle, coverBandStyle } from './cover-crop';
 
-	let { src, alt, entityType }: { src: string; alt: string; entityType: EntityType } = $props();
+	let {
+		src,
+		alt,
+		entityType,
+		variant = 'band'
+	}: { src: string; alt: string; entityType: EntityType; variant?: 'band' | 'aside' } = $props();
 
 	// Both maps moved to `cover-crop.ts` when O1 (#283) gave a cover its second surface, the
 	// world home's Continue cards: rules 2 and 3 above are the same decision at both sizes.
 	let position = $derived(COVER_POSITION[entityType]);
-	let placement = $derived(coverPlacement(entityType));
+	let style = $derived(
+		variant === 'aside' ? coverAsideStyle(entityType) : coverBandStyle(entityType)
+	);
 </script>
 
-{#if placement === 'figure'}
-	<div
-		class="mb-6 overflow-hidden rounded-md border border-line bg-panel-2 lg:hidden"
-		style={coverBandStyle(entityType)}
-	>
-		<img {src} {alt} class="h-full w-full object-cover" style="object-position: {position}" />
-	</div>
-	<div
-		class="mb-6 hidden overflow-hidden rounded-md border border-line bg-panel-2 lg:block"
-		style={coverFigureStyle(entityType)}
-	>
-		<img {src} {alt} class="h-full w-full object-cover" style="object-position: {position}" />
-	</div>
-{:else}
-	<div
-		class="mb-6 overflow-hidden rounded-md border border-line bg-panel-2"
-		style={coverBandStyle(entityType)}
-	>
-		<img {src} {alt} class="h-full w-full object-cover" style="object-position: {position}" />
-	</div>
-{/if}
+<div
+	class="overflow-hidden rounded-md border border-line bg-panel-2"
+	class:mb-6={variant === 'band'}
+	{style}
+>
+	<img {src} {alt} class="h-full w-full object-cover" style="object-position: {position}" />
+</div>

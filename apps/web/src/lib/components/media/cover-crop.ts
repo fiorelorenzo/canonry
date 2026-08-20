@@ -62,30 +62,23 @@ function toCssRatios<T extends string>(source: Record<T, string>): Record<T, str
 export const COVER_RATIO: Record<EntityType, string> = toCssRatios(COVER_ASPECT_RATIO);
 
 /**
- * Round thirteen R1 (#376): O2 put every cover in a band above the title, and Q5 gave
- * a character and an item a portrait ratio without asking whether a band still fit
- * one. It does not - `coverBandStyle` caps at 20vh, so a 3:4 cover reads as a
- * thumbnail with ceremony around it. This decides where a cover stands from the ratio
- * alone, not from a second entity-type table it could someday disagree with: a shape
- * taller than it is wide is a subject to stand beside the title, and everything else
- * is still a strip too wide to read as anything but a band above the text.
+ * Round fourteen S5 (#410), which repeals round thirteen R1 (#376) and #399's amendment of
+ * it: every cover goes to the top of the aside (`EntrySections.svelte`), whatever its
+ * ratio, not just the ones taller than they are wide. There is no longer a second place a
+ * cover can stand, so there is no placement to derive from the ratio table any more -
+ * `coverPlacement`, `CoverPlacement` and `coverFigureStyle` are gone with it, and so is
+ * `+page.svelte`'s header grid that used to keep the figure column's width and this
+ * module's `COVER_FIGURE_WIDTH` from drifting apart.
  *
- * `EntryCover.svelte` and `EntryCoverPlaceholder.svelte` both call this rather than
- * each keeping its own answer, so a portrait entry's placeholder is already standing
- * where its real cover will land - the point of P6 borrowing the band's own shape,
- * carried forward to the figure.
+ * What replaces `coverFigureStyle` is `coverAsideStyle` below: the aside is `md:w-64`
+ * already, so a cover mounted inside it takes that width for free, by being a plain block
+ * element with nothing narrower declared. Only the ratio needs stating.
  */
-export type CoverPlacement = 'band' | 'figure';
-
-export function coverPlacement(entityType: EntityType): CoverPlacement {
-	const [width, height] = COVER_ASPECT_RATIO[entityType].split(':').map(Number);
-	if (!width || !height) throw new Error(`COVER_ASPECT_RATIO[${entityType}] is not a ratio`);
-	return height > width ? 'figure' : 'band';
-}
 
 /**
- * O2's cap and the type's own shape, in one style string, used by the band and by the
- * placeholder so an arriving cover does not move the page.
+ * O2's cap and the type's own shape, in one style string, used only by the band now: the
+ * mobile-only strip above the title, shown below `md` where the aside is a sheet the reader
+ * has to open (round fourteen S5, #410) rather than a place the page's own picture belongs.
  *
  * **The cap and the ratio used to be in conflict, and the cap always won.** The band was
  * `w-full max-h-[20vh]` plus `aspect-ratio`, which forces the width, derives a height from
@@ -106,16 +99,15 @@ export function coverBandStyle(entityType: EntityType): string {
 }
 
 /**
- * The figure's own width, about 200px - the same number `+page.svelte`'s header grid
- * reserves beside the measure column for it, so the box and its slot cannot drift
- * apart. `coverBandStyle`'s 20vh cap has no part here: a figure is not fighting a
- * band's height limit, so its width is simply fixed and the ratio decides the height
- * that follows from it.
+ * The aside's own cover, `md` and up: no cap, no fixed width, just the ratio. The aside
+ * column (`md:w-64` in `EntrySections.svelte`) already decides the width, so stating one
+ * here too would be the second-answer problem `coverFigureStyle` used to have with
+ * `+page.svelte`'s header grid, restated rather than fixed. Height follows from whatever
+ * width the aside actually renders at - "natural height per ratio", the decision's own
+ * words - tall for a character, short for a place, with nothing here to disagree.
  */
-export const COVER_FIGURE_WIDTH = '12.5rem';
-
-export function coverFigureStyle(entityType: EntityType): string {
-	return `aspect-ratio: ${COVER_RATIO[entityType]}; width: ${COVER_FIGURE_WIDTH}`;
+export function coverAsideStyle(entityType: EntityType): string {
+	return `aspect-ratio: ${COVER_RATIO[entityType]}`;
 }
 
 /**
