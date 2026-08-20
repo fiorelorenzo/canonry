@@ -815,7 +815,20 @@ export interface Messages {
 			heading: (entityName: string) => string;
 			save: string;
 			bodyAriaLabel: string;
+			/** Round twelve, Q4: the write/preview switch over the editor box, plus what
+			 * the preview side of it is called and what it says with nothing written. */
+			view: {
+				ariaLabel: string;
+				write: string;
+				preview: string;
+				previewAriaLabel: string;
+				previewEmpty: string;
+			};
 		};
+		/** Round twelve, Q4: every string below is now one icon's tooltip *and* its
+		 * `aria-label`, one value doing both jobs, so a translation cannot end up
+		 * labelling the eye and the screen reader differently. `mentionLabel` is gone
+		 * with the visible `@ Mention` text it used to carry. */
 		toolbar: {
 			ariaLabel: string;
 			bold: string;
@@ -825,7 +838,6 @@ export interface Messages {
 			quote: string;
 			link: string;
 			mention: string;
-			mentionLabel: string;
 		};
 		mentionMenu: {
 			ariaLabel: string;

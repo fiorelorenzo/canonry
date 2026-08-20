@@ -682,7 +682,14 @@ export const en: Messages = {
 			breadcrumbEdit: 'Edit',
 			heading: (entityName) => `Edit ${entityName}`,
 			save: 'Save',
-			bodyAriaLabel: 'Entry body, markdown'
+			bodyAriaLabel: 'Entry body, markdown',
+			view: {
+				ariaLabel: 'Editor view',
+				write: 'Write',
+				preview: 'Preview',
+				previewAriaLabel: 'Preview of the entry, as the page renders it',
+				previewEmpty: 'Nothing written yet, so there is nothing to preview.'
+			}
 		},
 
 		toolbar: {
@@ -693,8 +700,7 @@ export const en: Messages = {
 			list: 'Bulleted list',
 			quote: 'Quote',
 			link: 'Link',
-			mention: 'Mention',
-			mentionLabel: '@ Mention'
+			mention: 'Mention'
 		},
 
 		mentionMenu: {

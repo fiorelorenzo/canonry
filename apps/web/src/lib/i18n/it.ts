@@ -688,7 +688,14 @@ export const it: Messages = {
 			breadcrumbEdit: 'Modifica',
 			heading: (entityName) => `Modifica ${entityName}`,
 			save: 'Salva',
-			bodyAriaLabel: 'Corpo della voce, markdown'
+			bodyAriaLabel: 'Corpo della voce, markdown',
+			view: {
+				ariaLabel: 'Vista editor',
+				write: 'Scrivi',
+				preview: 'Anteprima',
+				previewAriaLabel: 'Anteprima della voce, come la mostra la pagina',
+				previewEmpty: 'Non c\u2019\u00e8 ancora niente da vedere in anteprima.'
+			}
 		},
 
 		toolbar: {
@@ -699,8 +706,7 @@ export const it: Messages = {
 			list: 'Elenco puntato',
 			quote: 'Citazione',
 			link: 'Link',
-			mention: 'Menzione',
-			mentionLabel: '@ Menzione'
+			mention: 'Menzione'
 		},
 
 		mentionMenu: {
