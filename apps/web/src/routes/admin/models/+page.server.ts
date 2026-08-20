@@ -36,6 +36,7 @@ import { isKnownProvider, KNOWN_PROVIDERS, CURRENCIES, clearModelCache } from '@
 import { db } from '$lib/server/db';
 import { requireAdmin } from '$lib/server/admin';
 import { IMAGE_PRICE_PARAM_KEYS, parseCurrency, parsePricePerImage } from './image-price.js';
+import { COVER_ASPECT_RATIOS } from '$lib/components/media/cover-crop';
 import type { Actions, PageServerLoad } from './$types';
 
 export interface TextModelPurposeRow {
@@ -196,11 +197,32 @@ export const actions: Actions = {
 		// own schema does not offer that value, and Replicate answers that by generating at
 		// its default instead, which is the whole of #332. So the save refuses rather than
 		// the generation quietly going wrong later.
+		//
+		// #366 widens what "that value" means without weakening the check. A cover's shape
+		// comes from the entity type now, so `portrait` and `variants` can ask their model for
+		// any of `COVER_ASPECT_RATIOS` at generation time, and a model that accepts the row's
+		// default but not a character's portrait would fail on the first cover rather than on
+		// save. The set a save has to satisfy is therefore every shape the feature can
+		// actually ask for, and the message names whichever one this model cannot draw.
 		const configuredAspectRatio = readImageModelParams(
 			(await activeImageModelRow(db(), feature))?.params
 		).aspectRatio;
+		const requiredAspectRatios =
+			feature === 'scene'
+				? configuredAspectRatio
+					? [configuredAspectRatio]
+					: []
+				: [
+						...new Set([
+							...(configuredAspectRatio ? [configuredAspectRatio] : []),
+							...COVER_ASPECT_RATIOS
+						])
+					];
 		const acceptedAspectRatios = IMAGE_MODEL_ASPECT_RATIOS[modelId];
-		if (configuredAspectRatio && !acceptedAspectRatios?.includes(configuredAspectRatio)) {
+		const unsupported = requiredAspectRatios.find(
+			(ratio) => !acceptedAspectRatios?.includes(ratio)
+		);
+		if (unsupported) {
 			const errors = messages(event.locals.locale).admin.models.errors;
 			return fail(400, {
 				feature,
@@ -210,12 +232,8 @@ export const actions: Actions = {
 				currency,
 				saved: false,
 				error: acceptedAspectRatios
-					? errors.aspectRatioUnsupported(
-							modelId,
-							configuredAspectRatio,
-							acceptedAspectRatios.join(', ')
-						)
-					: errors.aspectRatioModelUnknown(modelId, configuredAspectRatio)
+					? errors.aspectRatioUnsupported(modelId, unsupported, acceptedAspectRatios.join(', '))
+					: errors.aspectRatioModelUnknown(modelId, unsupported)
 			});
 		}
 

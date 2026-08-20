@@ -9,7 +9,7 @@ import { error } from '@sveltejs/kit';
 import { universeAccessBySlug, type Db } from '@canonry/db';
 // The enum's TypeScript type lives with the schema rather than on the query barrel, since
 // it is generated from the pgEnum itself.
-import type { UniverseMemberRole } from '@canonry/db/schema';
+import type { EntityType, UniverseMemberRole } from '@canonry/db/schema';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 
@@ -19,7 +19,9 @@ export interface MediaRequestContext {
 	entity: {
 		id: string;
 		name: string;
-		type: string;
+		/** The enum, not a string: #366 reads a cover's shape off it, and a widened type
+		 * here would make that lookup take a key the table has no entry for. */
+		type: EntityType;
 		body: string;
 		imagePromptModifier: string | null;
 	};

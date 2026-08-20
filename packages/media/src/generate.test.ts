@@ -261,6 +261,67 @@ describe('generateImages (#64-#67, #71)', () => {
 		expect(result.assets[0]?.credits).toBeCloseTo(4, 6);
 	});
 
+	// #366: a cover's shape comes from the entity type, which a per-feature row cannot
+	// express, so a request may state its own. These two tests are the whole of that
+	// contract: the value reaches the provider, and it is part of the cache key rather than
+	// a detail the cache is free to ignore.
+	it("the request's own aspect ratio overrides the row's (#366)", async () => {
+		const target = await makeEntity();
+		const images = new FakeImageProvider();
+
+		await generateImages({
+			db,
+			images,
+			embeddings: new FakeEmbeddingProvider(),
+			storage: new FilesystemMediaStorage(storageRoot),
+			similarity,
+			universeId,
+			aiEnabled: true,
+			entity: { id: target.id, name: target.name, description: target.body },
+			feature: 'portrait',
+			userId,
+			aspectRatio: '3:4'
+		});
+
+		// The row seeded above says 3:2, which is what a caller with no entity type still
+		// gets (the scene test above proves the row is read when nothing overrides it).
+		expect(images.calls[0]?.aspectRatio).toBe('3:4');
+	});
+
+	it('does not serve a cached image generated at another shape (#366)', async () => {
+		const target = await makeEntity();
+		const images = new FakeImageProvider();
+		const embeddings = new FakeEmbeddingProvider();
+		const common = {
+			db,
+			images,
+			embeddings,
+			storage: new FilesystemMediaStorage(storageRoot),
+			similarity,
+			universeId,
+			aiEnabled: true,
+			entity: { id: target.id, name: target.name, description: target.body },
+			feature: 'portrait' as const,
+			userId
+		};
+
+		const portrait = await generateImages({ ...common, aspectRatio: '3:4' });
+		expect(portrait.reusedFromCache).toBe(false);
+
+		// Same entity, same prompt, same embedding: everything the cache keys on except the
+		// shape. Serving the 3:4 file here would hand back a picture pre-cropped for a band
+		// it is not going into, which is exactly what Q5 says must not happen.
+		const wide = await generateImages({ ...common, aspectRatio: '16:9' });
+		expect(wide.reusedFromCache).toBe(false);
+		expect(images.calls.map((call) => call.aspectRatio)).toEqual(['3:4', '16:9']);
+
+		// And the shape is still part of the key in the direction that matters for #67: ask
+		// for the first shape again and the cache answers.
+		const again = await generateImages({ ...common, aspectRatio: '3:4' });
+		expect(again.reusedFromCache).toBe(true);
+		expect(again.assets.map((a) => a.id)).toEqual(portrait.assets.map((a) => a.id));
+	});
+
 	it('the per-entry override wins over the universe style in the built prompt (#65 acceptance)', async () => {
 		const target = await makeEntity({ imagePromptModifier: 'photorealistic, dramatic lighting' });
 

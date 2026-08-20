@@ -98,11 +98,18 @@ const IMAGE_COUNT_BY_FEATURE: Partial<Record<ImageFeature, number>> = {
 };
 
 /**
- * The shape of the image is no longer decided here (#332). It lives on the
- * `image_model_config` row, in `params.aspectRatio`, next to the model that has to honour
- * it: a table in this file could not survive an /admin/models model swap, and a swap that
- * silently drops the shape is exactly the defect #332 describes. models.ts reads the key,
- * aspect-ratio.ts holds each model's own enum, and migration 0045 seeds all three rows.
+ * The shape of the image is not decided here (#332). It lives on the `image_model_config`
+ * row, in `params.aspectRatio`, next to the model that has to honour it: a table in this
+ * file could not survive an /admin/models model swap, and a swap that silently drops the
+ * shape is exactly the defect #332 describes. models.ts reads the key, aspect-ratio.ts
+ * holds each model's own enum, and migration 0045 seeds all three rows.
+ *
+ * Round twelve's Q5 (#366) adds the one thing a per-feature row cannot express: a cover's
+ * shape depends on the entity type, portrait for a character and wide for a place, so the
+ * caller may pass `aspectRatio` for a single request and the row is what a caller with no
+ * type to speak for gets. The row is still where /admin/models validates and still what a
+ * model swap has to satisfy, and the provider still refuses a value the configured model's
+ * enum does not list, whichever of the two it came from.
  */
 
 export function operationForFeature(feature: ImageFeature): string {
@@ -142,6 +149,21 @@ export interface GenerateImagesInput {
 	 * `prompt` replaces the entity+style compose as the base prompt, so round two builds
 	 * on the picture the user actually saw rather than rolling the entity text again. */
 	fromAssetId?: string;
+	/**
+	 * Round twelve Q5 (#366): the shape this one request wants, overriding the row's
+	 * `params.aspectRatio`. It exists because a cover's shape varies by entity type - a
+	 * character is drawn portrait and a place wide - and a per-feature row cannot hold a
+	 * per-type answer.
+	 *
+	 * #332's guarantee is unchanged and is why this is a value passed in rather than a
+	 * fallback chain: the provider checks whatever it is finally given against the
+	 * configured model's own enum and throws `ImageAspectRatioUnsupportedError` rather
+	 * than letting Replicate quietly draw at its default. The row keeps the default for
+	 * every caller that has no entity type to speak for (the bench, and any feature whose
+	 * shape is a property of the feature rather than of its subject, which is what `scene`
+	 * is).
+	 */
+	aspectRatio?: string;
 }
 
 export interface GenerateImagesResult {
@@ -165,6 +187,11 @@ export async function generateImages(input: GenerateImagesInput): Promise<Genera
 	]);
 	const model = imageModelFromRow(modelRow);
 	const modelParams = readImageModelParams(modelRow.params);
+	// #366: the request's own shape wins over the row's, and the row is the default for a
+	// caller that has none. Resolved once here so the three places that need it - the cache
+	// lookup, the provider call and the recorded point - cannot disagree about what shape
+	// this generation is.
+	const aspectRatio = input.aspectRatio ?? modelParams.aspectRatio;
 
 	if (input.fromAssetId) {
 		if (!priorAsset || priorAsset.universeId !== input.universeId) {
@@ -198,7 +225,8 @@ export async function generateImages(input: GenerateImagesInput): Promise<Genera
 		const hit = await findSimilarMedia(input.similarity, {
 			vector,
 			universeId: input.universeId,
-			feature: input.feature
+			feature: input.feature,
+			...(aspectRatio ? { aspectRatio } : {})
 		});
 		if (hit) {
 			const assets = await mediaAssetsByIds(input.db, hit.mediaAssetIds);
@@ -217,7 +245,7 @@ export async function generateImages(input: GenerateImagesInput): Promise<Genera
 		userId: input.userId,
 		universeId: input.universeId,
 		operation,
-		...(modelParams.aspectRatio ? { aspectRatio: modelParams.aspectRatio } : {})
+		...(aspectRatio ? { aspectRatio } : {})
 	});
 
 	const price = await chargeFor(input.db, operation);
@@ -255,6 +283,7 @@ export async function generateImages(input: GenerateImagesInput): Promise<Genera
 		vector,
 		universeId: input.universeId,
 		feature: input.feature,
+		...(aspectRatio ? { aspectRatio } : {}),
 		mediaAssetIds: assets.map((asset) => asset.id)
 	});
 
