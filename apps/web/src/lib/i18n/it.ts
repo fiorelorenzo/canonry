@@ -1794,7 +1794,7 @@ export const it: Messages = {
 					};
 				},
 				noLimitNotice:
-					'Nessun limite: ogni candidato trovato dal copilota riceve una differenza. La spesa viene comunque confermata prima di generare le differenze.',
+					'Nessun limite: il piano di un salvataggio può includere ogni candidato collegato a ciò che è cambiato, per quanti siano, e ogni differenza che completi durante la revisione costa comunque un credito. Nulla viene scritto senza la tua conferma.',
 				invalidCapError: 'Inserisci un numero maggiore o uguale a 1, oppure disattiva il limite.'
 			},
 			imageStyle: {
@@ -1814,14 +1814,22 @@ export const it: Messages = {
 				promptModifierRequiredError: 'Descrivi cosa aggiunge lo stile a un prompt.',
 				pickError: 'Impossibile impostare quello stile. Riprova.'
 			},
-			loremasterVoice: {
+			narration: {
 				heading: 'Voce del Loremaster',
 				description: (universeName) =>
 					`Come suona il Loremaster quando risponde a una domanda o completa una voce esile per ${universeName} - mai cosa può scrivere, solo come lo dice.`,
-				textareaLabel: 'Voce',
-				hint: 'Fino a 500 caratteri.',
+				pickerLegend: 'Scegli una voce',
+				selectedLabel: 'Selezionata',
+				customCard: {
+					label: 'Voce personalizzata',
+					hint: 'Scrivi un tuo nome e una tua clausola del prompt invece di un preset già pronto.'
+				},
+				nameLabel: 'Nome',
+				promptClauseLabel: 'Clausola del prompt',
 				save: 'Salva',
-				tooLongError: 'Mantieni la descrizione entro i 500 caratteri.'
+				nameRequiredError: 'Dai un nome alla voce.',
+				promptClauseRequiredError: 'Descrivi come deve suonare questa voce.',
+				pickError: 'Impossibile impostare quella voce. Riprova.'
 			},
 			loremasterConversations: {
 				text: 'Ogni domanda fatta nel pannello del Loremaster viene risposta e conservata automaticamente, raggruppata per conversazione, finché non la elimini.',

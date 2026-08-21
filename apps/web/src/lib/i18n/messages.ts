@@ -1895,7 +1895,10 @@ export interface Messages {
 				offNotice: (universeName: string) => string;
 			};
 			/** Decision C3 amendment (docs/ux/DECISIONS.md "Round nine"): the per-universe
-			 * propagation cap, in the same visual language as `aiToggle` above it. */
+			 * propagation cap, in the same visual language as `aiToggle` above it. Issue
+			 * #451, decision U3: the column default is null (no limit) now, not 25, so
+			 * `noLimitNotice` says plainly what "no limit" costs (guardrail 7, G11) rather
+			 * than reading like a neutral state. */
 			propagationCap: {
 				heading: string;
 				description: (universeName: string) => string;
@@ -1906,6 +1909,9 @@ export interface Messages {
 				 * so the number can be rendered bold without the whole sentence being one
 				 * un-styleable string. */
 				capNotice: (cap: number) => { prefix: string; suffix: string };
+				/** G11: names the spend a save without a cap can produce - a credit per
+				 * candidate the GM generates a diff for - rather than leaving "no limit" read
+				 * as free. */
 				noLimitNotice: string;
 				invalidCapError: string;
 			};
@@ -1936,17 +1942,31 @@ export interface Messages {
 				 * the generic case. */
 				pickError: string;
 			};
-			/** Issue #378, decision R3: a textarea over `universe.loremaster_description`,
-			 * which `runAsk` and `completeEntry` (packages/copilot) read directly - see
-			 * `loremasterVoiceInstruction` in packages/copilot/src/speech.ts for what it
-			 * becomes in the prompt. */
-			loremasterVoice: {
+			/** Issue #451, decision U2: the Loremaster's voice, a preset picker on
+			 * `imageStyle`'s own shape above - `narration_style_id` points at a shipped
+			 * preset or at this universe's own custom row (`loremasterVoiceClauseForUniverse`,
+			 * read by `loremasterVoiceInstruction` in packages/copilot/src/speech.ts).
+			 * Replaces the old free-text `loremasterVoice` textarea (issue #378, decision R3)
+			 * - `universe.loremaster_description` is gone as of migration 0050. */
+			narration: {
 				heading: string;
 				description: (universeName: string) => string;
-				textareaLabel: string;
-				hint: string;
+				/** sr-only legend on the `<fieldset>` wrapping the picker grid, same role as
+				 * `imageStyle.pickerLegend`. */
+				pickerLegend: string;
+				/** sr-only text paired with the checkmark on whichever card is selected. */
+				selectedLabel: string;
+				customCard: {
+					label: string;
+					hint: string;
+				};
+				nameLabel: string;
+				promptClauseLabel: string;
 				save: string;
-				tooLongError: string;
+				nameRequiredError: string;
+				promptClauseRequiredError: string;
+				/** A preset pick that failed server-side - same posture as `imageStyle.pickError`. */
+				pickError: string;
 			};
 			/** Issue #437, decision T10: guardrail 5's disclosure lives primarily in the panel
 			 * itself (`shell.quickAsk.disclosure`), read before anything is asked - this is

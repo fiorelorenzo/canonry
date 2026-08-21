@@ -16,3 +16,4 @@ export * from './source.js';
 export * from './billing.js';
 export * from './queue.js';
 export * from './ask.js';
+export * from './narration.js';

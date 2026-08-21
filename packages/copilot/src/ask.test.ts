@@ -7,7 +7,13 @@
 import { randomUUID } from 'node:crypto';
 import { closeDb, eq, type Db } from '@canonry/db';
 import { dataSource, modelCall, proposal, universe as universeTable } from '@canonry/db/schema';
-import { createDataSource, recordLicenceReview } from '@canonry/db';
+import {
+	createDataSource,
+	listNarrationStylePresets,
+	recordLicenceReview,
+	selectUniverseNarrationStylePreset,
+	upsertUniverseNarrationStyle
+} from '@canonry/db';
 import {
 	collectionExists,
 	createVectorClient,
@@ -515,13 +521,14 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		expect(result.followUps).toContain('Dimmi di più su Aldric Vane.');
 	});
 
-	it('issue #378, decision R3: a set Loremaster voice reaches the system prompt beside the locale rule, and an empty one adds no clause', async () => {
+	it('issue #378, decision R3, amended by issue #451, decision U2: a custom Loremaster voice reaches the system prompt beside the locale rule, and no voice chosen adds no clause', async () => {
 		const { owner, universe } = await fixture();
 		const voice = 'Wry, understated, never more than a sentence at a time.';
-		await db
-			.update(universeTable)
-			.set({ loremasterDescription: voice })
-			.where(eq(universeTable.id, universe.id));
+		await upsertUniverseNarrationStyle(db, {
+			universeId: universe.id,
+			name: 'Custom',
+			promptClause: voice
+		});
 
 		let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
 		await runAsk({
@@ -546,8 +553,8 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		expect(system).toContain('how their Loremaster sounds');
 		expect(system).toContain('Let it shape your tone and word choice only');
 
-		// The empty default (a fresh fixture never sets it) adds no clause at all - not an
-		// empty one - to a universe nobody has described.
+		// No voice chosen at all (a fresh fixture's `narrationStyleId` is null) adds no
+		// clause - not an empty one - to a universe nobody has set one for.
 		const silent = await fixture();
 		let silentCaptured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
 		await runAsk({
@@ -570,6 +577,35 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		const silentSystem = systemPromptOf(silentCaptured!);
 		expect(silentSystem).not.toContain('how their Loremaster sounds');
 		expect(silentSystem).not.toContain('Let it shape your tone');
+	});
+
+	it('issue #451, decision U2: a chosen shipped narration preset reaches the system prompt the same way a custom voice does', async () => {
+		const { owner, universe } = await fixture();
+		const [preset] = await listNarrationStylePresets(db, 'en');
+		if (!preset) throw new Error('no seeded narration preset to test against');
+		await selectUniverseNarrationStylePreset(db, universe.id, preset.id);
+
+		let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+		await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Why was Aldric Vane dismissed?',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(
+				capturingStreamingModel('placeholder answer', (options) => {
+					captured = options;
+				})
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		const system = systemPromptOf(captured!);
+		expect(system).toContain(preset.promptClause);
+		expect(system).toContain('how their Loremaster sounds');
 	});
 
 	it('SPEC.md §17 rule two (issue #123): the reading-only fallback speaks the interface locale too, with AI off and no model call', async () => {

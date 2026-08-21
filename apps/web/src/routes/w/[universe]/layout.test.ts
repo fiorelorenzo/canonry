@@ -7,7 +7,7 @@
  * the GM shell's own `/w/[universe]/+layout.server.ts`.
  */
 import { randomUUID } from 'node:crypto';
-import { closeDb, createDb, eq, type Db } from '@canonry/db';
+import { closeDb, createDb, eq, upsertUniverseNarrationStyle, type Db } from '@canonry/db';
 import { imageStyle, universe, user } from '@canonry/db/schema';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { UniverseSetupItem } from '$lib/server/universe-setup';
@@ -108,10 +108,12 @@ describe('/w/[universe] layout setupItems (issue #379, decision R4)', () => {
 			.values({ universeId: world.id, name: 'Woodcut', promptModifier: 'monochrome woodcut' })
 			.returning();
 		if (!style) throw new Error('image style insert returned no row');
-		await db
-			.update(universe)
-			.set({ imageStyleId: style.id, loremasterDescription: 'Wry, understated, dry.' })
-			.where(eq(universe.id, world.id));
+		await db.update(universe).set({ imageStyleId: style.id }).where(eq(universe.id, world.id));
+		await upsertUniverseNarrationStyle(db, {
+			universeId: world.id,
+			name: 'Custom',
+			promptClause: 'Wry, understated, dry.'
+		});
 
 		const data = await loadFor(world.slug, locals);
 		expect(data.setupItems.every((item) => item.done)).toBe(true);

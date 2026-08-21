@@ -377,6 +377,16 @@ export {
 	type KeptAnswerRefInput,
 	type DeleteKeptConversationInput
 } from './queries/kept-answers.js';
+export {
+	listNarrationStylePresets,
+	selectUniverseNarrationStylePreset,
+	NarrationStylePresetNotFoundError,
+	upsertUniverseNarrationStyle,
+	loremasterVoiceClauseForUniverse,
+	type NarrationStyleRow,
+	type NarrationStylePreset,
+	type UpsertUniverseNarrationStyleInput
+} from './queries/narration.js';
 
 /**
  * The query operators, re-exported from the one drizzle this workspace installs.

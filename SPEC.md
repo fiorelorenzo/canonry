@@ -97,7 +97,7 @@ Postgres 16 is the source of truth for structure; Qdrant holds vectors only
 | `kind` | `homebrew` \| `derived` |
 | `base_universe_id` | when `derived`, the official pre-indexed universe underneath |
 | `image_style_id` | the style shared by every image generated in this universe (§9) |
-| `loremaster_description` | the voice the Loremaster uses for this world |
+| `narration_style_id` | the voice the Loremaster uses for this world, a shipped preset or the universe's own custom row (§9's `image_style_id` pattern) |
 
 A `derived` universe reads from two layers: its own canon, and the official
 universe's indexed corpus, **read-only**. Precedence is explicit and visible in the
@@ -200,15 +200,15 @@ On save (debounced), in the background:
 5. **Accept, per entry.** Rejection asks for a one-word reason, which is training
    signal for the ranking, not a survey.
 
-**Cap: a per-universe setting (`universe.propagation_cap`), 25 by default, with an
-explicit no-limit option.** A plan is truncated to that many ranked entries; null
-means every candidate reaches the plan untouched. The default is a real number, not
-"unlimited", because without a ceiling the copilot becomes noise, and suggestion
-fatigue is the documented way copilots lose their users (`07`) - that risk does not
-go away just because the number moved into a settings page. The setting exists
-because the right ceiling is a function of how connected a world is and how much a
-GM wants to read in one sitting, not a constant this file can pick once for every
-universe; a GM who wants everything can ask for it explicitly.
+**Cap: a per-universe setting (`universe.propagation_cap`), null (no limit) by default,
+with an explicit number a GM can set instead.** A plan is truncated to that many ranked
+entries when set; null means every candidate reaches the plan untouched, which is the
+default because a silent truncation the GM never learns about is worse than a plan
+that occasionally runs long (guardrail 7). A GM who wants a ceiling can still set one -
+suggestion fatigue is the documented way copilots lose their users (`07`), and that risk
+is real once a world gets large - but the product no longer picks a number for every
+universe by default; the right ceiling is a function of how connected a world is and
+how much a GM wants to read in one sitting.
 
 **Model routing is a requirement, not an optimisation**: a cheap model finds and
 ranks candidates, a premium model writes the diffs. That is the difference between

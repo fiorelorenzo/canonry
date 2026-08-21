@@ -17,12 +17,12 @@ import type { Db } from '@canonry/db';
 import {
 	createProposalPlan,
 	eq,
+	loremasterVoiceClauseForUniverse,
 	recordProposalDiff,
 	relationTypesForUniverse,
 	setProposalPlanStatus
 } from '@canonry/db';
 import type { ProposalRow } from '@canonry/db';
-import { universe } from '@canonry/db/schema';
 import { canonLanguageFor, type Locale } from '@canonry/lang';
 import { generateObject } from 'ai';
 import { z } from 'zod';
@@ -122,19 +122,15 @@ const completeSchema = z.object({
 export async function completeEntry(input: CompleteEntryInput): Promise<CompleteEntryResult> {
 	await requireAiEnabled(input.db, input.universeId);
 
-	const [graph, relationTypes, loremasterDescription] = await Promise.all([
+	const [graph, relationTypes, loremasterVoiceClause] = await Promise.all([
 		loadCandidateGraph(input.db, input.universeId),
 		relationTypesForUniverse(input.db, input.universeId),
-		// Issue #378, decision R3: the GM's own description of how their Loremaster
-		// talks, fetched here rather than folded into `requireAiEnabled` above (which
-		// every other caller of that function shares and has no use for this column) -
-		// see `speech.ts`'s `loremasterVoiceInstruction` for what it becomes below.
-		input.db
-			.select({ loremasterDescription: universe.loremasterDescription })
-			.from(universe)
-			.where(eq(universe.id, input.universeId))
-			.limit(1)
-			.then(([row]) => row?.loremasterDescription ?? '')
+		// Issue #378, decision R3, amended by issue #451, decision U2: the resolved
+		// clause of whatever row `universe.narration_style_id` points at, fetched here
+		// rather than folded into `requireAiEnabled` above (which every other caller of
+		// that function shares and has no use for this) - see `speech.ts`'s
+		// `loremasterVoiceInstruction` for what it becomes below.
+		loremasterVoiceClauseForUniverse(input.db, input.universeId)
 	]);
 	const target = graph.entities.find((e) => e.id === input.entityId);
 	if (!target) throw new Error(`completeEntry: unknown entity "${input.entityId}"`);
@@ -207,7 +203,7 @@ export async function completeEntry(input: CompleteEntryInput): Promise<Complete
 						// talking. Positioned after every guardrail and language rule above it, so
 						// an adversarial description can only ever colour tone. Empty input
 						// contributes nothing.
-						loremasterVoiceInstruction(loremasterDescription) +
+						loremasterVoiceInstruction(loremasterVoiceClause) +
 						' ' +
 						canonInstruction(contentLanguage),
 					prompt:

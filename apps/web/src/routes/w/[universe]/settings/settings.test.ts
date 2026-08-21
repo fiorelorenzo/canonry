@@ -1,6 +1,6 @@
 /**
  * Issue #378, decision R3: the two new actions this page grew, run against the real
- * exported `actions.setImageStyle`/`actions.setLoremasterVoice` (same technique as
+ * exported `actions.setImageStyle`/`actions.setNarrationStyle` (same technique as
  * `admin/models/params-merge.test.ts` and `review/[proposal]/review.test.ts`) rather than
  * re-deriving what they do, so a route-wiring regression fails here even though
  * `upsertUniverseImageStyle` itself is unit tested directly in `packages/db/test/
@@ -267,44 +267,38 @@ describe('/w/[universe]/settings actions (issue #378, decision R3)', () => {
 		expect(presetAfter).toMatchObject({ name: preset.name, promptModifier: preset.promptModifier });
 	});
 
-	it('setLoremasterVoice persists a description and an empty save clears it back to the column default', async () => {
+	it('setNarrationStyle inserts one narration_style row and points universe.narration_style_id at it', async () => {
 		const { world, locals } = await fixture();
 
 		const voice = 'Wry, understated, never more than a sentence at a time.';
-		const result = await actions.setLoremasterVoice(
-			postEvent(world.slug, locals, { description: voice })
+		const result = await actions.setNarrationStyle(
+			postEvent(world.slug, locals, { name: 'Custom', promptClause: voice })
 		);
-		expect(result).toEqual({ loremasterDescription: voice });
+		expect(result).toEqual({ narrationStyleName: 'Custom', narrationStylePromptClause: voice });
 
 		const [row] = await db.select().from(universe).where(eq(universe.id, world.id));
-		expect(row?.loremasterDescription).toBe(voice);
-
-		const cleared = await actions.setLoremasterVoice(
-			postEvent(world.slug, locals, { description: '' })
-		);
-		expect(cleared).toEqual({ loremasterDescription: '' });
-		const [clearedRow] = await db.select().from(universe).where(eq(universe.id, world.id));
-		expect(clearedRow?.loremasterDescription).toBe('');
+		expect(row?.narrationStyleId).toBeTruthy();
 	});
 
-	it('setLoremasterVoice rejects a description over 500 characters without writing it', async () => {
+	it('setNarrationStyle rejects an empty prompt clause without writing anything', async () => {
 		const { world, locals } = await fixture();
 
-		const tooLong = 'x'.repeat(501);
-		const result = await actions.setLoremasterVoice(
-			postEvent(world.slug, locals, { description: tooLong })
+		const result = await actions.setNarrationStyle(
+			postEvent(world.slug, locals, { name: 'Custom', promptClause: '  ' })
 		);
 		expect(result).toMatchObject({ status: 400 });
 
 		const [row] = await db.select().from(universe).where(eq(universe.id, world.id));
-		expect(row?.loremasterDescription).toBe('');
+		expect(row?.narrationStyleId).toBeNull();
 	});
 
 	it('a viewer cannot set the Loremaster voice', async () => {
 		const { world, locals } = await fixture('viewer');
 
 		await expect(
-			actions.setLoremasterVoice(postEvent(world.slug, locals, { description: 'anything' }))
+			actions.setNarrationStyle(
+				postEvent(world.slug, locals, { name: 'Custom', promptClause: 'anything' })
+			)
 		).rejects.toMatchObject({ status: 403 });
 	});
 });
@@ -380,8 +374,8 @@ describe('/w/[universe]/settings load: setupItems (issue #379 R4, issue #406 S1)
 		await actions.setImageStyle(
 			postEvent(world.slug, locals, { name: 'Woodcut', promptModifier: 'monochrome woodcut' })
 		);
-		await actions.setLoremasterVoice(
-			postEvent(world.slug, locals, { description: 'Wry, understated.' })
+		await actions.setNarrationStyle(
+			postEvent(world.slug, locals, { name: 'Custom', promptClause: 'Wry, understated.' })
 		);
 
 		const data = await loadFor(world.slug, locals);

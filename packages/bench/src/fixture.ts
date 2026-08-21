@@ -72,9 +72,7 @@ export async function benchFixture(db: Db): Promise<BenchFixture> {
 				ownerUserId: BENCH_USER_ID,
 				name: 'Valdoria Reach (bench)',
 				slug: BENCH_UNIVERSE_SLUG,
-				kind: 'homebrew',
-				loremasterDescription:
-					'Dry, unsentimental, a little tired. Speaks about the city the way a clerk speaks about a debtor.'
+				kind: 'homebrew'
 			})
 			.returning({ id: universe.id });
 		universeId = inserted[0]?.id;

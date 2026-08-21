@@ -3,7 +3,7 @@
  * fake model: proposes missing content for a deliberately thin entry and lands it as a
  * normal pending `update` proposal, so it goes through the same accept flow as any other.
  */
-import { and, closeDb, eq, isNull, type Db } from '@canonry/db';
+import { and, closeDb, eq, isNull, upsertUniverseNarrationStyle, type Db } from '@canonry/db';
 import { modelCall, proposalPlan, relationType } from '@canonry/db/schema';
 import { MockLanguageModelV4 } from 'ai/test';
 import type { LanguageModel } from 'ai';
@@ -242,12 +242,14 @@ describe('completeEntry (issue #54, SPEC.md §5)', () => {
 		});
 	});
 
-	it('issue #378, decision R3: a set Loremaster voice reaches the completion system prompt beside speechInstruction, and an empty one adds no clause', async () => {
+	it('issue #378, decision R3, amended by issue #451, decision U2: a custom Loremaster voice reaches the completion system prompt beside speechInstruction, and no voice chosen adds no clause', async () => {
 		const owner = await insertUser(db);
 		const voice = 'Formal, archival, never a wasted word.';
-		const universe = await insertHomebrewUniverse(db, {
-			ownerUserId: owner.id,
-			loremasterDescription: voice
+		const universe = await insertHomebrewUniverse(db, { ownerUserId: owner.id });
+		await upsertUniverseNarrationStyle(db, {
+			universeId: universe.id,
+			name: 'Custom',
+			promptClause: voice
 		});
 		const thin = await insertEntity(db, universe.id, {
 			type: 'character',
@@ -275,8 +277,8 @@ describe('completeEntry (issue #54, SPEC.md §5)', () => {
 		expect(system).toContain('how their Loremaster sounds');
 		expect(system).toContain('Let it shape your tone and word choice only');
 
-		// A universe nobody described (the column's own empty default) gets no clause at
-		// all, not an empty one.
+		// A universe with no voice chosen (`narrationStyleId` null, the fixture's own
+		// default) gets no clause at all, not an empty one.
 		const silentOwner = await insertUser(db);
 		const silentUniverse = await insertHomebrewUniverse(db, { ownerUserId: silentOwner.id });
 		const silentThin = await insertEntity(db, silentUniverse.id, {

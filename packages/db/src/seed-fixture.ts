@@ -12,6 +12,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { detectLanguage } from '@canonry/lang';
 import { closeDb, createDb, type Db } from './client.js';
 import { revealEntityLive, revealFactLive, revealRelationLive } from './queries/players.js';
+import { upsertUniverseNarrationStyle } from './queries/narration.js';
 import { entity } from './schema/entity.js';
 import { fact } from './schema/fact.js';
 import { relation, relationType } from './schema/relation.js';
@@ -268,11 +269,22 @@ export async function seedFixture(
 				name: 'Forgotten Realms',
 				slug: 'forgotten-realms',
 				kind: 'homebrew',
-				loremasterDescription: 'Quotes the published books and says so.'
+				// Issue #451: this fixture predates the null default (decision U3) and keeps
+				// its old value explicitly, same as every other pre-existing universe a real
+				// migration leaves untouched.
+				propagationCap: 25
 			})
 			.returning({ id: universe.id });
 		if (!base) throw new Error('base universe insert returned no row');
 		baseId = base.id;
+		// Issue #451, decision U2: the voice used to live on `universe.loremaster_description`
+		// directly; it is a custom `narration_style` row now, written through the same
+		// function the settings picker's custom card calls.
+		await upsertUniverseNarrationStyle(db, {
+			universeId: baseId,
+			name: 'Archival',
+			promptClause: 'Quotes the published books and says so.'
+		});
 	}
 
 	const [world] = await db
@@ -282,11 +294,16 @@ export async function seedFixture(
 			name: 'Valdoria Reach',
 			slug: 'valdoria-reach',
 			kind: 'homebrew',
-			loremasterDescription:
-				'Dry, unsentimental, a little tired. Speaks about the city the way a clerk speaks about a debtor.'
+			propagationCap: 25
 		})
 		.returning({ id: universe.id });
 	if (!world) throw new Error('universe insert returned no row');
+	await upsertUniverseNarrationStyle(db, {
+		universeId: world.id,
+		name: 'Dry and Weary',
+		promptClause:
+			'Dry, unsentimental, a little tired. Speaks about the city the way a clerk speaks about a debtor.'
+	});
 
 	await db.insert(universeMember).values({ universeId: world.id, userId: OWNER, role: 'owner' });
 
@@ -440,10 +457,15 @@ export async function seedFixture(
 				slug: 'sword-coast-ours',
 				kind: 'derived',
 				baseUniverseId: baseId,
-				loremasterDescription: 'Ours first, the books second, and it says which is which.'
+				propagationCap: 25
 			})
 			.returning({ id: universe.id });
 		if (!derived) throw new Error('derived universe insert returned no row');
+		await upsertUniverseNarrationStyle(db, {
+			universeId: derived.id,
+			name: 'House Style',
+			promptClause: 'Ours first, the books second, and it says which is which.'
+		});
 		await db
 			.insert(universeMember)
 			.values({ universeId: derived.id, userId: OWNER, role: 'owner' });
