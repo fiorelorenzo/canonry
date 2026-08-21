@@ -884,11 +884,11 @@ export const en: Messages = {
 
 		queue: {
 			empty: 'Nothing left to review.',
-			position: (total) => ({ prefix: 'Proposal ', suffix: ` of ${total}` }),
 			filterShown: (typeLabel) => `(${typeLabel} shown)`,
 			acceptedSuffix: () => ' accepted',
 			rejectedSuffix: () => ' rejected',
 			acceptedToast: (entityName) => `Accepted ${entityName ?? 'entry'}`,
+			acceptFailedToast: 'That decision did not go through.',
 			undoFailedToast: 'Could not undo - nothing recorded to restore to.',
 			undo: 'Undo',
 			keyboardNext: 'next',
@@ -975,12 +975,6 @@ export const en: Messages = {
 				};
 				return labels[cardinality] ?? cardinality;
 			}
-		},
-
-		bulkReject: {
-			rejecting: 'Rejecting\u2026',
-			rejectShown: (count) => `Reject ${count} shown`,
-			rejectedCount: (count) => `Rejected ${count}.`
 		},
 
 		evidence: {

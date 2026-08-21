@@ -1,19 +1,18 @@
 <script lang="ts">
 	/**
-	 * #42, D4 = B: the import review screen. C6's queue, unchanged, with a type filter
-	 * chip bar on top - D4's only addition to C6's own screen. Import proposals arrive
-	 * already diffed by job-runner.ts's `materializeDocumentProposals`, so unlike a
-	 * propagation plan (proposals/[plan]) there is no C3 checklist phase here: straight to
-	 * the queue.
+	 * #42, D4 = B, and round seventeen V2 = A (#498, #480): the import review screen is
+	 * the same queue surface the inbox now renders inline - every pending candidate
+	 * visible as its own card, settled ones collapsed to a line - with D4's type filter
+	 * chip bar as its only addition. Import proposals arrive already diffed by
+	 * job-runner.ts's `materializeDocumentProposals`, so unlike a propagation plan
+	 * (proposals/[plan]) there is no C3 checklist phase here: straight to the queue.
 	 *
-	 * `ProposalQueue` reads its `candidates` prop exactly once, at mount (it is its own
-	 * self-contained, already-verified C6 implementation, not owned by this route, and its
-	 * own doc comment says writes patch local state "instead of the default full-page
-	 * invalidate" on purpose) - so a filter switch or a bulk reject has to force a remount
-	 * to show fresh state, via the `{#key}` block below. Switching filters first awaits a
-	 * fresh load (`selectFilter`), so the newly-mounted queue always starts from real,
-	 * current database state rather than whatever was true when this page first loaded -
-	 * the D4 mock's own promise that switching chips "never loses 40 accepted so far".
+	 * `ProposalQueue` reads its `groups` prop exactly once, at mount (its own doc comment
+	 * says writes patch local state "instead of the default full-page invalidate" on
+	 * purpose) - so a filter switch has to force a remount to show fresh state, via the
+	 * `{#key}` block below. Switching filters first awaits a fresh load (`selectFilter`),
+	 * so the newly-mounted queue always starts from real, current database state rather
+	 * than whatever was true when this page first loaded.
 	 */
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -22,7 +21,9 @@
 	import { renderOutcomeNote } from '$lib/import/outcome-note';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
-	import ProposalQueue from '$lib/components/proposals/ProposalQueue.svelte';
+	import ProposalQueue, {
+		type ProposalGroupView
+	} from '$lib/components/proposals/ProposalQueue.svelte';
 	import TypeFilterChips from '$lib/components/proposals/TypeFilterChips.svelte';
 	import type { PageProps } from './$types';
 
@@ -34,7 +35,6 @@
 	const RUNNING_STATUSES = new Set(['queued', 'running']);
 
 	let selectedType = $state<string | null>(null);
-	let remountNonce = $state(0);
 	let switchingFilter = $state(false);
 
 	let isRunning = $derived(RUNNING_STATUSES.has(data.job.status));
@@ -44,6 +44,11 @@
 			: data.candidates.filter((c) => data.filterTypeById[c.id] === selectedType)
 	);
 	let activeLabel = $derived(data.buckets.find((b) => b.type === selectedType)?.label ?? null);
+	// Issue #498: `ProposalQueue` takes `groups` everywhere now - one implicit,
+	// unheaded group here, since this route is already scoped to one job by its own URL.
+	let groups = $derived<ProposalGroupView[]>([
+		{ id: data.job.id, heading: '', meta: '', importJobId: null, candidates: filteredCandidates }
+	]);
 
 	let renderedOutcomeNote = $derived(renderOutcomeNote(data.locale, data.job.outcomeNote));
 	let issueNote = $derived(
@@ -64,10 +69,6 @@
 		await invalidateAll();
 		selectedType = type;
 		switchingFilter = false;
-	}
-
-	function onRejectedFiltered(): void {
-		remountNonce += 1;
 	}
 
 	function refreshNow(): void {
@@ -156,21 +157,15 @@
 			/>
 		{:else}
 			<div class="mb-4">
-				<TypeFilterChips
-					buckets={data.buckets}
-					selected={selectedType}
-					onSelect={selectFilter}
-					{onRejectedFiltered}
-					locale={data.locale}
-				/>
+				<TypeFilterChips buckets={data.buckets} selected={selectedType} onSelect={selectFilter} />
 			</div>
 
 			{#if switchingFilter}
 				<p class="text-sm text-muted">{t.filtering}</p>
 			{:else}
-				{#key `${selectedType}:${remountNonce}`}
+				{#key selectedType}
 					<ProposalQueue
-						candidates={filteredCandidates}
+						{groups}
 						universeSlug={data.universe.slug}
 						filterType={activeLabel}
 						locale={data.locale}

@@ -10,6 +10,12 @@
 	let { data }: PageProps = $props();
 
 	let t = $derived(messages(data.locale).proposals);
+	// Issue #498: `ProposalQueue` now takes `groups` everywhere, including a route that
+	// is already scoped to one plan by its own URL - an empty `heading` renders with no
+	// group header at all, exactly as this queue always looked here.
+	let diffPriceCredits = $derived(
+		data.pricing.kind === 'perDiff' ? data.pricing.diffPriceCredits : 0
+	);
 </script>
 
 <svelte:head><title>{t.plan.crumbCurrent} &middot; {data.universe.name}</title></svelte:head>
@@ -32,8 +38,17 @@
 			/>
 		{:else}
 			<ProposalQueue
-				candidates={data.diffCandidates}
+				groups={[
+					{
+						id: data.plan.id,
+						heading: '',
+						meta: '',
+						importJobId: null,
+						candidates: data.diffCandidates
+					}
+				]}
 				universeSlug={data.universe.slug}
+				{diffPriceCredits}
 				locale={data.locale}
 			/>
 		{/if}

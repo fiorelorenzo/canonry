@@ -1076,13 +1076,15 @@ export interface Messages {
 		};
 		queue: {
 			empty: string;
-			/** Wraps the bold position number: "Proposal **3** of 12". */
-			position: (total: number) => { prefix: string; suffix: string };
 			filterShown: (typeLabel: string) => string;
 			/** Text after the bold accepted/rejected counts. */
 			acceptedSuffix: (count: number) => string;
 			rejectedSuffix: (count: number) => string;
 			acceptedToast: (entityName: string | null) => string;
+			/** Issue #498: the accept form's own failure branch - a candidate the
+			 * server refused (an audit flag, guardrail 1's own read of it: nothing to
+			 * write to canon; or a race where someone else already decided it). */
+			acceptFailedToast: string;
 			undoFailedToast: string;
 			undo: string;
 			keyboardNext: string;
@@ -1167,11 +1169,6 @@ export interface Messages {
 			newAdmits: (pairs: string) => string;
 			waitingCount: (count: number) => string;
 			cardinalityLabel: (cardinality: string) => string;
-		};
-		bulkReject: {
-			rejecting: string;
-			rejectShown: (count: number) => string;
-			rejectedCount: (count: number) => string;
 		};
 		evidence: {
 			button: string;

@@ -902,13 +902,13 @@ export const it: Messages = {
 
 		queue: {
 			empty: "Non c'è più nulla da revisionare.",
-			position: (total) => ({ prefix: 'Proposta ', suffix: ` di ${total}` }),
 			filterShown: (typeLabel) => `(${typeLabel} mostrati)`,
 			acceptedSuffix: (count) =>
 				pluralRules('it').select(count) === 'one' ? ' accettata' : ' accettate',
 			rejectedSuffix: (count) =>
 				pluralRules('it').select(count) === 'one' ? ' rifiutata' : ' rifiutate',
 			acceptedToast: (entityName) => `Accettato: ${entityName ?? 'la voce'}`,
+			acceptFailedToast: 'Non è stato possibile registrare la decisione.',
 			undoFailedToast: "Impossibile annullare: non c'è nulla da ripristinare.",
 			undo: 'Annulla',
 			keyboardNext: 'successiva',
@@ -998,18 +998,6 @@ export const it: Messages = {
 					many_to_many: 'molti a molti'
 				};
 				return labels[cardinality] ?? cardinality;
-			}
-		},
-
-		bulkReject: {
-			rejecting: 'Rifiuto in corso\u2026',
-			rejectShown: (count) => {
-				const form = pluralRules('it').select(count);
-				return `Rifiuta ${count} ${form === 'one' ? 'mostrata' : 'mostrate'}`;
-			},
-			rejectedCount: (count) => {
-				const form = pluralRules('it').select(count);
-				return `${form === 'one' ? 'Rifiutata' : 'Rifiutate'} ${count}.`;
 			}
 		},
 
