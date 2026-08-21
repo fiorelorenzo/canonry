@@ -27,6 +27,7 @@
 	import CommandPalette from '../palette/CommandPalette.svelte';
 	import QuickAsk from '../copilot/QuickAsk.svelte';
 	import PhoneNav from './PhoneNav.svelte';
+	import NavProgressBar from './NavProgressBar.svelte';
 	import Sidebar from './Sidebar.svelte';
 	import { shellLayoutState } from './shell-layout-state.svelte';
 	import type { RecentEntity, ShellQuota, UniverseSetupItem, UniverseSummary } from './types';
@@ -134,6 +135,7 @@
 				class="min-w-0 flex-1 overflow-y-auto px-4 pt-4 pb-[calc(1rem+var(--dock-reserve,0px))] md:px-8 md:pt-8 md:pb-[calc(2rem+var(--dock-reserve,0px))]"
 				style:--dock-reserve="{dockReserve}px"
 			>
+				<NavProgressBar />
 				{@render children()}
 			</main>
 		</div>

@@ -189,6 +189,7 @@ export const it: Messages = {
 			dark: 'Scuro',
 			system: 'Segui il sistema',
 			save: 'Salva',
+			saving: 'Salvataggio…',
 			error: 'Scegli chiaro, scuro o segui il sistema.'
 		},
 
@@ -227,7 +228,8 @@ export const it: Messages = {
 			plansHeading: 'Piani',
 			perMonth: '/mese',
 			currentPlanBadge: 'Piano attuale',
-			switchTo: (planName) => `Passa a ${planName}`
+			switchTo: (planName) => `Passa a ${planName}`,
+			redirecting: 'Reindirizzamento…'
 		},
 
 		export: {
@@ -267,12 +269,17 @@ export const it: Messages = {
 			neverUsedYet: 'mai usata',
 			turnOff: 'Disattiva',
 			turnOn: 'Attiva',
+			turningOff: 'Disattivazione…',
+			turningOn: 'Attivazione…',
 			forgetKey: 'Dimentica questa chiave',
+			forgetting: 'Rimozione…',
 			replaceKeyLabel: 'Sostituisci chiave',
 			addKeyLabel: 'Aggiungi chiave',
 			apiKeyPlaceholder: (providerLabel) => `Chiave API ${providerLabel}`,
 			replaceButton: 'Sostituisci',
+			replacingKey: 'Sostituzione…',
 			saveButton: 'Salva',
+			savingKey: 'Salvataggio…',
 			savedConfirmation: (lastFour) =>
 				`Salvata - vengono mostrati di nuovo solo gli ultimi quattro caratteri (…${lastFour}).`,
 			addSignInRequired: 'Accedi per aggiungere una chiave.',
@@ -760,6 +767,7 @@ export const it: Messages = {
 			breadcrumbEdit: 'Modifica',
 			heading: (entityName) => `Modifica ${entityName}`,
 			save: 'Salva',
+			saving: 'Salvataggio…',
 			bodyAriaLabel: 'Corpo della voce, markdown',
 			view: {
 				ariaLabel: 'Vista editor',
@@ -1175,6 +1183,7 @@ export const it: Messages = {
 				cta: (baseName) => `Parti da ${baseName}`,
 				notConfigured: 'Nessun universo pre-indicizzato è configurato su questa installazione.'
 			},
+			creating: 'Creazione…',
 			errors: { nameRequired: 'Dai prima un nome al tuo universo.' }
 		},
 
@@ -1186,6 +1195,7 @@ export const it: Messages = {
 			noLiveModelNotice:
 				'Questa installazione non ha un modello live configurato, quindi in questo momento possono davvero partire solo gli import da Obsidian, Kanka e testo generico (il rilevamento funziona comunque per tutto).',
 			uploadButton: 'Carica',
+			uploading: 'Caricamento…',
 			confirm: {
 				uploadedSummary: (fileName, kilobytes) => `${fileName} caricato, ${kilobytes} KB`,
 				detected: (label) => `Rilevato: ${label}`,
@@ -1211,7 +1221,8 @@ export const it: Messages = {
 					}
 				},
 				playbookLabel: 'Playbook da eseguire',
-				continueButton: 'Conferma e continua'
+				continueButton: 'Conferma e continua',
+				checking: 'Verifica…'
 			},
 			estimate: {
 				heading: "Stima dell'import",
@@ -1228,7 +1239,8 @@ export const it: Messages = {
 					const form = pluralRules('it').select(Math.round(credits));
 					return form === 'one' ? `${n} credito` : `${n} crediti`;
 				},
-				startButton: 'Avvia import'
+				startButton: 'Avvia import',
+				starting: 'Avvio import…'
 			},
 			errors: {
 				noUniverseGiven: "Nessun universo indicato per l'import.",
@@ -1293,6 +1305,7 @@ export const it: Messages = {
 			},
 			untitledProposal: 'Proposta senza titolo',
 			accept: 'Accetta',
+			accepting: 'Accettazione…',
 			accepted: 'accettata',
 			outcome: { rejected: 'rifiutata', superseded: 'sostituita' }
 		},
@@ -1329,7 +1342,8 @@ export const it: Messages = {
 			sessionLabel: 'Sessione (necessaria per "segna come rivelato")',
 			noSessionOption: 'Nessuna sessione dichiarata',
 			cancel: 'Annulla',
-			declare: 'Dichiara'
+			declare: 'Dichiara',
+			declaring: 'Dichiarazione…'
 		},
 
 		pinnedCards: {
@@ -1368,6 +1382,7 @@ export const it: Messages = {
 			nameChildLocation: 'Assegna un nome al luogo figlio',
 			locationPlaceholder: 'es. La Cantina di Sale',
 			create: 'Crea',
+			creating: 'Creazione…',
 			jotNote: 'Prendi una nota'
 		},
 
@@ -1379,7 +1394,8 @@ export const it: Messages = {
 			note: 'Nota',
 			notePlaceholder: 'es. Aldric ha esitato quando ho nominato il registro',
 			cancel: 'Annulla',
-			saveAsProposal: 'Salva come proposta'
+			saveAsProposal: 'Salva come proposta',
+			savingAsProposal: 'Salvataggio come proposta…'
 		},
 
 		instantSearch: {
@@ -1522,7 +1538,8 @@ export const it: Messages = {
 			typeLabel: 'Tipo',
 			summaryLabel: 'Riassunto',
 			summaryOptional: '(facoltativo)',
-			createButton: 'Crea opera'
+			createButton: 'Crea opera',
+			creating: 'Creazione…'
 		},
 		tree: {
 			ariaLabel: "Albero dell'opera",
@@ -1532,17 +1549,21 @@ export const it: Messages = {
 			pickNodeHint: "Scegli un nodo dall'albero a sinistra, oppure aggiungine uno alla radice qui.",
 			titleLabel: 'Titolo',
 			kindLabel: 'Tipo',
-			addNodeButton: 'Aggiungi nodo'
+			addNodeButton: 'Aggiungi nodo',
+			addingNode: 'Aggiunta…'
 		},
 		node: {
 			moveUp: '↑ Sposta su',
 			moveDown: '↓ Sposta giù',
+			moving: 'Spostamento…',
 			titleSrLabel: 'Titolo',
 			save: 'Salva',
+			saving: 'Salvataggio…',
 			addChildSummary: (nodeTitle) => `Aggiungi un nodo sotto ${nodeTitle}`,
 			titleLabel: 'Titolo',
 			kindLabel: 'Tipo',
 			addNodeButton: 'Aggiungi nodo',
+			addingNode: 'Aggiunta…',
 			usesHeading: 'Riferimenti',
 			noUses: 'Nessuna voce citata ancora.',
 			changedAt: (when) => `modificata: ${when}`,
@@ -1797,7 +1818,9 @@ export const it: Messages = {
 				description: (universeName) =>
 					`Disattiva nuove proposte, immagini, Chiedi e il precalcolo per ${universeName}. Ricerca e suggerimenti di menzione continuano a leggere questo universo, e non costano nulla.`,
 				stopWriting: 'Ferma la scrittura',
+				stoppingWriting: 'Interruzione della scrittura…',
 				resumeWriting: 'Riprendi la scrittura',
+				resumingWriting: 'Ripresa della scrittura…',
 				offNotice: (universeName) =>
 					`La scrittura è disattivata per ${universeName}. Ricerca e suggerimenti di menzione continuano comunque a pesare sulla tua quota inclusa come qualsiasi altra richiesta; semplicemente non costano nulla, attivi o no.`
 			},
@@ -1808,6 +1831,7 @@ export const it: Messages = {
 				capLabel: 'Limite',
 				noLimitLabel: 'Nessun limite',
 				save: 'Salva',
+				saving: 'Salvataggio…',
 				capNotice: (cap) => {
 					const form = pluralRules('it').select(cap);
 					return {
@@ -1831,7 +1855,9 @@ export const it: Messages = {
 				},
 				nameLabel: 'Nome',
 				promptModifierLabel: 'Modificatore del prompt',
+				applying: 'Applicazione…',
 				save: 'Salva',
+				saving: 'Salvataggio…',
 				nameRequiredError: 'Dai un nome allo stile.',
 				promptModifierRequiredError: 'Descrivi cosa aggiunge lo stile a un prompt.',
 				pickError: 'Impossibile impostare quello stile. Riprova.'
@@ -1848,7 +1874,9 @@ export const it: Messages = {
 				},
 				nameLabel: 'Nome',
 				promptClauseLabel: 'Clausola del prompt',
+				applying: 'Applicazione…',
 				save: 'Salva',
+				saving: 'Salvataggio…',
 				nameRequiredError: 'Dai un nome alla voce.',
 				promptClauseRequiredError: 'Descrivi come deve suonare questa voce.',
 				pickError: 'Impossibile impostare quella voce. Riprova.'
@@ -1864,6 +1892,7 @@ export const it: Messages = {
 				empty: 'Nessuna sostituzione ancora.',
 				supersededBadge: 'soppiantata',
 				remove: 'rimuovi',
+				removing: 'Rimozione…',
 				declareHeading: 'Dichiara una sostituzione',
 				entryLabel: 'La tua voce',
 				baseSourceLabel: 'Fonte di base',
@@ -1871,6 +1900,7 @@ export const it: Messages = {
 				noteLabel: 'Nota',
 				optional: '(facoltativo)',
 				submit: 'Sostituisci',
+				superseding: 'Sostituzione…',
 				onlyDerivedError: 'Solo un universo derivato può soppiantare una pagina sorgente.',
 				pickEntryError: 'Scegli quale voce soppianta la pagina.',
 				pickSourceError: 'Scegli a quale fonte appartiene la pagina.',
@@ -2035,6 +2065,7 @@ export const it: Messages = {
 	admin: {
 		unattributed: 'non attribuito',
 		save: 'Salva',
+		saving: 'Salvataggio…',
 
 		models: {
 			browserTitle: 'Modelli, Canonry admin',

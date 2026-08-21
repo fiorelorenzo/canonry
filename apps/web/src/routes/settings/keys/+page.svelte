@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -9,6 +10,11 @@
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	// Keyed by provider - each provider renders its own toggle/remove/add forms.
+	let togglePending = $state<Record<string, boolean>>({});
+	let removePending = $state<Record<string, boolean>>({});
+	let addPending = $state<Record<string, boolean>>({});
 
 	let t = $derived(messages(data.locale).settings.keys);
 
@@ -103,21 +109,70 @@
 					</div>
 
 					<div class="mt-3 flex flex-wrap gap-2">
-						<form method="POST" action="?/toggle">
+						<form
+							method="POST"
+							action="?/toggle"
+							use:enhance={() => {
+								togglePending = { ...togglePending, [provider]: true };
+								return async ({ update }) => {
+									await update();
+									togglePending = { ...togglePending, [provider]: false };
+								};
+							}}
+						>
 							<input type="hidden" name="provider" value={provider} />
 							<input type="hidden" name="active" value={key.active ? 'false' : 'true'} />
-							<Button type="submit" variant="secondary" size="sm">
-								{key.active ? t.turnOff : t.turnOn}
+							<Button
+								type="submit"
+								variant="secondary"
+								size="sm"
+								disabled={togglePending[provider]}
+							>
+								{togglePending[provider]
+									? key.active
+										? t.turningOff
+										: t.turningOn
+									: key.active
+										? t.turnOff
+										: t.turnOn}
 							</Button>
 						</form>
-						<form method="POST" action="?/remove">
+						<form
+							method="POST"
+							action="?/remove"
+							use:enhance={() => {
+								removePending = { ...removePending, [provider]: true };
+								return async ({ update }) => {
+									await update();
+									removePending = { ...removePending, [provider]: false };
+								};
+							}}
+						>
 							<input type="hidden" name="provider" value={provider} />
-							<Button type="submit" variant="destructive" size="sm">{t.forgetKey}</Button>
+							<Button
+								type="submit"
+								variant="destructive"
+								size="sm"
+								disabled={removePending[provider]}
+							>
+								{removePending[provider] ? t.forgetting : t.forgetKey}
+							</Button>
 						</form>
 					</div>
 				{/if}
 
-				<form method="POST" action="?/add" class="mt-3 flex flex-wrap items-end gap-2">
+				<form
+					method="POST"
+					action="?/add"
+					class="mt-3 flex flex-wrap items-end gap-2"
+					use:enhance={() => {
+						addPending = { ...addPending, [provider]: true };
+						return async ({ update }) => {
+							await update();
+							addPending = { ...addPending, [provider]: false };
+						};
+					}}
+				>
 					<input type="hidden" name="provider" value={provider} />
 					<label class="flex flex-1 flex-col gap-1">
 						<span class="text-xs text-muted">{key ? t.replaceKeyLabel : t.addKeyLabel}</span>
@@ -128,7 +183,15 @@
 							placeholder={t.apiKeyPlaceholder(providerLabel(provider))}
 						/>
 					</label>
-					<Button type="submit" size="sm">{key ? t.replaceButton : t.saveButton}</Button>
+					<Button type="submit" size="sm" disabled={addPending[provider]}>
+						{addPending[provider]
+							? key
+								? t.replacingKey
+								: t.savingKey
+							: key
+								? t.replaceButton
+								: t.saveButton}
+					</Button>
 				</form>
 
 				{#if errorHere}

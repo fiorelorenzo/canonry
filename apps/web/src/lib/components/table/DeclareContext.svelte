@@ -33,6 +33,7 @@
 		initialPlaceId,
 		initialSessionId,
 		locale,
+		pending = false,
 		onDeclare,
 		onCancel
 	}: {
@@ -41,6 +42,10 @@
 		initialPlaceId: string | null;
 		initialSessionId: string | null;
 		locale: Locale;
+		/** #497 (V11): true while the parent's own `fetch` to `/table/context` is in
+		 * flight - threaded in rather than tracked locally, since the request itself is
+		 * made by the page, not by this form. */
+		pending?: boolean;
 		onDeclare: (input: { placeEntityId: string | null; sessionEntityId: string | null }) => void;
 		onCancel: () => void;
 	} = $props();
@@ -132,8 +137,8 @@
 		<Button type="button" variant="secondary" onclick={onCancel}>
 			{t.cancel}
 		</Button>
-		<Button type="submit" disabled={!selectedPlaceId}>
-			{t.declare}
+		<Button type="submit" disabled={!selectedPlaceId || pending}>
+			{pending ? t.declaring : t.declare}
 		</Button>
 	</div>
 </form>

@@ -26,11 +26,15 @@
 	let {
 		targets,
 		locale,
+		pending = false,
 		onSubmit,
 		onCancel
 	}: {
 		targets: EntityRef[];
 		locale: Locale;
+		/** #497 (V11): true while the parent's own `fetch` to `/table/notes` is in
+		 * flight. */
+		pending?: boolean;
 		onSubmit: (input: { targetEntityId: string; note: string }) => void;
 		onCancel: () => void;
 	} = $props();
@@ -85,8 +89,8 @@
 		<Button type="button" variant="secondary" onclick={onCancel}>
 			{t.cancel}
 		</Button>
-		<Button type="submit" disabled={!targetEntityId}>
-			{t.saveAsProposal}
+		<Button type="submit" disabled={!targetEntityId || pending}>
+			{pending ? t.savingAsProposal : t.saveAsProposal}
 		</Button>
 	</div>
 </form>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { dateFormat, messages } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
@@ -11,6 +12,11 @@
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	// Keyed by row identity (text purpose / image feature) - the same per-row pending
+	// map AuditFlagsPanel.svelte and LiveProposalFeed.svelte already use, since several
+	// of these rows can be mid-save independently.
+	let saving = $state<Record<string, boolean>>({});
 
 	const t = $derived(messages(data.locale).admin);
 
@@ -118,7 +124,18 @@
 							{/if}
 						</td>
 						<td colspan="2" class="px-3 py-3">
-							<form method="POST" action="?/text" class="flex flex-wrap items-center gap-2">
+							<form
+								method="POST"
+								action="?/text"
+								class="flex flex-wrap items-center gap-2"
+								use:enhance={() => {
+									saving = { ...saving, [row.purpose]: true };
+									return async ({ update }) => {
+										await update();
+										saving = { ...saving, [row.purpose]: false };
+									};
+								}}
+							>
 								<input type="hidden" name="purpose" value={row.purpose} />
 								<div class="flex flex-col gap-1">
 									<Label class="sr-only" for={providerId}>{t.models.table.provider}</Label>
@@ -138,8 +155,8 @@
 										class="w-64 font-mono text-xs {errorHere ? 'border-danger' : ''}"
 									/>
 								</div>
-								<Button type="submit" size="sm">
-									{t.save}
+								<Button type="submit" size="sm" disabled={saving[row.purpose]}>
+									{saving[row.purpose] ? t.saving : t.save}
 								</Button>
 								{#if errorHere}
 									<p class="w-full text-xs text-danger">{errorHere}</p>
@@ -226,7 +243,18 @@
 							{/if}
 						</td>
 						<td colspan="3" class="px-3 py-3">
-							<form method="POST" action="?/image" class="flex flex-wrap items-center gap-2">
+							<form
+								method="POST"
+								action="?/image"
+								class="flex flex-wrap items-center gap-2"
+								use:enhance={() => {
+									saving = { ...saving, [model.feature]: true };
+									return async ({ update }) => {
+										await update();
+										saving = { ...saving, [model.feature]: false };
+									};
+								}}
+							>
 								<input type="hidden" name="feature" value={model.feature} />
 								<div class="flex flex-col gap-1">
 									<Label class="sr-only" for={providerId}>{t.models.table.provider}</Label>
@@ -262,8 +290,8 @@
 										invalid={!!errorHere}
 									/>
 								</div>
-								<Button type="submit" size="sm">
-									{t.save}
+								<Button type="submit" size="sm" disabled={saving[model.feature]}>
+									{saving[model.feature] ? t.saving : t.save}
 								</Button>
 								{#if errorHere}
 									<p class="w-full text-xs text-danger">{errorHere}</p>

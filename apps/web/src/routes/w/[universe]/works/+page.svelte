@@ -15,6 +15,7 @@
 	 * native radios, so `type` posts with no hidden input and no fallback behind it, the
 	 * same as the `<select>` it replaces.
 	 */
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
@@ -26,6 +27,7 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let t = $derived(messages(data.locale));
+	let creating = $state(false);
 
 	// `t.works.types` is the product's own vocabulary, keyed by the column's enum values,
 	// so the segments come from the catalogue rather than being restated here.
@@ -74,6 +76,13 @@
 		method="POST"
 		action="?/create"
 		class="mt-8 flex max-w-sm flex-col gap-3 border-t border-line pt-6"
+		use:enhance={() => {
+			creating = true;
+			return async ({ update }) => {
+				await update();
+				creating = false;
+			};
+		}}
 	>
 		<h2 class="text-xs font-semibold tracking-wide text-muted uppercase">
 			{t.works.index.createHeading}
@@ -99,8 +108,8 @@
 		{#if form?.message}
 			<p class="text-sm text-danger">{form.message}</p>
 		{/if}
-		<Button type="submit" class="mt-1 w-fit">
-			{t.works.index.createButton}
+		<Button type="submit" class="mt-1 w-fit" disabled={creating}>
+			{creating ? t.works.index.creating : t.works.index.createButton}
 		</Button>
 	</form>
 </div>

@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
 	import { PageHeader } from '$lib/components/ui/page-header';
 	import { messages } from '$lib/i18n';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	let saving = $state(false);
 
 	const t = $derived(messages(data.locale).settings);
 
@@ -23,7 +26,17 @@
 
 <PageHeader title={t.appearance.title} description={t.appearance.description} />
 
-<form method="POST" class="mt-6 flex flex-col gap-3">
+<form
+	method="POST"
+	class="mt-6 flex flex-col gap-3"
+	use:enhance={() => {
+		saving = true;
+		return async ({ update }) => {
+			await update();
+			saving = false;
+		};
+	}}
+>
 	<fieldset class="flex flex-col gap-2">
 		<legend class="sr-only">{t.appearance.title}</legend>
 		{#each OPTIONS as option (option.value)}
@@ -43,7 +56,9 @@
 	</fieldset>
 
 	<div>
-		<Button type="submit">{t.appearance.save}</Button>
+		<Button type="submit" disabled={saving}
+			>{saving ? t.appearance.saving : t.appearance.save}</Button
+		>
 	</div>
 
 	{#if form?.error}

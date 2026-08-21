@@ -23,6 +23,7 @@
 	 * input below, which reads the same `body` state the editor binds, never by the
 	 * textarea itself.
 	 */
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
@@ -32,6 +33,7 @@
 
 	let { data, form }: PageProps = $props();
 	let t = $derived(messages(data.locale));
+	let saving = $state(false);
 
 	// `body` seeds once from the loaded entity and then owns its own edits; the route's
 	// dynamic `[slug]` param means a different entry remounts this component rather than
@@ -88,12 +90,23 @@
 		}}
 	/>
 
-	<form method="POST" action="?/save" class="shrink-0">
+	<form
+		method="POST"
+		action="?/save"
+		class="shrink-0"
+		use:enhance={() => {
+			saving = true;
+			return async ({ update }) => {
+				await update();
+				saving = false;
+			};
+		}}
+	>
 		<input type="hidden" name="body" value={body} />
 
 		<div class="mt-4 flex justify-end">
-			<Button type="submit">
-				{t.entry.editor.save}
+			<Button type="submit" disabled={saving}>
+				{saving ? t.entry.editor.saving : t.entry.editor.save}
 			</Button>
 		</div>
 	</form>

@@ -183,6 +183,7 @@ export const en: Messages = {
 			dark: 'Dark',
 			system: 'Match system',
 			save: 'Save',
+			saving: 'Saving…',
 			error: 'Pick light, dark or match system.'
 		},
 
@@ -229,7 +230,8 @@ export const en: Messages = {
 			plansHeading: 'Plans',
 			perMonth: '/month',
 			currentPlanBadge: 'Current plan',
-			switchTo: (planName) => `Switch to ${planName}`
+			switchTo: (planName) => `Switch to ${planName}`,
+			redirecting: 'Redirecting…'
 		},
 
 		export: {
@@ -268,12 +270,17 @@ export const en: Messages = {
 			neverUsedYet: 'never used yet',
 			turnOff: 'Turn off',
 			turnOn: 'Turn on',
+			turningOff: 'Turning off…',
+			turningOn: 'Turning on…',
 			forgetKey: 'Forget this key',
+			forgetting: 'Forgetting…',
 			replaceKeyLabel: 'Replace key',
 			addKeyLabel: 'Add key',
 			apiKeyPlaceholder: (providerLabel) => `${providerLabel} API key`,
 			replaceButton: 'Replace',
+			replacingKey: 'Replacing…',
 			saveButton: 'Save',
+			savingKey: 'Saving…',
 			savedConfirmation: (lastFour) =>
 				`Saved - only the last four characters (…${lastFour}) are ever shown again.`,
 			addSignInRequired: 'Sign in to add a key.',
@@ -749,6 +756,7 @@ export const en: Messages = {
 			breadcrumbEdit: 'Edit',
 			heading: (entityName) => `Edit ${entityName}`,
 			save: 'Save',
+			saving: 'Saving…',
 			bodyAriaLabel: 'Entry body, markdown',
 			view: {
 				ariaLabel: 'Editor view',
@@ -1137,6 +1145,7 @@ export const en: Messages = {
 				cta: (baseName) => `Start from ${baseName}`,
 				notConfigured: 'No pre-indexed universe is configured on this deployment yet.'
 			},
+			creating: 'Creating…',
 			errors: { nameRequired: 'Name your universe first.' }
 		},
 
@@ -1148,6 +1157,7 @@ export const en: Messages = {
 			noLiveModelNotice:
 				'This deployment has no live model configured, so only Obsidian, Kanka and generic-text exports can actually run right now (detection still works for everything).',
 			uploadButton: 'Upload',
+			uploading: 'Uploading…',
 			confirm: {
 				uploadedSummary: (fileName, kilobytes) => `${fileName} uploaded, ${kilobytes} KB`,
 				detected: (label) => `Detected: ${label}`,
@@ -1173,7 +1183,8 @@ export const en: Messages = {
 					}
 				},
 				playbookLabel: 'Playbook to run',
-				continueButton: 'Confirm and continue'
+				continueButton: 'Confirm and continue',
+				checking: 'Checking…'
 			},
 			estimate: {
 				heading: 'Import estimate',
@@ -1190,7 +1201,8 @@ export const en: Messages = {
 					const form = pluralRules('en').select(Math.round(credits));
 					return form === 'one' ? `${n} credit` : `${n} credits`;
 				},
-				startButton: 'Start import'
+				startButton: 'Start import',
+				starting: 'Starting import…'
 			},
 			errors: {
 				noUniverseGiven: 'No universe given to import into.',
@@ -1256,6 +1268,7 @@ export const en: Messages = {
 			},
 			untitledProposal: 'Untitled proposal',
 			accept: 'Accept',
+			accepting: 'Accepting…',
 			accepted: 'accepted',
 			outcome: { rejected: 'rejected', superseded: 'superseded' }
 		},
@@ -1292,7 +1305,8 @@ export const en: Messages = {
 			sessionLabel: 'Session (needed for "mark as revealed")',
 			noSessionOption: 'No session declared',
 			cancel: 'Cancel',
-			declare: 'Declare'
+			declare: 'Declare',
+			declaring: 'Declaring…'
 		},
 
 		pinnedCards: {
@@ -1331,6 +1345,7 @@ export const en: Messages = {
 			nameChildLocation: 'Name the child location',
 			locationPlaceholder: 'e.g. The Salt Cellar',
 			create: 'Create',
+			creating: 'Creating…',
 			jotNote: 'Jot a note'
 		},
 
@@ -1342,7 +1357,8 @@ export const en: Messages = {
 			note: 'Note',
 			notePlaceholder: 'e.g. Aldric flinched when I mentioned the ledger',
 			cancel: 'Cancel',
-			saveAsProposal: 'Save as a proposal'
+			saveAsProposal: 'Save as a proposal',
+			savingAsProposal: 'Saving as a proposal…'
 		},
 
 		instantSearch: {
@@ -1475,7 +1491,8 @@ export const en: Messages = {
 			typeLabel: 'Type',
 			summaryLabel: 'Summary',
 			summaryOptional: '(optional)',
-			createButton: 'Create work'
+			createButton: 'Create work',
+			creating: 'Creating…'
 		},
 		tree: {
 			ariaLabel: 'Work tree',
@@ -1485,17 +1502,21 @@ export const en: Messages = {
 			pickNodeHint: 'Pick a node from the tree on the left, or add another one at the root here.',
 			titleLabel: 'Title',
 			kindLabel: 'Kind',
-			addNodeButton: 'Add node'
+			addNodeButton: 'Add node',
+			addingNode: 'Adding…'
 		},
 		node: {
 			moveUp: '↑ Move up',
 			moveDown: '↓ Move down',
+			moving: 'Moving…',
 			titleSrLabel: 'Title',
 			save: 'Save',
+			saving: 'Saving…',
 			addChildSummary: (nodeTitle) => `Add a node under ${nodeTitle}`,
 			titleLabel: 'Title',
 			kindLabel: 'Kind',
 			addNodeButton: 'Add node',
+			addingNode: 'Adding…',
 			usesHeading: 'Uses',
 			noUses: 'No entries mentioned yet.',
 			changedAt: (when) => `changed ${when}`,
@@ -1744,7 +1765,9 @@ export const en: Messages = {
 				description: (universeName) =>
 					`Turns off new proposals, images, Ask and warm pre-computation for ${universeName}. Search and mention suggestions keep reading this universe, and cost nothing.`,
 				stopWriting: 'Stop writing',
+				stoppingWriting: 'Stopping writing…',
 				resumeWriting: 'Resume writing',
+				resumingWriting: 'Resuming writing…',
 				offNotice: (universeName) =>
 					`Writing is off for ${universeName}. Search and mention suggestions still spend from your included quota like any other request; they simply cost nothing, on or off.`
 			},
@@ -1755,6 +1778,7 @@ export const en: Messages = {
 				capLabel: 'Cap',
 				noLimitLabel: 'No limit',
 				save: 'Save',
+				saving: 'Saving…',
 				capNotice: (cap) => {
 					const form = pluralRules('en').select(cap);
 					return {
@@ -1778,7 +1802,9 @@ export const en: Messages = {
 				},
 				nameLabel: 'Name',
 				promptModifierLabel: 'Prompt modifier',
+				applying: 'Applying…',
 				save: 'Save',
+				saving: 'Saving…',
 				nameRequiredError: 'Give the style a name.',
 				promptModifierRequiredError: 'Describe what the style adds to a prompt.',
 				pickError: 'Could not set that style. Try again.'
@@ -1795,7 +1821,9 @@ export const en: Messages = {
 				},
 				nameLabel: 'Name',
 				promptClauseLabel: 'Prompt clause',
+				applying: 'Applying…',
 				save: 'Save',
+				saving: 'Saving…',
 				nameRequiredError: 'Give the voice a name.',
 				promptClauseRequiredError: 'Describe how this voice should sound.',
 				pickError: 'Could not set that voice. Try again.'
@@ -1811,6 +1839,7 @@ export const en: Messages = {
 				empty: 'Nothing superseded yet.',
 				supersededBadge: 'superseded',
 				remove: 'remove',
+				removing: 'Removing…',
 				declareHeading: 'Declare a supersede',
 				entryLabel: 'Your entry',
 				baseSourceLabel: 'Base source',
@@ -1818,6 +1847,7 @@ export const en: Messages = {
 				noteLabel: 'Note',
 				optional: '(optional)',
 				submit: 'Supersede',
+				superseding: 'Superseding…',
 				onlyDerivedError: 'Only a derived universe can supersede a source page.',
 				pickEntryError: 'Pick which entry supersedes the page.',
 				pickSourceError: 'Pick which source the page belongs to.',
@@ -1979,6 +2009,7 @@ export const en: Messages = {
 	admin: {
 		unattributed: 'unattributed',
 		save: 'Save',
+		saving: 'Saving…',
 
 		models: {
 			browserTitle: 'Models, Canonry admin',
