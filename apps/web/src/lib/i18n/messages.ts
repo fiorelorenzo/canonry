@@ -1234,9 +1234,17 @@ export interface Messages {
 				/** Small kicker above the explanation, so a skim of the page still lands on
 				 * "not a deletion" before reading the sentence. */
 				kicker: string;
-				/** Names the entry and says this candidate is part of a plan waiting on its
-				 * diff - `entryName` is `targetName`, already resolved server-side. */
+				/** The entry this candidate is about - `entryName` is `targetName`, already
+				 * resolved server-side. A function rather than a bare string because the
+				 * name is the whole line: round seventeen's own audit of #498's first
+				 * version found the long explanatory sentence repeated per card, forty
+				 * words at a time, which on a twenty-five candidate plan is a wall of the
+				 * same paragraph. What the state *means* is said once, below. */
 				body: (entryName: string) => string;
+				/** Said once per card, short, under the entry's name: the reason there is
+				 * no Accept here. The kicker above already says which state this is, so
+				 * this line only has to say what follows from it. */
+				noDiffYet: string;
 				/** Prefaces the copilot's own `rationale`, unwrapped exactly as `diffCard`
 				 * already shows it elsewhere on this candidate. */
 				reasonLabel: string;

@@ -11,7 +11,7 @@
 	 * that spends on it. No Accept or Reject here - there is nothing yet to decide.
 	 */
 	import { resolve } from '$app/paths';
-	import { messages, type Locale } from '$lib/i18n';
+	import { messages, numberFormat, type Locale } from '$lib/i18n';
 
 	let {
 		candidate,
@@ -34,17 +34,24 @@
 	let t = $derived(messages(locale).proposals);
 	let title = $derived(candidate.targetName ?? t.diffCard.newEntry);
 	let costLabel = $derived(t.review.awaitingDiff.cost(diffPriceCredits));
+	// #489 took `toFixed(2)` off the plan page because two decimal places imply a
+	// precision credits do not have, and this card reintroduced it: `propagate.diff` is
+	// priced at 1, so "1.00 credit" reads as a rounded number rather than a whole one.
+	// Same formatter, same four-digit ceiling, so a fractional price still shows.
+	let creditsFormat = $derived(numberFormat(locale, { maximumFractionDigits: 4 }));
 </script>
 
 <div class="border-t border-line pt-4" data-proposal-id={candidate.id}>
 	<p class="mb-2 font-mono text-label text-ink-2 uppercase">{t.review.awaitingDiff.kicker}</p>
-	<p class="max-w-measure text-body text-ink-2">{t.review.awaitingDiff.body(title)}</p>
+	<h3 class="text-title text-ink">{t.review.awaitingDiff.body(title)}</h3>
+	<p class="mt-1 max-w-measure text-body text-ink-2">{t.review.awaitingDiff.noDiffYet}</p>
 	<p class="mt-3 max-w-measure text-body text-ink-2">
 		<span class="font-medium text-ink">{t.review.awaitingDiff.reasonLabel}</span>
 		{candidate.rationale}
 	</p>
 	<p class="mt-3 text-body text-ink-2">
-		{costLabel.prefix}<b class="text-ink">{diffPriceCredits.toFixed(2)}</b>{costLabel.suffix}
+		{costLabel.prefix}<b class="text-ink">{creditsFormat.format(diffPriceCredits)}</b
+		>{costLabel.suffix}
 	</p>
 	<p class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-body">
 		{#if candidate.planId}

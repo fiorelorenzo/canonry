@@ -820,13 +820,13 @@ export const en: Messages = {
 
 		inbox: {
 			empty: 'Nothing pending. Edit an entry to start a propagation run.',
-			from: (provenance) => `From: ${provenance}`,
+			from: (provenance) => `After ${provenance}`,
 			entriesLabel: (total) => {
 				const form = pluralRules('en').select(total);
 				return `${total} ${form === 'one' ? 'entry' : 'entries'}`;
 			},
 			pendingLabel: (count) => `${count} pending`,
-			importFrom: (playbook) => `From: ${playbook} import`,
+			importFrom: (playbook) => `After a ${playbook} import`,
 			importSummary: (total, pending) => {
 				const form = pluralRules('en').select(total);
 				return `${total} ${form === 'one' ? 'proposal' : 'proposals'}: ${pending} pending`;
@@ -1024,8 +1024,8 @@ export const en: Messages = {
 		review: {
 			awaitingDiff: {
 				kicker: 'Waiting on its diff',
-				body: (entryName) =>
-					`${entryName} is part of a plan. The copilot has not written this candidate's diff yet, so there is nothing here to accept or reject.`,
+				body: (entryName) => entryName,
+				noDiffYet: 'No wording written yet, so there is nothing to accept.',
 				reasonLabel: "The copilot's reason:",
 				cost: (credits) => {
 					const form = pluralRules('en').select(credits);

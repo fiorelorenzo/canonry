@@ -831,13 +831,13 @@ export const it: Messages = {
 
 		inbox: {
 			empty: 'Niente in sospeso. Modifica una voce per avviare una propagazione.',
-			from: (provenance) => `Da: ${provenance}`,
+			from: (provenance) => `Dopo ${provenance}`,
 			entriesLabel: (total) => {
 				const form = pluralRules('it').select(total);
 				return `${total} ${form === 'one' ? 'voce' : 'voci'}`;
 			},
 			pendingLabel: (count) => `${count} in sospeso`,
-			importFrom: (playbook) => `Da: importazione ${playbook}`,
+			importFrom: (playbook) => `Dopo un\u2019importazione ${playbook}`,
 			importSummary: (total, pending) => {
 				const form = pluralRules('it').select(total);
 				return `${total} ${form === 'one' ? 'proposta' : 'proposte'}: ${pending} in sospeso`;
@@ -1052,8 +1052,8 @@ export const it: Messages = {
 		review: {
 			awaitingDiff: {
 				kicker: 'In attesa della differenza',
-				body: (entryName) =>
-					`${entryName} fa parte di un piano. Il copilota non ha ancora scritto la differenza di questa candidata, quindi qui non c'è nulla da accettare o rifiutare.`,
+				body: (entryName) => entryName,
+				noDiffYet: 'Nessun testo ancora scritto, quindi non c\u2019è nulla da accettare.',
 				reasonLabel: 'Il motivo del copilota:',
 				cost: (credits) => {
 					const form = pluralRules('it').select(credits);
