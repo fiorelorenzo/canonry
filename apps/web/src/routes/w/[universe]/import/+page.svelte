@@ -6,6 +6,7 @@
 	 * only adds the "jobs already run" list underneath, which onboarding has no use for
 	 * since a universe being created has none yet.
 	 */
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { dateFormat, messages } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
@@ -19,6 +20,9 @@
 
 	let t = $derived(messages(data.locale).import);
 	const stage = $derived(form?.stage ?? 'upload');
+	// Only one of the three stage forms below is ever rendered at once, so one flag
+	// covers all three.
+	let submitting = $state(false);
 
 	function formatWhen(value: string | Date): string {
 		const date = typeof value === 'string' ? new Date(value) : value;
@@ -55,6 +59,13 @@
 					action="?/upload"
 					enctype="multipart/form-data"
 					class="flex flex-col gap-3"
+					use:enhance={() => {
+						submitting = true;
+						return async ({ update }) => {
+							await update();
+							submitting = false;
+						};
+					}}
 				>
 					<div class="rounded-lg border border-dashed border-line-2 bg-panel-2 p-8 text-center">
 						<Label class="sr-only" for="import-file">{t.existing.fileInputLabel}</Label>
@@ -67,8 +78,8 @@
 							class="mx-auto block text-sm text-ink-2"
 						/>
 					</div>
-					<Button type="submit" class="self-start">
-						{t.upload.uploadButton}
+					<Button type="submit" class="self-start" disabled={submitting}>
+						{submitting ? t.upload.uploading : t.upload.uploadButton}
 					</Button>
 				</form>
 			{:else if form && form.stage === 'confirm'}
@@ -87,7 +98,18 @@
 						{/if}
 					</div>
 
-					<form method="POST" action="?/confirm" class="flex flex-col gap-3">
+					<form
+						method="POST"
+						action="?/confirm"
+						class="flex flex-col gap-3"
+						use:enhance={() => {
+							submitting = true;
+							return async ({ update }) => {
+								await update();
+								submitting = false;
+							};
+						}}
+					>
 						<input type="hidden" name="tempId" value={form.tempId} />
 						<input type="hidden" name="fileName" value={form.fileName} />
 						<input type="hidden" name="fileBytes" value={form.fileBytes} />
@@ -101,8 +123,8 @@
 							playbookLabels={data.playbookLabels}
 						/>
 
-						<Button type="submit" class="self-start">
-							{t.upload.confirm.continueButton}
+						<Button type="submit" class="self-start" disabled={submitting}>
+							{submitting ? t.upload.confirm.checking : t.upload.confirm.continueButton}
 						</Button>
 					</form>
 				</div>
@@ -124,13 +146,24 @@
 						<dd class="text-ink">{t.upload.estimate.estimatedCredits(form.estimatedCredits)}</dd>
 					</dl>
 
-					<form method="POST" action="?/start" class="flex gap-3">
+					<form
+						method="POST"
+						action="?/start"
+						class="flex gap-3"
+						use:enhance={() => {
+							submitting = true;
+							return async ({ update }) => {
+								await update();
+								submitting = false;
+							};
+						}}
+					>
 						<input type="hidden" name="tempId" value={form.tempId} />
 						<input type="hidden" name="playbookId" value={form.playbookId} />
 						<input type="hidden" name="fileName" value={form.fileName} />
 						<input type="hidden" name="fileBytes" value={form.fileBytes} />
-						<Button type="submit">
-							{t.upload.estimate.startButton}
+						<Button type="submit" disabled={submitting}>
+							{submitting ? t.upload.estimate.starting : t.upload.estimate.startButton}
 						</Button>
 					</form>
 				</div>

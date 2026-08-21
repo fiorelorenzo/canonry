@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { PageHeader } from '$lib/components/ui/page-header';
@@ -6,6 +7,9 @@
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	// Keyed by plan id - more than one non-free plan can render its own checkout form.
+	let redirecting = $state<Record<string, boolean>>({});
 
 	const t = $derived(messages(data.locale).settings.billing);
 	// SPEC.md §17's own example lives on this page: Italian wants a decimal comma and a
@@ -97,9 +101,23 @@
 					{#if current}
 						<span class="mt-4 text-xs font-medium text-accent-ink">{t.currentPlanBadge}</span>
 					{:else if plan.id !== 'free'}
-						<form method="POST" action="?/checkout" class="mt-4">
+						<form
+							method="POST"
+							action="?/checkout"
+							class="mt-4"
+							use:enhance={() => {
+								redirecting = { ...redirecting, [plan.id]: true };
+								return async ({ result, update }) => {
+									if (result.type !== 'redirect')
+										redirecting = { ...redirecting, [plan.id]: false };
+									await update();
+								};
+							}}
+						>
 							<input type="hidden" name="planId" value={plan.id} />
-							<Button type="submit" class="w-full">{t.switchTo(plan.name)}</Button>
+							<Button type="submit" class="w-full" disabled={redirecting[plan.id]}>
+								{redirecting[plan.id] ? t.redirecting : t.switchTo(plan.name)}
+							</Button>
 						</form>
 					{/if}
 				</div>

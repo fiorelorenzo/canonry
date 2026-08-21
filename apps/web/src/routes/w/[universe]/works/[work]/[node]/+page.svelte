@@ -11,6 +11,7 @@
 	 * `<details>` around it is native, and `ui/native-fallback` posts the value the
 	 * popover cannot.
 	 */
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { dateFormat, messages } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
@@ -24,6 +25,9 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let t = $derived(messages(data.locale));
+	let moving = $state(false);
+	let saving = $state(false);
+	let addingChild = $state(false);
 
 	// svelte-ignore state_referenced_locally
 	let title = $state(data.node.title);
@@ -60,19 +64,49 @@
 			<Badge class="bg-accent-bg font-mono text-accent-ink uppercase">
 				{t.works.kinds[data.node.kind] ?? data.node.kind}
 			</Badge>
-			<form method="POST" action="?/moveUp">
-				<Button type="submit" variant="secondary" size="sm">
-					{t.works.node.moveUp}
+			<form
+				method="POST"
+				action="?/moveUp"
+				use:enhance={() => {
+					moving = true;
+					return async ({ update }) => {
+						await update();
+						moving = false;
+					};
+				}}
+			>
+				<Button type="submit" variant="secondary" size="sm" disabled={moving}>
+					{moving ? t.works.node.moving : t.works.node.moveUp}
 				</Button>
 			</form>
-			<form method="POST" action="?/moveDown">
-				<Button type="submit" variant="secondary" size="sm">
-					{t.works.node.moveDown}
+			<form
+				method="POST"
+				action="?/moveDown"
+				use:enhance={() => {
+					moving = true;
+					return async ({ update }) => {
+						await update();
+						moving = false;
+					};
+				}}
+			>
+				<Button type="submit" variant="secondary" size="sm" disabled={moving}>
+					{moving ? t.works.node.moving : t.works.node.moveDown}
 				</Button>
 			</form>
 		</div>
 
-		<form method="POST" action="?/save">
+		<form
+			method="POST"
+			action="?/save"
+			use:enhance={() => {
+				saving = true;
+				return async ({ update }) => {
+					await update();
+					saving = false;
+				};
+			}}
+		>
 			<!-- #147: the title stays a bare input on purpose - it reads as the scene's
 				heading (text-2xl font-semibold, no border chrome but a focus underline),
 				and shadcn's Input would flatten that into a form field. Its meaning lives
@@ -92,8 +126,8 @@
 				<p class="mt-2 text-sm text-danger">{form.message}</p>
 			{/if}
 			<div class="mt-4 flex justify-end">
-				<Button type="submit">
-					{t.works.node.save}
+				<Button type="submit" disabled={saving}>
+					{saving ? t.works.node.saving : t.works.node.save}
 				</Button>
 			</div>
 		</form>
@@ -102,7 +136,18 @@
 			<summary class="cursor-pointer text-xs font-semibold tracking-wide text-muted uppercase">
 				{t.works.node.addChildSummary(data.node.title)}
 			</summary>
-			<form method="POST" action="?/addChild" class="mt-3 flex max-w-sm flex-col gap-3">
+			<form
+				method="POST"
+				action="?/addChild"
+				class="mt-3 flex max-w-sm flex-col gap-3"
+				use:enhance={() => {
+					addingChild = true;
+					return async ({ update }) => {
+						await update();
+						addingChild = false;
+					};
+				}}
+			>
 				<label class="flex flex-col gap-1 text-sm text-ink-2">
 					{t.works.node.titleLabel}
 					<Input name="title" required />
@@ -128,8 +173,8 @@
 						label={t.works.node.kindLabel}
 					/>
 				</div>
-				<Button type="submit" variant="secondary" size="sm">
-					{t.works.node.addNodeButton}
+				<Button type="submit" variant="secondary" size="sm" disabled={addingChild}>
+					{addingChild ? t.works.node.addingNode : t.works.node.addNodeButton}
 				</Button>
 			</form>
 		</details>

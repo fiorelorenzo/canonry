@@ -6,6 +6,7 @@
 	 * full multi-proposal queue (D4) is a separate surface (ReviewSurfaces' review link),
 	 * not this one.
 	 */
+	import { enhance } from '$app/forms';
 	import { messages, type Locale } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
@@ -15,6 +16,10 @@
 	let { proposals, locale }: { proposals: ProposalSummary[]; locale: Locale } = $props();
 
 	let t = $derived(messages(locale).import.liveFeed);
+
+	// Keyed by proposal id, mirroring AuditFlagsPanel.svelte's own per-row pending map -
+	// several of these rows can be mid-accept independently.
+	let accepting = $state<Record<string, boolean>>({});
 </script>
 
 {#if proposals.length === 0}
@@ -38,10 +43,20 @@
 				</div>
 
 				{#if proposal.outcome === 'pending'}
-					<form method="POST" action="?/accept" class="shrink-0">
+					<form
+						method="POST"
+						action="?/accept"
+						class="shrink-0"
+						use:enhance={() => {
+							accepting = { ...accepting, [proposal.id]: true };
+							return async ({ update }) => {
+								await update();
+							};
+						}}
+					>
 						<input type="hidden" name="proposalId" value={proposal.id} />
-						<Button type="submit" size="sm">
-							{t.accept}
+						<Button type="submit" size="sm" disabled={accepting[proposal.id]}>
+							{accepting[proposal.id] ? t.accepting : t.accept}
 						</Button>
 					</form>
 				{:else if proposal.outcome === 'accepted'}

@@ -49,6 +49,15 @@
 	let showDeclareForm = $state(false);
 	let showNoteForm = $state(false);
 	let npcPending = $state(false);
+	// #497 (V11): a submit control's own pending state, threaded down as props since the
+	// fetch that answers it lives here, not in the child form. `locationCreating` is
+	// scoped separately from `npcPending`: the location write settles with its own fetch
+	// response (the toast below fires the instant it resolves), where the NPC one keeps
+	// running server-side and only resolves later over the SSE stream's `drafting`
+	// status (`onmessage` above) - two different completion signals, two flags.
+	let declaringContext = $state(false);
+	let locationCreating = $state(false);
+	let noteSubmitting = $state(false);
 	let toast = $state<string | null>(null);
 	let proposals = $state<ProposalSummary[]>([]);
 	let sessionEndedBanner = $state<string | null>(null);
@@ -152,30 +161,35 @@
 		placeEntityId: string | null;
 		sessionEntityId: string | null;
 	}) {
-		const response = await fetch(`/w/${data.universeSlug}/table/context`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify(input)
-		});
-		if (!response.ok) return;
-		const body = (await response.json()) as {
-			context: {
-				placeEntityId: string | null;
-				sessionEntityId: string | null;
-				moment: string;
-				situation: string;
-				startedAt: string;
-				id: string;
+		declaringContext = true;
+		try {
+			const response = await fetch(`/w/${data.universeSlug}/table/context`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(input)
+			});
+			if (!response.ok) return;
+			const body = (await response.json()) as {
+				context: {
+					placeEntityId: string | null;
+					sessionEntityId: string | null;
+					moment: string;
+					situation: string;
+					startedAt: string;
+					id: string;
+				};
+				pinned: typeof pins;
+				elapsedMs: number;
 			};
-			pinned: typeof pins;
-			elapsedMs: number;
-		};
-		pins = body.pinned;
-		pinnedElapsedMs = body.elapsedMs;
-		sessionEndedBanner = null;
-		showDeclareForm = false;
-		await invalidateAll();
-		context = data.context;
+			pins = body.pinned;
+			pinnedElapsedMs = body.elapsedMs;
+			sessionEndedBanner = null;
+			showDeclareForm = false;
+			await invalidateAll();
+			context = data.context;
+		} finally {
+			declaringContext = false;
+		}
 	}
 
 	// #470's empty-state combobox: session stays whatever it already was (null on a
@@ -189,29 +203,40 @@
 	async function fireAction(kind: 'npc' | 'location' | 'reveal', label?: string) {
 		if (!context?.placeEntityId) return;
 		if (kind === 'npc') npcPending = true;
-		const response = await fetch(`/w/${data.universeSlug}/table/actions`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ kind, label })
-		});
-		if (!response.ok) {
-			npcPending = false;
-			const body = (await response.json().catch(() => null)) as { message?: string } | null;
-			showToast(body?.message ?? t.home.actionFailed(kindLabel(kind), t.home.unknownReason));
-			return;
+		if (kind === 'location') locationCreating = true;
+		try {
+			const response = await fetch(`/w/${data.universeSlug}/table/actions`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ kind, label })
+			});
+			if (!response.ok) {
+				npcPending = false;
+				const body = (await response.json().catch(() => null)) as { message?: string } | null;
+				showToast(body?.message ?? t.home.actionFailed(kindLabel(kind), t.home.unknownReason));
+				return;
+			}
+			if (kind === 'location')
+				showToast(t.home.savedAsProposal(t.actionLabels.createChildLocation));
+			if (kind === 'reveal') await invalidateAll();
+		} finally {
+			if (kind === 'location') locationCreating = false;
 		}
-		if (kind === 'location') showToast(t.home.savedAsProposal(t.actionLabels.createChildLocation));
-		if (kind === 'reveal') await invalidateAll();
 	}
 
 	async function submitNote(input: { targetEntityId: string; note: string }) {
-		const response = await fetch(`/w/${data.universeSlug}/table/notes`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify(input)
-		});
-		showNoteForm = false;
-		if (!response.ok) showToast(t.home.noteSaveFailed);
+		noteSubmitting = true;
+		try {
+			const response = await fetch(`/w/${data.universeSlug}/table/notes`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(input)
+			});
+			showNoteForm = false;
+			if (!response.ok) showToast(t.home.noteSaveFailed);
+		} finally {
+			noteSubmitting = false;
+		}
 	}
 
 	async function exitTableMode() {
@@ -282,6 +307,7 @@
 				initialPlaceId={context?.placeEntityId ?? null}
 				initialSessionId={context?.sessionEntityId ?? null}
 				locale={data.locale}
+				pending={declaringContext}
 				onDeclare={declareContext}
 				onCancel={() => (showDeclareForm = false)}
 			/>
@@ -325,6 +351,7 @@
 			<QuickActionDock
 				canReveal={context.sessionEntityId !== null}
 				{npcPending}
+				locationPending={locationCreating}
 				locale={data.locale}
 				onMarkRevealed={() => fireAction('reveal')}
 				onNpcHere={() => fireAction('npc')}
@@ -349,6 +376,7 @@
 				<QuickNoteForm
 					targets={noteTargets}
 					locale={data.locale}
+					pending={noteSubmitting}
 					onSubmit={submitNote}
 					onCancel={() => (showNoteForm = false)}
 				/>

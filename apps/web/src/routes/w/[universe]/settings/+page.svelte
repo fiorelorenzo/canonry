@@ -39,6 +39,7 @@
 	 * default instead would have declared precedence over whichever entry happened to
 	 * sort first, which is a wrong write rather than a degraded one.
 	 */
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { messages } from '$lib/i18n';
@@ -54,6 +55,17 @@
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	// #497 (V11): one flag per form on this page, since every one of the eight can be
+	// mid-submit independently of the others.
+	let applyingImageStylePreset = $state(false);
+	let savingImageStyle = $state(false);
+	let applyingNarrationStylePreset = $state(false);
+	let savingNarrationStyle = $state(false);
+	let settingAiEnabled = $state(false);
+	let savingPropagationCap = $state(false);
+	let removingSupersede = $state(false);
+	let addingSupersede = $state(false);
 
 	const t = $derived(messages(data.locale).universe.settings);
 	const tRelations = $derived(t.relations);
@@ -225,7 +237,18 @@
 			     the "Custom style" disclosure rather than nesting one form inside another
 			     (invalid HTML) - the form itself still submits normally either way. -->
 			<div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-				<form method="POST" action="?/selectImageStylePreset" class="contents">
+				<form
+					method="POST"
+					action="?/selectImageStylePreset"
+					class="contents"
+					use:enhance={() => {
+						applyingImageStylePreset = true;
+						return async ({ update }) => {
+							await update();
+							applyingImageStylePreset = false;
+						};
+					}}
+				>
 					{#each data.imageStylePresets as preset (preset.id)}
 						<label
 							class="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line text-left transition-colors has-checked:border-accent has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
@@ -235,6 +258,7 @@
 								name="presetId"
 								value={preset.id}
 								checked={currentImageStyleId === preset.id}
+								disabled={applyingImageStylePreset}
 								class="sr-only"
 								onchange={(event) => {
 									event.currentTarget.form?.requestSubmit();
@@ -287,7 +311,18 @@
 					</summary>
 					<div class="border-t border-line px-3 py-3">
 						<p class="text-xs text-ink-2">{t.imageStyle.customCard.hint}</p>
-						<form method="POST" action="?/setImageStyle" class="mt-3 flex flex-col gap-3">
+						<form
+							method="POST"
+							action="?/setImageStyle"
+							class="mt-3 flex flex-col gap-3"
+							use:enhance={() => {
+								savingImageStyle = true;
+								return async ({ update }) => {
+									await update();
+									savingImageStyle = false;
+								};
+							}}
+						>
 							<label class="flex flex-col gap-1 text-sm text-ink-2">
 								{t.imageStyle.nameLabel}
 								<Input name="name" value={imageStyleName} required />
@@ -296,8 +331,8 @@
 								{t.imageStyle.promptModifierLabel}
 								<Textarea name="promptModifier" rows={2} value={imageStyleModifier} required />
 							</label>
-							<Button type="submit" variant="secondary" class="w-fit">
-								{t.imageStyle.save}
+							<Button type="submit" variant="secondary" class="w-fit" disabled={savingImageStyle}>
+								{savingImageStyle ? t.imageStyle.saving : t.imageStyle.save}
 							</Button>
 						</form>
 					</div>
@@ -328,7 +363,18 @@
 			     chose it. -->
 				<fieldset class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
 					<legend class="sr-only">{t.narration.pickerLegend}</legend>
-					<form method="POST" action="?/selectNarrationStylePreset" class="contents">
+					<form
+						method="POST"
+						action="?/selectNarrationStylePreset"
+						class="contents"
+						use:enhance={() => {
+							applyingNarrationStylePreset = true;
+							return async ({ update }) => {
+								await update();
+								applyingNarrationStylePreset = false;
+							};
+						}}
+					>
 						{#each data.narrationStylePresets as preset (preset.id)}
 							<label
 								class="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line p-3 text-left transition-colors has-checked:border-accent has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
@@ -338,6 +384,7 @@
 									name="presetId"
 									value={preset.id}
 									checked={currentNarrationStyleId === preset.id}
+									disabled={applyingNarrationStylePreset}
 									class="sr-only"
 									onchange={(event) => {
 										event.currentTarget.form?.requestSubmit();
@@ -383,7 +430,18 @@
 						</summary>
 						<div class="border-t border-line px-3 py-3">
 							<p class="text-xs text-ink-2">{t.narration.customCard.hint}</p>
-							<form method="POST" action="?/setNarrationStyle" class="mt-3 flex flex-col gap-3">
+							<form
+								method="POST"
+								action="?/setNarrationStyle"
+								class="mt-3 flex flex-col gap-3"
+								use:enhance={() => {
+									savingNarrationStyle = true;
+									return async ({ update }) => {
+										await update();
+										savingNarrationStyle = false;
+									};
+								}}
+							>
 								<label class="flex flex-col gap-1 text-sm text-ink-2">
 									{t.narration.nameLabel}
 									<Input name="name" value={narrationStyleName} required />
@@ -393,8 +451,13 @@
 									<Textarea name="promptClause" rows={2} value={narrationStylePromptClause} required
 									></Textarea>
 								</label>
-								<Button type="submit" variant="secondary" class="w-fit">
-									{t.narration.save}
+								<Button
+									type="submit"
+									variant="secondary"
+									class="w-fit"
+									disabled={savingNarrationStyle}
+								>
+									{savingNarrationStyle ? t.narration.saving : t.narration.save}
 								</Button>
 							</form>
 						</div>
@@ -427,7 +490,17 @@
 							{t.aiToggle.description(data.current.name)}
 						</p>
 					</div>
-					<form method="POST" action="?/setAiEnabled">
+					<form
+						method="POST"
+						action="?/setAiEnabled"
+						use:enhance={() => {
+							settingAiEnabled = true;
+							return async ({ update }) => {
+								await update();
+								settingAiEnabled = false;
+							};
+						}}
+					>
 						<input type="hidden" name="enabled" value={(!aiEnabled).toString()} />
 						<Button
 							type="submit"
@@ -435,8 +508,15 @@
 							class={aiEnabled
 								? 'border-line-2 text-ink-2'
 								: 'border-accent bg-accent-bg text-accent-ink'}
+							disabled={settingAiEnabled}
 						>
-							{aiEnabled ? t.aiToggle.stopWriting : t.aiToggle.resumeWriting}
+							{settingAiEnabled
+								? aiEnabled
+									? t.aiToggle.stoppingWriting
+									: t.aiToggle.resumingWriting
+								: aiEnabled
+									? t.aiToggle.stopWriting
+									: t.aiToggle.resumeWriting}
 						</Button>
 					</form>
 				</div>
@@ -459,6 +539,13 @@
 					method="POST"
 					action="?/setPropagationCap"
 					class="mt-3 flex flex-wrap items-center gap-3"
+					use:enhance={() => {
+						savingPropagationCap = true;
+						return async ({ update }) => {
+							await update();
+							savingPropagationCap = false;
+						};
+					}}
 				>
 					<label class="flex items-center gap-2 text-sm text-ink-2">
 						{t.propagationCap.capLabel}
@@ -482,8 +569,8 @@
 						/>
 						{t.propagationCap.noLimitLabel}
 					</label>
-					<Button type="submit" variant="secondary" class="w-fit">
-						{t.propagationCap.save}
+					<Button type="submit" variant="secondary" class="w-fit" disabled={savingPropagationCap}>
+						{savingPropagationCap ? t.propagationCap.saving : t.propagationCap.save}
 					</Button>
 					{#if form?.message}
 						<p class="w-full text-sm text-danger">{form.message}</p>
@@ -546,15 +633,26 @@
 									>
 										{row.entityName}
 									</a>
-									<form method="POST" action="?/removeSupersede">
+									<form
+										method="POST"
+										action="?/removeSupersede"
+										use:enhance={() => {
+											removingSupersede = true;
+											return async ({ update }) => {
+												await update();
+												removingSupersede = false;
+											};
+										}}
+									>
 										<input type="hidden" name="id" value={row.id} />
 										<Button
 											type="submit"
 											variant="link"
 											size="sm"
 											class="h-auto p-0 text-xs text-muted hover:text-danger"
+											disabled={removingSupersede}
 										>
-											{t.precedence.remove}
+											{removingSupersede ? t.precedence.removing : t.precedence.remove}
 										</Button>
 									</form>
 								</li>
@@ -566,6 +664,13 @@
 						method="POST"
 						action="?/addSupersede"
 						class="mt-4 flex flex-col gap-3 border-t border-line pt-4"
+						use:enhance={() => {
+							addingSupersede = true;
+							return async ({ update }) => {
+								await update();
+								addingSupersede = false;
+							};
+						}}
 					>
 						<h4 class="text-xs font-semibold tracking-wide text-muted uppercase">
 							{t.precedence.declareHeading}
@@ -621,8 +726,8 @@
 						{#if form?.message}
 							<p class="text-sm text-danger">{form.message}</p>
 						{/if}
-						<Button type="submit" variant="secondary" class="w-fit">
-							{t.precedence.submit}
+						<Button type="submit" variant="secondary" class="w-fit" disabled={addingSupersede}>
+							{addingSupersede ? t.precedence.superseding : t.precedence.submit}
 						</Button>
 					</form>
 				</div>

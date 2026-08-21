@@ -272,6 +272,7 @@ export interface Messages {
 			dark: string;
 			system: string;
 			save: string;
+			saving: string;
 			error: string;
 		};
 
@@ -309,6 +310,7 @@ export interface Messages {
 			perMonth: string;
 			currentPlanBadge: string;
 			switchTo: (planName: string) => string;
+			redirecting: string;
 		};
 
 		/** Issue #121's sweep: the account's export page (`/settings/export`) - the two
@@ -352,12 +354,17 @@ export interface Messages {
 			neverUsedYet: string;
 			turnOff: string;
 			turnOn: string;
+			turningOff: string;
+			turningOn: string;
 			forgetKey: string;
+			forgetting: string;
 			replaceKeyLabel: string;
 			addKeyLabel: string;
 			apiKeyPlaceholder: (providerLabel: string) => string;
 			replaceButton: string;
 			saveButton: string;
+			savingKey: string;
+			replacingKey: string;
 			savedConfirmation: (lastFour: string) => string;
 			addSignInRequired: string;
 			addPickProvider: string;
@@ -943,6 +950,7 @@ export interface Messages {
 			breadcrumbEdit: string;
 			heading: (entityName: string) => string;
 			save: string;
+			saving: string;
 			bodyAriaLabel: string;
 			/** Round twelve, Q4: the write/preview switch over the editor box, plus what
 			 * the preview side of it is called and what it says with nothing written. */
@@ -1308,6 +1316,7 @@ export interface Messages {
 				cta: (baseName: string) => string;
 				notConfigured: string;
 			};
+			creating: string;
 			errors: { nameRequired: string };
 		};
 		upload: {
@@ -1316,6 +1325,7 @@ export interface Messages {
 			description: string;
 			noLiveModelNotice: string;
 			uploadButton: string;
+			uploading: string;
 			confirm: {
 				uploadedSummary: (fileName: string, kilobytes: string) => string;
 				detected: (label: string) => string;
@@ -1325,6 +1335,7 @@ export interface Messages {
 				detail: (detail: DetectedDetail) => string;
 				playbookLabel: string;
 				continueButton: string;
+				checking: string;
 			};
 			estimate: {
 				heading: string;
@@ -1336,6 +1347,7 @@ export interface Messages {
 				costLabel: string;
 				estimatedCredits: (credits: number) => string;
 				startButton: string;
+				starting: string;
 			};
 			errors: {
 				noUniverseGiven: string;
@@ -1392,6 +1404,7 @@ export interface Messages {
 			>;
 			untitledProposal: string;
 			accept: string;
+			accepting: string;
 			accepted: string;
 			outcome: { rejected: string; superseded: string };
 		};
@@ -1446,6 +1459,7 @@ export interface Messages {
 			noSessionOption: string;
 			cancel: string;
 			declare: string;
+			declaring: string;
 		};
 
 		pinnedCards: {
@@ -1487,6 +1501,7 @@ export interface Messages {
 			nameChildLocation: string;
 			locationPlaceholder: string;
 			create: string;
+			creating: string;
 			jotNote: string;
 		};
 
@@ -1498,6 +1513,7 @@ export interface Messages {
 			notePlaceholder: string;
 			cancel: string;
 			saveAsProposal: string;
+			savingAsProposal: string;
 		};
 
 		instantSearch: {
@@ -1634,6 +1650,7 @@ export interface Messages {
 			summaryLabel: string;
 			summaryOptional: string;
 			createButton: string;
+			creating: string;
 		};
 		tree: {
 			ariaLabel: string;
@@ -1643,16 +1660,20 @@ export interface Messages {
 			titleLabel: string;
 			kindLabel: string;
 			addNodeButton: string;
+			addingNode: string;
 		};
 		node: {
 			moveUp: string;
 			moveDown: string;
+			moving: string;
 			titleSrLabel: string;
 			save: string;
+			saving: string;
 			addChildSummary: (nodeTitle: string) => string;
 			titleLabel: string;
 			kindLabel: string;
 			addNodeButton: string;
+			addingNode: string;
 			usesHeading: string;
 			noUses: string;
 			changedAt: (when: string) => string;
@@ -1946,7 +1967,9 @@ export interface Messages {
 				heading: string;
 				description: (universeName: string) => string;
 				stopWriting: string;
+				stoppingWriting: string;
 				resumeWriting: string;
+				resumingWriting: string;
 				offNotice: (universeName: string) => string;
 			};
 			/** Decision C3 amendment (docs/ux/DECISIONS.md "Round nine"): the per-universe
@@ -1960,6 +1983,7 @@ export interface Messages {
 				capLabel: string;
 				noLimitLabel: string;
 				save: string;
+				saving: string;
 				/** "Capped at **10** entries per plan." Split like `checklist.estimatedCredits`
 				 * so the number can be rendered bold without the whole sentence being one
 				 * un-styleable string. */
@@ -1988,8 +2012,10 @@ export interface Messages {
 					hint: string;
 				};
 				nameLabel: string;
+				applying: string;
 				promptModifierLabel: string;
 				save: string;
+				saving: string;
 				nameRequiredError: string;
 				promptModifierRequiredError: string;
 				/** A preset pick that failed server-side - an invalid id or a permission
@@ -2016,8 +2042,10 @@ export interface Messages {
 					hint: string;
 				};
 				nameLabel: string;
+				applying: string;
 				promptClauseLabel: string;
 				save: string;
+				saving: string;
 				nameRequiredError: string;
 				promptClauseRequiredError: string;
 				/** A preset pick that failed server-side - same posture as `imageStyle.pickError`. */
@@ -2039,6 +2067,7 @@ export interface Messages {
 				empty: string;
 				supersededBadge: string;
 				remove: string;
+				removing: string;
 				declareHeading: string;
 				entryLabel: string;
 				baseSourceLabel: string;
@@ -2046,6 +2075,7 @@ export interface Messages {
 				noteLabel: string;
 				optional: string;
 				submit: string;
+				superseding: string;
 				onlyDerivedError: string;
 				pickEntryError: string;
 				pickSourceError: string;
@@ -2190,6 +2220,7 @@ export interface Messages {
 		 * pricing's one) - each page keeps its own post-save confirmation text since
 		 * those differ ("Saved. Takes effect immediately." vs "Saved."). */
 		save: string;
+		saving: string;
 
 		models: {
 			browserTitle: string;

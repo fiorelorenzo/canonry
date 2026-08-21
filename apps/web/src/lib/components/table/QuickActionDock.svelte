@@ -16,6 +16,7 @@
 		canReveal,
 		npcPending,
 		locale,
+		locationPending = false,
 		onMarkRevealed,
 		onNpcHere,
 		onCreateLocation,
@@ -24,9 +25,14 @@
 		canReveal: boolean;
 		npcPending: boolean;
 		locale: Locale;
+		/** #497 (V11): true while the parent's own `fetch` (`fireAction('location', ...)`)
+		 * is in flight - `submitLocation` below awaits `onCreateLocation` rather than
+		 * closing the mini-form the instant it fires, precisely so this has a window to
+		 * be seen rather than being true for zero rendered frames. */
+		locationPending?: boolean;
 		onMarkRevealed: () => void;
 		onNpcHere: () => void;
-		onCreateLocation: (label: string) => void;
+		onCreateLocation: (label: string) => Promise<void>;
 		onJotNote: () => void;
 	} = $props();
 
@@ -36,11 +42,11 @@
 	let locationFormOpen = $state(false);
 	let locationLabel = $state('');
 
-	function submitLocation(event: SubmitEvent) {
+	async function submitLocation(event: SubmitEvent) {
 		event.preventDefault();
 		const label = locationLabel.trim();
 		if (!label) return;
-		onCreateLocation(label);
+		await onCreateLocation(label);
 		locationLabel = '';
 		locationFormOpen = false;
 		overflowOpen = false;
@@ -95,9 +101,10 @@
 						/>
 						<button
 							type="submit"
-							class="rounded-md bg-accent px-2 py-1 text-xs font-medium text-panel hover:bg-accent-ink"
+							disabled={locationPending}
+							class="rounded-md bg-accent px-2 py-1 text-xs font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
 						>
-							{t.quickActionDock.create}
+							{locationPending ? t.quickActionDock.creating : t.quickActionDock.create}
 						</button>
 					</form>
 				{:else}

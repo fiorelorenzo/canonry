@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { dateFormat, messages, numberFormat } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -7,6 +8,10 @@
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	// Keyed by operation - the same per-row pending map admin/models/+page.svelte uses,
+	// since several rows can be mid-save independently.
+	let saving = $state<Record<string, boolean>>({});
 
 	const t = $derived(messages(data.locale).admin);
 
@@ -71,7 +76,17 @@
 								<td class="px-3 py-3 text-ink">{price.label}</td>
 								<td class="px-3 py-3"><code class="text-xs text-ink-2">{price.operation}</code></td>
 								<td class="px-3 py-3">
-									<form method="POST" class="flex flex-col gap-1">
+									<form
+										method="POST"
+										class="flex flex-col gap-1"
+										use:enhance={() => {
+											saving = { ...saving, [price.operation]: true };
+											return async ({ update }) => {
+												await update();
+												saving = { ...saving, [price.operation]: false };
+											};
+										}}
+									>
 										<input type="hidden" name="operation" value={price.operation} />
 										<div class="flex items-center gap-2">
 											<Label class="sr-only" for={fieldId}
@@ -88,8 +103,8 @@
 												aria-invalid={failedHere ? 'true' : undefined}
 												aria-describedby={failedHere ? `${fieldId}-error` : undefined}
 											/>
-											<Button type="submit" size="sm">
-												{t.save}
+											<Button type="submit" size="sm" disabled={saving[price.operation]}>
+												{saving[price.operation] ? t.saving : t.save}
 											</Button>
 										</div>
 										{#if failedHere}

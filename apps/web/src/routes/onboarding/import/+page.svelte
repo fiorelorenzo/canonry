@@ -6,6 +6,7 @@
 	 * /onboarding/import/[job], reached only after the explicit "Start import" consent
 	 * click below - guardrail 1 extended to spend: no auto-start the instant a file lands.
 	 */
+	import { enhance } from '$app/forms';
 	import { messages } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
@@ -17,6 +18,9 @@
 
 	let t = $derived(messages(data.locale).import.upload);
 	const stage = $derived(form?.stage ?? 'upload');
+	// Only one of the three stage forms below is ever rendered at once, so one flag
+	// covers all three.
+	let submitting = $state(false);
 </script>
 
 <svelte:head>
@@ -45,6 +49,13 @@
 			action="?universe={data.universe.slug}&/upload"
 			enctype="multipart/form-data"
 			class="flex flex-col gap-3"
+			use:enhance={() => {
+				submitting = true;
+				return async ({ update }) => {
+					await update();
+					submitting = false;
+				};
+			}}
 		>
 			<input type="hidden" name="universe" value={data.universe.slug} />
 			<div class="rounded-lg border border-dashed border-line-2 bg-panel-2 p-8 text-center">
@@ -56,8 +67,8 @@
 					class="mx-auto block text-sm text-ink-2"
 				/>
 			</div>
-			<Button type="submit" class="self-start">
-				{t.uploadButton}
+			<Button type="submit" class="self-start" disabled={submitting}>
+				{submitting ? t.uploading : t.uploadButton}
 			</Button>
 		</form>
 	{:else if form && form.stage === 'confirm'}
@@ -80,6 +91,13 @@
 				method="POST"
 				action="?universe={data.universe.slug}&/confirm"
 				class="flex flex-col gap-3"
+				use:enhance={() => {
+					submitting = true;
+					return async ({ update }) => {
+						await update();
+						submitting = false;
+					};
+				}}
 			>
 				<input type="hidden" name="universe" value={data.universe.slug} />
 				<input type="hidden" name="tempId" value={form.tempId} />
@@ -95,8 +113,8 @@
 					playbookLabels={data.playbookLabels}
 				/>
 
-				<Button type="submit" class="self-start">
-					{t.confirm.continueButton}
+				<Button type="submit" class="self-start" disabled={submitting}>
+					{submitting ? t.confirm.checking : t.confirm.continueButton}
 				</Button>
 			</form>
 		</div>
@@ -118,14 +136,25 @@
 				<dd class="text-ink">{t.estimate.estimatedCredits(form.estimatedCredits)}</dd>
 			</dl>
 
-			<form method="POST" action="?universe={data.universe.slug}&/start" class="flex gap-3">
+			<form
+				method="POST"
+				action="?universe={data.universe.slug}&/start"
+				class="flex gap-3"
+				use:enhance={() => {
+					submitting = true;
+					return async ({ update }) => {
+						await update();
+						submitting = false;
+					};
+				}}
+			>
 				<input type="hidden" name="universe" value={data.universe.slug} />
 				<input type="hidden" name="tempId" value={form.tempId} />
 				<input type="hidden" name="playbookId" value={form.playbookId} />
 				<input type="hidden" name="fileName" value={form.fileName} />
 				<input type="hidden" name="fileBytes" value={form.fileBytes} />
-				<Button type="submit">
-					{t.estimate.startButton}
+				<Button type="submit" disabled={submitting}>
+					{submitting ? t.estimate.starting : t.estimate.startButton}
 				</Button>
 			</form>
 		</div>
