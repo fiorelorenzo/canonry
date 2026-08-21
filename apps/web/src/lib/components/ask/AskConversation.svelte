@@ -53,6 +53,7 @@
 		type ConversationTurn
 	} from '$lib/ask/conversation';
 	import { quickAskSuggestions } from '$lib/components/copilot/quick-ask-suggestions';
+	import { stripMentionSyntax } from '$lib/markdown';
 
 	let {
 		universeSlug,
@@ -296,15 +297,19 @@
 	>
 		<div class="shrink-0 border-b border-line-2 bg-panel px-8 py-4">
 			<div class="flex items-baseline justify-between gap-4">
-				<!-- axe: page-has-heading-one. `.crumb` elsewhere in this app is a `<p>`
-				     beside its own `<h1>` (`ask/kept/+page.svelte`'s own pattern); this page
-				     has no room for a second, purely decorative heading beside a message
-				     list, so the crumb itself carries the tag - same classes, same look,
-				     the one always-visible line naming this page regardless of whether it
-				     is empty or mid-conversation. -->
-				<h1 class="crumb text-xs font-normal tracking-wide text-muted uppercase">
+				<!-- Issue #473: the crumb used to carry the `h1` tag itself, at the smallest
+				     size on the page (12px), so the document outline's "biggest heading here"
+				     disagreed with what the page actually looked like. This page still has no
+				     room for a second, visible, purely decorative heading beside a message
+				     list (the reasoning that put the tag on the crumb in the first place), so
+				     the real heading is `sr-only` instead: a screen reader gets the same page
+				     title, announced as a heading, while the sighted layout is untouched -
+				     `.crumb` goes back to being a plain, unsized `<p>`, matching every other
+				     `.crumb` in this app (`ask/kept/+page.svelte`'s own pattern). -->
+				<h1 class="sr-only">{t.crumb(universeName)}</h1>
+				<p class="crumb text-xs font-normal tracking-wide text-muted uppercase">
 					{t.crumb(universeName)}
-				</h1>
+				</p>
 				<a href={resolve(`/w/${universeSlug}/ask/kept`)} class="text-xs text-accent hover:underline"
 					>{t.keep.historyLink}</a
 				>
@@ -455,14 +460,18 @@
 														>{source.entity.name}</b
 													>
 													<span class="text-muted"> · {t.ownCanonLabel}</span>
-													<span class="mt-0.5 block text-ink-2">"{source.statement}"</span>
+													<span class="mt-0.5 block text-ink-2"
+														>"{stripMentionSyntax(source.statement)}"</span
+													>
 												</button>
 											{:else}
 												<div
 													class="src rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs"
 												>
 													<span class="text-muted">{t.deletedEntry}</span>
-													<span class="mt-0.5 block text-ink-2">"{source.statement}"</span>
+													<span class="mt-0.5 block text-ink-2"
+														>"{stripMentionSyntax(source.statement)}"</span
+													>
 												</div>
 											{/if}
 										{:else}

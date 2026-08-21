@@ -679,6 +679,16 @@ export interface Messages {
 		cover: {
 			placeholderAction: string;
 			placeholderHint: string;
+			/** Issue #473: what the placeholder says when the world has no image style
+			 * (`hasImageStyle` is false, decisions S3/T3), which means every generate
+			 * control in the dialog this opens will refuse - said as what is available
+			 * (upload) plus what unlocks the rest. The whole box still opens the same
+			 * gallery either way (upload works regardless of style); `placeholderNoStyleLink`
+			 * is a real, separate anchor to the settings section that unlocks generate,
+			 * `media.noStyle.link`'s same destination, since a link cannot nest inside
+			 * the box's own `<button>`. */
+			placeholderHintNoStyle: string;
+			placeholderNoStyleLink: string;
 			dialogTitle: (entityName: string) => string;
 			dialogHint: string;
 			uploadAction: string;
@@ -1050,7 +1060,8 @@ export interface Messages {
 			acceptedToast: (entityName: string | null) => string;
 			undoFailedToast: string;
 			undo: string;
-			keyboardMove: string;
+			keyboardNext: string;
+			keyboardPrevious: string;
 			keyboardAccept: string;
 			keyboardReject: string;
 			keyboardUndo: string;

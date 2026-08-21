@@ -166,9 +166,14 @@
 	exactly the near-empty-entry case that reads worst. -->
 <div class="flex flex-col md:min-h-full md:flex-row">
 	<article class="entry-article min-w-0 flex-1 px-4 py-6 md:px-10 md:py-8">
+		<!-- Issue #473: the type used to repeat here and again as the badge under the
+		     title below. This line is the only linked segment (the universe name), so
+		     it stays pure navigation; the type is metadata and the badge already says
+		     it with more visual weight (accent pill vs. plain text) right beside the
+		     name it describes. -->
 		<p class="mb-3 text-xs text-muted">
 			<a class="hover:underline" href={resolve(`/w/${data.universe.slug}`)}>{data.universe.name}</a>
-			/ {data.entity.type} /
+			/
 			<span class="text-ink-2">{data.entity.name}</span>
 		</p>
 
