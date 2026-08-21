@@ -71,7 +71,9 @@
 					<th class="px-3 py-2 font-normal">{t.models.table.currentlyActive}</th>
 					<th class="px-3 py-2 font-normal">{t.models.table.provider}</th>
 					<th class="px-3 py-2 font-normal">{t.models.table.modelId}</th>
-					<th class="px-3 py-2 font-normal"></th>
+					<th class="px-3 py-2 font-normal"
+						><span class="sr-only">{t.models.table.actions}</span></th
+					>
 				</tr>
 			</thead>
 			<tbody class="divide-y divide-line">
@@ -171,7 +173,9 @@
 					<th class="px-3 py-2 font-normal">{t.models.table.provider}</th>
 					<th class="px-3 py-2 font-normal">{t.models.table.modelId}</th>
 					<th class="px-3 py-2 font-normal">{t.models.imageTable.pricePerImage}</th>
-					<th class="px-3 py-2 font-normal"></th>
+					<th class="px-3 py-2 font-normal"
+						><span class="sr-only">{t.models.imageTable.actions}</span></th
+					>
 				</tr>
 			</thead>
 			<tbody class="divide-y divide-line">

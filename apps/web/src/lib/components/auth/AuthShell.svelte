@@ -21,11 +21,17 @@
 
 	let {
 		locale,
+		title,
 		subtitle,
 		pane = false,
 		children
 	}: {
 		locale: Locale;
+		/** #474: the sr-only `<h1>` every AuthShell screen needs (`page-has-heading-one`).
+		 * The wordmark below is a link to canonry.io, not a heading, and I2 (#139) chose
+		 * the title page deliberately with no visible screen title to duplicate - this
+		 * carries the same string each page already puts in `<svelte:head><title>`. */
+		title: string;
 		subtitle: string;
 		/** True only on sign-up: renders the static argument pane at >=900px (I2 = B). */
 		pane?: boolean;
@@ -41,6 +47,7 @@
 		class="flex flex-1 flex-col {pane ? 'min-[900px]:flex-row min-[900px]:items-stretch' : ''}"
 	>
 		<div class="flex flex-1 flex-col items-center justify-center gap-6 px-8 py-16">
+			<h1 class="sr-only">{title}</h1>
 			<a
 				href="https://canonry.io"
 				class="flex flex-col items-center gap-2 text-accent hover:opacity-80"

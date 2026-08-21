@@ -2166,6 +2166,11 @@ export interface Messages {
 				provider: string;
 				modelId: string;
 				notConfigured: string;
+				/** #474: sr-only label for the trailing header cell above each row's inline
+				 * edit form and Save button - there is no dedicated data cell under it, but
+				 * axe's `empty-table-header` rule still requires every `<th>` to carry an
+				 * accessible name. */
+				actions: string;
 				providerUnknown: (provider: string) => string;
 			};
 			purposeLabel: {
@@ -2197,6 +2202,9 @@ export interface Messages {
 				coverAspectRatios: (shapes: string) => string;
 				active: string;
 				inactive: string;
+				/** #474: sr-only label for the trailing header cell above each row's inline
+				 * edit form and Save button, same rationale as `table.actions` above. */
+				actions: string;
 			};
 			featureLabel: {
 				portrait: string;
