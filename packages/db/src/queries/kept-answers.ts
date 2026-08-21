@@ -71,6 +71,12 @@ export interface KeepAnswerInput {
 	 * disclosure and has to stay distinguishable in the record. */
 	provider?: string | null;
 	modelId?: string | null;
+	/** Issue #437, decision T10: which conversation this turn belongs to, so a multi-turn
+	 * panel session groups back into one history entry instead of `listKeptConversations`
+	 * seeing loose rows with nothing tying them together. Omit it and the column's own
+	 * `defaultRandom()` gives the row a conversation of one - the shape a single manually
+	 * kept Ask-page answer still wants. */
+	conversationId?: string;
 	/** In the order they were shown, which is retrieval order. */
 	sources: KeepAnswerSourceInput[];
 }
@@ -104,7 +110,10 @@ export async function keepAnswer(db: Db, input: KeepAnswerInput): Promise<KeptAn
 				locale: input.locale,
 				askedFromPath: input.askedFromPath,
 				provider: input.provider ?? null,
-				modelId: input.modelId ?? null
+				modelId: input.modelId ?? null,
+				// Omitted (`undefined`) rather than a generated fallback here: the column's own
+				// `defaultRandom()` is what a caller with nothing to group against actually wants.
+				conversationId: input.conversationId
 			})
 			.returning();
 		if (!row) throw new Error('keeping an answer did not return a row');
@@ -162,6 +171,9 @@ export interface KeptAnswerRecord {
 	askedFromPath: string;
 	provider: string | null;
 	modelId: string | null;
+	/** Issue #437: which conversation this turn groups with. Always present - the column
+	 * itself is never null, even for a row nobody explicitly grouped. */
+	conversationId: string;
 	keptAt: Date;
 	sources: KeptAnswerSourceRecord[];
 }
@@ -202,9 +214,111 @@ export async function listKeptAnswers(
 		askedFromPath: row.askedFromPath,
 		provider: row.provider,
 		modelId: row.modelId,
+		conversationId: row.conversationId,
 		keptAt: row.keptAt,
 		sources: sources.get(row.id) ?? []
 	}));
+}
+
+/** Issue #437, decision T10: one entry in the Ask page's history per conversation rather
+ * than per turn - the shape the page actually wants once every turn is kept
+ * automatically, because a reader of a conversation wants the conversation, not a pile of
+ * loose answers it happened to produce. */
+export interface KeptConversation {
+	conversationId: string;
+	/** The latest turn's `keptAt`, so a list of conversations sorts by the same "most
+	 * recently active" rule the old flat list sorted individual answers by. */
+	keptAt: Date;
+	/** Oldest first: the order the conversation was actually asked in, not the order a
+	 * "newest first" answer list would have put its own rows in. */
+	turns: KeptAnswerRecord[];
+}
+
+const DEFAULT_CONVERSATION_LIMIT = 50;
+// A generous backstop on the flat row read behind the grouping below, not a real ceiling
+// a GM's own history is expected to hit: 50 conversations averaging a handful of turns
+// each is comfortably under this, and it exists only so one degenerate conversation with
+// thousands of turns cannot starve every other conversation off the page.
+const CONVERSATION_ROWS_LIMIT = 1000;
+
+/** The conversation list `ask/kept` renders (issue #437). Two queries, same shape
+ * `listKeptAnswers` already uses, grouped in memory afterward: a `group by` in SQL would
+ * still need a second query for `sourcesFor` to run against every turn it found, so
+ * nothing is saved by pushing the grouping into Postgres instead of here. */
+export async function listKeptConversations(
+	db: Db,
+	input: ListKeptAnswersInput
+): Promise<KeptConversation[]> {
+	const rows = await db
+		.select()
+		.from(keptAnswer)
+		.where(and(eq(keptAnswer.universeId, input.universeId), eq(keptAnswer.keptBy, input.keptBy)))
+		.orderBy(asc(keptAnswer.keptAt))
+		.limit(CONVERSATION_ROWS_LIMIT);
+	if (rows.length === 0) return [];
+
+	const sources = await sourcesFor(
+		db,
+		rows.map((row) => row.id)
+	);
+	const byConversation = new Map<string, KeptAnswerRecord[]>();
+	for (const row of rows) {
+		const turns = byConversation.get(row.conversationId) ?? [];
+		turns.push({
+			id: row.id,
+			question: row.question,
+			answer: row.answer,
+			detailLevel: row.detailLevel,
+			locale: row.locale,
+			askedFromPath: row.askedFromPath,
+			provider: row.provider,
+			modelId: row.modelId,
+			conversationId: row.conversationId,
+			keptAt: row.keptAt,
+			sources: sources.get(row.id) ?? []
+		});
+		byConversation.set(row.conversationId, turns);
+	}
+
+	const conversations = [...byConversation.entries()].map(
+		([conversationId, turns]): KeptConversation => ({
+			conversationId,
+			keptAt: turns[turns.length - 1]!.keptAt,
+			turns
+		})
+	);
+	conversations.sort((a, b) => b.keptAt.getTime() - a.keptAt.getTime());
+	return conversations.slice(0, input.limit ?? DEFAULT_CONVERSATION_LIMIT);
+}
+
+export interface DeleteKeptConversationInput {
+	conversationId: string;
+	universeId: string;
+	keptBy: string;
+}
+
+/** Issue #437's own new capability: "the product now stores everything rather than what
+ * somebody chose", so the unit a GM can actually discard has to be the conversation, not
+ * one turn cherry-picked out of an automatic transcript. Every row sharing the id goes,
+ * with `kept_answer_source` following each on its own cascade - the same real, unflagged
+ * delete `deleteKeptAnswer` always did, just scoped to the whole group. Returns false when
+ * there was nothing this account could delete, the same answer for a wrong id and for
+ * somebody else's. */
+export async function deleteKeptConversation(
+	db: Db,
+	input: DeleteKeptConversationInput
+): Promise<boolean> {
+	const deleted = await db
+		.delete(keptAnswer)
+		.where(
+			and(
+				eq(keptAnswer.conversationId, input.conversationId),
+				eq(keptAnswer.universeId, input.universeId),
+				eq(keptAnswer.keptBy, input.keptBy)
+			)
+		)
+		.returning({ id: keptAnswer.id });
+	return deleted.length > 0;
 }
 
 export interface KeptAnswerRefInput {
@@ -242,6 +356,7 @@ export async function keptAnswerById(
 		askedFromPath: row.askedFromPath,
 		provider: row.provider,
 		modelId: row.modelId,
+		conversationId: row.conversationId,
 		keptAt: row.keptAt,
 		sources: sources.get(row.id) ?? []
 	};

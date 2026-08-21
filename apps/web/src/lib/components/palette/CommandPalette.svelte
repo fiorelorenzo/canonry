@@ -29,8 +29,14 @@
 	 * - No empty-entry state, and entries render only when there is at least one match
 	 *   (#416, S11): "no entries match that sentence" was never true of a question,
 	 *   because a question was never a name. The chrome changes with it: no leading
-	 *   search icon, a trailing send button, and the input group's own paper and line
-	 *   colours rather than the translucent input/ring pair the dialog placement keeps.
+	 *   search icon, a trailing send button, and, since issue #435 (T8, round fifteen,
+	 *   repeals the rest of S11's "own paper and line colours"), no border and no
+	 *   background of its own either - the panel around this owns one `border-t`
+	 *   separating the whole band from the conversation above it, and the input sits
+	 *   transparent on the panel's own paper rather than in a second box drawn inside
+	 *   the first one. `has-[[data-slot=input-group-control]:focus-visible]:ring-3` is
+	 *   untouched by the override below, so a transparent input still gets a visible
+	 *   focus ring on the band itself rather than nothing.
 	 * - It calls `onAsk` instead of linking to the route, because O3's whole point is
 	 *   that the answer arrives without leaving the page. Entry rows stay real links;
 	 *   `onNavigate` is the caller's own choice, and QuickAsk does not pass it (R5), so a
@@ -237,7 +243,9 @@
 		bind:ref={inputEl}
 		placeholder={docked ? t.askPlaceholder : t.placeholder}
 		showSearchIcon={!docked}
-		groupClass={docked ? 'rounded-lg! border-line-2 bg-panel shadow-none!' : undefined}
+		groupClass={docked
+			? 'rounded-none! border-0! bg-transparent! shadow-none! px-3! py-1.5! dark:bg-transparent!'
+			: undefined}
 		trailing={docked ? sendControl : undefined}
 	/>
 {/snippet}

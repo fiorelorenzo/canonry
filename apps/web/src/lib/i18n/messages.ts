@@ -227,7 +227,14 @@ export interface Messages {
 			 * front door says what the feature is for instead of a bare pill. */
 			launcherHint: string;
 			context: (pageName: string) => string;
-			streaming: string;
+			/** Issue #437, decision T10: guardrail 5's disclosure, said once here where it
+			 * can be read before anything is asked, rather than on a card after every turn.
+			 * Ends with the same policy link `universe.ask.keep.noteLinkBefore`/`noteLink`
+			 * already carries, reused rather than duplicated. */
+			disclosure: string;
+			/** Issue #437: the icon button on a settled turn, opening it on the Ask page.
+			 * Doubles as the button's `aria-label` and its `Tooltip.Content` (Q4) - same word
+			 * either way a reader meets it. */
 			openInAsk: string;
 			/** R6: three deterministic chips picked by `quick-ask-suggestions.ts` from the
 			 * route and the entity type, never from a model. They fill the composer and
@@ -1928,6 +1935,16 @@ export interface Messages {
 				hint: string;
 				save: string;
 				tooLongError: string;
+			};
+			/** Issue #437, decision T10: guardrail 5's disclosure lives primarily in the panel
+			 * itself (`shell.quickAsk.disclosure`), read before anything is asked - this is
+			 * the settings copy check the issue also names, a standing pointer from the
+			 * corner of the product where a GM already goes to reason about what the
+			 * Loremaster does, to the conversation list where the stored record actually
+			 * lives. */
+			loremasterConversations: {
+				text: string;
+				link: string;
 			};
 			precedence: {
 				heading: string;

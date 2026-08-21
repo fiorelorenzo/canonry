@@ -362,16 +362,20 @@ export {
 export {
 	keepAnswer,
 	listKeptAnswers,
+	listKeptConversations,
 	keptAnswerById,
 	deleteKeptAnswer,
+	deleteKeptConversation,
 	KeptAnswerSourceInvalidError,
 	type KeptAnswerRow,
 	type KeepAnswerInput,
 	type KeepAnswerSourceInput,
 	type KeptAnswerRecord,
 	type KeptAnswerSourceRecord,
+	type KeptConversation,
 	type ListKeptAnswersInput,
-	type KeptAnswerRefInput
+	type KeptAnswerRefInput,
+	type DeleteKeptConversationInput
 } from './queries/kept-answers.js';
 
 /**

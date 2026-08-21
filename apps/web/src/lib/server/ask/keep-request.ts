@@ -43,7 +43,11 @@ export const keepRequestSchema = z.object({
 		.string()
 		.startsWith('/')
 		.refine((value) => !value.startsWith('//'), 'a path, not a protocol-relative URL'),
-	sources: z.array(keepSourceSchema).max(MAX_SOURCES).default([])
+	sources: z.array(keepSourceSchema).max(MAX_SOURCES).default([]),
+	/** Issue #437, decision T10: optional, because the Ask route's own still-manual keep
+	 * sends none and wants the database column's own `defaultRandom()` - a conversation of
+	 * one. The docked panel always sends one, so its turns group. */
+	conversationId: z.string().uuid().optional()
 });
 
 export type KeepRequest = z.infer<typeof keepRequestSchema>;

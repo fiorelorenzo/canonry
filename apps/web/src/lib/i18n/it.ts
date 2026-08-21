@@ -141,7 +141,8 @@ export const it: Messages = {
 			closeLabel: 'Chiudi il Loremaster',
 			launcherHint: 'Chiedi cosa dice già il tuo canone.',
 			context: (pageName) => `su ${pageName}`,
-			streaming: 'in arrivo…',
+			disclosure:
+				'Ogni domanda qui viene risposta e conservata automaticamente, come una tua nota raggruppata in una conversazione: non entra a fare parte di una voce senza una proposta che accetti, i giocatori non la vedono, e resta finché non elimini la conversazione. ',
 			openInAsk: 'Apri in Chiedi',
 			// R6 (round tredici, #381): tre suggerimenti deterministici, mai da un modello.
 			// `connects` legge il tipo di entità (sei valori), lo stesso schema a una
@@ -1724,15 +1725,15 @@ export const it: Messages = {
 				noteLinkBefore:
 					"Quale azienda legge la tua campagna per rispondere a una domanda è indicato nell'",
 				noteLink: 'informativa completa',
-				historyLink: 'Risposte conservate'
+				historyLink: 'Conversazioni'
 			},
 			kept: {
-				headTitle: (universeName) => `Risposte conservate: ${universeName}`,
-				crumb: (universeName) => `Risposte conservate · ${universeName}`,
-				heading: 'Risposte conservate',
-				note: 'Queste sono le risposte che hai scelto di conservare. Ognuna è testo generato dal tuo canone e salvato come una tua nota: non entra a fare parte di una voce senza una proposta che accetti, i giocatori non la vedono, e nessuno la rimuove tranne te. Eliminarne una elimina la riga stessa, senza copie da nessuna parte.',
+				headTitle: (universeName) => `Conversazioni: ${universeName}`,
+				crumb: (universeName) => `Conversazioni · ${universeName}`,
+				heading: 'Conversazioni',
+				note: 'Il Loremaster conserva automaticamente ogni domanda e risposta, come una tua nota raggruppata per conversazione. Nulla qui entra a fare parte di una voce senza una proposta che accetti, i giocatori non la vedono, e una conversazione resta finché non la elimini.',
 				empty:
-					'Non hai ancora conservato nulla. Chiedi qualcosa al Loremaster, e conserva la risposta se vale la pena.',
+					'Ancora nulla. Chiedi qualcosa al Loremaster, dal pannello o da questa pagina, e comparirà qui.',
 				askLink: 'Chiedi al Loremaster',
 				askedFrom: 'Chiesta da',
 				writtenBy: (provider) => `Scritta da ${provider}`,
@@ -1740,10 +1741,10 @@ export const it: Messages = {
 				sourcesLabel: 'Fonti',
 				deletedEntry: 'Questa voce è stata eliminata nel frattempo.',
 				delete: 'Elimina',
-				deleteConfirmPrompt: 'Eliminarla definitivamente?',
+				deleteConfirmPrompt: 'Eliminare questa intera conversazione definitivamente?',
 				deleteConfirmCancel: 'Annulla',
-				deleteFailed: 'Non è stato possibile eliminare questa risposta.',
-				deleteNotFound: 'Questa risposta non esiste più.'
+				deleteFailed: 'Non è stato possibile eliminare questa conversazione.',
+				deleteNotFound: 'Questa conversazione non esiste più.'
 			}
 		},
 
@@ -1819,6 +1820,10 @@ export const it: Messages = {
 				hint: 'Fino a 500 caratteri.',
 				save: 'Salva',
 				tooLongError: 'Mantieni la descrizione entro i 500 caratteri.'
+			},
+			loremasterConversations: {
+				text: 'Ogni domanda fatta nel pannello del Loremaster viene risposta e conservata automaticamente, raggruppata per conversazione, finché non la elimini.',
+				link: 'Vedi cosa viene conservato'
 			},
 			precedence: {
 				heading: 'Precedenza',

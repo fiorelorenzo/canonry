@@ -98,6 +98,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		askedFromPath: body.askedFromPath,
 		provider,
 		modelId,
+		conversationId: body.conversationId,
 		sources: body.sources
 	});
 

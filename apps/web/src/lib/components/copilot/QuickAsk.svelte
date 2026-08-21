@@ -79,15 +79,20 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import XIcon from '@lucide/svelte/icons/x';
 	import CommandPalette from '$lib/components/palette/CommandPalette.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { messages, type Locale } from '$lib/i18n';
 	import { formatShortcut, matchesShortcut, SHORTCUTS } from '$lib/keys';
-	import { providerLabel } from '$lib/providers';
 	import { askHandoff } from '$lib/ask/handoff.svelte';
 	import { keepAnswer, streamAsk, type AskDetailLevel } from '$lib/ask/stream';
 	import type { UniverseSummary } from '$lib/components/shell/types';
+	import {
+		measureDockElement,
+		shellLayoutState
+	} from '$lib/components/shell/shell-layout-state.svelte';
 	import { quickAskState, type QuickAskTurn } from './quick-ask-state.svelte';
 	import { quickAskSuggestions } from './quick-ask-suggestions';
 
@@ -183,10 +188,14 @@
 		return entries.slice(-6);
 	}
 
-	/** R5: closing is still the only write-nothing event - the whole conversation goes,
-	 * along with whatever was left typed and not sent. */
+	/** R5: closing is still the only thing that clears the panel's own local view - not
+	 * the only write any more (T10 repeals that half of O3, #437): every turn already
+	 * landed in `kept_answer` as it completed. What resetting still does is start the
+	 * next conversation, which is why the id goes with it - a turn asked after this
+	 * point must not group with the one that just closed. */
 	function reset() {
 		quickAskState.turns = [];
+		quickAskState.conversationId = crypto.randomUUID();
 		composerQuestion = '';
 	}
 
@@ -292,6 +301,15 @@
 			const turn = liveTurn();
 			if (turn) turn.asking = false;
 		}
+		// #437, T10: every turn is kept automatically as it completes, not only the one
+		// somebody clicked keep on. Fire-and-forget on purpose - `ask()` has already
+		// finished the moment the stream itself settles, and a slow or failed write must
+		// never hold up the next question or take the turn's own text off the screen
+		// (`keep()`'s own `catch` records `turn.keepError` and stops there). Guarded
+		// (`keep()`'s own guard) against a turn with nothing to keep, exactly as the old
+		// manual button was.
+		const settled = liveTurn();
+		if (settled) void keep(settled);
 	}
 
 	async function keep(turn: QuickAskTurn) {
@@ -305,7 +323,8 @@
 				answer: turn.answer,
 				detailLevel: DETAIL_LEVEL,
 				askedFromPath: page.url.pathname,
-				sources: turn.sources
+				sources: turn.sources,
+				conversationId: quickAskState.conversationId
 			});
 		} catch {
 			turn.keepError = askT.keep.failed;
@@ -409,6 +428,7 @@
 	<section
 		class="fixed inset-x-2 bottom-16 z-30 flex max-h-[70vh] animate-in flex-col overflow-hidden rounded-xl border border-line-2 bg-panel shadow-2xl duration-move ease-arrive fade-in-0 slide-in-from-bottom-2 md:inset-x-auto md:right-auto md:bottom-6 md:left-1/2 md:w-[calc(var(--container-measure)+1.5rem)] md:-translate-x-1/2"
 		aria-label={t.name}
+		use:measureDockElement={(h) => (shellLayoutState.dockHeight = h)}
 	>
 		<div class="flex items-center gap-2 border-b border-line px-3 py-2">
 			<span aria-hidden="true" class="text-accent">✦</span>
@@ -425,6 +445,18 @@
 
 		<p class="m-0 border-b border-line bg-panel-2 px-3 py-1.5 text-xs text-ink-2">
 			{t.context(contextName)}
+		</p>
+
+		<!-- Issue #437, decision T10: guardrail 5's disclosure, said once here rather than
+		     on a card after every turn - the first thing under the context line, so it is
+		     read before anything is asked whether or not the panel has a turn in it yet.
+		     Ends in the same policy link the Ask route's own keep control still carries
+		     (`askT.keep.noteLinkBefore`/`noteLink`), reused rather than duplicated. -->
+		<p class="m-0 border-b border-line px-3 py-1.5 text-[11px] text-ink-2">
+			{t.disclosure}{askT.keep.noteLinkBefore}<a
+				href={resolve('/privacy')}
+				class="text-accent hover:underline">{askT.keep.noteLink}</a
+			>.
 		</p>
 
 		<!-- R6: "turns render in order, the composer stays at the bottom" - everything
@@ -452,175 +484,172 @@
 				</ul>
 			{/if}
 
-			{#each quickAskState.turns as turn (turn.id)}
-				<div class="border-t border-line px-3 py-3 first:border-t-0">
-					<p class="m-0 text-sm font-medium text-ink">{turn.question}</p>
-
-					{#if turn.askError}
-						<p
-							class="mt-2 rounded-md border border-danger-bg bg-danger-bg px-2.5 py-1.5 text-xs text-danger"
-						>
-							{turn.askError}
-						</p>
-					{/if}
-
-					{#if turn.generated === false}
-						<p
-							class="mt-2 rounded-md border border-warn-bg bg-warn-bg px-2.5 py-1.5 text-xs text-warn"
-						>
-							{askT.noLiveModel}
-						</p>
-					{/if}
-
-					{#if turn.answer.length > 0 || turn.asking}
-						<!-- #414, S9: not C1's mark - an Ask answer is not proposed canon, so it
-						     renders as plain prose exactly as
-						     `routes/w/[universe]/ask/+page.svelte` already renders the same
-						     answer. Attribution is the header above and the keep disclosure
-						     below, not a mark on the text. -->
-						<div class="pt-2 text-sm">
-							{#if turn.answer.length > 0}
-								<p class="m-0 leading-relaxed text-ink">{turn.answer}</p>
-							{/if}
-							{#if turn.asking}
-								<p class="ai-note mt-1 mb-0 text-xs text-ai">{t.streaming}</p>
+			<!-- One provider for the whole list (FormattingToolbar.svelte's own pattern,
+			     Q4): moving from one turn's icon button to the next does not re-wait the
+			     tooltip's open delay each time. -->
+			<Tooltip.Provider delayDuration={400}>
+				{#each quickAskState.turns as turn (turn.id)}
+					<div class="border-t border-line px-3 py-3 first:border-t-0">
+						<!-- #436, T9: the question is the turn's own heading, not another line
+						     of small text - the turn is one block with three parts (heading,
+						     answer, sources) rather than five stacked paragraphs at three sizes
+						     of the same grey. -->
+						<div class="flex items-start justify-between gap-2">
+							<h2 class="m-0 text-base font-semibold text-ink">{turn.question}</h2>
+							{#if turn.answer.length > 0 && !turn.asking}
+								<!-- #437, T10: the card goes; one icon button per turn opens it on
+								     the Ask page, with a tooltip naming it (Q4) since no control
+								     ships an unlabelled icon. -->
+								<Tooltip.Root>
+									<Tooltip.Trigger onclick={() => openInAsk(turn)}>
+										{#snippet child({ props })}
+											<Button
+												{...props}
+												type="button"
+												variant="ghost"
+												size="icon"
+												class="size-7 shrink-0 text-ink-2 hover:text-ink"
+												aria-label={t.openInAsk}
+											>
+												<ExternalLinkIcon aria-hidden="true" class="size-3.5" />
+											</Button>
+										{/snippet}
+									</Tooltip.Trigger>
+									<Tooltip.Content>{t.openInAsk}</Tooltip.Content>
+								</Tooltip.Root>
 							{/if}
 						</div>
-					{/if}
 
-					{#if turn.proposals.length > 0 || turn.proposalFailures.length > 0}
-						<div class="mt-2 flex flex-col gap-1.5">
-							{#each turn.proposals as proposal (proposal.proposalId)}
-								<!-- issue #256, guardrail 1 and 6: an answer that also drafted
-								     something says so, and says which way round it went, wherever
-								     it was asked from. -->
-								<div class="rounded-lg border border-line bg-panel-2 px-2.5 py-1.5 text-xs">
-									<span
-										class="rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
-									>
-										{proposal.kind === 'draft_entity'
-											? askT.propose.badgeCreated
-											: askT.propose.badgeEdited}
-									</span>
-									<b class="text-ink">{proposal.entityName}</b>
-									{#if proposal.planId}
-										<a
-											href={resolve(`/w/${universeSlug}/proposals/${proposal.planId}`)}
-											class="mt-1 block text-[11px] text-ink-2 underline"
-											>{askT.propose.reviewLink}</a
-										>
-									{/if}
-								</div>
-							{/each}
-							{#each turn.proposalFailures as failure, i (i)}
-								<p
-									class="m-0 rounded-md border border-danger-bg bg-danger-bg px-2.5 py-1.5 text-xs text-danger"
-								>
-									{askT.propose.failed(failure.message)}
-								</p>
-							{/each}
-						</div>
-					{/if}
-
-					{#if turn.sources.length > 0}
-						<!-- Guardrail 3: which entry, which sentence, as something a hand can
-						     open. The chips are the panel's own compact form of the Ask route's
-						     source cards; the indexed one keeps SPEC.md §7's attribution and
-						     licence, shown on every answer a derived source appears in.
-						     #346: the list says what it is before it says what is in it. No
-						     score is shown, here or anywhere, which is guardrail 3's own second
-						     half ("never a bare confidence score"). -->
-						<p class="mt-3 mb-0 text-[11px] text-ink-2">{askT.sourcesNote}</p>
-						<ul class="mt-1.5 mb-0 flex list-none flex-wrap gap-1.5">
-							{#each turn.sources as source, i (source.kind === 'own_canon' ? source.entityId : `${source.dataSourceId}-${i}`)}
-								<li>
-									{#if source.kind === 'own_canon'}
-										<a
-											href={resolve(`/w/${universeSlug}/e/${source.entitySlug}`)}
-											title={source.statement}
-											class="inline-flex max-w-56 items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-xs text-ink hover:bg-accent-bg"
-										>
-											<span class="truncate">{source.entityName}</span>
-											<span class="shrink-0 text-[10px] text-muted">{askT.ownCanonLabel}</span>
-										</a>
-									{:else}
-										<a
-											href={source.url}
-											target="_blank"
-											rel="noreferrer"
-											title={source.text}
-											class="inline-flex max-w-64 items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-xs"
-										>
-											<span class="shrink-0 text-[10px] text-ink-2">{askT.indexedBadge}</span>
-											<span class="truncate text-ink">{source.pageTitle}</span>
-											<span class="shrink-0 font-mono text-[10px] text-muted">
-												{source.attribution}{#if source.licence}
-													· {source.licence}{/if}
-											</span>
-										</a>
-									{/if}
-								</li>
-							{/each}
-						</ul>
-					{:else if turn.sourcesSeen}
-						<!-- #346's other half. A floor on retrieval with nothing behind it turns
-						     six wrong chips into silence, and silence beside an answer reads as
-						     a list that failed to load rather than as a canon this question did
-						     not touch. -->
-						<p class="mt-3 mb-0 text-[11px] text-ink-2">{askT.sourcesEmpty}</p>
-					{/if}
-
-					{#if turn.answer.length > 0 && !turn.asking}
-						<!-- Guardrail 5, and F3 = C: the disclosure sits with the control that
-						     stores the record, not in a policy page the GM never opens. Same
-						     sentence, same catalogue keys, as the Ask route's own keep control
-						     (#290), repeated per turn since each turn is its own record to
-						     keep. -->
-						<div class="mt-3 rounded-lg border border-line-2 bg-panel-2 p-2.5">
-							<p class="m-0 text-[11px] text-ink-2">
-								{askT.keep.noteBefore}{turn.provider
-									? askT.keep.noteProvider(providerLabel(turn.provider))
-									: askT.keep.noteNoProvider}{askT.keep.noteAfter}
-								{askT.keep.noteLinkBefore}<a
-									href={resolve('/privacy')}
-									class="text-accent hover:underline">{askT.keep.noteLink}</a
-								>.
+						{#if turn.askError}
+							<p
+								class="mt-2 rounded-md border border-danger-bg bg-danger-bg px-2.5 py-1.5 text-xs text-danger"
+							>
+								{turn.askError}
 							</p>
-							<div class="mt-2 flex items-center gap-2">
-								<Button
-									type="button"
-									variant="secondary"
-									size="sm"
-									class="border-line text-xs text-ink-2"
-									onclick={() => openInAsk(turn)}
-								>
-									{t.openInAsk}
-								</Button>
-								{#if turn.keptId}
-									<span class="text-xs text-ink-2">{askT.keep.kept}</span>
-									<a
-										href={resolve(`/w/${universeSlug}/ask/kept`)}
-										class="text-xs text-accent hover:underline">{askT.keep.historyLink}</a
-									>
-								{:else}
-									<Button
-										type="button"
-										size="sm"
-										class="text-xs"
-										disabled={turn.keeping}
-										onclick={() => void keep(turn)}
-									>
-										{turn.keeping ? askT.keep.keeping : askT.keep.button}
-									</Button>
-								{/if}
+						{/if}
+
+						{#if turn.generated === false}
+							<p
+								class="mt-2 rounded-md border border-warn-bg bg-warn-bg px-2.5 py-1.5 text-xs text-warn"
+							>
+								{askT.noLiveModel}
+							</p>
+						{/if}
+
+						{#if turn.answer.length > 0 || turn.asking}
+							<!-- #414, S9: not C1's mark - an Ask answer is not proposed canon, so it
+							     renders as plain prose exactly as
+							     `routes/w/[universe]/ask/+page.svelte` already renders the same
+							     answer, at the same measure this panel is 568px wide for (#346).
+							     `aria-busy`: #434, T7. A screen reader is told this region is
+							     still being written to rather than read `aria-live`, which would
+							     announce every incoming word as its own interruption - once
+							     `asking` clears, the settled paragraph is ordinary flow content a
+							     reader reaches in document order. -->
+							<div class="pt-2 text-sm text-ink" aria-busy={turn.asking}>
+								<p class="m-0 leading-relaxed">
+									{turn.answer}{#if turn.asking}<span
+											aria-hidden="true"
+											class="quick-ask-cursor ml-0.5 inline-block h-4 w-0.5 animate-pulse
+											bg-accent align-middle"
+										></span>{/if}
+								</p>
 							</div>
-							{#if turn.keepError}
-								<p class="mt-2 mb-0 text-xs text-danger">{turn.keepError}</p>
-							{/if}
-						</div>
-					{/if}
-				</div>
-			{/each}
+						{/if}
+
+						{#if turn.proposals.length > 0 || turn.proposalFailures.length > 0}
+							<div class="mt-2 flex flex-col gap-1.5">
+								{#each turn.proposals as proposal (proposal.proposalId)}
+									<!-- issue #256, guardrail 1 and 6: an answer that also drafted
+									     something says so, and says which way round it went, wherever
+									     it was asked from. -->
+									<div class="rounded-lg border border-line bg-panel-2 px-2.5 py-1.5 text-xs">
+										<span
+											class="rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
+										>
+											{proposal.kind === 'draft_entity'
+												? askT.propose.badgeCreated
+												: askT.propose.badgeEdited}
+										</span>
+										<b class="text-ink">{proposal.entityName}</b>
+										{#if proposal.planId}
+											<a
+												href={resolve(`/w/${universeSlug}/proposals/${proposal.planId}`)}
+												class="mt-1 block text-[11px] text-ink-2 underline"
+												>{askT.propose.reviewLink}</a
+											>
+										{/if}
+									</div>
+								{/each}
+								{#each turn.proposalFailures as failure, i (i)}
+									<p
+										class="m-0 rounded-md border border-danger-bg bg-danger-bg px-2.5 py-1.5 text-xs text-danger"
+									>
+										{askT.propose.failed(failure.message)}
+									</p>
+								{/each}
+							</div>
+						{/if}
+
+						{#if turn.sources.length > 0}
+							<!-- #436, T9: the sources are a footer under a rule with a small label,
+							     not a fourth paragraph the same size as everything above it.
+							     Guardrail 3: which entry, which sentence, as something a hand can
+							     open, and never a bare confidence score. -->
+							<div class="mt-3 border-t border-line pt-2">
+								<p class="m-0 text-[11px] text-ink-2">{askT.sourcesNote}</p>
+								<ul class="mt-1.5 mb-0 flex list-none flex-wrap gap-1.5">
+									{#each turn.sources as source, i (source.kind === 'own_canon' ? source.entityId : `${source.dataSourceId}-${i}`)}
+										<li>
+											{#if source.kind === 'own_canon'}
+												<a
+													href={resolve(`/w/${universeSlug}/e/${source.entitySlug}`)}
+													title={source.statement}
+													class="inline-flex max-w-56 items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-xs text-ink hover:bg-accent-bg"
+												>
+													<span class="truncate">{source.entityName}</span>
+													<span class="shrink-0 text-[10px] text-muted">{askT.ownCanonLabel}</span>
+												</a>
+											{:else}
+												<a
+													href={source.url}
+													target="_blank"
+													rel="noreferrer"
+													title={source.text}
+													class="inline-flex max-w-64 items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-xs"
+												>
+													<span class="shrink-0 text-[10px] text-ink-2">{askT.indexedBadge}</span>
+													<span class="truncate text-ink">{source.pageTitle}</span>
+													<span class="shrink-0 font-mono text-[10px] text-muted">
+														{source.attribution}{#if source.licence}
+															· {source.licence}{/if}
+													</span>
+												</a>
+											{/if}
+										</li>
+									{/each}
+								</ul>
+							</div>
+						{:else if turn.sourcesSeen}
+							<!-- #346's other half. A floor on retrieval with nothing behind it turns
+							     six wrong chips into silence, and silence beside an answer reads as
+							     a list that failed to load rather than as a canon this question did
+							     not touch. -->
+							<div class="mt-3 border-t border-line pt-2">
+								<p class="m-0 text-[11px] text-ink-2">{askT.sourcesEmpty}</p>
+							</div>
+						{/if}
+
+						{#if turn.keepError}
+							<!-- #437: the write must not block the answer and a failed keep must
+							     not lose the turn on screen - this is the whole of what a failed
+							     auto-keep gets, a quiet line rather than the card that used to
+							     hold a retry button, because the turn itself is unaffected. -->
+							<p class="mt-2 mb-0 text-[11px] text-danger">{turn.keepError}</p>
+						{/if}
+					</div>
+				{/each}
+			</Tooltip.Provider>
 		</div>
 
 		<!-- R6: "the composer stays at the bottom". Pinned outside the scrollable turns
@@ -653,6 +682,7 @@
 		aria-expanded={false}
 		aria-label={t.openLabel}
 		class="fixed bottom-6 left-1/2 z-30 hidden w-[calc(var(--container-measure)+1.5rem)] -translate-x-1/2 flex-col items-stretch gap-0.5 rounded-xl border border-line-2 bg-panel px-4 py-2.5 text-left shadow-lg hover:bg-panel-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none md:flex"
+		use:measureDockElement={(h) => (shellLayoutState.dockHeight = h)}
 	>
 		<span class="flex items-center gap-2">
 			<span aria-hidden="true" class="size-1.5 rounded-full bg-accent"></span>
@@ -662,3 +692,20 @@
 		<span class="text-xs text-ink-2">{t.launcherHint}</span>
 	</button>
 {/if}
+
+<style>
+	/* #434, T7, Q6: a loop with no end state to make instant, the same case `layout.css`'s
+	 * own reduced-motion rule already stops outright for `.animate-spin`/`.animate-ping`/
+	 * `.animate-bounce` - `animate-pulse` sits outside that shared list today because
+	 * nothing used it as a "the reader is being made to wait" signal before this cursor,
+	 * so nothing needed it stopped. `ModelRunning.svelte`'s own spinner is the precedent
+	 * for scoping a stop rule to the one component that needs it rather than widening the
+	 * shared list for every future `animate-pulse` caller, some of which may not represent
+	 * a wait at all. The bar becomes static, which is correct: something still has to say
+	 * the answer is unfinished once it stops pulsing. */
+	@media (prefers-reduced-motion: reduce) {
+		.quick-ask-cursor {
+			animation: none;
+		}
+	}
+</style>

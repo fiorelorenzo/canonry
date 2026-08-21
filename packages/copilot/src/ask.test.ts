@@ -979,6 +979,52 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		expect(systemPromptOf(sourcedPrompt!)).not.toContain('no sources at all');
 	});
 
+	it('issue #439: a general question about the world with nothing retrieved carries the world context and refuses honestly rather than inventing', async () => {
+		const { owner, universe } = await fixture();
+
+		let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+		const result = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			// Shares no content word with the fixture's own entity (`Aldric`, `Vane`,
+			// `dismissed`, `watch`, `thaw`, `Sable`, `Winter`, `Ashen`, `Ledger`), and no
+			// entity in the fixture at all - a question about the world, not about anything
+			// on the page, exactly guardrail 7's "the no-match case" (#439's second scenario).
+			question: 'Who governs the whole continent?',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			context: { kind: 'world', name: universe.name },
+			modelFactory: modelFactoryFor(
+				capturingStreamingModel(
+					'Your canon does not establish who governs the continent yet.',
+					(options) => {
+						captured = options;
+					}
+				)
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		// Guardrail 3's other half (#346): nothing retrieved means nothing cited.
+		expect(result.sources).toEqual([]);
+		// Guardrail 7: a model that actually follows the instruction below refuses honestly
+		// rather than inventing a ruler - `result.answer` is what the reader sees, not only
+		// what the prompt told the model to do.
+		expect(result.answer).toBe('Your canon does not establish who governs the continent yet.');
+		expect(result.generated).toBe(true);
+
+		const system = systemPromptOf(captured!);
+		expect(system).toContain('no sources at all');
+		expect(system).toContain('never answer from general knowledge');
+
+		const user = userPromptOf(captured!);
+		expect(user).toContain(`The GM is looking at the world "${universe.name}".`);
+		expect(user.indexOf('The GM is looking at the world')).toBeLessThan(user.indexOf('Question:'));
+	});
+
 	describe('issue #380, decision R5: prior turns and the GM\u2019s context reach the prompt', () => {
 		it('renders every turn above the question, oldest first, in the role given', async () => {
 			const { owner, universe } = await fixture();

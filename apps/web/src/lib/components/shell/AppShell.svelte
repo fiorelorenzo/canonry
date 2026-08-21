@@ -28,6 +28,7 @@
 	import QuickAsk from '../copilot/QuickAsk.svelte';
 	import PhoneNav from './PhoneNav.svelte';
 	import Sidebar from './Sidebar.svelte';
+	import { shellLayoutState } from './shell-layout-state.svelte';
 	import type { RecentEntity, ShellQuota, UniverseSetupItem, UniverseSummary } from './types';
 
 	let { children }: { children: Snippet } = $props();
@@ -62,6 +63,15 @@
 	// 390px screen, exactly the "two navigation patterns at once" this issue rules
 	// out. Every other signed-in route gets PhoneNav; this one keeps what it has.
 	const isTableMode = $derived(page.route.id === '/w/[universe]/table');
+
+	/** Issue #438, decision T11: the total bottom-of-viewport exclusion zone `main`
+	 * reserves so nothing real ever sits under PhoneNav's bar or QuickAsk's own
+	 * launcher/panel. Both publishers self-zero when their own chrome is not currently
+	 * rendered (`shell-layout-state.svelte.ts`'s own doc comment), including in table
+	 * mode, where neither one mounts at all - so this needs no `isTableMode` check of
+	 * its own to hold E3 = C's "table mode gets no padding" rule; it holds by
+	 * construction. */
+	const dockReserve = $derived(shellLayoutState.phoneNavHeight + shellLayoutState.dockHeight);
 </script>
 
 {#if isPublicWiki || !data.user}
@@ -97,12 +107,16 @@
 					quota={data.shellQuota}
 				/>
 			{/if}
-			<main
-				id="main"
-				class="min-w-0 flex-1 overflow-y-auto p-4 md:p-8"
-				class:pb-20={!isTableMode && !!data.current}
-			>
+			<!-- Issue #438, decision T11: the trailing spacer below, not a wider
+			     `padding-bottom`, so this never has to know or fight the `p-4`/`md:p-8`
+			     already set here - it only ever adds to the scrollable content's own
+			     height, on every route uniformly, the same way `PhoneNav`'s bar and
+			     QuickAsk's launcher/panel already publish what they need reserved. -->
+			<main id="main" class="min-w-0 flex-1 overflow-y-auto p-4 md:p-8">
 				{@render children()}
+				{#if dockReserve > 0}
+					<div aria-hidden="true" style:height="{dockReserve}px"></div>
+				{/if}
 			</main>
 		</div>
 	</div>
