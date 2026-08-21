@@ -457,8 +457,7 @@ export const en: Messages = {
 		notDiscovered: 'Not yet discovered',
 		revealed: 'Revealed',
 		indexTitle: 'Everything the table has touched',
-		indexSubtitle:
-			'If it came up at the table, it is here. A name in grey has been heard but not yet explored.',
+		indexSubtitle: 'What the party has revealed so far, and nothing else.',
 		emptyState: 'Nothing has been said aloud yet.',
 		gapNoticeBefore: 'You have heard the name. Nobody at the table has learned enough about',
 		gapNoticeAfter: (type) => `for this ${type} page to say more; yet.`,
