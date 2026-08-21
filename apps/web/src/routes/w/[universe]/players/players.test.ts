@@ -9,9 +9,11 @@ import { randomUUID } from 'node:crypto';
 import { closeDb, createDb, type Db } from '@canonry/db';
 import {
 	entity,
+	fact,
 	relation,
 	relationType,
 	revelation,
+	revision,
 	universe,
 	universeMember,
 	user
@@ -158,6 +160,35 @@ describe('/w/[universe]/players (issue R11, round thirteen)', () => {
 			.returning({ id: relation.id });
 		if (!rel) throw new Error('relation insert did not return a row');
 
+		// Issue #492: a fact revelation names its own subject (`fact.entity_id`), not a
+		// second entity - `revealed`'s here, so its row is expected to link the same
+		// entry the entity row above does.
+		const [factRevision] = await db
+			.insert(revision)
+			.values({
+				universeId: uni.id,
+				entityId: revealed.id,
+				authorKind: 'human',
+				name: 'Aldric Revealed',
+				body: 'Aldric Revealed owes a debt neither side has mentioned aloud.'
+			})
+			.returning({ id: revision.id });
+		if (!factRevision) throw new Error('revision insert did not return a row');
+
+		const [factRow] = await db
+			.insert(fact)
+			.values({
+				universeId: uni.id,
+				entityId: revealed.id,
+				statement: 'Aldric Revealed owes a debt neither side has mentioned aloud.',
+				sourceRevisionId: factRevision.id,
+				spanStart: 0,
+				spanEnd: 10,
+				authorKind: 'human'
+			})
+			.returning({ id: fact.id });
+		if (!factRow) throw new Error('fact insert did not return a row');
+
 		await db.insert(revelation).values([
 			{
 				universeId: uni.id,
@@ -170,6 +201,13 @@ describe('/w/[universe]/players (issue R11, round thirteen)', () => {
 				universeId: uni.id,
 				kind: 'relation',
 				relationId: rel.id,
+				sessionEntityId: session.id,
+				confirmedAt: new Date()
+			},
+			{
+				universeId: uni.id,
+				kind: 'fact',
+				factId: factRow.id,
 				sessionEntityId: session.id,
 				confirmedAt: new Date()
 			}
@@ -192,16 +230,44 @@ describe('/w/[universe]/players (issue R11, round thirteen)', () => {
 
 	it('shows a member the revealed log with its session, and what is still hidden', async () => {
 		const data = (await loadAs(ownerId)) as {
-			log: Array<{ kind: string; label: string; sessionName: string | null }>;
+			log: Array<{
+				kind: 'entity' | 'fact' | 'relation';
+				sessionName: string | null;
+				label?: string;
+				entity?: { slug: string; name: string; revealed: boolean };
+				relationLabel?: string;
+				from?: { slug: string; name: string; revealed: boolean };
+				to?: { slug: string; name: string; revealed: boolean };
+			}>;
 			hidden: Array<{ name: string }>;
 		};
 
-		expect(data.log).toHaveLength(2);
+		expect(data.log).toHaveLength(3);
 		const entityRow = data.log.find((row) => row.kind === 'entity');
+		const factLogRow = data.log.find((row) => row.kind === 'fact');
 		const relationRow = data.log.find((row) => row.kind === 'relation');
-		expect(entityRow?.label).toBe('Aldric Revealed');
+
+		// #492: the entity row links the entry it names, and its own 'entity'
+		// revelation is exactly what makes `statusBySlug` say 'full', so it also offers
+		// the player's own view of it.
+		expect(entityRow?.entity?.name).toBe('Aldric Revealed');
+		expect(entityRow?.entity?.revealed).toBe(true);
 		expect(entityRow?.sessionName).toBe('The First Session');
-		expect(relationRow?.label).toBe('Aldric Revealed allies with The Other Side');
+
+		// A fact names its own subject (`fact.entity_id`), not a second entity - the
+		// same one the entity row above names, so the same reveal status applies.
+		expect(factLogRow?.label).toBe('Aldric Revealed owes a debt neither side has mentioned aloud.');
+		expect(factLogRow?.entity?.name).toBe('Aldric Revealed');
+		expect(factLogRow?.entity?.revealed).toBe(true);
+
+		// A relation names both sides independently. `other` never got its own 'entity'
+		// revelation, so it stays a gap on the players' wiki even though the relation
+		// naming it is revealed - no player-view link for that half.
+		expect(relationRow?.relationLabel).toBe('allies with');
+		expect(relationRow?.from?.name).toBe('Aldric Revealed');
+		expect(relationRow?.from?.revealed).toBe(true);
+		expect(relationRow?.to?.name).toBe('The Other Side');
+		expect(relationRow?.to?.revealed).toBe(false);
 
 		const hiddenNames = data.hidden.map((row) => row.name);
 		expect(hiddenNames).toContain('The Unfound Vault');
@@ -212,7 +278,7 @@ describe('/w/[universe]/players (issue R11, round thirteen)', () => {
 
 	it('shows a viewer the identical read-only page, not a 404', async () => {
 		const data = (await loadAs(viewerId)) as { log: unknown[]; hidden: unknown[] };
-		expect(data.log).toHaveLength(2);
+		expect(data.log).toHaveLength(3);
 		expect(data.hidden.length).toBeGreaterThan(0);
 	});
 
