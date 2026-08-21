@@ -30,7 +30,7 @@ describe('renderMarkdown mentions', () => {
 			'gm'
 		);
 		expect(html).toContain(
-			'<a href="/w/valdoria-reach/e/the-ashen-ledger" class="mention">The Ashen Ledger</a>'
+			'<a href="/w/valdoria-reach/e/the-ashen-ledger" class="mention" data-entry-slug="the-ashen-ledger">The Ashen Ledger</a>'
 		);
 	});
 
@@ -54,7 +54,7 @@ describe('renderMarkdown mentions', () => {
 			'gm'
 		);
 		expect(html).toContain(
-			'<a href="/w/valdoria-reach/e/the-gilded-rat" class="mention">Il Ratto Dorato</a>'
+			'<a href="/w/valdoria-reach/e/the-gilded-rat" class="mention" data-entry-slug="the-gilded-rat">Il Ratto Dorato</a>'
 		);
 	});
 
@@ -84,7 +84,7 @@ describe('mention hrefs by surface (#159)', () => {
 			'public'
 		);
 		expect(html).toContain(
-			'<a href="/p/valdoria-reach/the-ashen-ledger" class="mention">The Ashen Ledger</a>'
+			'<a href="/p/valdoria-reach/the-ashen-ledger" class="mention" data-entry-slug="the-ashen-ledger">The Ashen Ledger</a>'
 		);
 		expect(html).not.toContain('/w/valdoria-reach/e/the-ashen-ledger');
 	});
@@ -110,7 +110,7 @@ describe('mention hrefs by surface (#159)', () => {
 			'gm'
 		);
 		expect(html).toContain(
-			'<a href="/w/valdoria-reach/e/the-ashen-ledger" class="mention">The Ashen Ledger</a>'
+			'<a href="/w/valdoria-reach/e/the-ashen-ledger" class="mention" data-entry-slug="the-ashen-ledger">The Ashen Ledger</a>'
 		);
 	});
 });

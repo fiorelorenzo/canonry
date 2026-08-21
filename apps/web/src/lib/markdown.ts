@@ -109,7 +109,13 @@ md.renderer.rules.mention = (tokens: Token[], idx: number, _options, env) => {
 			mentionEnv.surface === 'public'
 				? `/p/${universeSlug}/${slug}`
 				: `/w/${universeSlug}/e/${slug}`;
-		return `<a href="${href}" class="mention">${label}</a>`;
+		// `data-entry-slug` (#429, T2 round fifteen): the one marker `MentionPreview.svelte`
+		// keys its trigger anchors off, so a link that names an entity previews wherever it
+		// sits - inside rendered prose here, and on the sidebar's Recents links, which build
+		// the same attribute by hand since they never pass through this renderer at all. The
+		// class stays too, styling only: `EntryProse.svelte`'s `a.mention` rule reads it,
+		// this attribute is the only thing any script reads.
+		return `<a href="${href}" class="mention" data-entry-slug="${slug}">${label}</a>`;
 	}
 	// B2: unresolved stays visibly unresolved rather than a dead link, so nobody reads a
 	// missing entity as if it were confirmed canon. A target excluded from `targets` -

@@ -60,22 +60,6 @@ export function mentionPreviewPath(
 		: `/w/${universe}/preview/${entity}`;
 }
 
-/** The entity slug out of a rendered mention's own href (`/p/<universe>/<slug>` or
- * `/w/<universe>/e/<slug>`), which is where it already sits. Deliberately not a new
- * `data-` attribute on the anchor: `renderMarkdown`'s output stays byte for byte what it
- * was, so the editor's preview pane (#365) renders through an unchanged path and no
- * markup on `/p/**` changes shape because this feature exists. */
-export function mentionSlugFromHref(href: string): string | null {
-	const segments = href.split(/[?#]/, 1)[0]!.split('/');
-	const last = segments[segments.length - 1];
-	if (!last) return null;
-	try {
-		return decodeURIComponent(last);
-	} catch {
-		return null;
-	}
-}
-
 function isPreviewData(value: unknown): value is MentionPreviewData {
 	if (typeof value !== 'object' || value === null) return false;
 	const candidate = value as Record<string, unknown>;
