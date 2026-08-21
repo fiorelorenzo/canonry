@@ -107,16 +107,21 @@
 					quota={data.shellQuota}
 				/>
 			{/if}
-			<!-- Issue #438, decision T11: the trailing spacer below, not a wider
-			     `padding-bottom`, so this never has to know or fight the `p-4`/`md:p-8`
-			     already set here - it only ever adds to the scrollable content's own
-			     height, on every route uniformly, the same way `PhoneNav`'s bar and
-			     QuickAsk's launcher/panel already publish what they need reserved. -->
-			<main id="main" class="min-w-0 flex-1 overflow-y-auto p-4 md:p-8">
+			<!-- Issue #438, decision T11: the reserve is `padding-bottom` on the scroll
+			     container, not a trailing spacer inside it. A spacer only lengthens the
+			     scrollable content, which is enough for a page that ends in prose and not
+			     enough for a child that sizes itself to the container: the editor is a
+			     full-height column since #420, so with a spacer it still stretched under the
+			     dock and the panel sat over the textarea (measured: 59px of overlap at
+			     1440x900). Padding shrinks the content box, so a full-height child shrinks
+			     with it. Composed with the base padding rather than replacing it, because
+			     `p-4`/`md:p-8` are the page's own gutters and this is additional. -->
+			<main
+				id="main"
+				class="min-w-0 flex-1 overflow-y-auto px-4 pt-4 pb-[calc(1rem+var(--dock-reserve,0px))] md:px-8 md:pt-8 md:pb-[calc(2rem+var(--dock-reserve,0px))]"
+				style:--dock-reserve="{dockReserve}px"
+			>
 				{@render children()}
-				{#if dockReserve > 0}
-					<div aria-hidden="true" style:height="{dockReserve}px"></div>
-				{/if}
 			</main>
 		</div>
 	</div>

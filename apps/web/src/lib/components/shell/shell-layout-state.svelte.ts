@@ -42,11 +42,17 @@ export const shellLayoutState = $state({
  */
 export function measureDockElement(node: HTMLElement, onHeight: (heightPx: number) => void) {
 	function recompute() {
-		if (node.offsetParent === null) {
+		// Not `offsetParent === null`: a `position: fixed` element has no offset parent by
+		// specification, so that test called every element this action exists to measure
+		// hidden, `dockHeight` stayed 0 on every route, and the reserve reserved nothing.
+		// Measured before the fix: the open panel still sat 59px over the editor's
+		// textarea. A zero-height rect is what actually distinguishes "hidden at this
+		// breakpoint" from "rendered", since `display: none` collapses the box.
+		const rect = node.getBoundingClientRect();
+		if (rect.height === 0 || rect.width === 0) {
 			onHeight(0);
 			return;
 		}
-		const rect = node.getBoundingClientRect();
 		onHeight(Math.max(0, window.innerHeight - rect.top));
 	}
 
