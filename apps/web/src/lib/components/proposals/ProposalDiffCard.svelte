@@ -81,10 +81,15 @@
 		 * not blocking the queue (see ProposalQueue's handler). */
 		showRejectChips?: boolean;
 		locale: Locale;
-		onAccept: () => void;
-		onReject: () => void;
-		onRejectReason: (reason: string) => void;
-		onUndo: () => void;
+		/** Issue #453: all four are absent on the read-only settled-proposal page
+		 * (`review/[proposal]/+page.svelte`), reached from a revision's own history link -
+		 * guardrail 3 wants that proposal's evidence readable there, not a second decision
+		 * surface days after the first one already settled it. Every existing caller
+		 * (`ProposalQueue`, `InlineProposalReview`) still passes all four. */
+		onAccept?: () => void;
+		onReject?: () => void;
+		onRejectReason?: (reason: string) => void;
+		onUndo?: () => void;
 	} = $props();
 
 	let t = $derived(messages(locale).proposals);
@@ -376,7 +381,7 @@
 		</div>
 	{/if}
 
-	{#if candidate.outcome === 'pending'}
+	{#if candidate.outcome === 'pending' && onAccept && onReject}
 		<!-- Issue #148 (I10 = B): C6's keyboard queue (j/k/a/r/u) doesn't reach a
 		     phone, so below `sm` these are the primary way to decide - full width,
 		     44px minimum, side by side rather than the compact auto-width pair a
@@ -397,13 +402,13 @@
 				{t.diffCard.reject}
 			</button>
 		</div>
-	{:else if candidate.outcome === 'accepted'}
+	{:else if candidate.outcome === 'accepted' && onUndo}
 		<button type="button" class="text-xs text-muted underline hover:text-ink-2" onclick={onUndo}>
 			{t.diffCard.undo}
 		</button>
 	{/if}
 
-	{#if showRejectChips}
+	{#if showRejectChips && onRejectReason}
 		<div class="mt-3 border-t border-line pt-3">
 			<RejectChips onPick={onRejectReason} {locale} />
 		</div>

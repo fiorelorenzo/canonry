@@ -584,7 +584,8 @@ export const en: Messages = {
 			empty: 'No revisions yet.',
 			explanation: 'A revision appears once an edit to this entry is saved and accepted.',
 			revisionHuman: 'human',
-			revisionAiAccepted: 'ai \u00b7 accepted'
+			revisionAiAccepted: 'ai \u00b7 accepted',
+			proposalLink: 'View the proposal'
 		},
 
 		audit: {
@@ -714,6 +715,7 @@ export const en: Messages = {
 				badge: 'Cover',
 				useLabel: 'Use as cover',
 				removeLabel: 'Remove as cover',
+				replaceLabel: 'Replace cover',
 				saving: 'Saving\u2026',
 				explanation:
 					'A cover shows above the title of this entry. Players see it once the entry is revealed, unless it is marked Solo GM - the same rule as any other image here.',

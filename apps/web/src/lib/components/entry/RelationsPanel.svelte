@@ -36,6 +36,7 @@
 				</span>
 				<a
 					href={resolve(`/w/${universeSlug}/e/${relation.other.slug}`)}
+					data-entry-slug={relation.other.slug}
 					class="ml-1 text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
 				>
 					{relation.other.name}
