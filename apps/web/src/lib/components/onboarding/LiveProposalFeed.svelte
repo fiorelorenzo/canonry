@@ -5,12 +5,18 @@
 	 * accept button inline on this exact row, so that is what this component does - the
 	 * full multi-proposal queue (D4) is a separate surface (ReviewSurfaces' review link),
 	 * not this one.
+	 *
+	 * V9 (round seventeen, #501): the row's own accept button turning into a settled
+	 * badge is exactly "a state that changed" (docs/ux/MOTION.md), so the badge fades in
+	 * on the fade token rather than replacing the button in place, and the mark inside
+	 * it draws itself on the move token (`AcceptMark`) rather than appearing whole.
 	 */
 	import { enhance } from '$app/forms';
 	import { messages, type Locale } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
+	import { AcceptMark } from '$lib/components/ui/accept-mark';
 	import { proposalBadge, proposalDisplayName, type ProposalSummary } from './proposalView';
 
 	let { proposals, locale }: { proposals: ProposalSummary[]; locale: Locale } = $props();
@@ -60,7 +66,10 @@
 						</Button>
 					</form>
 				{:else if proposal.outcome === 'accepted'}
-					<Badge variant="ok" class="shrink-0">{t.accepted}</Badge>
+					<Badge variant="ok" class="shrink-0 animate-in gap-1 duration-fade ease-arrive fade-in-0">
+						<AcceptMark data-icon="inline-start" />
+						{t.accepted}
+					</Badge>
 				{:else}
 					<span class="shrink-0 text-xs text-muted">{t.outcome[proposal.outcome]}</span>
 				{/if}

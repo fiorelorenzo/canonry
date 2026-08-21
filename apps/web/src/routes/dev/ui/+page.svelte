@@ -25,6 +25,7 @@
 	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { KeyHint, type KeyHintPair } from '$lib/components/ui/key-hint';
+	import { AcceptMark } from '$lib/components/ui/accept-mark';
 
 	const panes = [
 		{ theme: 'light', label: 'Light palette' },
@@ -101,6 +102,10 @@
 		{ name: '--ease-leave', note: 'cubic-bezier(0.4, 0, 1, 1)' }
 	];
 	let motionRun = $state<Record<string, number>>({ light: 0, dark: 0 });
+	// V9 (round seventeen, #501): three rows, the same recipe `EntryTable.svelte` builds
+	// its own cascade on (docs/ux/MOTION.md, "Cascading a list") - indices, not ids,
+	// since this row has nothing to key a remount off except the Replay button above.
+	const cascadeDemoRows = [0, 1, 2];
 	function replay(theme: string): void {
 		motionRun[theme] = (motionRun[theme] ?? 0) + 1;
 	}
@@ -412,12 +417,15 @@
 						</p>
 					</div>
 
-					<!-- Issue #367 (Q6): the motion system's own row. The four tokens with the
-				     values they resolve to, and a box that replays the one enter animation
-				     every surface in the app uses. This is the surface to point CDP's
-				     `Emulation.setEmulatedMedia` at: with `prefers-reduced-motion: reduce`
-				     the box still appears and still fades, and stops sliding. -->
-					<h3 class="mt-6 mb-2 text-sm font-semibold text-ink">Motion tokens (Q6)</h3>
+					<!-- Issue #367 (Q6), widened by V9 (round seventeen, #501): the motion system's
+				     own row. The four tokens with the values they resolve to, and three
+				     replayable demos - the shared enter animation, the list-arrival cascade
+				     (docs/ux/MOTION.md, "Cascading a list"), and the accept mark drawing itself
+				     (`AcceptMark`) - all under one Replay button. This is the surface to point
+				     CDP's `Emulation.setEmulatedMedia` at: with `prefers-reduced-motion: reduce`
+				     every box below still appears, the cascade's three rows land together
+				     rather than in sequence, and the mark appears whole rather than drawing. -->
+					<h3 class="mt-6 mb-2 text-sm font-semibold text-ink">Motion tokens (Q6, V9)</h3>
 					<div class="flex flex-col gap-3 rounded border border-line bg-panel p-4">
 						<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 font-mono text-xs">
 							{#each motionTokens as token (token.name)}
@@ -442,9 +450,45 @@
 								</span>
 							{/key}
 						</div>
+						<div class="flex flex-wrap items-center gap-4 border-t border-line pt-3">
+							{#key motionRun[pane.theme]}
+								<ul class="flex flex-col gap-1">
+									{#each cascadeDemoRows as row (row)}
+										<li
+											class="motion-demo-row rounded border border-line-2 bg-panel-2 px-2 py-0.5 text-xs text-ink-2"
+											style={`animation-delay: ${row * 40}ms`}
+										>
+											cascade row {row + 1}
+										</li>
+									{/each}
+								</ul>
+								<span
+									class="inline-flex items-center gap-1 rounded-full bg-ok-bg px-2 py-0.5 text-xs text-ok"
+								>
+									<AcceptMark class="size-3.5" />
+									accept mark, drawing
+								</span>
+							{/key}
+						</div>
 					</div>
 				</section>
 			{/each}
 		</PageBody>
 	</svelte:element>
 </Tooltip.Provider>
+
+<style>
+	/* V9 (round seventeen, #501): the same recipe as `EntryTable.svelte`'s own cascade -
+	   see this file's doc comment on the block above and docs/ux/MOTION.md's "Cascading a
+	   list" for why it is opacity-only and why the token is duration-fade rather than
+	   duration-move. */
+	.motion-demo-row {
+		animation: motion-demo-row-arrive var(--transition-duration-fade) var(--ease-arrive) both;
+	}
+
+	@keyframes motion-demo-row-arrive {
+		from {
+			opacity: 0;
+		}
+	}
+</style>

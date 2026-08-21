@@ -86,7 +86,12 @@
 	// C2 = A: a quiet, persistent nav badge. Entries carries the same real count it always
 	// has; Proposals now reads a real pending-proposal count too (#47/#51 land the table
 	// and the review surface), zero when the inbox is empty rather than hidden - a settled
-	// day should visibly say so, not just omit the number.
+	// day should visibly say so, not just omit the number. V9 (round seventeen, #501): this
+	// aside stays mounted across a navigation (A2's fixed sidebar), so when the count the
+	// layout load re-reads actually differs from the one already on screen, the badge below
+	// crossfades to the new number instead of snapping - `{#key}` remounts the span, which is
+	// what makes the fade token's own enter animation run again for a value that just changed
+	// rather than one that is merely rendering for the first time.
 	const counts: Partial<Record<(typeof NAV_ITEMS)[number]['id'], number>> = $derived({
 		entries: entryCount,
 		proposals: proposalsPending
@@ -136,12 +141,14 @@
 						>
 							<span>{t.nav[item.id]}</span>
 							{#if counts[item.id] !== undefined}
-								<span
-									class="rounded-full bg-panel-2 px-1.5 py-0.5 text-xs text-muted"
-									class:bg-accent-bg={active}
-								>
-									{counts[item.id]}
-								</span>
+								{#key counts[item.id]}
+									<span
+										class="animate-in rounded-full bg-panel-2 px-1.5 py-0.5 text-xs text-muted duration-fade ease-arrive fade-in-0"
+										class:bg-accent-bg={active}
+									>
+										{counts[item.id]}
+									</span>
+								{/key}
 							{/if}
 						</a>
 					</li>
