@@ -1738,3 +1738,160 @@ follow-up that only resolves if the history arrived.
 
 Epic [#427](https://github.com/fiorelorenzo/canonry/issues/427), one issue per decision. T10
 owns the migration slot, and T7 to T12 land as one change because they are the same two files.
+
+## Round sixteen, decided 2026-08-20
+
+Twelve, and the one to read first is U10, because it ends an argument that has now cost three
+rounds. S9 took C1's mark off an Ask answer. T4 took it off the proposal card. U10 takes the
+hue out of the product: the tokens go, and the mark keeps the shape C1's own reasoning always
+said was doing the work. Three rounds of "the violet does not belong here" is the product
+telling us the hue was never the carrier.
+
+The rest is one redesign, two settings, and eight defects, four of which are mine from
+tonight.
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| U1 | The relation catalogue page is unwatchable. | **A page with a shape**, inside the settings shell, with the ten shipped labels readable and the GM's own types the subject |
+| U2 | The Loremaster's voice is a textarea, next to a style catalogue with pictures. | **Narration presets on the image styles' own pattern**, plus a custom voice |
+| U3 | A new universe caps propagation at 25. | **No limit by default.** A world that already chose a number keeps it |
+| U4 | The view control sits under the title's icon buttons, and its sentence is printed twice. | **Same row as the icon buttons, and the sentence is said once** |
+| U5 | The aside's entry links do not preview, and it has its own scrollbar. | **They preview, and the page keeps the only scrollbar** |
+| U6 | A cover can be set from the gallery and never changed from where it is shown. | **Changed where it is shown** |
+| U7 | The history is a list of rows nobody can read, and a settled proposal is unreachable. | **A readable list, and each revision links to the proposal behind it** |
+| U8 | The editor shows a view control while you are writing. | **Only in preview** |
+| U9 | The evidence popover is violet and its trigger says `Prova`. | **No hue, and a trigger that says what it opens** |
+| U10 | The copilot's hue keeps turning up where it does not belong. | **The tokens are deleted.** C1's mark keeps its dashed underline and its marker, hue-less |
+| U11 | The Ask page is a question box with one answer under it. | **A conversation**, the shape ai-game's loremaster page proved |
+| U12 | The entries search needs Enter, and offers three controls for two jobs. | **Filters as you type, with one clear** |
+
+### U1, and what a catalogue page is for
+
+The page is a back link, a header, and two tables: ten shipped rows with six columns each, then
+the GM's own types with four action links per row. Every row of the shipped table carries a `DI
+SERIE` badge saying what its own section already said, `cardinalità` reads `molti a molti` in a
+column of its own, and the two entity-type columns wrap into two lines each. It is a schema
+dump, and the GM's own types, the only part they can act on, are below the fold under it.
+
+What that page is for: seeing what a relation between two entries can be called, and renaming
+the ones this world made up. So the GM's own types come first and get the room, each row
+carrying its label, its inverse and what it connects in one line of prose rather than four
+columns. The ten shipped labels stay, below, as reference rather than as the subject: one line
+each, no badge repeating the heading, and the cardinality said in words where it matters rather
+than in a column that is `molti a molti` nine times out of ten.
+
+It also moves inside the settings shell (#421) as the Canon group's own page, because a page
+reached from Settings that does not look like Settings is a page you have to find twice.
+
+### U2, and the pattern that already worked
+
+S2 replaced a name and a prompt with six pictures, and the difference in how usable that
+setting became is the argument for doing the same to the voice. A voice is harder to show than
+a style, but it is not harder to name: a preset carries a name, a sentence describing how it
+reads, and the prompt clause behind it, and instead of an example image it can carry an example
+**sentence** rendered in that voice, which is exactly as informative and costs nothing to ship.
+
+So `narration_style` follows `image_style`'s shape: shipped presets with a slug, a description
+and an example line, a nullable universe id for the one custom row a world can write, and a
+pointer from the universe. `loremaster_description` stops being the setting and becomes what
+the custom row holds, so nothing already written is lost.
+
+### U3, and a default that was arithmetic rather than taste
+
+25 came from real arithmetic (`schema/universe.ts` has it: one plan is 1 credit plus 1 per
+surviving candidate, so 25 bounds a save's worst case at 26 credits, 0.52% of an included
+period). The arithmetic is still right and the default is still wrong, because it silently
+truncates the propagation of a well-connected entry in the world's most interesting moment, and
+the GM never learns what was dropped. Guardrail 7 is the reason this matters: a product that
+says "here is what does not add up" must not quietly stop looking at 25.
+
+New universes get no limit. **A universe that already carries 25 keeps it**, because that
+number may have been chosen, and a migration cannot tell a default from a decision. The
+settings copy has to say what no limit means for spend, since G11 says the product confirms
+before it spends and this is the setting that decides how much one save can cost.
+
+### U4, U5, U6, U7, U8, U9: eight defects, and four of them are mine
+
+**U4.** The view control is on its own row under two icon buttons that now sit beside the
+title, which wastes a row and puts the least consequential control in the most prominent
+position again. It joins them on the title's row. And the sentence under it is printed twice,
+which is my fault precisely: resolving the conflict between #444 (which lifted the control onto
+the page) and #445 (which lifted it onto the editor's toolbar) I kept #445's `{:else}` branch,
+which prints the sentence when the component does not own the control, while #444's page prints
+it too. Whoever renders the control renders the sentence, once.
+
+**U5.** #442 made the mention preview follow any link carrying `data-entry-slug` and wired the
+sidebar's Recents. The aside's own relation links name entries too and never got the attribute.
+They get it. And the aside has `overflow-y-auto` with its own `max-h`, so a long page has two
+scrollbars side by side and the wheel does different things depending on which column the
+pointer is over. The page keeps the only scrollbar; the aside scrolls with it.
+
+**U6.** A cover can be set in the gallery and, once set, the only way to change it is to find
+the gallery again. It gets an affordance where it is: hovering or focusing the cover offers
+replace and remove, which is the same shape the placeholder already uses to offer upload or
+generate.
+
+**U7.** The history section lists revisions with no hierarchy, and a proposal that has been
+accepted or rejected cannot be read anywhere afterwards. Guardrail 3 is about a proposal showing
+its evidence, and a proposal nobody can find again shows nothing: each revision that came from
+a proposal links to it, and a settled proposal is readable rather than gone.
+
+**U8.** The editor shows the view control while you are writing, where there is nothing to
+preview. It appears in preview mode only.
+
+**U9.** The evidence popover, the thing guardrail 3 exists for, is drawn in the copilot's hue
+behind a trigger that says `Prova`. `Prova` is what the word means in the code, not what the
+reader needs: the trigger says what it opens, which is why the model thinks this sentence
+belongs, and the popover reads as evidence rather than as a debug panel.
+
+### U10, and taking the hue out rather than moving it again
+
+Round eleven P1 measured this mulberry carefully and it has been rejected on three surfaces in
+three rounds. The measurement was not wrong; the premise was. C1 = B's own entry says it: "C1's
+shape signals, the dashed underline and the numbered marker, stay the primary carrier and the
+wash is only ever support." A support that keeps drawing attention to itself in the wrong places
+is not support.
+
+So `--color-ai`, `--color-ai-bg` and `--color-ai-line` are deleted from `layout.css`, and every
+site that used them takes the hue-less treatment: the mark keeps its dashed underline and its
+numbered marker in the diff's own `--color-diff-line`, which is a value signal rather than a
+hue, exactly as P3 chose for the diff. **Guardrail 2 is unaffected in substance**: AI text
+nobody has accepted is still unmissable inside canon prose, by shape, and the deletion is
+checkable rather than a matter of taste, because a `grep` for the tokens must come back empty.
+
+The thirteen call sites are not all C1's mark: some are chrome around AI output (the quota
+meter, the world pulse, the argument pane, a badge in the media gallery). Those simply stop
+being tinted. Only the mark itself needs a replacement, and it already had one.
+
+### U11, and the page the dock has outgrown
+
+The Ask page is still a question box with five detail levels, one answer, and a keep card that
+T10 already deleted from the dock. Meanwhile the dock holds a real conversation and every turn
+is kept with a conversation id. The page is now the smaller surface, which is backwards: it is
+the one with room.
+
+It becomes a conversation, on the shape ai-game's own loremaster page proved: the turns as a
+message list, the GM's question right-aligned and the answer as prose with its sources under
+it, the composer at the bottom, the empty state offering questions rather than an empty box.
+Opening a turn from the dock lands in the conversation it belongs to rather than in a page
+showing one answer, and `ask/kept` stops being a second list of the same thing.
+
+The detail levels stay, because C8 chose five and the page is where they live; they belong
+beside the composer rather than under the answer.
+
+### U12, and a search box with three controls
+
+`type="search"` gives the field the browser's own clear cross, #398 added a magnifier submit
+and a `Cancella ricerca` link beside it, so there are three affordances for two jobs and the
+cross is drawn by Chrome in a style nothing else on the page uses. The field filters as you
+type, debounced, updating the URL so the result stays linkable and the back button still works;
+the submit goes, since there is nothing left to submit; and the clear is one control in the
+product's own shape.
+
+What must not change is that it still works with no JavaScript, which is why #398 built it as a
+form: the form stays, with the debounce as an enhancement over it rather than a replacement.
+
+### Where round sixteen lands
+
+Epic [#449](https://github.com/fiorelorenzo/canonry/issues/449), one issue per decision. U2 and
+U3 land together because they are one migration.
