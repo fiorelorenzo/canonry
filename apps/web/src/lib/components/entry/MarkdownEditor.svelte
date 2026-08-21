@@ -151,12 +151,14 @@
 	// T6, round fifteen (#433): the GM/player view used to live inside
 	// `EntryProseWithSecrets`'s own box, a second switch two centimetres under this
 	// one. It belongs here instead - it decides who the preview is for, not anything
-	// about writing - so this component now owns the state and passes it down as a
-	// bindable prop; `EntryProseWithSecrets` still derives `playerPreview` and the
-	// description line under its box from it, unchanged. Always rendered alongside
-	// the write/preview switch, in both modes, rather than only while previewing:
-	// showing it only in preview mode would change this bar's own height between the
-	// two modes, which is the jump R9 already spent a round fixing.
+	// about writing - so this component owns the state and passes it down as a
+	// bindable prop; `EntryProseWithSecrets` still derives `playerPreview` from it,
+	// unchanged. U8, round sixteen (#452), amends where it shows: there is nothing to
+	// preview while writing, so the control (and the one-line sentence saying which
+	// view is showing - this component owns that too now, see the preview box below)
+	// draw only in preview mode. The bar's own height is allowed to differ between
+	// write and preview now; that trade is U8's, not R9's box-height contract, which
+	// is unaffected.
 	let proseView = $state<'gm' | 'player'>('gm');
 	let proseViewOptions = $derived<SegmentedOption[]>([
 		{ value: 'gm', label: t.entry.prose.gmView },
@@ -314,13 +316,12 @@
 			imageInsertEnabled={!!imageInsert}
 			disabled={showPreview}
 		/>
-		{#if preview}
-			<!-- T6, round fifteen (#433): the GM/player view, lifted out of
-			     `EntryProseWithSecrets`'s own box onto this row - it belongs beside the
-			     switch that picks the surface it governs, not above the text inside one of
-			     the two surfaces. Rendered in both modes (see `proseView`'s own comment
-			     above) so flipping the write/preview switch next to it never resizes this
-			     bar. -->
+		{#if preview && showPreview}
+			<!-- U8, round sixteen (#452): the GM/player view control now draws only while
+			     the preview itself is showing - there is nothing to preview while writing,
+			     so a control that only affects the preview has no reason to occupy this
+			     row in write mode. It still sits beside the write/preview switch below,
+			     the one that governs whether it is shown at all. -->
 			<Segmented
 				name="editor-view-gm"
 				bind:value={proseView}
@@ -328,6 +329,8 @@
 				ariaLabel={t.entry.prose.viewAriaLabel}
 				class="shrink-0"
 			/>
+		{/if}
+		{#if preview}
 			<!-- O4 = B: a binary state gets a segmented control, and this one is a view
 			     switch rather than a field, so it deliberately sits outside the entry
 			     form (see the edit route's own comment) and posts nothing. -->
@@ -400,6 +403,18 @@
 			role="region"
 			aria-label={t.entry.editor.view.previewAriaLabel}
 		>
+			<!-- U4/U8, round sixteen (#452): this component draws the GM/player control
+			     above (the toolbar row), so this component prints the one-line sentence
+			     for it too - `EntryProseWithSecrets.svelte`'s `showViewControl` doc
+			     comment has the rule. It goes here, at the top of this box, rather than
+			     inside `EntryProseWithSecrets` (`showViewControl={false}` below keeps
+			     that component from ever drawing its own copy) - guardrail 5 needs the
+			     sentence once in this surface, not zero and not twice again. -->
+			<p class="mb-3 text-xs text-muted">
+				{proseView === 'player'
+					? t.entry.prose.playerPreviewActive
+					: t.entry.prose.gmViewDescription}
+			</p>
 			{#if value.trim()}
 				<EntryProseWithSecrets
 					body={value}
