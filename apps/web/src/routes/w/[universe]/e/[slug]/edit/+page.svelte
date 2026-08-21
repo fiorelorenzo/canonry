@@ -55,7 +55,7 @@
      defined height, and `MarkdownEditor`'s `fill` below needs an unbroken `h-full`
      chain from `main` down to itself to occupy the remaining viewport height. Still
      exactly one of the three named widths, just not routed through the component. -->
-<div class="max-w-working mx-auto flex h-full w-full flex-col px-6 py-8">
+<div class="mx-auto flex h-full w-full max-w-working flex-col px-6 py-8">
 	<p class="mb-1 shrink-0 text-xs text-muted">
 		<a class="hover:underline" href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}`)}
 			>{data.entity.name}</a

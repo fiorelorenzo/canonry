@@ -29,9 +29,9 @@
 </script>
 
 {#if width === 'reading'}
-	<div class="max-w-reading mx-auto w-full">{@render children()}</div>
+	<div class="mx-auto w-full max-w-reading">{@render children()}</div>
 {:else if width === 'working'}
-	<div class="max-w-working mx-auto w-full">{@render children()}</div>
+	<div class="mx-auto w-full max-w-working">{@render children()}</div>
 {:else}
 	<div class="w-full">{@render children()}</div>
 {/if}

@@ -61,7 +61,9 @@
 							<div class="min-w-0">
 								<p class="font-medium text-ink">{t.inbox.importFrom(job.playbook)}</p>
 								<p class="text-xs text-muted">
-									{t.inbox.importSummary(job.total, job.pending)} &middot; {formatWhen(job.createdAt)}
+									{t.inbox.importSummary(job.total, job.pending)} &middot; {formatWhen(
+										job.createdAt
+									)}
 								</p>
 							</div>
 							<span class="flex-none rounded-md border border-line-2 px-2 py-1 text-xs text-ink-2">

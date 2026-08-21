@@ -23,7 +23,6 @@
 	<title>{t.appearance.title}: Canonry</title>
 </svelte:head>
 
-
 <form
 	method="POST"
 	class="mt-6 flex flex-col gap-3"

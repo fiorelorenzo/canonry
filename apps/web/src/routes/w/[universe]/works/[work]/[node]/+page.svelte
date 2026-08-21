@@ -55,7 +55,7 @@
      the shared `PageBody` wrapper - this row sits inside `[work]/+layout.svelte`'s own
      tree pane already, and the "Uses" aside beside it is a fixed-width secondary panel
      the same way the tree is, not body content the width system should cap. -->
-<div class="max-w-working mx-auto flex w-full min-w-0">
+<div class="mx-auto flex w-full max-w-working min-w-0">
 	<article class="min-w-0 flex-1 px-6 py-8">
 		<p class="mb-3 text-xs text-muted">
 			<a class="hover:underline" href={resolve(`/w/${data.current.slug}/works/${data.work.slug}`)}

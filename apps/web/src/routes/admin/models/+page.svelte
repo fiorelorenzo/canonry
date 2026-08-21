@@ -63,248 +63,250 @@
 <PageHeader title={t.models.textHeading} />
 <PageBody width="wide">
 	<div class="px-8 py-10">
-	<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
-	<p class="mt-6 max-w-measure text-sm text-ink-2">{@html t.models.textIntro1}</p>
-	<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
-	<p class="mt-2 max-w-measure text-sm text-ink-2">{@html t.models.textIntro2}</p>
-
-	<div class="mt-8 overflow-x-auto rounded-lg border border-line">
-		<table class="w-full border-collapse text-sm">
-			<thead>
-				<tr
-					class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
-				>
-					<th class="px-3 py-2 font-normal">{t.models.table.purpose}</th>
-					<th class="px-3 py-2 font-normal">{t.models.table.currentlyActive}</th>
-					<th class="px-3 py-2 font-normal">{t.models.table.provider}</th>
-					<th class="px-3 py-2 font-normal">{t.models.table.modelId}</th>
-					<th class="px-3 py-2 font-normal"
-						><span class="sr-only">{t.models.table.actions}</span></th
-					>
-				</tr>
-			</thead>
-			<tbody class="divide-y divide-line">
-				{#each data.textModels as row (row.purpose)}
-					{@const forThisRow = form && fieldOf(form, 'purpose') === row.purpose ? form : null}
-					{@const errorHere = forThisRow
-						? (fieldOf(forThisRow, 'error') as string | undefined)
-						: undefined}
-					{@const savedHere = forThisRow
-						? (fieldOf(forThisRow, 'saved') as boolean | undefined)
-						: undefined}
-					{@const activeProviderKnown =
-						!!row.active &&
-						(data.knownProviders as readonly string[]).includes(row.active.provider)}
-					{@const providerValue =
-						(errorHere ? (fieldOf(forThisRow, 'provider') as string | undefined) : undefined) ??
-						(activeProviderKnown ? row.active?.provider : undefined)}
-					{@const modelIdValue =
-						(errorHere ? (fieldOf(forThisRow, 'modelId') as string | undefined) : undefined) ??
-						row.active?.modelId ??
-						''}
-					{@const providerId = `text-provider-${row.purpose}`}
-					{@const modelIdId = `text-modelId-${row.purpose}`}
-					<tr class="bg-panel align-top">
-						<td class="px-3 py-3 text-ink">
-							{t.models.purposeLabel[row.purpose as keyof typeof t.models.purposeLabel] ??
-								row.purpose}
-						</td>
-						<td class="px-3 py-3 text-xs">
-							{#if row.active}
-								<div class="font-mono text-ink">
-									{row.active.provider} / {row.active.modelId}
-								</div>
-								<div class="mt-1 text-muted">{activeDateFormat.format(row.active.updatedAt)}</div>
-								{#if !activeProviderKnown}
-									<div class="mt-1 text-danger">
-										{t.models.table.providerUnknown(row.active.provider)}
-									</div>
-								{/if}
-							{:else}
-								<span class="text-muted">{t.models.table.notConfigured}</span>
-							{/if}
-						</td>
-						<td colspan="2" class="px-3 py-3">
-							<form
-								method="POST"
-								action="?/text"
-								class="flex flex-wrap items-center gap-2"
-								use:enhance={() => {
-									saving = { ...saving, [row.purpose]: true };
-									return async ({ update }) => {
-										await update();
-										saving = { ...saving, [row.purpose]: false };
-									};
-								}}
-							>
-								<input type="hidden" name="purpose" value={row.purpose} />
-								<div class="flex flex-col gap-1">
-									<Label class="sr-only" for={providerId}>{t.models.table.provider}</Label>
-									<ProviderSelect
-										id={providerId}
-										providers={data.knownProviders}
-										value={providerValue}
-										invalid={!!errorHere}
-									/>
-								</div>
-								<div class="flex flex-col gap-1">
-									<Label class="sr-only" for={modelIdId}>{t.models.table.modelId}</Label>
-									<Input
-										id={modelIdId}
-										name="modelId"
-										value={modelIdValue}
-										class="w-64 font-mono text-xs {errorHere ? 'border-danger' : ''}"
-									/>
-								</div>
-								<Button type="submit" size="sm" disabled={saving[row.purpose]}>
-									{saving[row.purpose] ? t.saving : t.save}
-								</Button>
-								{#if errorHere}
-									<p class="w-full text-xs text-danger">{errorHere}</p>
-								{:else if savedHere}
-									<p class="w-full text-xs text-ok">{t.models.saved}</p>
-								{/if}
-							</form>
-						</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
-
-	<h2 class="mt-12 text-2xl font-semibold text-ink">{t.models.imageHeading}</h2>
-	<p class="mt-2 max-w-measure text-sm text-ink-2">{t.models.imageIntro1}</p>
-	<p class="mt-2 max-w-measure text-sm text-ink-2">
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
-		{@html t.models.imageIntro2Pre}
-		<a href={resolve('/admin/pricing')} class="text-accent-ink hover:underline">{t.pricing.title}</a
-		>.
-	</p>
+		<p class="mt-6 max-w-measure text-sm text-ink-2">{@html t.models.textIntro1}</p>
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
+		<p class="mt-2 max-w-measure text-sm text-ink-2">{@html t.models.textIntro2}</p>
 
-	<div class="mt-8 overflow-x-auto rounded-lg border border-line">
-		<table class="w-full border-collapse text-sm">
-			<thead>
-				<tr
-					class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
-				>
-					<th class="px-3 py-2 font-normal">{t.models.imageTable.feature}</th>
-					<th class="px-3 py-2 font-normal">{t.models.table.provider}</th>
-					<th class="px-3 py-2 font-normal">{t.models.table.modelId}</th>
-					<th class="px-3 py-2 font-normal">{t.models.imageTable.pricePerImage}</th>
-					<th class="px-3 py-2 font-normal"
-						><span class="sr-only">{t.models.imageTable.actions}</span></th
+		<div class="mt-8 overflow-x-auto rounded-lg border border-line">
+			<table class="w-full border-collapse text-sm">
+				<thead>
+					<tr
+						class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
 					>
-				</tr>
-			</thead>
-			<tbody class="divide-y divide-line">
-				{#each data.images as model (model.id)}
-					{@const forThisRow = form && fieldOf(form, 'feature') === model.feature ? form : null}
-					{@const errorHere = forThisRow
-						? (fieldOf(forThisRow, 'error') as string | undefined)
-						: undefined}
-					{@const savedHere = forThisRow
-						? (fieldOf(forThisRow, 'saved') as boolean | undefined)
-						: undefined}
-					{@const providerValue =
-						(errorHere ? (fieldOf(forThisRow, 'provider') as string | undefined) : undefined) ??
-						model.provider}
-					{@const modelIdValue =
-						(errorHere ? (fieldOf(forThisRow, 'modelId') as string | undefined) : undefined) ??
-						model.modelId}
-					{@const priceValue =
-						(errorHere
-							? (fieldOf(forThisRow, 'pricePerImage') as string | undefined)
-							: undefined) ?? paramsPricePerImage(model.params)}
-					{@const currencyValue =
-						(errorHere ? (fieldOf(forThisRow, 'currency') as string | undefined) : undefined) ??
-						paramsCurrency(model.params)}
-					{@const providerId = `provider-${model.feature}`}
-					{@const modelIdId = `modelId-${model.feature}`}
-					{@const priceId = `price-${model.feature}`}
-					{@const currencyId = `currency-${model.feature}`}
-					<tr class="bg-panel align-top">
-						<td class="px-3 py-3 text-ink">
-							{t.models.featureLabel[model.feature as keyof typeof t.models.featureLabel]}
-							<div class="text-xs text-muted">
-								{model.active ? t.models.imageTable.active : t.models.imageTable.inactive}
-							</div>
-							<div class="text-xs text-muted">
-								{t.models.imageTable.aspectRatio}:
-								<span class="font-mono"
-									>{paramsAspectRatio(model.params) ?? t.models.imageTable.aspectRatioNotSet}</span
+						<th class="px-3 py-2 font-normal">{t.models.table.purpose}</th>
+						<th class="px-3 py-2 font-normal">{t.models.table.currentlyActive}</th>
+						<th class="px-3 py-2 font-normal">{t.models.table.provider}</th>
+						<th class="px-3 py-2 font-normal">{t.models.table.modelId}</th>
+						<th class="px-3 py-2 font-normal"
+							><span class="sr-only">{t.models.table.actions}</span></th
+						>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-line">
+					{#each data.textModels as row (row.purpose)}
+						{@const forThisRow = form && fieldOf(form, 'purpose') === row.purpose ? form : null}
+						{@const errorHere = forThisRow
+							? (fieldOf(forThisRow, 'error') as string | undefined)
+							: undefined}
+						{@const savedHere = forThisRow
+							? (fieldOf(forThisRow, 'saved') as boolean | undefined)
+							: undefined}
+						{@const activeProviderKnown =
+							!!row.active &&
+							(data.knownProviders as readonly string[]).includes(row.active.provider)}
+						{@const providerValue =
+							(errorHere ? (fieldOf(forThisRow, 'provider') as string | undefined) : undefined) ??
+							(activeProviderKnown ? row.active?.provider : undefined)}
+						{@const modelIdValue =
+							(errorHere ? (fieldOf(forThisRow, 'modelId') as string | undefined) : undefined) ??
+							row.active?.modelId ??
+							''}
+						{@const providerId = `text-provider-${row.purpose}`}
+						{@const modelIdId = `text-modelId-${row.purpose}`}
+						<tr class="bg-panel align-top">
+							<td class="px-3 py-3 text-ink">
+								{t.models.purposeLabel[row.purpose as keyof typeof t.models.purposeLabel] ??
+									row.purpose}
+							</td>
+							<td class="px-3 py-3 text-xs">
+								{#if row.active}
+									<div class="font-mono text-ink">
+										{row.active.provider} / {row.active.modelId}
+									</div>
+									<div class="mt-1 text-muted">{activeDateFormat.format(row.active.updatedAt)}</div>
+									{#if !activeProviderKnown}
+										<div class="mt-1 text-danger">
+											{t.models.table.providerUnknown(row.active.provider)}
+										</div>
+									{/if}
+								{:else}
+									<span class="text-muted">{t.models.table.notConfigured}</span>
+								{/if}
+							</td>
+							<td colspan="2" class="px-3 py-3">
+								<form
+									method="POST"
+									action="?/text"
+									class="flex flex-wrap items-center gap-2"
+									use:enhance={() => {
+										saving = { ...saving, [row.purpose]: true };
+										return async ({ update }) => {
+											await update();
+											saving = { ...saving, [row.purpose]: false };
+										};
+									}}
 								>
-							</div>
-							{#if model.feature === 'portrait' || model.feature === 'variants'}
-								<!-- #366: a cover's shape comes from the entity type, so the row's own value is
+									<input type="hidden" name="purpose" value={row.purpose} />
+									<div class="flex flex-col gap-1">
+										<Label class="sr-only" for={providerId}>{t.models.table.provider}</Label>
+										<ProviderSelect
+											id={providerId}
+											providers={data.knownProviders}
+											value={providerValue}
+											invalid={!!errorHere}
+										/>
+									</div>
+									<div class="flex flex-col gap-1">
+										<Label class="sr-only" for={modelIdId}>{t.models.table.modelId}</Label>
+										<Input
+											id={modelIdId}
+											name="modelId"
+											value={modelIdValue}
+											class="w-64 font-mono text-xs {errorHere ? 'border-danger' : ''}"
+										/>
+									</div>
+									<Button type="submit" size="sm" disabled={saving[row.purpose]}>
+										{saving[row.purpose] ? t.saving : t.save}
+									</Button>
+									{#if errorHere}
+										<p class="w-full text-xs text-danger">{errorHere}</p>
+									{:else if savedHere}
+										<p class="w-full text-xs text-ok">{t.models.saved}</p>
+									{/if}
+								</form>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+
+		<h2 class="mt-12 text-2xl font-semibold text-ink">{t.models.imageHeading}</h2>
+		<p class="mt-2 max-w-measure text-sm text-ink-2">{t.models.imageIntro1}</p>
+		<p class="mt-2 max-w-measure text-sm text-ink-2">
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
+			{@html t.models.imageIntro2Pre}
+			<a href={resolve('/admin/pricing')} class="text-accent-ink hover:underline"
+				>{t.pricing.title}</a
+			>.
+		</p>
+
+		<div class="mt-8 overflow-x-auto rounded-lg border border-line">
+			<table class="w-full border-collapse text-sm">
+				<thead>
+					<tr
+						class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
+					>
+						<th class="px-3 py-2 font-normal">{t.models.imageTable.feature}</th>
+						<th class="px-3 py-2 font-normal">{t.models.table.provider}</th>
+						<th class="px-3 py-2 font-normal">{t.models.table.modelId}</th>
+						<th class="px-3 py-2 font-normal">{t.models.imageTable.pricePerImage}</th>
+						<th class="px-3 py-2 font-normal"
+							><span class="sr-only">{t.models.imageTable.actions}</span></th
+						>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-line">
+					{#each data.images as model (model.id)}
+						{@const forThisRow = form && fieldOf(form, 'feature') === model.feature ? form : null}
+						{@const errorHere = forThisRow
+							? (fieldOf(forThisRow, 'error') as string | undefined)
+							: undefined}
+						{@const savedHere = forThisRow
+							? (fieldOf(forThisRow, 'saved') as boolean | undefined)
+							: undefined}
+						{@const providerValue =
+							(errorHere ? (fieldOf(forThisRow, 'provider') as string | undefined) : undefined) ??
+							model.provider}
+						{@const modelIdValue =
+							(errorHere ? (fieldOf(forThisRow, 'modelId') as string | undefined) : undefined) ??
+							model.modelId}
+						{@const priceValue =
+							(errorHere
+								? (fieldOf(forThisRow, 'pricePerImage') as string | undefined)
+								: undefined) ?? paramsPricePerImage(model.params)}
+						{@const currencyValue =
+							(errorHere ? (fieldOf(forThisRow, 'currency') as string | undefined) : undefined) ??
+							paramsCurrency(model.params)}
+						{@const providerId = `provider-${model.feature}`}
+						{@const modelIdId = `modelId-${model.feature}`}
+						{@const priceId = `price-${model.feature}`}
+						{@const currencyId = `currency-${model.feature}`}
+						<tr class="bg-panel align-top">
+							<td class="px-3 py-3 text-ink">
+								{t.models.featureLabel[model.feature as keyof typeof t.models.featureLabel]}
+								<div class="text-xs text-muted">
+									{model.active ? t.models.imageTable.active : t.models.imageTable.inactive}
+								</div>
+								<div class="text-xs text-muted">
+									{t.models.imageTable.aspectRatio}:
+									<span class="font-mono"
+										>{paramsAspectRatio(model.params) ??
+											t.models.imageTable.aspectRatioNotSet}</span
+									>
+								</div>
+								{#if model.feature === 'portrait' || model.feature === 'variants'}
+									<!-- #366: a cover's shape comes from the entity type, so the row's own value is
 								     only the default for a caller with no entity. Saying so here stops the row
 								     reading as the whole answer, and the save checks every shape in this list. -->
-								<div class="text-xs text-muted">
-									{t.models.imageTable.coverAspectRatios(COVER_ASPECT_RATIOS.join(', '))}
-								</div>
-							{/if}
-						</td>
-						<td colspan="3" class="px-3 py-3">
-							<form
-								method="POST"
-								action="?/image"
-								class="flex flex-wrap items-center gap-2"
-								use:enhance={() => {
-									saving = { ...saving, [model.feature]: true };
-									return async ({ update }) => {
-										await update();
-										saving = { ...saving, [model.feature]: false };
-									};
-								}}
-							>
-								<input type="hidden" name="feature" value={model.feature} />
-								<div class="flex flex-col gap-1">
-									<Label class="sr-only" for={providerId}>{t.models.table.provider}</Label>
-									<Input id={providerId} name="provider" value={providerValue} class="w-28" />
-								</div>
-								<div class="flex flex-col gap-1">
-									<Label class="sr-only" for={modelIdId}>{t.models.table.modelId}</Label>
-									<Input
-										id={modelIdId}
-										name="modelId"
-										value={modelIdValue}
-										class="w-64 font-mono text-xs"
-									/>
-								</div>
-								<div class="flex flex-col gap-1">
-									<Label class="sr-only" for={priceId}>{t.models.imageTable.pricePerImage}</Label>
-									<Input
-										id={priceId}
-										type="number"
-										name="pricePerImage"
-										min="0"
-										step="0.000001"
-										value={priceValue}
-										class="w-24 tabular-nums"
-									/>
-								</div>
-								<div class="flex flex-col gap-1">
-									<Label class="sr-only" for={currencyId}>{t.models.imageTable.currency}</Label>
-									<CurrencySelect
-										id={currencyId}
-										currencies={data.currencies}
-										value={currencyValue}
-										invalid={!!errorHere}
-									/>
-								</div>
-								<Button type="submit" size="sm" disabled={saving[model.feature]}>
-									{saving[model.feature] ? t.saving : t.save}
-								</Button>
-								{#if errorHere}
-									<p class="w-full text-xs text-danger">{errorHere}</p>
-								{:else if savedHere}
-									<p class="w-full text-xs text-ok">{t.models.saved}</p>
+									<div class="text-xs text-muted">
+										{t.models.imageTable.coverAspectRatios(COVER_ASPECT_RATIOS.join(', '))}
+									</div>
 								{/if}
-							</form>
-						</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
+							</td>
+							<td colspan="3" class="px-3 py-3">
+								<form
+									method="POST"
+									action="?/image"
+									class="flex flex-wrap items-center gap-2"
+									use:enhance={() => {
+										saving = { ...saving, [model.feature]: true };
+										return async ({ update }) => {
+											await update();
+											saving = { ...saving, [model.feature]: false };
+										};
+									}}
+								>
+									<input type="hidden" name="feature" value={model.feature} />
+									<div class="flex flex-col gap-1">
+										<Label class="sr-only" for={providerId}>{t.models.table.provider}</Label>
+										<Input id={providerId} name="provider" value={providerValue} class="w-28" />
+									</div>
+									<div class="flex flex-col gap-1">
+										<Label class="sr-only" for={modelIdId}>{t.models.table.modelId}</Label>
+										<Input
+											id={modelIdId}
+											name="modelId"
+											value={modelIdValue}
+											class="w-64 font-mono text-xs"
+										/>
+									</div>
+									<div class="flex flex-col gap-1">
+										<Label class="sr-only" for={priceId}>{t.models.imageTable.pricePerImage}</Label>
+										<Input
+											id={priceId}
+											type="number"
+											name="pricePerImage"
+											min="0"
+											step="0.000001"
+											value={priceValue}
+											class="w-24 tabular-nums"
+										/>
+									</div>
+									<div class="flex flex-col gap-1">
+										<Label class="sr-only" for={currencyId}>{t.models.imageTable.currency}</Label>
+										<CurrencySelect
+											id={currencyId}
+											currencies={data.currencies}
+											value={currencyValue}
+											invalid={!!errorHere}
+										/>
+									</div>
+									<Button type="submit" size="sm" disabled={saving[model.feature]}>
+										{saving[model.feature] ? t.saving : t.save}
+									</Button>
+									{#if errorHere}
+										<p class="w-full text-xs text-danger">{errorHere}</p>
+									{:else if savedHere}
+										<p class="w-full text-xs text-ok">{t.models.saved}</p>
+									{/if}
+								</form>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
 	</div>
 </PageBody>
