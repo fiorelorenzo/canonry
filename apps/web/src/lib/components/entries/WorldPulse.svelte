@@ -12,6 +12,15 @@
 	 * reading out twelve numbers would be a worse version of the sentence above it. The
 	 * `title` on each bar answers the one follow-up a mouse asks, which week that was.
 	 *
+	 * #487: the strip used to draw twelve bars over nothing - no baseline, no axis, no
+	 * label, so a hairline could be one change or none, and the newest bar (the tallest
+	 * one on a young or seeded world) sat flush against the container's right edge. The
+	 * bars now sit on a rule at zero, which is also where a zero-count bar's own colour
+	 * (`--color-line`, the rule's own colour) makes it disappear into the baseline rather
+	 * than float as an ambiguous mark; `pr-2`, one bar-gap wide, gives the tallest bar room
+	 * past the rule's end; and two small labels, "N weeks ago" and "last seven days", read
+	 * the same vocabulary `pulseWeekTitle` already uses rather than inventing a second one.
+	 *
 	 * Colours are the theme's own: `--color-line-2` for a week that happened,
 	 * `--color-accent` for the newest one. A bar chart of a GM's own edits was never
 	 * the copilot's own surface, and round sixteen U10 (#454) deleted that hue outright.
@@ -36,8 +45,10 @@
 	 * under the world's name without competing with it, tall enough that a week with one
 	 * change and a week with nine are visibly different. */
 	const STRIP_PX = 44;
-	/** A week with nothing in it still draws a hairline, so the strip reads as twelve weeks
-	 * with gaps rather than as a shorter strip. */
+	/** A week with nothing in it still draws a hairline rather than nothing at all, so the
+	 * strip reads as twelve weeks with gaps rather than as a shorter strip - it renders in
+	 * the same colour as the baseline it sits on, so it disappears into the rule instead of
+	 * floating as an unlabelled mark (#487). */
 	const EMPTY_PX = 2;
 
 	const monthFormat = $derived(dateFormat(locale, { month: 'long', year: 'numeric' }));
@@ -81,14 +92,20 @@
 	>
 		<p class="max-w-measure text-ink-2">{sentence}</p>
 		{#if pulse.kind === 'moving'}
-			<div class="flex shrink-0 items-end gap-2" style="height: {STRIP_PX}px" aria-hidden="true">
-				{#each pulse.weeks as count, index (index)}
-					<span
-						class="w-3 rounded-t-sm {barTone(count, index === pulse.weeks.length - 1)}"
-						style="height: {barHeight(count, pulse.peak)}px"
-						title={t.pulseWeekTitle(count, pulse.weeks.length - 1 - index)}
-					></span>
-				{/each}
+			<div class="flex shrink-0 flex-col items-end gap-1" aria-hidden="true">
+				<div class="flex items-end gap-2 border-b border-line pr-2" style="height: {STRIP_PX}px">
+					{#each pulse.weeks as count, index (index)}
+						<span
+							class="w-3 rounded-t-sm {barTone(count, index === pulse.weeks.length - 1)}"
+							style="height: {barHeight(count, pulse.peak)}px"
+							title={t.pulseWeekTitle(count, pulse.weeks.length - 1 - index)}
+						></span>
+					{/each}
+				</div>
+				<div class="flex justify-between self-stretch text-label text-muted">
+					<span>{t.pulseAxisStart(PULSE_WEEKS)}</span>
+					<span>{t.pulseAxisEnd}</span>
+				</div>
 			</div>
 		{/if}
 	</div>

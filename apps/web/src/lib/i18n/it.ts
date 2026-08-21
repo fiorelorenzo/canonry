@@ -1616,10 +1616,21 @@ export const it: Messages = {
 				pulseMoving: (total, latest, weeks) => {
 					const fmt = numberFormat('it', { maximumFractionDigits: 0, useGrouping: 'always' });
 					const changes = total === 1 ? '1 modifica' : `${fmt.format(total)} modifiche`;
-					const tail =
-						latest === 0
-							? 'nessuna negli ultimi sette giorni'
-							: `${fmt.format(latest)} negli ultimi sette giorni`;
+					// #487: un mondo seminato o giovane mette ogni modifica nella settimana più
+					// recente, quindi `total` e `latest` coincidono. Ripetere lo stesso numero
+					// sembra un errore; dire che è successo tutto in questa settimana è lo
+					// stesso fatto detto una volta sola.
+					let tail: string;
+					if (latest === total) {
+						tail =
+							total === 1
+								? 'è successa negli ultimi sette giorni'
+								: 'tutte negli ultimi sette giorni';
+					} else if (latest === 0) {
+						tail = 'nessuna negli ultimi sette giorni';
+					} else {
+						tail = `${fmt.format(latest)} negli ultimi sette giorni`;
+					}
 					return `${changes} nelle ultime ${weeks} settimane, ${tail}.`;
 				},
 				pulseQuiet: (weeks, lastChange) =>
@@ -1633,6 +1644,8 @@ export const it: Messages = {
 						? `1 settimana fa: ${changes}`
 						: `${weeksAgo} settimane fa: ${changes}`;
 				},
+				pulseAxisStart: (weeks) => `${weeks} settimane fa`,
+				pulseAxisEnd: 'ultimi sette giorni',
 				continueHeading: 'Riprendi',
 				continueEmpty: 'Ancora nessun cambiamento.',
 				waitingHeading: 'In attesa di te',
