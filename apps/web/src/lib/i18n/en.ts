@@ -1808,26 +1808,24 @@ export const en: Messages = {
 				headTitle: (universeName) => `Relation catalogue: ${universeName}`,
 				title: 'Relation catalogue',
 				description: (universeName) =>
-					`Every relation type ${universeName} can use: the shipped catalogue every world starts with, and this universe's own. Rename or widen your own, merge two into one; the shipped ten stay a migration's to change.`,
-				backLink: 'Back to settings',
+					`Every relation type ${universeName} can use: the shipped catalogue every world starts with, and this universe's own. Rename, widen or translate your own, merge two into one; the shipped ten stay a migration's to change.`,
 				shippedHeading: 'Shipped catalogue',
 				shippedDescription:
 					'The ten labels every universe starts with. Editing one is a migration, not a setting, so this list is read-only.',
-				shippedBadge: 'shipped',
 				ownHeading: "This universe's own types",
 				ownDescription:
 					'Types this universe invented, by hand or through an accepted import proposal.',
 				emptyOwn: 'No relation types of its own yet.',
 				emptyOwnExplanation:
 					'A type appears here the moment a GM adds one, or accepts an import proposal that invents a new label.',
-				table: {
-					label: 'Label',
-					inverseLabel: 'Inverse',
-					cardinality: 'Cardinality',
-					allowedFrom: 'From',
-					allowedTo: 'To',
-					usage: 'In use',
-					actions: 'Actions'
+				summary: (inverseLabel, from, to, cardinality) => {
+					const base = `Inverse "${inverseLabel}". Connects ${from} to ${to}`;
+					return cardinality ? `${base}, ${cardinality}.` : `${base}.`;
+				},
+				usageCount: (count) => {
+					if (count === 0) return 'Not used in this universe yet.';
+					const form = pluralRules('en').select(count);
+					return `Used by ${count} ${form === 'one' ? 'relation' : 'relations'} in this universe.`;
 				},
 				cardinalityLabel: (value) => {
 					const labels: Record<string, string> = {
@@ -1887,7 +1885,7 @@ export const en: Messages = {
 					notOwnedError: 'Only a type this universe created can be translated.'
 				},
 				merge: {
-					trigger: 'Merge two types',
+					trigger: 'Merge',
 					dialogTitle: 'Merge two relation types',
 					dialogDescription:
 						'For cleaning up after an import that named the same relation twice. Every relation using the losing type moves to the type it merges into, and the losing type is removed.',

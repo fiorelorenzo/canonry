@@ -49,6 +49,7 @@
 	import { NativeFallback } from '$lib/components/ui/native-fallback';
 	import { PageHeader } from '$lib/components/ui/page-header';
 	import SettingsShell from '$lib/components/settings/SettingsShell.svelte';
+	import UniverseSettingsRail from '$lib/components/settings/UniverseSettingsRail.svelte';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { ActionData, PageData } from './$types';
 
@@ -144,18 +145,18 @@
 	// any) that group owns. Canon owns no checklist item today, so its row never marks.
 	const railItems = $derived([
 		{
-			id: 'images',
+			id: 'images' as const,
 			href: '#group-images',
 			label: t.groups.images,
 			unset: data.setupItems.some((item) => item.id === 'imageStyle' && !item.done)
 		},
 		{
-			id: 'loremaster',
+			id: 'loremaster' as const,
 			href: '#group-loremaster',
 			label: t.groups.loremaster,
 			unset: data.setupItems.some((item) => item.id === 'loremasterVoice' && !item.done)
 		},
-		{ id: 'canon', href: '#group-canon', label: t.groups.canon, unset: false }
+		{ id: 'canon' as const, href: '#group-canon', label: t.groups.canon, unset: false }
 	]);
 </script>
 
@@ -163,26 +164,11 @@
 
 <SettingsShell>
 	{#snippet rail()}
-		<!-- eslint-disable svelte/no-navigation-without-resolve -- same-page fragment
-		     anchors into the groups below, not a route resolve() can rewrite. -->
-		<nav aria-label={t.rail.ariaLabel} class="flex shrink-0 flex-col gap-0.5 lg:w-48">
-			{#each railItems as item (item.id)}
-				<a
-					href={item.href}
-					class="flex items-center justify-between gap-2 rounded-md px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
-				>
-					<span>{item.label}</span>
-					{#if item.unset}
-						<span
-							class="shrink-0 rounded-full bg-warn-bg px-1.5 py-0.5 text-[10px] font-medium text-warn"
-						>
-							{t.rail.incompleteMark}
-						</span>
-					{/if}
-				</a>
-			{/each}
-		</nav>
-		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		<UniverseSettingsRail
+			ariaLabel={t.rail.ariaLabel}
+			incompleteMark={t.rail.incompleteMark}
+			items={railItems}
+		/>
 	{/snippet}
 
 	<PageHeader title={t.heading} />

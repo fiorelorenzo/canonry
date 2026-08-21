@@ -1,14 +1,22 @@
 <script lang="ts">
 	/**
-	 * #192: the whole relation catalogue - shipped types and a universe's own, side by
-	 * side, the shipped half structurally read-only (SPEC.md §4.2, K1's "the shipped
+	 * #192: the whole relation catalogue - a universe's own types and the shipped ten,
+	 * the shipped half structurally read-only (SPEC.md §4.2, K1's "the shipped
 	 * catalogue is read-only from here" - editing one of the ten is a migration, not a
 	 * setting). `canManage` mirrors the settings page's own `viewerForbiddenError` guard:
-	 * a viewer sees the tables and counts but no action ever renders for them, matching
-	 * how the AI-toggle and precedence sections already gate their own controls.
+	 * a viewer sees both lists and their counts but no action ever renders for them,
+	 * matching how the AI-toggle and precedence sections already gate their own controls.
+	 *
+	 * Issue #450 (U1, DECISIONS.md "Round sixteen"): a universe's own types render first
+	 * and get the room - `RelationTypeTable` draws them as one spacious row each rather
+	 * than a table, actions included - and the shipped ten move below as reference,
+	 * compact and read-only. Merge is a per-row trigger now too (rename/widen/translate's
+	 * neighbour), not a section-level button: every own row opens the same
+	 * `MergeRelationTypesDialog`, unpre-filled, because that dialog's own contract
+	 * (fresh `fromTypeId`/`intoTypeId` state on every open) is exactly what this issue
+	 * keeps unchanged - see `RelationTypeTable`'s own comment on `onMerge`.
 	 */
 	import { EmptyState } from '$lib/components/ui/empty-state';
-	import { Button } from '$lib/components/ui/button';
 	import RelationTypeTable from './RelationTypeTable.svelte';
 	import RenameRelationTypeDialog from './RenameRelationTypeDialog.svelte';
 	import WidenRelationTypeDialog from './WidenRelationTypeDialog.svelte';
@@ -50,23 +58,8 @@
 
 <div class="flex flex-col gap-8">
 	<section>
-		<h2 class="text-sm font-semibold text-ink">{t.shippedHeading}</h2>
-		<p class="mt-1 max-w-measure text-sm text-ink-2">{t.shippedDescription}</p>
-		<RelationTypeTable types={shipped} {t} {relationTypeLabel} {locale} shipped={true} />
-	</section>
-
-	<section>
-		<div class="flex flex-wrap items-start justify-between gap-3">
-			<div>
-				<h2 class="text-sm font-semibold text-ink">{t.ownHeading}</h2>
-				<p class="mt-1 max-w-measure text-sm text-ink-2">{t.ownDescription}</p>
-			</div>
-			{#if canManage && own.length > 0}
-				<Button variant="secondary" size="sm" onclick={() => (mergeOpen = true)}>
-					{t.merge.trigger}
-				</Button>
-			{/if}
-		</div>
+		<h2 class="text-sm font-semibold text-ink">{t.ownHeading}</h2>
+		<p class="mt-1 max-w-measure text-sm text-ink-2">{t.ownDescription}</p>
 
 		{#if own.length === 0}
 			<div class="mt-3">
@@ -83,8 +76,15 @@
 				onRename={(row) => (renameTarget = row)}
 				onWiden={(row) => (widenTarget = row)}
 				onTranslate={(row) => (translateTarget = row)}
+				onMerge={() => (mergeOpen = true)}
 			/>
 		{/if}
+	</section>
+
+	<section>
+		<h2 class="text-sm font-semibold text-ink">{t.shippedHeading}</h2>
+		<p class="mt-1 max-w-measure text-sm text-ink-2">{t.shippedDescription}</p>
+		<RelationTypeTable types={shipped} {t} {relationTypeLabel} {locale} shipped={true} />
 	</section>
 </div>
 

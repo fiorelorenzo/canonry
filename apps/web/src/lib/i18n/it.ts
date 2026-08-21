@@ -1861,26 +1861,24 @@ export const it: Messages = {
 				headTitle: (universeName) => `Catalogo delle relazioni: ${universeName}`,
 				title: 'Catalogo delle relazioni',
 				description: (universeName) =>
-					`Ogni tipo di relazione che ${universeName} può usare: il catalogo di serie con cui parte ogni mondo, e quello proprio di questo universo. Rinomina o amplia i tuoi, unisci due tipi in uno; i dieci di serie restano cosa di una migrazione.`,
-				backLink: 'Torna alle impostazioni',
+					`Ogni tipo di relazione che ${universeName} può usare: il catalogo di serie con cui parte ogni mondo, e quello proprio di questo universo. Rinomina, amplia o traduci i tuoi, unisci due tipi in uno; i dieci di serie restano cosa di una migrazione.`,
 				shippedHeading: 'Catalogo di serie',
 				shippedDescription:
 					"Le dieci etichette con cui parte ogni universo. Modificarne una è una migrazione, non un'impostazione, quindi questo elenco è di sola lettura.",
-				shippedBadge: 'di serie',
 				ownHeading: 'I tipi propri di questo universo',
 				ownDescription:
 					"Tipi inventati da questo universo, a mano o tramite una proposta d'importazione accettata.",
 				emptyOwn: 'Nessun tipo di relazione proprio ancora.',
 				emptyOwnExplanation:
 					"Un tipo compare qui appena un GM ne aggiunge uno, o accetta una proposta d'importazione che inventa una nuova etichetta.",
-				table: {
-					label: 'Etichetta',
-					inverseLabel: 'Inversa',
-					cardinality: 'Cardinalità',
-					allowedFrom: 'Da',
-					allowedTo: 'A',
-					usage: 'In uso',
-					actions: 'Azioni'
+				summary: (inverseLabel, from, to, cardinality) => {
+					const base = `Inversa «${inverseLabel}». Collega ${from} a ${to}`;
+					return cardinality ? `${base}, ${cardinality}.` : `${base}.`;
+				},
+				usageCount: (count) => {
+					if (count === 0) return 'Non ancora usato in questo universo.';
+					const form = pluralRules('it').select(count);
+					return `Usato da ${count} ${form === 'one' ? 'relazione' : 'relazioni'} in questo universo.`;
 				},
 				cardinalityLabel: (value) => {
 					const labels: Record<string, string> = {
@@ -1941,7 +1939,7 @@ export const it: Messages = {
 					notOwnedError: 'Solo un tipo creato da questo universo può essere tradotto.'
 				},
 				merge: {
-					trigger: 'Unisci due tipi',
+					trigger: 'Unisci',
 					dialogTitle: 'Unisci due tipi di relazione',
 					dialogDescription:
 						"Per fare ordine dopo un'importazione che ha chiamato la stessa relazione in due modi. Ogni relazione che usa il tipo perdente si sposta sul tipo in cui viene unito, e il tipo perdente viene rimosso.",
