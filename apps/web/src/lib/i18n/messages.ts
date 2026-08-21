@@ -1724,7 +1724,6 @@ export interface Messages {
 				typeLabel: (type: string) => string;
 			};
 			searchPlaceholder: string;
-			searchSubmit: string;
 			searchClear: string;
 			/** The result line naming the query and how many entries it matched, in the
 			 * reader's language - what makes a search that narrowed the table say so, rather

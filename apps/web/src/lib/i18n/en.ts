@@ -1584,7 +1584,6 @@ export const en: Messages = {
 				}
 			},
 			searchPlaceholder: 'Search by name or alias\u2026',
-			searchSubmit: 'Search',
 			searchClear: 'Clear search',
 			searchResultCount: (query, count) => {
 				const entries = count === 1 ? '1 entry matches' : `${count} entries match`;
