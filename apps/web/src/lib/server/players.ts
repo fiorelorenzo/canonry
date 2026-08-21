@@ -44,12 +44,21 @@ export async function loadPublicUniverse(
 	return universeForExport(db, universeSlug);
 }
 
-/** #83's index page: every revealable entity, gap or full, `gm_only` never listed. */
+/** #83's index page (V7, DECISIONS.md round seventeen): only entities the party has
+ * actually revealed, `gm_only` never listed. `listPublicEntities` itself still returns
+ * every revealable entity, gap or full alike - the GM's own `/w/[universe]/players` page
+ * (#492) needs that full list to know which names may still link into this wiki - so the
+ * filter lives here, at the one seam this file already is, rather than in the shared
+ * query. An unrevealed entity keeps its own gap page reachable by slug (E7); it is just
+ * never enumerated for a player to browse into, which is the whole of what V7 changed:
+ * this index used to publish the shape of the world - every name the GM ever wrote, seen
+ * or not - and now only shows what came up at the table. */
 export async function loadPublicIndex(
 	db: Db,
 	universeId: string
 ): Promise<RevealedEntityListItem[]> {
-	return listPublicEntities(db, universeId);
+	const entities = await listPublicEntities(db, universeId);
+	return entities.filter((entity) => entity.status === 'full');
 }
 
 export interface PublicMentionTarget {

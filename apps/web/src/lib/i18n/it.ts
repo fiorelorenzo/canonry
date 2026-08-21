@@ -459,8 +459,7 @@ export const it: Messages = {
 		notDiscovered: 'Non ancora scoperto',
 		revealed: 'Rivelato',
 		indexTitle: 'Tutto ciò che il tavolo ha toccato',
-		indexSubtitle:
-			'Se è emerso al tavolo, è qui. Un nome in grigio è stato sentito ma non ancora esplorato.',
+		indexSubtitle: "Ciò che il gruppo ha scoperto finora, e nient'altro.",
 		emptyState: 'Non è stato ancora detto nulla ad alta voce.',
 		gapNoticeBefore: 'Hai sentito il nome. Nessuno al tavolo ha ancora scoperto abbastanza su',
 		gapNoticeAfter: (type) => `perché questa pagina di tipo ${type} dica di più, per ora.`,

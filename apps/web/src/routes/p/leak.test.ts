@@ -359,21 +359,25 @@ describe('players wiki: leak test (#85)', () => {
 		});
 	});
 
-	it('the index route never leaks the gm_only entity, and lists the rest correctly', async () => {
+	it("the index route lists only the revealed entity, and leaks neither the gm_only entity nor an unrevealed one's name (V7, DECISIONS.md)", async () => {
 		const layoutData = await loadUniverseLayout();
 		const raw = await loadIndex({ parent: async () => layoutData } as Parameters<
 			typeof loadIndex
 		>[0]);
 		const result = raw as { entities: RevealedEntityListItem[] };
 		assertNoLeak(result);
+		expect(
+			JSON.stringify(result),
+			`leaked "${UNDISCOVERED_NAME}" into the index payload`
+		).not.toContain(UNDISCOVERED_NAME);
 
 		const ids = result.entities.map((e) => e.id);
 		expect(ids).not.toContain(gmOnlyEntity.id);
+		expect(ids).not.toContain(undiscoveredEntity.id);
 		expect(ids).toContain(revealedEntity.id);
-		expect(ids).toContain(undiscoveredEntity.id);
 
-		const undiscoveredRow = result.entities.find((e) => e.id === undiscoveredEntity.id);
-		expect(undiscoveredRow?.status).toBe('gap');
+		const revealedRow = result.entities.find((e) => e.id === revealedEntity.id);
+		expect(revealedRow?.status).toBe('full');
 	});
 
 	it('the revealed entity route serves the confirmed fact, never the unrevealed one, and no secret or GM note', async () => {

@@ -1,8 +1,11 @@
 <script lang="ts">
 	/**
-	 * Decision E7's index: every revealable entity, `gm_only` never listed, a gap row
-	 * reachable by browsing just like a full one (the E7 artifact's own cost note on option
-	 * C: a gap page is reached "by search", not only by following a mention).
+	 * V7 (DECISIONS.md, round seventeen): only what the party has revealed is listed here.
+	 * An unrevealed entity used to appear as a greyed-out row naming it; that published the
+	 * shape of the world before anyone at the table had heard of it, which is the one thing
+	 * a players' wiki must not do. A gap page for an unrevealed entity is still reachable by
+	 * its own URL (E7) - a mention inside revealed prose still links to it - it is just not
+	 * enumerated for browsing. At the start of a campaign this list is honestly empty.
 	 *
 	 * Issue #127: `t` is chrome, in the visitor's negotiated `data.locale` - the entity
 	 * `name`s below are canon, never touched by it (SPEC.md §17's third rule: an entry's
@@ -11,6 +14,7 @@
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
 	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -22,24 +26,18 @@
 <PageHeader title={t.players.indexTitle} description={t.players.indexSubtitle} />
 <PageBody width="reading">
 	{#if data.entities.length === 0}
-		<p class="text-sm text-muted">{t.players.emptyState}</p>
+		<EmptyState kind="cold" message={t.players.emptyState} />
 	{:else}
 		<ul class="divide-y divide-line">
 			{#each data.entities as row (row.id)}
 				<li class="flex items-center gap-3 py-3">
 					<a
 						href={resolve(`/p/${data.universe.slug}/${row.slug}`)}
-						class="text-base font-medium hover:text-accent"
-						class:text-ink={row.status === 'full'}
-						class:text-muted={row.status === 'gap'}
+						class="text-base font-medium text-ink hover:text-accent"
 					>
 						{row.name}
 					</a>
 					<span class="text-xs tracking-wide text-muted uppercase">{row.type}</span>
-					<span class="flex-1"></span>
-					{#if row.status === 'gap'}
-						<span class="text-xs text-muted italic">{t.players.notDiscovered}</span>
-					{/if}
 				</li>
 			{/each}
 		</ul>
