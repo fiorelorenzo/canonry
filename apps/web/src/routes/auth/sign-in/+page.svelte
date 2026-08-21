@@ -133,6 +133,9 @@
 
 	<p class="mt-4 text-center text-sm text-ink-2">
 		{t.noAccount}
-		<a href={resolve('/auth/sign-up')} class="text-accent hover:underline">{t.signUpLink}</a>
+		<a
+			href={resolve('/auth/sign-up')}
+			class="text-accent underline decoration-line-2 underline-offset-2">{t.signUpLink}</a
+		>
 	</p>
 </AuthShell>

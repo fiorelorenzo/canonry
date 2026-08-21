@@ -58,6 +58,9 @@
 	{/if}
 
 	<p class="mt-4 text-center text-sm text-ink-2">
-		<a href={resolve('/auth/sign-in')} class="text-accent hover:underline">{t.backToSignIn}</a>
+		<a
+			href={resolve('/auth/sign-in')}
+			class="text-accent underline decoration-line-2 underline-offset-2">{t.backToSignIn}</a
+		>
 	</p>
 </AuthShell>
