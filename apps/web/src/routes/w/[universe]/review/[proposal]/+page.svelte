@@ -19,7 +19,7 @@
 	 * settled cases below are untouched: same card, same props, same read-only page.
 	 */
 	import { resolve } from '$app/paths';
-	import { messages } from '$lib/i18n';
+	import { messages, numberFormat } from '$lib/i18n';
 	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import ProposalDiffCard from '$lib/components/proposals/ProposalDiffCard.svelte';
 	import type { PageProps } from './$types';
@@ -28,6 +28,8 @@
 	let t = $derived(messages(data.locale).proposals);
 	let title = $derived(data.candidate.targetName ?? t.diffCard.newEntry);
 	let costLabel = $derived(t.review.awaitingDiff.cost(data.diffPriceCredits ?? 0));
+	// See AwaitingDiffCard: whole prices render whole, the way #489 settled it.
+	let creditsFormat = $derived(numberFormat(data.locale, { maximumFractionDigits: 4 }));
 </script>
 
 <svelte:head>
@@ -58,13 +60,15 @@
 		{#if data.candidate.awaitingDiff}
 			<div class="card rounded-lg border border-line bg-panel p-4">
 				<p class="mb-2 font-mono text-xs text-ink-2 uppercase">{t.review.awaitingDiff.kicker}</p>
-				<p class="max-w-measure text-sm text-ink-2">{t.review.awaitingDiff.body(title)}</p>
+				<h2 class="text-title text-ink">{t.review.awaitingDiff.body(title)}</h2>
+				<p class="mt-1 max-w-measure text-body text-ink-2">{t.review.awaitingDiff.noDiffYet}</p>
 				<p class="mt-3 max-w-measure text-sm text-ink-2">
 					<span class="font-medium text-ink">{t.review.awaitingDiff.reasonLabel}</span>
 					{data.candidate.rationale}
 				</p>
 				<p class="mt-3 text-sm text-ink-2">
-					{costLabel.prefix}<b class="text-ink">{(data.diffPriceCredits ?? 0).toFixed(2)}</b
+					{costLabel.prefix}<b class="text-ink"
+						>{creditsFormat.format(data.diffPriceCredits ?? 0)}</b
 					>{costLabel.suffix}
 				</p>
 				<p class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
