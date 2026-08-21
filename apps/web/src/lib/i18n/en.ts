@@ -1740,7 +1740,7 @@ export const en: Messages = {
 					};
 				},
 				noLimitNotice:
-					'No limit: every candidate the copilot finds gets a diff. You still confirm the spend before diffs are generated.',
+					'No limit: a save\u2019s plan may surface every candidate connected to what changed, however many that is, and each diff you complete during review still costs one credit. Nothing drafts without you confirming it first.',
 				invalidCapError: 'Enter a number of 1 or more, or turn the limit off.'
 			},
 			imageStyle: {
@@ -1760,14 +1760,22 @@ export const en: Messages = {
 				promptModifierRequiredError: 'Describe what the style adds to a prompt.',
 				pickError: 'Could not set that style. Try again.'
 			},
-			loremasterVoice: {
+			narration: {
 				heading: "Loremaster's voice",
 				description: (universeName) =>
 					`How the Loremaster sounds when it answers a question or fills in a thin entry for ${universeName} - never what it is allowed to write, only how it phrases it.`,
-				textareaLabel: 'Voice',
-				hint: 'Up to 500 characters.',
+				pickerLegend: 'Choose a voice',
+				selectedLabel: 'Selected',
+				customCard: {
+					label: 'Custom voice',
+					hint: 'Write your own name and prompt clause instead of a shipped preset.'
+				},
+				nameLabel: 'Name',
+				promptClauseLabel: 'Prompt clause',
 				save: 'Save',
-				tooLongError: 'Keep the description under 500 characters.'
+				nameRequiredError: 'Give the voice a name.',
+				promptClauseRequiredError: 'Describe how this voice should sound.',
+				pickError: 'Could not set that voice. Try again.'
 			},
 			loremasterConversations: {
 				text: 'Every question asked in the Loremaster panel is answered and kept automatically, grouped by conversation, until you delete it.',

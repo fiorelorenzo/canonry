@@ -21,17 +21,19 @@ export interface UniverseSetupItem {
 /** `row` is deliberately the narrow shape this needs, not the whole `universe` row - a
  * caller (a `+page.server.ts` load, #379's shell query) passes exactly the two columns
  * this reads, so a schema change elsewhere in `universe` can never silently change what
- * "done" means here. An `image_style` row with nothing pointing at it does not count:
+ * "done" means here. Neither pointer's own table matters here, only whether it is set:
  * `imageStyleId` is what `pickStyle`'s cascade actually follows (packages/media/src/
- * style.ts), so that is the one thing worth checking. A description of only whitespace
- * reads as unset for the same reason `loremaster_description`'s empty-string default
- * does - it would reach the prompt as nothing, so the checklist should say so too. */
+ * style.ts), and `narrationStyleId` is what `loremasterVoiceInstruction`'s caller
+ * resolves (packages/db/src/queries/narration.ts's `loremasterVoiceClauseForUniverse`) -
+ * a universe pointed at either a shipped preset or its own custom row counts as done
+ * either way, issue #451 having replaced the free-text `loremaster_description` column
+ * this used to read a `.trim().length > 0` off. */
 export function universeSetupItems(row: {
 	imageStyleId: string | null;
-	loremasterDescription: string;
+	narrationStyleId: string | null;
 }): UniverseSetupItem[] {
 	return [
 		{ id: 'imageStyle', done: row.imageStyleId !== null },
-		{ id: 'loremasterVoice', done: row.loremasterDescription.trim().length > 0 }
+		{ id: 'loremasterVoice', done: row.narrationStyleId !== null }
 	];
 }

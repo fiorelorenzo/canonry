@@ -1,18 +1,20 @@
 /**
  * `/w/[universe]/settings`: per-universe settings. Five things live here this wave -
  * issue #107's "Stop writing" switch (decision C10 = B, per universe; wording from H1),
- * the propagation cap (decision C3 amendment, "Round nine": a nullable integer, null
- * meaning no limit, defaulting to 25 - see `packages/db/src/schema/universe.ts`'s
- * column comment for the arithmetic), issue #19's precedence panel (decision A2 = A's
- * "superseded, struck through" row, made real) for a derived universe, and issue #378's
- * two sections (decision R3, DECISIONS.md "Round thirteen"): the universe's shared
- * image style and its Loremaster voice, neither of which had an interface anywhere in
- * the product before this. Account-wide settings (appearance, export) stay at
- * `/settings/*`, linked from here rather than duplicated.
+ * the propagation cap (decision C3 amendment, "Round nine", null default since issue
+ * #451's decision U3 - see `packages/db/src/schema/universe.ts`'s column comment for
+ * why), issue #19's precedence panel (decision A2 = A's "superseded, struck through"
+ * row, made real) for a derived universe, and issue #378's two sections (decision R3,
+ * DECISIONS.md "Round thirteen"): the universe's shared image style and its Loremaster
+ * voice, neither of which had an interface anywhere in the product before this. The
+ * voice grew its own preset picker under issue #451, decision U2, on the image style
+ * picker's own shape (S2) - see `+page.svelte`'s `#group-loremaster` section. Account-
+ * wide settings (appearance, export) stay at `/settings/*`, linked from here rather than
+ * duplicated.
  *
  * Loads the full universe row itself rather than trusting the layout's `current`
  * (`UniverseSummary`, the sidebar switcher's shape): that type deliberately does not
- * carry `ai_enabled`, `propagation_cap`, `image_style_id` or `loremaster_description`,
+ * carry `ai_enabled`, `propagation_cap`, `image_style_id` or `narration_style_id`,
  * and this page needs all four.
  *
  * Issue #379, decision R4: `setupItems` is `universeSetupItems()` run against this
@@ -27,29 +29,23 @@ import {
 	ImageStylePresetNotFoundError,
 	listDataSourcesForUniverse,
 	listImageStylePresets,
+	listNarrationStylePresets,
 	listRelationTypesForUniverse,
 	listSupersedesForUniverse,
+	NarrationStylePresetNotFoundError,
 	removeSupersede,
 	selectUniverseImageStylePreset,
+	selectUniverseNarrationStylePreset,
 	SupersedeAlreadyExistsError,
 	universeAccessBySlug,
-	upsertUniverseImageStyle
+	upsertUniverseImageStyle,
+	upsertUniverseNarrationStyle
 } from '@canonry/db';
-import { imageStyle, universe } from '@canonry/db/schema';
+import { imageStyle, narrationStyle, universe } from '@canonry/db/schema';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { universeSetupItems } from '$lib/server/universe-setup';
 import type { Actions, PageServerLoad } from './$types';
-
-// Issue #378, decision R3: the same 500-character cap the settings textarea enforces
-// client-side via `maxlength` - restated here because a form post never trusts what the
-// client claims it validated. Kept as one constant rather than a magic number in the
-// action below. Not exported: a `+page.server.ts` module only permits SvelteKit's own
-// named exports (`load`, `actions`, ...) at runtime - vite's dev server 500s on
-// anything else - and the svelte file could not import it either way, since a server
-// module never reaches the client bundle; its `maxlength` attribute restates 500
-// directly instead, with a comment pointing back here.
-const LOREMASTER_DESCRIPTION_MAX_LENGTH = 500;
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!locals.user) error(404, `No universe named "${params.universe}"`);
@@ -58,25 +54,44 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!access) error(404, `No universe named "${params.universe}"`);
 	const world = access.universe;
 
-	const [supersedes, baseDataSources, relationTypes, imageStylePresets, ownCustomStyle] =
-		await Promise.all([
-			listSupersedesForUniverse(conn, world.id),
-			world.baseUniverseId ? listDataSourcesForUniverse(conn, world.baseUniverseId) : [],
-			listRelationTypesForUniverse(conn, world.id),
-			// Issue #407, decision S2: the shipped catalogue the picker's grid renders.
-			listImageStylePresets(conn, locals.locale),
-			// Issue #378/#407: this universe's own custom row, found by universe_id -
-			// never by world.imageStyleId, which might currently point at a preset
-			// instead. This is only for prefilling the custom card's form; pickStyle's
-			// cascade (packages/media/src/style.ts) reads image_style_id at generation
-			// time and does not care which kind of row it points at.
-			conn
-				.select({ name: imageStyle.name, promptModifier: imageStyle.promptModifier })
-				.from(imageStyle)
-				.where(eq(imageStyle.universeId, world.id))
-				.limit(1)
-				.then(([row]) => row)
-		]);
+	const [
+		supersedes,
+		baseDataSources,
+		relationTypes,
+		imageStylePresets,
+		ownCustomStyle,
+		narrationStylePresets,
+		ownCustomNarrationStyle
+	] = await Promise.all([
+		listSupersedesForUniverse(conn, world.id),
+		world.baseUniverseId ? listDataSourcesForUniverse(conn, world.baseUniverseId) : [],
+		listRelationTypesForUniverse(conn, world.id),
+		// Issue #407, decision S2: the shipped catalogue the picker's grid renders.
+		listImageStylePresets(conn, locals.locale),
+		// Issue #378/#407: this universe's own custom row, found by universe_id -
+		// never by world.imageStyleId, which might currently point at a preset
+		// instead. This is only for prefilling the custom card's form; pickStyle's
+		// cascade (packages/media/src/style.ts) reads image_style_id at generation
+		// time and does not care which kind of row it points at.
+		conn
+			.select({ name: imageStyle.name, promptModifier: imageStyle.promptModifier })
+			.from(imageStyle)
+			.where(eq(imageStyle.universeId, world.id))
+			.limit(1)
+			.then(([row]) => row),
+		// Issue #451, decision U2: the shipped narration catalogue, same shape as
+		// `imageStylePresets` above.
+		listNarrationStylePresets(conn, locals.locale),
+		// This universe's own custom voice, found by universe_id for the same reason
+		// `ownCustomStyle` is above - prefills the custom card only, never read by
+		// `loremasterVoiceClauseForUniverse` at prompt-build time.
+		conn
+			.select({ name: narrationStyle.name, promptClause: narrationStyle.promptClause })
+			.from(narrationStyle)
+			.where(eq(narrationStyle.universeId, world.id))
+			.limit(1)
+			.then(([row]) => row)
+	]);
 
 	const universeEntities = world.baseUniverseId
 		? await conn.query.entity.findMany({
@@ -97,12 +112,15 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		currentImageStyleId: world.imageStyleId,
 		imageStyleName: ownCustomStyle?.name ?? '',
 		imageStyleModifier: ownCustomStyle?.promptModifier ?? '',
-		loremasterDescription: world.loremasterDescription,
+		narrationStylePresets,
+		currentNarrationStyleId: world.narrationStyleId,
+		narrationStyleName: ownCustomNarrationStyle?.name ?? '',
+		narrationStylePromptClause: ownCustomNarrationStyle?.promptClause ?? '',
 		// Issue #379, decision R4: the same checklist the shell row counts, so the list
 		// at the top of this page can never disagree with it about what is unset.
 		setupItems: universeSetupItems({
 			imageStyleId: world.imageStyleId,
-			loremasterDescription: world.loremasterDescription
+			narrationStyleId: world.narrationStyleId
 		})
 	};
 };
@@ -219,12 +237,11 @@ export const actions: Actions = {
 		return { imageStyleName: style.name, imageStyleModifier: style.promptModifier };
 	},
 
-	// Issue #378, decision R3: a textarea over `universe.loremaster_description`, capped
-	// at LOREMASTER_DESCRIPTION_MAX_LENGTH characters, the empty default preserved when a
-	// GM clears it rather than turned back into a sentinel. `runAsk` and `completeEntry`
-	// (packages/copilot) read this column directly - nothing here caches or denormalises
-	// it.
-	setLoremasterVoice: async ({ request, params, locals }) => {
+	// Issue #451, decision U2: points the universe at a shipped narration preset without
+	// ever touching the preset row itself - the "Custom voice" card's own submit
+	// (setNarrationStyle below) is the only action that ever writes to narration_style.
+	// Choosing a voice spends nothing.
+	selectNarrationStylePreset: async ({ request, params, locals }) => {
 		if (!locals.user) error(404, `No universe named "${params.universe}"`);
 		const conn = db();
 		const access = await universeAccessBySlug(conn, params.universe, locals.user.id);
@@ -233,19 +250,56 @@ export const actions: Actions = {
 			error(403, messages(locals.locale).universe.settings.viewerForbiddenError);
 		}
 
-		const tVoice = messages(locals.locale).universe.settings.loremasterVoice;
+		const tNarration = messages(locals.locale).universe.settings.narration;
 		const form = await request.formData();
-		const raw = form.get('description');
-		const description = (typeof raw === 'string' ? raw : '').trim();
-		if (description.length > LOREMASTER_DESCRIPTION_MAX_LENGTH) {
-			return fail(400, { loremasterVoiceError: tVoice.tooLongError });
+		const presetId = form.get('presetId');
+		if (typeof presetId !== 'string' || presetId.length === 0) {
+			return fail(400, { narrationStyleError: tNarration.pickError });
 		}
 
-		await conn
-			.update(universe)
-			.set({ loremasterDescription: description })
-			.where(eq(universe.id, access.universe.id));
-		return { loremasterDescription: description };
+		try {
+			await selectUniverseNarrationStylePreset(conn, access.universe.id, presetId);
+		} catch (err) {
+			if (err instanceof NarrationStylePresetNotFoundError) {
+				return fail(400, { narrationStyleError: tNarration.pickError });
+			}
+			throw err;
+		}
+		return { selectedNarrationPresetId: presetId };
+	},
+
+	// Issue #451, decision U2: one `narration_style` row per universe, updated in place -
+	// `upsertUniverseNarrationStyle` finds this universe's own row by `universe_id`
+	// (never by `narration_style_id`, which might currently point at a preset instead)
+	// and updates it, or inserts the first one and points the column at it. Replaces the
+	// old `setLoremasterVoice` action - `universe.loremaster_description` is gone, moved
+	// into this same table by migration 0050.
+	setNarrationStyle: async ({ request, params, locals }) => {
+		if (!locals.user) error(404, `No universe named "${params.universe}"`);
+		const conn = db();
+		const access = await universeAccessBySlug(conn, params.universe, locals.user.id);
+		if (!access) error(404, `No universe named "${params.universe}"`);
+		if (access.role === 'viewer') {
+			error(403, messages(locals.locale).universe.settings.viewerForbiddenError);
+		}
+
+		const tNarration = messages(locals.locale).universe.settings.narration;
+		const form = await request.formData();
+		const name = form.get('name');
+		const promptClause = form.get('promptClause');
+		if (typeof name !== 'string' || name.trim().length === 0) {
+			return fail(400, { narrationStyleError: tNarration.nameRequiredError });
+		}
+		if (typeof promptClause !== 'string' || promptClause.trim().length === 0) {
+			return fail(400, { narrationStyleError: tNarration.promptClauseRequiredError });
+		}
+
+		const style = await upsertUniverseNarrationStyle(conn, {
+			universeId: access.universe.id,
+			name: name.trim(),
+			promptClause: promptClause.trim()
+		});
+		return { narrationStyleName: style.name, narrationStylePromptClause: style.promptClause };
 	},
 
 	addSupersede: async ({ request, params, locals }) => {

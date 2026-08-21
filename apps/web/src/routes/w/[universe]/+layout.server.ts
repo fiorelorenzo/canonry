@@ -10,7 +10,7 @@
  *
  * Issue #379, decision R4 (DECISIONS.md "Round thirteen"): `setupItems` is
  * `universeSetupItems()` (`$lib/server/universe-setup`) run against this universe's
- * row, never the row's own `imageStyleId`/`loremasterDescription` - `UniverseSetupItem`
+ * row, never the row's own `imageStyleId`/`narrationStyleId` - `UniverseSetupItem`
  * carries only an id and a `done` boolean, so the sidebar can count what is unset
  * without this payload ever widening past that. `UniverseSummary` (the switcher's own
  * shape) is untouched: only the current universe's checklist is relevant here, not
@@ -76,7 +76,7 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 		navCounts: { entries: current.entityCount, proposals: proposalsPending },
 		setupItems: universeSetupItems({
 			imageStyleId: currentRow.imageStyleId,
-			loremasterDescription: currentRow.loremasterDescription
+			narrationStyleId: currentRow.narrationStyleId
 		}),
 		// Threaded to the edit action below and to any future write surface under this
 		// subtree, so "may this account save here" is answered once per request rather

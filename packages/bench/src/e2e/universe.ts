@@ -32,8 +32,7 @@ export async function universeForSource(db: Db, userId: string, source: string):
 			ownerUserId: userId,
 			name: `Valdoria Reach (import: ${source})`,
 			slug,
-			kind: 'homebrew',
-			loremasterDescription: 'Dry, unsentimental, a little tired.'
+			kind: 'homebrew'
 		})
 		.returning({ id: universe.id });
 	const id = inserted[0]?.id;

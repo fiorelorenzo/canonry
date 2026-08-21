@@ -129,13 +129,37 @@
 	$effect(() => {
 		if (isCustomActive) customOpen = true;
 	});
-	let loremasterDescription = $derived(
-		form && 'loremasterDescription' in form && form.loremasterDescription !== undefined
-			? form.loremasterDescription
-			: data.loremasterDescription
+	// Issue #451, decision U2: a preset pick from `?/selectNarrationStylePreset` returns
+	// `selectedNarrationPresetId` on success, the same "read the last submission" shape
+	// `currentImageStyleId` above uses.
+	let currentNarrationStyleId = $derived(
+		form && 'selectedNarrationPresetId' in form && form.selectedNarrationPresetId !== undefined
+			? form.selectedNarrationPresetId
+			: data.currentNarrationStyleId
 	);
-	let loremasterVoiceError = $derived(
-		form && 'loremasterVoiceError' in form ? form.loremasterVoiceError : undefined
+	// A universe's own custom row is "whatever narration_style_id points at that is not
+	// one of the shipped presets" - same reasoning as `isCustomActive` above.
+	let isCustomNarrationActive = $derived(
+		currentNarrationStyleId !== null &&
+			!data.narrationStylePresets.some((preset) => preset.id === currentNarrationStyleId)
+	);
+	// svelte-ignore state_referenced_locally
+	let customNarrationOpen = $state(isCustomNarrationActive);
+	$effect(() => {
+		if (isCustomNarrationActive) customNarrationOpen = true;
+	});
+	let narrationStyleName = $derived(
+		form && 'narrationStyleName' in form && form.narrationStyleName !== undefined
+			? form.narrationStyleName
+			: data.narrationStyleName
+	);
+	let narrationStylePromptClause = $derived(
+		form && 'narrationStylePromptClause' in form && form.narrationStylePromptClause !== undefined
+			? form.narrationStylePromptClause
+			: data.narrationStylePromptClause
+	);
+	let narrationStyleError = $derived(
+		form && 'narrationStyleError' in form ? form.narrationStyleError : undefined
 	);
 
 	// Issue #406 (S1): the rail's own rows, one per group, in fixed order - each row's
@@ -303,32 +327,96 @@
 		<h2 class="text-lg font-semibold text-ink">{t.groups.loremaster}</h2>
 		<div class="mt-3 flex flex-col gap-4">
 			<div class="rounded-lg border border-line bg-panel p-4">
-				<h3 class="text-sm font-semibold text-ink">{t.loremasterVoice.heading}</h3>
+				<h3 class="text-sm font-semibold text-ink">{t.narration.heading}</h3>
 				<p class="mt-1 max-w-measure text-sm text-ink-2">
-					{t.loremasterVoice.description(data.current.name)}
+					{t.narration.description(data.current.name)}
 				</p>
-				<form method="POST" action="?/setLoremasterVoice" class="mt-3 flex flex-col gap-2">
-					<label class="flex flex-col gap-1 text-sm text-ink-2" for="loremaster-voice">
-						{t.loremasterVoice.textareaLabel}
-					</label>
-					<!-- 500 mirrors `+page.server.ts`'s own LOREMASTER_DESCRIPTION_MAX_LENGTH - not
-					     authoritative here, the client attribute is only a courtesy that stops most
-					     GMs from ever seeing the server's rejection at all. -->
-					<Textarea
-						id="loremaster-voice"
-						name="description"
-						rows={3}
-						maxlength={500}
-						value={loremasterDescription}
-					/>
-					<p class="text-xs text-muted">{t.loremasterVoice.hint}</p>
-					{#if loremasterVoiceError}
-						<p class="text-sm text-danger">{loremasterVoiceError}</p>
-					{/if}
-					<Button type="submit" variant="secondary" class="w-fit">
-						{t.loremasterVoice.save}
-					</Button>
-				</form>
+
+				<!-- Issue #451, decision U2: the picker's own card shape, copied from the image
+			     style grid above with one substitution - an example sentence, italic, in
+			     place of the example image, since a voice has nothing to show but something
+			     to read aloud. Picking a preset posts `?/selectNarrationStylePreset`, which
+			     only ever points universe.narration_style_id at the shipped row
+			     (queries/narration.ts's selectUniverseNarrationStylePreset) - it never copies
+			     the preset's clause anywhere, so an improved preset improves every world that
+			     chose it. -->
+				<fieldset class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+					<legend class="sr-only">{t.narration.pickerLegend}</legend>
+					<form method="POST" action="?/selectNarrationStylePreset" class="contents">
+						{#each data.narrationStylePresets as preset (preset.id)}
+							<label
+								class="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line p-3 text-left transition-colors has-checked:border-accent has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
+							>
+								<input
+									type="radio"
+									name="presetId"
+									value={preset.id}
+									checked={currentNarrationStyleId === preset.id}
+									class="sr-only"
+									onchange={(event) => {
+										event.currentTarget.form?.requestSubmit();
+									}}
+								/>
+								<p class="text-xs text-ink-2 italic">&ldquo;{preset.exampleSentence}&rdquo;</p>
+								<span class="mt-2 flex items-center gap-1 text-sm font-medium text-ink">
+									{preset.name}
+									{#if currentNarrationStyleId === preset.id}
+										<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+										<span class="sr-only">{t.narration.selectedLabel}</span>
+									{/if}
+								</span>
+								<span class="mt-0.5 text-xs text-ink-2">{preset.description}</span>
+							</label>
+						{/each}
+						<noscript>
+							<Button type="submit" variant="secondary" size="sm" class="col-span-full w-fit">
+								{tControls.apply}
+							</Button>
+						</noscript>
+					</form>
+
+					<details
+						class="flex flex-col overflow-hidden rounded-lg border text-left"
+						class:border-accent={isCustomNarrationActive}
+						class:border-line={!isCustomNarrationActive}
+						bind:open={customNarrationOpen}
+					>
+						<summary
+							class="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden"
+						>
+							<span
+								class="text-[10px] text-muted transition-transform"
+								class:rotate-90={customNarrationOpen}
+								aria-hidden="true">&#9656;</span
+							>
+							{t.narration.customCard.label}
+							{#if isCustomNarrationActive}
+								<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+								<span class="sr-only">{t.narration.selectedLabel}</span>
+							{/if}
+						</summary>
+						<div class="border-t border-line px-3 py-3">
+							<p class="text-xs text-ink-2">{t.narration.customCard.hint}</p>
+							<form method="POST" action="?/setNarrationStyle" class="mt-3 flex flex-col gap-3">
+								<label class="flex flex-col gap-1 text-sm text-ink-2">
+									{t.narration.nameLabel}
+									<Input name="name" value={narrationStyleName} required />
+								</label>
+								<label class="flex flex-col gap-1 text-sm text-ink-2">
+									{t.narration.promptClauseLabel}
+									<Textarea name="promptClause" rows={2} value={narrationStylePromptClause} required
+									></Textarea>
+								</label>
+								<Button type="submit" variant="secondary" class="w-fit">
+									{t.narration.save}
+								</Button>
+							</form>
+						</div>
+					</details>
+				</fieldset>
+				{#if narrationStyleError}
+					<p class="mt-2 text-sm text-danger">{narrationStyleError}</p>
+				{/if}
 			</div>
 
 			<!-- Issue #437, decision T10: the settings copy check the issue names - a

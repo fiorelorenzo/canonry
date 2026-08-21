@@ -34,7 +34,7 @@ import { chargeFor, ModelNotConfiguredError, resolveModel } from '@canonry/ai';
 import { withQuota } from '@canonry/ai';
 import type { Db } from '@canonry/db';
 import { eq, entityBrowserPage, entityCountsByType, weeklyChangeCounts } from '@canonry/db';
-import { entity, universe, type EntityType } from '@canonry/db/schema';
+import { entity, narrationStyle, universe, type EntityType } from '@canonry/db/schema';
 import { getDataSource } from '@canonry/db';
 import {
 	collectionExists,
@@ -738,13 +738,15 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 			aiEnabled: universe.aiEnabled,
 			kind: universe.kind,
 			baseUniverseId: universe.baseUniverseId,
-			// Issue #378, decision R3: the GM's own description of how their Loremaster
-			// talks, read here because this is already the one place `runAsk` selects from
-			// `universe` - see `speech.ts`'s `loremasterVoiceInstruction` for what it becomes
-			// and why it lands where it does in the system prompt below.
-			loremasterDescription: universe.loremasterDescription
+			// Issue #378, decision R3, amended by issue #451, decision U2: the resolved
+			// clause of whatever row `universe.narration_style_id` points at, read here
+			// because this is already the one place `runAsk` selects from `universe` - see
+			// `speech.ts`'s `loremasterVoiceInstruction` for what it becomes and why it
+			// lands where it does in the system prompt below.
+			loremasterVoiceClause: narrationStyle.promptClause
 		})
 		.from(universe)
+		.leftJoin(narrationStyle, eq(narrationStyle.id, universe.narrationStyleId))
 		.where(eq(universe.id, input.universeId))
 		.limit(1);
 	if (!universeRow) throw new Error(`no universe row for id "${input.universeId}"`);
@@ -906,7 +908,7 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 						// and the locale rule above it, so an adversarial description can only ever
 						// colour tone, never read as though it arrived before the rules that bind
 						// this call. Empty input contributes nothing here.
-						loremasterVoiceInstruction(universeRow.loremasterDescription),
+						loremasterVoiceInstruction(universeRow.loremasterVoiceClause ?? ''),
 					prompt:
 						renderContextForPrompt(input.context) +
 						renderHistoryForPrompt(history) +

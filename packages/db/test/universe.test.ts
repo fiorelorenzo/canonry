@@ -206,19 +206,22 @@ describe('universe', () => {
 		expect(remainingRevisions).toHaveLength(0);
 	});
 
-	it('defaults propagation cap to 25 and round-trips a set number and an explicit no-limit null', async () => {
+	it('issue #451, decision U3: defaults propagation cap to null (no limit), round-trips a set number, and still accepts the old 25 explicitly', async () => {
 		const withDefault = await insertHomebrewUniverse(db);
-		expect(withDefault.propagationCap).toBe(25);
+		expect(withDefault.propagationCap).toBeNull();
 
 		const withNumber = await insertHomebrewUniverse(db, { propagationCap: 40 });
 		expect(withNumber.propagationCap).toBe(40);
 
-		const withNoLimit = await insertHomebrewUniverse(db, { propagationCap: null });
-		expect(withNoLimit.propagationCap).toBeNull();
+		// The old default is still just a number the column accepts, never special-cased -
+		// a universe that explicitly asks for 25 gets exactly 25, the same as any other
+		// value.
+		const withOldDefault = await insertHomebrewUniverse(db, { propagationCap: 25 });
+		expect(withOldDefault.propagationCap).toBe(25);
 
 		// Read back independently of the insert's own `.returning()`, so this is a real
 		// round trip through Postgres rather than just an echo of what was sent.
-		const [reloaded] = await db.select().from(universe).where(eq(universe.id, withNoLimit.id));
+		const [reloaded] = await db.select().from(universe).where(eq(universe.id, withDefault.id));
 		expect(reloaded?.propagationCap).toBeNull();
 	});
 

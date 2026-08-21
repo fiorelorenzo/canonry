@@ -351,6 +351,13 @@
       "when": 1787296267722,
       "tag": "0049_fine_doomsday",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1787309649953,
+      "tag": "0050_skinny_apocalypse",
+      "breakpoints": true
     }
   ]
 }

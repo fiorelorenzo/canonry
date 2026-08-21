@@ -14,6 +14,7 @@ import {
 import { user } from './auth.js';
 import { universeKindEnum, universeMemberRoleEnum } from './enums.js';
 import { imageStyle } from './media.js';
+import { narrationStyle } from './narration.js';
 
 // SPEC.md §4.1: the container of canon. A `derived` universe reads from its own canon plus
 // an official pre-indexed universe underneath it; `homebrew` stands alone.
@@ -38,7 +39,16 @@ export const universe = pgTable(
 		imageStyleId: uuid('image_style_id').references((): AnyPgColumn => imageStyle.id, {
 			onDelete: 'set null'
 		}),
-		loremasterDescription: text('loremaster_description').notNull().default(''),
+		// The Loremaster's voice for this world (issue #451, decision U2): a pointer to a
+		// shipped preset or to this universe's own custom row, resolved by
+		// `loremasterVoiceInstruction` (packages/copilot/src/speech.ts). Set null rather
+		// than cascade, same reasoning as `imageStyleId` above. Replaces the old
+		// `loremaster_description` column - migration 0050 moved any real text a GM had
+		// already written into a custom `narration_style` row and pointed this at it, so
+		// nothing already written was lost.
+		narrationStyleId: uuid('narration_style_id').references((): AnyPgColumn => narrationStyle.id, {
+			onDelete: 'set null'
+		}),
 		// Decision C10 (docs/ux/DECISIONS.md): the per-universe AI on/off switch. Guardrail 4
 		// requires that turning this off still leaves a good wiki.
 		aiEnabled: boolean('ai_enabled').notNull().default(true),
@@ -51,17 +61,14 @@ export const universe = pgTable(
 		// and it must never turn a null back into a number - a GM who asked for everything
 		// does not silently get three.
 		//
-		// Default 25, derived from what a plan actually costs rather than picked by feel: a
-		// plan is 1 credit to write (propagate.plan) plus 1 credit per surviving candidate if
-		// the GM generates every diff (propagate.diff, both migration 0004) - so a cap of 25
-		// bounds one save's worst-case spend at 26 credits. Against the included tier's 5,000
-		// credits per period (packages/db/src/queries/subscriptions.ts), that is 0.52% of a
-		// period for the single largest plan one save could produce, generous enough that a
-		// well-connected entity's real two-hop neighbourhood rarely gets truncated, while the
-		// suggestion-fatigue ceiling SPEC.md §5.1 cites is still a real number and not one
-		// nobody will ever hit. The old 10 was a guess with no arithmetic behind it; this is
-		// the same guess corrected once real prices existed to check it against.
-		propagationCap: integer('propagation_cap').default(25),
+		// Default null (decision U3, issue #451): no limit. 25 was a real number derived
+		// from what a plan actually costs, but a default that silently truncates the
+		// propagation of a well-connected entry, with no way for the GM to learn what was
+		// dropped, is the opposite of guardrail 7's promise. A universe already sitting at
+		// 25 keeps it - migration 0050 only drops the column default, it never rewrites a
+		// stored value, because a migration cannot tell a default nobody chose from a cap
+		// a GM set on purpose.
+		propagationCap: integer('propagation_cap'),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 	},
