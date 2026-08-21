@@ -309,7 +309,7 @@
 
 		{#if askAnswer.length > 0 || asking}
 			<p class="mt-4 max-w-measure text-sm leading-relaxed text-ink">
-				{askAnswer}{#if asking}<span class="ai-note text-ai"> …</span>{/if}
+				{askAnswer}{#if asking}<span class="text-muted"> …</span>{/if}
 			</p>
 		{/if}
 
@@ -357,9 +357,10 @@
 						this as "did what I asked" when it did the other thing instead. -->
 					<div class="rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs">
 						<!-- Round eleven P2 (#344): the card and the kind label are furniture. What
-							says "not yet accepted" is AiMarkedParagraph below, which is C1's dashed
-							underline and numbered marker in the copilot's own hue, and it says it on
-							the wording rather than on the box around it. -->
+						says "not yet accepted" is AiMarkedParagraph below, which is C1's dashed
+						underline and numbered marker, in `--color-diff-line` since round sixteen
+						U10 (#454) deleted the copilot's own hue, and it says it on the wording
+						rather than on the box around it. -->
 						<span
 							class="badge rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
 						>

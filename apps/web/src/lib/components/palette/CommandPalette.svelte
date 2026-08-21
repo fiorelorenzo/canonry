@@ -306,7 +306,7 @@
 		{:else}
 			{#if isQuestion && askHref}
 				<Command.Group heading={t.askHeading}>
-					<Command.LinkItem href={askHref} onSelect={rowSelected} class="text-ai">
+					<Command.LinkItem href={askHref} onSelect={rowSelected}>
 						<span aria-hidden="true">✦</span>
 						<span class="min-w-0 truncate">{t.askAction(trimmedQuery)}</span>
 						<Command.Shortcut>{t.askHint}</Command.Shortcut>

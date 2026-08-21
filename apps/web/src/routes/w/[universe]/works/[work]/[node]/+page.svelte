@@ -150,15 +150,15 @@
 				{#each data.uses as use (use.entityId)}
 					<li
 						class="rounded-md border px-2.5 py-2 text-sm"
-						class:border-ai-line={use.fresh}
-						class:bg-ai-bg={use.fresh}
+						class:border-accent={use.fresh}
+						class:bg-accent-bg={use.fresh}
 						class:border-line={!use.fresh}
 						class:bg-panel={!use.fresh}
 					>
 						<div class="flex items-center gap-1.5">
 							<span
 								class="h-1.5 w-1.5 flex-none rounded-full"
-								class:bg-ai={use.fresh}
+								class:bg-accent={use.fresh}
 								class:bg-line-2={!use.fresh}
 							></span>
 							<a
@@ -169,7 +169,7 @@
 							</a>
 						</div>
 						{#if use.fresh}
-							<p class="mt-1 font-mono text-[11px] text-ai">
+							<p class="mt-1 font-mono text-[11px] text-accent-ink">
 								{t.works.node.changedAt(formatWhen(use.changedAt))}
 							</p>
 						{/if}

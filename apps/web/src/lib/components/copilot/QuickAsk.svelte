@@ -57,11 +57,11 @@
 	 *   generated this and which provider, the job the marker used to do less directly.
 	 *   **C1 is not repealed.** A proposal's own summary still wears the mark wherever it
 	 *   is shown (`aiMarking.ts`, `EntryProseWithSecrets.svelte`, `/dev/ai-marking`),
-	 *   because that text really can become canon. Do not touch `--color-ai` or
-	 *   `AiMarkedParagraph` itself for this reason: round eleven P1 measured mulberry
-	 *   against paper, ink, the accent and danger specifically for that mark, and the
-	 *   complaint that opened #414 was about a surface that should never have carried it,
-	 *   not about the mark's colour.
+	 *   because that text really can become canon. Do not touch `--color-diff-line` or
+	 *   `AiMarkedParagraph` itself for this reason: round sixteen U10 (#454) put the mark
+	 *   on that token after three rounds of the copilot's own hue being misused
+	 *   elsewhere, and the complaint that opened #414 was about a surface that should
+	 *   never have carried the mark at all, not about its colour.
 	 * - **An icon closes the panel, not the word.** With its accessible name on
 	 *   `aria-label`, so the control is still named for anything that is not looking at it.
 	 *

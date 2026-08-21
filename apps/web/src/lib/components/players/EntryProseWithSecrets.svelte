@@ -239,12 +239,14 @@
 		width: 0.95rem;
 		height: 0.95rem;
 		border-radius: 0.25rem;
-		background: var(--color-ai);
-		color: var(--color-paper);
+		box-sizing: border-box;
+		border: 1.5px solid var(--color-diff-line);
+		background: var(--color-panel);
+		color: var(--color-ink);
 		font-family: var(--font-mono);
 		font-size: 9px;
 		font-weight: 700;
-		line-height: 0.95rem;
+		line-height: calc(0.95rem - 3px);
 		text-align: center;
 	}
 	.entry-prose-secrets :global(.ai-paragraph) {
@@ -255,6 +257,6 @@
 		text-decoration-style: dashed;
 		text-decoration-thickness: 2px;
 		text-underline-offset: 4px;
-		text-decoration-color: var(--color-ai);
+		text-decoration-color: var(--color-diff-line);
 	}
 </style>

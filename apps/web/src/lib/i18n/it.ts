@@ -992,7 +992,7 @@ export const it: Messages = {
 		},
 
 		evidence: {
-			button: 'Prova',
+			button: 'Mostra la fonte',
 			embeddingOnly: 'Solo similarità di embedding',
 			instructionOnly: 'La tua richiesta in Chiedi, non un collegamento nel canone',
 			close: 'Chiudi',

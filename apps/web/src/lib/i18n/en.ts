@@ -963,7 +963,7 @@ export const en: Messages = {
 		},
 
 		evidence: {
-			button: 'Evidence',
+			button: 'Show source',
 			embeddingOnly: 'Embedding similarity only',
 			instructionOnly: 'Your request in Ask, not a canon link',
 			close: 'Close',

@@ -19,8 +19,8 @@
 	 * for, and neither bar can visually read past 100%.
 	 *
 	 * Colour: `--color-accent` for the included line, `--color-warn` for the warm
-	 * line. Never `--color-ai` - that hue is the copilot's alone (C1), and this is
-	 * not a copilot surface.
+	 * line. This was never a copilot surface, and round sixteen U10 (#454) deleted
+	 * the copilot's own hue outright.
 	 *
 	 * Issue #201: each heading is a `Popover.Trigger` button (bits-ui, keyboard
 	 * reachable by construction) saying what that budget pays for in product terms
