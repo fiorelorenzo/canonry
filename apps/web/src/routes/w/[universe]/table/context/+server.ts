@@ -10,6 +10,7 @@ import { declareContextAndPin } from '@canonry/warm';
 import { db } from '$lib/server/db';
 import { publishTableEvent } from '$lib/server/table-stream';
 import { requireTableAccess } from '../_server/guard.js';
+import { pinCardsFor } from '../_server/pin-cards.js';
 import type { RequestHandler } from './$types';
 
 interface DeclareBody {
@@ -48,14 +49,12 @@ export const POST: RequestHandler = async (event) => {
 			situation: context.situation,
 			startedAt: context.startedAt.toISOString()
 		},
-		pinned: pinned.map((pin) => ({
-			entityId: pin.entity.id,
-			name: pin.entity.name,
-			type: pin.entity.type,
-			slug: pin.entity.slug,
-			hopDistance: pin.hopDistance,
-			via: pin.via ? { relationLabel: pin.via.relationLabel, entityName: pin.via.entityName } : null
-		})),
+		// #477: `declareContextAndPin` returns the raw `PinnedNeighbor[]` shape, not the
+		// `PinCard[]` `PinnedCards.svelte` reads - a hand-rolled map here once left the
+		// `warm` field off both this response and the SSE `context` event it broadcasts
+		// below, so the very declare that fills the lane made it throw. Shared with
+		// `+layout.server.ts`'s initial load so the two can't drift apart again.
+		pinned: await pinCardsFor(conn, access.universe.id, pinned),
 		elapsedMs
 	};
 

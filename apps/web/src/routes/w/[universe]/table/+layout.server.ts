@@ -7,26 +7,10 @@
  */
 import { latestArtifact, pinnedNeighbors, runningSessionContext } from '@canonry/db';
 import { isAmbientPackPayload } from '$lib/server/ambient-pack.js';
-import type { PinCard } from '$lib/components/table/types';
 import { db } from '$lib/server/db';
 import { requireTableAccess } from './_server/guard.js';
+import { pinCardsFor } from './_server/pin-cards.js';
 import type { LayoutServerLoad } from './$types';
-
-/** `warm_artifact.payload` is opaque jsonb (@canonry/db never interprets it, matches
- * proposal.evidence's own convention) - `'text' in payload` is a real runtime check, not an
- * inline cast, so a payload shaped some other way just renders no preview text rather than
- * throwing. */
-function briefTextOf(payload: unknown): string | null {
-	if (
-		payload &&
-		typeof payload === 'object' &&
-		'text' in payload &&
-		typeof payload.text === 'string'
-	) {
-		return payload.text;
-	}
-	return null;
-}
 
 export const load: LayoutServerLoad = async (event) => {
 	const access = await requireTableAccess(event);
@@ -38,37 +22,9 @@ export const load: LayoutServerLoad = async (event) => {
 	const pins = context?.placeEntityId ? await pinnedNeighbors(conn, context.placeEntityId) : [];
 	const pinnedElapsedMs = Math.round((performance.now() - pinStart) * 100) / 100;
 
-	// One warm-status lookup per pin, all indexed on (universe_id, kind, subject_entity_id) -
-	// still well inside the instant lane even at a dozen pins, and each is a read of
-	// whatever #77's triggers have already computed, never a generation of its own.
-	const pinCards: PinCard[] = await Promise.all(
-		pins.map(async (pin) => {
-			const artifact = await latestArtifact(conn, {
-				universeId: access.universe.id,
-				kind: 'brief',
-				subjectEntityId: pin.entity.id
-			});
-			const warm: PinCard['warm'] =
-				artifact && !artifact.stale
-					? {
-							status: 'warm',
-							updatedAt: artifact.createdAt.toISOString(),
-							text: briefTextOf(artifact.payload)
-						}
-					: { status: 'cold', lastWarmedAt: artifact ? artifact.createdAt.toISOString() : null };
-			return {
-				entityId: pin.entity.id,
-				name: pin.entity.name,
-				type: pin.entity.type,
-				slug: pin.entity.slug,
-				hopDistance: pin.hopDistance,
-				via: pin.via
-					? { relationLabel: pin.via.relationLabel, entityName: pin.via.entityName }
-					: null,
-				warm
-			};
-		})
-	);
+	// #477: shared with the declare route (`context/+server.ts`) and its SSE broadcast,
+	// so a pin never reaches the client without the `warm` field the card reads.
+	const pinCards = await pinCardsFor(conn, access.universe.id, pins);
 
 	// The declaration control's candidate list (decision E1's #72 lock-in: "an autocomplete
 	// over place-typed entities", never a free-text box). Small by construction - most
