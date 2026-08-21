@@ -2161,5 +2161,16 @@ export const en: Messages = {
 		privacy: {
 			title: "Where your campaign's words go"
 		}
+	},
+	errorPage: {
+		notFoundHeading: 'Page not found',
+		notFoundBody: "There's nothing at this address. It may have moved, or the link was mistyped.",
+		serverErrorHeading: 'Something went wrong',
+		serverErrorBody: "The page didn't load. Try again, or head back to somewhere that works.",
+		worldHomeAction: 'Go to world home',
+		entriesAction: 'Browse entries',
+		allUniversesAction: 'Go to your universes',
+		searchAction: 'Search',
+		retryAction: 'Try again'
 	}
 };
