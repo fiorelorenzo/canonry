@@ -317,6 +317,7 @@
 					initialPlaceId={context?.placeEntityId ?? null}
 					initialSessionId={context?.sessionEntityId ?? null}
 					locale={data.locale}
+					pending={declaringContext}
 					onDeclare={declareContext}
 					onCancel={() => (showDeclareForm = false)}
 				/>
@@ -363,6 +364,7 @@
 				<QuickActionDock
 					canReveal={context.sessionEntityId !== null}
 					{npcPending}
+					locationPending={locationCreating}
 					locale={data.locale}
 					onMarkRevealed={() => fireAction('reveal')}
 					onNpcHere={() => fireAction('npc')}
@@ -387,6 +389,7 @@
 					<QuickNoteForm
 						targets={noteTargets}
 						locale={data.locale}
+						pending={noteSubmitting}
 						onSubmit={submitNote}
 						onCancel={() => (showNoteForm = false)}
 					/>

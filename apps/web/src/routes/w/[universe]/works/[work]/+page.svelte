@@ -11,6 +11,7 @@
 	 * default, would have silently created every node as an act for a reader with
 	 * scripting off.
 	 */
+	import { enhance } from '$app/forms';
 	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import { messages } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
@@ -48,7 +49,18 @@
 			</p>
 		{/if}
 
-		<form method="POST" action="?/createNode" class="mt-6 flex max-w-sm flex-col gap-3">
+		<form
+			method="POST"
+			action="?/createNode"
+			class="mt-6 flex max-w-sm flex-col gap-3"
+			use:enhance={() => {
+				addingNode = true;
+				return async ({ update }) => {
+					await update();
+					addingNode = false;
+				};
+			}}
+		>
 			<label class="flex flex-col gap-1 text-sm text-ink-2">
 				{t.works.tree.titleLabel}
 				<Input id="work-node-title" name="title" required />
@@ -75,8 +87,8 @@
 			{#if form?.message}
 				<p class="text-sm text-danger">{form.message}</p>
 			{/if}
-			<Button type="submit" class="mt-1 w-fit">
-				{t.works.tree.addNodeButton}
+			<Button type="submit" class="mt-1 w-fit" disabled={addingNode}>
+				{addingNode ? t.works.tree.addingNode : t.works.tree.addNodeButton}
 			</Button>
 		</form>
 	</div>
