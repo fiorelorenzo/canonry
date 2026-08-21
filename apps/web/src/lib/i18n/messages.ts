@@ -1393,6 +1393,10 @@ export interface Messages {
 			noPlaceDeclared: (universeName: string) => string;
 			pinnedIn: (ms: number) => string;
 			change: string;
+			/** `ContextStrip`'s own control read as what it does when nothing is declared
+			 * yet (#470): "Change" implies an existing choice, so an undeclared table
+			 * reads "Declare" on the same button instead. */
+			declare: string;
 			exit: string;
 		};
 
@@ -1498,6 +1502,9 @@ export interface Messages {
 		 * own live proposal feed (issue #79). */
 		home: {
 			noContextDeclared: string;
+			/** The inline quick-declare `Combobox`'s trigger before a place is chosen
+			 * (#470's empty state, `EmptyState`'s `action` snippet). */
+			choosePlace: string;
 			pinnedHeading: string;
 			quickActionsHeading: string;
 			askHeading: string;
@@ -1512,7 +1519,6 @@ export interface Messages {
 			scaffoldBadge: string;
 			scaffoldTooltipDefault: string;
 			aiUnavailable: (reason: string) => string;
-			streamStatus: (count: number, lastId: number | null) => string;
 			draftingNpc: string;
 			actionFailed: (action: string, reason: string) => string;
 			unknownReason: string;

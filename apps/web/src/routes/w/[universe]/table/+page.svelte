@@ -17,6 +17,8 @@
 	import InstantSearch from '$lib/components/table/InstantSearch.svelte';
 	import PhoneTabBar from '$lib/components/table/PhoneTabBar.svelte';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Combobox } from '$lib/components/ui/combobox';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { connectTableStream, type TableStreamMessage } from '$lib/components/table/stream-client';
 	import { messages } from '$lib/i18n';
 	import { SHORTCUTS, formatShortcut } from '$lib/keys';
@@ -26,6 +28,7 @@
 	let { data }: { data: PageData } = $props();
 
 	const t = $derived(messages(data.locale).table);
+	const tControls = $derived(messages(data.locale).controls);
 
 	let context = $state(data.context);
 	let pins = $state(data.pins);
@@ -50,7 +53,7 @@
 	let proposals = $state<ProposalSummary[]>([]);
 	let sessionEndedBanner = $state<string | null>(null);
 	let activeTab = $state<'here' | 'actions' | 'ask' | 'queue'>('here');
-	let streamEvents = $state<TableStreamMessage[]>([]);
+	let quickPlaceId = $state<string | null>(null);
 
 	const paletteShortcut = SHORTCUTS.find((shortcut) => shortcut.id === 'palette');
 
@@ -82,7 +85,6 @@
 	}
 
 	function handleStreamMessage(message: TableStreamMessage) {
-		streamEvents = [...streamEvents, message];
 		if (message.type === 'context') {
 			const payload = message.data as {
 				context: {
@@ -176,6 +178,14 @@
 		context = data.context;
 	}
 
+	// #470's empty-state combobox: session stays whatever it already was (null on a
+	// fresh table, since this only runs before any place exists) - the full
+	// `DeclareContext` form is still where a GM sets both together.
+	function handleQuickDeclare(placeEntityId: string | null) {
+		if (!placeEntityId) return;
+		void declareContext({ placeEntityId, sessionEntityId: null });
+	}
+
 	async function fireAction(kind: 'npc' | 'location' | 'reveal', label?: string) {
 		if (!context?.placeEntityId) return;
 		if (kind === 'npc') npcPending = true;
@@ -211,6 +221,13 @@
 		pins = [];
 		await invalidateAll();
 	}
+
+	// The empty state's own quick-declare `Combobox` (#470, O4 = B): the same place
+	// list `DeclareContext` already receives, shaped into the control layer's option
+	// type.
+	const placeOptions = $derived(
+		data.places.map((place) => ({ value: place.id, label: place.name }))
+	);
 
 	const noteTargets = $derived(
 		pins
@@ -272,7 +289,27 @@
 	{/if}
 
 	{#if !context?.placeEntityId}
-		<p class="text-sm text-muted">{t.home.noContextDeclared}</p>
+		<EmptyState kind="cold" message={t.home.noContextDeclared}>
+			{#snippet action()}
+				<div class="flex w-full max-w-xs flex-col gap-1">
+					<label
+						for="table-quick-place"
+						class="font-mono text-[10px] tracking-wide text-muted uppercase"
+					>
+						{t.declareContext.whereArePlayers}
+					</label>
+					<Combobox
+						id="table-quick-place"
+						bind:value={quickPlaceId}
+						options={placeOptions}
+						placeholder={t.home.choosePlace}
+						searchPlaceholder={tControls.search}
+						emptyText={tControls.noMatch}
+						onchange={handleQuickDeclare}
+					/>
+				</div>
+			{/snippet}
+		</EmptyState>
 	{:else}
 		<section class="hidden md:block" class:!block={activeTab === 'here'}>
 			<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
@@ -391,13 +428,6 @@
 			{/if}
 		</section>
 	{/if}
-
-	<p class="text-[11px] text-muted">
-		{t.home.streamStatus(
-			streamEvents.length,
-			streamEvents.length > 0 ? (streamEvents[streamEvents.length - 1]?.id ?? null) : null
-		)}
-	</p>
 </main>
 
 <PhoneTabBar
