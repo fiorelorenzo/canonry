@@ -1566,3 +1566,175 @@ own paper rather than the palette's chrome.
 
 Epic [#405](https://github.com/fiorelorenzo/canonry/issues/405), one issue per decision, and
 S2 owns the wave's migration slot because the style catalogue is the only schema change.
+
+
+## Round fifteen, decided 2026-08-20
+
+Twelve, from the same evening, and the pattern in them is worth naming before the table: the
+copilot's own hue is now wrong in the second place it appears, the panel is close enough to
+working that what is left is craft, and two of my own answers from earlier tonight need
+reversing again. Round fourteen's S9 said an Ask answer is not proposed canon and should not
+wear C1's mark. Round fifteen says the same thing about a proposal card, for a different
+reason, and that is not a coincidence: C1 chose a hue and a shape for one job, marking
+unaccepted AI text inside canon prose, and every surface that borrowed it for something else
+has read wrong.
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| T1 | Two text buttons sit above the view control and neither says what it does. | **The view control goes on top, and the two become icon buttons with a tooltip each** |
+| T2 | A mention in prose previews; the same entry in the sidebar's recents does not. | **The preview follows the link, not the prose.** Any link naming an entry gets it |
+| T3 | With no style, the generate button is replaced by a sentence. | **The button stays and is disabled, with the warning beside it.** S3's refusal survives; its shape does not |
+| T4 | The proposal card is violet and its diff does not read like a diff. | **No copilot hue on the card, and the diff reads like git**: removals struck through, additions bold |
+| T5 | The shortcut hints are five bare letters in a row. | **A key-hint shape**, one component, everywhere a shortcut is offered |
+| T6 | The Save button sits on top of the textarea, and the view control sits inside the editor. | **Save leaves the box and the view control leaves the editor** |
+| T7 | A violet "in arrivo" announces a streaming answer. | **A cursor in the theme's own colour**, the shape ai-game already proved |
+| T8 | The composer still reads as a box dropped into the panel. | **Borderless, and part of the panel** |
+| T9 | The question, the answer and the sources are three sizes of the same grey. | **The shape ai-game proved**: the question as a heading, the answer as prose, the sources as a footer |
+| T10 | Keep is a card with two buttons and a paragraph, on every turn. | **Every turn is kept, and the card goes.** One icon button opens a turn on the Ask page |
+| T11 | The dock covers content on the edit page. | **It never covers content anywhere.** The shell reserves its height |
+| T12 | Is it actually a conversation, and can it answer about the world rather than an entry? | **Both, verified rather than assumed** |
+
+### T1, and why the buttons lose their words
+
+`Completa la voce` and `Modifica` are two text buttons in the top right, and the view control
+is a segmented pair under the title, which puts the least consequential control above the two
+that write. The order inverts: the view control goes directly under the title, because it
+changes what you are reading and belongs to the reading, and the two writing controls become
+icon buttons on the same line as the title.
+
+Q4 said no control in this product ships an unlabelled icon, and that still holds: each gets a
+tooltip through the same `Tooltip.Root` wrapper the editor toolbar already uses, and each keeps
+an `aria-label`. `Completa la voce` is the one that spends credits, so its tooltip says what it
+will do before it does it, which is G11's job on a control whose label has just become a glyph.
+
+### T2, and a preview that follows the link
+
+Q3 gave a mention in prose a preview on hover and on focus. `MentionPreview.svelte` finds its
+anchors with `closest('a.mention')` inside a container, which is why the same entry in the
+sidebar's Recents is a plain link with nothing behind it. The GM's most-used list of entries is
+the one place the preview would earn the most.
+
+So the preview stops being a property of prose and becomes a property of a **link that names an
+entry**: the same component, the same two endpoints, keyed off a data attribute the sidebar's
+links carry too. The rule to hold on to is the one Q3 already set: it previews through the same
+filter that decides whether the link resolves at all, so the public surface keeps the public
+resolver and nothing about guardrail 6 moves.
+
+### T3 amends S3's shape and keeps its answer
+
+S3 said "not a disabled button with a tooltip: a short sentence with the link, in the place the
+button was", and having used it, the sentence in the button's place reads like the feature is
+missing rather than waiting. A disabled control with the reason beside it says the same thing
+and keeps the shape of the thing you came to press.
+
+What does not change is the refusal itself, on either side: the control cannot be pressed, and
+the endpoint still answers 409 for anyone who asks it directly. A disabled button is a courtesy
+to the reader, never the enforcement.
+
+### T4, and the second surface C1's hue has landed on wrongly
+
+On the proposal card, added text wears a dashed underline in `--color-ai` and a vocabulary
+question renders its relation label in `text-ai`. Removed text is already struck through in
+`--color-diff-line`. So the card is two thirds of the way to a diff and paints the last third
+in the copilot's mulberry, which is the same misapplication S9 found in the dock a few hours
+ago: C1's mark is for unaccepted AI text **inside canon prose**, where nothing else says so.
+
+A proposal card is not that. It is a card headed with a kind badge, holding a before and an
+after, under an Accept and a Reject: everything about it already says "not accepted". So the
+diff carries the difference on its own, in the shape every developer already reads: **removals
+struck through, additions bold**, both on P3's hue-less `--color-diff-bg` and
+`--color-diff-line`, with no mulberry anywhere on the card. Bold rather than underlined,
+because prose in this product already underlines links and mentions, and a third underline in
+the same paragraph is a puzzle.
+
+Guardrail 2 keeps its carrier where it is actually needed: a pending sentence in the entry's
+own body still wears C1's mark, because there the reader is looking at canon and the only cue
+that some of it is proposed is the mark itself. Two surfaces, two carriers, one rule: whatever
+says "nobody has accepted this" must be unmissable, and it does not have to be a colour.
+
+### T5, and a shape for a keyboard hint
+
+`j k a r u muovi, accetta, rifiuta, annulla` is five `kbd` glyphs and a comma-separated list of
+four verbs, which asks the reader to zip two lists together. G3 gave this surface bare keys on
+purpose and that stays; what it needs is a shape: one key beside one verb, as a row of pairs,
+in one component that every surface offering a shortcut can use. There are three of those
+already (the review region, the queue, the palette's own footer) and they draw it three ways.
+
+### T6, two defects in the editor
+
+The Save button is positioned over the bottom-right corner of the textarea, so it covers the
+last line of what you are writing and sits on the resize handle. It moves out of the box, onto
+its own row under the editor, where the language control already is.
+
+And the view control is inside the editor box, above the text, which is the wrong container:
+it belongs to the preview, not to the writing surface, and inside the box it competes with the
+write/preview switch two centimetres above it. It moves out, onto the toolbar's own row.
+
+### T7, T8 and T9, and what to take from ai-game
+
+ai-game solves the same three problems and its answers are worth borrowing rather than
+re-deriving. Its streaming indicator is a thin vertical bar after the last character,
+`h-5 w-0.5`, pulsing on the theme's warm accent (`MessageBubble.svelte`), and its reasoning
+block uses a dot of the same colour. Its sources sit under the answer behind a `border-t` with
+a small heading and rounded badges. Its composer is borderless inside a `border-t` band, with
+the input and the send control on one row.
+
+Canonry's versions, in its own tokens:
+
+- **T7**: the `in arrivo…` line goes. A streaming answer ends in a one-character-tall bar on
+  the umber accent, pulsing on the fade token, which stops outright under reduced motion
+  because `layout.css` already stops looping animations there (Q6). No copilot hue: this is
+  the product telling you it is still writing, not marking what it wrote.
+- **T8**: the composer loses its border and its own background and becomes the panel's bottom
+  band, separated by a single `border-t`, with the send control inline. What made it read as
+  pasted in was an opaque `bg-panel` box with its own outline inside a panel of the same paper.
+- **T9**: the question becomes the turn's own heading rather than another line of small text,
+  the answer gets the reading measure and the prose treatment it deserves, and the sources
+  become a footer under a rule with a small label, so a turn reads as one block with three
+  parts instead of five stacked paragraphs.
+
+### T10 repeals "keep is the only write", and says what that costs
+
+O3's fourth amendment said keeping is the only write, so that `ask/kept` is a history of
+answers somebody chose rather than a transcript. Every turn therefore ends in a card with a
+paragraph of disclosure and two buttons, which is a decision asked of the GM about every
+sentence the copilot says. Used at any speed, that is noise, and the card is the loudest thing
+in the panel.
+
+So every turn is kept, automatically, and the card goes. In its place: one icon button per turn
+that opens it on the Ask page, and the Ask page's history becomes the conversation list it was
+always going to have to be. `kept_answer` gains a conversation id so turns group, because a
+list of loose answers is not what a reader of a conversation wants.
+
+**What this costs, stated plainly, because guardrail 5 is about exactly this:** the product now
+stores every question a GM asks it and every answer it gives, rather than the ones they chose
+to keep. The disclosure moves with the behaviour: the panel says it once, where it can be read
+before anything is asked, rather than after every answer, and the settings and privacy copy
+have to say it too. Deleting a conversation has to be possible for the same reason. Guardrail 1
+is untouched: a kept answer is still not canon, and nothing here writes an entry.
+
+### T11, and a floating panel's real cost
+
+The dock is `fixed` at the bottom centre with `z-30`, and `main` reserves nothing for it, so on
+the edit route it sits over the language control and on a short page it sits over the last
+paragraph. A floating control that hides content is a control that makes you scroll to read
+what it is covering.
+
+The shell reserves the dock's height instead: the launcher and the open panel publish their
+height, and `main` carries it as padding, so nothing is ever underneath either one. The phone
+bar already does this, which is where the pattern comes from rather than being invented here.
+
+### T12, and verifying the thing we claim
+
+#380 added history and page context to the ask request and #381 sent them, and nobody has
+demonstrated end to end that the panel holds a conversation: that turn three knows what turn
+one said, that a question about the world rather than about an entry retrieves and answers,
+and that the AI-off branch still degrades to a reading answer instead of pretending. This is
+not a design decision, it is a verification I have not seen, so it gets an issue rather than a
+paragraph, and it closes on evidence: a transcript of a real four-turn conversation with a
+follow-up that only resolves if the history arrived.
+
+### Where round fifteen lands
+
+Epic [#427](https://github.com/fiorelorenzo/canonry/issues/427), one issue per decision. T10
+owns the migration slot, and T7 to T12 land as one change because they are the same two files.
