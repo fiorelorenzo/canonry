@@ -747,6 +747,10 @@ export interface Messages {
 			explanation: string;
 			revisionHuman: string;
 			revisionAiAccepted: string;
+			/** Round sixteen U7 (#453): the link a revision that came from an accepted
+			 * proposal carries to it, so guardrail 3's evidence stays reachable after the
+			 * proposal itself is settled - see `review/[proposal]/+page.svelte`. */
+			proposalLink: string;
 		};
 		audit: {
 			empty: string;
@@ -887,6 +891,10 @@ export interface Messages {
 				badge: string;
 				useLabel: string;
 				removeLabel: string;
+				/** Round sixteen U6 (#453): the aside's own hover/focus overlay over an
+				 * already-set cover (`EntrySections.svelte`) - opens the same gallery this
+				 * `useLabel` action lives in rather than naming a second write path. */
+				replaceLabel: string;
 				saving: string;
 				explanation: string;
 				mediaAssetIdMustBeStringOrNull: string;

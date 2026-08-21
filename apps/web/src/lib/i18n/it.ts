@@ -589,7 +589,8 @@ export const it: Messages = {
 			explanation:
 				'Una revisione compare quando una modifica a questa voce viene salvata e accettata.',
 			revisionHuman: 'umano',
-			revisionAiAccepted: 'IA \u00b7 accettata'
+			revisionAiAccepted: 'IA \u00b7 accettata',
+			proposalLink: 'Vedi la proposta'
 		},
 
 		audit: {
@@ -723,6 +724,7 @@ export const it: Messages = {
 				badge: 'Copertina',
 				useLabel: 'Usa come copertina',
 				removeLabel: 'Rimuovi da copertina',
+				replaceLabel: 'Sostituisci copertina',
 				saving: 'Salvataggio in corso\u2026',
 				explanation:
 					'La copertina compare sopra il titolo di questa voce. I giocatori la vedono quando la voce viene rivelata, a meno che non sia segnata come Solo GM - la stessa regola di ogni altra immagine qui.',
