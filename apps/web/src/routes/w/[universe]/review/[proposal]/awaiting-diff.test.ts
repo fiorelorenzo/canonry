@@ -162,11 +162,18 @@ describe('the review page (#468): a candidate awaiting its diff never reads as a
 		await closeDb(db);
 	});
 
+	/** `load`'s declared return is `void | PageData`, because SvelteKit lets a load redirect
+	 * or throw instead of returning, so the awaited value needs narrowing before any
+	 * property read: `svelte-check` rejects `data.candidate` on that union even though this
+	 * route always returns. Asserted here, once, rather than at every call site.
+	 */
 	async function loadReview(proposalId: string) {
-		return load({
+		const data = await load({
 			params: { universe: universeSlug, proposal: proposalId },
 			locals: { user: { id: ownerId }, locale: 'en' }
 		} as Parameters<typeof load>[0]);
+		if (!data) throw new Error('the review load returned nothing');
+		return data;
 	}
 
 	it('flags patch = {} as awaitingDiff, carrying the plan link and the real per-diff price', async () => {
