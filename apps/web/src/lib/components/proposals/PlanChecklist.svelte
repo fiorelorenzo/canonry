@@ -6,7 +6,7 @@
 	 * diffs" is the one explicit, priced action that moves the plan into #51's queue.
 	 */
 	import { enhance } from '$app/forms';
-	import { messages, type Locale } from '$lib/i18n';
+	import { messages, numberFormat, type Locale } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
 	import ModelRunning from '$lib/components/copilot/ModelRunning.svelte';
@@ -15,26 +15,49 @@
 		id: string;
 		name: string;
 		rationale: string;
+		/** issue #489: propagation's uniform, not-yet-spent `propagate.diff` price for every
+		 * row while `pricing.kind === 'perDiff'`, or the candidate's own already-spent cost
+		 * otherwise - see `+page.server.ts`'s own comment on the same field. */
 		credits: number;
 	}
 
 	let {
 		rows,
-		estimatedCredits,
+		pricing,
 		candidateCap,
 		locale
 	}: {
 		rows: ChecklistRow[];
-		estimatedCredits: number;
+		/** issue #489: `propagate.diff` prices per candidate (docs/ux/DECISIONS.md G11), so a
+		 * plan that still has a real "generate diffs" step ahead of it shows the reconciling
+		 * count x price = total, plus the plan-level ranking charge as its own separate
+		 * already-spent figure - never one number that quietly bundles both. Every other
+		 * trigger this checklist still renders for (an audit plan, whose flags are fully
+		 * priced the moment they are written) keeps the single combined total this component
+		 * always showed. */
+		pricing:
+			| { kind: 'perDiff'; diffPriceCredits: number; alreadySpentCredits: number }
+			| { kind: 'total'; estimatedCredits: number };
 		candidateCap: number | null;
 		locale: Locale;
 	} = $props();
 
 	let t = $derived(messages(locale).proposals.checklist);
-	let creditsLabel = $derived(t.estimatedCredits(estimatedCredits));
+	// issue #489: 4 decimal places is the column's own scale (numeric(12,4)), not what a
+	// credit is ever priced to - `maximumFractionDigits: 4` shows exactly as much precision
+	// as a price actually has and no more, so a 1.0000 catalogue row reads "1", not "1.00".
+	let creditsFormat = $derived(numberFormat(locale, { maximumFractionDigits: 4 }));
+	function fmt(value: number): string {
+		return creditsFormat.format(value);
+	}
 
 	let kept = $state(rows.map((r) => ({ ...r })));
 	let generating = $state(false);
+
+	// The bold total next to "to generate" - kept.length x each row's own (uniform) price,
+	// recomputed as rows drop rather than frozen at the page's first render, so the number a
+	// GM confirms against never lags what the button beside it is actually about to spend.
+	let toGenerateCredits = $derived(kept.reduce((sum, row) => sum + row.credits, 0));
 
 	function dropRow(id: string): void {
 		kept = kept.filter((r) => r.id !== id);
@@ -42,13 +65,29 @@
 </script>
 
 <div class="rounded-lg border border-line bg-panel p-4">
-	<div class="mb-3 flex items-center justify-between text-xs text-muted">
+	<div class="mb-1 flex items-center justify-between text-xs text-muted">
 		<span><b class="text-ink">{kept.length}</b>{t.keptSuffix(rows.length, candidateCap)}</span>
-		<span
-			>{creditsLabel.prefix}<b class="text-ink">{estimatedCredits.toFixed(2)}</b
-			>{creditsLabel.suffix}</span
-		>
+		{#if pricing.kind === 'perDiff'}
+			{@const toGenerate = t.toGenerate(kept.length, fmt(pricing.diffPriceCredits))}
+			<span
+				>{toGenerate.prefix}<b class="text-ink">{fmt(toGenerateCredits)}</b
+				>{toGenerate.suffix}</span
+			>
+		{:else}
+			{@const estimate = t.estimatedCredits(pricing.estimatedCredits)}
+			<span
+				>{estimate.prefix}<b class="text-ink">{fmt(pricing.estimatedCredits)}</b
+				>{estimate.suffix}</span
+			>
+		{/if}
 	</div>
+	{#if pricing.kind === 'perDiff'}
+		{@const alreadySpent = t.alreadySpent()}
+		<div class="mb-3 text-xs text-muted">
+			{alreadySpent.prefix}<b class="text-ink">{fmt(pricing.alreadySpentCredits)}</b
+			>{alreadySpent.suffix}
+		</div>
+	{/if}
 
 	<ul class="divide-y divide-line">
 		{#each kept as row (row.id)}
@@ -58,7 +97,7 @@
 					<p class="truncate text-xs text-muted">{row.rationale}</p>
 				</div>
 				<div class="flex flex-none items-center gap-2">
-					<span class="font-mono text-xs text-muted">{row.credits.toFixed(2)} {t.creditsUnit}</span>
+					<span class="font-mono text-xs text-muted">{fmt(row.credits)} {t.creditsUnit}</span>
 					<form
 						method="POST"
 						action="?/drop"
@@ -70,9 +109,9 @@
 						<input type="hidden" name="proposalId" value={row.id} />
 						<Button
 							type="submit"
-							variant="link"
+							variant="secondary"
 							size="sm"
-							class="h-auto p-0 text-muted hover:text-danger"
+							class="h-7 px-2 text-xs font-normal text-muted hover:text-foreground"
 						>
 							{t.drop}
 						</Button>

@@ -885,6 +885,14 @@ export const it: Messages = {
 							: ' crediti per generare le differenze'
 				};
 			},
+			toGenerate: (count, perDiffCreditsFormatted) => ({
+				prefix: `${count} \u00d7 ${perDiffCreditsFormatted} cr = `,
+				suffix: ' cr da generare'
+			}),
+			alreadySpent: () => ({
+				prefix: 'Già spesi: ',
+				suffix: ' cr su questo piano'
+			}),
 			drop: 'Scarta',
 			empty: 'Non è rimasto nulla in questo piano.',
 			generating: 'Generazione in corso\u2026',
