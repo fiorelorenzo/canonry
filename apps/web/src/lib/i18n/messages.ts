@@ -1971,9 +1971,15 @@ export interface Messages {
 				missingIdError: string;
 			};
 			/** Issue #192 (K1, DECISIONS.md "Round six"): the relation catalogue - every type a
-			 * universe can use, shipped and its own, with a real usage count, plus rename, merge
-			 * and widen for a universe's own types. The shipped ten stay read-only here on
-			 * purpose; editing them is a migration's job, not a settings control's. */
+			 * universe can use, shipped and its own, with a real usage count, plus rename, merge,
+			 * widen and translate for a universe's own types. The shipped ten stay read-only here
+			 * on purpose; editing them is a migration's job, not a settings control's.
+			 *
+			 * Issue #450 (U1, DECISIONS.md "Round sixteen"): `table` (six columns, an "actions"
+			 * header, a `shippedBadge`) and `backLink` (this leaf's own back link) are gone -
+			 * this leaf now lives inside the settings shell (#421), and every row - shipped or a
+			 * universe's own - reads as one line of prose (`summary`, `usageCount`) instead of a
+			 * grid. */
 			relations: {
 				close: string;
 				cardHeading: string;
@@ -1983,23 +1989,27 @@ export interface Messages {
 				headTitle: (universeName: string) => string;
 				title: string;
 				description: (universeName: string) => string;
-				backLink: string;
 				shippedHeading: string;
 				shippedDescription: string;
-				shippedBadge: string;
 				ownHeading: string;
 				ownDescription: string;
 				emptyOwn: string;
 				emptyOwnExplanation: string;
-				table: {
-					label: string;
-					inverseLabel: string;
-					cardinality: string;
-					allowedFrom: string;
-					allowedTo: string;
-					usage: string;
-					actions: string;
-				};
+				/** One row's worth of prose: its inverse label, what it connects, and (only when
+				 * `cardinality` is not `null`, i.e. not the unmarked `many_to_many` case) the
+				 * cardinality word. `from`/`to` arrive already joined by `entityTypeLabel` below -
+				 * this stays a plain sentence template, not a second place that knows what an
+				 * entity type is called. */
+				summary: (
+					inverseLabel: string,
+					from: string,
+					to: string,
+					cardinality: string | null
+				) => string;
+				/** SPEC.md §4.2/guardrail 5: how many relations in this universe use a type,
+				 * plainly said rather than folded into `summary`'s own sentence - a fact worth
+				 * scanning for on its own, not a clause inside one about something else. */
+				usageCount: (count: number) => string;
 				cardinalityLabel: (value: string) => string;
 				entityTypeLabel: (type: string) => string;
 				rename: {

@@ -38,6 +38,7 @@ import {
 import type { EntityType } from '@canonry/db/schema';
 import { LOCALES, messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
+import { universeSetupItems } from '$lib/server/universe-setup';
 import type { Actions, PageServerLoad } from './$types';
 
 async function requireManager(
@@ -66,6 +67,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		universeSlug: access.universe.slug,
 		universeName: access.universe.name,
 		canManage: access.role !== 'viewer',
+		setupItems: universeSetupItems(access.universe),
 		types
 	};
 };
