@@ -594,7 +594,7 @@
 								<img src={imageUrl(asset.id)} alt="" class="block h-auto w-full" />
 								{#if asset.generated}
 									<span
-										class="absolute top-1 left-1 rounded-full border border-ai-line bg-ai-bg px-1 py-0.5 text-[9px] font-semibold tracking-wide text-ai uppercase"
+										class="absolute top-1 left-1 rounded-full border border-line bg-panel-2 px-1 py-0.5 text-[9px] font-semibold tracking-wide text-ink-2 uppercase"
 									>
 										{t.entry.media.generatedBadge}
 									</span>
@@ -619,7 +619,7 @@
 								<img src={imageUrl(asset.id)} alt={data.entityName} class="block h-auto w-full" />
 								{#if asset.generated}
 									<span
-										class="absolute top-1 left-1 rounded-full border border-ai-line bg-ai-bg px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ai uppercase"
+										class="absolute top-1 left-1 rounded-full border border-line bg-panel-2 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-2 uppercase"
 									>
 										{t.entry.media.generatedBadge}
 									</span>

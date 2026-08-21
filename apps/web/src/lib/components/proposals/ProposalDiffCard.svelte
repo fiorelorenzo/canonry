@@ -195,7 +195,8 @@
 			<!-- Round eleven P3 (#344): this box holds what the proposal would change the
 				vocabulary to, so it is the diff's claim and it wears the diff's own tokens.
 				T4 (round fifteen, #431): the words inside it that the model chose no longer
-				keep the copilot's hue - no `--color-ai` anywhere on this card. -->
+				keep the copilot's hue - round sixteen U10 (#454) deleted that hue outright,
+				so nothing on this card could carry it even by mistake. -->
 			<div class="rounded-md border border-diff-line bg-diff-bg px-3 py-2">
 				{#if vocab.kind === 'relation_type_reuse'}
 					<p class="text-ink">{t.relationVocab.reuseType(vocabLabel, vocabInverseLabel)}</p>
@@ -281,11 +282,13 @@
 		     is and what context it keeps; this only paints it.
 
 		     T4 (round fifteen, #431) retired the second channel this used to run on: added
-		     text no longer carries C1's dashed underline in `--color-ai`, and neither does
-		     a relation label above. A proposal card already says "not accepted" with its
-		     kind badge and its Accept/Reject, so it does not need the copilot's hue too -
-		     that mark stays reserved for a pending sentence inside the entry's own body
-		     (`entryMarking.ts`), the one place nothing else on screen says so.
+		     text no longer carries C1's dashed underline in the copilot's own hue, and
+		     neither does a relation label above. A proposal card already says "not
+		     accepted" with its kind badge and its Accept/Reject, so it never needed a
+		     second signal - round sixteen U10 (#454) went on to delete that hue outright,
+		     since C1's own mark stays reserved for a pending sentence inside the entry's
+		     own body (`entryMarking.ts`), the one place nothing else on screen says so, and
+		     now runs on this same `--color-diff-line` rather than a hue of its own.
 
 		     The diff now reads the way every developer already reads one, entirely on P3's
 		     hue-less pair: removals struck through in `--color-diff-line` (3.18:1 against

@@ -13,8 +13,8 @@
 	 * `title` on each bar answers the one follow-up a mouse asks, which week that was.
 	 *
 	 * Colours are the theme's own: `--color-line-2` for a week that happened,
-	 * `--color-accent` for the newest one. Never `--color-ai` (C1 reserves that hue for
-	 * unaccepted copilot text, and a bar chart of a GM's own edits is neither).
+	 * `--color-accent` for the newest one. A bar chart of a GM's own edits was never
+	 * the copilot's own surface, and round sixteen U10 (#454) deleted that hue outright.
 	 *
 	 * G2 needs nothing here: `html { font-variant-numeric: tabular-nums }` in layout.css
 	 * already makes every figure in the app tabular, and the serif is the body face.
