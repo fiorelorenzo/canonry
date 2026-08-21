@@ -25,9 +25,13 @@
 		type MentionTarget
 	} from '$lib/markdown';
 	import { splitSecretBlocks, stripSecretsForPlayers, type SecretBlockKind } from '@canonry/lang';
-	import { renderAiMarkedParagraph } from '$lib/components/ai/aiMarking';
 	import { Segmented, type SegmentedOption } from '$lib/components/ui/segmented';
-	import { splitBodyIntoBlocks, markedSegmentsFor } from '$lib/components/ai/entryMarking';
+	import {
+		splitBodyIntoBlocks,
+		markedProposalFor,
+		renderChangeBar,
+		type MarkedProposalRef
+	} from '$lib/components/ai/entryMarking';
 	import MentionPreview from '$lib/components/entry/MentionPreview.svelte';
 	import { messages, type Locale } from '$lib/i18n';
 
@@ -38,7 +42,7 @@
 		publicMentionTargets,
 		locale,
 		highlightSpan = null,
-		markedSentences = new Set<string>(),
+		markedSentences = new Map<string, MarkedProposalRef>(),
 		view = $bindable<'gm' | 'player'>('gm'),
 		showViewControl = true
 	}: {
@@ -48,11 +52,12 @@
 		publicMentionTargets: MentionTarget[];
 		locale: Locale;
 		highlightSpan?: FactSpan | null;
-		/** C1 = B, #106: sentences (exact strings, `packages/copilot`'s `semanticDiff`
-		 * normalisation) a pending `update` proposal targets on this entity. Empty by
-		 * default - an entity with nothing pending renders exactly as before. GM view
-		 * only: the marking is "not yet yours", which has no meaning in a player preview. */
-		markedSentences?: ReadonlySet<string>;
+		/** V6 = A, #499: every sentence (exact strings, `packages/copilot`'s `semanticDiff`
+		 * normalisation) a pending `update` proposal targets on this entity, mapped to the
+		 * proposal that targets it. Empty by default - an entity with nothing pending
+		 * renders exactly as before. GM view only: "something is waiting here" has no
+		 * meaning in a player preview, which never shows anything but accepted canon. */
+		markedSentences?: ReadonlyMap<string, MarkedProposalRef>;
 		/** #409, S4, round fourteen: the view is a two-option choice, not a checkbox, so it
 		 * is `Segmented`'s own string value. Bindable since round fifteen, for two callers
 		 * that both host the control themselves: the entry page puts it under the title
@@ -93,16 +98,28 @@
 		gmnote: t.secrets.gmNoteBlock
 	});
 
+	// V6 = A, #499: where a block's change bar goes. A proposal inside a plan opens that
+	// plan's own review page, the same fallback the "candidates with no draft yet" note
+	// beneath the entry's own review region already uses; a proposal outside any plan
+	// (Ask's own drafted proposal, #53, which never joins one) falls back to the plain
+	// inbox route. Never the diff itself spliced onto this page - that surface is #498's
+	// this round, and the entry page only ever points at it.
+	function changeBarHref(ref: MarkedProposalRef): string {
+		return ref.planId
+			? `/w/${universeSlug}/proposals/${ref.planId}`
+			: `/w/${universeSlug}/proposals`;
+	}
+
 	// The GM view only, never the player preview: highlighting is Facts-panel span
 	// highlighting (B4), which has no meaning once a span's own secret block has been
 	// stripped for players. `highlightSpan` is an offset into the *original* `body`, so it
 	// only applies to the one segment whose own [start, end) range contains it - every
 	// other segment renders plain, exactly like it would with no highlight at all.
 	//
-	// A segment under an active fact highlight never also carries the marking: a GM who
-	// just clicked a fact is reading that specific span, and layering "also a pending
-	// proposal touches part of this" on top of it is a second signal competing for the
-	// same few words. The marking is still there the moment the highlight is cleared.
+	// A segment under an active fact highlight never also carries a change bar: a GM who
+	// just clicked a fact is reading that specific span, and layering "something else is
+	// also waiting on part of this" on top of it is a second signal competing for the
+	// same few words. The bar is still there the moment the highlight is cleared.
 	let gmHtml = $derived(
 		splitSecretBlocks(body)
 			.map((segment) => {
@@ -115,10 +132,11 @@
 				if (!local && segment.kind === 'body' && markedSentences.size > 0) {
 					html = splitBodyIntoBlocks(segment.text)
 						.map((block) => {
-							const marked = markedSegmentsFor(block, markedSentences);
-							return marked
-								? `<div class="ai-marked-block">${renderAiMarkedParagraph(marked)}</div>`
-								: renderMarkdown(block.raw, universeSlug, mentionTargets, 'gm');
+							const rendered = renderMarkdown(block.raw, universeSlug, mentionTargets, 'gm');
+							const proposal = markedProposalFor(block, markedSentences);
+							return proposal
+								? renderChangeBar(rendered, changeBarHref(proposal), t.prose.changeBarLabel)
+								: rendered;
 						})
 						.join('\n');
 				} else {
@@ -226,35 +244,38 @@
 	.entry-prose-secrets :global(.gmnote-block .block-tag) {
 		color: var(--color-danger);
 	}
-	.entry-prose-secrets :global(.ai-marked-block) {
+	/* V6 = A, #499: a thin change bar in the margin, on `--color-diff-line` (P3's own
+	   value signal), replacing C1's dashed underline and numbered marker here - this is
+	   the GM's own accepted canon, and the bar carries no claim about who wrote it, only
+	   that a proposal is waiting. A real `<a>` spanning the block's full height rather
+	   than a narrow line, so the click target is not a hairline: the bar itself is drawn
+	   with `::before`, centred inside that wider strip. */
+	.entry-prose-secrets :global(.ai-change-bar-block) {
 		position: relative;
-		padding-left: 1.5rem;
+		padding-left: 1rem;
 	}
-	.entry-prose-secrets :global(.ai-marker) {
+	.entry-prose-secrets :global(.ai-change-bar) {
 		position: absolute;
-		left: 0;
-		top: 0.2em;
-		width: 0.95rem;
-		height: 0.95rem;
-		border-radius: 0.25rem;
-		box-sizing: border-box;
-		border: 1.5px solid var(--color-diff-line);
-		background: var(--color-panel);
-		color: var(--color-ink);
-		font-family: var(--font-mono);
-		font-size: 9px;
-		font-weight: 700;
-		line-height: calc(0.95rem - 3px);
-		text-align: center;
+		inset: 0 auto 0 0;
+		width: 1rem;
+		display: block;
+		border-radius: 2px;
 	}
-	.entry-prose-secrets :global(.ai-paragraph) {
-		margin: 0;
+	.entry-prose-secrets :global(.ai-change-bar::before) {
+		content: '';
+		position: absolute;
+		left: 0.35rem;
+		top: 0;
+		bottom: 0;
+		width: 3px;
+		border-radius: 2px;
+		background: var(--color-diff-line);
 	}
-	.entry-prose-secrets :global(.ai-marked-text) {
-		text-decoration: underline;
-		text-decoration-style: dashed;
-		text-decoration-thickness: 2px;
-		text-underline-offset: 4px;
-		text-decoration-color: var(--color-diff-line);
+	.entry-prose-secrets :global(.ai-change-bar:hover::before) {
+		width: 4px;
+	}
+	.entry-prose-secrets :global(.ai-change-bar:focus-visible) {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
 	}
 </style>

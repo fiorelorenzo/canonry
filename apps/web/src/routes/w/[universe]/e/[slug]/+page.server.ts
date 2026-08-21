@@ -133,12 +133,19 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		openAuditFlagsForEntity(conn, world.id, current.id)
 	]);
 
-	// C1 = B, #106: which of the entry's own sentences a pending proposal would replace or
-	// remove, re-diffed live against `current.body` rather than a stored snapshot - see
-	// `changedSentencesForEntity`'s own comment for why. An array over the wire (not a
-	// `Set`) so the page component owns reconstructing it, matching every other derived
-	// prop this load already returns as plain JSON.
-	const markedSentences = [...changedSentencesForEntity(current.body, pendingProposals)];
+	// V6 = A, #499: which of the entry's own sentences a pending proposal would replace or
+	// remove, and which proposal to point the change bar at - re-diffed live against
+	// `current.body` rather than a stored snapshot, see `changedSentencesForEntity`'s own
+	// comment for why. An array of records over the wire (not a `Map`) so the page
+	// component owns reconstructing it, matching every other derived prop this load
+	// already returns as plain JSON.
+	const markedSentences = [...changedSentencesForEntity(current.body, pendingProposals)].map(
+		([sentence, proposal]) => ({
+			sentence,
+			proposalId: proposal.proposalId,
+			planId: proposal.planId
+		})
+	);
 
 	// C9 = B, #55: the badge's count and the aside's list read the same resolved flags -
 	// mapped to a plain view here (statement text and current entity slugs only) so the

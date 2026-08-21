@@ -663,6 +663,13 @@ export interface Messages {
 			viewAriaLabel: string;
 			gmViewDescription: string;
 			playerPreviewActive: string;
+			/** V6 = A, #499: the accessible name of the change bar `EntryProseWithSecrets.svelte`
+			 * draws beside a block a pending proposal targets. The bar has no visible text of
+			 * its own (a thin rule in the margin, not a label), so this is what a keyboard or
+			 * screen-reader user hears in its place - it has to say both halves of the same
+			 * fact C1's mark used to get backwards: something is waiting, and where to go read
+			 * it, never who wrote it. */
+			changeBarLabel: string;
 		};
 		language: {
 			label: string;

@@ -519,7 +519,8 @@ export const en: Messages = {
 			playersView: 'Players view',
 			viewAriaLabel: 'GM or players view',
 			gmViewDescription: 'GM view: secrets and GM notes are visible.',
-			playerPreviewActive: 'Player preview: this is what the party sees.'
+			playerPreviewActive: 'Player preview: this is what the party sees.',
+			changeBarLabel: 'A proposal is waiting on this passage. Open it to review.'
 		},
 
 		language: {

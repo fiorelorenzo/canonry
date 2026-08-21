@@ -64,6 +64,7 @@ import {
 	type EvidenceView
 } from '$lib/components/proposals/evidence';
 import { proseDiff, EMPTY_PROSE_DIFF, type ProseDiff } from '$lib/components/proposals/proseDiff';
+import type { MarkedProposalRef } from '$lib/components/ai/entryMarking';
 
 export {
 	acceptProposal,
@@ -855,21 +856,28 @@ function readPatchBody(patch: unknown): string | null {
 }
 
 /** Every sentence, in `currentBody`, that at least one of `proposals` would replace or
- * remove - the C1 = B marking's input. An 'added' sentence has nothing in the current body
- * to underline, so only 'changed' (the replaced half) and 'removed' contribute. */
+ * remove, mapped to the proposal that would do it - V6 = A (#499)'s change bar's input,
+ * where it used to be a bare `Set<string>` for C1's now-repealed marking. An 'added'
+ * sentence has nothing in the current body to point a bar at, so only 'changed' (the
+ * replaced half) and 'removed' contribute. `proposals` arrives newest first
+ * (`pendingUpdateProposalsForEntity`'s own ordering) and a sentence already claimed keeps
+ * its first (newest) proposal rather than being overwritten by an older one that touches
+ * the same text. */
 export function changedSentencesForEntity(
 	currentBody: string,
 	proposals: PendingEntityProposal[]
-): Set<string> {
-	const changed = new Set<string>();
+): Map<string, MarkedProposalRef> {
+	const changed = new Map<string, MarkedProposalRef>();
 	for (const candidate of proposals) {
 		const after = readPatchAfter(candidate.patch);
 		if (after === null) continue;
 		for (const change of semanticDiff(currentBody, after)) {
-			if (change.kind === 'changed' && change.previousStatement) {
-				changed.add(change.previousStatement);
-			} else if (change.kind === 'removed') {
-				changed.add(change.statement);
+			let sentence: string | null = null;
+			if (change.kind === 'changed' && change.previousStatement)
+				sentence = change.previousStatement;
+			else if (change.kind === 'removed') sentence = change.statement;
+			if (sentence && !changed.has(sentence)) {
+				changed.set(sentence, { proposalId: candidate.id, planId: candidate.planId });
 			}
 		}
 	}
