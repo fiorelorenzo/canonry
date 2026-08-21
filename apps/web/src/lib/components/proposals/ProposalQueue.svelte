@@ -244,7 +244,7 @@
 		{#each items as item, i (item.id)}
 			<button
 				type="button"
-				class="qrow flex min-h-9 min-w-9 items-center justify-center rounded-md border px-2.5 py-1.5 font-mono text-[11px]"
+				class="qrow flex min-h-9 min-w-9 items-center justify-center rounded-md border px-2.5 py-1.5 font-mono text-label"
 				class:border-accent={item.id === currentId}
 				class:bg-accent-bg={item.id === currentId}
 				class:border-line={item.id !== currentId}

@@ -21,6 +21,6 @@
 	<title>{t.title} &middot; {data.universeName} &middot; Canonry</title>
 </svelte:head>
 
-<div class="min-h-screen bg-paper pb-16 text-[15px] leading-relaxed md:pb-0">
+<div class="min-h-screen bg-paper pb-16 text-body leading-relaxed md:pb-0">
 	{@render children()}
 </div>

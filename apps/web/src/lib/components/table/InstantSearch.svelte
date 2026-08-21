@@ -66,10 +66,7 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<label
-		for="table-instant-search"
-		class="font-mono text-[10px] tracking-wide text-muted uppercase"
-	>
+	<label for="table-instant-search" class="font-mono text-label tracking-wide text-muted uppercase">
 		{t.whoIsThis}
 	</label>
 	<Input

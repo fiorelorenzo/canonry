@@ -28,6 +28,11 @@
  *          `shadcn-svelte/tailwind.css` supplies the data-open/data-selected/... custom
  *          variants they use - both are plumbing the components need to render at all,
  *          not a design choice.
+ * V3 = B (round seventeen, #495): a type scale named by role rather than by size, one
+ *          step up from what shipped before and floored at 12px, and a flat surface
+ *          language - a card is a row with a rule above it, and the one authored
+ *          --shadow-elevated token below is spent only on what genuinely floats over
+ *          the page (popover, dialog, sheet, dropdown, the Loremaster dock).
  */
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
@@ -39,6 +44,42 @@
 	--font-sans: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
 	--font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
 	--font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+	/* Type scale (V3, round seventeen, #495): named by role rather than by size,
+	 * because a name is the only thing that stops the next arbitrary `text-` bracket
+	 * value. Sixty-six arbitrary sizes existed before this token block (9px arbitrary
+	 * x3, 10px arbitrary x35, 11px arbitrary x26, 15px arbitrary x2), none of them
+	 * named what they were for. Every role below sits one step above the ad hoc size
+	 * it replaces, and the floor is 12px: nothing in this app goes smaller than that
+	 * again.
+	 *
+	 * - --text-label (12px/16px): chips, badges, uppercase micro-headings, hint text,
+	 *   the review queue's keyboard chips. Replaces the 9-11px trio wholesale - the
+	 *   decision named the 11px arbitrary value as this token's anchor, and the
+	 *   9px/10px sites are the same role at an even smaller size, so they land on the
+	 *   same 12px floor rather than a size of their own.
+	 * - --text-meta (13px/18px): a secondary line beside a title - a count, a
+	 *   timestamp, "12 relations, updated 3 days ago". One step up from the 12px
+	 *   (text-xs) these currently borrow.
+	 * - --text-body (16px/24px): prose, editor content, form field text. One step up
+	 *   from the 14-15px (text-sm, and the two hand-tuned 15px arbitrary sites) this
+	 *   replaces.
+	 * - --text-title (18px/26px): a card or section heading - the entry name on a
+	 *   proposal card, a settings pane's own heading, a world-home section heading.
+	 *   One step up from the 14-16px these currently use.
+	 * - --text-page-title (26px/32px): the h1 in the page header (owned by #494).
+	 *   One step up from the 24px (text-2xl) PageHeader.svelte draws today.
+	 */
+	--text-label: 0.75rem;
+	--text-label--line-height: 1rem;
+	--text-meta: 0.8125rem;
+	--text-meta--line-height: 1.125rem;
+	--text-body: 1rem;
+	--text-body--line-height: 1.5rem;
+	--text-title: 1.125rem;
+	--text-title--line-height: 1.625rem;
+	--text-page-title: 1.625rem;
+	--text-page-title--line-height: 2rem;
 
 	/* Reading room, light. Named by role rather than by hue: a token called
 	 * --color-paper survives a repaint, a token called --color-cream does not. */
@@ -84,6 +125,11 @@
 	/* Prose measure. Long enough to read, short enough to scan back to the start of
 	 * the next line, which is what the reading room is for. */
 	--container-measure: 34rem;
+
+	/* V1 (#494, round seventeen): the three widths a route's outer layout picks from.
+	 * `wide` needs no token, it is full bleed with no max-width. */
+	--container-reading: 44rem;
+	--container-working: 62rem;
 
 	/* I9 = C (DECISIONS.md, #147): shadcn's vocabulary, mapped once onto ours, so a
 	 * component restyle from here on is a token edit and never a per-component one.
@@ -135,6 +181,24 @@
 	--radius-2xl: calc(var(--radius) * 1.8);
 	--radius-3xl: calc(var(--radius) * 2.2);
 	--radius-4xl: calc(var(--radius) * 2.6);
+
+	/* Elevation (V3, round seventeen, #495): exactly one token, spent only on the
+	 * handful of surfaces that genuinely float above the page rather than sit in it -
+	 * the popover, the dialog, the sheet, the dropdown, the Loremaster dock. Every
+	 * card and panel that used to reach for a raw Tailwind elevation utility (39
+	 * uses, none of them named) went flat instead: a rule above a row, because eleven
+	 * elevated boxes on one screen read as a dashboard and not as paper lying on
+	 * paper.
+	 *
+	 * One light direction - a single downward layer, not the two-layer stacks
+	 * Tailwind's own larger elevation utilities draw - and warmed to the palette's
+	 * own ink rather than Tailwind's neutral grey, via color-mix so no new hex enters
+	 * the file. Dark mode gets its own literal value below (mixed from --dark-paper,
+	 * not --dark-ink) rather than inheriting this expression: --color-ink flips to a
+	 * near-white in dark mode, and a light-coloured cast would glow instead of ground
+	 * the surface - the same reason the shadcn aliases above are repeated per scope
+	 * rather than aliased once. */
+	--shadow-elevated: 0 12px 28px -8px color-mix(in oklab, var(--color-ink) 32%, transparent);
 
 	/* Motion (Q6, round twelve, #367). Two durations, named by what each one is allowed
 	 * to move rather than by how long it lasts, because the name is what decides whether
@@ -217,6 +281,9 @@
 		--color-warn-bg: var(--dark-warn-bg);
 		--color-danger: var(--dark-danger);
 		--color-danger-bg: var(--dark-danger-bg);
+		/* V3 (#495): its own literal value, not color-mix(var(--color-ink)) - see
+		 * @theme's --shadow-elevated comment for why. */
+		--shadow-elevated: 0 12px 28px -8px color-mix(in oklab, var(--dark-paper) 70%, transparent);
 
 		/* shadcn's aliases, repeated verbatim from @theme above - see that block's own
 		 * doc comment for why a custom property alias has to be redeclared per scope
@@ -271,6 +338,7 @@
 			--color-warn-bg: var(--dark-warn-bg);
 			--color-danger: var(--dark-danger);
 			--color-danger-bg: var(--dark-danger-bg);
+			--shadow-elevated: 0 12px 28px -8px color-mix(in oklab, var(--dark-paper) 70%, transparent);
 
 			/* shadcn's aliases, repeated verbatim - see @theme's own doc comment. */
 			--color-background: var(--color-paper);

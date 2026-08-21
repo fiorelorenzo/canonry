@@ -178,7 +178,7 @@
 	onkeydown={onKeydown}
 	aria-label={t.inline.regionLabel}
 	aria-busy={busy}
-	class="mb-6 rounded-lg border border-line bg-panel-2 p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+	class="mb-6 border-t border-line pt-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
 >
 	<div class="mb-2 flex flex-wrap items-baseline justify-between gap-2 text-xs text-muted">
 		<span>
@@ -199,7 +199,7 @@
 			{#each items as item, index (item.id)}
 				<button
 					type="button"
-					class="flex min-h-9 min-w-9 items-center justify-center rounded-md border px-2.5 py-1.5 font-mono text-[11px]"
+					class="flex min-h-9 min-w-9 items-center justify-center rounded-md border px-2.5 py-1.5 font-mono text-label"
 					class:border-accent={item.id === currentId}
 					class:bg-accent-bg={item.id === currentId}
 					class:border-line={item.id !== currentId}

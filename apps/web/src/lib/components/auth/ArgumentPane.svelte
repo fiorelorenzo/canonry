@@ -49,7 +49,7 @@
 			<span class="text-ink-2 line-through decoration-diff-line decoration-2">{t.watchBefore}</span>
 			<span class="font-semibold text-ink">{t.watchAfter}</span>.
 		</p>
-		<p class="mt-2 font-mono text-[11px] text-muted">{t.evidence}</p>
+		<p class="mt-2 font-mono text-label text-muted">{t.evidence}</p>
 	</div>
 
 	<p class="text-xs text-muted">{t.disclaimer}</p>

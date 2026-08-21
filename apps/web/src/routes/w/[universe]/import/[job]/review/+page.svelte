@@ -136,7 +136,7 @@
 							{item.name}
 						</a>
 						<span
-							class="ml-1 rounded-full bg-accent-bg px-1.5 py-0.5 font-mono text-[10px] text-accent-ink uppercase"
+							class="ml-1 rounded-full bg-accent-bg px-1.5 py-0.5 font-mono text-label text-accent-ink uppercase"
 						>
 							{entityTypeLabel(item.type)}
 						</span>

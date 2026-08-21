@@ -52,7 +52,7 @@
 			<span>{item.label}</span>
 			{#if item.unset}
 				<span
-					class="shrink-0 rounded-full bg-warn-bg px-1.5 py-0.5 text-[10px] font-medium text-warn"
+					class="shrink-0 rounded-full bg-warn-bg px-1.5 py-0.5 text-label font-medium text-warn"
 				>
 					{incompleteMark}
 				</span>

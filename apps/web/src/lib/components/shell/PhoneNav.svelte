@@ -215,7 +215,7 @@
 					<!-- Round eleven P2 (#344): the same count pill the proposals inbox uses, on
 					     the accent's tint rather than the copilot's hue. A number waiting is not
 					     AI text. -->
-					<span class="rounded-full bg-accent-bg px-1.5 py-0 font-mono text-[9px] text-accent-ink"
+					<span class="rounded-full bg-accent-bg px-1.5 py-0 font-mono text-label text-accent-ink"
 						>{tab.badge}</span
 					>
 				{/if}

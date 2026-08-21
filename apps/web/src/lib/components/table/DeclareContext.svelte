@@ -78,7 +78,7 @@
 	aria-label={t.formLabel}
 >
 	<div class="flex flex-col gap-1">
-		<label for="table-place-query" class="font-mono text-[10px] tracking-wide text-muted uppercase">
+		<label for="table-place-query" class="font-mono text-label tracking-wide text-muted uppercase">
 			{t.whereArePlayers}
 		</label>
 		<Input
@@ -115,7 +115,7 @@
 	</div>
 
 	<div class="flex flex-col gap-1">
-		<label for="table-session" class="font-mono text-[10px] tracking-wide text-muted uppercase">
+		<label for="table-session" class="font-mono text-label tracking-wide text-muted uppercase">
 			{t.sessionLabel}
 		</label>
 		<Combobox

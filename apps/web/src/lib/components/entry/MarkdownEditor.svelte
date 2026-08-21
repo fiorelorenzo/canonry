@@ -203,7 +203,7 @@
 	// definite height at all (the works/node editor), a percentage height resolves to
 	// `auto`, so nothing here changes for that caller.
 	const editorBoxClasses =
-		'h-full min-h-96 w-full resize-y whitespace-pre-wrap break-words px-4 py-3 text-[15px] leading-relaxed';
+		'h-full min-h-96 w-full resize-y whitespace-pre-wrap break-words px-4 py-3 text-body leading-relaxed';
 
 	function applyEdit(edit: TextEdit): void {
 		value = edit.source;

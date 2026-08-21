@@ -234,7 +234,7 @@
 	<span
 		id={cardId}
 		role="tooltip"
-		class="pointer-events-none absolute z-20 flex gap-3 rounded-md border border-line-2 bg-panel p-3 shadow-lg"
+		class="pointer-events-none absolute z-20 flex gap-3 rounded-md border border-line-2 bg-panel p-3 shadow-elevated"
 		style="left: {left}px; top: {top}px; width: {width}px"
 	>
 		{#if coverSrc}
@@ -258,7 +258,7 @@
 			<!-- `text-ink-2` and not `text-muted`: at 10px the muted ink is 4.13:1 on `bg-panel`,
 			     which axe fails and a phone in daylight fails harder. The mono uppercase is what
 			     makes this read as a label, not the lighter colour. -->
-			<span class="mt-0.5 block font-mono text-[10px] tracking-wide text-ink-2 uppercase">
+			<span class="mt-0.5 block font-mono text-label tracking-wide text-ink-2 uppercase">
 				{data.type}
 			</span>
 			{#if data.status === 'gap'}

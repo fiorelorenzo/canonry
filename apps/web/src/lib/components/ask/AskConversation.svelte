@@ -397,7 +397,7 @@
 									     `AiMarkedParagraph` - the surrounding answer does not. -->
 									<div class="rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs">
 										<span
-											class="rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
+											class="rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-label text-ink-2"
 										>
 											{proposal.kind === 'draft_entity'
 												? t.propose.badgeCreated
@@ -405,7 +405,7 @@
 										</span>
 										<b class="text-ink">{proposal.entityName}</b>
 										{#if proposal.redirected}
-											<p class="mt-1 text-[11px] text-muted">
+											<p class="mt-1 text-label text-muted">
 												{proposal.kind === 'draft_entity'
 													? t.propose.redirectedToCreate(proposal.entityName)
 													: t.propose.redirectedToEdit(proposal.entityName)}
@@ -425,7 +425,7 @@
 										{:else if proposal.planId}
 											<a
 												href={resolve(`/w/${universeSlug}/proposals/${proposal.planId}`)}
-												class="mt-1 inline-block text-[11px] text-ink-2 underline"
+												class="mt-1 inline-block text-label text-ink-2 underline"
 											>
 												{t.propose.reviewLink}
 											</a>
@@ -479,7 +479,7 @@
 												class="src derived rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs"
 											>
 												<span
-													class="badge rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
+													class="badge rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-label text-ink-2"
 													>{t.indexedBadge}</span
 												>
 												<b class="text-ink">{source.pageTitle}</b>
@@ -490,7 +490,7 @@
 													class="text-ink-2 underline">↗</a
 												>
 												{#if source.attribution}
-													<span class="mt-0.5 block font-mono text-[11px] text-muted">
+													<span class="mt-0.5 block font-mono text-label text-muted">
 														{source.attribution}{#if source.licence}
 															· {source.licence}{/if}
 													</span>
@@ -525,7 +525,7 @@
 						{/if}
 
 						{#if turn.keepError}
-							<p class="mt-2 mb-0 text-[11px] text-danger">{turn.keepError}</p>
+							<p class="mt-2 mb-0 text-label text-danger">{turn.keepError}</p>
 						{/if}
 					</div>
 				{/each}

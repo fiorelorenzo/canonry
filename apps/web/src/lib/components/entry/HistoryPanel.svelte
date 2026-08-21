@@ -103,7 +103,7 @@
 	<div class="space-y-4">
 		{#each groups as group (group.key)}
 			<div>
-				<h4 class="mb-1.5 text-[11px] font-medium tracking-wide text-muted uppercase">
+				<h4 class="mb-1.5 text-label font-medium tracking-wide text-muted uppercase">
 					{group.label}
 				</h4>
 				<ul class="space-y-2 border-l border-line pl-3">

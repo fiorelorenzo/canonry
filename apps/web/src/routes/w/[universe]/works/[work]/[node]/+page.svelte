@@ -169,7 +169,7 @@
 							</a>
 						</div>
 						{#if use.fresh}
-							<p class="mt-1 font-mono text-[11px] text-accent-ink">
+							<p class="mt-1 font-mono text-label text-accent-ink">
 								{t.works.node.changedAt(formatWhen(use.changedAt))}
 							</p>
 						{/if}

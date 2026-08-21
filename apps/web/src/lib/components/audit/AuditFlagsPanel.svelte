@@ -49,7 +49,7 @@
 						<div class="rounded-md border border-line bg-panel p-2 text-xs">
 							<a
 								href={resolve(`/w/${universeSlug}/e/${statement.entitySlug}`)}
-								class="block font-mono text-[10px] font-semibold tracking-wide text-muted uppercase hover:text-accent-ink hover:underline"
+								class="block font-mono text-label font-semibold tracking-wide text-muted uppercase hover:text-accent-ink hover:underline"
 							>
 								{statement.entityName}
 							</a>

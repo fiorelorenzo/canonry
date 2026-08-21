@@ -67,7 +67,7 @@
 			{required}
 			{disabled}
 			aria-label={label}
-			class="h-9 w-full rounded-md border border-input bg-transparent px-2.5 py-1 text-sm text-ink shadow-xs"
+			class="h-9 w-full rounded-md border border-input bg-transparent px-2.5 py-1 text-sm text-ink"
 		>
 			{#each options as option (option.value)}
 				<option value={option.value} selected={option.value === value}>{option.label}</option>

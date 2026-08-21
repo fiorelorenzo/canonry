@@ -65,7 +65,7 @@
 						{pin.hopDistance === 0 ? t.declaredPlace : t.hopsFromPlace(pin.hopDistance)}
 					{/if}
 				</p>
-				<div class="mt-2.5 flex items-center gap-1.5 border-t border-line pt-2 text-[11px]">
+				<div class="mt-2.5 flex items-center gap-1.5 border-t border-line pt-2 text-label">
 					{#if pin.warm.status === 'warm'}
 						<span class="h-1.5 w-1.5 flex-none rounded-full bg-accent" aria-hidden="true"></span>
 						<span class="text-muted">{t.warmBriefAt(relativeTime(pin.warm.updatedAt))}</span>

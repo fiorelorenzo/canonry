@@ -594,7 +594,7 @@
 								<img src={imageUrl(asset.id)} alt="" class="block h-auto w-full" />
 								{#if asset.generated}
 									<span
-										class="absolute top-1 left-1 rounded-full border border-line bg-panel-2 px-1 py-0.5 text-[9px] font-semibold tracking-wide text-ink-2 uppercase"
+										class="absolute top-1 left-1 rounded-full border border-line bg-panel-2 px-1 py-0.5 text-label font-semibold tracking-wide text-ink-2 uppercase"
 									>
 										{t.entry.media.generatedBadge}
 									</span>
@@ -619,27 +619,27 @@
 								<img src={imageUrl(asset.id)} alt={data.entityName} class="block h-auto w-full" />
 								{#if asset.generated}
 									<span
-										class="absolute top-1 left-1 rounded-full border border-line bg-panel-2 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-2 uppercase"
+										class="absolute top-1 left-1 rounded-full border border-line bg-panel-2 px-1.5 py-0.5 text-label font-semibold tracking-wide text-ink-2 uppercase"
 									>
 										{t.entry.media.generatedBadge}
 									</span>
 								{:else}
 									<span
-										class="absolute top-1 left-1 rounded-full border border-line bg-panel-2 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-2 uppercase"
+										class="absolute top-1 left-1 rounded-full border border-line bg-panel-2 px-1.5 py-0.5 text-label font-semibold tracking-wide text-ink-2 uppercase"
 									>
 										{t.entry.media.upload.uploadedBadge}
 									</span>
 								{/if}
 								{#if asset.gmOnly}
 									<span
-										class="absolute top-1 right-1 rounded-full border border-warn bg-warn-bg px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-warn uppercase"
+										class="absolute top-1 right-1 rounded-full border border-warn bg-warn-bg px-1.5 py-0.5 text-label font-semibold tracking-wide text-warn uppercase"
 									>
 										{t.entry.media.publish.gmOnlyBadge}
 									</span>
 								{/if}
 								{#if data.coverAssetId === asset.id}
 									<span
-										class="absolute bottom-1 left-1 rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink uppercase"
+										class="absolute bottom-1 left-1 rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-label font-semibold tracking-wide text-ink uppercase"
 									>
 										{t.entry.media.cover.badge}
 									</span>
