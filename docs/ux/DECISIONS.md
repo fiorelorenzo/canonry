@@ -1895,3 +1895,200 @@ form: the form stays, with the debounce as an enhancement over it rather than a 
 
 Epic [#449](https://github.com/fiorelorenzo/canonry/issues/449), one issue per decision. U2 and
 U3 land together because they are one migration.
+## Round seventeen, decided 2026-08-21
+
+Sixteen rounds of this file were written the same way: I used the preview, disliked some things,
+and wrote down what to do about them. Round seventeen is the first one that started from an
+audit instead. I set up a world the way a real one looks (a save that produced a real
+propagation plan, a finished Obsidian import, three covers, a two-turn conversation, one
+accepted proposal and one rejected one) and rendered every surface of the app at 390, 768 and
+1440, in both palettes and both locales, then read the sheets.
+
+The reason is the beta. Somebody who is not me has to be able to sit down with this, and the
+audit found the shape of the problem: the product is mostly right in the small and incoherent in
+the large. Sixteen rounds of local fixes have left the title of a page landing in seven
+different vertical positions, sixty-six arbitrary font sizes in thirty-four files, the flagship
+inbox showing three empty rows, and the primary onboarding path crashing in the browser.
+
+Four of the eight were decided from drawn options, the first time in this set that the options
+were rendered as working UI on a URL rather than as a file, because Lorenzo answered them from a
+phone. The other four had no drawing worth making: they are a defect with three plausible
+answers, and the argument is in the prose.
+
+| Id | Question | Chosen |
+| --- | --- | --- |
+| V1 | The title of a page lands in seven vertical and six horizontal positions. What holds a page? | **B, one header band and three declared widths.** Every route opens with the same band; the body declares reading, working or wide |
+| V2 | The proposal inbox is three rows saying almost nothing. | **A, the inbox is the queue.** Every waiting proposal, its diff, accept in place |
+| V3 | Sixty-six arbitrary font sizes, no type or elevation tokens, Tailwind's grey shadows on warm paper. | **B, one step up and flat.** Every size up a notch, a 12px floor, cards become hairline-ruled rows |
+| V6 | The GM's own accepted canon wears C1's "written by the AI, not accepted" mark. | **A, a change bar in the margin.** The mark goes back to being only for AI text |
+| V7 | The players' index publishes the name of every entry, revealed or not. | **A, only what was revealed** |
+| V9 | The motion system exists and almost nothing uses it. | **C, the widest of the three**: state changes, list arrival, navigation, and micro-interactions on controls |
+| V10 | The reading room's serif is never downloaded, so it is a different face on every platform. | **C, Literata, shipped with the app** |
+| V11 | No click that reloads from the server gives any signal. | **C, a progress bar plus a pending state on every form** |
+
+### V1, and what a page is allowed to decide for itself
+
+The measurement is the argument. At 1440, across thirteen routes, the `h1` of a page sits at 32,
+48, 52, 60, 64, 72 or 116 pixels from the top and at 288, 320, 464, 496, 520 or 608 from the
+left; the widths are `max-w-3xl`, `4xl`, `2xl`, `xl` and `sm` with no rule behind which is which;
+nineteen pages use `PageHeader` and seventeen write their own `h1`, one of them at 12px. Going
+from Voci to Proposte moves the title 84 pixels down and 320 to the right. Nothing about that was
+decided; it accreted, one issue at a time, which is exactly what it looks like.
+
+B costs about seventy pixels of every screen and buys the thing that cannot be bought any other
+way: the title cannot land anywhere else, because no page draws it. What each page still decides
+is its width, from three named values rather than from Tailwind's ten: **reading** (44rem, an
+entry, the docs, the privacy page), **working** (62rem, the inbox, the plan, the settings panes)
+and **wide** (the entries table, table mode, the admin surfaces). A page picking one of three is a
+decision somebody can review; a page picking `max-w-2xl` is a decision nobody made.
+
+I rejected C, the title moving into the shell's own top bar, and it was the close one. It is the
+only option where the content of every route starts at the same y by construction rather than by
+convention, and the reason it lost is the actions: the band has to hold "Browse every entry", a
+GM/players switch, two icon buttons, a type filter and a search field depending on the route, and
+a 48px bar beside a sidebar cannot do that without becoming a second toolbar. A band that belongs
+to the page can grow a second row; a bar that belongs to the shell cannot.
+
+### V2, and why the flagship surface gets the biggest change in this round
+
+The inbox is where this product either works or does not, and today it is three rows reading
+`From: an edit to Corvin Ashe`, twice, identically, for two different plans, one of which is not
+an edit at all but the audit's contradiction list. Two of the three rows carry a badge that is not
+a button; the third carries a button. Nothing on the page says what is being proposed. On a
+900-pixel window that is 240 pixels of content and 660 of paper.
+
+A puts the proposals themselves on that page: each one a card carrying the entry it touches, the
+reason in the copilot's own words, its diff, and Accept and Reject in place, grouped under the
+plan that produced it, with C6's `j k a r u` queue running down the whole list. It is the shape
+that makes SPEC 14's two metrics measurable, because the time from arrival to a decision stops
+including a navigation.
+
+Three things ride along and none is optional. A plan candidate whose diff has not been generated
+has no diff to show, so it says so and offers the price rather than rendering an empty card, which
+is the same thing #468 just fixed on the single-proposal route. The page has to survive forty
+pending proposals, so the settled ones collapse and the groups are collapsible. And the import
+review queue is the same surface with a type filter (D4 = B said so), so it stops being a pager
+and becomes this: two screens that do the same job in the same shape, which is #480.
+
+### V3, and the floor under everything else
+
+Three measurements: `text-[10px]` appears 34 times, `text-[11px]` 27 times and `text-[9px]` three
+times, across 34 files; `text-sm` appears 364 times and `text-xs` 278 against 21 of `text-2xl`;
+and there is no type token and no elevation token anywhere in `layout.css`'s `@theme`, so a
+component that wants a size reaches for an arbitrary value and a component that wants separation
+reaches for Tailwind's default grey shadow on warm paper.
+
+B is the answer that matches A1. The reading room separates with paper, rule and space, not with
+floating cards: a card is a piece of paper lying on another piece of paper, and eleven of them on
+one screen is a dashboard, which is what the proposal inbox and the settings pages currently look
+like. So the sizes go up a step, 9px and 10px stop existing, 12px becomes the floor, and a card
+becomes a row with a rule above it. The cost is real and accepted: a dense list fits fewer rows
+per screen, and every page has to be looked at again.
+
+The tokens are named by role, not by size, because that is the only thing that stops the next
+arbitrary value: a label, a meta line, a body, a card title, a page title. Anything that needs a
+size that is not one of those is a design question, not a CSS one.
+
+### V6, and a mark that says the opposite of what is true
+
+`entryMarking.ts` marks the sentences of an entry that a pending proposal would change, with C1's
+dashed underline and its numbered margin marker. C1's mark means, in the spec's own words, AI
+wording that nobody has accepted. The sentence wearing it is the GM's own canon, already
+accepted, and the proposed wording is somewhere else entirely, in the diff. So the one signal
+this product cannot afford to get wrong is pointed at the wrong text.
+
+There is a second cost nobody filed: a marked paragraph is rendered through the marking's own
+escaper, which strips mentions to bare names, so an entry with a pending proposal silently loses
+its links until the proposal is settled.
+
+A change bar in the margin, on `--color-diff-line`, says what is actually true: something is
+waiting here. It carries no claim about who wrote the sentence, it leaves the prose untouched, and
+it is the same value signal P3 already chose for the diff, which is where the proposed wording
+lives. Guardrail 2 is not weakened, because the text guardrail 2 is about is not on this page: it
+is in the diff, and it keeps its mark there.
+
+### V7, and a wiki that says something false
+
+`/p/<slug>` lists every entry that is not `gm_only`, under the sentence "If it came up at the
+table, it is here. A name in grey has been heard but not yet explored." On the seeded world that
+is seventeen names over three revelations, so fourteen of them never came up at any table and the
+page says they did.
+
+E7 = C chose a gap page for an undiscovered entry, and a gap page is what a player reaches by
+following a link they were given. Turning that into an index of every name is a different
+decision, taken in code (`players.ts:47`) rather than here, and it publishes the shape of the
+world: the party learns that a thing called The Smugglers' Ledger exists before they have heard of
+it. For a GM that is the one thing a players' wiki must not do.
+
+So the index lists what has been revealed. A gap page stays reachable by URL, because a player
+following a link from a session log should get "you have heard of this and not explored it" rather
+than a 404, and that is exactly what E7 built it for. The cost is accepted: at the start of a
+campaign the players' wiki is nearly empty, which is true, and a wiki that is honestly empty is
+better than one that is dishonestly full.
+
+### V9, and going one step further than I recommended
+
+I recommended B. Lorenzo took C, which adds micro-interactions on controls to the list: a button
+that responds to being pressed, a card that lifts under the pointer, the accept mark drawing
+itself, the streaming cursor pulsing. The risk with C is the one its own option said out loud, that
+a wiki starts to feel like a consumer app, and the answer is that Q6's rule 4 is unchanged and
+still decides every individual case: **nothing on a canon reading surface, nothing that delays an
+action behind its own animation, and nothing that moves while a model is already making the reader
+wait.** C widens where motion is allowed to appear; it does not widen what motion is allowed to
+interrupt.
+
+Two specific limits, so this does not have to be re-argued per component. A list arrives in
+cascade only on a working surface (the inbox, the entries table, the review queue), never on an
+entry or on the players' wiki, because Q6 calls that "text on load" and refuses it. And every one
+of these runs on the two existing duration tokens: C is not a licence to add a third.
+
+### V10, and shipping the face we chose
+
+`--font-sans` is `Iowan Old Style, Palatino Linotype, Palatino, Book Antiqua, Georgia, serif` and
+nothing is downloaded, so A1's reading room is drawn in Palatino on a Mac, Georgia on Windows,
+DejaVu on Linux and Noto on Android. Measured on this box: all three of the named faces resolve to
+the same generic fallback, so the product Lorenzo designed is not the product most of its readers
+see.
+
+Literata, self-hosted, variable, OFL, around 45 KB. It was drawn for long-form reading, which is
+what this product is, and it is warmer on paper than Source Serif 4, which was the other
+candidate. The mono face stays as it is: G2 already exempted identifiers and code, and a
+downloaded mono buys nothing.
+
+Two obligations. It is self-hosted, not loaded from Google's CDN, because guardrail 5 is about
+which company sees a request from a page holding campaign content and a font CDN is exactly that.
+And it ships with `font-display: swap` plus a preload, with the current stack as the fallback, so
+the first paint is the old face rather than no text at all.
+
+### V11, and the cheapest thing in this round
+
+`navigating` is not read anywhere in the app. Every server-loaded click, which is most of them,
+gives no feedback at all while a loader talks to Postgres and Qdrant. And nineteen of the forty
+forms do not use `use:enhance`, so a submit is a full page post with a button that looks idle
+until the page changes under it.
+
+A progress bar is one place in the code and covers every route that exists or will exist. The
+pending state on forms is the half that matters more, because a form in this product often has a
+model behind it, and the difference between "nothing happened" and "it is working" is where a
+beta tester decides the product is broken. Both are in Q6's rule 4 already: a state that changed
+where a reader would otherwise wonder whether their click registered.
+
+### The nine defects this round found that needed no decision
+
+Filed and fixed in the same day as this file's own entry, under epic #466: the import review page
+crashing in the browser with `Buffer is not defined` on both of its routes, which is the whole of
+D7's onboarding path (#467); a proposal with no diff rendering as a deletion of the entry's own
+canon, with no accept and no reject (#468); `--color-muted` at 4.13:1 and prose links at 1.31:1,
+both under AA and both systemic (#469); table mode shipping `stream: 0 events received` to the GM
+next to an empty state naming an action with no control (#470); the app having no error page at
+all, so a mistyped URL drops the reader into account mode with no way back (#471); the forced-open
+evidence popover covering the diff it exists to explain (#472); six labels that say something
+untrue or say it twice (#473); and the accessibility floor, six pages with no `h1`, two `main`
+landmarks on the dev galleries, an unlabelled column and an unreachable scroll region (#474).
+
+### Where round seventeen lands
+
+Epic [#466](https://github.com/fiorelorenzo/canonry/issues/466). The nine defects landed first,
+because two of them were P0 and one of them was the front door. The eight decisions land in two
+waves after them: V1, V3, V10 and V11 first, since they are the floor everything else stands on,
+then V2, V6, V7 and V9 on top of it.
