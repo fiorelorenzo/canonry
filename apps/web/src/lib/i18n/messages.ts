@@ -1185,6 +1185,30 @@ export interface Messages {
 			awaitingDiff: (count: number) => string;
 			awaitingDiffLink: string;
 		};
+		/** `/w/[universe]/review/[proposal]`, issue #468: the deep-link page's own words for
+		 * a candidate whose diff has not been generated yet (`patch = {}`, C3's checklist
+		 * gate) - said plainly, rather than painting the target entity's whole body as
+		 * struck through with no Accept or Reject to explain why. */
+		review: {
+			awaitingDiff: {
+				/** Small kicker above the explanation, so a skim of the page still lands on
+				 * "not a deletion" before reading the sentence. */
+				kicker: string;
+				/** Names the entry and says this candidate is part of a plan waiting on its
+				 * diff - `entryName` is `targetName`, already resolved server-side. */
+				body: (entryName: string) => string;
+				/** Prefaces the copilot's own `rationale`, unwrapped exactly as `diffCard`
+				 * already shows it elsewhere on this candidate. */
+				reasonLabel: string;
+				/** Wraps the bold, pre-formatted price for generating this one diff -
+				 * `operation_price`'s `propagate.diff` row, the same number the plan page's
+				 * own estimate is built from, never `estimatedCredits` divided by candidate
+				 * count. */
+				cost: (credits: number) => { prefix: string; suffix: string };
+				planLink: string;
+				backToEntry: string;
+			};
+		};
 		errors: {
 			noDiffsToGenerate: string;
 			/** `/w/[universe]/review/[proposal]`, issue #345. */

@@ -16,9 +16,15 @@
  * `reviewableProposalById` carries no outcome filter despite its name (see its own
  * comment in `$lib/server/proposals.ts`) - accepted, rejected and still-pending proposals
  * all resolve the same way, so a settled proposal needs no second query here.
+ *
+ * Issue #468: a candidate can also be `awaitingDiff` - `patch = {}`, C3's checklist gate,
+ * before the GM has paid to generate it. `+page.svelte` needs the real per-diff price to
+ * say so honestly, the same number the plan page's own `estimatedCredits` is built from
+ * (`propagate.diff` in `operation_price`) - never `estimatedCredits` divided by candidate
+ * count, which `planPropagation` never computed that way to begin with.
  */
 import { error } from '@sveltejs/kit';
-import { universeAccessBySlug } from '@canonry/db';
+import { priceOf, universeAccessBySlug } from '@canonry/db';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { reviewableProposalById } from '$lib/server/proposals';
@@ -34,9 +40,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const candidate = await reviewableProposalById(conn, access.universe.id, params.proposal);
 	if (!candidate) error(404, t.proposals.errors.proposalNotFound);
 
+	const diffPriceCredits = candidate.awaitingDiff
+		? (await priceOf(conn, 'propagate.diff')).credits
+		: null;
+
 	return {
 		universe: { slug: access.universe.slug, name: access.universe.name },
 		candidate,
+		diffPriceCredits,
 		locale: locals.locale
 	};
 };

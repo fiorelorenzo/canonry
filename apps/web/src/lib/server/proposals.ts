@@ -566,6 +566,12 @@ export interface DiffCandidate {
 	evidenceViews: EvidenceView[];
 	evidenceCaveat: EvidenceCaveat | null;
 	relationVocab: DiffCandidateRelationVocab | null;
+	/** Issue #468: true for a still-`pending` `update`/`create`/`draft_entity` candidate
+	 * whose patch is still `{}` - C3's checklist gate, before the GM pays for
+	 * `propagate.diff`. `diff` above is `EMPTY_PROSE_DIFF` or (worse, for `update`) a
+	 * full-body removal in that state, so a caller that means to show a real diff has to
+	 * check this first rather than trust `diff.rows.length`. */
+	awaitingDiff: boolean;
 }
 
 /** Turns one resolved candidate into everything `ProposalDiffCard` needs to render,
@@ -577,7 +583,13 @@ export interface DiffCandidate {
 export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 	const p = candidate.proposal;
 	let diff: ProseDiff = EMPTY_PROSE_DIFF;
+	let awaitingDiff = false;
 	if (p.kind === 'update' || p.kind === 'create' || p.kind === 'draft_entity') {
+		// C3 only gates a live decision: an already-decided (accepted/rejected) row with a
+		// stray empty patch - unreachable via `ProposalQueue`'s own accept/reject, which
+		// only ever appears once `generatePlanDiffs` has run, but possible from an older or
+		// hand-seeded row - reads as settled, not as still awaiting anything.
+		awaitingDiff = p.outcome === 'pending' && !hasDraftedPatch(p.patch);
 		// A `create`/`draft_entity` patch keeps its prose in `body`, not in `after`: that is
 		// the field `readEntityCreatePatch` reads in `packages/db`'s `acceptProposal`, so it
 		// is the field this display path has to read too. Without it the queue rendered an
@@ -633,7 +645,8 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 		diff,
 		evidenceViews: views,
 		evidenceCaveat: caveat,
-		relationVocab
+		relationVocab,
+		awaitingDiff
 	};
 }
 
