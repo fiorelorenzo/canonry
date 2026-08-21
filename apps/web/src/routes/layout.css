@@ -47,7 +47,12 @@
 	--color-panel-2: #f9f4ea;
 	--color-ink: #221d16;
 	--color-ink-2: #4c4238;
-	--color-muted: #857a6a;
+	/* #469 (closes #369): darkened on its own hue rather than inverted from --dark-muted -
+	 * same 36.5deg warm hue and ~11% saturation as before, lightness moved from 0.469 to
+	 * 0.410 so every surface it sits on clears the 4.5:1 AA floor for small text: 4.57:1
+	 * against --color-paper, 5.16:1 against --color-panel, 4.78:1 against --color-panel-2
+	 * (measured in the browser, replacing the 3.67/4.13/3.84 the old #857a6a carried). */
+	--color-muted: #746b5d;
 	--color-line: #e2d8c6;
 	--color-line-2: #cfc2ab;
 	--color-accent: #7a4a1f;
@@ -172,6 +177,9 @@
 		--dark-panel-2: #191510;
 		--dark-ink: #f1e9db;
 		--dark-ink-2: #cabfae;
+		/* #469: authored independently of light's move above, and already clears AA on
+		 * every dark surface without one - 4.99:1 against --dark-paper, 4.70:1 against
+		 * --dark-panel, 4.93:1 against --dark-panel-2, all >= 4.5:1. */
 		--dark-muted: #8e8474;
 		--dark-line: #2d271e;
 		--dark-line-2: #3d3529;

@@ -179,7 +179,7 @@
 						<a
 							data-row-link
 							href={resolve(`/w/${universeSlug}/e/${row.slug}`)}
-							class="font-medium text-ink transition-colors hover:text-accent focus-visible:underline"
+							class="font-medium text-ink underline decoration-line-2 decoration-1 underline-offset-2 transition-colors hover:text-accent"
 						>
 							{row.name}
 						</a>

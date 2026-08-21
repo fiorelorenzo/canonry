@@ -49,13 +49,17 @@
 	{#if form?.success}
 		<p class="text-sm text-ink-2">{t.success}</p>
 		<p class="mt-4 text-center text-sm text-ink-2">
-			<a href={resolve('/auth/sign-in')} class="text-accent hover:underline">{t.signInLink}</a>
+			<a
+				href={resolve('/auth/sign-in')}
+				class="text-accent underline decoration-line-2 underline-offset-2">{t.signInLink}</a
+			>
 		</p>
 	{:else if linkInvalid}
 		<p class="text-sm text-danger">{t.invalidToken}</p>
 		<p class="mt-4 text-center text-sm text-ink-2">
-			<a href={resolve('/auth/forgot-password')} class="text-accent hover:underline"
-				>{t.requestNewLink}</a
+			<a
+				href={resolve('/auth/forgot-password')}
+				class="text-accent underline decoration-line-2 underline-offset-2">{t.requestNewLink}</a
 			>
 		</p>
 	{:else}

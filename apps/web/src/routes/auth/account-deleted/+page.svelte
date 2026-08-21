@@ -22,6 +22,8 @@
 <AuthShell locale={data.locale} subtitle={t.subtitle}>
 	<p class="text-sm text-ink-2">{t.body}</p>
 	<p class="mt-4 text-center text-sm text-ink-2">
-		<a href={resolve('/')} class="text-accent hover:underline">{t.homeLink}</a>
+		<a href={resolve('/')} class="text-accent underline decoration-line-2 underline-offset-2"
+			>{t.homeLink}</a
+		>
 	</p>
 </AuthShell>
