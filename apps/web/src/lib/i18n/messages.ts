@@ -1155,8 +1155,6 @@ export interface Messages {
 			headingSettled: string;
 			/** "2 of 3", shown only when the region holds more than one. */
 			position: (index: number, total: number) => string;
-			/** Names the five keys the region listens for, beside the keys themselves. */
-			keys: string;
 			/** Confirms an accept landed in canon, where the reader is already looking. */
 			acceptedNote: string;
 			failed: (message: string) => string;

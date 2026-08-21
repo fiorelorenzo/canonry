@@ -25,6 +25,7 @@
 	 */
 	import { untrack } from 'svelte';
 	import { messages, type Locale } from '$lib/i18n';
+	import { KeyHint, type KeyHintPair } from '$lib/components/ui/key-hint';
 	import ProposalDiffCard, { type DiffCandidateView } from './ProposalDiffCard.svelte';
 	import RejectChips from './RejectChips.svelte';
 	import { decideProposal, InlineReviewError } from '$lib/proposals/inline';
@@ -47,6 +48,17 @@
 	} = $props();
 
 	let t = $derived(messages(locale).proposals);
+
+	// T5 (round fifteen), issue #432: the same five pairs `ProposalQueue` builds, off
+	// `queue`'s own verbs rather than the joined phrase `inline.keys` used to compose -
+	// C6's vocabulary is one vocabulary, and now it is stated once.
+	let keyPairs = $derived<KeyHintPair[]>([
+		{ key: 'j', label: t.queue.keyboardMove },
+		{ key: 'k', label: t.queue.keyboardMove },
+		{ key: 'a', label: t.queue.keyboardAccept },
+		{ key: 'r', label: t.queue.keyboardReject },
+		{ key: 'u', label: t.queue.keyboardUndo }
+	]);
 
 	// The initial value on purpose; the `$effect` below is what folds in later arrivals,
 	// because a card decided in this session has to keep its outcome across the page's own
@@ -174,17 +186,11 @@
 				<span class="ml-1 font-mono">{t.inline.position(currentIndex + 1, items.length)}</span>
 			{/if}
 		</span>
-		<!-- C6's vocabulary named where it applies. Hidden below `sm` for the same reason
-		     `ProposalQueue` hides it (#148): a phone has no bare keys, and the card's own
-		     buttons are the primary interaction there. -->
-		<span class="hidden gap-2 sm:flex">
-			<kbd class="rounded border border-line-2 px-1 font-mono">j</kbd>
-			<kbd class="rounded border border-line-2 px-1 font-mono">k</kbd>
-			<kbd class="rounded border border-line-2 px-1 font-mono">a</kbd>
-			<kbd class="rounded border border-line-2 px-1 font-mono">r</kbd>
-			<kbd class="rounded border border-line-2 px-1 font-mono">u</kbd>
-			<span>{t.inline.keys}</span>
-		</span>
+		<!-- C6's vocabulary named where it applies. `KeyHint` hides itself below `sm` for
+		     the same reason `ProposalQueue` does (#148): a phone has no bare keys, and the
+		     card's own buttons are the primary interaction there. T5 (round fifteen),
+		     issue #432. -->
+		<KeyHint pairs={keyPairs} />
 	</div>
 
 	{#if items.length > 1}

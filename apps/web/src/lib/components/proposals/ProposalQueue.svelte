@@ -14,6 +14,7 @@
 	import { enhance } from '$app/forms';
 	import { messages, type Locale } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { KeyHint, type KeyHintPair } from '$lib/components/ui/key-hint';
 	import ProposalDiffCard, { type DiffCandidateView } from './ProposalDiffCard.svelte';
 	import RejectChips from './RejectChips.svelte';
 
@@ -48,6 +49,17 @@
 	let acceptedCount = $derived(items.filter((c) => c.outcome === 'accepted').length);
 	let rejectedCount = $derived(items.filter((c) => c.outcome === 'rejected').length);
 	let posLabel = $derived(t.position(items.length));
+
+	// T5 (round fifteen), issue #432: one key beside one verb, in the shared `KeyHint`
+	// shape. `j`/`k` share one verb (move), so they are two pairs rather than one pair
+	// carrying two keys.
+	let keyPairs = $derived<KeyHintPair[]>([
+		{ key: 'j', label: t.keyboardMove },
+		{ key: 'k', label: t.keyboardMove },
+		{ key: 'a', label: t.keyboardAccept },
+		{ key: 'r', label: t.keyboardReject },
+		{ key: 'u', label: t.keyboardUndo }
+	]);
 
 	// Hidden form fields, reused for every action - one form per action name, its
 	// proposalId/reason set right before a programmatic submit.
@@ -277,19 +289,11 @@
 		<EmptyState kind="settled" message={t.empty} />
 	{/if}
 
-	<!-- Issue #148 (I10 = B): bare keys don't exist on a phone, so this legend would
-	     just be noise below `sm` - the card's own Accept/Reject buttons (#148) are
-	     the primary interaction there instead. -->
-	<div class="qkeys hidden flex-wrap gap-4 text-xs text-muted sm:flex">
-		<span
-			><kbd class="rounded border border-line-2 px-1 font-mono">j</kbd>
-			<kbd class="rounded border border-line-2 px-1 font-mono">k</kbd>
-			{t.keyboardMove}</span
-		>
-		<span><kbd class="rounded border border-line-2 px-1 font-mono">a</kbd> {t.keyboardAccept}</span>
-		<span><kbd class="rounded border border-line-2 px-1 font-mono">r</kbd> {t.keyboardReject}</span>
-		<span><kbd class="rounded border border-line-2 px-1 font-mono">u</kbd> {t.keyboardUndo}</span>
-	</div>
+	<!-- Issue #148 (I10 = B): bare keys don't exist on a phone, so `KeyHint` hides
+	     itself below `sm` - the card's own Accept/Reject buttons (#148) are the
+	     primary interaction there instead. T5 (round fifteen), issue #432: one shared
+	     component rather than this file's own kbd markup. -->
+	<KeyHint pairs={keyPairs} class="qkeys" />
 
 	<!-- #367 (Q6): "a proposal being accepted or rejected" is one of the five cases the
 	     decision names, and this strip plus the reject reasons below it are where that
