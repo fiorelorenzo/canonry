@@ -4,6 +4,7 @@
 	 * don't exist in the database yet (#47), so this page renders the component against
 	 * the fixture paragraph directly rather than faking a proposal row into a real entry.
 	 */
+	import { page } from '$app/state';
 	import AiMarkedParagraph from '$lib/components/ai/AiMarkedParagraph.svelte';
 	import type { ParagraphSegment } from '$lib/components/ai/aiMarking';
 
@@ -44,7 +45,10 @@
 
 <svelte:head><title>Component gallery: AI marking (dev only)</title></svelte:head>
 
-<main class="mx-auto max-w-3xl px-6 py-10">
+<!-- #474: `AppShell` only supplies `<main id="main">` once someone is signed in - see
+     `routes/dev/ui/+page.svelte`'s same comment for the full rationale. This gallery
+     carries no auth guard, so it still needs exactly one `main` signed out. -->
+<svelte:element this={page.data.user ? 'div' : 'main'} class="mx-auto max-w-3xl px-6 py-10">
 	<p class="mb-1 font-mono text-xs tracking-wide text-danger uppercase">
 		Internal component gallery, not a product page
 	</p>
@@ -83,4 +87,4 @@
 			</div>
 		</section>
 	{/each}
-</main>
+</svelte:element>

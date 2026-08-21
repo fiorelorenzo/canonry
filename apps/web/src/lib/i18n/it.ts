@@ -2049,6 +2049,7 @@ export const it: Messages = {
 				provider: 'Provider',
 				modelId: 'ID modello',
 				notConfigured: 'non configurato',
+				actions: 'Azioni',
 				providerUnknown: (provider) =>
 					`il provider "${provider}" non è tra quelli noti a questa app - nessuna chiamata può essere costruita finché non viene cambiato.`
 			},
@@ -2076,7 +2077,8 @@ export const it: Messages = {
 				coverAspectRatios: (shapes) =>
 					`Una copertina viene disegnata nel formato del tipo di voce, quindi questo modello deve accettare ${shapes}.`,
 				active: 'attivo',
-				inactive: 'inattivo'
+				inactive: 'inattivo',
+				actions: 'Azioni'
 			},
 			featureLabel: {
 				portrait: "Ritratto - un'immagine per richiesta",

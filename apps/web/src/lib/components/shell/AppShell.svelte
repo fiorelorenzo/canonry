@@ -116,8 +116,21 @@
 			     1440x900). Padding shrinks the content box, so a full-height child shrinks
 			     with it. Composed with the base padding rather than replacing it, because
 			     `p-4`/`md:p-8` are the page's own gutters and this is additional. -->
+			<!-- #474: `tabindex="0"` - this region scrolls its own content
+			     (`overflow-y-auto`) independently of the document, and axe's
+			     `scrollable-region-focusable` rule is right that a reader with no pointer
+			     needs a way to reach it: without a tabindex an overflowing `<main>` can
+			     never take focus, so arrow/Page Up/Down never has a target. Most routes'
+			     content fits the viewport and never overflows, so this adds a tab stop
+			     that does nothing on those; only a route long enough to actually scroll
+			     (`/admin/metrics`, `/privacy`) makes it do anything. svelte's own linter
+			     flags a nonnegative tabindex on a "noninteractive" element, but a landmark
+			     that can overflow is exactly axe's documented exception - the two rules
+			     disagree here on purpose, not by oversight. -->
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<main
 				id="main"
+				tabindex="0"
 				class="min-w-0 flex-1 overflow-y-auto px-4 pt-4 pb-[calc(1rem+var(--dock-reserve,0px))] md:px-8 md:pt-8 md:pb-[calc(2rem+var(--dock-reserve,0px))]"
 				style:--dock-reserve="{dockReserve}px"
 			>

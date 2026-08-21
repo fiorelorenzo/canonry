@@ -1993,6 +1993,7 @@ export const en: Messages = {
 				provider: 'Provider',
 				modelId: 'Model id',
 				notConfigured: 'not configured',
+				actions: 'Actions',
 				providerUnknown: (provider) =>
 					`provider "${provider}" is not one of this app's known providers - no call can be built for it until this is changed.`
 			},
@@ -2019,7 +2020,8 @@ export const en: Messages = {
 				coverAspectRatios: (shapes) =>
 					`A cover is drawn at the entity type's own shape, so this model has to accept ${shapes}.`,
 				active: 'active',
-				inactive: 'inactive'
+				inactive: 'inactive',
+				actions: 'Actions'
 			},
 			featureLabel: {
 				portrait: 'Portrait - one image per request',

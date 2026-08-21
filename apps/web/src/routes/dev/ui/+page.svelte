@@ -5,6 +5,7 @@
 	 * only place anyone can check a token-mapping mistake against both palettes at once
 	 * before five other waves start importing these components at real call sites.
 	 */
+	import { page } from '$app/state';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -107,8 +108,15 @@
 
 <svelte:head><title>Component gallery: shadcn-svelte control layer (dev only)</title></svelte:head>
 
+<!-- #474: `AppShell` (`$lib/components/shell/AppShell.svelte`) supplies the one
+     `<main id="main">` for every route only once someone is signed in - a
+     `landmark-one-main`/`landmark-main-is-top-level` fix that nested this page's own
+     `<main>` inside it while signed in, but this gallery carries no auth guard of its
+     own and still needs exactly one `main` when nobody is. `<svelte:element>` picks
+     the tag AppShell is not already providing, rather than duplicating the whole
+     gallery body once per branch. -->
 <Tooltip.Provider>
-	<main class="mx-auto max-w-3xl px-6 py-10">
+	<svelte:element this={page.data.user ? 'div' : 'main'} class="mx-auto max-w-3xl px-6 py-10">
 		<p class="mb-1 font-mono text-xs tracking-wide text-danger uppercase">
 			Internal component gallery, not a product page
 		</p>
@@ -425,5 +433,5 @@
 				</div>
 			</section>
 		{/each}
-	</main>
+	</svelte:element>
 </Tooltip.Provider>

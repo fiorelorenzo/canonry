@@ -48,10 +48,10 @@
 		</div>
 		<main id="main" class="flex-1 px-8 py-12">
 			<div class="max-w-measure">
-				<div class="flex items-center gap-2 text-2xl font-semibold text-ink">
+				<h1 class="flex items-center gap-2 text-2xl font-semibold text-ink">
 					<span class="text-accent"><Mark size={28} /></span>
 					Canonry
-				</div>
+				</h1>
 				<p class="mt-3 text-lg text-ink-2">{t.shell.tagline}</p>
 				<div class="mt-5 flex gap-2">
 					<Button href={resolve('/auth/sign-up')}>{t.shell.door.createAccount}</Button>

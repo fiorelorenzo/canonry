@@ -26,7 +26,7 @@
 	<title>{t.title}: Canonry</title>
 </svelte:head>
 
-<AuthShell locale={data.locale} subtitle={t.subtitle}>
+<AuthShell locale={data.locale} title={t.title} subtitle={t.subtitle}>
 	{#if form?.success}
 		<p class="text-sm text-ink-2">{t.success}</p>
 	{:else}

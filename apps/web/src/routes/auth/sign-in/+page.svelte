@@ -57,7 +57,7 @@
 	<title>{t.title}: Canonry</title>
 </svelte:head>
 
-<AuthShell locale={data.locale} subtitle={t.subtitle}>
+<AuthShell locale={data.locale} title={t.title} subtitle={t.subtitle}>
 	{#if data.providers.length > 0}
 		<div class="flex flex-col gap-2">
 			{#each data.providers as provider (provider)}
