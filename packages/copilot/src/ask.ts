@@ -33,8 +33,8 @@
 import { chargeFor, ModelNotConfiguredError, resolveModel } from '@canonry/ai';
 import { withQuota } from '@canonry/ai';
 import type { Db } from '@canonry/db';
-import { eq } from '@canonry/db';
-import { entity, universe } from '@canonry/db/schema';
+import { eq, entityBrowserPage, entityCountsByType, weeklyChangeCounts } from '@canonry/db';
+import { entity, universe, type EntityType } from '@canonry/db/schema';
 import { getDataSource } from '@canonry/db';
 import {
 	collectionExists,
@@ -362,9 +362,10 @@ function renderSourcesForPrompt(sources: AskSource[]): string {
 }
 
 /** issue #380: one line naming where the GM was standing when they asked, rendered above
- * the question - never fed to retrieval. `searchOwnCanon`/`searchIndexed` (see `runAsk`
- * below) still run on `input.question` alone, so a context line can never silently change
- * what got searched, only what the model is told about where the GM is reading from.
+ * the question - never fed to retrieval, unlike the prior GM turn (issue #439, T12: see
+ * `retrievalQueryFor`). `searchOwnCanon`/`searchIndexed` (see `runAsk` below) never see
+ * this line, so a context line can never silently change what got searched, only what the
+ * model is told about where the GM is reading from.
  * Not localised: this reaches the model's prompt, not the GM's screen, and `entityType`
  * is the raw `EntityType` value (e.g. "character"), regardless of `input.locale`. */
 function renderContextForPrompt(context: AskContext | null | undefined): string {
@@ -398,6 +399,181 @@ export function clampAskHistory(history: AskHistoryTurn[] | undefined): AskHisto
 		.map((turn) => ({ role: turn.role, text: turn.text.slice(0, MAX_HISTORY_TURN_CHARS) }));
 }
 
+/** issue #439 (T12): the most recent GM turn in `history`, if any - the one turn whose
+ * own words this file uses to help a follow-up's retrieval, and the only one it ever
+ * uses for that (see `retrievalQueryFor`'s own comment for why one turn, never the whole
+ * conversation). `history` is oldest-first and role-alternating in the ordinary case, but
+ * this scans backward for a `'gm'` role rather than assuming the last element is one, so a
+ * client that ever sends two GM turns in a row still finds the real most recent question
+ * rather than reading a Loremaster answer as if the GM had said it. */
+function lastGmTurn(history: AskHistoryTurn[]): string | null {
+	for (let i = history.length - 1; i >= 0; i--) {
+		const turn = history[i]!;
+		if (turn.role === 'gm') return turn.text;
+	}
+	return null;
+}
+
+/** issue #439 (T12), the two-part fix to #380's "retrieval never sees history": #380 was
+ * right that a conversation must not silently change what got searched turn after turn -
+ * ten turns of accumulated topic drift retrieving on all of it would make every later
+ * question's sources less and less about the question actually asked - and wrong that the
+ * rule should hold on turn two exactly as it does on turn eleven. A follow-up's own words
+ * are frequently a bare pronoun and nothing else ("And who does he answer to now?" shares
+ * no content word with anything in canon), and the antecedent that resolves it lives in
+ * exactly one place: the GM's own immediately preceding turn. So the fix touches exactly
+ * one turn of history, never more, and does two separate things with it:
+ *
+ * 1. **The retrieval query itself gains the prior GM turn's words.** This function joins
+ *    the last GM turn's text ahead of the current question, for both layers - "Who is
+ *    Aldric Vane..." joined with "...who does he answer to now?" finds entities relevant
+ *    to Aldric Vane that the bare follow-up alone never could.
+ * 2. **Layer 1 also reruns on the prior GM turn alone, and those sources are kept, not
+ *    merged into the same ranking** (`mergeCarriedForwardOwnCanon` below). Joining the
+ *    query helps but does not guarantee the prior topic survives: `OWN_CANON_LIMIT` and a
+ *    Jaccard score computed over a bigger, two-questions-wide token set (a bigger
+ *    denominator - the same shape of problem this file's own header comment on layer 1
+ *    measures for a single question) can both still drop an entity turn one already
+ *    surfaced. Layer 1 - "free and deterministic, no model call" by this file's own
+ *    description - can afford to run a second time on exactly the prior GM turn's text;
+ *    layer 2 cannot (it is a real embedding call), so it is not rerun a second time for
+ *    this step and relies on mechanism 1 alone for the same referential help.
+ *
+ * Bounded regardless of how long the conversation runs: only the single most recent GM
+ * turn ever contributes to retrieval, by either mechanism, so turn eleven's retrieval
+ * query and carry-forward pass are exactly the size of turn two's, never larger - the
+ * rest of `history` still reaches the prompt (`renderHistoryForPrompt`, capped at
+ * `MAX_HISTORY_TURNS` as before) but never retrieval. */
+function retrievalQueryFor(question: string, priorGmTurn: string | null): string {
+	return priorGmTurn ? `${priorGmTurn}\n${question}` : question;
+}
+
+/** issue #439 (T12): how many of the prior turn's own-canon sources ride along uninvited -
+ * capped independently of `OWN_CANON_LIMIT` (which already bounds the current question's
+ * own list) so a turn where both lists are full still shows a bounded total rather than up
+ * to twice `OWN_CANON_LIMIT` sources for one answer. 3 mirrors `deriveFollowUps`'s own cap
+ * for a similar reason: this is a GM re-reading the last exchange's evidence, not the
+ * primary evidence for the question just asked, so it gets a modest allowance rather than
+ * equal billing with the sources that are actually new. */
+export const CARRIED_FORWARD_LIMIT = 3;
+
+/** Appends whatever of `carried` is not already in `fresh` (by entity), capped at
+ * `CARRIED_FORWARD_LIMIT`, after `fresh` - see `retrievalQueryFor`'s comment for why this
+ * is concatenation rather than a merged re-rank: a score from one query is not comparable
+ * to a score from another (the same reasoning `OWN_CANON_LIMIT`'s own comment gives for
+ * never showing a score to a GM at all), so ranking the two lists together would be
+ * reporting a number that means something different for half the list. Nothing about an
+ * `OwnCanonSource` changes when it is carried forward this way - `entityName`,
+ * `entitySlug`, `statement` are exactly what layer 1 always returns - so a chip for a
+ * carried-forward source still names the real entry it came from, never the current
+ * question (guardrail 3). Exported for a focused unit test of that guarantee. */
+export function mergeCarriedForwardOwnCanon(
+	fresh: OwnCanonSource[],
+	carried: OwnCanonSource[]
+): OwnCanonSource[] {
+	if (carried.length === 0) return fresh;
+	const seen = new Set(fresh.map((s) => s.entityId));
+	const additions: OwnCanonSource[] = [];
+	for (const source of carried) {
+		if (seen.has(source.entityId)) continue;
+		seen.add(source.entityId);
+		additions.push(source);
+		if (additions.length >= CARRIED_FORWARD_LIMIT) break;
+	}
+	return additions.length === 0 ? fresh : [...fresh, ...additions];
+}
+
+/** issue #439 (T12): how far back `computeWorldShape` looks for "what changed recently" -
+ * the same window `apps/web`'s own masthead (`world-pulse.ts`'s `PULSE_WEEKS`) uses, so a
+ * GM who has seen that band and then asks the Loremaster about it gets the same shape
+ * back, not a second number that happens to disagree. Not imported from there:
+ * `packages/copilot` may not depend on `apps/web` (the reverse of the mistake `speech.ts`'s
+ * own header comment already warns against), so the number is restated, not the function -
+ * `computeWorldShape` itself is a new, from-scratch reimplementation on this package's own
+ * side of that boundary, built directly on `@canonry/db`'s `entityCountsByType`,
+ * `weeklyChangeCounts` and `entityBrowserPage`, the same three queries `apps/web`'s entries
+ * browser and world-home masthead already call - never on `world-pulse.ts` or any other
+ * `apps/web` module. */
+const WORLD_SHAPE_WEEKS = 12;
+
+/** How many of the least-documented entries `computeWorldShape` names - enough to answer
+ * "which thread is least documented" concretely without turning a one-paragraph answer
+ * into a second entry list. */
+const WORLD_SHAPE_THIN_LIMIT = 3;
+
+interface WorldShape {
+	entryCount: number;
+	countsByType: Partial<Record<EntityType, number>>;
+	recentChangeCount: number;
+	latestWeekChangeCount: number;
+	thinnest: Array<{ name: string; factCount: number; relationCount: number }>;
+}
+
+/** issue #439 (T12): the answer to "what is the shape of this world so far" when
+ * retrieval (both layers) finds nothing to quote. Built entirely from queries
+ * `@canonry/db` already exposes for `apps/web`'s own entries browser and world-home
+ * masthead - the product already computes this, so a GM asking for it in the Loremaster's
+ * voice gets the real number rather than the model inventing one to fill the silence.
+ * `null` for a genuinely unwritten universe (`entryCount === 0`): there is no shape to
+ * describe yet, and the honest refusal already says so correctly on its own. Only ever
+ * called when `sources.length === 0` and generation is on - see `runAsk`, which is also
+ * why this is not folded into the retrieval `Promise.all` above it: three more queries on
+ * every ordinary, already-sourced question would be pure waste. */
+async function computeWorldShape(db: Db, universeId: string): Promise<WorldShape | null> {
+	const [countsByType, changeCounts, thin] = await Promise.all([
+		entityCountsByType(db, universeId),
+		weeklyChangeCounts(db, universeId, { weeks: WORLD_SHAPE_WEEKS }),
+		entityBrowserPage(db, universeId, {
+			sort: 'facts',
+			direction: 'asc',
+			limit: WORLD_SHAPE_THIN_LIMIT
+		})
+	]);
+	const entryCount = Object.values(countsByType).reduce((sum: number, n) => sum + (n ?? 0), 0);
+	if (entryCount === 0) return null;
+	return {
+		entryCount,
+		countsByType,
+		recentChangeCount: changeCounts.reduce((sum, c) => sum + c.count, 0),
+		latestWeekChangeCount: changeCounts.find((c) => c.weeksAgo === 0)?.count ?? 0,
+		thinnest: thin.rows.map((row) => ({
+			name: row.name,
+			factCount: row.factCount,
+			relationCount: row.relationCount
+		}))
+	};
+}
+
+/** Renders `computeWorldShape`'s numbers into the prompt, right after the sources block -
+ * see `noSourcesInstruction` for the instruction that tells the model when it may actually
+ * use this rather than refuse. Plain English regardless of `input.locale`, exactly like
+ * every other instruction-facing block in this file (`renderContextForPrompt`,
+ * `noSourcesInstruction` itself): this is reference material for the model, not text a GM
+ * ever reads directly. */
+function renderWorldShapeForPrompt(shape: WorldShape | null): string {
+	if (!shape) return '';
+	const byType = Object.entries(shape.countsByType)
+		.map(([type, count]) => `${count} ${type}`)
+		.join(', ');
+	const thin =
+		shape.thinnest.length > 0
+			? shape.thinnest
+					.map(
+						(e) =>
+							`${e.name} (${e.factCount} fact${e.factCount === 1 ? '' : 's'}, ` +
+							`${e.relationCount} relation${e.relationCount === 1 ? '' : 's'})`
+					)
+					.join(', ')
+			: 'nothing yet';
+	return (
+		'Canon shape, computed directly rather than searched (see the instruction above for ' +
+		`when this may be used): ${shape.entryCount} ${shape.entryCount === 1 ? 'entry' : 'entries'} ` +
+		`(${byType}). ${shape.recentChangeCount} change${shape.recentChangeCount === 1 ? '' : 's'} in ` +
+		`the last ${WORLD_SHAPE_WEEKS} weeks, ${shape.latestWeekChangeCount} of them in the last seven ` +
+		`days. Least documented: ${thin}.\n\n`
+	);
+}
+
 /** issue #346: the other half of the empty state, and the half a UI string cannot cover.
  * With `(none found)` in the prompt the model already refuses to invent, which is right,
  * but left to its own words it explains the refusal wrongly: against a real gateway it
@@ -407,16 +583,30 @@ export function clampAskHistory(history: AskHistoryTurn[] | undefined): AskHisto
  * able to see the canon it is looking at. The suggestion is in it for the same reason:
  * naming a person, a place or an event is what actually gets layer 1 to bite, so saying so
  * turns a dead end into the next thing to type. Empty string when there are sources, so
- * the ordinary path carries no instruction about a case it is not in. */
-function noSourcesInstruction(sourceCount: number): string {
+ * the ordinary path carries no instruction about a case it is not in. `hasWorldShape`
+ * (issue #439, T12) is the one addition since #346: a computed "canon shape" is available
+ * for a broad question about the world as a whole, and the instruction below says exactly
+ * when it may replace this refusal rather than sit beside it silently. */
+function noSourcesInstruction(sourceCount: number, hasWorldShape: boolean): string {
 	if (sourceCount > 0) return '';
-	return (
+	const refusal =
 		"Nothing in the GM's canon matched the words of this question, so there are no " +
 		'sources at all. Say that in one sentence: their entries were searched, and no ' +
 		'wording in them matched this question. Then suggest naming a person, a place or an ' +
 		'event from their world. Never suggest they share, paste or provide canon - they have ' +
 		'canon, this question simply did not touch any of it - and never answer from general ' +
-		'knowledge instead. '
+		'knowledge instead. ';
+	if (!hasWorldShape) return refusal;
+	return (
+		refusal +
+		'One exception (issue #439): if, and only if, this question is broadly about the ' +
+		'world or canon as a whole - its size, what kinds of entries it has, what has ' +
+		'changed recently, what is thinly documented - rather than about one specific named ' +
+		'person, place or event, answer instead from the "Canon shape" line below the ' +
+		'sources. Say plainly that you are describing the shape of the canon, not quoting ' +
+		'it, and never turn those figures into a specific name, relationship or event detail ' +
+		'they do not literally give you. If the question names something specific this data ' +
+		'does not cover, use the refusal above instead, not this exception. '
 	);
 }
 
@@ -510,8 +700,10 @@ export interface AskInput {
 	requestId?: string;
 	/** issue #380, decision R5: the panel's own prior turns in this session, oldest first.
 	 * Rendered into the prompt above the current question by `renderHistoryForPrompt`,
-	 * clamped again by `clampAskHistory` regardless of what the caller already did -
-	 * retrieval (`searchOwnCanon`/`searchIndexed`) never sees this, only `input.question`. */
+	 * clamped again by `clampAskHistory` regardless of what the caller already did. Issue
+	 * #439 (T12): retrieval (`searchOwnCanon`/`searchIndexed`) sees exactly one turn of
+	 * this - the most recent GM turn, via `retrievalQueryFor`/`lastGmTurn` - never the
+	 * rest of it; see that comment for why one turn and not the whole conversation. */
 	history?: AskHistoryTurn[];
 	/** issue #380: where the GM was standing when they asked, named in one line above the
 	 * question by `renderContextForPrompt`. Never affects retrieval. */
@@ -562,21 +754,32 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 	// "ignore the history" true by construction rather than by remembering not to use it.
 	const history = clampAskHistory(input.history);
 
-	const [ownCanon, indexed] = await Promise.all([
+	// issue #439 (T12): see `retrievalQueryFor`'s own comment for the full design - a
+	// follow-up's retrieval query gains the immediately preceding GM turn's words, and
+	// layer 1 (own canon) separately reruns on that same prior turn alone so whatever it
+	// already surfaced is never simply discarded by a bare-pronoun follow-up.
+	const priorGmTurn = lastGmTurn(history);
+	const retrievalQuery = retrievalQueryFor(input.question, priorGmTurn);
+
+	const [ownCanonFresh, indexed, ownCanonCarried] = await Promise.all([
 		// #346: the locale is the asker's, and it decides which of their words carry no
 		// meaning of their own. SPEC.md §17 rule two already fixes the question's language as
 		// the interface locale, so this is the same fact read for a second purpose, never a
 		// guess about what language the canon is written in.
-		searchOwnCanon(input.db, input.universeId, input.question, input.locale),
+		searchOwnCanon(input.db, input.universeId, retrievalQuery, input.locale),
 		searchIndexed({
 			db: input.db,
 			vectorClient: input.vectorClient,
 			embedder: input.embedder,
 			universeId: input.universeId,
 			baseUniverseId: universeRow.kind === 'derived' ? universeRow.baseUniverseId : null,
-			question: input.question
-		})
+			question: retrievalQuery
+		}),
+		priorGmTurn
+			? searchOwnCanon(input.db, input.universeId, priorGmTurn, input.locale)
+			: Promise.resolve([])
 	]);
+	const ownCanon = mergeCarriedForwardOwnCanon(ownCanonFresh, ownCanonCarried);
 	const sources: AskSource[] = [...ownCanon, ...indexed];
 	const followUps = deriveFollowUps(input.locale, sources);
 	input.onSources?.(sources, followUps);
@@ -596,6 +799,13 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 	}
 
 	await requireAiEnabled(input.db, input.universeId);
+
+	// issue #439 (T12): only computed when retrieval genuinely found nothing, and only on
+	// this (AI-on, paid) branch - the AI-off branch above never reaches here at all, so it
+	// never pays for these three extra queries and never gains this exception (guardrail
+	// 4's own reading-only answer is unchanged). See `computeWorldShape`'s own comment.
+	const worldShape =
+		sources.length === 0 ? await computeWorldShape(input.db, input.universeId) : null;
 
 	const premiumModel = routeModel(
 		await resolveModel(input.db, 'premium'),
@@ -690,7 +900,7 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 						'proposal was NOT created - tell the GM the attempt failed and repeat the ' +
 						'"error" field verbatim; never say you proposed or created anything for that ' +
 						'call. ' +
-						noSourcesInstruction(sources.length) +
+						noSourcesInstruction(sources.length, worldShape !== null) +
 						speechInstruction(input.locale) +
 						// Issue #378, decision R3: last in the system prompt, after every guardrail
 						// and the locale rule above it, so an adversarial description can only ever
@@ -701,6 +911,7 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 						renderContextForPrompt(input.context) +
 						renderHistoryForPrompt(history) +
 						`Sources:\n${renderSourcesForPrompt(sources) || '(none found)'}\n\n` +
+						renderWorldShapeForPrompt(worldShape) +
 						`Question: ${input.question}`,
 					tools: {
 						entry_propose: tool({

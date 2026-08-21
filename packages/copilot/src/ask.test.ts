@@ -24,13 +24,21 @@ import type { LanguageModel } from 'ai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ResolvedModel } from '@canonry/ai';
 import { resolveModel } from '@canonry/ai';
-import { runAsk, MAX_HISTORY_TURNS, MAX_HISTORY_TURN_CHARS } from './ask.js';
-import type { AskContext, AskDetailLevel, AskHistoryTurn } from './ask.js';
+import {
+	runAsk,
+	MAX_HISTORY_TURNS,
+	MAX_HISTORY_TURN_CHARS,
+	CARRIED_FORWARD_LIMIT,
+	mergeCarriedForwardOwnCanon
+} from './ask.js';
+import type { AskContext, AskDetailLevel, AskHistoryTurn, OwnCanonSource } from './ask.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
 import {
 	insertEntity,
 	insertHomebrewUniverse,
 	insertModelConfig,
+	insertRelation,
+	insertRelationType,
 	insertUser,
 	systemPromptOf,
 	userPromptOf
@@ -979,7 +987,7 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		expect(systemPromptOf(sourcedPrompt!)).not.toContain('no sources at all');
 	});
 
-	it('issue #439: a general question about the world with nothing retrieved carries the world context and refuses honestly rather than inventing', async () => {
+	it('issue #439 (T12): a genuinely unestablished specific fact still gets the refusal, even though a canon shape is available', async () => {
 		const { owner, universe } = await fixture();
 
 		let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
@@ -988,9 +996,9 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 			userId: owner.id,
 			universeId: universe.id,
 			// Shares no content word with the fixture's own entity (`Aldric`, `Vane`,
-			// `dismissed`, `watch`, `thaw`, `Sable`, `Winter`, `Ashen`, `Ledger`), and no
-			// entity in the fixture at all - a question about the world, not about anything
-			// on the page, exactly guardrail 7's "the no-match case" (#439's second scenario).
+			// `dismissed`, `watch`, `thaw`, `Sable`, `Winter`, `Ashen`, `Ledger`), and names a
+			// specific missing fact (who governs the continent) rather than asking broadly
+			// about the world as a whole - the T12 exception below must not apply here.
 			question: 'Who governs the whole continent?',
 			detailLevel: 'normal',
 			locale: 'en',
@@ -1019,10 +1027,113 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		const system = systemPromptOf(captured!);
 		expect(system).toContain('no sources at all');
 		expect(system).toContain('never answer from general knowledge');
+		// The T12 exception is offered (the fixture has one real entry, so a shape exists)
+		// but never forces the model away from refusing a specific missing fact - it is
+		// conditioned on the question, not on whether a shape happens to be available.
+		expect(system).toContain('describing the shape of the canon, not quoting it');
 
 		const user = userPromptOf(captured!);
 		expect(user).toContain(`The GM is looking at the world "${universe.name}".`);
 		expect(user.indexOf('The GM is looking at the world')).toBeLessThan(user.indexOf('Question:'));
+	});
+
+	it('issue #439 (T12): a question with no lexical target gets the canon\u2019s real shape instead of a blank refusal', async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, {
+			ownerUserId: owner.id,
+			name: 'Valdoria Reach Shape'
+		});
+		await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Mira Thorne',
+			body: 'A quiet blacksmith who keeps to herself.'
+		});
+		await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Rook Talvane',
+			body: 'A wandering trader who deals in rare maps.'
+		});
+		await insertEntity(db, universe.id, {
+			type: 'place',
+			name: 'The Hollow Vale',
+			body: 'A misty valley south of the old road.'
+		});
+
+		let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+		const result = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			// Shares no content word with any of the three fixture bodies above.
+			question: 'What is the shape of this world so far?',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(
+				capturingStreamingModel(
+					'Three entries so far, two characters and a place, all quiet this season.',
+					(options) => {
+						captured = options;
+					}
+				)
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		expect(result.sources).toEqual([]);
+
+		const system = systemPromptOf(captured!);
+		expect(system).toContain('One exception (issue #439)');
+		expect(system).toContain('describing the shape of the canon, not quoting it');
+
+		// Built from `entityCountsByType`, `weeklyChangeCounts` and `entityBrowserPage`'s own
+		// `facts` sort - real numbers computed directly, not searched for and not invented.
+		const user = userPromptOf(captured!);
+		expect(user).toContain('Canon shape, computed directly rather than searched');
+		expect(user).toContain('3 entries');
+		expect(user).toContain('2 character');
+		expect(user).toContain('1 place');
+		// All three entries were created moments ago in this test and none has a fact or a
+		// relation, so "what changed recently" and "what is thin" both resolve to the same
+		// real, deterministic numbers rather than a guess.
+		expect(user).toContain('3 changes in the last 12 weeks, 3 of them in the last seven days');
+		expect(user).toContain('Least documented:');
+		expect(user).toContain('Mira Thorne (0 facts, 0 relations)');
+		expect(user).toContain('Rook Talvane (0 facts, 0 relations)');
+		expect(user).toContain('The Hollow Vale (0 facts, 0 relations)');
+		expect(user.indexOf('Canon shape')).toBeLessThan(user.indexOf('Question:'));
+	});
+
+	it('issue #439 (T12): a genuinely unwritten universe still gets the plain refusal - there is no shape to claim yet', async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, {
+			ownerUserId: owner.id,
+			name: 'Unwritten Reach'
+		});
+
+		let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+		await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'What is the shape of this world so far?',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(
+				capturingStreamingModel('placeholder answer', (options) => {
+					captured = options;
+				})
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		const system = systemPromptOf(captured!);
+		expect(system).toContain('no sources at all');
+		expect(system).not.toContain('One exception (issue #439)');
+		expect(userPromptOf(captured!)).not.toContain('Canon shape');
 	});
 
 	describe('issue #380, decision R5: prior turns and the GM\u2019s context reach the prompt', () => {
@@ -1166,7 +1277,7 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 			expect(prompt).not.toContain('x'.repeat(MAX_HISTORY_TURN_CHARS + 1));
 		});
 
-		it('retrieval still runs on the current question only, never on the history', async () => {
+		it("issue #439 (T12): a follow-up's retrieval query joins the prior GM turn, recovering an entity a bare pronoun alone cannot find", async () => {
 			const owner = await insertUser(db);
 			const universe = await insertHomebrewUniverse(db, {
 				ownerUserId: owner.id,
@@ -1175,14 +1286,80 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 			await insertEntity(db, universe.id, {
 				type: 'character',
 				name: 'Aldric Vane',
-				body: 'Dismissed from the watch after the Sable Winter, he now answers to the Ashen Ledger.'
+				body: 'Dismissed from the watch after the Sable Winter.'
+			});
+			// Cross-references Aldric Vane by name, the way a real sample-world entry does -
+			// this is the source turn one's own question actually surfaces (verified: its own
+			// body shares zero words with the bare follow-up below, only with the GM's prior
+			// turn), and exactly the one the real #439 transcript's turn two needed back.
+			await insertEntity(db, universe.id, {
+				type: 'faction',
+				name: 'The Ashen Ledger',
+				body: 'The Ashen Ledger keeps Aldric Vane on its books despite his dismissal from the watch.'
+			});
+			await db
+				.update(universeTable)
+				.set({ aiEnabled: false })
+				.where(eq(universeTable.id, universe.id));
+
+			// Control: the bare follow-up alone, no history - this is the pre-fix behaviour,
+			// and it still finds nothing, which is exactly the bug report (#439's own comment:
+			// "the second turn throws away what the first one found").
+			const withoutHistory = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'And who does he answer to now?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				modelFactory: modelFactoryFor(streamingModel('should never be called')),
+				gateway: IDENTITY_GATEWAY
+			});
+			expect(withoutHistory.sources.filter((s) => s.kind === 'own_canon')).toEqual([]);
+
+			// The fix: the same bare follow-up, now with the GM's own preceding turn in
+			// history - joining it into the retrieval query recovers The Ashen Ledger, the
+			// entity that actually answers "who does he answer to now".
+			const withHistory = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'And who does he answer to now?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				history: [
+					{ role: 'gm', text: 'Who is Aldric Vane and what happened to him?' },
+					{
+						role: 'loremaster',
+						text: 'He was dismissed from the watch after the Sable Winter.'
+					}
+				],
+				modelFactory: modelFactoryFor(streamingModel('should never be called')),
+				gateway: IDENTITY_GATEWAY
+			});
+			const names = withHistory.sources
+				.filter((s) => s.kind === 'own_canon')
+				.map((s) => s.entityName);
+			expect(names).toContain('The Ashen Ledger');
+		});
+
+		it('issue #439 (T12): only the immediately preceding GM turn ever joins retrieval - an earlier turn\u2019s own words do not resurface two turns later', async () => {
+			const owner = await insertUser(db);
+			const universe = await insertHomebrewUniverse(db, {
+				ownerUserId: owner.id,
+				name: 'Watch Reach Four'
 			});
 			await insertEntity(db, universe.id, {
 				type: 'character',
 				name: 'Harlan Voss',
-				// Shares no content word with the real question below (`Aldric`, `Vane`,
-				// `dismissed`, `watch`) - only with the history text, so this entity can only
-				// come back as a source if history leaks into what layer 1 searches on.
+				// Shares words with the *older* GM turn below (`harbor`, `tariffs`), not with
+				// the immediately preceding one or the current question - verified (jaccard
+				// simulation) to score 0 against both, and 0.25 against the older turn alone,
+				// so this can only come back as a source if a turn more than one back leaks.
 				body: 'Harlan Voss negotiates harbor tariffs with the merchants each spring.'
 			});
 			await db
@@ -1194,26 +1371,95 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 				db,
 				userId: owner.id,
 				universeId: universe.id,
-				question: 'Why was Aldric Vane dismissed from the watch?',
+				question: 'And what happened after that?',
 				detailLevel: 'normal',
 				locale: 'en',
 				vectorClient,
 				embedder: hashingEmbedder,
-				// Names harbor tariffs and merchants at length - if this leaked into retrieval,
-				// Harlan Voss would come back as a source for a question that never mentions any
-				// of it.
 				history: [
 					{ role: 'gm', text: 'What happened with the harbor tariffs?' },
-					{ role: 'loremaster', text: 'The merchants raised tariffs again this spring.' }
+					{ role: 'loremaster', text: 'The merchants raised tariffs again this spring.' },
+					{ role: 'gm', text: 'Is the city watch doing anything about crime?' },
+					{ role: 'loremaster', text: 'Nothing in your canon addresses that yet.' }
 				],
 				modelFactory: modelFactoryFor(streamingModel('should never be called')),
 				gateway: IDENTITY_GATEWAY
 			});
 
-			const ownCanonNames = result.sources
-				.filter((s) => s.kind === 'own_canon')
-				.map((s) => s.entityName);
-			expect(ownCanonNames).toEqual(['Aldric Vane']);
+			expect(result.sources.filter((s) => s.kind === 'own_canon')).toEqual([]);
+		});
+
+		it('issue #439 (T12): a carried-forward own-canon source survives even when the joined query alone would have ranked it out of OWN_CANON_LIMIT, and keeps its own entity attribution', async () => {
+			const owner = await insertUser(db);
+			const universe = await insertHomebrewUniverse(db, {
+				ownerUserId: owner.id,
+				name: 'Watch Reach Five'
+			});
+			// The prior turn's own topic - shares `harbor`/`bell` with the GM's preceding turn
+			// only, never with the current question below.
+			await insertEntity(db, universe.id, {
+				type: 'place',
+				name: 'The Harbor Bell',
+				body: 'The harbor bell rang once at the founding and has stayed silent since the flood.'
+			});
+			// Six unrelated entities the *current* question's own words score higher against
+			// (jaccard-simulated: each 0.105-0.111 against the joined query, versus The Harbor
+			// Bell's 0.095) - enough to fill `OWN_CANON_LIMIT` (6) and rank The Harbor Bell out
+			// of the joined-query result on its own, so this only passes if the carry-forward
+			// pass (layer 1 rerun on the prior GM turn alone) is really adding it back.
+			for (const [name, noun] of [
+				['The Docks', 'docks'],
+				['The Warehouse', 'warehouse'],
+				['The Granary', 'granary'],
+				['The Mill', 'mill'],
+				['The Smithy', 'smithy'],
+				['The Tannery', 'tannery']
+			] as const) {
+				await insertEntity(db, universe.id, {
+					type: 'place',
+					name,
+					body: `The ${noun} flooded during the storm and its keeper counted the cost.`
+				});
+			}
+			await db
+				.update(universeTable)
+				.set({ aiEnabled: false })
+				.where(eq(universeTable.id, universe.id));
+
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question:
+					'What happened to the docks, the warehouse, the granary, the mill, the smithy and the tannery during the storm?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				history: [
+					{
+						role: 'gm',
+						text: 'Tell me about the ancient harbor bell that never rings anymore.'
+					},
+					{ role: 'loremaster', text: 'It has stayed silent since the flood.' }
+				],
+				modelFactory: modelFactoryFor(streamingModel('should never be called')),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			const ownCanonSources = result.sources.filter(
+				(s): s is OwnCanonSource => s.kind === 'own_canon'
+			);
+			// All seven entities are present - the six fresh ones the current question ranks
+			// highest, plus the carried-forward one the joined query alone would have dropped.
+			expect(ownCanonSources).toHaveLength(7);
+			const harborBell = ownCanonSources.find((s) => s.entityName === 'The Harbor Bell');
+			// Guardrail 3: still names its own real entry, never re-attributed to the storm
+			// question that never mentioned it.
+			expect(harborBell).toMatchObject({
+				entityName: 'The Harbor Bell',
+				statement: expect.stringContaining('harbor bell')
+			});
 		});
 
 		it('the AI-off branch ignores history and context - guardrail 4, never pretending to hold a conversation', async () => {
@@ -1249,5 +1495,63 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 			const calls = await db.select().from(modelCall).where(eq(modelCall.operation, 'ask.answer'));
 			expect(calls.filter((c) => c.userId === owner.id)).toHaveLength(0);
 		});
+	});
+});
+
+describe('mergeCarriedForwardOwnCanon (issue #439, T12)', () => {
+	function source(entityId: string, entityName: string): OwnCanonSource {
+		return {
+			kind: 'own_canon',
+			entityId,
+			entityName,
+			entitySlug: entityName.toLowerCase().replace(/\s+/g, '-'),
+			statement: `${entityName}'s own statement.`,
+			spanStart: 0,
+			spanEnd: entityName.length,
+			score: 1
+		};
+	}
+
+	it('appends carried-forward sources the fresh list is missing, each keeping its own entity attribution', () => {
+		const fresh = [source('a', 'Aldric Vane')];
+		const carried = [source('b', 'The Ashen Ledger'), source('c', 'Iselde Wrenn')];
+
+		const merged = mergeCarriedForwardOwnCanon(fresh, carried);
+
+		expect(merged.map((s) => s.entityName)).toEqual([
+			'Aldric Vane',
+			'The Ashen Ledger',
+			'Iselde Wrenn'
+		]);
+		// Guardrail 3: a carried-forward source keeps naming its own real entry - nothing
+		// about it is rewritten toward the question that triggered this turn.
+		expect(merged[1]).toMatchObject({ entityId: 'b', entityName: 'The Ashen Ledger' });
+		expect(merged[1]).toEqual(carried[0]);
+	});
+
+	it('never duplicates an entity the fresh list already found', () => {
+		const fresh = [source('a', 'Aldric Vane')];
+		const carried = [source('a', 'Aldric Vane'), source('b', 'The Ashen Ledger')];
+
+		const merged = mergeCarriedForwardOwnCanon(fresh, carried);
+
+		expect(merged.map((s) => s.entityId)).toEqual(['a', 'b']);
+	});
+
+	it('caps how many carried-forward sources ride along, however many the prior turn found', () => {
+		const carried = ['b', 'c', 'd', 'e', 'f'].map((id) => source(id, id));
+
+		const merged = mergeCarriedForwardOwnCanon([], carried);
+
+		expect(merged).toHaveLength(CARRIED_FORWARD_LIMIT);
+		expect(merged.map((s) => s.entityId)).toEqual(
+			carried.slice(0, CARRIED_FORWARD_LIMIT).map((s) => s.entityId)
+		);
+	});
+
+	it('returns the fresh array unchanged (same reference) when there is nothing to carry forward', () => {
+		const fresh = [source('a', 'Aldric Vane')];
+
+		expect(mergeCarriedForwardOwnCanon(fresh, [])).toBe(fresh);
 	});
 });
