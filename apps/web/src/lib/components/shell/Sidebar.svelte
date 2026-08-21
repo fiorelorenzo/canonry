@@ -29,10 +29,17 @@
 	 * Issue #121: `NAV_ITEMS.label` and `ACCOUNT_NAV_ITEMS.label` both stay an English
 	 * id-like fallback/type discriminant (nav.ts's own doc comment) - the visible
 	 * label is always looked up from the message catalogue instead of the raw field.
+	 *
+	 * Issue #429, decision T2 (round fifteen): Recents is the GM's most-used list of
+	 * entries, and its links now preview exactly like a mention in prose does - same
+	 * `MentionPreview.svelte`, same GM endpoint. Mounted once per `<aside>` below
+	 * (`container`), not once per page, keyed off `data-entry-slug` on the Recents
+	 * anchors, the same attribute `markdown.ts`'s mention renderer emits.
 	 */
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Mark from '$lib/components/brand/Mark.svelte';
+	import MentionPreview from '$lib/components/entry/MentionPreview.svelte';
 	import { messages, type Locale } from '$lib/i18n';
 	import { ACCOUNT_NAV_ITEMS, NAV_ITEMS } from './nav';
 	import QuotaMeter from './QuotaMeter.svelte';
@@ -90,12 +97,19 @@
 	// `[]` (nothing left unset), so account mode and a fully set-up universe both
 	// simply show nothing.
 	const unsetSetupCount = $derived(setupItems.filter((item) => !item.done).length);
+
+	// #429, T2 round fifteen: the sidebar's own mention-preview trigger surface, one
+	// instance per mounted `<aside>` (rail and drawer each get their own, never one per
+	// page), positioned against this element exactly the way `EntryProse.svelte`
+	// positions its card against the prose div.
+	let container = $state<HTMLElement | null>(null);
 </script>
 
 <aside
+	bind:this={container}
 	class={variant === 'drawer'
-		? 'flex h-full w-full flex-col bg-panel'
-		: 'hidden h-screen w-64 flex-none flex-col border-r border-line bg-panel md:flex'}
+		? 'relative flex h-full w-full flex-col bg-panel'
+		: 'relative hidden h-screen w-64 flex-none flex-col border-r border-line bg-panel md:flex'}
 	aria-label={mode === 'universe' ? t.sidebar.navAriaLabel : shellT.sidebar.accountNavAriaLabel}
 >
 	<div class="border-b border-line p-3">
@@ -144,6 +158,7 @@
 							<li>
 								<a
 									href={resolve(`/w/${universeSlug}/e/${entry.slug}`)}
+									data-entry-slug={entry.slug}
 									class="block truncate rounded-md px-2.5 py-1 text-sm text-ink-2 transition-colors hover:bg-panel-2 hover:text-ink"
 								>
 									{entry.name}
@@ -173,6 +188,10 @@
 			</ul>
 		{/if}
 	</nav>
+
+	{#if mode === 'universe' && universeSlug}
+		<MentionPreview {container} {universeSlug} surface="gm" {locale} />
+	{/if}
 
 	<!-- Issue #379, decision R4: a quiet row under the nav, never a toast, modal or
 	     per-page banner - gated on `unsetSetupCount > 0` so it is simply absent once

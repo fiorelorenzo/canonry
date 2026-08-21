@@ -8,13 +8,20 @@
 
 <script lang="ts">
 	/**
-	 * Q3 of round twelve, #364: a `[[Mention]]` previews the entry it points at.
+	 * Q3 of round twelve, #364: a `[[Mention]]` previews the entry it points at. T2 of round
+	 * fifteen, #429: the preview is a property of any link that names an entry, not only a
+	 * prose one - the sidebar's Recents list gets it too, mounted once in the shell rather
+	 * than once per entry page.
 	 *
-	 * One card per prose block rather than one per mention, because the mentions are not
-	 * components. `renderMarkdown` hands the prose components an HTML string that goes into
-	 * the DOM through `{@html}`, so the anchors are raw nodes nothing can be bound to, and
-	 * every trigger is therefore delegated: this component listens on the prose container
-	 * and finds `a.mention` with `closest`.
+	 * One card per mounted instance rather than one per mention, because prose mentions are
+	 * not components: `renderMarkdown` hands the prose components an HTML string that goes
+	 * into the DOM through `{@html}`, so those anchors are raw nodes nothing can be bound
+	 * to, and every trigger is therefore delegated. This component listens on `container`
+	 * and finds `[data-entry-slug]` with `closest` - the one marker `renderMarkdown`'s
+	 * mention rule emits on its anchor and the sidebar's own Recents links carry too, read
+	 * off directly rather than re-derived from the href (#429: the two surfaces' hrefs do
+	 * not even share a shape, `/w/<universe>/e/<slug>` versus `/p/<universe>/<slug>`, so the
+	 * attribute is the one thing both can carry without a second convention).
 	 *
 	 * That is also why `ui/popover/` is not used here, despite it being vendored. It wraps
 	 * bits-ui's `Popover`, which owns its own trigger element as a component, and there is no
@@ -41,11 +48,7 @@
 	import { resolve } from '$app/paths';
 	import { messages, type Locale } from '$lib/i18n';
 	import type { MentionSurface } from '$lib/markdown';
-	import {
-		createMentionPreviewLoader,
-		mentionSlugFromHref,
-		type MentionPreviewData
-	} from '$lib/mentionPreview';
+	import { createMentionPreviewLoader, type MentionPreviewData } from '$lib/mentionPreview';
 	import { COVER_POSITION, COVER_RATIO } from '$lib/components/media/cover-crop';
 
 	let {
@@ -54,8 +57,9 @@
 		surface,
 		locale
 	}: {
-		/** The element holding the rendered prose. Also the positioning context, so it has to
-		 * be `position: relative`, and the card is a child of it. */
+		/** The element holding the links this instance watches - rendered prose, or the
+		 * sidebar's `<aside>` for its Recents list (#429). Also the positioning context, so
+		 * it has to be `position: relative`, and the card is a child of it. */
 		container: HTMLElement | null;
 		universeSlug: string;
 		/** Follows the surface the prose was *rendered* for, not the route it sits on: the
@@ -78,8 +82,8 @@
 	let data = $state<MentionPreviewData | null>(null);
 	/** The mention's own entity slug, captured alongside `data` in `open()`: the GM cover
 	 * route needs it (`/w/<universe>/e/<entry>/media/<id>`, unlike the players' one) and
-	 * `mentionSlugFromHref` is not itself reactive state, so it has to live here rather
-	 * than be re-derived from `anchor` on every render. */
+	 * `data-entry-slug` is read straight off the trigger, not itself reactive state, so it
+	 * has to live here rather than be re-derived from `anchor` on every render. */
 	let entitySlug = $state<string | null>(null);
 	let left = $state(0);
 	let top = $state(0);
@@ -127,7 +131,7 @@
 
 	async function open(trigger: HTMLAnchorElement): Promise<void> {
 		const root = container;
-		const slug = mentionSlugFromHref(trigger.getAttribute('href') ?? '');
+		const slug = trigger.dataset.entrySlug ?? null;
 		if (!root || !slug) return;
 		const mine = ++generation;
 		const found = await load(surface, universeSlug, slug);
@@ -161,12 +165,14 @@
 		const root = container;
 		if (!root) return;
 
-		const mentionFrom = (target: EventTarget | null): HTMLAnchorElement | null =>
-			target instanceof Element ? (target.closest('a.mention') as HTMLAnchorElement | null) : null;
+		const entryLinkFrom = (target: EventTarget | null): HTMLAnchorElement | null =>
+			target instanceof Element
+				? (target.closest('a[data-entry-slug]') as HTMLAnchorElement | null)
+				: null;
 
 		const onPointerOver = (event: PointerEvent) => {
 			if (event.pointerType !== 'mouse') return;
-			const trigger = mentionFrom(event.target);
+			const trigger = entryLinkFrom(event.target);
 			if (!trigger) return;
 			// Already showing this one: cancel the pending close a `pointerout` from the
 			// previous line of a wrapped anchor may have queued.
@@ -179,7 +185,7 @@
 
 		const onPointerOut = (event: PointerEvent) => {
 			if (event.pointerType !== 'mouse') return;
-			const trigger = mentionFrom(event.target);
+			const trigger = entryLinkFrom(event.target);
 			if (!trigger) return;
 			if (dismissed === trigger) dismissed = null;
 			clearTimers();
@@ -187,12 +193,12 @@
 		};
 
 		const onFocusIn = (event: FocusEvent) => {
-			const trigger = mentionFrom(event.target);
+			const trigger = entryLinkFrom(event.target);
 			if (trigger) schedule(trigger);
 		};
 
 		const onFocusOut = (event: FocusEvent) => {
-			const trigger = mentionFrom(event.target);
+			const trigger = entryLinkFrom(event.target);
 			if (!trigger) return;
 			if (dismissed === trigger) dismissed = null;
 			close();

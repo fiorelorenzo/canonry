@@ -99,7 +99,7 @@ describe('publicMentionTargetsFrom (#220)', () => {
 		expect(previewHtml).toContain('class="mention mention-unresolved"');
 		expect(previewHtml).not.toContain('/p/valdoria-reach/the-cinder-cabal');
 		expect(previewHtml).toContain(
-			'<a href="/p/valdoria-reach/captain-reyes" class="mention">Captain Reyes</a>'
+			'<a href="/p/valdoria-reach/captain-reyes" class="mention" data-entry-slug="captain-reyes">Captain Reyes</a>'
 		);
 
 		// Without the filter (the bug #220 fixes): renderMarkdown's own doc comment says a
