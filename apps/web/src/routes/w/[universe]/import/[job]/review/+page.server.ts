@@ -1,29 +1,25 @@
 /**
- * #42, D4 = B (docs/ux/DECISIONS.md): the import review screen. C6's own queue
- * (ProposalQueue.svelte, already verified for #51) reused unchanged, with a type filter
- * chip bar on top - D4's only addition to C6's screen (docs/ux/d4-import-review.html,
- * "What I would take"). Import proposals arrive already diffed by job-runner.ts's
+ * #42, D4 = B (docs/ux/DECISIONS.md), widened by round seventeen V2 = A (#498, #480):
+ * the import review screen is the same queue surface the inbox renders inline, scoped
+ * to one job, with a type filter chip bar on top - D4's only addition to C6's screen.
+ * Import proposals arrive already diffed by job-runner.ts's
  * `materializeDocumentProposals`, so unlike a propagation plan (proposals/[plan]) there is
  * no C3 checklist phase here: straight to the queue.
  *
  * `accept` differs from the plan route's own action: an import proposal's accept also has
  * to write `entity_source_ref` (SPEC.md §6.4), so this calls `@canonry/import`'s
- * `acceptImportProposal` instead of the bare `acceptProposal` - never re-reading the
+ * `acceptAnyImportProposal` instead of the bare `acceptProposal` - never re-reading the
  * source document, since the content hash and source path it needs are already sitting on
  * the proposal's own `evidence` column (job-runner.ts's `matchEvidence`, threaded down
  * from the same `contentHashByDocument` the run itself used to decide whether to skip a
  * document).
  *
- * Bulk accept never appears anywhere on this route. SPEC.md §6.4's one non-destructive
- * bulk exception - a field unchanged since the last import, matched by exact source id -
- * is applied silently by the merge engine before a `proposal` row for it ever exists
- * (§6.4's merge table: "Field unchanged since the last import: update silently"), so it
- * never reaches this queue to accept in bulk. Every proposal this route shows writes
- * prose or a relation and goes through C6's one-at-a-time accept action below - see
- * d4-import-review.html's "What this locks in": "#42 ships as bulk meaning bulk reject
- * and bulk navigation only... accept never actually batches, only reject does." `reject`
- * and `rejectFiltered` are safe to batch precisely because rejecting writes nothing to
- * canon (same page, "Why this is a decision").
+ * No bulk control lives on this route at all, in either direction. Issue #498 tightened
+ * this past D4's own original allowance for a filtered bulk reject ("a chip's context
+ * menu offers 'Reject all N shown'"): guardrail 1's wording now reads "no bulk control
+ * anywhere on the page, not behind a dialog and not for a group", so that action is
+ * gone. Every proposal this route shows goes through C6's one-at-a-time accept or
+ * reject action below, same as everywhere else this queue renders.
  */
 import { error, fail } from '@sveltejs/kit';
 import { missingEntitySourceRefsForJob, universeAccessBySlug } from '@canonry/db';
@@ -189,34 +185,5 @@ export const actions: Actions = {
 			}
 			throw err;
 		}
-	},
-
-	// D4 = B's one bulk action: "a chip's context menu offers 'Reject all N shown'
-	// whenever a filter is active" - TypeFilterChips.svelte only ever renders this form
-	// for a non-"All" chip. Recomputes the filtered pending set fresh from the database
-	// rather than trusting a client-submitted id list, so a proposal decided from the
-	// keyboard queue a moment earlier is never double-acted on here.
-	rejectFiltered: async ({ request, params, locals }) => {
-		const { conn, detail, userId } = await loadJob(locals, params.universe, params.job);
-		const t = messages(locals.locale).import.review.errors;
-		const data = await request.formData();
-		const type = data.get('type');
-		if (typeof type !== 'string' || type.length === 0) {
-			return fail(400, { error: t.missingFilterType });
-		}
-
-		const matches = detail.candidates.filter(
-			(c) => c.filterType === type && c.proposal.outcome === 'pending'
-		);
-		const rejectedIds: string[] = [];
-		for (const candidate of matches) {
-			const rejected = await rejectProposal(conn, {
-				proposalId: candidate.proposal.id,
-				reason: null,
-				decidedBy: userId
-			});
-			rejectedIds.push(rejected.id);
-		}
-		return { type, rejectedIds, count: rejectedIds.length };
 	}
 };

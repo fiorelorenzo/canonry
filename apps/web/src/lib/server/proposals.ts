@@ -55,6 +55,7 @@ import {
 	type RelationCardinality
 } from '@canonry/db/schema';
 import { ModelNotConfiguredError, resolveModel } from '@canonry/ai';
+import { acceptAnyImportProposal, type AcceptImportProposalInput } from '@canonry/import';
 import { semanticDiff } from '@canonry/copilot';
 import { deleteEntityLoreChunks, resolveOwnCanonCollection } from '@canonry/indexing';
 import { vectorClient } from '$lib/server/copilot';
@@ -239,6 +240,110 @@ export async function pendingProposalCount(db: Db, universeId: string): Promise<
 		.from(proposal)
 		.where(and(eq(proposal.universeId, universeId), eq(proposal.outcome, 'pending')));
 	return row?.n ?? 0;
+}
+
+export interface InboxPlanGroup {
+	plan: ProposalPlanRow;
+	triggerEntityName: string | null;
+	candidates: ProposalCandidate[];
+}
+
+/** Issue #498 (V2 = A): every propagation plan the summary above found, resolved down to
+ * its full candidate list - the inbox needs the whole card (entry, reason, diff), not
+ * just a count. Reuses `planDetailFor` per plan rather than a new join: the number of
+ * plans with a pending proposal at once is small, and this keeps one code path ("a
+ * plan's candidates") serving both the inbox and the plan's own page. */
+export async function propagationGroupsForInbox(
+	db: Db,
+	universeId: string
+): Promise<InboxPlanGroup[]> {
+	const plans = await propagationPlansForInbox(db, universeId);
+	return Promise.all(
+		plans.map(async (p) => {
+			const detail = await planDetailFor(db, universeId, p.plan.id);
+			return {
+				plan: p.plan,
+				triggerEntityName: p.triggerEntityName,
+				candidates: detail?.candidates ?? []
+			};
+		})
+	);
+}
+
+export interface InboxImportGroup {
+	job: ImportJobRow;
+	candidates: ProposalCandidate[];
+}
+
+/** Same widening as `propagationGroupsForInbox`, for the import jobs the summary above
+ * found - each resolved through `importJobDetailFor`, the same read the import review
+ * route itself uses. */
+export async function importGroupsForInbox(
+	db: Db,
+	universeId: string
+): Promise<InboxImportGroup[]> {
+	const jobs = await importJobsForInbox(db, universeId);
+	return Promise.all(
+		jobs.map(async (j) => {
+			const detail = await importJobDetailFor(db, universeId, j.job.id);
+			return { job: j.job, candidates: detail?.candidates ?? [] };
+		})
+	);
+}
+
+/** The evidence shape `job-runner.ts`'s `matchEvidence` writes onto an import proposal -
+ * untrusted jsonb, read defensively exactly like `import/[job]/review/+page.server.ts`'s
+ * own `importAcceptFields`, which this mirrors. */
+function importAcceptFieldsFor(
+	row: ProposalRow,
+	job: ImportJobRow
+): Omit<AcceptImportProposalInput, 'proposalId' | 'decidedBy'> {
+	const evidence = row.evidence as {
+		sourceRef?: { path?: string | null };
+		contentHash?: string;
+	} | null;
+	return {
+		sourceSystem: job.sourceType,
+		externalId: evidence?.sourceRef?.path ?? null,
+		sourceUrl: null,
+		contentHash: evidence?.contentHash ?? '',
+		importJobId: job.id
+	};
+}
+
+/** Issue #498 (V2 = A): the inbox's own accept, dispatched across every plan's origin
+ * rather than trusting the caller to already know whether a proposal came from
+ * propagation or from an import. Reject/undo/setRejectReason never needed this split -
+ * they write nothing about where a proposal came from - but an import-sourced accept
+ * also has to write `entity_source_ref` (SPEC.md Β§6.4) via `acceptAnyImportProposal`,
+ * exactly as `import/[job]/review` already does scoped to one job; this is the same
+ * dispatch, scoped to a whole universe instead, since the inbox mixes both origins on
+ * one page. Throws `ProposalNotFoundError` for a proposal outside this universe, the
+ * same failure shape a missing id already produces. */
+export async function acceptAnyProposalForUniverse(
+	db: Db,
+	universeId: string,
+	proposalId: string,
+	userId: string
+): Promise<ProposalRow> {
+	const row = await getProposal(db, proposalId);
+	if (!row || row.universeId !== universeId) throw new ProposalNotFoundError(proposalId);
+	const plan = row.planId ? await getProposalPlan(db, row.planId) : null;
+	if (plan?.importJobId) {
+		const [job] = await db
+			.select()
+			.from(importJob)
+			.where(eq(importJob.id, plan.importJobId))
+			.limit(1);
+		if (job) {
+			return acceptAnyImportProposal(db, row.kind, {
+				proposalId,
+				decidedBy: userId,
+				...importAcceptFieldsFor(row, job)
+			});
+		}
+	}
+	return acceptProposal(db, { proposalId, decidedBy: userId });
 }
 
 // ---------------------------------------------------------------------------

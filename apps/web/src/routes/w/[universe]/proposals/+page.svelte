@@ -1,10 +1,22 @@
 <script lang="ts">
-	/** C2 = A: the inbox. A quiet nav badge (Sidebar), never a modal, grouped by what
-	 * triggered the run - propagation and import stay separate rows, never merged. */
-	import { resolve } from '$app/paths';
+	/**
+	 * C2 = A: the inbox. Round seventeen V2 = A (#498, docs/ux/DECISIONS.md): "the inbox
+	 * is the queue" - this page used to be three rows that only named what plan or import
+	 * job was waiting and linked out to read it; now every waiting proposal renders here,
+	 * as a `ProposalQueue` group per plan/import job, with C6's keyboard queue running
+	 * the whole list rather than one plan's slice.
+	 *
+	 * Groups sort newest-first regardless of origin - a propagation plan and an import
+	 * job are not two buckets on this page, they are the same queue in arrival order,
+	 * which is the whole point of "the inbox is the queue" (previously this page listed
+	 * every propagation plan, then every import job, in two separate lists).
+	 */
 	import { dateFormat, messages } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import ProposalQueue, {
+		type ProposalGroupView
+	} from '$lib/components/proposals/ProposalQueue.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -15,6 +27,41 @@
 		const date = typeof value === 'string' ? new Date(value) : value;
 		return dateFormat(data.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 	}
+
+	let rawGroups = $derived(
+		[
+			...data.planGroups.map((g) => ({
+				...g,
+				kind: 'plan' as const,
+				sortKey: new Date(g.createdAt).getTime()
+			})),
+			...data.importGroups.map((g) => ({
+				...g,
+				kind: 'import' as const,
+				sortKey: new Date(g.createdAt).getTime()
+			}))
+		].sort((a, b) => b.sortKey - a.sortKey)
+	);
+
+	let groups = $derived<ProposalGroupView[]>(
+		rawGroups.map((g) =>
+			g.kind === 'plan'
+				? {
+						id: g.id,
+						heading: t.inbox.from(t.provenance(g.trigger, g.triggerEntityName)),
+						meta: `${t.inbox.entriesLabel(g.total)} \u00b7 ${formatWhen(g.createdAt)}`,
+						importJobId: null,
+						candidates: g.candidates
+					}
+				: {
+						id: g.id,
+						heading: t.inbox.importFrom(g.playbook),
+						meta: `${t.inbox.entriesLabel(g.total)} \u00b7 ${formatWhen(g.createdAt)}`,
+						importJobId: g.id,
+						candidates: g.candidates
+					}
+		)
+	);
 </script>
 
 <svelte:head><title>{t.title} &middot; {data.universe.name}</title></svelte:head>
@@ -22,57 +69,15 @@
 <PageHeader title={t.title} />
 <PageBody width="working">
 	<div class="px-6 py-8">
-		{#if data.plans.length === 0 && data.importJobs.length === 0}
+		{#if groups.length === 0}
 			<EmptyState kind="settled" message={t.inbox.empty} />
 		{:else}
-			<ul class="flex flex-col divide-y divide-line border-y border-line">
-				{#each data.plans as plan (plan.id)}
-					<li>
-						<a
-							href={resolve(`/w/${data.universe.slug}/proposals/${plan.id}`)}
-							class="flex items-center justify-between gap-3 px-1 py-3 transition-colors hover:bg-panel-2"
-						>
-							<div class="min-w-0">
-								<p class="font-medium text-ink">
-									{t.inbox.from(t.provenance(plan.trigger, plan.triggerEntityName))}
-								</p>
-								<p class="text-xs text-muted">
-									{t.inbox.entriesLabel(plan.total)} &middot; {formatWhen(plan.createdAt)}
-								</p>
-							</div>
-							<!-- Round eleven P2 (#344): a count of what is waiting is not AI text. It keeps
-							     its presence through the accent's own tint, which is what says "there is
-							     something for you here" everywhere else in the shell. -->
-							<span
-								class="flex-none rounded-full bg-accent-bg px-2 py-1 font-mono text-xs text-accent-ink"
-							>
-								{t.inbox.pendingLabel(plan.pending)}
-							</span>
-						</a>
-					</li>
-				{/each}
-
-				{#each data.importJobs as job (job.id)}
-					<li>
-						<a
-							href={resolve(`/w/${data.universe.slug}/import/${job.id}/review`)}
-							class="flex items-center justify-between gap-3 px-1 py-3 transition-colors hover:bg-panel-2"
-						>
-							<div class="min-w-0">
-								<p class="font-medium text-ink">{t.inbox.importFrom(job.playbook)}</p>
-								<p class="text-xs text-muted">
-									{t.inbox.importSummary(job.total, job.pending)} &middot; {formatWhen(
-										job.createdAt
-									)}
-								</p>
-							</div>
-							<span class="flex-none rounded-md border border-line-2 px-2 py-1 text-xs text-ink-2">
-								{t.inbox.openImportReview}
-							</span>
-						</a>
-					</li>
-				{/each}
-			</ul>
+			<ProposalQueue
+				{groups}
+				universeSlug={data.universe.slug}
+				diffPriceCredits={data.diffPriceCredits}
+				locale={data.locale}
+			/>
 		{/if}
 	</div>
 </PageBody>
