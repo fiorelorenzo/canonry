@@ -691,6 +691,13 @@ export interface Messages {
 		};
 		complete: {
 			button: string;
+			/** Round fifteen T1 (#428): the button became an icon on the title's own line,
+			 * so its name alone no longer says what pressing it does. G11 ("confirm every
+			 * paid action") wants that said before the credits are spent, so this is now
+			 * the tooltip's own text rather than `button` doubling as both the aria-label
+			 * and the tooltip - the same split `cover.generateHint` already draws next to
+			 * `cover.generateAction`. */
+			hint: (credits: number) => string;
 			/** Issue #345: the sentence beside the spinner while the model drafts, in the
 			 * reading flow where the proposal itself will land. It names what is being
 			 * written, never how long it will take. */

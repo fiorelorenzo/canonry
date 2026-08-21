@@ -545,6 +545,8 @@ export const en: Messages = {
 
 		complete: {
 			button: 'Complete entry',
+			hint: (credits) =>
+				`Draft a full pass over this entry, ${credits} ${credits === 1 ? 'credit' : 'credits'}.`,
 			running: 'The Loremaster is drafting this entry',
 			empty: 'Nothing to complete right now.',
 			genericFailure: 'Complete could not run.',

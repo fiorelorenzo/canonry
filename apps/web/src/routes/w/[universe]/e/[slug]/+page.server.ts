@@ -103,6 +103,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		style,
 		portraitPrice,
 		variantsPrice,
+		completePrice,
 		portraitModel,
 		variantsModel,
 		pendingProposals,
@@ -115,6 +116,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		resolveStyle(conn, current.id),
 		priceOf(conn, 'image.portrait'),
 		priceOf(conn, 'image.variants'),
+		// Round fifteen T1 (#428): the complete control's tooltip now states its own cost
+		// (G11), the same way `cover.generateHint` already does next to its button - so this
+		// loader fetches the same seeded `entry.complete` row `+page.server.ts`'s own
+		// `complete` action already charges (`chargeFor`, `@canonry/ai`).
+		priceOf(conn, 'entry.complete'),
 		modelSummary(conn, 'portrait'),
 		modelSummary(conn, 'variants'),
 		pendingUpdateProposalsForEntity(conn, world.id, current.id),
@@ -199,6 +205,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		},
 		audit: {
 			flags: auditFlags
+		},
+		// Round fifteen T1 (#428): the icon button's tooltip states this before the click
+		// spends it (G11), the same shape `media.generate.portrait.price` already gives
+		// `EntryCoverPlaceholder`/`MediaGallery`'s own generate buttons.
+		complete: {
+			price: completePrice.credits
 		},
 		relations,
 		history,
