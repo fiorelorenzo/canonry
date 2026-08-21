@@ -147,7 +147,6 @@ export {
 	acceptAnyImportProposal,
 	isRelationTypeProposalKind,
 	ImportQuotaExceededError,
-	parseOutcomeNote,
 	type ImportEstimate,
 	type EstimateImportJobInput,
 	type AdmitAndCreateImportJobInput,
@@ -156,13 +155,17 @@ export {
 	type RunImportJobParams,
 	type RunImportJobResult,
 	type DocumentOutcome,
-	type AcceptImportProposalInput,
+	type AcceptImportProposalInput
+} from './job-runner.js';
+
+export {
+	parseOutcomeNote,
 	type OutcomeNotePayload,
 	type ParsedOutcomeNote,
 	type OutcomeNoteOffender,
 	type OutcomeNoteOffenderReason,
 	type OutcomeNoteLossy
-} from './job-runner.js';
+} from './outcome-note.js';
 
 export {
 	PLAYBOOK_COLD_START_ESTIMATE,

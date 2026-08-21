@@ -12,7 +12,7 @@
  * than crashing or going blank. The empty-string column default parses to `null`, which
  * this also returns as `null` so callers keep their existing `{#if outcomeNote}` guard.
  */
-import { parseOutcomeNote, type OutcomeNoteOffenderReason } from '@canonry/import';
+import { parseOutcomeNote, type OutcomeNoteOffenderReason } from '@canonry/import/outcome-note';
 import { messages, type Locale, type Messages } from '$lib/i18n';
 
 type OffenderReasonCatalogue = Messages['import']['outcomeNote']['offenderReason'];

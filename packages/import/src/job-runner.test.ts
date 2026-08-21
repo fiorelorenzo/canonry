@@ -40,9 +40,9 @@ import {
 	acceptImportProposal,
 	admitAndCreateImportJob,
 	ImportJobRunner,
-	parseOutcomeNote,
 	type RunImportJobParams
 } from './job-runner.js';
+import { parseOutcomeNote } from './outcome-note.js';
 import type { MatchCandidate, MatchSubject, SimilarityFn } from './matching.js';
 import type { Embedder } from '@canonry/copilot';
 
