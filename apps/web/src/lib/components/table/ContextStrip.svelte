@@ -53,7 +53,7 @@
 	{/if}
 	<span class="flex-1"></span>
 	<Button type="button" variant="secondary" size="sm" onclick={onChangeContext}>
-		{t.change}
+		{context?.placeName ? t.change : t.declare}
 	</Button>
 	<Button type="button" variant="secondary" size="sm" onclick={onExit}>
 		{t.exit}

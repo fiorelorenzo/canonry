@@ -1293,6 +1293,7 @@ export const it: Messages = {
 			noPlaceDeclared: (universeName) => `nessun luogo dichiarato ancora - ${universeName}`,
 			pinnedIn: (ms) => `appuntati in ${ms}ms`,
 			change: 'Cambia',
+			declare: 'Dichiara',
 			exit: 'Esci dalla modalità tavolo'
 		},
 
@@ -1402,6 +1403,7 @@ export const it: Messages = {
 		home: {
 			noContextDeclared:
 				'Dichiara un luogo per appuntare i suoi personaggi principali e le sue relazioni.',
+			choosePlace: 'Scegli un luogo',
 			pinnedHeading: 'Appuntati',
 			quickActionsHeading: 'Azioni rapide',
 			askHeading: 'Chiedi',
@@ -1419,12 +1421,6 @@ export const it: Messages = {
 			scaffoldBadge: 'scheletro, nessun modello',
 			scaffoldTooltipDefault: 'Nessun modello disponibile per questa bozza.',
 			aiUnavailable: (reason) => `Loremaster non disponibile: ${reason}`,
-			streamStatus: (count, lastId) => {
-				const events = count === 1 ? 'evento' : 'eventi';
-				const received = count === 1 ? 'ricevuto' : 'ricevuti';
-				const suffix = lastId !== null ? ` · ultimo id ${lastId}` : '';
-				return `flusso: ${count} ${events} ${received}${suffix}`;
-			},
 			draftingNpc: 'Bozza del PNG in corso…',
 			actionFailed: (action, reason) => `${action} non riuscita: ${reason}`,
 			unknownReason: 'motivo sconosciuto',

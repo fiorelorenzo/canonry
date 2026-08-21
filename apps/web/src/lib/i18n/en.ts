@@ -1257,6 +1257,7 @@ export const en: Messages = {
 			noPlaceDeclared: (universeName) => `no place declared yet - ${universeName}`,
 			pinnedIn: (ms) => `pinned in ${ms}ms`,
 			change: 'Change',
+			declare: 'Declare',
 			exit: 'Exit table mode'
 		},
 
@@ -1360,6 +1361,7 @@ export const en: Messages = {
 
 		home: {
 			noContextDeclared: 'Declare a place to pin its main characters and relations.',
+			choosePlace: 'Choose a place',
 			pinnedHeading: 'Pinned',
 			quickActionsHeading: 'Quick actions',
 			askHeading: 'Ask',
@@ -1375,11 +1377,6 @@ export const en: Messages = {
 			scaffoldBadge: 'scaffold, no model',
 			scaffoldTooltipDefault: 'No model was available for this draft.',
 			aiUnavailable: (reason) => `AI unavailable: ${reason}`,
-			streamStatus: (count, lastId) => {
-				const events = count === 1 ? 'event' : 'events';
-				const suffix = lastId !== null ? ` · last id ${lastId}` : '';
-				return `stream: ${count} ${events} received${suffix}`;
-			},
 			draftingNpc: 'Drafting an NPC…',
 			actionFailed: (action, reason) => `${action} failed: ${reason}`,
 			unknownReason: 'unknown reason',
