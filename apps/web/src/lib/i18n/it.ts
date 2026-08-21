@@ -1045,6 +1045,24 @@ export const it: Messages = {
 			awaitingDiffLink: 'apri il piano'
 		},
 
+		review: {
+			awaitingDiff: {
+				kicker: 'In attesa della differenza',
+				body: (entryName) =>
+					`${entryName} fa parte di un piano. Il copilota non ha ancora scritto la differenza di questa candidata, quindi qui non c'è nulla da accettare o rifiutare.`,
+				reasonLabel: 'Il motivo del copilota:',
+				cost: (credits) => {
+					const form = pluralRules('it').select(credits);
+					return {
+						prefix: 'Generare questa differenza costerebbe ',
+						suffix: form === 'one' ? ' credito.' : ' crediti.'
+					};
+				},
+				planLink: 'Apri il piano',
+				backToEntry: 'Torna alla voce'
+			}
+		},
+
 		errors: {
 			noDiffsToGenerate:
 				'Questo piano non ha una voce modificata, quindi non ci sono differenze di propagazione da generare.',

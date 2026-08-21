@@ -1011,6 +1011,24 @@ export const en: Messages = {
 			awaitingDiffLink: 'open the plan'
 		},
 
+		review: {
+			awaitingDiff: {
+				kicker: 'Waiting on its diff',
+				body: (entryName) =>
+					`${entryName} is part of a plan. The copilot has not written this candidate's diff yet, so there is nothing here to accept or reject.`,
+				reasonLabel: "The copilot's reason:",
+				cost: (credits) => {
+					const form = pluralRules('en').select(credits);
+					return {
+						prefix: 'Generating this diff would cost ',
+						suffix: form === 'one' ? ' credit.' : ' credits.'
+					};
+				},
+				planLink: 'Open the plan',
+				backToEntry: 'Back to the entry'
+			}
+		},
+
 		errors: {
 			noDiffsToGenerate:
 				'This plan has no edited entry, so there are no propagation diffs to generate',
