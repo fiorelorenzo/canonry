@@ -8,15 +8,23 @@
 	 * two actions, and the three links a visitor is owed. Not a second landing page:
 	 * the real pitch ships from canonry-landing at canonry.io (DECISIONS.md round
 	 * four), so this grows no demo, no feature list, no pricing table, and its own
-	 * sentence never claims the canon is consistent. AppShell contributes no chrome
-	 * when signed out, so this page builds its own top bar and owns `id="main"`.
+	 * sentence never claims the canon is consistent.
+	 *
+	 * Issue #490: this used to build its own top bar and its own centred block,
+	 * which pinned the content to the top-left corner at 1440 and overflowed
+	 * horizontally at 390 (the bar's five items in one `flex` row with no wrap).
+	 * I2 (#139) already gave the two auth pages beside this one a title page -
+	 * full paper, the mark centred, a narrow column under it, the secondary links
+	 * in a footer rule - so the door now renders through that same `AuthShell`
+	 * rather than composing its own frame a second time. AppShell contributes no
+	 * chrome when signed out either way; `AuthShell` owns `id="main"`.
 	 *
 	 * Signed in - issue #141, I3 = B: the universe picker inside the shell. Zero
 	 * universes and exactly one both redirect before this ever renders
 	 * (`+page.server.ts`, issue #140), so this branch only ever draws two or more.
 	 */
 	import { resolve } from '$app/paths';
-	import Mark from '$lib/components/brand/Mark.svelte';
+	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
@@ -33,34 +41,13 @@
 </svelte:head>
 
 {#if !data.user}
-	<div class="flex min-h-screen flex-col bg-paper">
-		<div class="flex items-center gap-5 border-b border-line px-6 py-3 text-sm">
-			<span class="flex-1"></span>
-			<a href="https://canonry.io" class="text-ink-2 hover:text-accent">
-				{t.auth.footer.whatCanonryIs}
-			</a>
-			<a href={resolve('/docs')} class="text-ink-2 hover:text-accent">{t.auth.footer.docs}</a>
-			<a href={resolve('/privacy')} class="text-ink-2 hover:text-accent">{t.auth.footer.privacy}</a>
-			<Button href={resolve('/auth/sign-in')} variant="secondary" size="sm">
-				{t.shell.signIn}
-			</Button>
-			<Button href={resolve('/auth/sign-up')} size="sm">{t.shell.door.createAccount}</Button>
+	<AuthShell locale={data.locale} title="Canonry" subtitle={t.shell.tagline}>
+		<div class="flex flex-wrap justify-center gap-2">
+			<Button href={resolve('/auth/sign-up')}>{t.shell.door.createAccount}</Button>
+			<Button href={resolve('/auth/sign-in')} variant="secondary">{t.shell.signIn}</Button>
 		</div>
-		<main id="main" class="flex-1 px-8 py-12">
-			<div class="max-w-measure">
-				<h1 class="flex items-center gap-2 text-2xl font-semibold text-ink">
-					<span class="text-accent"><Mark size={28} /></span>
-					Canonry
-				</h1>
-				<p class="mt-3 text-lg text-ink-2">{t.shell.tagline}</p>
-				<div class="mt-5 flex gap-2">
-					<Button href={resolve('/auth/sign-up')}>{t.shell.door.createAccount}</Button>
-					<Button href={resolve('/auth/sign-in')} variant="secondary">{t.shell.signIn}</Button>
-				</div>
-				<p class="mt-6 text-sm text-muted">{t.shell.door.exportNote}</p>
-			</div>
-		</main>
-	</div>
+		<p class="mt-4 text-center text-sm text-muted">{t.shell.door.exportNote}</p>
+	</AuthShell>
 {:else}
 	<PageHeader title={t.universe.list.heading}>
 		{#snippet actions()}
