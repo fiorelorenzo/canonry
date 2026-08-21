@@ -1778,12 +1778,19 @@ export interface Messages {
 			headTitle: (universeName: string) => string;
 			crumb: (universeName: string) => string;
 			placeholder: string;
+			/** Issue #455, decision U11: once the conversation already has a turn, the
+			 * composer's placeholder says "follow-up" rather than repeating the opening
+			 * invitation. */
+			placeholderFollowUp: string;
 			ask: string;
 			asking: string;
 			askFailed: string;
 			questionRequired: string;
 			methodNotAllowed: string;
 			noLiveModel: string;
+			/** Issue #455, decision U11 (C8 kept): the visible label and the `aria-label`
+			 * on the five-level group beside the composer. */
+			detailLevelLabel: string;
 			levels: {
 				'1_line': string;
 				short: string;
@@ -1801,8 +1808,27 @@ export interface Messages {
 			 * citing. A floor with no empty state behind it is six wrong chips replaced by
 			 * silence, which tells a reader less rather than more. */
 			sourcesEmpty: string;
+			/** Issue #437 (T10) and #455 (U11): a citation whose entry has since been deleted
+			 * says so, on the conversation view, rather than dropping the citation and making
+			 * an old answer look less grounded than it was. */
+			deletedEntry: string;
 			close: string;
 			loading: string;
+			/** Issue #455, decision U11: guardrail 5's disclosure for this page, said once
+			 * above the message list - the same placement T10 gave the docked panel's own
+			 * copy, "the first thing... read before anything is asked" - rather than on a
+			 * card after every turn. Ends in the same policy link `keep.noteLinkBefore`/
+			 * `noteLink` already carries. */
+			disclosure: string;
+			/** Issue #455, decision U11: the empty state a fresh conversation opens on,
+			 * replacing the old empty question box - a welcome sentence plus deterministic
+			 * suggestions (`shell.quickAsk.suggestions`, the same catalogue R6 built for the
+			 * dock, reused rather than duplicated). */
+			emptyState: {
+				heading: string;
+				body: (universeName: string) => string;
+				tryAsking: string;
+			};
 			/** issue #256: the `entry_propose`/`entry_edit_propose` tools' own reserved
 			 * sub-object (wave i18n contract) - what a pending Ask-drafted proposal chip says. */
 			propose: {
@@ -1816,34 +1842,26 @@ export interface Messages {
 				 * the model reporting it honestly. */
 				failed: (message: string) => string;
 			};
-			/** #290 (decision O3): "keep" is the Loremaster's only write, so these are the
-			 * strings of the one control that stores anything. The `note*` fields are the
-			 * guardrail 5 sentence in its F3 = C home, shown beside the control at the moment
-			 * the answer is stored rather than left to a policy page nobody opens: split up
-			 * because it names the provider that actually generated the text, reads differently
-			 * when no model wrote it at all, and ends in a link to the full policy.
-			 * `noteLinkBefore`/`noteLink` are reused verbatim by the `kept` history below, which
-			 * needs the same closing sentence and must not carry a second copy of it. */
+			/** #290 (decision O3), its manual half repealed by #437 (T10) and #455 (U11):
+			 * every turn is kept automatically now, so nothing here is a button's own label
+			 * any more. What is left: the server's own rejection wording for a malformed
+			 * `POST .../ask/keep`, the quiet line a failed auto-keep shows beside its turn
+			 * (`failed`), and the guardrail 5 policy link `disclosure` above and the docked
+			 * panel's own copy both end in. */
 			keep: {
-				button: string;
-				keeping: string;
-				kept: string;
 				failed: string;
 				invalidRequest: string;
 				sourceNotInUniverse: string;
 				methodNotAllowed: string;
-				noteBefore: string;
-				noteProvider: (provider: string) => string;
-				noteNoProvider: string;
-				noteAfter: string;
 				noteLinkBefore: string;
 				noteLink: string;
 				historyLink: string;
 			};
-			/** #290: the history of what was kept, which is a history only because keeping is a
-			 * deliberate act. Detail-level names, the source labels and the closing policy link
-			 * come from `levels`, `ownCanonLabel`, `indexedBadge` and `keep.noteLink*` rather
-			 * than being repeated here. */
+			/** #290, reshaped by #437 (T10) into a conversation list and by #455 (U11) into
+			 * this list's real job now that `/ask` itself renders a conversation: an index
+			 * card per conversation, its first question as the heading and a turn count as
+			 * the only other line, linking into the conversation itself rather than
+			 * rendering every turn's question, answer and sources a second time here. */
 			kept: {
 				headTitle: (universeName: string) => string;
 				crumb: (universeName: string) => string;
@@ -1851,11 +1869,7 @@ export interface Messages {
 				note: string;
 				empty: string;
 				askLink: string;
-				askedFrom: string;
-				writtenBy: (provider: string) => string;
-				writtenWithoutModel: string;
-				sourcesLabel: string;
-				deletedEntry: string;
+				turnCount: (count: number) => string;
 				delete: string;
 				deleteConfirmPrompt: string;
 				deleteConfirmCancel: string;

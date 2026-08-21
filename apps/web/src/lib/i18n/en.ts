@@ -1626,6 +1626,7 @@ export const en: Messages = {
 			headTitle: (universeName) => `Ask: ${universeName}`,
 			crumb: (universeName) => `Ask · ${universeName}`,
 			placeholder: 'Ask about this universe…',
+			placeholderFollowUp: 'Ask a follow-up…',
 			ask: 'Ask',
 			asking: 'Asking…',
 			askFailed: 'Ask failed.',
@@ -1633,6 +1634,7 @@ export const en: Messages = {
 			methodNotAllowed: 'POST a question to ask.',
 			noLiveModel:
 				'Generation is switched off for this universe: this reads your own canon directly, at no cost, rather than a model-written answer.',
+			detailLevelLabel: 'Detail level',
 			levels: {
 				'1_line': '1 line',
 				short: 'Short',
@@ -1646,8 +1648,17 @@ export const en: Messages = {
 				'The answer was written from these and from nothing else: the entries whose own wording matched your question.',
 			sourcesEmpty:
 				'Nothing to cite. No entry matched the words of this question, so this answer rests on nothing in your canon.',
+			deletedEntry: 'This entry has since been deleted.',
 			close: 'Close',
 			loading: 'Loading…',
+			disclosure:
+				'Every question here is answered and kept automatically, as your own note grouped into this conversation: it never becomes part of an entry without a proposal you accept, players never see it, and it stays until you delete the conversation. ',
+			emptyState: {
+				heading: 'Ask the Loremaster',
+				body: (universeName) =>
+					`Ask anything about ${universeName}: characters, places, events, history. A follow-up continues this same conversation, so dig as deep as you want.`,
+				tryAsking: 'Try asking:'
+			},
 			propose: {
 				badgeCreated: 'Proposed: new entry',
 				badgeEdited: 'Proposed: edit',
@@ -1659,20 +1670,10 @@ export const en: Messages = {
 				failed: (message) => `A proposal attempt failed, and nothing was proposed: ${message}`
 			},
 			keep: {
-				button: 'Keep',
-				keeping: 'Keeping…',
-				kept: 'Kept',
 				failed: 'Could not keep that answer.',
 				invalidRequest: 'That answer cannot be kept as it was sent.',
 				sourceNotInUniverse: 'One of those sources does not belong to this universe.',
 				methodNotAllowed: 'POST an answer to keep it.',
-				noteBefore:
-					'Keeping this stores the question, the answer and the entries it cites, as your own note. ',
-				noteProvider: (provider) => `${provider} wrote the answer from your own canon.`,
-				noteNoProvider:
-					'No model wrote it: writing is off for this universe, so the answer is your own sentences quoted back.',
-				noteAfter:
-					' It stays a note rather than becoming part of any entry, players never see it, and it stays until you delete it. ',
 				noteLinkBefore: 'Which company reads your campaign to answer a question is named in the ',
 				noteLink: 'full policy',
 				historyLink: 'Conversations'
@@ -1685,11 +1686,14 @@ export const en: Messages = {
 				empty:
 					'Nothing yet. Ask the Loremaster something, from the panel or from this page, and it appears here.',
 				askLink: 'Ask the Loremaster',
-				askedFrom: 'Asked from',
-				writtenBy: (provider) => `Written by ${provider}`,
-				writtenWithoutModel: 'Read from your own canon, with no model',
-				sourcesLabel: 'Sources',
-				deletedEntry: 'This entry has since been deleted.',
+				turnCount: (count) => {
+					const n = numberFormat('en', {
+						maximumFractionDigits: 0,
+						useGrouping: 'always'
+					}).format(count);
+					const form = pluralRules('en').select(Math.round(count));
+					return form === 'one' ? `${n} exchange` : `${n} exchanges`;
+				},
 				delete: 'Delete',
 				deleteConfirmPrompt: 'Delete this whole conversation permanently?',
 				deleteConfirmCancel: 'Cancel',
