@@ -217,7 +217,15 @@
 	{/snippet}
 </PageHeader>
 
-<PageBody width="reading">
+<!-- V1 = B's three widths apply to a page's own body, and this body is two columns: the
+     article and the aside (S5). `reading` caps the *pair* at 44rem, which leaves the
+     article 448px once the 256px aside is subtracted - narrower than
+     `--container-measure`'s own 34rem, so the prose stopped reaching its own measure and
+     the whole row floated in the middle of 1184px with 240px of paper on either side.
+     `working` gives the pair 62rem, so the article clears the measure and the prose
+     narrows on its own element, which is where the reading width was always meant to be
+     enforced (`page-body.svelte`'s own doc comment says so). -->
+<PageBody width="working">
 	<!-- Q2 (round twelve): `md:min-h-full` gives this row a floor equal to `main`'s own
 	resolved height (definite, since `main` is `flex-1` inside the shell's `h-screen`
 	flex column - see AppShell.svelte), so the row is never shorter than the viewport
