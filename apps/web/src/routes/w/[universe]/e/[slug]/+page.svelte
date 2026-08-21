@@ -54,11 +54,13 @@
 	let sectionsOpen = $state<SectionOpenState>({ ...DEFAULT_SECTIONS_OPEN });
 	let detailsOpen = $state(false);
 
-	// Round fifteen T1 (#428): `EntryProseWithSecrets`'s own GM/player view control
-	// (#383/#409) now renders here, directly under the title, instead of inside that
-	// component - `showViewControl={false}` on it below keeps it from drawing a second
-	// copy. `$props.id()` is this component's own instance suffix, the same reason
-	// `EntryProseWithSecrets` gives it: `Segmented` groups its native radios by `name`.
+	// Round fifteen T1 (#428), moved again by round sixteen U4 (#452): `EntryProseWithSecrets`'s
+	// own GM/player view control (#383/#409) renders here, on the title's own row beside the
+	// write controls, instead of inside that component or on a row of its own beneath the
+	// title - `showViewControl={false}` on it below keeps it from drawing a second copy of
+	// either the control or the sentence under it (see that component's doc comment on
+	// `showViewControl`). `$props.id()` is this component's own instance suffix, the same
+	// reason `EntryProseWithSecrets` gives it: `Segmented` groups its native radios by `name`.
 	let view = $state<'gm' | 'player'>('gm');
 	const viewUid = $props.id();
 	const viewName = `entry-view-${viewUid}`;
@@ -194,39 +196,57 @@
 					onOpen={openAuditSection}
 					locale={data.locale}
 				/>
-				<!-- T1 (#428): `Completa la voce` and `Modifica` demote from a right-aligned
-				     text row to icon buttons sharing the title's own line - the pattern
-				     `FormattingToolbar.svelte`'s `iconButton` snippet already uses (Q4): one
-				     shared `Tooltip.Provider`, a `Tooltip.Root` per control, an `aria-label`
-				     plus the tooltip carrying the name. -->
-				<Tooltip.Provider delayDuration={400}>
-					<div class="ml-auto flex items-center gap-1">
-						<CompleteEntryControl
-							aiEnabled={data.universe.aiEnabled}
-							price={data.complete.price}
-							locale={data.locale}
-							bind:running={completing}
-							onMessage={(m) => (completeMessage = m)}
-							onDrafted={() => reviewRegion?.focusRegion()}
-						/>
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								{#snippet child({ props })}
-									<Button
-										{...props}
-										href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}/edit`)}
-										variant="ghost"
-										size="icon"
-										aria-label={t.entry.page.editLink}
-									>
-										<SquarePenIcon aria-hidden="true" />
-									</Button>
-								{/snippet}
-							</Tooltip.Trigger>
-							<Tooltip.Content>{t.entry.page.editLink}</Tooltip.Content>
-						</Tooltip.Root>
-					</div>
-				</Tooltip.Provider>
+				<!-- U4 (#452, round sixteen): the view control joins the write controls on
+				     this same row instead of wasting a row of its own underneath it - it is
+				     the least consequential of the three, so it gets the same fixed-size
+				     treatment the icon buttons already have (S4) rather than the most
+				     prominent spot, directly under the title. `EntryProseWithSecrets` still
+				     owns the prose/mention rendering this drives (`showViewControl={false}`,
+				     `bind:view` below); only where the control draws, and who prints its
+				     one-line sentence, moved - that component's own doc comment on
+				     `showViewControl` has the rule this page follows. -->
+				<div class="ml-auto flex flex-wrap items-center gap-2">
+					<Segmented
+						name={viewName}
+						bind:value={view}
+						options={viewOptions}
+						ariaLabel={t.entry.prose.viewAriaLabel}
+						class="shrink-0"
+					/>
+					<!-- T1 (#428): `Completa la voce` and `Modifica` demote from a right-aligned
+					     text row to icon buttons sharing the title's own line - the pattern
+					     `FormattingToolbar.svelte`'s `iconButton` snippet already uses (Q4): one
+					     shared `Tooltip.Provider`, a `Tooltip.Root` per control, an `aria-label`
+					     plus the tooltip carrying the name. -->
+					<Tooltip.Provider delayDuration={400}>
+						<div class="flex items-center gap-1">
+							<CompleteEntryControl
+								aiEnabled={data.universe.aiEnabled}
+								price={data.complete.price}
+								locale={data.locale}
+								bind:running={completing}
+								onMessage={(m) => (completeMessage = m)}
+								onDrafted={() => reviewRegion?.focusRegion()}
+							/>
+							<Tooltip.Root>
+								<Tooltip.Trigger>
+									{#snippet child({ props })}
+										<Button
+											{...props}
+											href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}/edit`)}
+											variant="ghost"
+											size="icon"
+											aria-label={t.entry.page.editLink}
+										>
+											<SquarePenIcon aria-hidden="true" />
+										</Button>
+									{/snippet}
+								</Tooltip.Trigger>
+								<Tooltip.Content>{t.entry.page.editLink}</Tooltip.Content>
+							</Tooltip.Root>
+						</div>
+					</Tooltip.Provider>
+				</div>
 			</div>
 			<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
 				<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
@@ -243,23 +263,15 @@
 					<span>{t.entry.complete.aiOff}</span>
 				{/if}
 			</div>
-		</div>
-
-		<!-- T1 (#428): the view control inverts position with the write controls above it -
-		     it used to sit under the review region while the title's own buttons stood over
-		     it in the header's top right; now it is the very next thing under the title, and
-		     the write controls shrank to icons that share the title's own line instead.
-		     `EntryProseWithSecrets` still owns the prose/mention rendering this drives
-		     (`showViewControl={false}`, `bind:view` below) - only where the control itself
-		     draws moved. -->
-		<div class="mb-4 border-b border-line pb-3">
-			<Segmented
-				name={viewName}
-				bind:value={view}
-				options={viewOptions}
-				ariaLabel={t.entry.prose.viewAriaLabel}
-			/>
-			<p class="mt-2 text-xs text-muted">
+			<!-- U4 (#452): this used to be its own bordered row under the title, holding
+			     both the control and the sentence; the control moved above, onto the
+			     title's row, and only the sentence stays here - always present, always one
+			     line (S4), so toggling the control above it never moves the article that
+			     follows. This page draws the control, so this page draws the sentence
+			     (see `EntryProseWithSecrets.svelte`'s `showViewControl` doc comment for
+			     the rule): fixing #452's duplicate, this used to also print from that
+			     component's own `{:else}` branch when `showViewControl` was `false`. -->
+			<p class="mt-3 border-b border-line pb-3 text-xs text-muted">
 				{view === 'player' ? t.entry.prose.playerPreviewActive : t.entry.prose.gmViewDescription}
 			</p>
 		</div>

@@ -59,10 +59,15 @@
 		 * (T1, #428) and the editor puts it on its toolbar row (T6, #433). Either way this
 		 * component still derives `playerPreview` and everything downstream from it. */
 		view?: 'gm' | 'player';
-		/** `false` suppresses this component's own copy of the `Segmented`, for a caller
-		 * that renders the control itself and binds `view` in. The one-line description of
-		 * which view is showing stays either way: guardrail 5 has no exception for "the
-		 * control moved". */
+		/** `false` suppresses this component's own copy of the `Segmented` *and* the
+		 * one-line sentence beneath it, for a caller that renders the control itself
+		 * (`view` bound in) and is now responsible for printing the sentence too. The
+		 * rule, fixed here after #452 (round sixteen U4) found it printed twice on the
+		 * entry page: whoever draws the segmented control draws the sentence under it,
+		 * exactly once - never both this component and the caller, never neither. `true`
+		 * (the default) means this component owns both; `false` hands both to the
+		 * caller, which must then print the sentence itself. A future lift of this
+		 * control MUST move its sentence along with it, not leave a copy behind. */
 		showViewControl?: boolean;
 	} = $props();
 
@@ -165,13 +170,6 @@
 			{playerPreview ? t.prose.playerPreviewActive : t.prose.gmViewDescription}
 		</p>
 	</div>
-{:else}
-	<!-- T6, round fifteen (#433): the control itself now lives on
-	     `MarkdownEditor.svelte`'s toolbar row; this component still owns the derived
-	     state and still says, in plain prose, which view is showing (guardrail 5). -->
-	<p class="mb-4 text-xs text-muted">
-		{playerPreview ? t.prose.playerPreviewActive : t.prose.gmViewDescription}
-	</p>
 {/if}
 
 <div
