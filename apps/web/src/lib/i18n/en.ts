@@ -136,7 +136,8 @@ export const en: Messages = {
 			closeLabel: 'Close the Loremaster',
 			launcherHint: 'Ask what your canon already says.',
 			context: (pageName) => `about ${pageName}`,
-			streaming: 'streaming…',
+			disclosure:
+				'Every question here is answered and kept automatically, as your own note grouped into a conversation: it never becomes part of an entry without a proposal you accept, players never see it, and it stays until you delete the conversation. ',
 			openInAsk: 'Open in Ask',
 			// R6 (round thirteen, #381): three deterministic suggestions, never from a model.
 			// `connects` reads the six-value entity type, the same one-function-per-catalogue
@@ -1673,15 +1674,15 @@ export const en: Messages = {
 					' It stays a note rather than becoming part of any entry, players never see it, and it stays until you delete it. ',
 				noteLinkBefore: 'Which company reads your campaign to answer a question is named in the ',
 				noteLink: 'full policy',
-				historyLink: 'Kept answers'
+				historyLink: 'Conversations'
 			},
 			kept: {
-				headTitle: (universeName) => `Kept answers: ${universeName}`,
-				crumb: (universeName) => `Kept answers · ${universeName}`,
-				heading: 'Kept answers',
-				note: 'These are the answers you chose to keep. Each one is text generated from your own canon and stored as your own note: it never becomes part of an entry without a proposal you accept, players never see it, and nothing removes it but you. Deleting one deletes the row itself, with no copy kept anywhere.',
+				headTitle: (universeName) => `Conversations: ${universeName}`,
+				crumb: (universeName) => `Conversations · ${universeName}`,
+				heading: 'Conversations',
+				note: 'The Loremaster keeps every question and answer automatically, as your own note grouped by conversation. Nothing here becomes part of an entry without a proposal you accept, players never see it, and a conversation stays until you delete it.',
 				empty:
-					'Nothing kept yet. Ask the Loremaster something, and keep the answer if it is worth keeping.',
+					'Nothing yet. Ask the Loremaster something, from the panel or from this page, and it appears here.',
 				askLink: 'Ask the Loremaster',
 				askedFrom: 'Asked from',
 				writtenBy: (provider) => `Written by ${provider}`,
@@ -1689,10 +1690,10 @@ export const en: Messages = {
 				sourcesLabel: 'Sources',
 				deletedEntry: 'This entry has since been deleted.',
 				delete: 'Delete',
-				deleteConfirmPrompt: 'Delete this permanently?',
+				deleteConfirmPrompt: 'Delete this whole conversation permanently?',
 				deleteConfirmCancel: 'Cancel',
-				deleteFailed: 'Could not delete that answer.',
-				deleteNotFound: 'That answer is already gone.'
+				deleteFailed: 'Could not delete that conversation.',
+				deleteNotFound: 'That conversation is already gone.'
 			}
 		},
 
@@ -1767,6 +1768,10 @@ export const en: Messages = {
 				hint: 'Up to 500 characters.',
 				save: 'Save',
 				tooLongError: 'Keep the description under 500 characters.'
+			},
+			loremasterConversations: {
+				text: 'Every question asked in the Loremaster panel is answered and kept automatically, grouped by conversation, until you delete it.',
+				link: 'See what is kept'
 			},
 			precedence: {
 				heading: 'Precedence',

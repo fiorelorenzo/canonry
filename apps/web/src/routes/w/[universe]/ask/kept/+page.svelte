@@ -1,18 +1,22 @@
 <script lang="ts">
 	/**
-	 * Issue #290, decision O3: what was kept, which is what makes the dedicated page a
-	 * history rather than a blank composer. Every row here exists because somebody pressed
-	 * keep; nothing anybody typed and abandoned reaches this list.
+	 * Issue #290, decision O3, repealed by issue #437, decision T10 (round fifteen): every
+	 * row here used to exist because somebody pressed keep. Now every question the
+	 * Loremaster answered lands here automatically, grouped by conversation - one card per
+	 * conversation, its first question as the card's own heading, and every turn inside it
+	 * in the order it was actually asked.
 	 *
-	 * A source is rendered from its live reference, never from a name frozen when the answer
+	 * A source is rendered from its live reference, never from a name frozen when the turn
 	 * was kept, so a renamed entry reads under its new name and the click still opens G5's
 	 * side panel beside the answer. An entry deleted since says so instead of vanishing from
 	 * the citation list, because a citation that disappears makes an old answer look less
 	 * grounded than it was.
 	 *
-	 * The guardrail 5 sentence sits at the top as a standing statement and beside the Keep
-	 * control at the moment of storing (see the Ask route), which is F3 = C: contextual, where
-	 * the content actually goes, linking to the page that names every provider.
+	 * The guardrail 5 sentence sits at the top as a standing statement, F3 = C: contextual,
+	 * where the content actually goes, linking to the page that names every provider. The
+	 * moment-of-asking disclosure lives in the panel itself now (`shell.quickAsk.disclosure`
+	 * in `QuickAsk.svelte`), read before anything is asked rather than after every turn -
+	 * this page is the record, not the place the disclosure is first read.
 	 */
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
@@ -95,90 +99,115 @@
 			</p>
 		{/if}
 
-		{#if data.answers.length === 0}
+		{#if data.conversations.length === 0}
 			<p class="mt-8 max-w-measure text-sm text-ink-2">{tk.empty}</p>
 		{:else}
 			<div class="mt-8 flex flex-col gap-6">
-				{#each data.answers as answer (answer.id)}
+				{#each data.conversations as conversation (conversation.conversationId)}
 					<article class="rounded-lg border border-line bg-panel p-4">
-						<h2 class="text-base text-ink">{answer.question}</h2>
-						<p class="mt-1 flex flex-wrap gap-x-2 text-xs text-muted">
-							<span>{keptAtLabel(answer.keptAt)}</span>
-							<span>· {t.levels[answer.detailLevel]}</span>
-							<span>· {tk.askedFrom} {answer.askedFromPath}</span>
-							<span
-								>· {answer.provider
-									? tk.writtenBy(providerLabel(answer.provider))
-									: tk.writtenWithoutModel}</span
+						<div class="flex items-start justify-between gap-2">
+							<h2 class="text-base text-ink">{conversation.turns[0]!.question}</h2>
+							<span class="mt-1 shrink-0 text-xs text-muted"
+								>{keptAtLabel(conversation.keptAt)}</span
 							>
-						</p>
+						</div>
 
-						<p class="mt-3 max-w-measure text-sm leading-relaxed text-ink">{answer.answer}</p>
+						{#each conversation.turns as turn, turnIndex (turn.id)}
+							<div
+								class:mt-4={turnIndex > 0}
+								class:border-t={turnIndex > 0}
+								class:border-line={turnIndex > 0}
+								class:pt-4={turnIndex > 0}
+							>
+								{#if turnIndex > 0}
+									<h3 class="text-sm font-semibold text-ink">{turn.question}</h3>
+								{/if}
+								<p class="mt-1 flex flex-wrap gap-x-2 text-xs text-muted">
+									<span>{keptAtLabel(turn.keptAt)}</span>
+									<span>· {t.levels[turn.detailLevel]}</span>
+									<span>· {tk.askedFrom} {turn.askedFromPath}</span>
+									<span
+										>· {turn.provider
+											? tk.writtenBy(providerLabel(turn.provider))
+											: tk.writtenWithoutModel}</span
+									>
+								</p>
 
-						{#if answer.sources.length > 0}
-							<h3 class="mt-4 text-xs tracking-wide text-muted uppercase">{tk.sourcesLabel}</h3>
-							<div class="mt-1.5 flex flex-col gap-1.5">
-								{#each answer.sources as source (source.id)}
-									{#if source.kind === 'own_canon'}
-										{#if source.entity}
-											<button
-												type="button"
-												class="src clickable rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-left text-xs"
-												onclick={() => openPanel(source.entity!.slug)}
-											>
-												<b class="text-ink underline decoration-dotted underline-offset-2"
-													>{source.entity.name}</b
+								<p class="mt-3 max-w-measure text-sm leading-relaxed text-ink">{turn.answer}</p>
+
+								{#if turn.sources.length > 0}
+									<h4 class="mt-4 text-xs tracking-wide text-muted uppercase">{tk.sourcesLabel}</h4>
+									<div class="mt-1.5 flex flex-col gap-1.5">
+										{#each turn.sources as source (source.id)}
+											{#if source.kind === 'own_canon'}
+												{#if source.entity}
+													<button
+														type="button"
+														class="src clickable rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-left text-xs"
+														onclick={() => openPanel(source.entity!.slug)}
+													>
+														<b class="text-ink underline decoration-dotted underline-offset-2"
+															>{source.entity.name}</b
+														>
+														<span class="text-muted"> · {t.ownCanonLabel}</span>
+														<span class="mt-0.5 block text-ink-2">"{source.statement}"</span>
+													</button>
+												{:else}
+													<div
+														class="src rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs"
+													>
+														<span class="text-muted">{tk.deletedEntry}</span>
+														<span class="mt-0.5 block text-ink-2">"{source.statement}"</span>
+													</div>
+												{/if}
+											{:else}
+												<div
+													class="src derived rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs"
 												>
-												<span class="text-muted"> · {t.ownCanonLabel}</span>
-												<span class="mt-0.5 block text-ink-2">"{source.statement}"</span>
-											</button>
-										{:else}
-											<div class="src rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs">
-												<span class="text-muted">{tk.deletedEntry}</span>
-												<span class="mt-0.5 block text-ink-2">"{source.statement}"</span>
-											</div>
-										{/if}
-									{:else}
-										<div
-											class="src derived rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs"
-										>
-											<!-- Round eleven P2 (#344): same treatment as the Ask page's own
-												indexed chip. Retrieved writing from somebody else's site is not
-												a word a model wrote. -->
-											<span
-												class="badge rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
-												>{t.indexedBadge}</span
-											>
-											<b class="text-ink">{source.pageTitle}</b>
-											{#if source.url}
-												<!-- eslint-disable svelte/no-navigation-without-resolve -- an indexed
-												     corpus page on somebody else's site, which resolve() neither can nor
-												     should rewrite (SPEC.md §7 requires the link beside the licence) -->
-												<a
-													href={source.url}
-													target="_blank"
-													rel="noreferrer"
-													class="text-ink-2 underline">↗</a
-												>
-												<!-- eslint-enable svelte/no-navigation-without-resolve -->
+													<!-- Round eleven P2 (#344): same treatment as the Ask page's own
+														indexed chip. Retrieved writing from somebody else's site is not
+														a word a model wrote. -->
+													<span
+														class="badge rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
+														>{t.indexedBadge}</span
+													>
+													<b class="text-ink">{source.pageTitle}</b>
+													{#if source.url}
+														<!-- eslint-disable svelte/no-navigation-without-resolve -- an indexed
+														     corpus page on somebody else's site, which resolve() neither can nor
+														     should rewrite (SPEC.md §7 requires the link beside the licence) -->
+														<a
+															href={source.url}
+															target="_blank"
+															rel="noreferrer"
+															class="text-ink-2 underline">↗</a
+														>
+														<!-- eslint-enable svelte/no-navigation-without-resolve -->
+													{/if}
+													{#if source.dataSource}
+														<span class="lic mt-0.5 block font-mono text-[11px] text-muted">
+															{source.dataSource.attribution}{#if source.dataSource.licence}
+																· {source.dataSource.licence}{/if}
+														</span>
+													{/if}
+													<span class="mt-0.5 block text-ink-2">"{source.statement}"</span>
+												</div>
 											{/if}
-											{#if source.dataSource}
-												<span class="lic mt-0.5 block font-mono text-[11px] text-muted">
-													{source.dataSource.attribution}{#if source.dataSource.licence}
-														· {source.dataSource.licence}{/if}
-												</span>
-											{/if}
-											<span class="mt-0.5 block text-ink-2">"{source.statement}"</span>
-										</div>
-									{/if}
-								{/each}
+										{/each}
+									</div>
+								{/if}
 							</div>
-						{/if}
+						{/each}
 
 						<div class="mt-4">
-							{#if data.confirmingId === answer.id}
-								<form method="POST" action="?/delete" use:enhance class="flex items-center gap-2">
-									<input type="hidden" name="id" value={answer.id} />
+							{#if data.confirmingId === conversation.conversationId}
+								<form
+									method="POST"
+									action="?/deleteConversation"
+									use:enhance
+									class="flex items-center gap-2"
+								>
+									<input type="hidden" name="conversationId" value={conversation.conversationId} />
 									<span class="text-xs text-ink-2">{tk.deleteConfirmPrompt}</span>
 									<Button type="submit" variant="destructive" size="sm">{tk.delete}</Button>
 									<a
@@ -190,7 +219,9 @@
 								<!-- A link, not a button, so deleting still works with scripting off: this
 								     step only reveals the confirm pair, it changes nothing. -->
 								<a
-									href="{resolve(`/w/${data.universeSlug}/ask/kept`)}?confirm={answer.id}"
+									href="{resolve(
+										`/w/${data.universeSlug}/ask/kept`
+									)}?confirm={conversation.conversationId}"
 									class="text-xs text-danger hover:underline">{tk.delete}</a
 								>
 							{/if}

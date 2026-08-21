@@ -3,10 +3,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	closeDb,
 	deleteKeptAnswer,
+	deleteKeptConversation,
 	keepAnswer,
 	keptAnswerById,
 	KeptAnswerSourceInvalidError,
 	listKeptAnswers,
+	listKeptConversations,
 	type Db
 } from '../src/index.js';
 import { keptAnswer, keptAnswerSource } from '../src/schema/ask.js';
@@ -286,5 +288,91 @@ describe('kept answers', () => {
 		const record = await keptAnswerById(db, { id: row.id, universeId: u.id, keptBy: keeper });
 		expect(record!.provider).toBeNull();
 		expect(record!.modelId).toBeNull();
+	});
+
+	// Issue #437, decision T10: every turn is kept automatically now, so a conversation id
+	// is what makes the history read as a conversation rather than a pile of loose answers.
+	// Two turns asked with the same id group; a third with none of its own (the column's
+	// own `defaultRandom()`) stays apart, in a conversation of one.
+	it('groups turns sharing a conversation id, and keeps an ungrouped turn apart', async () => {
+		const { u, cited, keeper } = await fixture();
+		const conversationId = crypto.randomUUID();
+		await keepAnswer(db, {
+			...input(u, keeper, cited.id),
+			conversationId,
+			question: 'Who holds the Ashen Ledger to account?'
+		});
+		await keepAnswer(db, {
+			...input(u, keeper, cited.id),
+			conversationId,
+			question: 'And who does he answer to now?'
+		});
+		await keepAnswer(db, {
+			...input(u, keeper, cited.id),
+			question: 'A completely unrelated question?'
+		});
+
+		const conversations = await listKeptConversations(db, { universeId: u.id, keptBy: keeper });
+		expect(conversations).toHaveLength(2);
+
+		const grouped = conversations.find((c) => c.conversationId === conversationId);
+		expect(grouped).toBeDefined();
+		// Oldest first: the order the conversation actually happened in.
+		expect(grouped!.turns.map((t) => t.question)).toEqual([
+			'Who holds the Ashen Ledger to account?',
+			'And who does he answer to now?'
+		]);
+
+		const solo = conversations.find((c) => c.conversationId !== conversationId);
+		expect(solo).toBeDefined();
+		expect(solo!.turns).toHaveLength(1);
+		expect(solo!.turns[0]!.question).toBe('A completely unrelated question?');
+	});
+
+	// The new capability the issue actually asks for: discarding a conversation discards
+	// every turn it holds and every source those turns cited, and leaves an unrelated
+	// conversation untouched.
+	it('deletes every turn and its sources when a conversation is deleted, leaving another alone', async () => {
+		const { u, cited, keeper } = await fixture();
+		const conversationId = crypto.randomUUID();
+		const first = await keepAnswer(db, { ...input(u, keeper, cited.id), conversationId });
+		const second = await keepAnswer(db, {
+			...input(u, keeper, cited.id),
+			conversationId,
+			question: 'A second turn in the same conversation?'
+		});
+		const other = await keepAnswer(db, input(u, keeper, cited.id));
+
+		expect(
+			await deleteKeptConversation(db, { conversationId, universeId: u.id, keptBy: keeper })
+		).toBe(true);
+
+		expect(await db.select().from(keptAnswer).where(eq(keptAnswer.id, first.id))).toHaveLength(0);
+		expect(await db.select().from(keptAnswer).where(eq(keptAnswer.id, second.id))).toHaveLength(0);
+		expect(
+			await db.select().from(keptAnswerSource).where(eq(keptAnswerSource.keptAnswerId, first.id))
+		).toHaveLength(0);
+		expect(
+			await db.select().from(keptAnswerSource).where(eq(keptAnswerSource.keptAnswerId, second.id))
+		).toHaveLength(0);
+
+		// The other conversation, sharing neither id, is untouched.
+		expect(await db.select().from(keptAnswer).where(eq(keptAnswer.id, other.id))).toHaveLength(1);
+
+		expect(
+			await deleteKeptConversation(db, { conversationId, universeId: u.id, keptBy: keeper })
+		).toBe(false);
+	});
+
+	it('refuses to delete somebody else conversation', async () => {
+		const { u, cited, keeper } = await fixture();
+		const other = await insertUser(db);
+		const conversationId = crypto.randomUUID();
+		const row = await keepAnswer(db, { ...input(u, keeper, cited.id), conversationId });
+
+		expect(
+			await deleteKeptConversation(db, { conversationId, universeId: u.id, keptBy: other.id })
+		).toBe(false);
+		expect(await db.select().from(keptAnswer).where(eq(keptAnswer.id, row.id))).toHaveLength(1);
 	});
 });

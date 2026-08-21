@@ -28,6 +28,7 @@
 	import QuickAsk from '../copilot/QuickAsk.svelte';
 	import PhoneNav from './PhoneNav.svelte';
 	import Sidebar from './Sidebar.svelte';
+	import { shellLayoutState } from './shell-layout-state.svelte';
 	import type { RecentEntity, ShellQuota, UniverseSetupItem, UniverseSummary } from './types';
 
 	let { children }: { children: Snippet } = $props();
@@ -62,6 +63,15 @@
 	// 390px screen, exactly the "two navigation patterns at once" this issue rules
 	// out. Every other signed-in route gets PhoneNav; this one keeps what it has.
 	const isTableMode = $derived(page.route.id === '/w/[universe]/table');
+
+	/** Issue #438, decision T11: the total bottom-of-viewport exclusion zone `main`
+	 * reserves so nothing real ever sits under PhoneNav's bar or QuickAsk's own
+	 * launcher/panel. Both publishers self-zero when their own chrome is not currently
+	 * rendered (`shell-layout-state.svelte.ts`'s own doc comment), including in table
+	 * mode, where neither one mounts at all - so this needs no `isTableMode` check of
+	 * its own to hold E3 = C's "table mode gets no padding" rule; it holds by
+	 * construction. */
+	const dockReserve = $derived(shellLayoutState.phoneNavHeight + shellLayoutState.dockHeight);
 </script>
 
 {#if isPublicWiki || !data.user}
@@ -97,10 +107,19 @@
 					quota={data.shellQuota}
 				/>
 			{/if}
+			<!-- Issue #438, decision T11: the reserve is `padding-bottom` on the scroll
+			     container, not a trailing spacer inside it. A spacer only lengthens the
+			     scrollable content, which is enough for a page that ends in prose and not
+			     enough for a child that sizes itself to the container: the editor is a
+			     full-height column since #420, so with a spacer it still stretched under the
+			     dock and the panel sat over the textarea (measured: 59px of overlap at
+			     1440x900). Padding shrinks the content box, so a full-height child shrinks
+			     with it. Composed with the base padding rather than replacing it, because
+			     `p-4`/`md:p-8` are the page's own gutters and this is additional. -->
 			<main
 				id="main"
-				class="min-w-0 flex-1 overflow-y-auto p-4 md:p-8"
-				class:pb-20={!isTableMode && !!data.current}
+				class="min-w-0 flex-1 overflow-y-auto px-4 pt-4 pb-[calc(1rem+var(--dock-reserve,0px))] md:px-8 md:pt-8 md:pb-[calc(2rem+var(--dock-reserve,0px))]"
+				style:--dock-reserve="{dockReserve}px"
 			>
 				{@render children()}
 			</main>

@@ -331,6 +331,20 @@
 				</form>
 			</div>
 
+			<!-- Issue #437, decision T10: the settings copy check the issue names - a
+			     pointer from the corner of the product where a GM reasons about what the
+			     Loremaster does to the conversation list where the stored record actually
+			     lives (`shell.quickAsk.disclosure`, read in the panel itself before
+			     anything is asked, is the primary disclosure). -->
+			<div class="rounded-lg border border-line bg-panel p-4">
+				<p class="max-w-measure text-sm text-ink-2">{t.loremasterConversations.text}</p>
+				<a
+					href={resolve(`/w/${data.current.slug}/ask/kept`)}
+					class="mt-2 inline-block text-sm text-accent hover:underline"
+					>{t.loremasterConversations.link}</a
+				>
+			</div>
+
 			<div class="rounded-lg border border-line bg-panel p-4">
 				<div class="flex items-center justify-between gap-4">
 					<div>

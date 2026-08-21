@@ -140,9 +140,14 @@
 	<p>
 		What is not in question, regardless of that switch: your entries live in our own database under
 		your account, and any image or sound you generate or import is stored there too, not just linked
-		to. Replicate and ElevenLabs, called directly for images and sound, sit outside this gateway
-		control entirely - we do not have a stated no-training guarantee from either one yet, and this
-		page will say so plainly the day one exists rather than assume it.
+		to. So is every question you ask the Loremaster and the answer it gives: the panel and the Ask
+		page both keep a record automatically now, grouped by conversation, until you delete it - a
+		universe's own Loremaster conversations live at <code>/ask/kept</code>, with a delete control on
+		each conversation there. It is a note in our database exactly like an entry, never sent anywhere
+		but through the same gateway call that answered the question in the first place. Replicate and
+		ElevenLabs, called directly for images and sound, sit outside this gateway control entirely - we
+		do not have a stated no-training guarantee from either one yet, and this page will say so
+		plainly the day one exists rather than assume it.
 	</p>
 
 	<h2>Bring your own key</h2>

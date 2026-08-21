@@ -1,10 +1,17 @@
-// Decision O3 (docs/ux/DECISIONS.md, round ten) and issue #290. The Loremaster's composer
-// has two exits, "open in Ask" and "keep", and keep is the only one that writes. That is
-// the whole reason this file is small: a table that held every question anybody typed
-// would be a chat transcript, and what makes the dedicated page a history instead is that
-// a row exists here only because somebody chose to save it.
+// Decision O3 (docs/ux/DECISIONS.md, round ten) and issue #290 gave the Loremaster's
+// composer two exits, "open in Ask" and "keep", with keep as the only one that wrote.
+// Decision T10 (round fifteen) and issue #437 repeal that: every turn is kept
+// automatically as it completes, so a row exists here because a question was asked, not
+// because somebody chose to save it. `conversationId` is what keeps that honest as a
+// history rather than a flat pile of loose answers - every turn asked in one open panel
+// session (or one Ask-page visit that never explicitly continues another) shares one, so
+// the history groups them back into the conversation they were actually part of. It has
+// no `conversation` table of its own: nothing else in this schema needs to reference a
+// conversation by id, so a plain grouping column (defaulted to a fresh random value,
+// same as `id`, so an ungrouped caller still gets a row that groups with nothing) is the
+// whole feature, not a foreign key to a row that would exist only to be pointed at.
 //
-// Two rules the columns below enforce rather than describe:
+// Two rules the columns below still enforce rather than describe:
 //
 //  1. Guardrail 1. A kept answer is a note, never a revision. Nothing here points at
 //     `revision`, `proposal` or `entity.body`, and no query in packages/db writes canon
@@ -70,6 +77,14 @@ export const keptAnswer = pgTable(
 		// model call at all, which is a materially different disclosure.
 		provider: text('provider'),
 		modelId: text('model_id'),
+		// Issue #437, decision T10: which conversation this turn belongs to. Defaulted to a
+		// fresh random value exactly like `id` - a caller that never groups anything still
+		// gets a valid row, alone in a conversation of one, rather than a nullable column
+		// this whole schema would then have to treat as "no conversation" everywhere it
+		// reads one. Not a foreign key: nothing else ever needs to reference a conversation
+		// by row, only to group and to delete by this value, and `kept_answer_conversation_idx`
+		// below is what both of those actually run against.
+		conversationId: uuid('conversation_id').notNull().defaultRandom(),
 		// The moment of keeping, not the moment of asking. Those are seconds apart and only
 		// one of them is an event this product records.
 		keptAt: timestamp('kept_at', { withTimezone: true }).notNull().defaultNow()
@@ -78,6 +93,10 @@ export const keptAnswer = pgTable(
 		// The history query, and the only one there is: this account's kept answers in this
 		// universe, newest first.
 		index('kept_answer_universe_kept_by_idx').on(t.universeId, t.keptBy, t.keptAt),
+		// The conversation list (issue #437): every turn sharing a conversation, this
+		// account, this universe, oldest turn first within the group - and the same index
+		// serves `deleteKeptConversation`'s own where clause.
+		index('kept_answer_conversation_idx').on(t.universeId, t.keptBy, t.conversationId, t.keptAt),
 		check('kept_answer_question_present', sql`length(btrim(${t.question})) > 0`),
 		check('kept_answer_answer_present', sql`length(btrim(${t.answer})) > 0`),
 		// A path, so the history's own link cannot be turned into an off-site redirect by

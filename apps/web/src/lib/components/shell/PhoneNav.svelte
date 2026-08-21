@@ -49,6 +49,7 @@
 	import { messages, type Locale } from '$lib/i18n';
 	import { paletteState } from '$lib/components/palette/palette-state.svelte';
 	import { quickAskState } from '$lib/components/copilot/quick-ask-state.svelte';
+	import { measureDockElement, shellLayoutState } from './shell-layout-state.svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import MenuIcon from '@lucide/svelte/icons/menu';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -188,9 +189,14 @@
 </header>
 
 {#if mode === 'universe' && universeSlug}
+	<!-- Issue #438, decision T11: publishes its own rendered height (this bar's own,
+	     including its `bottom-0` offset - here that offset is always 0, so this is
+	     simply its height) so `AppShell.svelte`'s `main` can reserve space for it, the
+	     same mechanism QuickAsk's own launcher/panel already use for the same reason. -->
 	<nav
 		class="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-panel md:hidden"
 		aria-label={t.tabsAriaLabel}
+		use:measureDockElement={(h) => (shellLayoutState.phoneNavHeight = h)}
 	>
 		{#each tabs as tab (tab.id)}
 			{@const active = page.url.pathname === tab.href}

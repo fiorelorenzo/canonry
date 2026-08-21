@@ -17,6 +17,15 @@
  * "closing throws it away" contract O3 always had, just no longer triggered by a
  * navigation.
  *
+ * Issue #437, decision T10 repeals the other half of O3: every turn is kept
+ * automatically now, not only the one somebody clicked keep on, so `close()`'s own reset
+ * throws away nothing that is not already a row in `kept_answer` - `turns` here is a
+ * local, disposable view of the conversation, not its only copy. `conversationId` is what
+ * ties those rows back into the conversation they were actually asked in: fresh whenever
+ * `turns` goes back to empty (`reset()`, in `QuickAsk.svelte`, on the same schedule it
+ * always cleared `turns` on), so every turn asked between one open panel and the next
+ * shares it, and a turn asked after a close does not.
+ *
  * The rune-module pattern: the export is an object mutated in place, so every importer's
  * reads stay reactive across the module boundary.
  */
@@ -45,4 +54,8 @@ export interface QuickAskTurn {
 	keepError: string | null;
 }
 
-export const quickAskState = $state({ open: false, turns: [] as QuickAskTurn[] });
+export const quickAskState = $state({
+	open: false,
+	turns: [] as QuickAskTurn[],
+	conversationId: crypto.randomUUID()
+});

@@ -1,0 +1,2 @@
+ALTER TABLE "kept_answer" ADD COLUMN "conversation_id" uuid DEFAULT gen_random_uuid() NOT NULL;--> statement-breakpoint
+CREATE INDEX "kept_answer_conversation_idx" ON "kept_answer" USING btree ("universe_id","kept_by","conversation_id","kept_at");

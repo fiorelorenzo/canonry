@@ -246,6 +246,12 @@ export async function keepAnswer(args: {
 	detailLevel: AskDetailLevel;
 	askedFromPath: string;
 	sources: readonly AskSource[];
+	/** Issue #437, decision T10: which conversation this turn belongs to. Omitted by the
+	 * Ask route's own still-manual keep (unchanged by this issue - see that route's own
+	 * comment), which gives the record a conversation of one via the column's own
+	 * `defaultRandom()`. The docked panel always sends its own `quickAskState.conversationId`
+	 * so every turn asked in one open panel session groups back together. */
+	conversationId?: string;
 }): Promise<string> {
 	const response = await fetch(`/w/${args.universeSlug}/ask/keep`, {
 		method: 'POST',
@@ -255,7 +261,8 @@ export async function keepAnswer(args: {
 			answer: args.answer,
 			detailLevel: args.detailLevel,
 			askedFromPath: args.askedFromPath,
-			sources: keepSourcePayload(args.sources)
+			sources: keepSourcePayload(args.sources),
+			conversationId: args.conversationId
 		})
 	});
 	if (!response.ok) throw new Error(`keep failed with ${response.status}`);
