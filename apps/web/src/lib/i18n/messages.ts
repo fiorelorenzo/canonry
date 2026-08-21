@@ -2360,4 +2360,36 @@ export interface Messages {
 			title: string;
 		};
 	};
+
+	/** Issue #471: shared by both `+error.svelte` boundaries this issue adds
+	 * (`routes/+error.svelte` and `routes/w/[universe]/+error.svelte`, both mounting
+	 * `$lib/components/shell/ErrorPage.svelte`) - 404 (a mistyped or stale link) and
+	 * anything else the boundary catches (loosely "500": an unhandled exception in a
+	 * load function). Two headings, not one per status code, because guardrail 7's
+	 * honesty applies here too: the app can say "this address has nothing behind it"
+	 * without pretending to diagnose a server exception, so `serverError*` never
+	 * echoes `page.error.message` - that string is whatever `handleError` decided was
+	 * safe to expose, not necessarily translated, and this catalogue is the only
+	 * source of copy on this page.
+	 *
+	 * `worldHomeAction`/`entriesAction` show only when `page.data.universeSlug` is
+	 * set, which in practice means the *scoped* boundary caught the error (see that
+	 * component's own doc comment for why the root boundary alone never carries a
+	 * universe forward, verified against a real render rather than assumed).
+	 * `allUniversesAction` is the fallback both for a 404 with no universe in its
+	 * path at all and for one whose universe layout itself threw (an unowned or
+	 * nonexistent slug), since neither case has a world to point back into.
+	 * `searchAction` opens the same command palette every other route reaches with
+	 * mod+K (`palette-state.svelte.ts`), signed-in only. */
+	errorPage: {
+		notFoundHeading: string;
+		notFoundBody: string;
+		serverErrorHeading: string;
+		serverErrorBody: string;
+		worldHomeAction: string;
+		entriesAction: string;
+		allUniversesAction: string;
+		searchAction: string;
+		retryAction: string;
+	};
 }

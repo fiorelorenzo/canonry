@@ -2214,5 +2214,17 @@ export const it: Messages = {
 		privacy: {
 			title: 'Dove vanno le parole della tua campagna'
 		}
+	},
+	errorPage: {
+		notFoundHeading: 'Pagina non trovata',
+		notFoundBody:
+			"Non c'è nulla a questo indirizzo. Potrebbe essere stato spostato, oppure il link è sbagliato.",
+		serverErrorHeading: 'Qualcosa è andato storto',
+		serverErrorBody: 'La pagina non si è caricata. Riprova, oppure torna dove funzionava.',
+		worldHomeAction: 'Vai alla home del mondo',
+		entriesAction: 'Sfoglia le voci',
+		allUniversesAction: 'Vai ai tuoi universi',
+		searchAction: 'Cerca',
+		retryAction: 'Riprova'
 	}
 };
