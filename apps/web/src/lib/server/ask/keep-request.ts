@@ -44,9 +44,11 @@ export const keepRequestSchema = z.object({
 		.startsWith('/')
 		.refine((value) => !value.startsWith('//'), 'a path, not a protocol-relative URL'),
 	sources: z.array(keepSourceSchema).max(MAX_SOURCES).default([]),
-	/** Issue #437, decision T10: optional, because the Ask route's own still-manual keep
-	 * sends none and wants the database column's own `defaultRandom()` - a conversation of
-	 * one. The docked panel always sends one, so its turns group. */
+	/** Issue #437, decision T10, widened by issue #455, decision U11: which conversation
+	 * this turn belongs to. Every caller sends one today - the docked panel's own
+	 * `quickAskState.conversationId`, and the Ask page's own, minted the moment a fresh
+	 * conversation's first question is sent - but stays optional on the wire so the
+	 * database column's own `defaultRandom()` still has a caller to serve. */
 	conversationId: z.string().uuid().optional()
 });
 

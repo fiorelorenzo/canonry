@@ -246,11 +246,13 @@ export async function keepAnswer(args: {
 	detailLevel: AskDetailLevel;
 	askedFromPath: string;
 	sources: readonly AskSource[];
-	/** Issue #437, decision T10: which conversation this turn belongs to. Omitted by the
-	 * Ask route's own still-manual keep (unchanged by this issue - see that route's own
-	 * comment), which gives the record a conversation of one via the column's own
-	 * `defaultRandom()`. The docked panel always sends its own `quickAskState.conversationId`
-	 * so every turn asked in one open panel session groups back together. */
+	/** Issue #437, decision T10, and issue #455, decision U11: which conversation this
+	 * turn belongs to. Both callers - the docked panel's own `quickAskState.conversationId`
+	 * and the Ask page's own conversation id, minted the moment a fresh conversation's
+	 * first question is sent - always supply one now, so every turn asked in one session
+	 * groups back together. Left optional on the wire rather than required: the
+	 * `keepRequestSchema` field and the column behind it both still default to a fresh
+	 * id for whatever future caller has nothing to group against. */
 	conversationId?: string;
 }): Promise<string> {
 	const response = await fetch(`/w/${args.universeSlug}/ask/keep`, {

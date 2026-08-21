@@ -363,6 +363,7 @@ export {
 	keepAnswer,
 	listKeptAnswers,
 	listKeptConversations,
+	getKeptConversation,
 	keptAnswerById,
 	deleteKeptAnswer,
 	deleteKeptConversation,
@@ -374,6 +375,7 @@ export {
 	type KeptAnswerSourceRecord,
 	type KeptConversation,
 	type ListKeptAnswersInput,
+	type GetKeptConversationInput,
 	type KeptAnswerRefInput,
 	type DeleteKeptConversationInput
 } from './queries/kept-answers.js';

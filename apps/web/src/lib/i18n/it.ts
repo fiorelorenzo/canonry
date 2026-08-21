@@ -1674,6 +1674,7 @@ export const it: Messages = {
 			headTitle: (universeName) => `Chiedi: ${universeName}`,
 			crumb: (universeName) => `Chiedi · ${universeName}`,
 			placeholder: 'Fai una domanda su questo universo…',
+			placeholderFollowUp: 'Fai una domanda di approfondimento…',
 			ask: 'Chiedi',
 			asking: 'Sto chiedendo…',
 			askFailed: 'Richiesta non riuscita.',
@@ -1681,6 +1682,7 @@ export const it: Messages = {
 			methodNotAllowed: 'Invia una domanda con POST.',
 			noLiveModel:
 				'La generazione è disattivata per questo universo: qui si legge direttamente il tuo canone, a costo zero, invece di una risposta scritta da un modello.',
+			detailLevelLabel: 'Livello di dettaglio',
 			levels: {
 				'1_line': '1 riga',
 				short: 'Breve',
@@ -1694,8 +1696,17 @@ export const it: Messages = {
 				'La risposta è scritta da queste e da nient’altro: le voci le cui parole corrispondono alla tua domanda.',
 			sourcesEmpty:
 				'Niente da citare. Nessuna voce corrisponde alle parole di questa domanda, quindi questa risposta non si appoggia a nulla del tuo canone.',
+			deletedEntry: 'Questa voce è stata eliminata nel frattempo.',
 			close: 'Chiudi',
 			loading: 'Caricamento…',
+			disclosure:
+				'Ogni domanda qui viene risposta e conservata automaticamente, come una tua nota raggruppata in questa conversazione: non entra a fare parte di una voce senza una proposta che accetti, i giocatori non la vedono, e resta finché non elimini la conversazione. ',
+			emptyState: {
+				heading: 'Chiedi al Loremaster',
+				body: (universeName) =>
+					`Chiedi qualsiasi cosa su ${universeName}: personaggi, luoghi, eventi, storia. Una domanda di approfondimento continua questa stessa conversazione, quindi puoi scavare quanto vuoi.`,
+				tryAsking: 'Prova a chiedere:'
+			},
 			propose: {
 				badgeCreated: 'Proposta: nuova voce',
 				badgeEdited: 'Proposta: modifica',
@@ -1708,20 +1719,10 @@ export const it: Messages = {
 					`Un tentativo di proposta non è riuscito, e non è stato proposto nulla: ${message}`
 			},
 			keep: {
-				button: 'Conserva',
-				keeping: 'Sto conservando…',
-				kept: 'Conservata',
 				failed: 'Non è stato possibile conservare questa risposta.',
 				invalidRequest: 'Questa risposta non può essere conservata così come è stata inviata.',
 				sourceNotInUniverse: 'Una di queste fonti non appartiene a questo universo.',
 				methodNotAllowed: 'Invia con POST una risposta da conservare.',
-				noteBefore:
-					'Conservandola vengono salvati la domanda, la risposta e le voci che cita, come una tua nota. ',
-				noteProvider: (provider) => `${provider} ha scritto la risposta dal tuo canone.`,
-				noteNoProvider:
-					"Nessun modello l'ha scritta: la scrittura è disattivata per questo universo, quindi la risposta sono le tue stesse frasi ripetute.",
-				noteAfter:
-					' Resta una nota e non entra a fare parte di nessuna voce, i giocatori non la vedono, e resta finché non la elimini. ',
 				// The elision stays on the prefix, so the link's own text is a real word rather
 				// than something starting with an apostrophe.
 				noteLinkBefore:
@@ -1737,11 +1738,14 @@ export const it: Messages = {
 				empty:
 					'Ancora nulla. Chiedi qualcosa al Loremaster, dal pannello o da questa pagina, e comparirà qui.',
 				askLink: 'Chiedi al Loremaster',
-				askedFrom: 'Chiesta da',
-				writtenBy: (provider) => `Scritta da ${provider}`,
-				writtenWithoutModel: 'Letta dal tuo canone, senza modello',
-				sourcesLabel: 'Fonti',
-				deletedEntry: 'Questa voce è stata eliminata nel frattempo.',
+				turnCount: (count) => {
+					const n = numberFormat('it', {
+						maximumFractionDigits: 0,
+						useGrouping: 'always'
+					}).format(count);
+					const form = pluralRules('it').select(Math.round(count));
+					return form === 'one' ? `${n} scambio` : `${n} scambi`;
+				},
 				delete: 'Elimina',
 				deleteConfirmPrompt: 'Eliminare questa intera conversazione definitivamente?',
 				deleteConfirmCancel: 'Annulla',

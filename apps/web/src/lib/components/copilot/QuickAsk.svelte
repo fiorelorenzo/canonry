@@ -86,7 +86,6 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { messages, type Locale } from '$lib/i18n';
 	import { formatShortcut, matchesShortcut, SHORTCUTS } from '$lib/keys';
-	import { askHandoff } from '$lib/ask/handoff.svelte';
 	import { keepAnswer, streamAsk, type AskDetailLevel } from '$lib/ask/stream';
 	import type { UniverseSummary } from '$lib/components/shell/types';
 	import {
@@ -136,6 +135,17 @@
 	let pillEl = $state<HTMLButtonElement | null>(null);
 	let scrollAreaEl = $state<HTMLDivElement | null>(null);
 	let composerQuestion = $state('');
+
+	/** Issue #455, decision U11: `openInAsk` navigates to the URL naming this turn's own
+	 * conversation rather than handing an in-memory snapshot to the route (see that
+	 * function's own comment for why). It has to know whether the specific turn it was
+	 * asked to open is already a row before it navigates, or a fast click could land on a
+	 * conversation one turn short of what the GM was just reading - this map is what lets
+	 * it wait on that one write instead of the route racing it. Cleared in `reset()` along
+	 * with everything else a closed panel forgets. Pure async bookkeeping, never read by
+	 * the template, so it needs no reactivity of its own. */
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	const keepPromises = new Map<string, Promise<void>>();
 
 	/** The page's own entity, if this route has one: present on an entry route (and its
 	 * `/edit` subroute, which carries the same `entity`), `null` everywhere else. The same
@@ -197,6 +207,7 @@
 		quickAskState.turns = [];
 		quickAskState.conversationId = crypto.randomUUID();
 		composerQuestion = '';
+		keepPromises.clear();
 	}
 
 	function open() {
@@ -309,7 +320,7 @@
 		// (`keep()`'s own guard) against a turn with nothing to keep, exactly as the old
 		// manual button was.
 		const settled = liveTurn();
-		if (settled) void keep(settled);
+		if (settled) keepPromises.set(turnId, keep(settled));
 	}
 
 	async function keep(turn: QuickAskTurn) {
@@ -333,28 +344,21 @@
 		}
 	}
 
-	/** G5's expand in place: the answer moves onto the route, and #415 (S10, round
-	 * fourteen) closes the panel behind it - R5 keeps the panel open across every other
-	 * navigation from inside it (a source chip, an entry row), but this is the one
-	 * navigation that hands the very thing the panel was holding to the page underneath
-	 * it, which makes a second open copy redundant rather than worth keeping. `close()`
-	 * is still the only write-nothing event (R5): the conversation goes with it, which is
-	 * correct here because the route now owns this answer via `askHandoff`, a one-shot
-	 * handoff it consumes exactly once. */
+	/** Issue #455, decision U11: a URL naming the conversation, not `askHandoff`'s old
+	 * in-memory snapshot of one answer - askHandoff is gone. Two reasons: first, the issue
+	 * asks that opening a turn "lands in the conversation it belongs to rather than in a
+	 * page showing one answer", and a handoff carrying one turn's own fields could not do
+	 * that without learning to carry every other turn beside it too, which is
+	 * `kept_answer.conversation_id` and the route's own `load` already, not another copy
+	 * of the same state. Second, #446 already keeps every turn as it completes, so the row
+	 * this turn belongs to exists (or is about to) the moment a GM can click this at all -
+	 * `keepPromises` is what lets this wait on that one write rather than the route racing
+	 * it, so the loaded conversation never falls one turn short of what was open here.
+	 * `close()` remains the one navigation R5 lets end the conversation (S10): the thing
+	 * the panel held is now the page. */
 	async function openInAsk(turn: QuickAskTurn) {
-		askHandoff.put({
-			question: turn.question,
-			detailLevel: DETAIL_LEVEL,
-			answer: turn.answer,
-			sources: turn.sources,
-			followUps: turn.followUps,
-			proposals: turn.proposals,
-			proposalFailures: turn.proposalFailures,
-			generated: turn.generated,
-			provider: turn.provider,
-			keptId: turn.keptId
-		});
-		await goto(resolve(`/w/${universeSlug}/ask`));
+		await (keepPromises.get(turn.id) ?? Promise.resolve());
+		await goto(resolve(`/w/${universeSlug}/ask/${quickAskState.conversationId}`));
 		await close();
 	}
 

@@ -4,6 +4,7 @@ import {
 	closeDb,
 	deleteKeptAnswer,
 	deleteKeptConversation,
+	getKeptConversation,
 	keepAnswer,
 	keptAnswerById,
 	KeptAnswerSourceInvalidError,
@@ -327,6 +328,64 @@ describe('kept answers', () => {
 		expect(solo).toBeDefined();
 		expect(solo!.turns).toHaveLength(1);
 		expect(solo!.turns[0]!.question).toBe('A completely unrelated question?');
+	});
+
+	// Issue #455, decision U11: the read `/w/[universe]/ask/[conversationId]` needs -
+	// oldest first, the order the conversation actually happened in, with each turn's own
+	// sources resolved exactly like every other read in this module.
+	it('reads one conversation by id, oldest first, with sources', async () => {
+		const { u, cited, keeper } = await fixture();
+		const conversationId = crypto.randomUUID();
+		await keepAnswer(db, {
+			...input(u, keeper, cited.id),
+			conversationId,
+			question: 'Who holds the Ashen Ledger to account?'
+		});
+		await keepAnswer(db, {
+			...input(u, keeper, cited.id),
+			conversationId,
+			question: 'And who does he answer to now?'
+		});
+		// A different conversation, sharing neither id nor account, must not leak in.
+		await keepAnswer(db, input(u, keeper, cited.id));
+
+		const conversation = await getKeptConversation(db, {
+			conversationId,
+			universeId: u.id,
+			keptBy: keeper
+		});
+		expect(conversation).not.toBeNull();
+		expect(conversation!.conversationId).toBe(conversationId);
+		expect(conversation!.turns.map((t) => t.question)).toEqual([
+			'Who holds the Ashen Ledger to account?',
+			'And who does he answer to now?'
+		]);
+		expect(conversation!.turns[0]!.sources[0]!.entity).toEqual({
+			id: cited.id,
+			name: 'Aldric Vane',
+			slug: cited.slug,
+			type: 'character'
+		});
+	});
+
+	// Null for a wrong id and for somebody else's conversation, identically - the same
+	// "a probe cannot tell them apart" shape `keptAnswerById` already gives a single turn.
+	it('returns null for a wrong id and for somebody else conversation', async () => {
+		const { u, cited, keeper } = await fixture();
+		const other = await insertUser(db);
+		const conversationId = crypto.randomUUID();
+		await keepAnswer(db, { ...input(u, keeper, cited.id), conversationId });
+
+		expect(
+			await getKeptConversation(db, {
+				conversationId: crypto.randomUUID(),
+				universeId: u.id,
+				keptBy: keeper
+			})
+		).toBeNull();
+		expect(
+			await getKeptConversation(db, { conversationId, universeId: u.id, keptBy: other.id })
+		).toBeNull();
 	});
 
 	// The new capability the issue actually asks for: discarding a conversation discards

@@ -1,11 +1,12 @@
 /**
- * Issue #290, decision O3, repealed by issue #437, decision T10 (round fifteen): every
- * turn is kept automatically now, so a row exists here because a question was asked, not
- * because somebody pressed keep. What this route still owns is the read and the delete -
- * grouped by conversation (`listKeptConversations`), because a reader of a conversation
- * wants the conversation rather than a pile of loose answers it happened to produce, and
- * deleting one now discards a whole conversation (`deleteKeptConversation`) rather than a
- * single cherry-picked turn, which is the granularity #437 actually asks for.
+ * Issue #290, decision O3, repealed by issue #437 (T10) and reshaped again by issue #455
+ * (U11): every turn is kept automatically, so a row exists here because a question was
+ * asked, not because somebody pressed keep, and this page is the conversation index now
+ * rather than a second place a conversation renders in full - `/w/[universe]/ask/
+ * [conversationId]` is where a turn's question, answer and sources actually live. What
+ * this route still owns is the read and the delete - grouped by conversation
+ * (`listKeptConversations`), and deleting one discards a whole conversation
+ * (`deleteKeptConversation`) rather than a single cherry-picked turn.
  *
  * Deletion is still a two-step through `?confirm=<conversationId>` rather than a JS
  * dialog, so it works with scripting off: the first click is a link that renders the
@@ -31,12 +32,15 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	});
 
 	return {
-		// Dates cross to the client as strings anyway; formatted here so the list has one
-		// rendering of a timestamp rather than one per locale in a component.
+		// Issue #455: a card here needs the first question, a turn count and a timestamp -
+		// not every turn's own answer and sources, which the conversation route renders now
+		// and which SvelteKit would otherwise still serialize to the client whether this
+		// page's own template reads it or not.
 		conversations: conversations.map((conversation) => ({
 			conversationId: conversation.conversationId,
 			keptAt: conversation.keptAt.toISOString(),
-			turns: conversation.turns.map((turn) => ({ ...turn, keptAt: turn.keptAt.toISOString() }))
+			firstQuestion: conversation.turns[0]!.question,
+			turnCount: conversation.turns.length
 		})),
 		confirmingId: url.searchParams.get('confirm')
 	};

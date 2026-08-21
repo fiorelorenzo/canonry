@@ -72,10 +72,11 @@ export interface KeepAnswerInput {
 	provider?: string | null;
 	modelId?: string | null;
 	/** Issue #437, decision T10: which conversation this turn belongs to, so a multi-turn
-	 * panel session groups back into one history entry instead of `listKeptConversations`
+	 * session groups back into one history entry instead of `listKeptConversations`
 	 * seeing loose rows with nothing tying them together. Omit it and the column's own
-	 * `defaultRandom()` gives the row a conversation of one - the shape a single manually
-	 * kept Ask-page answer still wants. */
+	 * `defaultRandom()` gives the row a conversation of one - every caller in this
+	 * codebase always sends one today (issue #455), but a future one-off caller with
+	 * nothing to group against is still free to omit it. */
 	conversationId?: string;
 	/** In the order they were shown, which is retrieval order. */
 	sources: KeepAnswerSourceInput[];
@@ -289,6 +290,55 @@ export async function listKeptConversations(
 	);
 	conversations.sort((a, b) => b.keptAt.getTime() - a.keptAt.getTime());
 	return conversations.slice(0, input.limit ?? DEFAULT_CONVERSATION_LIMIT);
+}
+
+export interface GetKeptConversationInput {
+	conversationId: string;
+	universeId: string;
+	keptBy: string;
+}
+
+/** One conversation's turns, oldest first, scoped by universe and owner - the read
+ * `/w/[universe]/ask/[conversationId]` needs (issue #455, decision U11): opening a
+ * specific conversation, whether from `ask/kept`'s index or from the dock's "open in
+ * Ask", rather than the page only ever being able to show the newest one. Null for a
+ * wrong id and for somebody else's conversation, the same way `keptAnswerById` already
+ * answers those two cases identically, so a probe cannot tell them apart. */
+export async function getKeptConversation(
+	db: Db,
+	input: GetKeptConversationInput
+): Promise<KeptConversation | null> {
+	const rows = await db
+		.select()
+		.from(keptAnswer)
+		.where(
+			and(
+				eq(keptAnswer.conversationId, input.conversationId),
+				eq(keptAnswer.universeId, input.universeId),
+				eq(keptAnswer.keptBy, input.keptBy)
+			)
+		)
+		.orderBy(asc(keptAnswer.keptAt));
+	if (rows.length === 0) return null;
+
+	const sources = await sourcesFor(
+		db,
+		rows.map((row) => row.id)
+	);
+	const turns: KeptAnswerRecord[] = rows.map((row) => ({
+		id: row.id,
+		question: row.question,
+		answer: row.answer,
+		detailLevel: row.detailLevel,
+		locale: row.locale,
+		askedFromPath: row.askedFromPath,
+		provider: row.provider,
+		modelId: row.modelId,
+		conversationId: row.conversationId,
+		keptAt: row.keptAt,
+		sources: sources.get(row.id) ?? []
+	}));
+	return { conversationId: input.conversationId, keptAt: turns[turns.length - 1]!.keptAt, turns };
 }
 
 export interface DeleteKeptConversationInput {

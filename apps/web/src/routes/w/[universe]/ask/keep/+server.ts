@@ -1,6 +1,8 @@
 /**
- * Issue #290, decision O3: the "keep" exit. The only endpoint in this product that stores
- * an Ask answer, and the interface #285's floating composer calls when the GM presses keep.
+ * Issue #290, decision O3, its "the GM presses keep" half repealed by issue #437 (T10) and
+ * issue #455 (U11): the only endpoint in this product that stores an Ask answer, called
+ * automatically now, once a turn finishes streaming, by both the docked panel and the Ask
+ * page (`$lib/ask/stream.ts`'s own `keepAnswer`) - never by a click any more.
  *
  * `POST /w/<universe>/ask/keep`, JSON in, `{ id }` out. The body carries what the client
  * actually has in front of it, the question, the answer text, the detail level, the sources
