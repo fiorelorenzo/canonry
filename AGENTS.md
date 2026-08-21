@@ -91,6 +91,16 @@ That last part was wrong in this file for a day, and the way it was wrong is wor
 wrote to the dev database believing they were isolated. A convention a package ignores without
 saying so is worse than no convention, which is why the app now reads the suffix too.
 
+**And passing the suffix to those six packages is a no-op, which is fine but confusing.** A
+package whose own script reads `TEST_DB_SUFFIX=$$ vitest run` reassigns the variable inside the
+command, and an inline assignment beats an inherited one: `A=x sh -c 'A=y; echo $A'` prints
+`y`. So `TEST_DB_SUFFIX=w<issue> pnpm --filter @canonry/db test` runs under the shell's PID
+rather than under `w<issue>`, which is still a unique per-run database and therefore still
+isolated. Nothing is broken; what is broken is looking for `canonry_test_w<issue>` afterwards
+and not finding it. `npx vitest run` from inside the package honours an external suffix if you
+actually need a named database to inspect. `apps/web` is the one that needs the prefix, because
+its script does not set one.
+
 **Nothing drops the suffix database afterwards, so a janitor does.** The global setup
 drops and recreates the database it is about to use, but on purpose never drops it when
 the run ends, because a failed run's database is the debugging the suffix convention
@@ -214,7 +224,11 @@ write when you are not sure. When it happens, say so immediately rather than rev
 somebody else's uncommitted work by reflex: on 2026-08-20 #408's whole change was sitting in
 the main checkout, and the fix was one `git diff > /tmp/patch` there and one `git apply` in
 the worktree, with nothing retyped. The symptom to recognise is an edit tool reporting success
-while `git diff` in your worktree shows nothing: the write landed, in the other tree.
+while `git diff` in your worktree shows nothing: the write landed, in the other tree. And the
+mechanism is not always a hand-typed relative path: twice in round sixteen it was an agent
+copying `read`'s own abbreviated display header, `~/projects/personal/canonry-wNNN/...`, into an
+edit header, where the tilde is not expanded and the rest reads as relative. Retype the real
+absolute path rather than copying what a read printed back at you.
 The orchestrator's half of that lesson is sharper: **never `git add -A` in the main checkout
 while a wave is running.** On 2026-08-20 that swept three of #385's stray files into #399's
 commit, and the fix was a `reset --soft`, a `restore` of the four files and a force-push on a
