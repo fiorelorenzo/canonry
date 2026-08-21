@@ -194,7 +194,8 @@
 			</p>
 			<!-- Round eleven P3 (#344): this box holds what the proposal would change the
 				vocabulary to, so it is the diff's claim and it wears the diff's own tokens.
-				The words inside it that the model chose keep the copilot's hue, below. -->
+				T4 (round fifteen, #431): the words inside it that the model chose no longer
+				keep the copilot's hue - no `--color-ai` anywhere on this card. -->
 			<div class="rounded-md border border-diff-line bg-diff-bg px-3 py-2">
 				{#if vocab.kind === 'relation_type_reuse'}
 					<p class="text-ink">{t.relationVocab.reuseType(vocabLabel, vocabInverseLabel)}</p>
@@ -240,9 +241,11 @@
 					{#each vocab.relations as relation, i (i)}
 						<li class="rounded-md bg-panel-2 px-3 py-2 text-sm text-ink-2">
 							<span class="font-semibold text-ink">{relation.fromName ?? '?'}</span>
-							<!-- P3 (#344): the type name is wording the model proposed, so this one
-								stays on the copilot's hue while the box around it does not. -->
-							<span class="mx-1 text-ai">{vocabLabel}</span>
+							<!-- T4 (round fifteen, #431): the type name is wording the model proposed, but
+							it no longer wears the copilot's hue - the card already says "not accepted"
+							with its kind badge and its Accept/Reject, and a vocabulary question's own
+							diff-bg box above carries the rest of the claim. -->
+							<span class="mx-1">{vocabLabel}</span>
 							<span class="font-semibold text-ink">{relation.toName ?? '?'}</span>
 							{#if relation.evidenceViews.length > 0}
 								<EvidencePopover
@@ -259,8 +262,9 @@
 	{:else if candidate.kind === 'relation'}
 		<p class="mb-3 rounded-md border border-diff-line bg-diff-bg px-3 py-2 text-sm text-ink-2">
 			<span class="font-semibold text-ink">{candidate.targetName}</span>
-			<!-- P3 (#344): as above, the relation's own label is the model's wording. -->
-			<span class="mx-1 text-ai">{relationLabel}</span>
+			<!-- T4 (round fifteen, #431): as above, no copilot hue on the relation's own
+				label - the box's diff-bg treatment already says this is the proposal. -->
+			<span class="mx-1">{relationLabel}</span>
 			<span class="font-semibold text-ink">{candidate.relatedName}</span>
 			{#if candidate.evidenceViews.length > 0}
 				<EvidencePopover
@@ -276,16 +280,23 @@
 		     comparing is reading rather than remembering. `proseDiff` decided what a region
 		     is and what context it keeps; this only paints it.
 
-		     P3 (#344) is the constraint, and it is why there is no red and green. Two
-		     claims land on one sentence and they run on two channels: the wash and its
-		     change bar are the diff saying "this is what changed", paper's own hue one
-		     lightness step down (1.44:1 against the card in light, 1.34:1 in dark, with
-		     the bar at 4.57:1 and 4.03:1); the dashed underline is C1 saying "nobody has
-		     accepted this wording", in a hue 121 degrees away (4.84:1 on the wash in
-		     light, 5.43:1 in dark). What leaves is struck through in the diff's own line
-		     colour (3.18:1 and 3.02:1, clear of the 3:1 a non-text mark needs) and never
-		     in a hue, so a reader who cannot see either colour still has the strike, the
-		     underline and the labels below. -->
+		     T4 (round fifteen, #431) retired the second channel this used to run on: added
+		     text no longer carries C1's dashed underline in `--color-ai`, and neither does
+		     a relation label above. A proposal card already says "not accepted" with its
+		     kind badge and its Accept/Reject, so it does not need the copilot's hue too -
+		     that mark stays reserved for a pending sentence inside the entry's own body
+		     (`entryMarking.ts`), the one place nothing else on screen says so.
+
+		     The diff now reads the way every developer already reads one, entirely on P3's
+		     hue-less pair: removals struck through in `--color-diff-line` (3.18:1 against
+		     the wash and 3.02:1 in dark, clear of the 3:1 a non-text mark needs), additions
+		     bold in `--color-ink`. Bold rather than underlined, because this product's prose
+		     already underlines links and mentions, and a third underline in one paragraph
+		     was a puzzle. The wash and its change bar (`--color-diff-bg`/`--color-diff-line`)
+		     are still the one channel saying "this is what changed", at 1.44:1 against the
+		     card in light and 1.34:1 in dark, with the bar at 4.57:1 and 4.03:1 - a reader
+		     who cannot see colour at all still has the strike, the bold weight and the
+		     labels below. -->
 		<div class="mb-3 max-w-measure text-sm leading-relaxed text-ink-2">
 			{#if candidate.diff.regions > 1}
 				<!-- `text-muted` is 4.13:1 on this card at 11px, so these two labels take
@@ -314,12 +325,12 @@
 						class="mb-1.5 border-l-2 border-diff-line bg-diff-bg py-0.5 pr-2 pl-3"
 						class:font-semibold={row.heading}
 					>
-						<!-- Removal and addition are carried by lightness and by shape, so the one
-						     reader who gets neither is the one using a screen reader: this says it
-						     in words. -->
+						<!-- Removal and addition are carried by strikethrough and by weight, so the
+					     one reader who gets neither is the one using a screen reader: this says
+					     it in words. -->
 						<!-- The trailing space is an entity because a mustache holding a string
-						     literal is a lint error, and without it a screen reader runs the label
-						     into the sentence. -->
+					     literal is a lint error, and without it a screen reader runs the label
+					     into the sentence. -->
 						<span class="sr-only"
 							>{row.kind === 'removed'
 								? t.diffCard.removedLabel
@@ -332,18 +343,15 @@
 								>{row.text}</span
 							>
 						{:else if row.kind === 'added'}
-							<span
-								class="box-decoration-clone text-ink underline decoration-ai decoration-dashed decoration-2 underline-offset-4"
-								>{row.text}</span
-							>
+							<span class="font-semibold text-ink">{row.text}</span>
 						{:else}
 							<!-- The words inside a reworded sentence, in the order it reads: what
-							     leaves is struck where it stood, what arrives carries the marking,
-							     and the words that survive carry neither. -->
+						     leaves is struck where it stood, what arrives is bold, and the words
+						     that survive carry neither. -->
 							{#each row.spans as span, s (s)}
 								<!-- The space between two runs is written here rather than left to the
-								     markup: whitespace between sibling blocks does not survive into the
-								     rendered text, which is how "kept bywhoever is" happens. -->
+							     markup: whitespace between sibling blocks does not survive into the
+							     rendered text, which is how "kept bywhoever is" happens. -->
 								{#if span.kind === 'kept'}
 									<span>{s > 0 ? ' ' : ''}{span.text}</span>
 								{:else if span.kind === 'removed'}
@@ -351,10 +359,7 @@
 										>{s > 0 ? ' ' : ''}{span.text}</span
 									>
 								{:else}
-									<span
-										class="box-decoration-clone text-ink underline decoration-ai decoration-dashed decoration-2 underline-offset-4"
-										>{s > 0 ? ' ' : ''}{span.text}</span
-									>
+									<span class="font-semibold text-ink">{s > 0 ? ' ' : ''}{span.text}</span>
 								{/if}
 							{/each}
 						{/if}

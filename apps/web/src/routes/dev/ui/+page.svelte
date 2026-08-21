@@ -23,6 +23,7 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { PageHeader } from '$lib/components/ui/page-header';
 	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { KeyHint, type KeyHintPair } from '$lib/components/ui/key-hint';
 
 	const panes = [
 		{ theme: 'light', label: 'Light palette' },
@@ -77,6 +78,16 @@
 	// `disabled` boolean on an unchecked switch can't demonstrate.
 	let switchValue = $state<Record<string, boolean>>({ light: false, dark: false });
 	let switchDisabledValue = $state<Record<string, boolean>>({ light: true, dark: true });
+
+	// T5 (round fifteen, #432): one key beside one verb, the shape `ProposalQueue`,
+	// `InlineProposalReview` and `CommandPalette`'s footer all use now.
+	const keyHintSample: KeyHintPair[] = [
+		{ key: 'j', label: 'move' },
+		{ key: 'k', label: 'move' },
+		{ key: 'a', label: 'accept' },
+		{ key: 'r', label: 'reject' },
+		{ key: 'u', label: 'undo' }
+	];
 
 	// Issue #367 (Q6): the motion row below. The token list is written out rather than read
 	// from the stylesheet on purpose - this page's job is to catch a mistake, and a table
@@ -372,6 +383,14 @@
 							<Button variant="link">Open the editor</Button>
 						{/snippet}
 					</EmptyState>
+				</div>
+
+				<h3 class="mb-2 text-sm font-semibold text-ink">Key hint (T5, #432)</h3>
+				<div class="rounded border border-line bg-panel p-4">
+					<KeyHint pairs={keyHintSample} />
+					<p class="mt-2 font-mono text-xs text-muted">
+						Hidden below sm - there is no keyboard there (#148).
+					</p>
 				</div>
 
 				<!-- Issue #367 (Q6): the motion system's own row. The four tokens with the

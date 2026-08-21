@@ -994,7 +994,6 @@ export const en: Messages = {
 				pending === 1 ? '1 proposal to review' : `${pending} proposals to review`,
 			headingSettled: 'Nothing waiting here',
 			position: (index, total) => `${index} of ${total}`,
-			keys: 'move, accept, reject, undo',
 			acceptedNote: 'Accepted, and it is canon above.',
 			failed: (message) => `That decision did not go through: ${message}`,
 			awaitingDiff: (count) =>

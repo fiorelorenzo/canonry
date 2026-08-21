@@ -65,6 +65,7 @@
 	import SendIcon from '@lucide/svelte/icons/send';
 	import * as Command from '$lib/components/ui/command';
 	import { Badge } from '$lib/components/ui/badge';
+	import { KeyHint, type KeyHintPair } from '$lib/components/ui/key-hint';
 	import * as InputGroup from '$lib/components/ui/input-group';
 	import { messages, type Locale } from '$lib/i18n';
 	import { matchesShortcut, SHORTCUTS } from '$lib/keys';
@@ -107,6 +108,14 @@
 
 	const t = $derived(messages(locale).shell.palette);
 	const docked = $derived(placement === 'docked');
+
+	// T5 (round fifteen), issue #432: the dialog footer's own three pairs, in the shared
+	// `KeyHint` shape rather than plain text with no `kbd` at all.
+	const footerPairs = $derived<KeyHintPair[]>([
+		{ key: '\u2191\u2193', label: t.footerMove },
+		{ key: '\u21b5', label: t.footerOpen },
+		{ key: 'Esc', label: t.footerClose }
+	]);
 
 	// Non-null: this id is an entry the shortcut vocabulary in keys.ts carries - see that
 	// file's SHORTCUTS table.
@@ -375,10 +384,9 @@
 		<Command.List>
 			{@render results()}
 		</Command.List>
-		<div class="flex gap-3 border-t border-line bg-panel-2 px-3 py-1.5 text-xs text-muted">
-			<span>↑↓ {t.footerMove}</span>
-			<span>↵ {t.footerOpen}</span>
-			<span>Esc {t.footerClose}</span>
-		</div>
+		<!-- T5 (round fifteen), issue #432: the shared `KeyHint` shape, and its own
+		     hidden-below-`sm` default now applies here too - a phone reached this
+		     dialog through `PhoneNav`'s search icon and has no arrow keys either. -->
+		<KeyHint pairs={footerPairs} class="border-t border-line bg-panel-2 px-3 py-1.5" />
 	</Command.Dialog>
 {/if}

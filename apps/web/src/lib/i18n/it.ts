@@ -1027,7 +1027,6 @@ export const it: Messages = {
 				pending === 1 ? '1 proposta da rivedere' : `${pending} proposte da rivedere`,
 			headingSettled: 'Nessuna proposta in attesa qui',
 			position: (index, total) => `${index} di ${total}`,
-			keys: 'muovi, accetta, rifiuta, annulla',
 			acceptedNote: 'Accettata: ora è nel canone qui sopra.',
 			failed: (message) => `Non è stato possibile registrare la decisione: ${message}`,
 			awaitingDiff: (count) =>
