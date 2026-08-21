@@ -13,6 +13,7 @@
 	 */
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { PageHeader } from '$lib/components/ui/page-header';
 	import { dateFormat, messages } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Badge } from '$lib/components/ui/badge';
@@ -48,7 +49,13 @@
 	}
 </script>
 
-<div class="flex min-w-0">
+<PageHeader title={data.node.title} />
+
+<!-- V1 = B (#494): `max-w-working` applied directly on this row rather than through
+     the shared `PageBody` wrapper - this row sits inside `[work]/+layout.svelte`'s own
+     tree pane already, and the "Uses" aside beside it is a fixed-width secondary panel
+     the same way the tree is, not body content the width system should cap. -->
+<div class="max-w-working mx-auto flex w-full min-w-0">
 	<article class="min-w-0 flex-1 px-6 py-8">
 		<p class="mb-3 text-xs text-muted">
 			<a class="hover:underline" href={resolve(`/w/${data.current.slug}/works/${data.work.slug}`)}

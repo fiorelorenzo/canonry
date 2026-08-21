@@ -19,7 +19,7 @@
 	import Mark from '$lib/components/brand/Mark.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { PageHeader } from '$lib/components/ui/page-header';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import { messages } from '$lib/i18n';
 	import type { PageData } from './$types';
 
@@ -62,13 +62,13 @@
 		</main>
 	</div>
 {:else}
-	<div class="flex flex-col gap-6">
-		<PageHeader title={t.universe.list.heading}>
-			{#snippet actions()}
-				<Button href={resolve('/onboarding')}>{t.universe.list.newUniverse}</Button>
-			{/snippet}
-		</PageHeader>
+	<PageHeader title={t.universe.list.heading}>
+		{#snippet actions()}
+			<Button href={resolve('/onboarding')}>{t.universe.list.newUniverse}</Button>
+		{/snippet}
+	</PageHeader>
 
+	<PageBody width="wide">
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each data.universes as universe (universe.id)}
 				<a
@@ -88,5 +88,5 @@
 				</a>
 			{/each}
 		</div>
-	</div>
+	</PageBody>
 {/if}

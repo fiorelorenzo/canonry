@@ -1,4 +1,11 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import type { Snippet } from 'svelte';
+	import { messages, type Locale } from '$lib/i18n';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import SettingsNav from '$lib/components/account/SettingsNav.svelte';
+	import SettingsShell from '$lib/components/settings/SettingsShell.svelte';
+
 	/**
 	 * Issue #143 (I6 = B): the settings page's shared frame - a left sub-nav plus the
 	 * six leaves as panes, replacing "five islands, no index" (docs/ux/product-pass.
@@ -21,20 +28,41 @@
 	 * the same conditional #474 used for the dev galleries, so there is always exactly
 	 * one. It sits here rather than in `SettingsShell` because a universe's settings
 	 * page uses that component too and is behind a real guard, so it never needs this.
+	 * It carries no class of its own, so it changes no offset: the band below is still
+	 * the first thing rendered and still lands where every other route's does.
+	 *
+	 * Round seventeen (V1 = B, #494): every route opens with one `PageHeader` band
+	 * whose h1 must land at the same pixel offset everywhere - which only holds if
+	 * nothing *positions* the band. A leaf nested inside `SettingsShell`'s rail+content
+	 * flex row cannot supply that band itself: rendered inside the row, its h1 would sit
+	 * shifted right by the rail's width, and SvelteKit gives a layout no way to
+	 * receive a snippet from its own page beyond `children`. So the header lives
+	 * here, above `SettingsShell`, keyed off the stable per-leaf `page.route.id`
+	 * rather than six leaves each supplying a duplicate header of their own.
 	 */
-	import type { Snippet } from 'svelte';
-	import { page } from '$app/state';
-	import SettingsNav from '$lib/components/account/SettingsNav.svelte';
-	import SettingsShell from '$lib/components/settings/SettingsShell.svelte';
-
 	let { children }: { children: Snippet } = $props();
+
+	const data = $derived(page.data as { locale: Locale });
+	const t = $derived(messages(data.locale).settings);
+	const HEADERS = $derived<Record<string, { title: string; description?: string }>>({
+		'/settings/account': { title: t.account.title, description: t.account.description },
+		'/settings/appearance': { title: t.appearance.title, description: t.appearance.description },
+		'/settings/billing': { title: t.billing.title, description: t.billing.description },
+		'/settings/export': { title: t.export.title },
+		'/settings/keys': { title: t.keys.title },
+		'/settings/language': { title: t.language.title, description: t.language.description }
+	});
+	const header = $derived(HEADERS[page.route.id ?? ''] ?? { title: '' });
 </script>
 
 <svelte:element this={page.data.user ? 'div' : 'main'} id={page.data.user ? undefined : 'main'}>
-	<SettingsShell>
-		{#snippet rail()}
-			<SettingsNav />
-		{/snippet}
-		{@render children()}
-	</SettingsShell>
+	<PageHeader title={header.title} description={header.description} />
+	<PageBody width="working">
+		<SettingsShell>
+			{#snippet rail()}
+				<SettingsNav />
+			{/snippet}
+			{@render children()}
+		</SettingsShell>
+	</PageBody>
 </svelte:element>

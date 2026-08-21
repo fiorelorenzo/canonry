@@ -48,7 +48,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import { NativeFallback } from '$lib/components/ui/native-fallback';
-	import { PageHeader } from '$lib/components/ui/page-header';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import SettingsShell from '$lib/components/settings/SettingsShell.svelte';
 	import UniverseSettingsRail from '$lib/components/settings/UniverseSettingsRail.svelte';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -198,16 +198,16 @@
 
 <svelte:head><title>{t.headTitle(data.current.name)}</title></svelte:head>
 
-<SettingsShell>
-	{#snippet rail()}
-		<UniverseSettingsRail
-			ariaLabel={t.rail.ariaLabel}
-			incompleteMark={t.rail.incompleteMark}
-			items={railItems}
-		/>
-	{/snippet}
-
-	<PageHeader title={t.heading} />
+<PageHeader title={t.heading} />
+<PageBody width="working">
+	<SettingsShell>
+		{#snippet rail()}
+			<UniverseSettingsRail
+				ariaLabel={t.rail.ariaLabel}
+				incompleteMark={t.rail.incompleteMark}
+				items={railItems}
+			/>
+		{/snippet}
 	<p class="mt-4 max-w-measure text-sm text-ink-2">
 		{t.introBefore(data.current.name)}<a
 			class="text-accent hover:underline"
@@ -735,3 +735,4 @@
 		</div>
 	</section>
 </SettingsShell>
+</PageBody>

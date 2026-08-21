@@ -13,6 +13,7 @@
 	import { renderOutcomeNote } from '$lib/import/outcome-note';
 	import LiveProposalFeed from '$lib/components/onboarding/LiveProposalFeed.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { PageBody, PageHeader } from '$lib/components/ui/page-header';
 	import type { ProposalSummary } from '$lib/components/onboarding/proposalView';
 	import type { PageProps } from './$types';
 
@@ -117,50 +118,51 @@
 	<title>{t.job.headTitle(data.universe.name)}</title>
 </svelte:head>
 
-<div class="mx-auto flex max-w-measure flex-col gap-6 px-8 py-16">
-	<p class="text-xs tracking-wide text-muted uppercase">{data.universe.name}</p>
+<PageHeader
+	eyebrow={data.universe.name}
+	title={acceptedProposal && elapsedToAcceptSeconds !== null
+		? t.job.firstAcceptHeading
+		: (terminalHeading ?? t.job.headingRunning)}
+/>
+<PageBody width="working">
+	<div class="flex flex-col gap-6 px-8 py-16">
+		{#if form && 'error' in form && form.error}
+			<p class="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.error}</p>
+		{/if}
 
-	{#if form && 'error' in form && form.error}
-		<p class="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.error}</p>
-	{/if}
+		{#if acceptedProposal && elapsedToAcceptSeconds !== null}
+			<div class="rounded-lg border border-accent bg-accent-bg p-5">
+				<p class="text-sm text-ink">
+					{t.job.firstAcceptMessage(elapsedToAcceptSeconds)}
+				</p>
+			</div>
+		{/if}
 
-	{#if acceptedProposal && elapsedToAcceptSeconds !== null}
-		<div class="rounded-lg border border-accent bg-accent-bg p-5">
-			<h1 class="text-lg font-semibold text-accent-ink">{t.job.firstAcceptHeading}</h1>
-			<p class="mt-1 text-sm text-ink">
-				{t.job.firstAcceptMessage(elapsedToAcceptSeconds)}
+		<div class="rounded-lg border border-line bg-panel p-4">
+			<p class="text-sm text-ink">
+				{t.job.statusLine(job.proposalsEmitted, job.documentCount, t.job.statusWord[job.status])}
 			</p>
+			{#if renderedOutcomeNote}
+				<p class="mt-1 text-sm text-muted">{renderedOutcomeNote}</p>
+			{/if}
 		</div>
-	{:else}
-		<h1 class="text-2xl font-semibold text-ink">
-			{terminalHeading ?? t.job.headingRunning}
-		</h1>
-	{/if}
 
-	<div class="rounded-lg border border-line bg-panel p-4">
-		<p class="text-sm text-ink">
-			{t.job.statusLine(job.proposalsEmitted, job.documentCount, t.job.statusWord[job.status])}
-		</p>
-		{#if renderedOutcomeNote}
-			<p class="mt-1 text-sm text-muted">{renderedOutcomeNote}</p>
+		<LiveProposalFeed {proposals} locale={data.locale} />
+
+		{#if pendingCount > 0}
+			<Button
+				href={resolve(`/w/${data.universe.slug}/import/${job.id}/review`)}
+				variant="secondary"
+				class="self-start"
+			>
+				{t.job.reviewNow(pendingCount)}
+			</Button>
+		{/if}
+
+		{#if isTerminal}
+			<Button href={resolve(`/w/${data.universe.slug}`)} variant="link">
+				{t.job.goToUniverse(data.universe.name)}
+			</Button>
 		{/if}
 	</div>
-
-	<LiveProposalFeed {proposals} locale={data.locale} />
-
-	{#if pendingCount > 0}
-		<Button
-			href={resolve(`/w/${data.universe.slug}/import/${job.id}/review`)}
-			variant="secondary"
-			class="self-start"
-		>
-			{t.job.reviewNow(pendingCount)}
-		</Button>
-	{/if}
-
-	{#if isTerminal}
-		<Button href={resolve(`/w/${data.universe.slug}`)} variant="link">
-			{t.job.goToUniverse(data.universe.name)}
-		</Button>
-	{/if}
-</div>
+</PageBody>

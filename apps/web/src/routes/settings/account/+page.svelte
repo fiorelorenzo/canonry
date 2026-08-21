@@ -29,7 +29,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { PageHeader } from '$lib/components/ui/page-header';
 	import { messages } from '$lib/i18n';
 	import type { ActionData, PageData } from './$types';
 
@@ -68,8 +67,6 @@
 <svelte:head>
 	<title>{t.title}: Canonry</title>
 </svelte:head>
-
-<PageHeader title={t.title} description={t.description} />
 
 {#if !data.user}
 	<p class="mt-6 text-sm text-ink-2">

@@ -18,6 +18,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import { Button } from '$lib/components/ui/button';
 	import type { PageData, ActionData } from './$types';
 
@@ -38,84 +39,86 @@
 	<title>{tk.headTitle(data.current.name)}</title>
 </svelte:head>
 
-<div class="mx-auto max-w-3xl px-8 py-8">
-	<p class="crumb text-xs tracking-wide text-muted uppercase">{tk.crumb(data.current.name)}</p>
-	<h1 class="mt-1 text-2xl text-ink">{tk.heading}</h1>
-
-	<!-- Guardrail 5 in its F3 = C shape, standing on the surface that holds the content:
+<PageHeader eyebrow={tk.crumb(data.current.name)} title={tk.heading} />
+<PageBody width="working">
+	<div class="px-8 py-8">
+		<!-- Guardrail 5 in its F3 = C shape, standing on the surface that holds the content:
 	     what this is, that it never becomes canon on its own, that players never see it,
 	     that only the GM removes it, and a link to the page naming every provider. -->
-	<div class="mt-4 max-w-measure rounded-lg border border-line-2 bg-panel-2 p-4 text-sm text-ink-2">
-		<p class="mt-0 mb-0">{tk.note}</p>
-		<p class="mt-2 mb-0">
-			{t.keep.noteLinkBefore}<a href={resolve('/privacy')} class="text-accent hover:underline"
-				>{t.keep.noteLink}</a
-			>.
-		</p>
-	</div>
-
-	<p class="mt-4">
-		<a href={resolve(`/w/${data.universeSlug}/ask`)} class="text-sm text-accent hover:underline"
-			>{tk.askLink}</a
+		<div
+			class="mt-4 max-w-measure rounded-lg border border-line-2 bg-panel-2 p-4 text-sm text-ink-2"
 		>
-	</p>
-
-	{#if form?.message}
-		<p class="mt-4 rounded-md border border-danger-bg bg-danger-bg px-3 py-2 text-sm text-danger">
-			{form.message}
-		</p>
-	{/if}
-
-	{#if data.conversations.length === 0}
-		<p class="mt-8 max-w-measure text-sm text-ink-2">{tk.empty}</p>
-	{:else}
-		<div class="mt-8 flex flex-col gap-3">
-			{#each data.conversations as conversation (conversation.conversationId)}
-				<article
-					class="flex items-start justify-between gap-4 rounded-lg border border-line bg-panel p-4"
-				>
-					<div class="min-w-0 flex-1">
-						<a
-							href={resolve(`/w/${data.universeSlug}/ask/${conversation.conversationId}`)}
-							class="text-base text-ink hover:underline"
-						>
-							{conversation.firstQuestion}
-						</a>
-						<p class="mt-1 flex flex-wrap gap-x-2 text-xs text-muted">
-							<span>{tk.turnCount(conversation.turnCount)}</span>
-							<span>· {keptAtLabel(conversation.keptAt)}</span>
-						</p>
-					</div>
-
-					<div class="shrink-0">
-						{#if data.confirmingId === conversation.conversationId}
-							<form
-								method="POST"
-								action="?/deleteConversation"
-								use:enhance
-								class="flex items-center gap-2"
-							>
-								<input type="hidden" name="conversationId" value={conversation.conversationId} />
-								<span class="text-xs text-ink-2">{tk.deleteConfirmPrompt}</span>
-								<Button type="submit" variant="destructive" size="sm">{tk.delete}</Button>
-								<a
-									href={resolve(`/w/${data.universeSlug}/ask/kept`)}
-									class="text-xs text-ink-2 hover:underline">{tk.deleteConfirmCancel}</a
-								>
-							</form>
-						{:else}
-							<!-- A link, not a button, so deleting still works with scripting off: this
-							     step only reveals the confirm pair, it changes nothing. -->
-							<a
-								href="{resolve(
-									`/w/${data.universeSlug}/ask/kept`
-								)}?confirm={conversation.conversationId}"
-								class="text-xs text-danger hover:underline">{tk.delete}</a
-							>
-						{/if}
-					</div>
-				</article>
-			{/each}
+			<p class="mt-0 mb-0">{tk.note}</p>
+			<p class="mt-2 mb-0">
+				{t.keep.noteLinkBefore}<a href={resolve('/privacy')} class="text-accent hover:underline"
+					>{t.keep.noteLink}</a
+				>.
+			</p>
 		</div>
-	{/if}
-</div>
+
+		<p class="mt-4">
+			<a href={resolve(`/w/${data.universeSlug}/ask`)} class="text-sm text-accent hover:underline"
+				>{tk.askLink}</a
+			>
+		</p>
+
+		{#if form?.message}
+			<p class="mt-4 rounded-md border border-danger-bg bg-danger-bg px-3 py-2 text-sm text-danger">
+				{form.message}
+			</p>
+		{/if}
+
+		{#if data.conversations.length === 0}
+			<p class="mt-8 max-w-measure text-sm text-ink-2">{tk.empty}</p>
+		{:else}
+			<div class="mt-8 flex flex-col gap-3">
+				{#each data.conversations as conversation (conversation.conversationId)}
+					<article
+						class="flex items-start justify-between gap-4 rounded-lg border border-line bg-panel p-4"
+					>
+						<div class="min-w-0 flex-1">
+							<a
+								href={resolve(`/w/${data.universeSlug}/ask/${conversation.conversationId}`)}
+								class="text-base text-ink hover:underline"
+							>
+								{conversation.firstQuestion}
+							</a>
+							<p class="mt-1 flex flex-wrap gap-x-2 text-xs text-muted">
+								<span>{tk.turnCount(conversation.turnCount)}</span>
+								<span>· {keptAtLabel(conversation.keptAt)}</span>
+							</p>
+						</div>
+
+						<div class="shrink-0">
+							{#if data.confirmingId === conversation.conversationId}
+								<form
+									method="POST"
+									action="?/deleteConversation"
+									use:enhance
+									class="flex items-center gap-2"
+								>
+									<input type="hidden" name="conversationId" value={conversation.conversationId} />
+									<span class="text-xs text-ink-2">{tk.deleteConfirmPrompt}</span>
+									<Button type="submit" variant="destructive" size="sm">{tk.delete}</Button>
+									<a
+										href={resolve(`/w/${data.universeSlug}/ask/kept`)}
+										class="text-xs text-ink-2 hover:underline">{tk.deleteConfirmCancel}</a
+									>
+								</form>
+							{:else}
+								<!-- A link, not a button, so deleting still works with scripting off: this
+							     step only reveals the confirm pair, it changes nothing. -->
+								<a
+									href="{resolve(
+										`/w/${data.universeSlug}/ask/kept`
+									)}?confirm={conversation.conversationId}"
+									class="text-xs text-danger hover:underline">{tk.delete}</a
+								>
+							{/if}
+						</div>
+					</article>
+				{/each}
+			</div>
+		{/if}
+	</div>
+</PageBody>

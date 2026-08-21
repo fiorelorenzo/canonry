@@ -14,7 +14,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { PageHeader } from '$lib/components/ui/page-header';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -35,8 +35,9 @@
 	<title>{t.headTitle}</title>
 </svelte:head>
 
-<div class="flex flex-col gap-6">
-	<PageHeader title={t.heading} description={t.description} />
+<PageHeader title={t.heading} description={t.description} />
+<PageBody width="working">
+	<div class="flex flex-col gap-6">
 
 	{#if form?.error}
 		<p class="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.error}</p>
@@ -118,4 +119,5 @@
 			</div>
 		</div>
 	</form>
-</div>
+	</div>
+</PageBody>

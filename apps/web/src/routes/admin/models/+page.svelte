@@ -5,7 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { PageHeader } from '$lib/components/ui/page-header';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import ProviderSelect from '$lib/components/admin/ProviderSelect.svelte';
 	import CurrencySelect from '$lib/components/admin/CurrencySelect.svelte';
 	import { COVER_ASPECT_RATIOS } from '$lib/components/media/cover-crop';
@@ -60,8 +60,9 @@
 	<title>{t.models.browserTitle}</title>
 </svelte:head>
 
-<div class="mx-auto max-w-4xl px-8 py-10">
-	<PageHeader title={t.models.textHeading} />
+<PageHeader title={t.models.textHeading} />
+<PageBody width="wide">
+	<div class="px-8 py-10">
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 	<p class="mt-6 max-w-measure text-sm text-ink-2">{@html t.models.textIntro1}</p>
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
@@ -171,7 +172,7 @@
 		</table>
 	</div>
 
-	<h1 class="mt-12 text-2xl font-semibold text-ink">{t.models.imageHeading}</h1>
+	<h2 class="mt-12 text-2xl font-semibold text-ink">{t.models.imageHeading}</h2>
 	<p class="mt-2 max-w-measure text-sm text-ink-2">{t.models.imageIntro1}</p>
 	<p class="mt-2 max-w-measure text-sm text-ink-2">
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
@@ -305,4 +306,5 @@
 			</tbody>
 		</table>
 	</div>
-</div>
+	</div>
+</PageBody>

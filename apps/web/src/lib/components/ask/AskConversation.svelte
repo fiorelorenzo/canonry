@@ -34,6 +34,7 @@
 	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { messages, type Locale } from '$lib/i18n';
+	import { PageHeader } from '$lib/components/ui/page-header';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import AiMarkedParagraph from '$lib/components/ai/AiMarkedParagraph.svelte';
@@ -290,307 +291,308 @@
      now. A viewport-relative `h-screen` here would ignore that reservation entirely and
      pin the composer below it, under the dock - measured before this fix, at 1440x900,
      with the panel closed. -->
-<div class="flex h-full">
-	<div
-		class="flex flex-1 flex-col overflow-hidden"
-		class:max-w-2xl={panelEntry !== null || panelLoading}
-	>
-		<div class="shrink-0 border-b border-line-2 bg-panel px-8 py-4">
-			<div class="flex items-baseline justify-between gap-4">
-				<!-- Issue #473: the crumb used to carry the `h1` tag itself, at the smallest
-				     size on the page (12px), so the document outline's "biggest heading here"
-				     disagreed with what the page actually looked like. This page still has no
-				     room for a second, visible, purely decorative heading beside a message
-				     list (the reasoning that put the tag on the crumb in the first place), so
-				     the real heading is `sr-only` instead: a screen reader gets the same page
-				     title, announced as a heading, while the sighted layout is untouched -
-				     `.crumb` goes back to being a plain, unsized `<p>`, matching every other
-				     `.crumb` in this app (`ask/kept/+page.svelte`'s own pattern). -->
-				<h1 class="sr-only">{t.crumb(universeName)}</h1>
-				<p class="crumb text-xs font-normal tracking-wide text-muted uppercase">
-					{t.crumb(universeName)}
-				</p>
-				<a href={resolve(`/w/${universeSlug}/ask/kept`)} class="text-xs text-accent hover:underline"
-					>{t.keep.historyLink}</a
-				>
-			</div>
-			<!-- Guardrail 5, said once here where it can be read before anything is asked
-			     (T10's own placement for the docked panel) - no per-answer card. -->
-			<p class="mt-2 max-w-measure text-xs text-ink-2">
-				{t.disclosure}{t.keep.noteLinkBefore}<a
-					href={resolve('/privacy')}
-					class="text-accent hover:underline">{t.keep.noteLink}</a
-				>.
-			</p>
-		</div>
+<!-- V1 = B (#494): `flex h-full flex-col` here rather than the shared `PageBody`
+     wrapper - this component's composer is pinned to the bottom and the turns list
+     scrolls independently inside a fixed-height column, which needs an unbroken
+     `h-full` chain from `main` down to the scroll area. Width is "wide" already, by
+     omission: nothing here ever carried an `mx-auto max-w-*`, so there is nothing to
+     replace. -->
+<div class="flex h-full flex-col">
+	<PageHeader title={t.crumb(universeName)}>
+		{#snippet actions()}
+			<a href={resolve(`/w/${universeSlug}/ask/kept`)} class="text-xs text-accent hover:underline">
+				{t.keep.historyLink}
+			</a>
+		{/snippet}
+	</PageHeader>
+	<!-- Guardrail 5, said once here where it can be read before anything is asked
+	     (T10's own placement for the docked panel) - no per-answer card. -->
+	<p class="max-w-measure shrink-0 px-8 pb-4 text-xs text-ink-2">
+		{t.disclosure}{t.keep.noteLinkBefore}<a
+			href={resolve('/privacy')}
+			class="text-accent hover:underline">{t.keep.noteLink}</a
+		>.
+	</p>
 
-		<div bind:this={scrollAreaEl} class="flex-1 overflow-y-auto px-8 py-6">
-			{#if turns.length === 0}
-				<div class="mx-auto max-w-measure">
-					<h2 class="text-lg text-ink">{t.emptyState.heading}</h2>
-					<p class="mt-1 max-w-measure text-sm text-ink-2">{t.emptyState.body(universeName)}</p>
-					{#if suggestions.length > 0}
-						<p class="mt-6 text-xs tracking-wide text-muted uppercase">{t.emptyState.tryAsking}</p>
-						<div class="mt-2 flex flex-wrap gap-1.5">
-							{#each suggestions as suggestion (suggestion)}
-								<button
-									type="button"
-									onclick={() => askSuggestion(suggestion)}
-									class="rounded-lg border border-line bg-panel-2 px-3 py-2 text-left text-sm text-ink-2 hover:border-accent hover:bg-accent-bg hover:text-accent-ink"
-								>
-									{suggestion}
-								</button>
-							{/each}
-						</div>
-					{/if}
-				</div>
-			{/if}
-
-			<div class="mx-auto flex max-w-measure flex-col gap-6">
-				{#each turns as turn, index (turn.id)}
-					<!-- The GM's own question, right-aligned in its own bubble - never marked,
-					     it is not AI text. -->
-					<div class="flex justify-end">
-						<div
-							class="max-w-[85%] rounded-2xl rounded-br-sm bg-accent-bg px-4 py-2.5 text-sm text-accent-ink"
-						>
-							{turn.question}
-						</div>
+	<div class="flex flex-1 overflow-hidden">
+		<div
+			class="flex flex-1 flex-col overflow-hidden"
+			class:max-w-2xl={panelEntry !== null || panelLoading}
+		>
+			<div bind:this={scrollAreaEl} class="flex-1 overflow-y-auto px-8 py-6">
+				{#if turns.length === 0}
+					<div class="mx-auto max-w-measure">
+						<h2 class="text-lg text-ink">{t.emptyState.heading}</h2>
+						<p class="mt-1 max-w-measure text-sm text-ink-2">{t.emptyState.body(universeName)}</p>
+						{#if suggestions.length > 0}
+							<p class="mt-6 text-xs tracking-wide text-muted uppercase">
+								{t.emptyState.tryAsking}
+							</p>
+							<div class="mt-2 flex flex-wrap gap-1.5">
+								{#each suggestions as suggestion (suggestion)}
+									<button
+										type="button"
+										onclick={() => askSuggestion(suggestion)}
+										class="rounded-lg border border-line bg-panel-2 px-3 py-2 text-left text-sm text-ink-2 hover:border-accent hover:bg-accent-bg hover:text-accent-ink"
+									>
+										{suggestion}
+									</button>
+								{/each}
+							</div>
+						{/if}
 					</div>
+				{/if}
 
-					<div>
-						{#if turn.askError}
-							<p
-								class="rounded-md border border-danger-bg bg-danger-bg px-3 py-2 text-sm text-danger"
+				<div class="mx-auto flex max-w-measure flex-col gap-6">
+					{#each turns as turn, index (turn.id)}
+						<!-- The GM's own question, right-aligned in its own bubble - never marked,
+					     it is not AI text. -->
+						<div class="flex justify-end">
+							<div
+								class="max-w-[85%] rounded-2xl rounded-br-sm bg-accent-bg px-4 py-2.5 text-sm text-accent-ink"
 							>
-								{turn.askError}
-							</p>
-						{/if}
+								{turn.question}
+							</div>
+						</div>
 
-						{#if turn.generated === false}
-							<p
-								class="mt-2 rounded-md border border-warn-bg bg-warn-bg px-3 py-2 text-xs text-warn"
-							>
-								{t.noLiveModel}
-							</p>
-						{/if}
+						<div>
+							{#if turn.askError}
+								<p
+									class="rounded-md border border-danger-bg bg-danger-bg px-3 py-2 text-sm text-danger"
+								>
+									{turn.askError}
+								</p>
+							{/if}
 
-						{#if turn.answer.length > 0 || turn.asking}
-							<!-- Guardrail 2 (S9): plain prose, no C1 mark - an Ask answer is not
+							{#if turn.generated === false}
+								<p
+									class="mt-2 rounded-md border border-warn-bg bg-warn-bg px-3 py-2 text-xs text-warn"
+								>
+									{t.noLiveModel}
+								</p>
+							{/if}
+
+							{#if turn.answer.length > 0 || turn.asking}
+								<!-- Guardrail 2 (S9): plain prose, no C1 mark - an Ask answer is not
 							     proposed canon. `aria-busy` rather than `aria-live`: token-by-token
 							     text would otherwise announce every mutation as its own
 							     interruption. -->
-							<div aria-busy={turn.asking}>
-								<p class="max-w-measure text-sm leading-relaxed text-ink">
-									{turn.answer}{#if turn.asking}<span
-											aria-hidden="true"
-											class="ask-cursor ml-0.5 inline-block h-4 w-0.5 align-middle"
-										></span>{/if}
-								</p>
-							</div>
-						{/if}
+								<div aria-busy={turn.asking}>
+									<p class="max-w-measure text-sm leading-relaxed text-ink">
+										{turn.answer}{#if turn.asking}<span
+												aria-hidden="true"
+												class="ask-cursor ml-0.5 inline-block h-4 w-0.5 align-middle"
+											></span>{/if}
+									</p>
+								</div>
+							{/if}
 
-						{#if turn.proposals.length > 0 || turn.proposalFailures.length > 0}
-							<div class="mt-3 flex flex-col gap-2">
-								{#each turn.proposals as proposal (proposal.proposalId)}
-									<!-- Guardrail 2: a proposal in a turn keeps its own C1 mark, through
+							{#if turn.proposals.length > 0 || turn.proposalFailures.length > 0}
+								<div class="mt-3 flex flex-col gap-2">
+									{#each turn.proposals as proposal (proposal.proposalId)}
+										<!-- Guardrail 2: a proposal in a turn keeps its own C1 mark, through
 									     `AiMarkedParagraph` - the surrounding answer does not. -->
-									<div class="rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs">
-										<span
-											class="rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-label text-ink-2"
-										>
-											{proposal.kind === 'draft_entity'
-												? t.propose.badgeCreated
-												: t.propose.badgeEdited}
-										</span>
-										<b class="text-ink">{proposal.entityName}</b>
-										{#if proposal.redirected}
-											<p class="mt-1 text-label text-muted">
+										<div class="rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs">
+											<span
+												class="rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
+											>
 												{proposal.kind === 'draft_entity'
-													? t.propose.redirectedToCreate(proposal.entityName)
-													: t.propose.redirectedToEdit(proposal.entityName)}
-											</p>
-										{/if}
-										<div class="mt-1">
-											<AiMarkedParagraph segments={[{ text: proposal.summary, proposed: true }]} />
-										</div>
-										{#if inlineCandidates[proposal.proposalId]}
-											<div class="mt-2">
-												<InlineProposalReview
-													candidates={[inlineCandidates[proposal.proposalId]]}
-													{universeSlug}
-													{locale}
+													? t.propose.badgeCreated
+													: t.propose.badgeEdited}
+											</span>
+											<b class="text-ink">{proposal.entityName}</b>
+											{#if proposal.redirected}
+												<p class="mt-1 text-[11px] text-muted">
+													{proposal.kind === 'draft_entity'
+														? t.propose.redirectedToCreate(proposal.entityName)
+														: t.propose.redirectedToEdit(proposal.entityName)}
+												</p>
+											{/if}
+											<div class="mt-1">
+												<AiMarkedParagraph
+													segments={[{ text: proposal.summary, proposed: true }]}
 												/>
 											</div>
-										{:else if proposal.planId}
-											<a
-												href={resolve(`/w/${universeSlug}/proposals/${proposal.planId}`)}
-												class="mt-1 inline-block text-label text-ink-2 underline"
-											>
-												{t.propose.reviewLink}
-											</a>
-										{/if}
-									</div>
-								{/each}
-								{#each turn.proposalFailures as failure, i (i)}
-									<p
-										class="rounded-md border border-danger-bg bg-danger-bg px-3 py-2 text-xs text-danger"
-									>
-										{t.propose.failed(failure.message)}
-									</p>
-								{/each}
-							</div>
-						{/if}
-
-						{#if turn.sources.length > 0}
-							<!-- Guardrail 3: which entry, which sentence, never a bare confidence
-							     number. -->
-							<div class="mt-3 border-t border-line pt-2">
-								<p class="m-0 text-xs text-ink-2">{t.sourcesNote}</p>
-								<div class="mt-1.5 flex flex-wrap gap-1.5">
-									{#each turn.sources as source, i (source.kind === 'own_canon' ? (source.entity?.id ?? `deleted-${i}`) : `${source.url}-${i}`)}
-										{#if source.kind === 'own_canon'}
-											{#if source.entity}
-												<button
-													type="button"
-													class="src clickable rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-left text-xs"
-													onclick={() => openPanel(source.entity!.slug)}
-												>
-													<b class="text-ink underline decoration-dotted underline-offset-2"
-														>{source.entity.name}</b
-													>
-													<span class="text-muted"> · {t.ownCanonLabel}</span>
-													<span class="mt-0.5 block text-ink-2"
-														>"{stripMentionSyntax(source.statement)}"</span
-													>
-												</button>
-											{:else}
-												<div
-													class="src rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs"
-												>
-													<span class="text-muted">{t.deletedEntry}</span>
-													<span class="mt-0.5 block text-ink-2"
-														>"{stripMentionSyntax(source.statement)}"</span
-													>
+											{#if inlineCandidates[proposal.proposalId]}
+												<div class="mt-2">
+													<InlineProposalReview
+														candidates={[inlineCandidates[proposal.proposalId]]}
+														{universeSlug}
+														{locale}
+													/>
 												</div>
-											{/if}
-										{:else}
-											<div
-												class="src derived rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs"
-											>
-												<span
-													class="badge rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-label text-ink-2"
-													>{t.indexedBadge}</span
-												>
-												<b class="text-ink">{source.pageTitle}</b>
+											{:else if proposal.planId}
 												<a
-													href={source.url}
-													target="_blank"
-													rel="noreferrer"
-													class="text-ink-2 underline">↗</a
+													href={resolve(`/w/${universeSlug}/proposals/${proposal.planId}`)}
+													class="mt-1 inline-block text-[11px] text-ink-2 underline"
 												>
-												{#if source.attribution}
-													<span class="mt-0.5 block font-mono text-label text-muted">
-														{source.attribution}{#if source.licence}
-															· {source.licence}{/if}
-													</span>
-												{/if}
-												<span class="mt-0.5 block text-ink-2">"{source.statement}"</span>
-											</div>
-										{/if}
+													{t.propose.reviewLink}
+												</a>
+											{/if}
+										</div>
+									{/each}
+									{#each turn.proposalFailures as failure, i (i)}
+										<p
+											class="rounded-md border border-danger-bg bg-danger-bg px-3 py-2 text-xs text-danger"
+										>
+											{t.propose.failed(failure.message)}
+										</p>
 									{/each}
 								</div>
-							</div>
-						{:else if turn.sourcesSeen}
-							<p class="mt-3 border-t border-line pt-2 text-xs text-ink-2">{t.sourcesEmpty}</p>
-						{/if}
+							{/if}
 
-						<!-- Only the most recent turn's own follow-ups stay actionable - an older
+							{#if turn.sources.length > 0}
+								<!-- Guardrail 3: which entry, which sentence, never a bare confidence
+							     number. -->
+								<div class="mt-3 border-t border-line pt-2">
+									<p class="m-0 text-xs text-ink-2">{t.sourcesNote}</p>
+									<div class="mt-1.5 flex flex-wrap gap-1.5">
+										{#each turn.sources as source, i (source.kind === 'own_canon' ? (source.entity?.id ?? `deleted-${i}`) : `${source.url}-${i}`)}
+											{#if source.kind === 'own_canon'}
+												{#if source.entity}
+													<button
+														type="button"
+														class="src clickable rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-left text-xs"
+														onclick={() => openPanel(source.entity!.slug)}
+													>
+														<b class="text-ink underline decoration-dotted underline-offset-2"
+															>{source.entity.name}</b
+														>
+														<span class="text-muted"> · {t.ownCanonLabel}</span>
+														<span class="mt-0.5 block text-ink-2"
+															>"{stripMentionSyntax(source.statement)}"</span
+														>
+													</button>
+												{:else}
+													<div
+														class="src rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs"
+													>
+														<span class="text-muted">{t.deletedEntry}</span>
+														<span class="mt-0.5 block text-ink-2"
+															>"{stripMentionSyntax(source.statement)}"</span
+														>
+													</div>
+												{/if}
+											{:else}
+												<div
+													class="src derived rounded-lg border border-line bg-panel-2 px-2.5 py-2 text-xs"
+												>
+													<span
+														class="badge rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
+														>{t.indexedBadge}</span
+													>
+													<b class="text-ink">{source.pageTitle}</b>
+													<a
+														href={source.url}
+														target="_blank"
+														rel="noreferrer"
+														class="text-ink-2 underline">↗</a
+													>
+													{#if source.attribution}
+														<span class="mt-0.5 block font-mono text-[11px] text-muted">
+															{source.attribution}{#if source.licence}
+																· {source.licence}{/if}
+														</span>
+													{/if}
+													<span class="mt-0.5 block text-ink-2">"{source.statement}"</span>
+												</div>
+											{/if}
+										{/each}
+									</div>
+								</div>
+							{:else if turn.sourcesSeen}
+								<p class="mt-3 border-t border-line pt-2 text-xs text-ink-2">{t.sourcesEmpty}</p>
+							{/if}
+
+							<!-- Only the most recent turn's own follow-ups stay actionable - an older
 						     turn's suggestions read as stale once buried under later ones. Sends
 						     immediately (S8): the chip's own words are the confirmation G11 wants. -->
-						{#if index === turns.length - 1 && !turn.asking && turn.followUps.length > 0}
-							<div class="mt-3 flex flex-wrap gap-1.5">
-								{#each turn.followUps as followUp (followUp)}
-									<Button
-										type="button"
-										variant="secondary"
-										size="sm"
-										class="border-line text-xs text-ink-2"
-										onclick={() => ask(followUp)}
-									>
-										{followUp}
-									</Button>
-								{/each}
-							</div>
-						{/if}
+							{#if index === turns.length - 1 && !turn.asking && turn.followUps.length > 0}
+								<div class="mt-3 flex flex-wrap gap-1.5">
+									{#each turn.followUps as followUp (followUp)}
+										<Button
+											type="button"
+											variant="secondary"
+											size="sm"
+											class="border-line text-xs text-ink-2"
+											onclick={() => ask(followUp)}
+										>
+											{followUp}
+										</Button>
+									{/each}
+								</div>
+							{/if}
 
-						{#if turn.keepError}
-							<p class="mt-2 mb-0 text-label text-danger">{turn.keepError}</p>
-						{/if}
-					</div>
-				{/each}
+							{#if turn.keepError}
+								<p class="mt-2 mb-0 text-[11px] text-danger">{turn.keepError}</p>
+							{/if}
+						</div>
+					{/each}
+				</div>
 			</div>
-		</div>
 
-		<!-- The composer, pinned outside the scrollable turns above so it never scrolls out
+			<!-- The composer, pinned outside the scrollable turns above so it never scrolls out
 		     of reach. C8: the five detail levels stay, moved beside it. -->
-		<div class="shrink-0 border-t border-line-2 bg-panel px-8 py-4">
-			<div class="mx-auto max-w-measure">
-				<form
-					class="flex items-center gap-2 rounded-lg border border-line-2 bg-panel px-3 py-2"
-					onsubmit={(e) => {
-						e.preventDefault();
-						void ask();
-					}}
-				>
-					<Input
-						class="h-auto flex-1 border-0 bg-transparent px-0 py-0 shadow-none ring-0 focus-visible:ring-0 dark:bg-transparent"
-						placeholder={turns.length > 0 ? t.placeholderFollowUp : t.placeholder}
-						bind:value={question}
-					/>
-					<Button type="submit" size="sm" disabled={isAsking || question.trim().length === 0}>
-						{isAsking ? t.asking : t.ask}
-					</Button>
-				</form>
+			<div class="shrink-0 border-t border-line-2 bg-panel px-8 py-4">
+				<div class="mx-auto max-w-measure">
+					<form
+						class="flex items-center gap-2 rounded-lg border border-line-2 bg-panel px-3 py-2"
+						onsubmit={(e) => {
+							e.preventDefault();
+							void ask();
+						}}
+					>
+						<Input
+							class="h-auto flex-1 border-0 bg-transparent px-0 py-0 shadow-none ring-0 focus-visible:ring-0 dark:bg-transparent"
+							placeholder={turns.length > 0 ? t.placeholderFollowUp : t.placeholder}
+							bind:value={question}
+						/>
+						<Button type="submit" size="sm" disabled={isAsking || question.trim().length === 0}>
+							{isAsking ? t.asking : t.ask}
+						</Button>
+					</form>
 
-				<div class="mt-2 flex flex-wrap items-center gap-3">
-					<span id="ask-detail-level-label" class="text-xs text-ink-2">{t.detailLevelLabel}</span>
-					<div class="flex flex-wrap gap-1" role="group" aria-labelledby="ask-detail-level-label">
-						{#each LEVEL_IDS as levelId (levelId)}
-							<Button
-								type="button"
-								variant="secondary"
-								size="sm"
-								class={detailLevel === levelId
-									? 'border-line bg-accent-bg text-xs text-ink'
-									: 'border-line text-xs text-ink-2'}
-								onclick={() => (detailLevel = levelId)}
-							>
-								{t.levels[levelId]}
-							</Button>
-						{/each}
+					<div class="mt-2 flex flex-wrap items-center gap-3">
+						<span id="ask-detail-level-label" class="text-xs text-ink-2">{t.detailLevelLabel}</span>
+						<div class="flex flex-wrap gap-1" role="group" aria-labelledby="ask-detail-level-label">
+							{#each LEVEL_IDS as levelId (levelId)}
+								<Button
+									type="button"
+									variant="secondary"
+									size="sm"
+									class={detailLevel === levelId
+										? 'border-line bg-accent-bg text-xs text-ink'
+										: 'border-line text-xs text-ink-2'}
+									onclick={() => (detailLevel = levelId)}
+								>
+									{t.levels[levelId]}
+								</Button>
+							{/each}
+						</div>
 					</div>
 				</div>
 			</div>
 		</div>
-	</div>
 
-	{#if panelLoading || panelEntry}
-		<div class="w-96 flex-none overflow-y-auto border-l border-line bg-panel p-6">
-			{#if panelLoading}
-				<p class="text-sm text-muted">{t.loading}</p>
-			{:else if panelEntry}
-				<div class="flex items-start justify-between gap-2">
-					<div>
-						<p class="text-xs tracking-wide text-muted uppercase">{panelEntry.type}</p>
-						<h2 class="mt-0.5 text-lg text-ink">{panelEntry.name}</h2>
+		{#if panelLoading || panelEntry}
+			<div class="w-96 flex-none overflow-y-auto border-l border-line bg-panel p-6">
+				{#if panelLoading}
+					<p class="text-sm text-muted">{t.loading}</p>
+				{:else if panelEntry}
+					<div class="flex items-start justify-between gap-2">
+						<div>
+							<p class="text-xs tracking-wide text-muted uppercase">{panelEntry.type}</p>
+							<h2 class="mt-0.5 text-lg text-ink">{panelEntry.name}</h2>
+						</div>
+						<Button type="button" variant="ghost" size="sm" onclick={closePanel}>{t.close}</Button>
 					</div>
-					<Button type="button" variant="ghost" size="sm" onclick={closePanel}>{t.close}</Button>
-				</div>
-				<p class="mt-4 text-sm leading-relaxed whitespace-pre-wrap text-ink-2">{panelEntry.body}</p>
-			{/if}
-		</div>
-	{/if}
+					<p class="mt-4 text-sm leading-relaxed whitespace-pre-wrap text-ink-2">
+						{panelEntry.body}
+					</p>
+				{/if}
+			</div>
+		{/if}
+	</div>
 </div>
 
 <style>

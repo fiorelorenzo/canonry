@@ -4,7 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { PageHeader } from '$lib/components/ui/page-header';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -42,8 +42,9 @@
 	<title>{t.pricing.browserTitle}</title>
 </svelte:head>
 
-<div class="mx-auto max-w-4xl px-8 py-10">
-	<PageHeader title={t.pricing.title} />
+<PageHeader title={t.pricing.title} />
+<PageBody width="wide">
+	<div class="px-8 py-10">
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 	<p class="mt-6 max-w-measure text-sm text-ink-2">{@html t.pricing.intro1}</p>
 	<p class="mt-2 max-w-measure text-sm text-ink-2">
@@ -134,4 +135,5 @@
 			</div>
 		</section>
 	{/each}
-</div>
+	</div>
+</PageBody>
