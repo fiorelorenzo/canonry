@@ -13,8 +13,21 @@
 	 * `EntryProse.svelte` already renders a real one), and the relation or mention behind
 	 * it reads as provenance - small, monospace, set apart from the prose - all on tokens
 	 * that carry no hue at all.
+	 *
+	 * Round seventeen (#472): the forced-open box floated past `sm` (issue #345 only ever
+	 * fixed the phone width), landing on top of whatever it was meant to explain -
+	 * guardrail 3 asks for evidence a reader can judge, and evidence that hides the change
+	 * it backs fails that at the first read. Forced-open now takes the phone's own
+	 * treatment (`block`, full width, under the line) at every width instead of only below
+	 * `sm`, so it never has anything left to cover; the hand-opened box keeps floating,
+	 * unchanged. That box also gained what a hand-rolled disclosure needs and never had -
+	 * Escape closes it and hands focus back to the trigger, the same pattern
+	 * `UniverseSwitcher.svelte` already uses (`isDismissKey`, a `close()` that flips `open`
+	 * and refocuses) - guarded to do nothing while `forceOpen` is true, which stays exactly
+	 * as un-closeable as this comment's first paragraph already says.
 	 */
 	import { messages, type Locale } from '$lib/i18n';
+	import { isDismissKey } from '$lib/keys';
 	import type { EvidenceCaveat, EvidenceReason, EvidenceView } from './evidence';
 
 	let {
@@ -31,6 +44,20 @@
 
 	let forceOpen = $derived(caveat !== null);
 	let open = $state(caveat !== null);
+	let triggerEl: HTMLButtonElement | undefined = $state();
+
+	/** Closes the hand-opened box and hands the keyboard back to the word that opened it,
+	 * so dismissing it never strands focus on a node the `{#if}` just removed. Never
+	 * called while `forceOpen` is true - see `onWindowKeydown` below - so a forced-open
+	 * caveat stays un-closeable. */
+	function close(): void {
+		open = false;
+		triggerEl?.focus();
+	}
+
+	function onWindowKeydown(event: KeyboardEvent): void {
+		if (open && !forceOpen && isDismissKey(event)) close();
+	}
 
 	// `reason` never carries English words (see evidence.ts's own doc comment) - this is
 	// the one place a structured reason becomes the sentence a GM actually reads.
@@ -52,11 +79,24 @@
 				return t.reasonImportExtracted(reason.path);
 		}
 	}
+
+	/** Issue #472: a forced-open caveat never floats, at any width - it takes its own
+	 * line under the sentence, the way issue #345 already had it doing below `sm`. The
+	 * hand-opened box is untouched: still `w-72`, still anchored to the trigger, still
+	 * absolute at `sm` and up. */
+	let popClass = $derived(
+		forceOpen
+			? 'pop z-10 mt-2 block w-full rounded-md border border-line-2 bg-panel p-3 text-xs shadow-lg'
+			: 'pop z-10 mt-1 w-72 rounded-md border border-line-2 bg-panel p-3 text-xs shadow-lg max-sm:mt-2 max-sm:block max-sm:w-full sm:absolute sm:top-full sm:left-0'
+	);
 </script>
+
+<svelte:window onkeydown={onWindowKeydown} />
 
 {#if views.length > 0}
 	<span class="evidence relative inline-block" class:forced={forceOpen}>
 		<button
+			bind:this={triggerEl}
 			type="button"
 			class="ev inline items-center gap-1 text-ink underline decoration-dotted underline-offset-2"
 			aria-expanded={open}
@@ -66,15 +106,15 @@
 			{t.button}
 		</button>
 		{#if open}
-			<!-- Issue #345: below `sm` the floating box is 288px anchored to a word that can sit
-			     anywhere on the line, so it hung 40px past the right edge and over the Accept
-			     button - measured at 390px on the plan queue, and the same box now renders on
-			     the entry itself, where a forced-open caveat (guardrail 3) is unmissable and
-			     therefore unmissably in the way. On a phone it stops floating and takes its own
-			     line under the sentence instead. -->
-			<span
-				class="pop z-10 mt-1 w-72 rounded-md border border-line-2 bg-panel p-3 text-xs shadow-lg max-sm:mt-2 max-sm:block max-sm:w-full sm:absolute sm:top-full sm:left-0"
-			>
+			<!-- Issue #345 fixed this below `sm`; issue #472 makes it the only shape the
+			     forced-open box has, at every width, rather than only the phone's. A
+			     forced-open caveat (guardrail 3) is the evidence for a change a reader
+			     cannot yet judge, so it cannot be allowed to sit over that change - it
+			     takes its own line under the sentence instead of floating past the text
+			     column, exactly the way this already worked below `sm`. The hand-opened
+			     box is unchanged: still a floating box below `sm` and up, anchored to
+			     whichever word on the line happened to hold it. -->
+			<span class={popClass}>
 				{#if caveat !== null}
 					<span
 						class="mb-1.5 block rounded-sm bg-warn-bg px-1.5 py-1 font-mono text-[10px] font-bold tracking-wide text-warn uppercase"
@@ -93,11 +133,7 @@
 					</span>
 				{/each}
 				{#if !forceOpen}
-					<button
-						type="button"
-						class="mt-1 text-[11px] text-muted underline"
-						onclick={() => (open = false)}
-					>
+					<button type="button" class="mt-1 text-[11px] text-muted underline" onclick={close}>
 						{t.close}
 					</button>
 				{/if}
