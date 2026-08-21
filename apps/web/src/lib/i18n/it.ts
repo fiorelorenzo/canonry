@@ -2011,6 +2011,7 @@ export const it: Messages = {
 			invitationsNotice:
 				"Non esiste ancora un invito da inviare: condividi l'indirizzo del wiki direttamente con i tuoi giocatori.",
 			revealedHeading: 'Rivelato',
+			openInWiki: (entityName) => `Apri ${entityName} nel wiki dei giocatori`,
 			revealedEmpty: 'Nulla è stato ancora rivelato al gruppo.',
 			revealedEmptyAction: 'Vai alla modalità Tavolo',
 			kindLabel: { entity: 'Voce', fact: 'Fatto', relation: 'Relazione' },

@@ -593,13 +593,42 @@ export async function publicMediaAssetById(
 // by a member only (`/w/[universe]/players`'s own load), never rendered to a player.
 // -----------------------------------------------------------------------------------------
 
-export interface RevelationLogEntry {
-	id: string;
-	kind: RevelationKind;
-	confirmedAt: Date;
-	sessionName: string | null;
-	label: string;
+export interface RevelationLogEntityRef {
+	slug: string;
+	name: string;
 }
+
+/** Issue #492: what a row's entry name(s) link to. `'entity'`/`'fact'` name exactly one
+ * entry - the fact's own subject, `fact.entity_id`, since a fact is by construction
+ * (SPEC.md §4.2) extracted from one entry's body and never carries a second one. A
+ * `'relation'` row names two, so it carries both rather than picking a side. */
+export type RevelationLogEntry =
+	| {
+			id: string;
+			kind: 'entity';
+			confirmedAt: Date;
+			sessionName: string | null;
+			label: string;
+			entity: RevelationLogEntityRef;
+	  }
+	| {
+			id: string;
+			kind: 'fact';
+			confirmedAt: Date;
+			sessionName: string | null;
+			label: string;
+			entity: RevelationLogEntityRef;
+	  }
+	| {
+			id: string;
+			kind: 'relation';
+			confirmedAt: Date;
+			sessionName: string | null;
+			label: string;
+			relationLabel: string;
+			from: RevelationLogEntityRef;
+			to: RevelationLogEntityRef;
+	  };
 
 const revelationLogSession = alias(entity, 'revelation_log_session');
 const revelationLogFromEntity = alias(entity, 'revelation_log_from_entity');
@@ -624,7 +653,8 @@ export async function revelationLogForUniverse(
 			id: revelation.id,
 			confirmedAt: revelation.confirmedAt,
 			sessionName: revelationLogSession.name,
-			label: entity.name
+			label: entity.name,
+			slug: entity.slug
 		})
 		.from(revelation)
 		.innerJoin(entity, eq(entity.id, revelation.entityId))
@@ -639,15 +669,22 @@ export async function revelationLogForUniverse(
 		.orderBy(desc(revelation.confirmedAt))
 		.limit(limit);
 
+	// The fact's own entity is a second join, not a re-derivation of `entityRowsRaw`'s:
+	// a fact can be revealed without the entity revelation ever having been confirmed
+	// (the fixture in `players.test.ts` covers exactly that), so this row needs its
+	// subject's slug independently.
 	const factRowsRaw = await db
 		.select({
 			id: revelation.id,
 			confirmedAt: revelation.confirmedAt,
 			sessionName: revelationLogSession.name,
-			label: fact.statement
+			label: fact.statement,
+			entitySlug: entity.slug,
+			entityName: entity.name
 		})
 		.from(revelation)
 		.innerJoin(fact, eq(fact.id, revelation.factId))
+		.innerJoin(entity, eq(entity.id, fact.entityId))
 		.leftJoin(revelationLogSession, eq(revelationLogSession.id, revelation.sessionEntityId))
 		.where(
 			and(
@@ -669,7 +706,9 @@ export async function revelationLogForUniverse(
 			confirmedAt: revelation.confirmedAt,
 			sessionName: revelationLogSession.name,
 			fromName: revelationLogFromEntity.name,
+			fromSlug: revelationLogFromEntity.slug,
 			toName: revelationLogToEntity.name,
+			toSlug: revelationLogToEntity.slug,
 			relationLabel
 		})
 		.from(revelation)
@@ -708,7 +747,8 @@ export async function revelationLogForUniverse(
 							kind: 'entity' as const,
 							confirmedAt: row.confirmedAt,
 							sessionName: row.sessionName,
-							label: row.label
+							label: row.label,
+							entity: { slug: row.slug, name: row.label }
 						}
 					]
 				: []
@@ -721,7 +761,8 @@ export async function revelationLogForUniverse(
 							kind: 'fact' as const,
 							confirmedAt: row.confirmedAt,
 							sessionName: row.sessionName,
-							label: row.label
+							label: row.label,
+							entity: { slug: row.entitySlug, name: row.entityName }
 						}
 					]
 				: []
@@ -734,7 +775,10 @@ export async function revelationLogForUniverse(
 							kind: 'relation' as const,
 							confirmedAt: row.confirmedAt,
 							sessionName: row.sessionName,
-							label: `${row.fromName} ${row.relationLabel} ${row.toName}`
+							label: `${row.fromName} ${row.relationLabel} ${row.toName}`,
+							relationLabel: row.relationLabel,
+							from: { slug: row.fromSlug, name: row.fromName },
+							to: { slug: row.toSlug, name: row.toName }
 						}
 					]
 				: []

@@ -1955,6 +1955,7 @@ export const en: Messages = {
 			invitationsNotice:
 				'There is no invitation to send yet: share the wiki address with your players directly.',
 			revealedHeading: 'Revealed',
+			openInWiki: (entityName) => `Open ${entityName} in the players' wiki`,
 			revealedEmpty: 'Nothing has been revealed to the party yet.',
 			revealedEmptyAction: 'Go to Table mode',
 			kindLabel: { entity: 'Entity', fact: 'Fact', relation: 'Relation' },

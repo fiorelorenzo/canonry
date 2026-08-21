@@ -2166,6 +2166,10 @@ export interface Messages {
 			openWikiLink: string;
 			invitationsNotice: string;
 			revealedHeading: string;
+			/** Issue #492: aria-label for the small icon-link a revealed row offers next to an
+			 * entry name when that specific entity's own status is `'full'` on `/p/**` - "open
+			 * the player's own view of this one". */
+			openInWiki: (entityName: string) => string;
 			revealedEmpty: string;
 			revealedEmptyAction: string;
 			kindLabel: Record<'entity' | 'fact' | 'relation', string>;
