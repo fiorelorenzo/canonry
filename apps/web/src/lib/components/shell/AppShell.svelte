@@ -107,15 +107,27 @@
 					quota={data.shellQuota}
 				/>
 			{/if}
-			<!-- Issue #438, decision T11: the reserve is `padding-bottom` on the scroll
-			     container, not a trailing spacer inside it. A spacer only lengthens the
-			     scrollable content, which is enough for a page that ends in prose and not
-			     enough for a child that sizes itself to the container: the editor is a
-			     full-height column since #420, so with a spacer it still stretched under the
-			     dock and the panel sat over the textarea (measured: 59px of overlap at
-			     1440x900). Padding shrinks the content box, so a full-height child shrinks
-			     with it. Composed with the base padding rather than replacing it, because
-			     `p-4`/`md:p-8` are the page's own gutters and this is additional. -->
+			<!-- Issue #438, decision T11, and issue #488 which finished it: the reserve
+			     used to be `padding-bottom` on this scroll container, which only lengthens
+			     the *content* that overflows, so it protected the very end of the document
+			     (you could always scroll far enough to clear the dock) without protecting
+			     anything in between. `main` is a flex item whose own rendered box already
+			     fills "remaining space after the sidebar/PhoneNav", full viewport height on
+			     any route long enough to scroll - the dock is `position: fixed`, so at any
+			     scroll position some row of content shares the same screen rectangle as its
+			     opaque band, and padding at the tail of the scrollable content never moves
+			     that rectangle. `margin-bottom` does: a flex item's outer size (content +
+			     padding + margin) is what flex-grow distributes the container's height
+			     across, so this margin comes out of `main`'s own content box, and the box
+			     that clips `overflow-y-auto` - the actual scrollport - ends `dockReserve`px
+			     above the real viewport bottom at every scroll position, not only the last
+			     one. Nothing inside `main` can ever be laid out under the dock's band
+			     because that band is no longer part of `main`'s box at all; the gap below it
+			     shows the shell's own `bg-paper`, which is what already sits behind the dock
+			     everywhere else, so the reserve reads as intentional space rather than a
+			     clipped page. `p-4`/`md:p-8` go back to being exactly the page's own gutter,
+			     unchanged by whether the dock is mounted, since the box no longer needs to
+			     borrow the gutter's calc to also carry the dock. -->
 			<!-- #474: `tabindex="0"` - this region scrolls its own content
 			     (`overflow-y-auto`) independently of the document, and axe's
 			     `scrollable-region-focusable` rule is right that a reader with no pointer
@@ -131,7 +143,7 @@
 			<main
 				id="main"
 				tabindex="0"
-				class="min-w-0 flex-1 overflow-y-auto px-4 pt-4 pb-[calc(1rem+var(--dock-reserve,0px))] md:px-8 md:pt-8 md:pb-[calc(2rem+var(--dock-reserve,0px))]"
+				class="mb-[var(--dock-reserve,0px)] min-w-0 flex-1 overflow-y-auto px-4 pt-4 pb-4 md:px-8 md:pt-8 md:pb-8"
 				style:--dock-reserve="{dockReserve}px"
 			>
 				{@render children()}
