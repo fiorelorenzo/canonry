@@ -48,7 +48,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import { NativeFallback } from '$lib/components/ui/native-fallback';
-	import { PageHeader } from '$lib/components/ui/page-header';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import SettingsShell from '$lib/components/settings/SettingsShell.svelte';
 	import UniverseSettingsRail from '$lib/components/settings/UniverseSettingsRail.svelte';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -198,35 +198,35 @@
 
 <svelte:head><title>{t.headTitle(data.current.name)}</title></svelte:head>
 
-<SettingsShell>
-	{#snippet rail()}
-		<UniverseSettingsRail
-			ariaLabel={t.rail.ariaLabel}
-			incompleteMark={t.rail.incompleteMark}
-			items={railItems}
-		/>
-	{/snippet}
+<PageHeader title={t.heading} />
+<PageBody width="working">
+	<SettingsShell>
+		{#snippet rail()}
+			<UniverseSettingsRail
+				ariaLabel={t.rail.ariaLabel}
+				incompleteMark={t.rail.incompleteMark}
+				items={railItems}
+			/>
+		{/snippet}
+		<p class="mt-4 max-w-measure text-sm text-ink-2">
+			{t.introBefore(data.current.name)}<a
+				class="text-accent hover:underline"
+				href={resolve('/settings/appearance')}>{t.appearanceLink}</a
+			>{t.introAnd}<a
+				class="text-accent hover:underline"
+				href={resolve(`/settings/export/${data.current.slug}`)}>{t.exportLink}</a
+			>{t.introAfter}
+		</p>
 
-	<PageHeader title={t.heading} />
-	<p class="mt-4 max-w-measure text-sm text-ink-2">
-		{t.introBefore(data.current.name)}<a
-			class="text-accent hover:underline"
-			href={resolve('/settings/appearance')}>{t.appearanceLink}</a
-		>{t.introAnd}<a
-			class="text-accent hover:underline"
-			href={resolve(`/settings/export/${data.current.slug}`)}>{t.exportLink}</a
-		>{t.introAfter}
-	</p>
+		<section id="group-images" class="mt-8">
+			<h2 class="text-lg font-semibold text-ink">{t.groups.images}</h2>
+			<div class="mt-3 border-t border-line pt-4">
+				<h3 class="text-sm font-semibold text-ink">{t.imageStyle.heading}</h3>
+				<p class="mt-1 max-w-measure text-sm text-ink-2">
+					{t.imageStyle.description(data.current.name)}
+				</p>
 
-	<section id="group-images" class="mt-8">
-		<h2 class="text-lg font-semibold text-ink">{t.groups.images}</h2>
-		<div class="mt-3 border-t border-line pt-4">
-			<h3 class="text-sm font-semibold text-ink">{t.imageStyle.heading}</h3>
-			<p class="mt-1 max-w-measure text-sm text-ink-2">
-				{t.imageStyle.description(data.current.name)}
-			</p>
-
-			<!-- Issue #407, decision S2: a grid of cards - example, name, description,
+				<!-- Issue #407, decision S2: a grid of cards - example, name, description,
 			     selected state - replacing the name-plus-prompt form that asked a GM to
 			     imagine what a sentence of prompt would do to an image. Picking a preset
 			     posts `?/selectImageStylePreset`, which only ever points universe.image_style_id
@@ -236,169 +236,50 @@
 			     its six card labels lay out as direct children of the grid below, sibling to
 			     the "Custom style" disclosure rather than nesting one form inside another
 			     (invalid HTML) - the form itself still submits normally either way. -->
-			<div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-				<form
-					method="POST"
-					action="?/selectImageStylePreset"
-					class="contents"
-					use:enhance={() => {
-						applyingImageStylePreset = true;
-						return async ({ update }) => {
-							await update();
-							applyingImageStylePreset = false;
-						};
-					}}
-				>
-					{#each data.imageStylePresets as preset (preset.id)}
-						<label
-							class="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line text-left transition-colors has-checked:border-accent has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
-						>
-							<input
-								type="radio"
-								name="presetId"
-								value={preset.id}
-								checked={currentImageStyleId === preset.id}
-								disabled={applyingImageStylePreset}
-								class="sr-only"
-								onchange={(event) => {
-									event.currentTarget.form?.requestSubmit();
-								}}
-							/>
-							<img
-								src={preset.examplePath}
-								alt=""
-								loading="lazy"
-								class="aspect-square w-full object-cover"
-							/>
-							<span class="flex flex-1 flex-col gap-0.5 px-2 py-2">
-								<span class="flex items-center gap-1 text-sm font-medium text-ink">
-									{preset.name}
-									{#if currentImageStyleId === preset.id}
-										<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
-										<span class="sr-only">{t.imageStyle.selectedLabel}</span>
-									{/if}
-								</span>
-								<span class="text-xs text-ink-2">{preset.description}</span>
-							</span>
-						</label>
-					{/each}
-					<noscript>
-						<Button type="submit" variant="secondary" size="sm" class="col-span-full w-fit">
-							{tControls.apply}
-						</Button>
-					</noscript>
-				</form>
-
-				<details
-					class="flex flex-col overflow-hidden rounded-lg border text-left"
-					class:border-accent={isCustomActive}
-					class:border-line={!isCustomActive}
-					bind:open={customOpen}
-				>
-					<summary
-						class="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden"
-					>
-						<span
-							class="text-label text-muted transition-transform"
-							class:rotate-90={customOpen}
-							aria-hidden="true">&#9656;</span
-						>
-						{t.imageStyle.customCard.label}
-						{#if isCustomActive}
-							<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
-							<span class="sr-only">{t.imageStyle.selectedLabel}</span>
-						{/if}
-					</summary>
-					<div class="border-t border-line px-3 py-3">
-						<p class="text-xs text-ink-2">{t.imageStyle.customCard.hint}</p>
-						<form
-							method="POST"
-							action="?/setImageStyle"
-							class="mt-3 flex flex-col gap-3"
-							use:enhance={() => {
-								savingImageStyle = true;
-								return async ({ update }) => {
-									await update();
-									savingImageStyle = false;
-								};
-							}}
-						>
-							<label class="flex flex-col gap-1 text-sm text-ink-2">
-								{t.imageStyle.nameLabel}
-								<Input name="name" value={imageStyleName} required />
-							</label>
-							<label class="flex flex-col gap-1 text-sm text-ink-2">
-								{t.imageStyle.promptModifierLabel}
-								<Textarea name="promptModifier" rows={2} value={imageStyleModifier} required />
-							</label>
-							<Button type="submit" variant="secondary" class="w-fit" disabled={savingImageStyle}>
-								{savingImageStyle ? t.imageStyle.saving : t.imageStyle.save}
-							</Button>
-						</form>
-					</div>
-				</details>
-			</div>
-			{#if imageStyleError}
-				<p class="mt-2 text-sm text-danger">{imageStyleError}</p>
-			{/if}
-		</div>
-	</section>
-
-	<section id="group-loremaster" class="mt-8">
-		<h2 class="text-lg font-semibold text-ink">{t.groups.loremaster}</h2>
-		<div class="mt-3 flex flex-col gap-4">
-			<div class="border-t border-line pt-4">
-				<h3 class="text-sm font-semibold text-ink">{t.narration.heading}</h3>
-				<p class="mt-1 max-w-measure text-sm text-ink-2">
-					{t.narration.description(data.current.name)}
-				</p>
-
-				<!-- Issue #451, decision U2: the picker's own card shape, copied from the image
-			     style grid above with one substitution - an example sentence, italic, in
-			     place of the example image, since a voice has nothing to show but something
-			     to read aloud. Picking a preset posts `?/selectNarrationStylePreset`, which
-			     only ever points universe.narration_style_id at the shipped row
-			     (queries/narration.ts's selectUniverseNarrationStylePreset) - it never copies
-			     the preset's clause anywhere, so an improved preset improves every world that
-			     chose it. -->
-				<fieldset class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-					<legend class="sr-only">{t.narration.pickerLegend}</legend>
+				<div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
 					<form
 						method="POST"
-						action="?/selectNarrationStylePreset"
+						action="?/selectImageStylePreset"
 						class="contents"
 						use:enhance={() => {
-							applyingNarrationStylePreset = true;
+							applyingImageStylePreset = true;
 							return async ({ update }) => {
 								await update();
-								applyingNarrationStylePreset = false;
+								applyingImageStylePreset = false;
 							};
 						}}
 					>
-						{#each data.narrationStylePresets as preset (preset.id)}
+						{#each data.imageStylePresets as preset (preset.id)}
 							<label
-								class="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line p-3 text-left transition-colors has-checked:border-accent has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
+								class="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line text-left transition-colors has-checked:border-accent has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
 							>
 								<input
 									type="radio"
 									name="presetId"
 									value={preset.id}
-									checked={currentNarrationStyleId === preset.id}
-									disabled={applyingNarrationStylePreset}
+									checked={currentImageStyleId === preset.id}
+									disabled={applyingImageStylePreset}
 									class="sr-only"
 									onchange={(event) => {
 										event.currentTarget.form?.requestSubmit();
 									}}
 								/>
-								<p class="text-xs text-ink-2 italic">&ldquo;{preset.exampleSentence}&rdquo;</p>
-								<span class="mt-2 flex items-center gap-1 text-sm font-medium text-ink">
-									{preset.name}
-									{#if currentNarrationStyleId === preset.id}
-										<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
-										<span class="sr-only">{t.narration.selectedLabel}</span>
-									{/if}
+								<img
+									src={preset.examplePath}
+									alt=""
+									loading="lazy"
+									class="aspect-square w-full object-cover"
+								/>
+								<span class="flex flex-1 flex-col gap-0.5 px-2 py-2">
+									<span class="flex items-center gap-1 text-sm font-medium text-ink">
+										{preset.name}
+										{#if currentImageStyleId === preset.id}
+											<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+											<span class="sr-only">{t.imageStyle.selectedLabel}</span>
+										{/if}
+									</span>
+									<span class="text-xs text-ink-2">{preset.description}</span>
 								</span>
-								<span class="mt-0.5 text-xs text-ink-2">{preset.description}</span>
 							</label>
 						{/each}
 						<noscript>
@@ -410,328 +291,455 @@
 
 					<details
 						class="flex flex-col overflow-hidden rounded-lg border text-left"
-						class:border-accent={isCustomNarrationActive}
-						class:border-line={!isCustomNarrationActive}
-						bind:open={customNarrationOpen}
+						class:border-accent={isCustomActive}
+						class:border-line={!isCustomActive}
+						bind:open={customOpen}
 					>
 						<summary
 							class="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden"
 						>
 							<span
 								class="text-label text-muted transition-transform"
-								class:rotate-90={customNarrationOpen}
+								class:rotate-90={customOpen}
 								aria-hidden="true">&#9656;</span
 							>
-							{t.narration.customCard.label}
-							{#if isCustomNarrationActive}
+							{t.imageStyle.customCard.label}
+							{#if isCustomActive}
 								<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
-								<span class="sr-only">{t.narration.selectedLabel}</span>
+								<span class="sr-only">{t.imageStyle.selectedLabel}</span>
 							{/if}
 						</summary>
 						<div class="border-t border-line px-3 py-3">
-							<p class="text-xs text-ink-2">{t.narration.customCard.hint}</p>
+							<p class="text-xs text-ink-2">{t.imageStyle.customCard.hint}</p>
 							<form
 								method="POST"
-								action="?/setNarrationStyle"
+								action="?/setImageStyle"
 								class="mt-3 flex flex-col gap-3"
 								use:enhance={() => {
-									savingNarrationStyle = true;
+									savingImageStyle = true;
 									return async ({ update }) => {
 										await update();
-										savingNarrationStyle = false;
+										savingImageStyle = false;
 									};
 								}}
 							>
 								<label class="flex flex-col gap-1 text-sm text-ink-2">
-									{t.narration.nameLabel}
-									<Input name="name" value={narrationStyleName} required />
+									{t.imageStyle.nameLabel}
+									<Input name="name" value={imageStyleName} required />
 								</label>
 								<label class="flex flex-col gap-1 text-sm text-ink-2">
-									{t.narration.promptClauseLabel}
-									<Textarea name="promptClause" rows={2} value={narrationStylePromptClause} required
-									></Textarea>
+									{t.imageStyle.promptModifierLabel}
+									<Textarea name="promptModifier" rows={2} value={imageStyleModifier} required />
 								</label>
-								<Button
-									type="submit"
-									variant="secondary"
-									class="w-fit"
-									disabled={savingNarrationStyle}
-								>
-									{savingNarrationStyle ? t.narration.saving : t.narration.save}
+								<Button type="submit" variant="secondary" class="w-fit" disabled={savingImageStyle}>
+									{savingImageStyle ? t.imageStyle.saving : t.imageStyle.save}
 								</Button>
 							</form>
 						</div>
 					</details>
-				</fieldset>
-				{#if narrationStyleError}
-					<p class="mt-2 text-sm text-danger">{narrationStyleError}</p>
+				</div>
+				{#if imageStyleError}
+					<p class="mt-2 text-sm text-danger">{imageStyleError}</p>
 				{/if}
 			</div>
+		</section>
 
-			<!-- Issue #437, decision T10: the settings copy check the issue names - a
+		<section id="group-loremaster" class="mt-8">
+			<h2 class="text-lg font-semibold text-ink">{t.groups.loremaster}</h2>
+			<div class="mt-3 flex flex-col gap-4">
+				<div class="border-t border-line pt-4">
+					<h3 class="text-sm font-semibold text-ink">{t.narration.heading}</h3>
+					<p class="mt-1 max-w-measure text-sm text-ink-2">
+						{t.narration.description(data.current.name)}
+					</p>
+
+					<!-- Issue #451, decision U2: the picker's own card shape, copied from the image
+			     style grid above with one substitution - an example sentence, italic, in
+			     place of the example image, since a voice has nothing to show but something
+			     to read aloud. Picking a preset posts `?/selectNarrationStylePreset`, which
+			     only ever points universe.narration_style_id at the shipped row
+			     (queries/narration.ts's selectUniverseNarrationStylePreset) - it never copies
+			     the preset's clause anywhere, so an improved preset improves every world that
+			     chose it. -->
+					<fieldset class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+						<legend class="sr-only">{t.narration.pickerLegend}</legend>
+						<form
+							method="POST"
+							action="?/selectNarrationStylePreset"
+							class="contents"
+							use:enhance={() => {
+								applyingNarrationStylePreset = true;
+								return async ({ update }) => {
+									await update();
+									applyingNarrationStylePreset = false;
+								};
+							}}
+						>
+							{#each data.narrationStylePresets as preset (preset.id)}
+								<label
+									class="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line p-3 text-left transition-colors has-checked:border-accent has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
+								>
+									<input
+										type="radio"
+										name="presetId"
+										value={preset.id}
+										checked={currentNarrationStyleId === preset.id}
+										disabled={applyingNarrationStylePreset}
+										class="sr-only"
+										onchange={(event) => {
+											event.currentTarget.form?.requestSubmit();
+										}}
+									/>
+									<p class="text-xs text-ink-2 italic">&ldquo;{preset.exampleSentence}&rdquo;</p>
+									<span class="mt-2 flex items-center gap-1 text-sm font-medium text-ink">
+										{preset.name}
+										{#if currentNarrationStyleId === preset.id}
+											<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+											<span class="sr-only">{t.narration.selectedLabel}</span>
+										{/if}
+									</span>
+									<span class="mt-0.5 text-xs text-ink-2">{preset.description}</span>
+								</label>
+							{/each}
+							<noscript>
+								<Button type="submit" variant="secondary" size="sm" class="col-span-full w-fit">
+									{tControls.apply}
+								</Button>
+							</noscript>
+						</form>
+
+						<details
+							class="flex flex-col overflow-hidden rounded-lg border text-left"
+							class:border-accent={isCustomNarrationActive}
+							class:border-line={!isCustomNarrationActive}
+							bind:open={customNarrationOpen}
+						>
+							<summary
+								class="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden"
+							>
+								<span
+									class="text-label text-muted transition-transform"
+									class:rotate-90={customNarrationOpen}
+									aria-hidden="true">&#9656;</span
+								>
+								{t.narration.customCard.label}
+								{#if isCustomNarrationActive}
+									<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+									<span class="sr-only">{t.narration.selectedLabel}</span>
+								{/if}
+							</summary>
+							<div class="border-t border-line px-3 py-3">
+								<p class="text-xs text-ink-2">{t.narration.customCard.hint}</p>
+								<form
+									method="POST"
+									action="?/setNarrationStyle"
+									class="mt-3 flex flex-col gap-3"
+									use:enhance={() => {
+										savingNarrationStyle = true;
+										return async ({ update }) => {
+											await update();
+											savingNarrationStyle = false;
+										};
+									}}
+								>
+									<label class="flex flex-col gap-1 text-sm text-ink-2">
+										{t.narration.nameLabel}
+										<Input name="name" value={narrationStyleName} required />
+									</label>
+									<label class="flex flex-col gap-1 text-sm text-ink-2">
+										{t.narration.promptClauseLabel}
+										<Textarea
+											name="promptClause"
+											rows={2}
+											value={narrationStylePromptClause}
+											required
+										></Textarea>
+									</label>
+									<Button
+										type="submit"
+										variant="secondary"
+										class="w-fit"
+										disabled={savingNarrationStyle}
+									>
+										{savingNarrationStyle ? t.narration.saving : t.narration.save}
+									</Button>
+								</form>
+							</div>
+						</details>
+					</fieldset>
+					{#if narrationStyleError}
+						<p class="mt-2 text-sm text-danger">{narrationStyleError}</p>
+					{/if}
+				</div>
+
+				<!-- Issue #437, decision T10: the settings copy check the issue names - a
 			     pointer from the corner of the product where a GM reasons about what the
 			     Loremaster does to the conversation list where the stored record actually
 			     lives (`shell.quickAsk.disclosure`, read in the panel itself before
 			     anything is asked, is the primary disclosure). -->
-			<div class="border-t border-line pt-4">
-				<p class="max-w-measure text-sm text-ink-2">{t.loremasterConversations.text}</p>
-				<a
-					href={resolve(`/w/${data.current.slug}/ask/kept`)}
-					class="mt-2 inline-block text-sm text-accent hover:underline"
-					>{t.loremasterConversations.link}</a
-				>
-			</div>
-
-			<div class="border-t border-line pt-4">
-				<div class="flex items-center justify-between gap-4">
-					<div>
-						<h3 class="text-sm font-semibold text-ink">{t.aiToggle.heading}</h3>
-						<p class="mt-1 max-w-measure text-sm text-ink-2">
-							{t.aiToggle.description(data.current.name)}
-						</p>
-					</div>
-					<form
-						method="POST"
-						action="?/setAiEnabled"
-						use:enhance={() => {
-							settingAiEnabled = true;
-							return async ({ update }) => {
-								await update();
-								settingAiEnabled = false;
-							};
-						}}
+				<div class="border-t border-line pt-4">
+					<p class="max-w-measure text-sm text-ink-2">{t.loremasterConversations.text}</p>
+					<a
+						href={resolve(`/w/${data.current.slug}/ask/kept`)}
+						class="mt-2 inline-block text-sm text-accent hover:underline"
+						>{t.loremasterConversations.link}</a
 					>
-						<input type="hidden" name="enabled" value={(!aiEnabled).toString()} />
-						<Button
-							type="submit"
-							variant="secondary"
-							class={aiEnabled
-								? 'border-line-2 text-ink-2'
-								: 'border-accent bg-accent-bg text-accent-ink'}
-							disabled={settingAiEnabled}
-						>
-							{settingAiEnabled
-								? aiEnabled
-									? t.aiToggle.stoppingWriting
-									: t.aiToggle.resumingWriting
-								: aiEnabled
-									? t.aiToggle.stopWriting
-									: t.aiToggle.resumeWriting}
-						</Button>
-					</form>
 				</div>
-				{#if !aiEnabled}
-					<!-- Round eleven P2 (#344), and guardrail 4 more than P2: the copilot's hue is
+
+				<div class="border-t border-line pt-4">
+					<div class="flex items-center justify-between gap-4">
+						<div>
+							<h3 class="text-sm font-semibold text-ink">{t.aiToggle.heading}</h3>
+							<p class="mt-1 max-w-measure text-sm text-ink-2">
+								{t.aiToggle.description(data.current.name)}
+							</p>
+						</div>
+						<form
+							method="POST"
+							action="?/setAiEnabled"
+							use:enhance={() => {
+								settingAiEnabled = true;
+								return async ({ update }) => {
+									await update();
+									settingAiEnabled = false;
+								};
+							}}
+						>
+							<input type="hidden" name="enabled" value={(!aiEnabled).toString()} />
+							<Button
+								type="submit"
+								variant="secondary"
+								class={aiEnabled
+									? 'border-line-2 text-ink-2'
+									: 'border-accent bg-accent-bg text-accent-ink'}
+								disabled={settingAiEnabled}
+							>
+								{settingAiEnabled
+									? aiEnabled
+										? t.aiToggle.stoppingWriting
+										: t.aiToggle.resumingWriting
+									: aiEnabled
+										? t.aiToggle.stopWriting
+										: t.aiToggle.resumeWriting}
+							</Button>
+						</form>
+					</div>
+					{#if !aiEnabled}
+						<!-- Round eleven P2 (#344), and guardrail 4 more than P2: the copilot's hue is
 					     the last thing that should announce that the copilot is off. This notice is
 					     the theme's own panel and line. -->
-					<p class="mt-3 rounded-md border border-line bg-panel-2 px-3 py-2 text-xs text-ink-2">
-						{t.aiToggle.offNotice(data.current.name)}
-					</p>
-				{/if}
-			</div>
-
-			<div class="border-t border-line pt-4">
-				<h3 class="text-sm font-semibold text-ink">{t.propagationCap.heading}</h3>
-				<p class="mt-1 max-w-measure text-sm text-ink-2">
-					{t.propagationCap.description(data.current.name)}
-				</p>
-				<form
-					method="POST"
-					action="?/setPropagationCap"
-					class="mt-3 flex flex-wrap items-center gap-3"
-					use:enhance={() => {
-						savingPropagationCap = true;
-						return async ({ update }) => {
-							await update();
-							savingPropagationCap = false;
-						};
-					}}
-				>
-					<label class="flex items-center gap-2 text-sm text-ink-2">
-						{t.propagationCap.capLabel}
-						<input
-							type="number"
-							name="cap"
-							min="1"
-							step="1"
-							bind:value={capInput}
-							disabled={noLimit}
-							class="h-9 w-20 rounded-md border border-line-2 bg-panel px-2 text-sm text-ink disabled:opacity-50"
-						/>
-					</label>
-					<label class="flex items-center gap-2 text-sm text-ink-2">
-						<input
-							type="checkbox"
-							name="noLimit"
-							value="true"
-							bind:checked={noLimit}
-							class="h-4 w-4"
-						/>
-						{t.propagationCap.noLimitLabel}
-					</label>
-					<Button type="submit" variant="secondary" class="w-fit" disabled={savingPropagationCap}>
-						{savingPropagationCap ? t.propagationCap.saving : t.propagationCap.save}
-					</Button>
-					{#if form?.message}
-						<p class="w-full text-sm text-danger">{form.message}</p>
-					{/if}
-				</form>
-				<p class="mt-3 text-xs text-muted">
-					{#if propagationCap === null}
-						{t.propagationCap.noLimitNotice}
-					{:else}
-						{@const notice = t.propagationCap.capNotice(propagationCap)}
-						{notice.prefix}<b class="text-ink-2">{propagationCap}</b>{notice.suffix}
-					{/if}
-				</p>
-			</div>
-		</div>
-	</section>
-
-	<section id="group-canon" class="mt-8">
-		<h2 class="text-lg font-semibold text-ink">{t.groups.canon}</h2>
-		<div class="mt-3 flex flex-col gap-4">
-			<div class="border-t border-line pt-4">
-				<div class="flex items-center justify-between gap-4">
-					<div>
-						<h3 class="text-sm font-semibold text-ink">{tRelations.cardHeading}</h3>
-						<p class="mt-1 max-w-measure text-sm text-ink-2">
-							{tRelations.cardDescription(data.current.name)}
+						<p class="mt-3 rounded-md border border-line bg-panel-2 px-3 py-2 text-xs text-ink-2">
+							{t.aiToggle.offNotice(data.current.name)}
 						</p>
-						<p class="mt-1 text-xs text-muted">
-							{tRelations.cardCountOwn(data.ownRelationTypeCount)}
-						</p>
-					</div>
-					<Button href={resolve(`/w/${data.current.slug}/settings/relations`)} variant="secondary">
-						{tRelations.manageLink}
-					</Button>
+					{/if}
 				</div>
-			</div>
 
-			{#if data.isDerived}
 				<div class="border-t border-line pt-4">
-					<h3 class="text-sm font-semibold text-ink">{t.precedence.heading}</h3>
+					<h3 class="text-sm font-semibold text-ink">{t.propagationCap.heading}</h3>
 					<p class="mt-1 max-w-measure text-sm text-ink-2">
-						{t.precedence.description(data.current.name)}
+						{t.propagationCap.description(data.current.name)}
 					</p>
-
-					{#if data.supersedes.length === 0}
-						<p class="mt-3 text-sm text-muted">{t.precedence.empty}</p>
-					{:else}
-						<ul class="mt-3 flex flex-col divide-y divide-line">
-							{#each data.supersedes as row (row.id)}
-								<li class="flex items-center gap-3 py-2 text-sm">
-									<span class="flex-1 text-ink-2 line-through decoration-line-2">
-										{row.dataSourceName} &middot; {row.sourceUrl}
-									</span>
-									<Badge variant="secondary" class="text-muted uppercase">
-										{t.precedence.supersededBadge}
-									</Badge>
-									<a
-										href={resolve(`/w/${data.current.slug}/e/${row.entitySlug}`)}
-										class="text-accent hover:underline"
-									>
-										{row.entityName}
-									</a>
-									<form
-										method="POST"
-										action="?/removeSupersede"
-										use:enhance={() => {
-											removingSupersede = true;
-											return async ({ update }) => {
-												await update();
-												removingSupersede = false;
-											};
-										}}
-									>
-										<input type="hidden" name="id" value={row.id} />
-										<Button
-											type="submit"
-											variant="link"
-											size="sm"
-											class="h-auto p-0 text-xs text-muted hover:text-danger"
-											disabled={removingSupersede}
-										>
-											{removingSupersede ? t.precedence.removing : t.precedence.remove}
-										</Button>
-									</form>
-								</li>
-							{/each}
-						</ul>
-					{/if}
-
 					<form
 						method="POST"
-						action="?/addSupersede"
-						class="mt-4 flex flex-col gap-3 border-t border-line pt-4"
+						action="?/setPropagationCap"
+						class="mt-3 flex flex-wrap items-center gap-3"
 						use:enhance={() => {
-							addingSupersede = true;
+							savingPropagationCap = true;
 							return async ({ update }) => {
 								await update();
-								addingSupersede = false;
+								savingPropagationCap = false;
 							};
 						}}
 					>
-						<h4 class="text-xs font-semibold tracking-wide text-muted uppercase">
-							{t.precedence.declareHeading}
-						</h4>
-						<div class="flex flex-col gap-1 text-sm text-ink-2">
-							<label for="supersede-entity">{t.precedence.entryLabel}</label>
-							<div data-js-only>
-								<Combobox
-									id="supersede-entity"
-									bind:value={supersedeEntityId}
-									options={entityOptions}
-									placeholder={t.precedence.entryLabel}
-									searchPlaceholder={tControls.search}
-									emptyText={tControls.noMatch}
-								/>
-							</div>
-							<NativeFallback
-								name="entityId"
-								value={supersedeEntityId}
-								options={entityOptions}
-								required
-								label={t.precedence.entryLabel}
+						<label class="flex items-center gap-2 text-sm text-ink-2">
+							{t.propagationCap.capLabel}
+							<input
+								type="number"
+								name="cap"
+								min="1"
+								step="1"
+								bind:value={capInput}
+								disabled={noLimit}
+								class="h-9 w-20 rounded-md border border-line-2 bg-panel px-2 text-sm text-ink disabled:opacity-50"
 							/>
-						</div>
-						<div class="flex flex-col gap-1 text-sm text-ink-2">
-							<label for="supersede-source">{t.precedence.baseSourceLabel}</label>
-							<div data-js-only>
-								<Combobox
-									id="supersede-source"
-									bind:value={supersedeSourceId}
-									options={baseSourceOptions}
-									placeholder={t.precedence.baseSourceLabel}
-									searchPlaceholder={tControls.search}
-									emptyText={tControls.noMatch}
-								/>
-							</div>
-							<NativeFallback
-								name="dataSourceId"
-								value={supersedeSourceId}
-								options={baseSourceOptions}
-								required
-								label={t.precedence.baseSourceLabel}
+						</label>
+						<label class="flex items-center gap-2 text-sm text-ink-2">
+							<input
+								type="checkbox"
+								name="noLimit"
+								value="true"
+								bind:checked={noLimit}
+								class="h-4 w-4"
 							/>
-						</div>
-						<label class="flex flex-col gap-1 text-sm text-ink-2">
-							{t.precedence.sourceUrlLabel}
-							<Input name="sourceUrl" required />
+							{t.propagationCap.noLimitLabel}
 						</label>
-						<label class="flex flex-col gap-1 text-sm text-ink-2">
-							{t.precedence.noteLabel} <span class="text-muted">{t.precedence.optional}</span>
-							<Input name="note" />
-						</label>
-						{#if form?.message}
-							<p class="text-sm text-danger">{form.message}</p>
-						{/if}
-						<Button type="submit" variant="secondary" class="w-fit" disabled={addingSupersede}>
-							{addingSupersede ? t.precedence.superseding : t.precedence.submit}
+						<Button type="submit" variant="secondary" class="w-fit" disabled={savingPropagationCap}>
+							{savingPropagationCap ? t.propagationCap.saving : t.propagationCap.save}
 						</Button>
+						{#if form?.message}
+							<p class="w-full text-sm text-danger">{form.message}</p>
+						{/if}
 					</form>
+					<p class="mt-3 text-xs text-muted">
+						{#if propagationCap === null}
+							{t.propagationCap.noLimitNotice}
+						{:else}
+							{@const notice = t.propagationCap.capNotice(propagationCap)}
+							{notice.prefix}<b class="text-ink-2">{propagationCap}</b>{notice.suffix}
+						{/if}
+					</p>
 				</div>
-			{/if}
-		</div>
-	</section>
-</SettingsShell>
+			</div>
+		</section>
+
+		<section id="group-canon" class="mt-8">
+			<h2 class="text-lg font-semibold text-ink">{t.groups.canon}</h2>
+			<div class="mt-3 flex flex-col gap-4">
+				<div class="border-t border-line pt-4">
+					<div class="flex items-center justify-between gap-4">
+						<div>
+							<h3 class="text-sm font-semibold text-ink">{tRelations.cardHeading}</h3>
+							<p class="mt-1 max-w-measure text-sm text-ink-2">
+								{tRelations.cardDescription(data.current.name)}
+							</p>
+							<p class="mt-1 text-xs text-muted">
+								{tRelations.cardCountOwn(data.ownRelationTypeCount)}
+							</p>
+						</div>
+						<Button
+							href={resolve(`/w/${data.current.slug}/settings/relations`)}
+							variant="secondary"
+						>
+							{tRelations.manageLink}
+						</Button>
+					</div>
+				</div>
+
+				{#if data.isDerived}
+					<div class="border-t border-line pt-4">
+						<h3 class="text-sm font-semibold text-ink">{t.precedence.heading}</h3>
+						<p class="mt-1 max-w-measure text-sm text-ink-2">
+							{t.precedence.description(data.current.name)}
+						</p>
+
+						{#if data.supersedes.length === 0}
+							<p class="mt-3 text-sm text-muted">{t.precedence.empty}</p>
+						{:else}
+							<ul class="mt-3 flex flex-col divide-y divide-line">
+								{#each data.supersedes as row (row.id)}
+									<li class="flex items-center gap-3 py-2 text-sm">
+										<span class="flex-1 text-ink-2 line-through decoration-line-2">
+											{row.dataSourceName} &middot; {row.sourceUrl}
+										</span>
+										<Badge variant="secondary" class="text-muted uppercase">
+											{t.precedence.supersededBadge}
+										</Badge>
+										<a
+											href={resolve(`/w/${data.current.slug}/e/${row.entitySlug}`)}
+											class="text-accent hover:underline"
+										>
+											{row.entityName}
+										</a>
+										<form
+											method="POST"
+											action="?/removeSupersede"
+											use:enhance={() => {
+												removingSupersede = true;
+												return async ({ update }) => {
+													await update();
+													removingSupersede = false;
+												};
+											}}
+										>
+											<input type="hidden" name="id" value={row.id} />
+											<Button
+												type="submit"
+												variant="link"
+												size="sm"
+												class="h-auto p-0 text-xs text-muted hover:text-danger"
+												disabled={removingSupersede}
+											>
+												{removingSupersede ? t.precedence.removing : t.precedence.remove}
+											</Button>
+										</form>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+
+						<form
+							method="POST"
+							action="?/addSupersede"
+							class="mt-4 flex flex-col gap-3 border-t border-line pt-4"
+							use:enhance={() => {
+								addingSupersede = true;
+								return async ({ update }) => {
+									await update();
+									addingSupersede = false;
+								};
+							}}
+						>
+							<h4 class="text-xs font-semibold tracking-wide text-muted uppercase">
+								{t.precedence.declareHeading}
+							</h4>
+							<div class="flex flex-col gap-1 text-sm text-ink-2">
+								<label for="supersede-entity">{t.precedence.entryLabel}</label>
+								<div data-js-only>
+									<Combobox
+										id="supersede-entity"
+										bind:value={supersedeEntityId}
+										options={entityOptions}
+										placeholder={t.precedence.entryLabel}
+										searchPlaceholder={tControls.search}
+										emptyText={tControls.noMatch}
+									/>
+								</div>
+								<NativeFallback
+									name="entityId"
+									value={supersedeEntityId}
+									options={entityOptions}
+									required
+									label={t.precedence.entryLabel}
+								/>
+							</div>
+							<div class="flex flex-col gap-1 text-sm text-ink-2">
+								<label for="supersede-source">{t.precedence.baseSourceLabel}</label>
+								<div data-js-only>
+									<Combobox
+										id="supersede-source"
+										bind:value={supersedeSourceId}
+										options={baseSourceOptions}
+										placeholder={t.precedence.baseSourceLabel}
+										searchPlaceholder={tControls.search}
+										emptyText={tControls.noMatch}
+									/>
+								</div>
+								<NativeFallback
+									name="dataSourceId"
+									value={supersedeSourceId}
+									options={baseSourceOptions}
+									required
+									label={t.precedence.baseSourceLabel}
+								/>
+							</div>
+							<label class="flex flex-col gap-1 text-sm text-ink-2">
+								{t.precedence.sourceUrlLabel}
+								<Input name="sourceUrl" required />
+							</label>
+							<label class="flex flex-col gap-1 text-sm text-ink-2">
+								{t.precedence.noteLabel} <span class="text-muted">{t.precedence.optional}</span>
+								<Input name="note" />
+							</label>
+							{#if form?.message}
+								<p class="text-sm text-danger">{form.message}</p>
+							{/if}
+							<Button type="submit" variant="secondary" class="w-fit" disabled={addingSupersede}>
+								{addingSupersede ? t.precedence.superseding : t.precedence.submit}
+							</Button>
+						</form>
+					</div>
+				{/if}
+			</div>
+		</section>
+	</SettingsShell>
+</PageBody>

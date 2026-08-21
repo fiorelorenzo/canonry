@@ -10,6 +10,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import AmbientPlayer from '$lib/components/audio/AmbientPlayer.svelte';
 	import ContextStrip from '$lib/components/table/ContextStrip.svelte';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import DeclareContext from '$lib/components/table/DeclareContext.svelte';
 	import PinnedCards from '$lib/components/table/PinnedCards.svelte';
 	import QuickActionDock from '$lib/components/table/QuickActionDock.svelte';
@@ -265,6 +266,8 @@
 	);
 </script>
 
+<PageHeader title={t.title} />
+
 <ContextStrip
 	{context}
 	universeName={data.universeName}
@@ -275,188 +278,199 @@
 	onExit={exitTableMode}
 />
 
-<main class="mx-auto flex max-w-4xl flex-col gap-5 px-4 py-5">
-	<!-- #367 (Q6): four things on this page arrive rather than being there, and all four
+<!-- V1 = B (#494): this was a second, nested `<main>` inside AppShell's own
+     `<main id="main">` - a `<div>` now, since a table-mode route is still
+     signed-in-with-a-universe and AppShell always supplies the one real landmark
+     there. `max-w-4xl` is gone too: table mode is explicitly named as one of the
+     three "wide" routes in the decision, full bleed rather than a Tailwind class
+     nobody chose. -->
+<PageBody width="wide">
+	<div class="flex flex-col gap-5 px-4 py-5">
+		<!-- #367 (Q6): four things on this page arrive rather than being there, and all four
 	     are the decision's own cases. This banner and the toast below it are a state that
 	     changed where a GM mid-session would otherwise wonder whether the tap registered;
 	     the two forms further down are panels expanding in place. Nothing leaves on an
 	     animation: at a table an action has to be over when the finger lifts. Table mode
 	     never renders `ModelRunning`, so none of this competes with a model. -->
-	{#if sessionEndedBanner}
-		<div
-			class="animate-in rounded-md border border-line-2 bg-panel-2 p-3 text-sm text-ink-2 duration-move ease-arrive fade-in-0 slide-in-from-top-1"
-		>
-			{sessionEndedBanner}
-		</div>
-	{/if}
-
-	{#if toast}
-		<div
-			class="animate-in rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-sm text-ink-2 duration-move ease-arrive fade-in-0 slide-in-from-top-1"
-			role="status"
-		>
-			{toast}
-		</div>
-	{/if}
-
-	{#if showDeclareForm}
-		<div class="animate-in duration-move ease-arrive fade-in-0 slide-in-from-top-1">
-			<DeclareContext
-				places={data.places}
-				sessions={data.sessions}
-				initialPlaceId={context?.placeEntityId ?? null}
-				initialSessionId={context?.sessionEntityId ?? null}
-				locale={data.locale}
-				pending={declaringContext}
-				onDeclare={declareContext}
-				onCancel={() => (showDeclareForm = false)}
-			/>
-		</div>
-	{/if}
-
-	{#if !context?.placeEntityId}
-		<EmptyState kind="cold" message={t.home.noContextDeclared}>
-			{#snippet action()}
-				<div class="flex w-full max-w-xs flex-col gap-1">
-					<label
-						for="table-quick-place"
-						class="font-mono text-label tracking-wide text-muted uppercase"
-					>
-						{t.declareContext.whereArePlayers}
-					</label>
-					<Combobox
-						id="table-quick-place"
-						bind:value={quickPlaceId}
-						options={placeOptions}
-						placeholder={t.home.choosePlace}
-						searchPlaceholder={tControls.search}
-						emptyText={tControls.noMatch}
-						onchange={handleQuickDeclare}
-					/>
-				</div>
-			{/snippet}
-		</EmptyState>
-	{:else}
-		<section class="hidden md:block" class:!block={activeTab === 'here'}>
-			<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
-				{t.home.pinnedHeading}
-			</h2>
-			<PinnedCards {pins} universeSlug={data.universeSlug} locale={data.locale} />
-		</section>
-
-		<section class="hidden md:block" class:!block={activeTab === 'here' || activeTab === 'actions'}>
-			<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
-				{t.home.quickActionsHeading}
-			</h2>
-			<QuickActionDock
-				canReveal={context.sessionEntityId !== null}
-				{npcPending}
-				locationPending={locationCreating}
-				locale={data.locale}
-				onMarkRevealed={() => fireAction('reveal')}
-				onNpcHere={() => fireAction('npc')}
-				onCreateLocation={(label) => fireAction('location', label)}
-				onJotNote={() => (showNoteForm = true)}
-			/>
-			<div class="mt-3">
-				<AmbientPlayer
-					universeSlug={data.universeSlug}
-					userId={data.userId}
-					pack={ambientPack}
-					locale={data.locale}
-				/>
-			</div>
-		</section>
-
-		{#if showNoteForm}
-			<section
-				class="hidden animate-in duration-move ease-arrive fade-in-0 slide-in-from-top-1 md:block"
-				class:!block={activeTab === 'actions'}
+		{#if sessionEndedBanner}
+			<div
+				class="animate-in rounded-md border border-line-2 bg-panel-2 p-3 text-sm text-ink-2 duration-move ease-arrive fade-in-0 slide-in-from-top-1"
 			>
-				<QuickNoteForm
-					targets={noteTargets}
-					locale={data.locale}
-					pending={noteSubmitting}
-					onSubmit={submitNote}
-					onCancel={() => (showNoteForm = false)}
-				/>
-			</section>
+				{sessionEndedBanner}
+			</div>
 		{/if}
 
-		<section class="hidden md:block" class:!block={activeTab === 'here'}>
-			<InstantSearch universeSlug={data.universeSlug} locale={data.locale} />
-		</section>
+		{#if toast}
+			<div
+				class="animate-in rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-sm text-ink-2 duration-move ease-arrive fade-in-0 slide-in-from-top-1"
+				role="status"
+			>
+				{toast}
+			</div>
+		{/if}
 
-		<section class="hidden md:block" class:!block={activeTab === 'ask'}>
-			<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
-				{t.home.askHeading}
-			</h2>
-			<p class="text-sm text-muted">
-				{t.home.askNotBuilt}
-				{#if paletteShortcut}
-					{t.home.askOpensFromPalette(formatShortcut(paletteShortcut))}
-				{/if}
-			</p>
-		</section>
+		{#if showDeclareForm}
+			<div class="animate-in duration-move ease-arrive fade-in-0 slide-in-from-top-1">
+				<DeclareContext
+					places={data.places}
+					sessions={data.sessions}
+					initialPlaceId={context?.placeEntityId ?? null}
+					initialSessionId={context?.sessionEntityId ?? null}
+					locale={data.locale}
+					pending={declaringContext}
+					onDeclare={declareContext}
+					onCancel={() => (showDeclareForm = false)}
+				/>
+			</div>
+		{/if}
 
-		<section class="hidden md:block" class:!block={activeTab === 'queue'}>
-			<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
-				{t.home.proposalsHeading}
-			</h2>
-			{#if proposals.length === 0}
+		{#if !context?.placeEntityId}
+			<EmptyState kind="cold" message={t.home.noContextDeclared}>
+				{#snippet action()}
+					<div class="flex w-full max-w-xs flex-col gap-1">
+						<label
+							for="table-quick-place"
+							class="font-mono text-[10px] tracking-wide text-muted uppercase"
+						>
+							{t.declareContext.whereArePlayers}
+						</label>
+						<Combobox
+							id="table-quick-place"
+							bind:value={quickPlaceId}
+							options={placeOptions}
+							placeholder={t.home.choosePlace}
+							searchPlaceholder={tControls.search}
+							emptyText={tControls.noMatch}
+							onchange={handleQuickDeclare}
+						/>
+					</div>
+				{/snippet}
+			</EmptyState>
+		{:else}
+			<section class="hidden md:block" class:!block={activeTab === 'here'}>
+				<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+					{t.home.pinnedHeading}
+				</h2>
+				<PinnedCards {pins} universeSlug={data.universeSlug} locale={data.locale} />
+			</section>
+
+			<section
+				class="hidden md:block"
+				class:!block={activeTab === 'here' || activeTab === 'actions'}
+			>
+				<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+					{t.home.quickActionsHeading}
+				</h2>
+				<QuickActionDock
+					canReveal={context.sessionEntityId !== null}
+					{npcPending}
+					locationPending={locationCreating}
+					locale={data.locale}
+					onMarkRevealed={() => fireAction('reveal')}
+					onNpcHere={() => fireAction('npc')}
+					onCreateLocation={(label) => fireAction('location', label)}
+					onJotNote={() => (showNoteForm = true)}
+				/>
+				<div class="mt-3">
+					<AmbientPlayer
+						universeSlug={data.universeSlug}
+						userId={data.userId}
+						pack={ambientPack}
+						locale={data.locale}
+					/>
+				</div>
+			</section>
+
+			{#if showNoteForm}
+				<section
+					class="hidden animate-in duration-move ease-arrive fade-in-0 slide-in-from-top-1 md:block"
+					class:!block={activeTab === 'actions'}
+				>
+					<QuickNoteForm
+						targets={noteTargets}
+						locale={data.locale}
+						pending={noteSubmitting}
+						onSubmit={submitNote}
+						onCancel={() => (showNoteForm = false)}
+					/>
+				</section>
+			{/if}
+
+			<section class="hidden md:block" class:!block={activeTab === 'here'}>
+				<InstantSearch universeSlug={data.universeSlug} locale={data.locale} />
+			</section>
+
+			<section class="hidden md:block" class:!block={activeTab === 'ask'}>
+				<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+					{t.home.askHeading}
+				</h2>
 				<p class="text-sm text-muted">
-					{t.home.proposalsEmpty}
+					{t.home.askNotBuilt}
+					{#if paletteShortcut}
+						{t.home.askOpensFromPalette(formatShortcut(paletteShortcut))}
+					{/if}
 				</p>
-			{:else}
-				<ul class="flex flex-col gap-1.5">
-					{#each proposals as proposal (proposal.proposalId)}
-						<li class="rounded-md border border-line bg-panel p-2.5 text-sm">
-							<!-- Round eleven P2 (#344): both of these name a kind, they are not wording
+			</section>
+
+			<section class="hidden md:block" class:!block={activeTab === 'queue'}>
+				<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+					{t.home.proposalsHeading}
+				</h2>
+				{#if proposals.length === 0}
+					<p class="text-sm text-muted">
+						{t.home.proposalsEmpty}
+					</p>
+				{:else}
+					<ul class="flex flex-col gap-1.5">
+						{#each proposals as proposal (proposal.proposalId)}
+							<li class="rounded-md border border-line bg-panel p-2.5 text-sm">
+								<!-- Round eleven P2 (#344): both of these name a kind, they are not wording
 								a model produced, so they wear the theme's own panel and line. The one
 								below sits next to a Badge variant="secondary" for the scaffold case and
 								now matches it, which is what it should have been doing. -->
-							<span
-								class="rounded-full border border-line-2 bg-panel-2 px-1.5 py-0.5 font-mono text-label text-ink-2"
-							>
-								{t.home.proposalLabel} &middot; {proposal.kind}
-							</span>
-							<span class="ml-2 text-muted">{t.home.from(actionLabel(proposal.via))}</span>
-							{#if proposal.drafted === 'model'}
 								<span
-									class="ml-2 rounded-full border border-line-2 bg-panel-2 px-1.5 py-0.5 font-mono text-label text-ink-2"
-									title={t.home.aiDraftedTooltip}
+									class="rounded-full border border-line-2 bg-panel-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-2"
 								>
-									{t.home.aiDraftedBadge}
+									{t.home.proposalLabel} &middot; {proposal.kind}
 								</span>
-							{:else if proposal.drafted === 'scaffold'}
-								<Badge
-									variant="secondary"
-									class="ml-2 font-mono text-label text-muted"
-									title={proposal.unavailableReason ?? t.home.scaffoldTooltipDefault}
-								>
-									{t.home.scaffoldBadge}
-								</Badge>
-							{/if}
-							{#if proposal.targetName}
-								<p class="mt-1 text-ink-2">{proposal.targetName}</p>
-							{:else if proposal.rationale}
-								<p class="mt-1 text-ink-2">{proposal.rationale}</p>
-							{/if}
-							{#if proposal.preview}
-								<p class="mt-1 text-xs text-ink-2">{proposal.preview}</p>
-							{/if}
-							{#if proposal.drafted === 'scaffold' && proposal.unavailableReason && proposal.targetName}
-								<p class="mt-1 text-label text-muted">
-									{t.home.aiUnavailable(proposal.unavailableReason)}
-								</p>
-							{/if}
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</section>
-	{/if}
-</main>
+								<span class="ml-2 text-muted">{t.home.from(actionLabel(proposal.via))}</span>
+								{#if proposal.drafted === 'model'}
+									<span
+										class="ml-2 rounded-full border border-line-2 bg-panel-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-2"
+										title={t.home.aiDraftedTooltip}
+									>
+										{t.home.aiDraftedBadge}
+									</span>
+								{:else if proposal.drafted === 'scaffold'}
+									<Badge
+										variant="secondary"
+										class="ml-2 font-mono text-[10px] text-muted"
+										title={proposal.unavailableReason ?? t.home.scaffoldTooltipDefault}
+									>
+										{t.home.scaffoldBadge}
+									</Badge>
+								{/if}
+								{#if proposal.targetName}
+									<p class="mt-1 text-ink-2">{proposal.targetName}</p>
+								{:else if proposal.rationale}
+									<p class="mt-1 text-ink-2">{proposal.rationale}</p>
+								{/if}
+								{#if proposal.preview}
+									<p class="mt-1 text-xs text-ink-2">{proposal.preview}</p>
+								{/if}
+								{#if proposal.drafted === 'scaffold' && proposal.unavailableReason && proposal.targetName}
+									<p class="mt-1 text-[11px] text-muted">
+										{t.home.aiUnavailable(proposal.unavailableReason)}
+									</p>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+		{/if}
+	</div>
+</PageBody>
 
 <PhoneTabBar
 	active={activeTab}

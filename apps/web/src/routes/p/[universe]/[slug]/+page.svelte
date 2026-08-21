@@ -22,6 +22,7 @@
 	import PublicRelationsList from '$lib/components/players/PublicRelationsList.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { messages } from '$lib/i18n';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -54,20 +55,20 @@
 
 <svelte:head><title>{data.entity.name} &middot; {data.universe.name}</title></svelte:head>
 
-<p class="mb-3 text-xs text-muted">
-	<a class="hover:underline" href={resolve(`/p/${data.universe.slug}`)}>{data.universe.name}</a>
-	<span aria-hidden="true">/</span>
-	{data.entity.type} <span aria-hidden="true">/</span>
-	<span class="text-ink-2">{data.entity.name}</span>
-</p>
+<PageHeader title={data.entity.name} />
+<PageBody width="reading">
+	<p class="mb-3 text-xs text-muted">
+		<a class="hover:underline" href={resolve(`/p/${data.universe.slug}`)}>{data.universe.name}</a>
+		<span aria-hidden="true">/</span>
+		{data.entity.type} <span aria-hidden="true">/</span>
+		<span class="text-ink-2">{data.entity.name}</span>
+	</p>
 
-{#if coverUrl}
-	<EntryCover src={coverUrl} alt={data.entity.name} entityType={data.entity.type} />
-{/if}
+	{#if coverUrl}
+		<EntryCover src={coverUrl} alt={data.entity.name} entityType={data.entity.type} />
+	{/if}
 
-<div class="mb-6">
-	<h1 class="mb-1 text-3xl font-semibold text-ink">{data.entity.name}</h1>
-	<p class="flex flex-wrap items-center gap-2 text-sm text-muted">
+	<p class="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted">
 		<Badge variant="accent" class="font-mono">{data.entity.type}</Badge>
 		{#if data.entity.status === 'full'}
 			<span>
@@ -79,30 +80,30 @@
 			<span>{t.players.notDiscovered}</span>
 		{/if}
 	</p>
-</div>
 
-{#if data.entity.status === 'gap'}
-	<GapNotice name={data.entity.name} type={data.entity.type} locale={data.locale} />
-{:else}
-	<article lang={data.entity.language ?? undefined}>
-		<EntryProse
-			body={data.entity.body}
-			universeSlug={data.universe.slug}
-			mentionTargets={data.mentionTargets}
-			surface="public"
-			locale={data.locale}
-		/>
-		<PublicFactsList facts={data.entity.facts} locale={data.locale} />
-		<PublicRelationsList
-			relations={data.entity.relations}
-			universeSlug={data.universe.slug}
-			locale={data.locale}
-		/>
-		<PublicImages
-			images={galleryImages}
-			universeSlug={data.universe.slug}
-			entityName={data.entity.name}
-			locale={data.locale}
-		/>
-	</article>
-{/if}
+	{#if data.entity.status === 'gap'}
+		<GapNotice name={data.entity.name} type={data.entity.type} locale={data.locale} />
+	{:else}
+		<article lang={data.entity.language ?? undefined}>
+			<EntryProse
+				body={data.entity.body}
+				universeSlug={data.universe.slug}
+				mentionTargets={data.mentionTargets}
+				surface="public"
+				locale={data.locale}
+			/>
+			<PublicFactsList facts={data.entity.facts} locale={data.locale} />
+			<PublicRelationsList
+				relations={data.entity.relations}
+				universeSlug={data.universe.slug}
+				locale={data.locale}
+			/>
+			<PublicImages
+				images={galleryImages}
+				universeSlug={data.universe.slug}
+				entityName={data.entity.name}
+				locale={data.locale}
+			/>
+		</article>
+	{/if}
+</PageBody>

@@ -20,6 +20,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import ProposalDiffCard from '$lib/components/proposals/ProposalDiffCard.svelte';
 	import type { PageProps } from './$types';
 
@@ -33,62 +34,64 @@
 	<title>{title} &middot; {data.universe.name}</title>
 </svelte:head>
 
-<div class="mx-auto max-w-3xl px-4 py-6 md:px-6 md:py-8">
-	<p class="mb-2 text-xs text-muted">
-		{#if data.candidate.targetSlug}
-			<a
-				class="hover:underline"
-				href={resolve(`/w/${data.universe.slug}/e/${data.candidate.targetSlug}`)}
-			>
-				{data.candidate.targetName}
-			</a>
-		{:else}
-			<a class="hover:underline" href={resolve(`/w/${data.universe.slug}/proposals`)}>
-				{t.title}
-			</a>
-		{/if}
-	</p>
-	<!-- Issue #468: this page had no page-level heading at all - the only text naming what
-	     you were looking at was the 12px breadcrumb above, or (for the no-diff case) the
-	     struck-through body itself. -->
-	<h1 class="mb-4 text-2xl font-semibold text-ink">{title}</h1>
+<!-- Issue #468: this page had no page-level heading at all - the only text naming what
+     you were looking at was the 12px breadcrumb above, or (for the no-diff case) the
+     struck-through body itself. -->
+<PageHeader {title} />
+<PageBody width="working">
+	<div class="px-4 py-6 md:px-6 md:py-8">
+		<p class="mb-2 text-xs text-muted">
+			{#if data.candidate.targetSlug}
+				<a
+					class="hover:underline"
+					href={resolve(`/w/${data.universe.slug}/e/${data.candidate.targetSlug}`)}
+				>
+					{data.candidate.targetName}
+				</a>
+			{:else}
+				<a class="hover:underline" href={resolve(`/w/${data.universe.slug}/proposals`)}>
+					{t.title}
+				</a>
+			{/if}
+		</p>
 
-	{#if data.candidate.awaitingDiff}
-		<div class="card rounded-lg border border-line bg-panel p-4">
-			<p class="mb-2 font-mono text-xs text-ink-2 uppercase">{t.review.awaitingDiff.kicker}</p>
-			<p class="max-w-measure text-sm text-ink-2">{t.review.awaitingDiff.body(title)}</p>
-			<p class="mt-3 max-w-measure text-sm text-ink-2">
-				<span class="font-medium text-ink">{t.review.awaitingDiff.reasonLabel}</span>
-				{data.candidate.rationale}
-			</p>
-			<p class="mt-3 text-sm text-ink-2">
-				{costLabel.prefix}<b class="text-ink">{(data.diffPriceCredits ?? 0).toFixed(2)}</b
-				>{costLabel.suffix}
-			</p>
-			<p class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-				{#if data.candidate.planId}
-					<a
-						class="text-accent hover:underline"
-						href={resolve(`/w/${data.universe.slug}/proposals/${data.candidate.planId}`)}
-					>
-						{t.review.awaitingDiff.planLink}
-					</a>
-				{/if}
-				{#if data.candidate.targetSlug}
-					<a
-						class="text-accent hover:underline"
-						href={resolve(`/w/${data.universe.slug}/e/${data.candidate.targetSlug}`)}
-					>
-						{t.review.awaitingDiff.backToEntry}
-					</a>
-				{/if}
-			</p>
-		</div>
-	{:else}
-		<ProposalDiffCard
-			candidate={data.candidate}
-			universeSlug={data.universe.slug}
-			locale={data.locale}
-		/>
-	{/if}
-</div>
+		{#if data.candidate.awaitingDiff}
+			<div class="card rounded-lg border border-line bg-panel p-4">
+				<p class="mb-2 font-mono text-xs text-ink-2 uppercase">{t.review.awaitingDiff.kicker}</p>
+				<p class="max-w-measure text-sm text-ink-2">{t.review.awaitingDiff.body(title)}</p>
+				<p class="mt-3 max-w-measure text-sm text-ink-2">
+					<span class="font-medium text-ink">{t.review.awaitingDiff.reasonLabel}</span>
+					{data.candidate.rationale}
+				</p>
+				<p class="mt-3 text-sm text-ink-2">
+					{costLabel.prefix}<b class="text-ink">{(data.diffPriceCredits ?? 0).toFixed(2)}</b
+					>{costLabel.suffix}
+				</p>
+				<p class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+					{#if data.candidate.planId}
+						<a
+							class="text-accent hover:underline"
+							href={resolve(`/w/${data.universe.slug}/proposals/${data.candidate.planId}`)}
+						>
+							{t.review.awaitingDiff.planLink}
+						</a>
+					{/if}
+					{#if data.candidate.targetSlug}
+						<a
+							class="text-accent hover:underline"
+							href={resolve(`/w/${data.universe.slug}/e/${data.candidate.targetSlug}`)}
+						>
+							{t.review.awaitingDiff.backToEntry}
+						</a>
+					{/if}
+				</p>
+			</div>
+		{:else}
+			<ProposalDiffCard
+				candidate={data.candidate}
+				universeSlug={data.universe.slug}
+				locale={data.locale}
+			/>
+		{/if}
+	</div>
+</PageBody>

@@ -37,7 +37,7 @@
 			<span class="text-xs tracking-wide text-muted uppercase">{t.players.wikiLabel}</span>
 		</div>
 	</header>
-	<main id="main" class="mx-auto max-w-3xl px-6 py-10">
+	<main id="main" class="px-6 py-10">
 		{@render children()}
 	</main>
 </div>

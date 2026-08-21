@@ -26,6 +26,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
+	import { PageHeader } from '$lib/components/ui/page-header';
 	import { Button } from '$lib/components/ui/button';
 	import MarkdownEditor from '$lib/components/entry/MarkdownEditor.svelte';
 	import LanguageControl from '$lib/components/entry/LanguageControl.svelte';
@@ -47,21 +48,20 @@
 	></svelte:head
 >
 
-<div class="mx-auto flex h-full max-w-3xl flex-col px-6 py-8">
+<PageHeader title={t.entry.editor.heading(data.entity.name)} />
+
+<!-- V1 = B (#494): `flex h-full` plus the `max-w-working` token applied directly here
+     rather than through the shared `PageBody` wrapper - `PageBody`'s own div has no
+     defined height, and `MarkdownEditor`'s `fill` below needs an unbroken `h-full`
+     chain from `main` down to itself to occupy the remaining viewport height. Still
+     exactly one of the three named widths, just not routed through the component. -->
+<div class="mx-auto flex h-full w-full max-w-working flex-col px-6 py-8">
 	<p class="mb-1 shrink-0 text-xs text-muted">
 		<a class="hover:underline" href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}`)}
 			>{data.entity.name}</a
 		>
 		/ {t.entry.editor.breadcrumbEdit}
 	</p>
-	<!-- S7, round fourteen (#412): shrunk to the breadcrumb's own scale, since the
-	     breadcrumb one line up already says the entry's name - this stays a real `h1`
-	     for the page's outline, it just no longer spends `text-2xl` and `mb-6` telling
-	     you something you were told a line ago. That reclaims the vertical space the
-	     writing area gets below. -->
-	<h1 class="mb-4 shrink-0 text-xs font-medium text-ink">
-		{t.entry.editor.heading(data.entity.name)}
-	</h1>
 	{#if form?.message}
 		<p class="mb-4 shrink-0 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
 			{form.message}

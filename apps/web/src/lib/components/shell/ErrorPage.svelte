@@ -43,7 +43,7 @@
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { DEFAULT_LOCALE, messages, type Locale } from '$lib/i18n';
-	import { PageHeader } from '$lib/components/ui/page-header';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
 	import { paletteState } from '$lib/components/palette/palette-state.svelte';
@@ -79,54 +79,56 @@
 	title={isNotFound ? t.notFoundHeading : t.serverErrorHeading}
 />
 
-<div class="mt-6">
-	{#if isNotFound}
-		<EmptyState kind="derived" message={t.notFoundBody}>
-			{#snippet action()}
-				<div class="flex flex-wrap justify-center gap-2">
-					{#if universeSlug}
-						<Button href={resolve(`/w/${universeSlug}`)} variant="secondary" size="sm">
-							{t.worldHomeAction}
+<PageBody width="reading">
+	<div class="mt-6">
+		{#if isNotFound}
+			<EmptyState kind="derived" message={t.notFoundBody}>
+				{#snippet action()}
+					<div class="flex flex-wrap justify-center gap-2">
+						{#if universeSlug}
+							<Button href={resolve(`/w/${universeSlug}`)} variant="secondary" size="sm">
+								{t.worldHomeAction}
+							</Button>
+							<Button href={resolve(`/w/${universeSlug}/entries`)} variant="secondary" size="sm">
+								{t.entriesAction}
+							</Button>
+						{:else if isSignedIn}
+							<Button href={resolve('/')} variant="secondary" size="sm">
+								{t.allUniversesAction}
+							</Button>
+						{/if}
+						{#if isSignedIn}
+							<Button
+								type="button"
+								variant="secondary"
+								size="sm"
+								onclick={() => (paletteState.open = true)}
+							>
+								{t.searchAction}
+							</Button>
+						{/if}
+					</div>
+				{/snippet}
+			</EmptyState>
+		{:else}
+			<EmptyState kind="derived" message={t.serverErrorBody}>
+				{#snippet action()}
+					<div class="flex flex-wrap justify-center gap-2">
+						<Button href={retryHref} data-sveltekit-reload variant="secondary" size="sm">
+							{t.retryAction}
 						</Button>
-						<Button href={resolve(`/w/${universeSlug}/entries`)} variant="secondary" size="sm">
-							{t.entriesAction}
-						</Button>
-					{:else if isSignedIn}
-						<Button href={resolve('/')} variant="secondary" size="sm">
-							{t.allUniversesAction}
-						</Button>
-					{/if}
-					{#if isSignedIn}
-						<Button
-							type="button"
-							variant="secondary"
-							size="sm"
-							onclick={() => (paletteState.open = true)}
-						>
-							{t.searchAction}
-						</Button>
-					{/if}
-				</div>
-			{/snippet}
-		</EmptyState>
-	{:else}
-		<EmptyState kind="derived" message={t.serverErrorBody}>
-			{#snippet action()}
-				<div class="flex flex-wrap justify-center gap-2">
-					<Button href={retryHref} data-sveltekit-reload variant="secondary" size="sm">
-						{t.retryAction}
-					</Button>
-					{#if universeSlug}
-						<Button href={resolve(`/w/${universeSlug}`)} variant="secondary" size="sm">
-							{t.worldHomeAction}
-						</Button>
-					{:else if isSignedIn}
-						<Button href={resolve('/')} variant="secondary" size="sm">
-							{t.allUniversesAction}
-						</Button>
-					{/if}
-				</div>
-			{/snippet}
-		</EmptyState>
-	{/if}
-</div>
+						{#if universeSlug}
+							<Button href={resolve(`/w/${universeSlug}`)} variant="secondary" size="sm">
+								{t.worldHomeAction}
+							</Button>
+						{:else if isSignedIn}
+							<Button href={resolve('/')} variant="secondary" size="sm">
+								{t.allUniversesAction}
+							</Button>
+						{/if}
+					</div>
+				{/snippet}
+			</EmptyState>
+		{/if}
+	</div>
+</PageBody>

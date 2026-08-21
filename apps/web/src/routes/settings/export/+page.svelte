@@ -2,7 +2,6 @@
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { EmptyState } from '$lib/components/ui/empty-state';
-	import { PageHeader } from '$lib/components/ui/page-header';
 	import { messages } from '$lib/i18n';
 	import type { PageData } from './$types';
 
@@ -13,8 +12,6 @@
 <svelte:head>
 	<title>{t.export.title}: Canonry</title>
 </svelte:head>
-
-<PageHeader title={t.export.title} />
 
 <p class="mt-4 text-sm text-ink-2">
 	{t.export.para1Before}<code class="text-ink">[[Name]]</code>{t.export.para1After}

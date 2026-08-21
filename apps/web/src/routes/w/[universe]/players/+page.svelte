@@ -21,7 +21,7 @@
 	import { dateFormat, messages } from '$lib/i18n';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { Button } from '$lib/components/ui/button';
-	import { PageHeader } from '$lib/components/ui/page-header';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import MentionPreview from '$lib/components/entry/MentionPreview.svelte';
 	import type { PageProps } from './$types';
@@ -44,109 +44,111 @@
 	<title>{t.headTitle(data.universe.name)}</title>
 </svelte:head>
 
-<div class="mx-auto flex max-w-measure flex-col gap-8 px-8 py-16">
-	<PageHeader eyebrow={data.universe.name} title={t.heading} description={t.description} />
-
-	<div class="flex flex-col gap-2 rounded-lg border border-line bg-panel p-5">
-		<h2 class="text-sm font-semibold text-ink">{t.wikiLinkLabel}</h2>
-		<p class="font-mono text-sm text-ink-2">{resolve(`/p/${data.universe.slug}`)}</p>
-		<div>
-			<Button
-				href={resolve(`/p/${data.universe.slug}`)}
-				target="_blank"
-				rel="noopener"
-				variant="secondary"
-				size="sm"
-			>
-				{t.openWikiLink}
-			</Button>
-		</div>
-		<p class="mt-1 text-sm text-muted">{t.invitationsNotice}</p>
-	</div>
-
-	<div bind:this={revealedContainer} class="relative">
-		<h2 class="mb-3 text-sm font-semibold tracking-wide text-muted uppercase">
-			{t.revealedHeading}
-		</h2>
-
-		{#snippet nameLink(ref: { slug: string; name: string; revealed: boolean }, text: string)}
-			<a
-				href={resolve(`/w/${data.universe.slug}/e/${ref.slug}`)}
-				data-entry-slug={ref.slug}
-				class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
-				>{text}</a
-			>{#if ref.revealed}<Button
-					href={resolve(`/p/${data.universe.slug}/${ref.slug}`)}
-					data-entry-slug={ref.slug}
+<PageHeader eyebrow={data.universe.name} title={t.heading} description={t.description} />
+<PageBody width="working">
+	<div class="flex flex-col gap-8 px-8 py-16">
+		<div class="flex flex-col gap-2 rounded-lg border border-line bg-panel p-5">
+			<h2 class="text-sm font-semibold text-ink">{t.wikiLinkLabel}</h2>
+			<p class="font-mono text-sm text-ink-2">{resolve(`/p/${data.universe.slug}`)}</p>
+			<div>
+				<Button
+					href={resolve(`/p/${data.universe.slug}`)}
 					target="_blank"
 					rel="noopener"
-					variant="ghost"
-					size="icon"
-					class="ml-0.5 size-5 shrink-0 align-middle text-ink-2 hover:text-ink"
-					aria-label={t.openInWiki(ref.name)}
-					><ExternalLinkIcon aria-hidden="true" class="size-3" /></Button
-				>{/if}
-		{/snippet}
+					variant="secondary"
+					size="sm"
+				>
+					{t.openWikiLink}
+				</Button>
+			</div>
+			<p class="mt-1 text-sm text-muted">{t.invitationsNotice}</p>
+		</div>
 
-		{#if data.log.length === 0}
-			<EmptyState kind="cold" message={t.revealedEmpty}>
-				{#snippet action()}
-					<Button href={resolve(`/w/${data.universe.slug}/table`)}>{t.revealedEmptyAction}</Button>
-				{/snippet}
-			</EmptyState>
-		{:else}
-			<ul class="flex flex-col gap-2.5">
-				{#each data.log as entry (entry.id)}
-					<li class="flex flex-col gap-0.5 text-sm">
-						<span class="text-ink">
-							{#if entry.kind === 'relation'}
-								{@render nameLink(entry.from, entry.from.name)}
-								{entry.relationLabel}
-								{@render nameLink(entry.to, entry.to.name)}
-							{:else}
-								{@render nameLink(entry.entity, entry.label)}
-							{/if}
-						</span>
-						<span class="text-xs text-muted">
-							{t.kindLabel[entry.kind]} &middot; {entry.sessionName ?? t.sessionUnknown} &middot;
-							{formatWhen(entry.confirmedAt)}
-						</span>
-					</li>
-				{/each}
-			</ul>
-			<MentionPreview
-				container={revealedContainer}
-				universeSlug={data.universe.slug}
-				surface="gm"
-				locale={data.locale}
-			/>
-		{/if}
-	</div>
+		<div bind:this={revealedContainer} class="relative">
+			<h2 class="mb-3 text-sm font-semibold tracking-wide text-muted uppercase">
+				{t.revealedHeading}
+			</h2>
 
-	<div>
-		<h2 class="mb-1 text-sm font-semibold tracking-wide text-muted uppercase">
-			{t.hiddenHeading}
-		</h2>
-		<p class="mb-3 text-sm text-muted">{t.hiddenDescription}</p>
+			{#snippet nameLink(ref: { slug: string; name: string; revealed: boolean }, text: string)}
+				<a
+					href={resolve(`/w/${data.universe.slug}/e/${ref.slug}`)}
+					data-entry-slug={ref.slug}
+					class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
+					>{text}</a
+				>{#if ref.revealed}<Button
+						href={resolve(`/p/${data.universe.slug}/${ref.slug}`)}
+						data-entry-slug={ref.slug}
+						target="_blank"
+						rel="noopener"
+						variant="ghost"
+						size="icon"
+						class="ml-0.5 size-5 shrink-0 align-middle text-ink-2 hover:text-ink"
+						aria-label={t.openInWiki(ref.name)}
+						><ExternalLinkIcon aria-hidden="true" class="size-3" /></Button
+					>{/if}
+			{/snippet}
 
-		{#if data.hidden.length === 0}
-			<EmptyState kind="settled" message={t.hiddenEmpty} />
-		{:else}
-			<ul class="flex flex-col divide-y divide-line">
-				{#each data.hidden as entity (entity.id)}
-					<li>
-						<a
-							href={resolve(`/w/${data.universe.slug}/e/${entity.slug}`)}
-							class="flex items-center justify-between gap-3 py-2 text-sm text-ink-2 transition-colors hover:text-ink"
+			{#if data.log.length === 0}
+				<EmptyState kind="cold" message={t.revealedEmpty}>
+					{#snippet action()}
+						<Button href={resolve(`/w/${data.universe.slug}/table`)}>{t.revealedEmptyAction}</Button
 						>
-							<span>{entity.name}</span>
-							<span class="text-xs tracking-wide text-muted uppercase"
-								>{t.entityTypeLabel(entity.type)}</span
+					{/snippet}
+				</EmptyState>
+			{:else}
+				<ul class="flex flex-col gap-2.5">
+					{#each data.log as entry (entry.id)}
+						<li class="flex flex-col gap-0.5 text-sm">
+							<span class="text-ink">
+								{#if entry.kind === 'relation'}
+									{@render nameLink(entry.from, entry.from.name)}
+									{entry.relationLabel}
+									{@render nameLink(entry.to, entry.to.name)}
+								{:else}
+									{@render nameLink(entry.entity, entry.label)}
+								{/if}
+							</span>
+							<span class="text-xs text-muted">
+								{t.kindLabel[entry.kind]} &middot; {entry.sessionName ?? t.sessionUnknown} &middot;
+								{formatWhen(entry.confirmedAt)}
+							</span>
+						</li>
+					{/each}
+				</ul>
+				<MentionPreview
+					container={revealedContainer}
+					universeSlug={data.universe.slug}
+					surface="gm"
+					locale={data.locale}
+				/>
+			{/if}
+		</div>
+
+		<div>
+			<h2 class="mb-1 text-sm font-semibold tracking-wide text-muted uppercase">
+				{t.hiddenHeading}
+			</h2>
+			<p class="mb-3 text-sm text-muted">{t.hiddenDescription}</p>
+
+			{#if data.hidden.length === 0}
+				<EmptyState kind="settled" message={t.hiddenEmpty} />
+			{:else}
+				<ul class="flex flex-col divide-y divide-line">
+					{#each data.hidden as entity (entity.id)}
+						<li>
+							<a
+								href={resolve(`/w/${data.universe.slug}/e/${entity.slug}`)}
+								class="flex items-center justify-between gap-3 py-2 text-sm text-ink-2 transition-colors hover:text-ink"
 							>
-						</a>
-					</li>
-				{/each}
-			</ul>
-		{/if}
+								<span>{entity.name}</span>
+								<span class="text-xs tracking-wide text-muted uppercase"
+									>{t.entityTypeLabel(entity.type)}</span
+								>
+							</a>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
 	</div>
-</div>
+</PageBody>

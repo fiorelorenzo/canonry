@@ -16,7 +16,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
-	import { PageHeader } from '$lib/components/ui/page-header';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import SettingsShell from '$lib/components/settings/SettingsShell.svelte';
 	import UniverseSettingsRail from '$lib/components/settings/UniverseSettingsRail.svelte';
 	import RelationCatalogue from '$lib/components/relations/RelationCatalogue.svelte';
@@ -57,30 +57,31 @@
 
 <svelte:head><title>{t.headTitle(data.universeName)}</title></svelte:head>
 
-<SettingsShell>
-	{#snippet rail()}
-		<UniverseSettingsRail
-			ariaLabel={settingsT.rail.ariaLabel}
-			incompleteMark={settingsT.rail.incompleteMark}
-			items={railItems}
-			active="canon"
-		/>
-	{/snippet}
+<PageHeader
+	eyebrow={settingsT.heading}
+	title={t.title}
+	description={t.description(data.universeName)}
+/>
+<PageBody width="working">
+	<SettingsShell>
+		{#snippet rail()}
+			<UniverseSettingsRail
+				ariaLabel={settingsT.rail.ariaLabel}
+				incompleteMark={settingsT.rail.incompleteMark}
+				items={railItems}
+				active="canon"
+			/>
+		{/snippet}
 
-	<PageHeader
-		eyebrow={settingsT.heading}
-		title={t.title}
-		description={t.description(data.universeName)}
-	/>
-
-	<div class="mt-8">
-		<RelationCatalogue
-			types={data.types}
-			{t}
-			{relationTypeLabel}
-			locale={data.locale}
-			canManage={data.canManage}
-			form={form ?? undefined}
-		/>
-	</div>
-</SettingsShell>
+		<div class="mt-8">
+			<RelationCatalogue
+				types={data.types}
+				{t}
+				{relationTypeLabel}
+				locale={data.locale}
+				canManage={data.canManage}
+				form={form ?? undefined}
+			/>
+		</div>
+	</SettingsShell>
+</PageBody>

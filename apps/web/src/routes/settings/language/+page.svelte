@@ -2,7 +2,6 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
-	import { PageHeader } from '$lib/components/ui/page-header';
 	import { LOCALE_NAMES, LOCALES, messages } from '$lib/i18n';
 	import type { ActionData, PageData } from './$types';
 
@@ -24,8 +23,6 @@
 <svelte:head>
 	<title>{t.language.title}: Canonry</title>
 </svelte:head>
-
-<PageHeader title={t.language.title} description={t.language.description} />
 
 <p class="mt-4 max-w-xl text-sm text-ink-2">
 	{t.language.learnMorePrompt}

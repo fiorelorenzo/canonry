@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
-	import { PageHeader } from '$lib/components/ui/page-header';
 	import { messages } from '$lib/i18n';
 	import type { ActionData, PageData } from './$types';
 
@@ -23,8 +22,6 @@
 <svelte:head>
 	<title>{t.appearance.title}: Canonry</title>
 </svelte:head>
-
-<PageHeader title={t.appearance.title} description={t.appearance.description} />
 
 <form
 	method="POST"

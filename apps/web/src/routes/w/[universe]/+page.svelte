@@ -34,7 +34,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
-	import { PageHeader } from '$lib/components/ui/page-header';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
 	import ActivityFeed from '$lib/components/entries/ActivityFeed.svelte';
@@ -82,51 +82,53 @@
 	{/snippet}
 </PageHeader>
 
-<WorldPulse {pulse} locale={data.locale} t={homeT} />
+<PageBody width="wide">
+	<WorldPulse {pulse} locale={data.locale} t={homeT} />
 
-<section class="mt-8">
-	<h2 class="mb-3 text-sm font-semibold text-ink">{homeT.continueHeading}</h2>
-	{#if data.continueEntries.length === 0}
-		<EmptyState kind="cold" message={t.emptyColdMessage}>
-			{#snippet action()}
-				<!-- Creation lives on the browser, with the dialog and the action behind it, so
+	<section class="mt-8">
+		<h2 class="mb-3 text-sm font-semibold text-ink">{homeT.continueHeading}</h2>
+		{#if data.continueEntries.length === 0}
+			<EmptyState kind="cold" message={t.emptyColdMessage}>
+				{#snippet action()}
+					<!-- Creation lives on the browser, with the dialog and the action behind it, so
 				     a cold world is sent to the one place an entry is made rather than growing a
 				     second create path here. -->
-				<Button href={`${entriesHref}?new=entry`}>{t.newEntryAction}</Button>
-			{/snippet}
-		</EmptyState>
-	{:else}
-		<ContinueRow universeSlug={data.current.slug} entries={data.continueEntries} {t} />
-	{/if}
-</section>
+					<Button href={`${entriesHref}?new=entry`}>{t.newEntryAction}</Button>
+				{/snippet}
+			</EmptyState>
+		{:else}
+			<ContinueRow universeSlug={data.current.slug} entries={data.continueEntries} {t} />
+		{/if}
+	</section>
 
-<section class="mt-8">
-	<h2 class="mb-3 text-sm font-semibold text-ink">{homeT.waitingHeading}</h2>
-	{#if waitingRows === 0}
-		<EmptyState kind="settled" message={homeT.waitingEmpty} />
-	{:else}
-		<WaitingForYou
-			universeSlug={data.current.slug}
-			plans={data.waiting.plans}
-			importJobs={data.waiting.importJobs}
-			totalPending={data.waiting.totalPending}
-			t={homeT}
-			{proposalsT}
-		/>
-	{/if}
-</section>
+	<section class="mt-8">
+		<h2 class="mb-3 text-sm font-semibold text-ink">{homeT.waitingHeading}</h2>
+		{#if waitingRows === 0}
+			<EmptyState kind="settled" message={homeT.waitingEmpty} />
+		{:else}
+			<WaitingForYou
+				universeSlug={data.current.slug}
+				plans={data.waiting.plans}
+				importJobs={data.waiting.importJobs}
+				totalPending={data.waiting.totalPending}
+				t={homeT}
+				{proposalsT}
+			/>
+		{/if}
+	</section>
 
-<section class="mt-8">
-	<h2 class="mb-3 text-sm font-semibold text-ink">{homeT.activityHeading}</h2>
-	{#if data.activity.length === 0}
-		<EmptyState kind="settled" message={homeT.activityEmpty} />
-	{:else}
-		<ActivityFeed
-			universeSlug={data.current.slug}
-			items={data.activity}
-			t={homeT}
-			relativeTimeT={t.relativeTime}
-			{relationTypeLabel}
-		/>
-	{/if}
-</section>
+	<section class="mt-8">
+		<h2 class="mb-3 text-sm font-semibold text-ink">{homeT.activityHeading}</h2>
+		{#if data.activity.length === 0}
+			<EmptyState kind="settled" message={homeT.activityEmpty} />
+		{:else}
+			<ActivityFeed
+				universeSlug={data.current.slug}
+				items={data.activity}
+				t={homeT}
+				relativeTimeT={t.relativeTime}
+				{relationTypeLabel}
+			/>
+		{/if}
+	</section>
+</PageBody>

@@ -4,7 +4,6 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { PageHeader } from '$lib/components/ui/page-header';
 	import { dateFormat, messages } from '$lib/i18n';
 	import { providerLabel } from '$lib/providers';
 	import type { ActionData, PageData } from './$types';
@@ -45,8 +44,6 @@
 <svelte:head>
 	<title>{t.title}: Canonry</title>
 </svelte:head>
-
-<PageHeader title={t.title} />
 
 <!-- F3 = C's contextual sentence, in its B home (docs/ux/f3-privacy-and-keys.html: "C for
      the sentence itself... every one-liner links to B, the settings panel"). Says plainly

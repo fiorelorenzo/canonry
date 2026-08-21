@@ -2,7 +2,6 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
-	import { PageHeader } from '$lib/components/ui/page-header';
 	import { dateFormat, messages, numberFormat } from '$lib/i18n';
 	import type { ActionData, PageData } from './$types';
 
@@ -27,8 +26,6 @@
 <svelte:head>
 	<title>{t.title}: Canonry</title>
 </svelte:head>
-
-<PageHeader title={t.title} description={t.description} />
 
 {#if !data.signedIn}
 	<p class="mt-6 text-sm text-ink-2">

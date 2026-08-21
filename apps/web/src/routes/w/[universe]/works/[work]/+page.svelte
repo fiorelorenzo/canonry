@@ -12,6 +12,7 @@
 	 * scripting off.
 	 */
 	import { enhance } from '$app/forms';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import { messages } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
@@ -31,61 +32,64 @@
 	const kindLabel = $derived(kindOptions.find((option) => option.value === kind)?.label ?? kind);
 </script>
 
-<div class="mx-auto max-w-2xl px-8 py-10">
-	{#if data.tree.length === 0}
-		<h1 class="text-xl font-semibold text-ink">{t.works.tree.emptyHeading(data.work.name)}</h1>
-		<EmptyState kind="cold" message={t.works.tree.emptyHint}>
-			{#snippet action()}
-				<Button href="#work-node-title">{t.works.tree.addNodeButton}</Button>
-			{/snippet}
-		</EmptyState>
-	{:else}
-		<h1 class="text-xl font-semibold text-ink">{data.work.name}</h1>
-		<p class="mt-2 max-w-measure text-sm text-ink-2">
-			{t.works.tree.pickNodeHint}
-		</p>
-	{/if}
-
-	<form
-		method="POST"
-		action="?/createNode"
-		class="mt-6 flex max-w-sm flex-col gap-3"
-		use:enhance={() => {
-			addingNode = true;
-			return async ({ update }) => {
-				await update();
-				addingNode = false;
-			};
-		}}
-	>
-		<label class="flex flex-col gap-1 text-sm text-ink-2">
-			{t.works.tree.titleLabel}
-			<Input id="work-node-title" name="title" required />
-		</label>
-		<div class="flex flex-col gap-1 text-sm text-ink-2">
-			<label for="work-node-kind">{t.works.tree.kindLabel}</label>
-			<div data-js-only>
-				<Select.Root type="single" bind:value={kind}>
-					<Select.Trigger id="work-node-kind" class="w-full">{kindLabel}</Select.Trigger>
-					<Select.Content>
-						{#each kindOptions as option (option.value)}
-							<Select.Item value={option.value} label={option.label}>{option.label}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			</div>
-			<NativeFallback
-				name="kind"
-				value={kind}
-				options={kindOptions}
-				label={t.works.tree.kindLabel}
-			/>
-		</div>
-		{#if form?.message}
-			<p class="text-sm text-danger">{form.message}</p>
+<PageHeader
+	title={data.tree.length === 0 ? t.works.tree.emptyHeading(data.work.name) : data.work.name}
+/>
+<PageBody width="working">
+	<div class="px-8 py-10">
+		{#if data.tree.length === 0}
+			<EmptyState kind="cold" message={t.works.tree.emptyHint}>
+				{#snippet action()}
+					<Button href="#work-node-title">{t.works.tree.addNodeButton}</Button>
+				{/snippet}
+			</EmptyState>
+		{:else}
+			<p class="mt-2 max-w-measure text-sm text-ink-2">
+				{t.works.tree.pickNodeHint}
+			</p>
 		{/if}
-		<Button type="submit" class="mt-1 w-fit" disabled={addingNode}>
-			{addingNode ? t.works.tree.addingNode : t.works.tree.addNodeButton}
-		</Button>
-	</form>
-</div>
+
+		<form
+			method="POST"
+			action="?/createNode"
+			class="mt-6 flex max-w-sm flex-col gap-3"
+			use:enhance={() => {
+				addingNode = true;
+				return async ({ update }) => {
+					await update();
+					addingNode = false;
+				};
+			}}
+		>
+			<label class="flex flex-col gap-1 text-sm text-ink-2">
+				{t.works.tree.titleLabel}
+				<Input id="work-node-title" name="title" required />
+			</label>
+			<div class="flex flex-col gap-1 text-sm text-ink-2">
+				<label for="work-node-kind">{t.works.tree.kindLabel}</label>
+				<div data-js-only>
+					<Select.Root type="single" bind:value={kind}>
+						<Select.Trigger id="work-node-kind" class="w-full">{kindLabel}</Select.Trigger>
+						<Select.Content>
+							{#each kindOptions as option (option.value)}
+								<Select.Item value={option.value} label={option.label}>{option.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
+				<NativeFallback
+					name="kind"
+					value={kind}
+					options={kindOptions}
+					label={t.works.tree.kindLabel}
+				/>
+			</div>
+			{#if form?.message}
+				<p class="text-sm text-danger">{form.message}</p>
+			{/if}
+			<Button type="submit" class="mt-1 w-fit" disabled={addingNode}>
+				{addingNode ? t.works.tree.addingNode : t.works.tree.addNodeButton}
+			</Button>
+		</form>
+	</div>
+</PageBody>

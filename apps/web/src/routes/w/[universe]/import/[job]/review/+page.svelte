@@ -18,6 +18,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
+	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import { renderOutcomeNote } from '$lib/import/outcome-note';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
@@ -86,94 +87,96 @@
 
 <svelte:head><title>{t.headTitle(data.universe.name)}</title></svelte:head>
 
-<div class="mx-auto max-w-3xl px-6 py-8">
-	<p class="mb-2 text-xs text-muted">
-		<a class="hover:underline" href={resolve(`/w/${data.universe.slug}/proposals`)}
-			>{t.breadcrumbProposals}</a
-		>
-		/ <span class="text-ink-2">{t.breadcrumbCurrent}</span>
-	</p>
-	<h1 class="mb-4 text-2xl font-semibold text-ink">{t.heading(data.job.playbook)}</h1>
+<PageHeader title={t.heading(data.job.playbook)} />
+<PageBody width="working">
+	<div class="px-6 py-8">
+		<p class="mb-2 text-xs text-muted">
+			<a class="hover:underline" href={resolve(`/w/${data.universe.slug}/proposals`)}
+				>{t.breadcrumbProposals}</a
+			>
+			/ <span class="text-ink-2">{t.breadcrumbCurrent}</span>
+		</p>
 
-	{#if isRunning}
-		<!-- Round eleven P2 (#344): a job still running is furniture, not a word a model
+		{#if isRunning}
+			<!-- Round eleven P2 (#344): a job still running is furniture, not a word a model
 		     wrote, so it wears the theme's own panel and line rather than the copilot's
 		     hue, and the refresh control wears the accent because that is what interactive
 		     means here. -->
-		<div
-			class="mb-4 flex items-center justify-between gap-3 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-ink"
-		>
-			<span>
-				{t.stillImporting(data.job.proposalsEmitted)}
-			</span>
-			<Button
-				type="button"
-				variant="link"
-				size="sm"
-				class="h-auto p-0 text-accent"
-				onclick={refreshNow}
+			<div
+				class="mb-4 flex items-center justify-between gap-3 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-ink"
 			>
-				{t.refresh}
-			</Button>
-		</div>
-	{:else if issueNote}
-		<p class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-muted">
-			{issueNote}
-		</p>
-	{/if}
+				<span>
+					{t.stillImporting(data.job.proposalsEmitted)}
+				</span>
+				<Button
+					type="button"
+					variant="link"
+					size="sm"
+					class="h-auto p-0 text-accent"
+					onclick={refreshNow}
+				>
+					{t.refresh}
+				</Button>
+			</div>
+		{:else if issueNote}
+			<p class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-muted">
+				{issueNote}
+			</p>
+		{/if}
 
-	{#if data.missingFromSource.length > 0}
-		<div class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-ink">
-			<p class="font-medium">{t.missing.heading(data.missingFromSource.length)}</p>
-			<p class="mt-1 text-muted">{t.missing.explanation}</p>
-			<ul class="mt-3 flex flex-col gap-1.5">
-				{#each data.missingFromSource as item (item.id)}
-					<li>
-						<a
-							href={resolve(`/w/${data.universe.slug}/e/${item.slug}`)}
-							class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
-						>
-							{item.name}
-						</a>
-						<span
-							class="ml-1 rounded-full bg-accent-bg px-1.5 py-0.5 font-mono text-label text-accent-ink uppercase"
-						>
-							{entityTypeLabel(item.type)}
-						</span>
-					</li>
-				{/each}
-			</ul>
-		</div>
-	{/if}
+		{#if data.missingFromSource.length > 0}
+			<div class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-ink">
+				<p class="font-medium">{t.missing.heading(data.missingFromSource.length)}</p>
+				<p class="mt-1 text-muted">{t.missing.explanation}</p>
+				<ul class="mt-3 flex flex-col gap-1.5">
+					{#each data.missingFromSource as item (item.id)}
+						<li>
+							<a
+								href={resolve(`/w/${data.universe.slug}/e/${item.slug}`)}
+								class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
+							>
+								{item.name}
+							</a>
+							<span
+								class="ml-1 rounded-full bg-accent-bg px-1.5 py-0.5 font-mono text-[10px] text-accent-ink uppercase"
+							>
+								{entityTypeLabel(item.type)}
+							</span>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
 
-	{#if data.candidates.length === 0}
-		<EmptyState
-			kind={isRunning ? 'derived' : 'settled'}
-			message={isRunning ? t.emptyRunning : t.emptyDone}
-			explanation={isRunning ? t.emptyRunningExplanation : undefined}
-		/>
-	{:else}
-		<div class="mb-4">
-			<TypeFilterChips
-				buckets={data.buckets}
-				selected={selectedType}
-				onSelect={selectFilter}
-				{onRejectedFiltered}
-				locale={data.locale}
+		{#if data.candidates.length === 0}
+			<EmptyState
+				kind={isRunning ? 'derived' : 'settled'}
+				message={isRunning ? t.emptyRunning : t.emptyDone}
+				explanation={isRunning ? t.emptyRunningExplanation : undefined}
 			/>
-		</div>
-
-		{#if switchingFilter}
-			<p class="text-sm text-muted">{t.filtering}</p>
 		{:else}
-			{#key `${selectedType}:${remountNonce}`}
-				<ProposalQueue
-					candidates={filteredCandidates}
-					universeSlug={data.universe.slug}
-					filterType={activeLabel}
+			<div class="mb-4">
+				<TypeFilterChips
+					buckets={data.buckets}
+					selected={selectedType}
+					onSelect={selectFilter}
+					{onRejectedFiltered}
 					locale={data.locale}
 				/>
-			{/key}
+			</div>
+
+			{#if switchingFilter}
+				<p class="text-sm text-muted">{t.filtering}</p>
+			{:else}
+				{#key `${selectedType}:${remountNonce}`}
+					<ProposalQueue
+						candidates={filteredCandidates}
+						universeSlug={data.universe.slug}
+						filterType={activeLabel}
+						locale={data.locale}
+					/>
+				{/key}
+			{/if}
 		{/if}
-	{/if}
-</div>
+	</div>
+</PageBody>
