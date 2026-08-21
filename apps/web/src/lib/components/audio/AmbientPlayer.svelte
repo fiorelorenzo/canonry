@@ -325,7 +325,7 @@
 						{layerState.muted ? '🔇' : '🔊'}
 					</button>
 					<span
-						class="w-16 flex-none rounded-full bg-panel-2 px-2 py-0.5 text-center text-[10px] text-ink-2"
+						class="w-16 flex-none rounded-full bg-panel-2 px-2 py-0.5 text-center text-label text-ink-2"
 					>
 						{layer.loopType}
 					</span>
@@ -344,7 +344,7 @@
 
 		{#if showDiagnostics && diagnostics}
 			<pre
-				class="mt-3 overflow-x-auto rounded-md border border-line bg-panel-2 p-2 text-[10px] text-ink-2">{JSON.stringify(
+				class="mt-3 overflow-x-auto rounded-md border border-line bg-panel-2 p-2 text-label text-ink-2">{JSON.stringify(
 					diagnostics,
 					null,
 					2

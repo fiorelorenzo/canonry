@@ -269,7 +269,7 @@
 											type="button"
 											variant="secondary"
 											size="icon"
-											class="size-8 bg-panel shadow"
+											class="size-8 bg-panel"
 											aria-label={t.entry.media.cover.replaceLabel}
 										>
 											<ImageUpIcon aria-hidden="true" />
@@ -286,7 +286,7 @@
 											type="button"
 											variant="secondary"
 											size="icon"
-											class="size-8 bg-panel shadow"
+											class="size-8 bg-panel"
 											disabled={removingCover}
 											aria-label={t.entry.media.cover.removeLabel}
 										>
@@ -321,12 +321,12 @@
 				class="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-xs font-medium text-ink hover:bg-panel focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"
 			>
 				<span
-					class="text-[10px] text-muted transition-transform"
+					class="text-label text-muted transition-transform"
 					class:rotate-90={open[section.id]}
 					aria-hidden="true">&#9656;</span
 				>
 				<span>{section.label}</span>
-				<span class="ml-auto font-mono text-[11px] text-muted">{section.count}</span>
+				<span class="ml-auto font-mono text-label text-muted">{section.count}</span>
 			</summary>
 			<div class="px-4 pb-4">
 				{#if section.id === 'relations'}

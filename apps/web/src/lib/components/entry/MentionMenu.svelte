@@ -28,12 +28,12 @@
 </script>
 
 <div
-	class="amenu w-full rounded-b-lg border border-t-0 border-line-2 bg-panel shadow-lg"
+	class="amenu w-full rounded-b-lg border border-t-0 border-line-2 bg-panel shadow-elevated"
 	role="listbox"
 	aria-label={t.entry.mentionMenu.ariaLabel}
 >
 	<div
-		class="border-b border-line bg-panel-2 px-3 py-1.5 font-mono text-[10px] tracking-wide text-muted uppercase"
+		class="border-b border-line bg-panel-2 px-3 py-1.5 font-mono text-label tracking-wide text-muted uppercase"
 	>
 		{matches.length > 0 ? t.entry.mentionMenu.matching(query) : t.entry.mentionMenu.noExactMatch}
 	</div>

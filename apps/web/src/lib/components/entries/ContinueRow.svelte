@@ -49,7 +49,7 @@
 		<li class="w-44 shrink-0 snap-start">
 			<a
 				href={resolve(`/w/${universeSlug}/e/${entry.slug}`)}
-				class="flex h-full flex-col overflow-hidden rounded-lg border border-line bg-panel transition-colors hover:border-line-2"
+				class="flex h-full flex-col overflow-hidden rounded-lg transition-colors hover:bg-panel-2"
 			>
 				{#if entry.coverAssetId}
 					<img
@@ -59,7 +59,7 @@
 						style="object-position: {COVER_POSITION[entry.type]}"
 					/>
 				{/if}
-				<div class="flex min-w-0 flex-col gap-1.5 p-3">
+				<div class="flex min-w-0 flex-col gap-1.5 border-t border-line p-3">
 					<span class="truncate text-sm font-semibold text-ink">{entry.name}</span>
 					<Badge variant="secondary" class="self-start font-mono uppercase">
 						{t.filters.typeLabel(entry.type)}
@@ -67,7 +67,7 @@
 					{#if entry.excerpt}
 						<p class="line-clamp-2 text-xs text-muted">{entry.excerpt}</p>
 					{/if}
-					<span class="text-[11px] text-muted">
+					<span class="text-label text-muted">
 						{t.changedAt(relativeTime(entry.updatedAt, t.relativeTime))}
 					</span>
 				</div>

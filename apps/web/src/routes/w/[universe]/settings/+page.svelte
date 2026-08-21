@@ -208,7 +208,7 @@
 
 	<section id="group-images" class="mt-8">
 		<h2 class="text-lg font-semibold text-ink">{t.groups.images}</h2>
-		<div class="mt-3 rounded-lg border border-line bg-panel p-4">
+		<div class="mt-3 border-t border-line pt-4">
 			<h3 class="text-sm font-semibold text-ink">{t.imageStyle.heading}</h3>
 			<p class="mt-1 max-w-measure text-sm text-ink-2">
 				{t.imageStyle.description(data.current.name)}
@@ -275,7 +275,7 @@
 						class="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden"
 					>
 						<span
-							class="text-[10px] text-muted transition-transform"
+							class="text-label text-muted transition-transform"
 							class:rotate-90={customOpen}
 							aria-hidden="true">&#9656;</span
 						>
@@ -312,7 +312,7 @@
 	<section id="group-loremaster" class="mt-8">
 		<h2 class="text-lg font-semibold text-ink">{t.groups.loremaster}</h2>
 		<div class="mt-3 flex flex-col gap-4">
-			<div class="rounded-lg border border-line bg-panel p-4">
+			<div class="border-t border-line pt-4">
 				<h3 class="text-sm font-semibold text-ink">{t.narration.heading}</h3>
 				<p class="mt-1 max-w-measure text-sm text-ink-2">
 					{t.narration.description(data.current.name)}
@@ -371,7 +371,7 @@
 							class="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden"
 						>
 							<span
-								class="text-[10px] text-muted transition-transform"
+								class="text-label text-muted transition-transform"
 								class:rotate-90={customNarrationOpen}
 								aria-hidden="true">&#9656;</span
 							>
@@ -410,7 +410,7 @@
 			     Loremaster does to the conversation list where the stored record actually
 			     lives (`shell.quickAsk.disclosure`, read in the panel itself before
 			     anything is asked, is the primary disclosure). -->
-			<div class="rounded-lg border border-line bg-panel p-4">
+			<div class="border-t border-line pt-4">
 				<p class="max-w-measure text-sm text-ink-2">{t.loremasterConversations.text}</p>
 				<a
 					href={resolve(`/w/${data.current.slug}/ask/kept`)}
@@ -419,7 +419,7 @@
 				>
 			</div>
 
-			<div class="rounded-lg border border-line bg-panel p-4">
+			<div class="border-t border-line pt-4">
 				<div class="flex items-center justify-between gap-4">
 					<div>
 						<h3 class="text-sm font-semibold text-ink">{t.aiToggle.heading}</h3>
@@ -450,7 +450,7 @@
 				{/if}
 			</div>
 
-			<div class="rounded-lg border border-line bg-panel p-4">
+			<div class="border-t border-line pt-4">
 				<h3 class="text-sm font-semibold text-ink">{t.propagationCap.heading}</h3>
 				<p class="mt-1 max-w-measure text-sm text-ink-2">
 					{t.propagationCap.description(data.current.name)}
@@ -504,7 +504,7 @@
 	<section id="group-canon" class="mt-8">
 		<h2 class="text-lg font-semibold text-ink">{t.groups.canon}</h2>
 		<div class="mt-3 flex flex-col gap-4">
-			<div class="rounded-lg border border-line bg-panel p-4">
+			<div class="border-t border-line pt-4">
 				<div class="flex items-center justify-between gap-4">
 					<div>
 						<h3 class="text-sm font-semibold text-ink">{tRelations.cardHeading}</h3>
@@ -522,7 +522,7 @@
 			</div>
 
 			{#if data.isDerived}
-				<div class="rounded-lg border border-line bg-panel p-4">
+				<div class="border-t border-line pt-4">
 					<h3 class="text-sm font-semibold text-ink">{t.precedence.heading}</h3>
 					<p class="mt-1 max-w-measure text-sm text-ink-2">
 						{t.precedence.description(data.current.name)}

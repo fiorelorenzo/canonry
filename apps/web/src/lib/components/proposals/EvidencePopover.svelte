@@ -86,8 +86,8 @@
 	 * absolute at `sm` and up. */
 	let popClass = $derived(
 		forceOpen
-			? 'pop z-10 mt-2 block w-full rounded-md border border-line-2 bg-panel p-3 text-xs shadow-lg'
-			: 'pop z-10 mt-1 w-72 rounded-md border border-line-2 bg-panel p-3 text-xs shadow-lg max-sm:mt-2 max-sm:block max-sm:w-full sm:absolute sm:top-full sm:left-0'
+			? 'pop z-10 mt-2 block w-full rounded-md border border-line-2 bg-panel p-3 text-xs shadow-elevated'
+			: 'pop z-10 mt-1 w-72 rounded-md border border-line-2 bg-panel p-3 text-xs shadow-elevated max-sm:mt-2 max-sm:block max-sm:w-full sm:absolute sm:top-full sm:left-0'
 	);
 </script>
 
@@ -117,7 +117,7 @@
 			<span class={popClass}>
 				{#if caveat !== null}
 					<span
-						class="mb-1.5 block rounded-sm bg-warn-bg px-1.5 py-1 font-mono text-[10px] font-bold tracking-wide text-warn uppercase"
+						class="mb-1.5 block rounded-sm bg-warn-bg px-1.5 py-1 font-mono text-label font-bold tracking-wide text-warn uppercase"
 					>
 						{caveat === 'instructionOnly' ? t.instructionOnly : t.embeddingOnly}
 					</span>
@@ -129,11 +129,11 @@
 								>&ldquo;{view.quote}&rdquo;</span
 							>
 						{/if}
-						<span class="block font-mono text-[11px] text-muted">{reasonText(view.reason)}</span>
+						<span class="block font-mono text-label text-muted">{reasonText(view.reason)}</span>
 					</span>
 				{/each}
 				{#if !forceOpen}
-					<button type="button" class="mt-1 text-[11px] text-muted underline" onclick={close}>
+					<button type="button" class="mt-1 text-label text-muted underline" onclick={close}>
 						{t.close}
 					</button>
 				{/if}

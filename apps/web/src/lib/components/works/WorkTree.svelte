@@ -46,7 +46,7 @@
 			class:text-ink-2={!active}
 			class:hover:bg-panel-2={!active}
 		>
-			<span class="shrink-0 font-mono text-[10px] text-muted uppercase"
+			<span class="shrink-0 font-mono text-label text-muted uppercase"
 				>{t.works.kinds[node.kind][0]}</span
 			>
 			<span class="truncate">{node.title}</span>

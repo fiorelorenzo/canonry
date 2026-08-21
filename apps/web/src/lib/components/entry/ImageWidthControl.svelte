@@ -183,7 +183,7 @@
 {#if activeImg && activeToken}
 	<div
 		data-image-width-control
-		class="absolute z-20 rounded-md border border-line-2 bg-panel p-1 shadow-lg"
+		class="absolute z-20 rounded-md border border-line-2 bg-panel p-1 shadow-elevated"
 		style="left: {left}px; top: {top}px"
 	>
 		<Segmented

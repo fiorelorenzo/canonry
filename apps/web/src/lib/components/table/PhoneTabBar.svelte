@@ -51,7 +51,7 @@
 		>
 			<span>{tab.label}</span>
 			{#if tab.id === 'queue' && queueCount > 0}
-				<span class="rounded-full bg-accent-bg px-1.5 py-0 font-mono text-[9px] text-accent-ink"
+				<span class="rounded-full bg-accent-bg px-1.5 py-0 font-mono text-label text-accent-ink"
 					>{queueCount}</span
 				>
 			{/if}

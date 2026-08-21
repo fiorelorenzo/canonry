@@ -68,7 +68,7 @@
 	aria-label={ariaLabel}
 	data-slot="segmented"
 	class={cn(
-		'inline-flex flex-wrap items-stretch gap-px rounded-md border border-input bg-input/30 p-px text-sm shadow-xs',
+		'inline-flex flex-wrap items-stretch gap-px rounded-md border border-input bg-input/30 p-px text-sm',
 		className
 	)}
 >
@@ -76,7 +76,7 @@
 		<label
 			data-slot="segmented-item"
 			data-state={value === option.value ? 'on' : 'off'}
-			class="flex cursor-pointer flex-col justify-center rounded-sm px-2.5 py-1 text-center text-ink-2 tabular-nums transition-colors select-none hover:text-ink has-checked:bg-panel has-checked:text-ink has-checked:shadow-xs has-focus-visible:ring-3 has-focus-visible:ring-ring/50 has-disabled:cursor-not-allowed has-disabled:opacity-50"
+			class="flex cursor-pointer flex-col justify-center rounded-sm px-2.5 py-1 text-center text-ink-2 tabular-nums transition-colors select-none hover:text-ink has-checked:bg-panel has-checked:text-ink has-focus-visible:ring-3 has-focus-visible:ring-ring/50 has-disabled:cursor-not-allowed has-disabled:opacity-50"
 		>
 			<input
 				type="radio"
@@ -93,7 +93,7 @@
 			/>
 			{option.label}
 			{#if option.hint}
-				<span class="text-[11px] text-muted">{option.hint}</span>
+				<span class="text-label text-muted">{option.hint}</span>
 			{/if}
 		</label>
 	{/each}

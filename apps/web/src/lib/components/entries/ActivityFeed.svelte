@@ -60,9 +60,9 @@
 				{line(item)}
 			</a>
 			{#if item.kind !== 'work' && item.authorKind === 'ai_accepted'}
-				<span class="shrink-0 text-[11px] text-muted">{t.authorAi}</span>
+				<span class="shrink-0 text-label text-muted">{t.authorAi}</span>
 			{/if}
-			<span class="shrink-0 font-mono text-[11px] text-muted tabular-nums">
+			<span class="shrink-0 font-mono text-label text-muted tabular-nums">
 				{relativeTime(item.at, relativeTimeT)}
 			</span>
 		</li>

@@ -72,7 +72,7 @@
 				     has nothing to do with the copilot, so this badge wears the theme's own
 				     panel and line. -->
 				<span
-					class="shrink-0 rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-2 uppercase"
+					class="shrink-0 rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-label font-semibold tracking-wide text-ink-2 uppercase"
 				>
 					{t.derivedBadge}
 				</span>
@@ -85,7 +85,7 @@
 		<div
 			bind:this={panelEl}
 			id={panelId}
-			class="absolute right-0 left-0 z-10 mt-1 max-h-96 overflow-y-auto rounded-md border border-line-2 bg-panel shadow-lg"
+			class="absolute right-0 left-0 z-10 mt-1 max-h-96 overflow-y-auto rounded-md border border-line-2 bg-panel shadow-elevated"
 		>
 			<nav aria-label={t.switchAriaLabel}>
 				<ul class="flex flex-col">

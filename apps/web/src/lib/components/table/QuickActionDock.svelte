@@ -79,7 +79,7 @@
 		</button>
 		{#if overflowOpen}
 			<div
-				class="absolute top-[calc(100%+6px)] left-0 z-10 flex min-w-[220px] flex-col gap-1 rounded-md border border-line-2 bg-panel p-1.5 shadow-lg"
+				class="absolute top-[calc(100%+6px)] left-0 z-10 flex min-w-[220px] flex-col gap-1 rounded-md border border-line-2 bg-panel p-1.5 shadow-elevated"
 			>
 				{#if locationFormOpen}
 					<form onsubmit={submitLocation} class="flex flex-col gap-1.5 p-1.5">

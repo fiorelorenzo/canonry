@@ -140,19 +140,19 @@
 	}
 </script>
 
-<div class="card rounded-lg border border-line bg-panel p-4" data-proposal-id={candidate.id}>
+<div class="border-t border-line pt-4" data-proposal-id={candidate.id}>
 	<header class="mb-2 flex items-start justify-between gap-3">
 		<div>
 			{#if candidate.targetSlug}
 				<a
 					href={resolve(`/w/${universeSlug}/e/${candidate.targetSlug}`)}
-					class="text-base font-semibold text-ink hover:underline"
+					class="text-title font-semibold text-ink hover:underline"
 					target="_blank"
 				>
 					{title}
 				</a>
 			{:else}
-				<h3 class="text-base font-semibold text-ink">{title}</h3>
+				<h3 class="text-title font-semibold text-ink">{title}</h3>
 			{/if}
 			<p class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
 				<span class="rounded-full bg-panel-2 px-1.5 py-0.5 font-mono uppercase">
@@ -310,13 +310,13 @@
 				<!-- `text-muted` is 4.13:1 on this card at 11px, so these two labels take
 				     `text-ink-2` (9.63:1 light, 9.54:1 dark) rather than adding a fresh AA
 				     failure to the ten this palette already has at muted. -->
-				<p class="mb-2 font-mono text-[11px] text-ink-2">
+				<p class="mb-2 font-mono text-label text-ink-2">
 					{t.diffCard.changedRegions(candidate.diff.regions)}
 				</p>
 			{/if}
 			{#each candidate.diff.rows as row, i (i)}
 				{#if row.kind === 'gap'}
-					<p class="my-2 flex items-center gap-2 pl-3 font-mono text-[11px] text-ink-2">
+					<p class="my-2 flex items-center gap-2 pl-3 font-mono text-label text-ink-2">
 						<span aria-hidden="true" class="h-px w-4 bg-line-2"></span>
 						{t.diffCard.unchangedUnits(row.units)}
 					</p>

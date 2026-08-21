@@ -294,7 +294,7 @@
 				<div class="flex w-full max-w-xs flex-col gap-1">
 					<label
 						for="table-quick-place"
-						class="font-mono text-[10px] tracking-wide text-muted uppercase"
+						class="font-mono text-label tracking-wide text-muted uppercase"
 					>
 						{t.declareContext.whereArePlayers}
 					</label>
@@ -388,14 +388,14 @@
 								below sits next to a Badge variant="secondary" for the scaffold case and
 								now matches it, which is what it should have been doing. -->
 							<span
-								class="rounded-full border border-line-2 bg-panel-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-2"
+								class="rounded-full border border-line-2 bg-panel-2 px-1.5 py-0.5 font-mono text-label text-ink-2"
 							>
 								{t.home.proposalLabel} &middot; {proposal.kind}
 							</span>
 							<span class="ml-2 text-muted">{t.home.from(actionLabel(proposal.via))}</span>
 							{#if proposal.drafted === 'model'}
 								<span
-									class="ml-2 rounded-full border border-line-2 bg-panel-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-2"
+									class="ml-2 rounded-full border border-line-2 bg-panel-2 px-1.5 py-0.5 font-mono text-label text-ink-2"
 									title={t.home.aiDraftedTooltip}
 								>
 									{t.home.aiDraftedBadge}
@@ -403,7 +403,7 @@
 							{:else if proposal.drafted === 'scaffold'}
 								<Badge
 									variant="secondary"
-									class="ml-2 font-mono text-[10px] text-muted"
+									class="ml-2 font-mono text-label text-muted"
 									title={proposal.unavailableReason ?? t.home.scaffoldTooltipDefault}
 								>
 									{t.home.scaffoldBadge}
@@ -418,7 +418,7 @@
 								<p class="mt-1 text-xs text-ink-2">{proposal.preview}</p>
 							{/if}
 							{#if proposal.drafted === 'scaffold' && proposal.unavailableReason && proposal.targetName}
-								<p class="mt-1 text-[11px] text-muted">
+								<p class="mt-1 text-label text-muted">
 									{t.home.aiUnavailable(proposal.unavailableReason)}
 								</p>
 							{/if}

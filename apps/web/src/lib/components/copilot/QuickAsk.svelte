@@ -430,7 +430,7 @@
 	     panel that takes 200ms to get out of the way is the "delays an action behind its
 	     own animation" case. -->
 	<section
-		class="fixed inset-x-2 bottom-16 z-30 flex max-h-[70vh] animate-in flex-col overflow-hidden rounded-xl border border-line-2 bg-panel shadow-2xl duration-move ease-arrive fade-in-0 slide-in-from-bottom-2 md:inset-x-auto md:right-auto md:bottom-6 md:left-1/2 md:w-[calc(var(--container-measure)+1.5rem)] md:-translate-x-1/2"
+		class="fixed inset-x-2 bottom-16 z-30 flex max-h-[70vh] animate-in flex-col overflow-hidden rounded-xl border border-line-2 bg-panel shadow-elevated duration-move ease-arrive fade-in-0 slide-in-from-bottom-2 md:inset-x-auto md:right-auto md:bottom-6 md:left-1/2 md:w-[calc(var(--container-measure)+1.5rem)] md:-translate-x-1/2"
 		aria-label={t.name}
 		use:measureDockElement={(h) => (shellLayoutState.dockHeight = h)}
 	>
@@ -456,7 +456,7 @@
 		     read before anything is asked whether or not the panel has a turn in it yet.
 		     Ends in the same policy link the Ask route's own keep control still carries
 		     (`askT.keep.noteLinkBefore`/`noteLink`), reused rather than duplicated. -->
-		<p class="m-0 border-b border-line px-3 py-1.5 text-[11px] text-ink-2">
+		<p class="m-0 border-b border-line px-3 py-1.5 text-label text-ink-2">
 			{t.disclosure}{askT.keep.noteLinkBefore}<a
 				href={resolve('/privacy')}
 				class="text-accent hover:underline">{askT.keep.noteLink}</a
@@ -569,7 +569,7 @@
 									     it was asked from. -->
 									<div class="rounded-lg border border-line bg-panel-2 px-2.5 py-1.5 text-xs">
 										<span
-											class="rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-[10px] text-ink-2"
+											class="rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-label text-ink-2"
 										>
 											{proposal.kind === 'draft_entity'
 												? askT.propose.badgeCreated
@@ -579,7 +579,7 @@
 										{#if proposal.planId}
 											<a
 												href={resolve(`/w/${universeSlug}/proposals/${proposal.planId}`)}
-												class="mt-1 block text-[11px] text-ink-2 underline"
+												class="mt-1 block text-label text-ink-2 underline"
 												>{askT.propose.reviewLink}</a
 											>
 										{/if}
@@ -601,7 +601,7 @@
 							     Guardrail 3: which entry, which sentence, as something a hand can
 							     open, and never a bare confidence score. -->
 							<div class="mt-3 border-t border-line pt-2">
-								<p class="m-0 text-[11px] text-ink-2">{askT.sourcesNote}</p>
+								<p class="m-0 text-label text-ink-2">{askT.sourcesNote}</p>
 								<ul class="mt-1.5 mb-0 flex list-none flex-wrap gap-1.5">
 									{#each turn.sources as source, i (source.kind === 'own_canon' ? source.entityId : `${source.dataSourceId}-${i}`)}
 										<li>
@@ -612,7 +612,7 @@
 													class="inline-flex max-w-56 items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-xs text-ink hover:bg-accent-bg"
 												>
 													<span class="truncate">{source.entityName}</span>
-													<span class="shrink-0 text-[10px] text-muted">{askT.ownCanonLabel}</span>
+													<span class="shrink-0 text-label text-muted">{askT.ownCanonLabel}</span>
 												</a>
 											{:else}
 												<a
@@ -622,9 +622,9 @@
 													title={source.text}
 													class="inline-flex max-w-64 items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-xs"
 												>
-													<span class="shrink-0 text-[10px] text-ink-2">{askT.indexedBadge}</span>
+													<span class="shrink-0 text-label text-ink-2">{askT.indexedBadge}</span>
 													<span class="truncate text-ink">{source.pageTitle}</span>
-													<span class="shrink-0 font-mono text-[10px] text-muted">
+													<span class="shrink-0 font-mono text-label text-muted">
 														{source.attribution}{#if source.licence}
 															· {source.licence}{/if}
 													</span>
@@ -640,7 +640,7 @@
 							     a list that failed to load rather than as a canon this question did
 							     not touch. -->
 							<div class="mt-3 border-t border-line pt-2">
-								<p class="m-0 text-[11px] text-ink-2">{askT.sourcesEmpty}</p>
+								<p class="m-0 text-label text-ink-2">{askT.sourcesEmpty}</p>
 							</div>
 						{/if}
 
@@ -649,7 +649,7 @@
 							     not lose the turn on screen - this is the whole of what a failed
 							     auto-keep gets, a quiet line rather than the card that used to
 							     hold a retry button, because the turn itself is unaffected. -->
-							<p class="mt-2 mb-0 text-[11px] text-danger">{turn.keepError}</p>
+							<p class="mt-2 mb-0 text-label text-danger">{turn.keepError}</p>
 						{/if}
 					</div>
 				{/each}
@@ -685,13 +685,13 @@
 		onclick={open}
 		aria-expanded={false}
 		aria-label={t.openLabel}
-		class="fixed bottom-6 left-1/2 z-30 hidden w-[calc(var(--container-measure)+1.5rem)] -translate-x-1/2 flex-col items-stretch gap-0.5 rounded-xl border border-line-2 bg-panel px-4 py-2.5 text-left shadow-lg hover:bg-panel-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none md:flex"
+		class="fixed bottom-6 left-1/2 z-30 hidden w-[calc(var(--container-measure)+1.5rem)] -translate-x-1/2 flex-col items-stretch gap-0.5 rounded-xl border border-line-2 bg-panel px-4 py-2.5 text-left shadow-elevated hover:bg-panel-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none md:flex"
 		use:measureDockElement={(h) => (shellLayoutState.dockHeight = h)}
 	>
 		<span class="flex items-center gap-2">
 			<span aria-hidden="true" class="size-1.5 rounded-full bg-accent"></span>
 			<span class="text-sm font-semibold text-ink">{t.name}</span>
-			<span class="ml-auto font-mono text-[10px] text-muted">{formatShortcut(askShortcut)}</span>
+			<span class="ml-auto font-mono text-label text-muted">{formatShortcut(askShortcut)}</span>
 		</span>
 		<span class="text-xs text-ink-2">{t.launcherHint}</span>
 	</button>

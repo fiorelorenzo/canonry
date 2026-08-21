@@ -61,7 +61,7 @@
 			<!-- Round eleven P2 (#344): the count pill, on the accent's tint. PhoneTabBar's
 				queue badge and the proposals inbox match it. -->
 			<span
-				class="ml-1 rounded-full bg-accent-bg px-1.5 py-0.5 font-mono text-[10px] text-accent-ink"
+				class="ml-1 rounded-full bg-accent-bg px-1.5 py-0.5 font-mono text-label text-accent-ink"
 			>
 				{proposalCount}
 			</span>

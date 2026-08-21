@@ -63,7 +63,7 @@
 		{t.disclaimer}
 	</p>
 	<div class="flex flex-col gap-1">
-		<label for="table-note-target" class="font-mono text-[10px] tracking-wide text-muted uppercase">
+		<label for="table-note-target" class="font-mono text-label tracking-wide text-muted uppercase">
 			{t.about}
 		</label>
 		<Combobox
@@ -76,7 +76,7 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1">
-		<label for="table-note-text" class="font-mono text-[10px] tracking-wide text-muted uppercase">
+		<label for="table-note-text" class="font-mono text-label tracking-wide text-muted uppercase">
 			{t.note}
 		</label>
 		<Textarea id="table-note-text" bind:value={note} rows={3} placeholder={t.notePlaceholder} />
