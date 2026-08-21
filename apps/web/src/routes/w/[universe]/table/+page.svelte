@@ -291,7 +291,13 @@
 	     changed where a GM mid-session would otherwise wonder whether the tap registered;
 	     the two forms further down are panels expanding in place. Nothing leaves on an
 	     animation: at a table an action has to be over when the finger lifts. Table mode
-	     never renders `ModelRunning`, so none of this competes with a model. -->
+	     never renders `ModelRunning`, so none of this competes with a model.
+
+	     V9 (round seventeen, #501) adds a fifth: the queue tab's own list, below, fades in
+	     each row exactly once as it lands over SSE ("a row arriving when a proposal lands",
+	     docs/ux/MOTION.md) - one row at a time, never the cascade V9's other case reserves
+	     for a list arriving whole on mount, since this list never does that; it starts
+	     empty and grows one proposal at a time for as long as the session runs. -->
 		{#if sessionEndedBanner}
 			<div
 				class="animate-in rounded-md border border-line-2 bg-panel-2 p-3 text-sm text-ink-2 duration-move ease-arrive fade-in-0 slide-in-from-top-1"
@@ -423,7 +429,9 @@
 				{:else}
 					<ul class="flex flex-col gap-1.5">
 						{#each proposals as proposal (proposal.proposalId)}
-							<li class="rounded-md border border-line bg-panel p-2.5 text-sm">
+							<li
+								class="animate-in rounded-md border border-line bg-panel p-2.5 text-sm duration-fade ease-arrive fade-in-0"
+							>
 								<!-- Round eleven P2 (#344): both of these name a kind, they are not wording
 								a model produced, so they wear the theme's own panel and line. The one
 								below sits next to a Badge variant="secondary" for the scaffold case and

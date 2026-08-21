@@ -41,7 +41,7 @@
 	 */
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import CheckIcon from '@lucide/svelte/icons/check';
+	import { AcceptMark } from '$lib/components/ui/accept-mark';
 	import { messages } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -250,8 +250,16 @@
 						}}
 					>
 						{#each data.imageStylePresets as preset (preset.id)}
+							<!-- V9 (round seventeen, #501): a radio card is a control, so it earns the
+							 micro-interaction group's "card that lifts under the pointer". `transition-all`
+							 rather than a narrower `transition-transform`, the same shape `Button.svelte`'s
+							 own press nudge already uses (#147): the border-colour swap on selection and the
+							 lift both need to run, and only an unconditional transition class animates the
+							 lift back out on pointer-leave too. Transform only, never a shadow - V3 spends
+							 `--shadow-elevated` only on what genuinely floats over the page, and a settings
+							 card on hover is not that. -->
 							<label
-								class="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line text-left transition-colors has-checked:border-accent has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
+								class="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line text-left transition-all hover:-translate-y-0.5 has-checked:border-accent has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
 							>
 								<input
 									type="radio"
@@ -274,7 +282,7 @@
 									<span class="flex items-center gap-1 text-sm font-medium text-ink">
 										{preset.name}
 										{#if currentImageStyleId === preset.id}
-											<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+											<AcceptMark class="size-3.5 shrink-0 text-accent" />
 											<span class="sr-only">{t.imageStyle.selectedLabel}</span>
 										{/if}
 									</span>
@@ -305,7 +313,7 @@
 							>
 							{t.imageStyle.customCard.label}
 							{#if isCustomActive}
-								<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+								<AcceptMark class="size-3.5 shrink-0 text-accent" />
 								<span class="sr-only">{t.imageStyle.selectedLabel}</span>
 							{/if}
 						</summary>
@@ -377,7 +385,7 @@
 						>
 							{#each data.narrationStylePresets as preset (preset.id)}
 								<label
-									class="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line p-3 text-left transition-colors has-checked:border-accent has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
+									class="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line p-3 text-left transition-all hover:-translate-y-0.5 has-checked:border-accent has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
 								>
 									<input
 										type="radio"
@@ -394,7 +402,7 @@
 									<span class="mt-2 flex items-center gap-1 text-sm font-medium text-ink">
 										{preset.name}
 										{#if currentNarrationStyleId === preset.id}
-											<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+											<AcceptMark class="size-3.5 shrink-0 text-accent" />
 											<span class="sr-only">{t.narration.selectedLabel}</span>
 										{/if}
 									</span>
@@ -424,7 +432,7 @@
 								>
 								{t.narration.customCard.label}
 								{#if isCustomNarrationActive}
-									<CheckIcon class="size-3.5 shrink-0 text-accent" aria-hidden="true" />
+									<AcceptMark class="size-3.5 shrink-0 text-accent" />
 									<span class="sr-only">{t.narration.selectedLabel}</span>
 								{/if}
 							</summary>

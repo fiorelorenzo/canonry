@@ -20,13 +20,17 @@
 	 * The hint in the footer is not decoration either: a bare-key shortcut nobody can see is a
 	 * shortcut for whoever already knew, which is what C6's own keyboard row is for.
 	 *
-	 * #367 (Q6) reached this file for colour only, and the rest of the motion pass
-	 * deliberately did not. Rows do not stagger in, a page change does not slide, and the
-	 * sort arrow does not travel: `j`/`k` walk this table one row at a time and anything
-	 * with a duration on it would put itself between the key and the row. The two places
-	 * colour now crosses instead of snapping are the row under focus and the header link
-	 * under the pointer, both on the fade token, which reduced motion keeps because a
-	 * value changing in place is not travel.
+	 * #367 (Q6) reached this file for colour only at first: rows staying still while
+	 * `j`/`k` walked them one at a time, a page change that does not slide, a sort arrow
+	 * that does not travel. V9 (round seventeen, #501) widens that: the entries table is
+	 * named as a working surface a list may cascade onto (docs/ux/MOTION.md, "a list
+	 * arriving"), so each page of rows now fades in once, roughly 40ms apart, capped past
+	 * the eleventh row so a full 25-row page still finishes inside half a second. Opacity
+	 * only, never a slide: a translate on a `display: table-row` element does not paint
+	 * consistently across engines, and it stays true that nothing here delays `j`/`k` -
+	 * a row is a real, focusable `<a>` the instant it exists, whatever its own fade is
+	 * still doing. The row-under-focus and header-link-under-pointer colour crossings
+	 * from #367 are unchanged, both on the fade token.
 	 */
 	import { resolve } from '$app/paths';
 	import type { EntityBrowserSort } from '@canonry/db';
@@ -171,9 +175,10 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each rows as row (row.id)}
+			{#each rows as row, i (row.id)}
 				<tr
-					class="border-b border-line transition-colors last:border-b-0 focus-within:bg-accent-bg"
+					class="motion-row-arrive border-b border-line transition-colors last:border-b-0 focus-within:bg-accent-bg"
+					style={`animation-delay: ${Math.min(i, 11) * 40}ms`}
 				>
 					<td class="max-w-measure px-3 py-2">
 						<a
@@ -235,4 +240,27 @@
 		{/if}
 	</span>
 </div>
+
 <!-- eslint-enable svelte/no-navigation-without-resolve -->
+
+<style>
+	/* V9 (round seventeen, #501, docs/ux/MOTION.md "a list arriving"): each row of a
+	   freshly mounted page fades in once, in order. Keyed by `row.id`, so a sort or a
+	   page change - a new set of ids - remounts every row and replays this; nothing
+	   about j/k moving the browser's own focus touches these nodes, so it never
+	   replays on that. `both` keeps a row at its resting opacity once its own
+	   animation ends rather than snapping back to the keyframe's 0% on the next
+	   paint. duration-fade is the only token this earns: a translate on a
+	   `display: table-row` element does not paint the same in every engine, so the
+	   cascade is opacity-only, which is also why it stays running rather than
+	   collapsing under reduced motion (Q6: a value changing in place is not travel). */
+	tr.motion-row-arrive {
+		animation: motion-row-arrive var(--transition-duration-fade) var(--ease-arrive) both;
+	}
+
+	@keyframes motion-row-arrive {
+		from {
+			opacity: 0;
+		}
+	}
+</style>
