@@ -1040,13 +1040,30 @@ export interface Messages {
 			/** Text after the bold "kept" count: " of {total} kept · cap {cap}", or "· no
 			 * cap" when the GM turned the limit off - never "cap null". */
 			keptSuffix: (total: number, cap: number | null) => string;
-			/** Wraps the bold, pre-formatted credits figure: "Est. **1.00** credits...". */
+			/** Issue #489: the single combined total this component showed before propagation's
+			 * checklist got its own reconciling breakdown (`toGenerate`/`alreadySpent` below) -
+			 * still used for every other trigger this checklist renders for, where there is no
+			 * real "generate diffs" step ahead of it (an audit plan, whose flags are already
+			 * fully priced when written). Wraps the bold, pre-formatted credits figure. */
 			estimatedCredits: (credits: number) => { prefix: string; suffix: string };
+			/** Issue #489: propagation's reconciling total for the "generate diffs" action -
+			 * `perDiffCreditsFormatted` (already locale-formatted by the caller) appears in the
+			 * prefix beside `count`, the bold count-times-price total sits in between, so a GM
+			 * can check the multiplication rather than trust one opaque number
+			 * (docs/ux/DECISIONS.md G11). */
+			toGenerate: (
+				count: number,
+				perDiffCreditsFormatted: string
+			) => { prefix: string; suffix: string };
+			/** Issue #489: the plan-level ranking charge, already spent by the time this
+			 * checklist is shown - its own figure, never folded into `toGenerate`. Wraps the
+			 * bold, pre-formatted credits figure. */
+			alreadySpent: () => { prefix: string; suffix: string };
 			drop: string;
 			empty: string;
 			generating: string;
 			generateDiffs: (count: number) => string;
-			/** The per-row credits cost abbreviation, e.g. "1.20 cr". */
+			/** The per-row credits cost abbreviation, e.g. "1.2 cr". */
 			creditsUnit: string;
 		};
 		queue: {

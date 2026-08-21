@@ -26,7 +26,7 @@
 	{#if data.plan.status !== 'spent'}
 		<PlanChecklist
 			rows={data.checklistRows}
-			estimatedCredits={data.plan.estimatedCredits}
+			pricing={data.pricing}
 			candidateCap={data.plan.candidateCap}
 			locale={data.locale}
 		/>

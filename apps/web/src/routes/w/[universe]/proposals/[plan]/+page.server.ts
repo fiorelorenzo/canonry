@@ -6,7 +6,7 @@
  */
 import { error, fail } from '@sveltejs/kit';
 import { messages } from '$lib/i18n';
-import { universeAccessBySlug } from '@canonry/db';
+import { priceOf, universeAccessBySlug } from '@canonry/db';
 import { generatePlanDiffs, AiDisabledError } from '@canonry/copilot';
 import { MissingGatewayEnvError } from '@canonry/ai';
 import { db } from '$lib/server/db';
@@ -37,7 +37,35 @@ async function loadPlan(locals: App.Locals, universeSlug: string, planId: string
 }
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-	const { access, detail } = await loadPlan(locals, params.universe, params.plan);
+	const { conn, access, detail } = await loadPlan(locals, params.universe, params.plan);
+
+	// Issue #489: `propagate.diff` prices per candidate (docs/ux/DECISIONS.md G11), so a
+	// propagation plan (trigger 'save') - the only trigger that still has a real "generate
+	// diffs" step ahead of it here - shows the reconciling count x price = total, plus the
+	// plan-level `propagate.plan` ranking charge as its own already-spent figure. Both are
+	// looked up live rather than trusted from the plan's stored `estimated_credits`, which
+	// bundles the two together and only ever moves down via `dropCandidateFromPlan` - it
+	// goes stale the moment a candidate leaves pending any other way (see the PR for the
+	// seeded plan that showed exactly this). Every other trigger that can still reach this
+	// page before 'spent' (today: an audit plan, whose flags are fully priced the moment
+	// they are written - packages/copilot/src/audit.ts) keeps the single stored total this
+	// page has always shown; that number's own labelling is a separate, unfiled question
+	// this issue does not cover.
+	const pricing =
+		detail.plan.trigger === 'save'
+			? await (async () => {
+					const [diffPrice, planPrice] = await Promise.all([
+						priceOf(conn, 'propagate.diff'),
+						priceOf(conn, 'propagate.plan')
+					]);
+					return {
+						kind: 'perDiff' as const,
+						diffPriceCredits: diffPrice.credits,
+						alreadySpentCredits: planPrice.credits
+					};
+				})()
+			: { kind: 'total' as const, estimatedCredits: detail.plan.estimatedCredits };
+
 	return {
 		universe: { slug: access.universe.slug, name: access.universe.name },
 		plan: {
@@ -48,9 +76,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			// plan without one reading "from propagation", import and Ask included.
 			trigger: detail.plan.trigger,
 			summary: detail.plan.summary,
-			estimatedCredits: detail.plan.estimatedCredits,
 			candidateCap: detail.plan.candidateCap
 		},
+		pricing,
 		triggerEntityName: detail.triggerEntityName,
 		checklistRows: detail.candidates
 			.filter((c) => c.proposal.outcome === 'pending')
@@ -61,7 +89,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 					c.relatedEntity?.name ??
 					messages(locals.locale).proposals.diffCard.newEntry,
 				rationale: c.proposal.rationale,
-				credits: c.proposal.credits
+				// The row's own price: propagation's uniform, not-yet-spent `propagate.diff`
+				// price while a diff is still to come, or the candidate's own real, already
+				// spent cost for anything else (an audit flag is fully priced when written -
+				// never 0, unlike an undiffed propagation candidate, which always was).
+				credits: pricing.kind === 'perDiff' ? pricing.diffPriceCredits : c.proposal.credits
 			})),
 		diffCandidates: enrichCandidates(detail.candidates)
 	};

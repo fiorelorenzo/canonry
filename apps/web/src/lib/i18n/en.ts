@@ -859,6 +859,14 @@ export const en: Messages = {
 					suffix: form === 'one' ? ' credit to generate diffs' : ' credits to generate diffs'
 				};
 			},
+			toGenerate: (count, perDiffCreditsFormatted) => ({
+				prefix: `${count} \u00d7 ${perDiffCreditsFormatted} cr = `,
+				suffix: ' cr to generate'
+			}),
+			alreadySpent: () => ({
+				prefix: 'Already spent: ',
+				suffix: ' cr on this plan'
+			}),
 			drop: 'Drop',
 			empty: 'Nothing left in this plan.',
 			generating: 'Generating\u2026',
