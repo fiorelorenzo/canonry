@@ -1568,10 +1568,20 @@ export const en: Messages = {
 				pulseMoving: (total, latest, weeks) => {
 					const fmt = numberFormat('en', { maximumFractionDigits: 0, useGrouping: 'always' });
 					const changes = total === 1 ? '1 change' : `${fmt.format(total)} changes`;
-					const tail =
-						latest === 0
-							? 'none in the last seven days'
-							: `${fmt.format(latest)} in the last seven days`;
+					// #487: a seeded or young world puts every change in the newest week, so
+					// `total` and `latest` are the same number. Printing it twice reads as a
+					// bug; saying all of it landed this week is the same fact stated once.
+					let tail: string;
+					if (latest === total) {
+						tail =
+							total === 1
+								? 'it happened in the last seven days'
+								: 'all of them in the last seven days';
+					} else if (latest === 0) {
+						tail = 'none in the last seven days';
+					} else {
+						tail = `${fmt.format(latest)} in the last seven days`;
+					}
 					return `${changes} in the last ${weeks} weeks, ${tail}.`;
 				},
 				pulseQuiet: (weeks, lastChange) =>
@@ -1583,6 +1593,8 @@ export const en: Messages = {
 					if (weeksAgo === 0) return `last seven days: ${changes}`;
 					return weeksAgo === 1 ? `1 week ago: ${changes}` : `${weeksAgo} weeks ago: ${changes}`;
 				},
+				pulseAxisStart: (weeks) => `${weeks} weeks ago`,
+				pulseAxisEnd: 'last seven days',
 				continueHeading: 'Continue',
 				continueEmpty: 'Nothing changed yet.',
 				waitingHeading: 'Waiting for you',

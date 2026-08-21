@@ -1762,6 +1762,13 @@ export interface Messages {
 				pulseQuiet: (weeks: number, lastChange: string | null) => string;
 				/** The hover title on one bar. `weeksAgo` 0 is the last seven days. */
 				pulseWeekTitle: (count: number, weeksAgo: number) => string;
+				/** #487: the sparkline's own axis, since it had none. `aria-hidden` along
+				 * with the bars it labels - the sentence above already carries the figures
+				 * for a screen reader, this only orients a sighted reader looking at the
+				 * shape rather than reading it. Matches `pulseWeekTitle`'s own vocabulary
+				 * rather than inventing a second one. */
+				pulseAxisStart: (weeks: number) => string;
+				pulseAxisEnd: string;
 				continueHeading: string;
 				continueEmpty: string;
 				waitingHeading: string;
