@@ -1639,6 +1639,11 @@ export const en: Messages = {
 				return `${entries} "${query}".`;
 			},
 			changedAt: (when) => `changed ${when}`,
+			continueOverflowHint: (count) => {
+				const form = pluralRules('en').select(count);
+				const noun = form === 'one' ? 'entry' : 'entries';
+				return `${count} ${noun} here, swipe to see the rest`;
+			},
 			emptyColdMessage: 'Nothing here yet. Start with your first entry.',
 			emptyFilteredMessage: 'No entries match this filter.',
 			emptySearchMessage: (query) => `No entries match "${query}".`,
