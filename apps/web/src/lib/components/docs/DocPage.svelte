@@ -15,8 +15,18 @@
 	 * rather than Tailwind Typography's `prose` class: the entry body deliberately
 	 * skips that plugin's own colour palette in favour of this design system's
 	 * tokens, and a docs page reads oddly next to canon prose if it looks different.
+	 *
+	 * Issue #491: what #147 removed was a *second* landmark, which was right for a
+	 * signed-in reader and wrong for everybody else. `AppShell` only renders its
+	 * `<main id="main">` once there is a session, and none of the routes drawn through
+	 * this component carries an auth guard (`/docs`, its three subpages, `/privacy`),
+	 * so a signed-out visitor, which is exactly who reads a privacy page or a guide,
+	 * landed on a document with no main landmark at all. The wrapper below picks
+	 * whichever tag the shell is not already supplying, the same conditional #474 used
+	 * for the dev galleries, so there is always exactly one and never two.
 	 */
 	import type { Snippet } from 'svelte';
+	import { page } from '$app/state';
 	import { PageHeader } from '$lib/components/ui/page-header';
 
 	let {
@@ -30,7 +40,11 @@
 	} = $props();
 </script>
 
-<div class="mx-auto max-w-measure px-8 py-10">
+<svelte:element
+	this={page.data.user ? 'div' : 'main'}
+	id={page.data.user ? undefined : 'main'}
+	class="mx-auto max-w-measure px-8 py-10"
+>
 	<PageHeader {eyebrow} {title} />
 
 	<div
@@ -38,4 +52,4 @@
 	>
 		{@render children()}
 	</div>
-</div>
+</svelte:element>
