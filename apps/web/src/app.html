@@ -25,6 +25,20 @@
 		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4efe4" />
 		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#17140f" />
 
+		<!-- V10 (#496): preload the reading room's own face. Roman only, not the italic
+				variant - italic is real but rarer per page, and a second preloaded font
+				competes with the first for the same early bandwidth. `crossorigin` is
+				required even though the file is same-origin: fonts are always fetched in
+				anonymous CORS mode, and a preload whose crossorigin attribute does not match
+				the actual request's mode is discarded as a wasted fetch rather than reused. -->
+		<link
+			rel="preload"
+			as="font"
+			type="font/woff2"
+			href="%sveltekit.assets%/fonts/literata-variable.woff2"
+			crossorigin="anonymous"
+		/>
+
 		<!-- Issue #286: the three controls decision O4 = B ships are popovers and a radio
 				group, and a popover cannot be opened without JavaScript. A call site that has
 				to keep working without it marks its enhanced control `data-js-only` and renders

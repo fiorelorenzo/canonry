@@ -32,12 +32,74 @@
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
+/* V10 (#496): Literata, self-hosted and variable, replaces the system-dependent serif
+ * stack that used to resolve to Palatino on a Mac, Georgia on Windows, DejaVu on Linux and
+ * Noto on Android - a different face per platform for a product whose whole visual language
+ * (A1) rests on the serif reading room. See DECISIONS.md "V10, and shipping the face we
+ * chose". Two files, each a single variable font instanced to the wght range this app
+ * actually asks for (400-700: font-normal/medium/semibold/bold, grep the app for
+ * font-thin/light/extrabold/black and there are none) and to the opsz axis's own default
+ * (12, "text" optical size) rather than left variable, because nothing in the app requests
+ * a specific optical size - one variable file per style, not four static ones, per the
+ * decision's own instruction. ~38KB roman, ~39KB italic (markdown emphasis and prose
+ * `*em*` render through EntryProse/EntryProseWithSecrets/MentionPreview, so italic is a
+ * real reading-room need and not UI chrome). OFL-1.1, licence text beside the files at
+ * /fonts/OFL.txt. Self-hosted rather than a Google Fonts <link>: a CDN request from a page
+ * holding campaign content is exactly what guardrail 5 forbids. */
+@font-face {
+	font-family: 'Literata';
+	src: url('/fonts/literata-variable.woff2') format('woff2');
+	font-weight: 400 700;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Literata';
+	src: url('/fonts/literata-italic-variable.woff2') format('woff2');
+	font-weight: 400 700;
+	font-style: italic;
+	font-display: swap;
+}
+
+/* `font-display: swap` above means the reader sees a fallback face for however long the
+ * woff2 takes to arrive, and that fallback's own box (not Literata's) is what the first
+ * paragraph lands in. Unadjusted, DejaVu Serif - the face `serif` resolves to on this
+ * app's own dev/render host, and the one DECISIONS.md names for Linux - runs taller and
+ * wider than Literata at the same font-size, so the swap moved the text: measured with
+ * the font request blocked, an entry's first paragraph started noticeably lower than with
+ * it unblocked. size-adjust plus the three -override properties resize DejaVu Serif's box
+ * to Literata's own ascent/descent/average-glyph-width ratio (Fontaine's and Capsize's
+ * formula: preferred and fallback average-char-width-over-units-per-em set size-adjust,
+ * then ascent/descent/line-gap divide through by size-adjust), so the swap changes the
+ * letterforms without moving the line box. Numbers computed from this file's own woff2
+ * (OS/2.xAvgCharWidth 639, hhea ascent/descent 1177/-308, unitsPerEm 1000) against the
+ * DejaVu Serif Book installed on this render host (OS/2.xAvgCharWidth 1050, hhea
+ * ascent/descent 1901/-483, unitsPerEm 2048) - not against Georgia or Palatino/Iowan Old
+ * Style, which this repo has no licence to measure from a real binary. Those two are
+ * closer to Literata's proportions already (both are old-style book serifs, unlike
+ * DejaVu's grotesque-adjacent proportions), so the un-adjusted mismatch there is smaller;
+ * this override still only fires where DejaVu Serif resolves via local(), so Mac and
+ * Windows readers get exactly today's fallback swap, not a worse one. */
+@font-face {
+	font-family: 'Literata Fallback';
+	src: local('DejaVu Serif');
+	size-adjust: 124.6354%;
+	ascent-override: 94.4354%;
+	descent-override: 24.7121%;
+	line-gap-override: 0%;
+}
+
 @theme {
 	/* G2: this is the body face for everything, prose and chrome alike. Tailwind's
 	 * default sans is replaced rather than supplemented so a component that forgets
 	 * to pick a font still lands on the decided one. */
-	--font-sans: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-	--font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+	--font-sans:
+		'Literata', 'Literata Fallback', 'Iowan Old Style', 'Palatino Linotype', Palatino,
+		'Book Antiqua', Georgia, serif;
+	--font-serif:
+		'Literata', 'Literata Fallback', 'Iowan Old Style', 'Palatino Linotype', Palatino,
+		'Book Antiqua', Georgia, serif;
 	--font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
 
 	/* Reading room, light. Named by role rather than by hue: a token called
