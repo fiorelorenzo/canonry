@@ -54,16 +54,15 @@
 		 * only: the marking is "not yet yours", which has no meaning in a player preview. */
 		markedSentences?: ReadonlySet<string>;
 		/** #409, S4, round fourteen: the view is a two-option choice, not a checkbox, so it
-		 * is `Segmented`'s own string value. Bindable, round fifteen T1 (#428): the entry
-		 * page now hosts the `Segmented` itself, directly under the title, so it needs the
-		 * value this component's own prose/mention rendering is keyed on - see
-		 * `showViewControl`. */
+		 * is `Segmented`'s own string value. Bindable since round fifteen, for two callers
+		 * that both host the control themselves: the entry page puts it under the title
+		 * (T1, #428) and the editor puts it on its toolbar row (T6, #433). Either way this
+		 * component still derives `playerPreview` and everything downstream from it. */
 		view?: 'gm' | 'player';
-		/** `false` suppresses this component's own copy of the `Segmented` + description
-		 * block, for a caller that renders that control itself and binds `view` in (the
-		 * entry page, T1). The editor's preview pane (`MarkdownEditor.svelte`) has no title
-		 * of its own for a control to sit under, so it leaves this at the default and keeps
-		 * owning the control exactly as before. */
+		/** `false` suppresses this component's own copy of the `Segmented`, for a caller
+		 * that renders the control itself and binds `view` in. The one-line description of
+		 * which view is showing stays either way: guardrail 5 has no exception for "the
+		 * control moved". */
 		showViewControl?: boolean;
 	} = $props();
 
@@ -166,6 +165,13 @@
 			{playerPreview ? t.prose.playerPreviewActive : t.prose.gmViewDescription}
 		</p>
 	</div>
+{:else}
+	<!-- T6, round fifteen (#433): the control itself now lives on
+	     `MarkdownEditor.svelte`'s toolbar row; this component still owns the derived
+	     state and still says, in plain prose, which view is showing (guardrail 5). -->
+	<p class="mb-4 text-xs text-muted">
+		{playerPreview ? t.prose.playerPreviewActive : t.prose.gmViewDescription}
+	</p>
 {/if}
 
 <div

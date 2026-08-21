@@ -148,6 +148,21 @@
 		{ value: 'preview', label: t.entry.editor.view.preview }
 	]);
 
+	// T6, round fifteen (#433): the GM/player view used to live inside
+	// `EntryProseWithSecrets`'s own box, a second switch two centimetres under this
+	// one. It belongs here instead - it decides who the preview is for, not anything
+	// about writing - so this component now owns the state and passes it down as a
+	// bindable prop; `EntryProseWithSecrets` still derives `playerPreview` and the
+	// description line under its box from it, unchanged. Always rendered alongside
+	// the write/preview switch, in both modes, rather than only while previewing:
+	// showing it only in preview mode would change this bar's own height between the
+	// two modes, which is the jump R9 already spent a round fixing.
+	let proseView = $state<'gm' | 'player'>('gm');
+	let proseViewOptions = $derived<SegmentedOption[]>([
+		{ value: 'gm', label: t.entry.prose.gmView },
+		{ value: 'player', label: t.entry.prose.playersView }
+	]);
+
 	let textareaEl: HTMLTextAreaElement | undefined = $state();
 	let backdropEl: HTMLDivElement | undefined = $state();
 	let previewEl: HTMLDivElement | undefined = $state();
@@ -273,7 +288,19 @@
 	}
 </script>
 
-<div class={fill ? 'flex min-h-0 flex-1 flex-col' : undefined}>
+<!-- T6, round fifteen (#433): this wrapper used to carry `min-h-0` alongside
+     `flex-1`, the usual pairing for a flex item that must be allowed to shrink
+     below its content - but that let a short viewport squeeze it under the
+     toolbar's height plus `editorBoxClasses`' own 384px floor (see `fillClasses`
+     below), and the two children don't clip that overflow (only the box below
+     the toolbar does), so the excess spilled straight onto the Save row after
+     this component instead of the whole page growing past the viewport the way
+     the comment below already says it should. Leaving this wrapper at its
+     default `min-height: auto` restores that: it now refuses to shrink below its
+     own two children's combined floor, so on the same short viewport the box
+     below and `main`'s own scroll (`AppShell.svelte`) take the excess instead of
+     the next row down. -->
+<div class={fill ? 'flex flex-1 flex-col' : undefined}>
 	<!-- One bar over the box, holding the formatting toolbar at one end and, where there
 	     is a reading surface to agree with, the write/preview switch at the other. The
 	     chrome lives here rather than in `FormattingToolbar` so both halves sit inside the
@@ -288,6 +315,19 @@
 			disabled={showPreview}
 		/>
 		{#if preview}
+			<!-- T6, round fifteen (#433): the GM/player view, lifted out of
+			     `EntryProseWithSecrets`'s own box onto this row - it belongs beside the
+			     switch that picks the surface it governs, not above the text inside one of
+			     the two surfaces. Rendered in both modes (see `proseView`'s own comment
+			     above) so flipping the write/preview switch next to it never resizes this
+			     bar. -->
+			<Segmented
+				name="editor-view-gm"
+				bind:value={proseView}
+				options={proseViewOptions}
+				ariaLabel={t.entry.prose.viewAriaLabel}
+				class="shrink-0"
+			/>
 			<!-- O4 = B: a binary state gets a segmented control, and this one is a view
 			     switch rather than a field, so it deliberately sits outside the entry
 			     form (see the edit route's own comment) and posts nothing. -->
@@ -367,6 +407,8 @@
 					mentionTargets={targets}
 					publicMentionTargets={preview.publicMentionTargets}
 					{locale}
+					bind:view={proseView}
+					showViewControl={false}
 				/>
 				<ImageWidthControl container={previewEl ?? null} {value} {locale} onApply={applyEdit} />
 			{:else}
