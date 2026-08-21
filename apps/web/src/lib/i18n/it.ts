@@ -1687,6 +1687,11 @@ export const it: Messages = {
 				return `${verb} a "${query}".`;
 			},
 			changedAt: (when) => `cambiata ${when}`,
+			continueOverflowHint: (count) => {
+				const form = pluralRules('it').select(count);
+				const noun = form === 'one' ? 'voce' : 'voci';
+				return `${count} ${noun} qui, scorri per vedere il resto`;
+			},
 			emptyColdMessage: 'Ancora niente qui. Comincia con la prima voce.',
 			emptyFilteredMessage: 'Nessuna voce corrisponde a questo filtro.',
 			emptySearchMessage: (query) => `Nessuna voce corrisponde a "${query}".`,

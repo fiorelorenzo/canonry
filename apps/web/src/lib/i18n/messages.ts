@@ -1818,6 +1818,11 @@ export interface Messages {
 			 * numbers on screen. */
 			searchResultCount: (query: string, count: number) => string;
 			changedAt: (when: string) => string;
+			/** #486: at narrow widths `ContinueRow` shows two of six cards with nothing
+			 * saying the other four exist. This states the total and that there is more
+			 * to reach by scrolling, shown only below the `sm` breakpoint where the row
+			 * cannot fit more than a couple of cards at once. */
+			continueOverflowHint: (count: number) => string;
 			emptyColdMessage: string;
 			emptyFilteredMessage: string;
 			/** The filtered empty state's search-specific wording: names the query, so an
