@@ -38,7 +38,9 @@
 		publicMentionTargets,
 		locale,
 		highlightSpan = null,
-		markedSentences = new Set<string>()
+		markedSentences = new Set<string>(),
+		view = $bindable<'gm' | 'player'>('gm'),
+		showViewControl = true
 	}: {
 		body: string;
 		universeSlug: string;
@@ -51,15 +53,22 @@
 		 * default - an entity with nothing pending renders exactly as before. GM view
 		 * only: the marking is "not yet yours", which has no meaning in a player preview. */
 		markedSentences?: ReadonlySet<string>;
+		/** #409, S4, round fourteen: the view is a two-option choice, not a checkbox, so it
+		 * is `Segmented`'s own string value. Bindable, round fifteen T1 (#428): the entry
+		 * page now hosts the `Segmented` itself, directly under the title, so it needs the
+		 * value this component's own prose/mention rendering is keyed on - see
+		 * `showViewControl`. */
+		view?: 'gm' | 'player';
+		/** `false` suppresses this component's own copy of the `Segmented` + description
+		 * block, for a caller that renders that control itself and binds `view` in (the
+		 * entry page, T1). The editor's preview pane (`MarkdownEditor.svelte`) has no title
+		 * of its own for a control to sit under, so it leaves this at the default and keeps
+		 * owning the control exactly as before. */
+		showViewControl?: boolean;
 	} = $props();
 
 	let t = $derived(messages(locale).entry);
 
-	// #409, S4, round fourteen: the view is a two-option choice, not a checkbox, so it is
-	// `Segmented`'s own string value rather than a boolean - `playerPreview` below stays a
-	// derived boolean so the rest of this file (the html/`MentionPreview` surface it feeds)
-	// reads exactly as it did under the old Switch.
-	let view = $state<'gm' | 'player'>('gm');
 	let playerPreview = $derived(view === 'player');
 
 	// #148/#383, updated #409: this component mounts twice (the entry page, the editor's
@@ -139,22 +148,25 @@
 	let container = $state<HTMLElement | null>(null);
 </script>
 
-<div class="mb-4 border-b border-line pb-3">
-	<!-- O4 = B, #409 (S4, round fourteen, amends R8's Switch for this one control): a binary
-	     state gets a segmented control, the same shape the editor's own write/preview switch
-	     (MarkdownEditor.svelte) uses. Two fixed-length labels never resize the control's own
-	     box, and the sentence below is a second, always-present line rather than a label that
-	     swaps size - so using this never moves the article that follows it. -->
-	<Segmented
-		name={viewName}
-		bind:value={view}
-		options={viewOptions}
-		ariaLabel={t.prose.viewAriaLabel}
-	/>
-	<p class="mt-2 text-xs text-muted">
-		{playerPreview ? t.prose.playerPreviewActive : t.prose.gmViewDescription}
-	</p>
-</div>
+{#if showViewControl}
+	<div class="mb-4 border-b border-line pb-3">
+		<!-- O4 = B, #409 (S4, round fourteen, amends R8's Switch for this one control): a
+		     binary state gets a segmented control, the same shape the editor's own
+		     write/preview switch (MarkdownEditor.svelte) uses. Two fixed-length labels never
+		     resize the control's own box, and the sentence below is a second, always-present
+		     line rather than a label that swaps size - so using this never moves the article
+		     that follows it. -->
+		<Segmented
+			name={viewName}
+			bind:value={view}
+			options={viewOptions}
+			ariaLabel={t.prose.viewAriaLabel}
+		/>
+		<p class="mt-2 text-xs text-muted">
+			{playerPreview ? t.prose.playerPreviewActive : t.prose.gmViewDescription}
+		</p>
+	</div>
+{/if}
 
 <div
 	bind:this={container}

@@ -39,6 +39,10 @@
 	import InlineProposalReview from '$lib/components/proposals/InlineProposalReview.svelte';
 	import ModelRunning from '$lib/components/copilot/ModelRunning.svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
+	import { Button } from '$lib/components/ui/button';
+	import * as Tooltip from '$lib/components/ui/tooltip';
+	import { Segmented, type SegmentedOption } from '$lib/components/ui/segmented';
+	import SquarePenIcon from '@lucide/svelte/icons/square-pen';
 	import type { FactRow } from '$lib/components/entry/FactsPanel.svelte';
 	import type { FactSpan } from '$lib/markdown';
 	import type { PageProps } from './$types';
@@ -50,12 +54,30 @@
 	let sectionsOpen = $state<SectionOpenState>({ ...DEFAULT_SECTIONS_OPEN });
 	let detailsOpen = $state(false);
 
+	// Round fifteen T1 (#428): `EntryProseWithSecrets`'s own GM/player view control
+	// (#383/#409) now renders here, directly under the title, instead of inside that
+	// component - `showViewControl={false}` on it below keeps it from drawing a second
+	// copy. `$props.id()` is this component's own instance suffix, the same reason
+	// `EntryProseWithSecrets` gives it: `Segmented` groups its native radios by `name`.
+	let view = $state<'gm' | 'player'>('gm');
+	const viewUid = $props.id();
+	const viewName = `entry-view-${viewUid}`;
+	const viewOptions = $derived<SegmentedOption[]>([
+		{ value: 'gm', label: t.entry.prose.gmView },
+		{ value: 'player', label: t.entry.prose.playersView }
+	]);
+
 	// #345: the two pieces the proposal region needs from the generator beside the title.
 	// `completing` puts the spinner where the draft will land instead of beside the button,
 	// and `reviewRegion` is what lets a finished draft take focus, so the keyboard path is
 	// "Complete entry, then a" with no Tab in between.
 	let completing = $state(false);
 	let reviewRegion = $state<ReturnType<typeof InlineProposalReview> | null>(null);
+	// Round fifteen T1 (#428): the empty/failure sentence `CompleteEntryControl` used to
+	// print under its own text button. Bound out for the same reason `completing` is -
+	// the review region below is "where the draft would have landed", and now shows this
+	// too, instead of a message with nowhere left to sit once the button became a glyph.
+	let completeMessage = $state<string | null>(null);
 
 	// An accept re-runs `load`, and the accepted proposal is no longer pending, so the region
 	// would unmount the moment it succeeded and take C6's undo window with it. This keeps it
@@ -164,39 +186,82 @@
 			{/if}
 		</div>
 
-		<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
-			<div>
-				<div class="mb-1 flex flex-wrap items-center gap-2">
-					<h1 class="text-3xl font-semibold text-ink">{data.entity.name}</h1>
-					<AuditFlagBadge
-						count={data.audit.flags.length}
-						onOpen={openAuditSection}
-						locale={data.locale}
-					/>
-				</div>
-				<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
-					<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
-						{data.entity.type}
-					</span>
-					{#if data.entity.aliases.length > 0}
-						<span>{t.entry.page.aliasesLabel(data.entity.aliases.join(', '))}</span>
-					{/if}
-				</div>
-			</div>
-			<div class="flex flex-none items-start gap-2">
-				<CompleteEntryControl
-					aiEnabled={data.universe.aiEnabled}
+		<div class="mb-6">
+			<div class="mb-1 flex flex-wrap items-center gap-2">
+				<h1 class="text-3xl font-semibold text-ink">{data.entity.name}</h1>
+				<AuditFlagBadge
+					count={data.audit.flags.length}
+					onOpen={openAuditSection}
 					locale={data.locale}
-					bind:running={completing}
-					onDrafted={() => reviewRegion?.focusRegion()}
 				/>
-				<a
-					href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}/edit`)}
-					class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
-				>
-					{t.entry.page.editLink}
-				</a>
+				<!-- T1 (#428): `Completa la voce` and `Modifica` demote from a right-aligned
+				     text row to icon buttons sharing the title's own line - the pattern
+				     `FormattingToolbar.svelte`'s `iconButton` snippet already uses (Q4): one
+				     shared `Tooltip.Provider`, a `Tooltip.Root` per control, an `aria-label`
+				     plus the tooltip carrying the name. -->
+				<Tooltip.Provider delayDuration={400}>
+					<div class="ml-auto flex items-center gap-1">
+						<CompleteEntryControl
+							aiEnabled={data.universe.aiEnabled}
+							price={data.complete.price}
+							locale={data.locale}
+							bind:running={completing}
+							onMessage={(m) => (completeMessage = m)}
+							onDrafted={() => reviewRegion?.focusRegion()}
+						/>
+						<Tooltip.Root>
+							<Tooltip.Trigger>
+								{#snippet child({ props })}
+									<Button
+										{...props}
+										href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}/edit`)}
+										variant="ghost"
+										size="icon"
+										aria-label={t.entry.page.editLink}
+									>
+										<SquarePenIcon aria-hidden="true" />
+									</Button>
+								{/snippet}
+							</Tooltip.Trigger>
+							<Tooltip.Content>{t.entry.page.editLink}</Tooltip.Content>
+						</Tooltip.Root>
+					</div>
+				</Tooltip.Provider>
 			</div>
+			<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
+				<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
+					{data.entity.type}
+				</span>
+				{#if data.entity.aliases.length > 0}
+					<span>{t.entry.page.aliasesLabel(data.entity.aliases.join(', '))}</span>
+				{/if}
+				{#if !data.universe.aiEnabled}
+					<!-- Guardrail 4: the reason stays a plain, always-visible sentence rather than
+					     living only in the complete icon's own tooltip, which needs a hover or
+					     focus nobody is required to give it - CompleteEntryControl.svelte's own
+					     comment has the rest of this decision. -->
+					<span>{t.entry.complete.aiOff}</span>
+				{/if}
+			</div>
+		</div>
+
+		<!-- T1 (#428): the view control inverts position with the write controls above it -
+		     it used to sit under the review region while the title's own buttons stood over
+		     it in the header's top right; now it is the very next thing under the title, and
+		     the write controls shrank to icons that share the title's own line instead.
+		     `EntryProseWithSecrets` still owns the prose/mention rendering this drives
+		     (`showViewControl={false}`, `bind:view` below) - only where the control itself
+		     draws moved. -->
+		<div class="mb-4 border-b border-line pb-3">
+			<Segmented
+				name={viewName}
+				bind:value={view}
+				options={viewOptions}
+				ariaLabel={t.entry.prose.viewAriaLabel}
+			/>
+			<p class="mt-2 text-xs text-muted">
+				{view === 'player' ? t.entry.prose.playerPreviewActive : t.entry.prose.gmViewDescription}
+			</p>
 		</div>
 
 		<!-- #345: the review region, where the band used to point away from the page. C1 = B's
@@ -204,12 +269,19 @@
 		     proposed; this is now the place the decision is actually made, in the reading
 		     context, rather than a signpost to a screen that has it. The inbox and the plan
 		     queue are unchanged and still own the twelve-at-once case (C2). -->
-		{#if completing || regionMounted || data.proposals.awaitingDiff.count > 0}
+		{#if completing || completeMessage || regionMounted || data.proposals.awaitingDiff.count > 0}
 			<div class="mb-6">
 				{#if completing}
 					<!-- The wait happens where the result will land, not up beside the button. -->
 					<div class="rounded-lg border border-line bg-panel-2 p-3">
 						<ModelRunning label={t.entry.complete.running} locale={data.locale} />
+					</div>
+				{:else if completeMessage}
+					<!-- T1 (#428): same rule, extended from the wait to its outcome - the empty
+					     or failure sentence lands where the draft would have, not beside the
+					     button that no longer has room for it. -->
+					<div class="rounded-lg border border-line bg-panel-2 p-3 text-xs text-muted">
+						{completeMessage}
 					</div>
 				{/if}
 				{#if regionMounted}
@@ -250,6 +322,8 @@
 			locale={data.locale}
 			{highlightSpan}
 			markedSentences={new Set(data.proposals.markedSentences)}
+			bind:view
+			showViewControl={false}
 		/>
 	</article>
 

@@ -549,6 +549,8 @@ export const it: Messages = {
 
 		complete: {
 			button: 'Completa la voce',
+			hint: (credits) =>
+				`Una bozza completa per questa voce, ${credits} ${credits === 1 ? 'credito' : 'crediti'}.`,
 			running: 'Il Loremaster sta scrivendo una bozza per questa voce',
 			empty: 'Al momento non c\u2019è nulla da completare.',
 			genericFailure: 'Non è stato possibile eseguire il completamento.',
