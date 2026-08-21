@@ -523,7 +523,8 @@ export const it: Messages = {
 			playersView: 'Vista giocatori',
 			viewAriaLabel: 'Vista GM o giocatori',
 			gmViewDescription: 'Vista GM: segreti e note del master visibili.',
-			playerPreviewActive: 'Anteprima giocatori: quello che vede il tavolo.'
+			playerPreviewActive: 'Anteprima giocatori: quello che vede il tavolo.',
+			changeBarLabel: 'Una proposta \u00e8 in attesa su questo passaggio. Aprila per la revisione.'
 		},
 
 		language: {

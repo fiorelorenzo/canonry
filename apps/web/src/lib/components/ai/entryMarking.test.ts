@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { splitBodyIntoBlocks, markedSegmentsFor } from './entryMarking';
+import { renderMarkdown, type MentionTarget } from '$lib/markdown';
+import {
+	splitBodyIntoBlocks,
+	markedProposalFor,
+	renderChangeBar,
+	type MarkedProposalRef
+} from './entryMarking';
 
 describe('splitBodyIntoBlocks', () => {
 	it('splits on blank lines, one block per paragraph', () => {
@@ -34,38 +40,76 @@ describe('splitBodyIntoBlocks', () => {
 	});
 });
 
-describe('markedSegmentsFor', () => {
+describe('markedProposalFor', () => {
 	it('returns null when nothing in the block is a changed sentence', () => {
 		const blocks = splitBodyIntoBlocks('Three hundred and forty sworn, paid badly.');
-		expect(markedSegmentsFor(blocks[0]!, new Set(['some other sentence']))).toBeNull();
+		expect(markedProposalFor(blocks[0]!, new Map())).toBeNull();
 	});
 
-	it('marks exactly the sentence a proposal changed, leaving the rest of the paragraph unmarked', () => {
+	it('returns the proposal targeting the block, leaving an unmarked block alone', () => {
 		const blocks = splitBodyIntoBlocks(
-			'Captain of the Valdoria Watch, forty sworn under him. He drinks at the Gilded Rat most nights.'
+			'Captain of the Valdoria Watch, forty sworn under him.\n\nHe drinks at the Gilded Rat most nights.'
 		);
-		const segments = markedSegmentsFor(
-			blocks[0]!,
-			new Set(['Captain of the Valdoria Watch, forty sworn under him.'])
-		);
-		expect(segments).toEqual([
-			{ text: 'Captain of the Valdoria Watch, forty sworn under him.', proposed: true },
-			{ text: 'He drinks at the Gilded Rat most nights.', proposed: false }
-		]);
+		const ref: MarkedProposalRef = { proposalId: 'p1', planId: 'plan1' };
+		const changed = new Map([['Captain of the Valdoria Watch, forty sworn under him.', ref]]);
+		expect(markedProposalFor(blocks[0]!, changed)).toEqual(ref);
+		expect(markedProposalFor(blocks[1]!, changed)).toBeNull();
 	});
 
-	it('strips mention syntax to a bare name rather than leaking [[brackets]] into the marked text', () => {
-		const blocks = splitBodyIntoBlocks('He now answers to [[The Ashen Ledger]].');
-		const segments = markedSegmentsFor(
-			blocks[0]!,
-			new Set(['He now answers to [[The Ashen Ledger]].'])
-		);
-		expect(segments?.[0]?.text).toBe('He now answers to The Ashen Ledger.');
-	});
-
-	it('marks a changed heading too, matching how semanticDiff treats a heading as its own unit', () => {
+	it('matches a changed heading too, matching how semanticDiff treats a heading as its own unit', () => {
 		const blocks = splitBodyIntoBlocks('## Standing in the city');
-		const segments = markedSegmentsFor(blocks[0]!, new Set(['## Standing in the city']));
-		expect(segments).toEqual([{ text: '## Standing in the city', proposed: true }]);
+		const ref: MarkedProposalRef = { proposalId: 'p1', planId: null };
+		expect(markedProposalFor(blocks[0]!, new Map([['## Standing in the city', ref]]))).toEqual(ref);
+	});
+
+	it("keeps the block's mention syntax untouched - matching happens on the raw sentence, never a stripped copy", () => {
+		const blocks = splitBodyIntoBlocks('He now answers to [[The Ashen Ledger]].');
+		const ref: MarkedProposalRef = { proposalId: 'p1', planId: null };
+		const changed = new Map([['He now answers to [[The Ashen Ledger]].', ref]]);
+		expect(markedProposalFor(blocks[0]!, changed)).toEqual(ref);
+	});
+});
+
+describe('renderChangeBar', () => {
+	it('wraps the given HTML with a keyboard-reachable link carrying the accessible name', () => {
+		const html = renderChangeBar(
+			'<p>Some prose.</p>',
+			'/w/valdoria-reach/proposals/plan1',
+			'A proposal is waiting on this passage.'
+		);
+		expect(html).toContain('<p>Some prose.</p>');
+		expect(html).toContain('<a class="ai-change-bar"');
+		expect(html).toContain('href="/w/valdoria-reach/proposals/plan1"');
+		expect(html).toContain('aria-label="A proposal is waiting on this passage."');
+	});
+
+	it('escapes the href and label as attribute values, never as a claim about who wrote the prose', () => {
+		const html = renderChangeBar('<p>x</p>', '/w/a"b', 'Waiting <here>');
+		expect(html).toContain('href="/w/a&quot;b"');
+		expect(html).toContain('aria-label="Waiting &lt;here&gt;"');
+	});
+});
+
+describe('a marked block, rendered end to end (#499: the second cost)', () => {
+	it("still resolves the block's own mentions to links - the change bar never runs prose through an escaper", () => {
+		const mentionTargets: MentionTarget[] = [
+			{ name: 'The Ashen Ledger', slug: 'the-ashen-ledger', aliases: [] }
+		];
+		const body = 'He now answers to [[The Ashen Ledger]], and the harbour has noticed.';
+		const blocks = splitBodyIntoBlocks(body);
+		const ref: MarkedProposalRef = { proposalId: 'p1', planId: null };
+		const changed = new Map([[body, ref]]);
+
+		const block = blocks[0]!;
+		const rendered = renderMarkdown(block.raw, 'valdoria-reach', mentionTargets, 'gm');
+		const proposal = markedProposalFor(block, changed);
+		const html = proposal
+			? renderChangeBar(rendered, '/w/valdoria-reach/proposals', 'Waiting')
+			: rendered;
+
+		expect(proposal).toEqual(ref);
+		expect(html).toContain('class="mention"');
+		expect(html).toContain('data-entry-slug="the-ashen-ledger"');
+		expect(html).not.toContain('[[The Ashen Ledger]]');
 	});
 });

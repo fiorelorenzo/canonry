@@ -341,7 +341,12 @@
 				publicMentionTargets={data.publicMentionTargets}
 				locale={data.locale}
 				{highlightSpan}
-				markedSentences={new Set(data.proposals.markedSentences)}
+				markedSentences={new Map(
+					data.proposals.markedSentences.map((m) => [
+						m.sentence,
+						{ proposalId: m.proposalId, planId: m.planId }
+					])
+				)}
 				bind:view
 				showViewControl={false}
 			/>
