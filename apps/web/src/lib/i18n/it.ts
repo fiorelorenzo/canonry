@@ -1633,7 +1633,6 @@ export const it: Messages = {
 				}
 			},
 			searchPlaceholder: 'Cerca per nome o alias\u2026',
-			searchSubmit: 'Cerca',
 			searchClear: 'Cancella ricerca',
 			searchResultCount: (query, count) => {
 				const verb = count === 1 ? '1 voce corrisponde' : `${count} voci corrispondono`;
