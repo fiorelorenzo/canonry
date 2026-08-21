@@ -527,6 +527,8 @@ export const en: Messages = {
 		cover: {
 			placeholderAction: 'Add a cover',
 			placeholderHint: 'Upload an image, or generate one.',
+			placeholderHintNoStyle: 'Upload an image. Generating one needs an image style.',
+			placeholderNoStyleLink: 'Set an image style in settings',
 			dialogTitle: (entityName) => `Cover for ${entityName}`,
 			dialogHint:
 				'An image you upload becomes the cover straight away. A generated one becomes the cover when you say so.',
@@ -873,7 +875,8 @@ export const en: Messages = {
 			acceptedToast: (entityName) => `Accepted ${entityName ?? 'entry'}`,
 			undoFailedToast: 'Could not undo - nothing recorded to restore to.',
 			undo: 'Undo',
-			keyboardMove: 'move',
+			keyboardNext: 'next',
+			keyboardPrevious: 'previous',
 			keyboardAccept: 'accept',
 			keyboardReject: 'reject',
 			keyboardUndo: 'undo'
@@ -1582,7 +1585,7 @@ export const en: Messages = {
 					return labels[type] ?? type;
 				}
 			},
-			searchPlaceholder: 'Search by name or alias\u2026',
+			searchPlaceholder: 'Search by name, alias, or text\u2026',
 			searchClear: 'Clear search',
 			searchResultCount: (query, count) => {
 				const entries = count === 1 ? '1 entry matches' : `${count} entries match`;

@@ -80,10 +80,11 @@
 	let switchDisabledValue = $state<Record<string, boolean>>({ light: true, dark: true });
 
 	// T5 (round fifteen, #432): one key beside one verb, the shape `ProposalQueue`,
-	// `InlineProposalReview` and `CommandPalette`'s footer all use now.
+	// `InlineProposalReview` and `CommandPalette`'s footer all use now. Issue #473:
+	// `j`/`k` are `next`/`previous` rather than sharing one verb.
 	const keyHintSample: KeyHintPair[] = [
-		{ key: 'j', label: 'move' },
-		{ key: 'k', label: 'move' },
+		{ key: 'j', label: 'next' },
+		{ key: 'k', label: 'previous' },
 		{ key: 'a', label: 'accept' },
 		{ key: 'r', label: 'reject' },
 		{ key: 'u', label: 'undo' }

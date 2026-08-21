@@ -51,11 +51,11 @@
 	let posLabel = $derived(t.position(items.length));
 
 	// T5 (round fifteen), issue #432: one key beside one verb, in the shared `KeyHint`
-	// shape. `j`/`k` share one verb (move), so they are two pairs rather than one pair
-	// carrying two keys.
+	// shape. Issue #473: `j`/`k` used to share one verb ("move"), which named neither
+	// direction - they are `next`/`previous` now, matching `move(1)`/`move(-1)` below.
 	let keyPairs = $derived<KeyHintPair[]>([
-		{ key: 'j', label: t.keyboardMove },
-		{ key: 'k', label: t.keyboardMove },
+		{ key: 'j', label: t.keyboardNext },
+		{ key: 'k', label: t.keyboardPrevious },
 		{ key: 'a', label: t.keyboardAccept },
 		{ key: 'r', label: t.keyboardReject },
 		{ key: 'u', label: t.keyboardUndo }

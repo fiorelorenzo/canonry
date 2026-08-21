@@ -43,6 +43,7 @@
 	 * borrow the real cover's own style helper for the shape it will actually be at.
 	 */
 	import type { EntityType } from '@canonry/db/schema';
+	import { resolve } from '$app/paths';
 	import { coverAsideStyle, coverBandStyle } from './cover-crop';
 	import MediaGallery, { type MediaGalleryData } from './MediaGallery.svelte';
 	import { messages, type Locale } from '$lib/i18n';
@@ -117,11 +118,29 @@
 	type="button"
 	onclick={() => (galleryOpen = true)}
 	class="flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line-2 bg-panel-2 px-4 text-center text-muted hover:border-accent hover:bg-panel hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-	class:mb-6={variant === 'band'}
+	class:mb-6={variant === 'band' && hasImageStyle}
 	{style}
 >
 	<span class="text-sm font-medium">{t.placeholderAction}</span>
-	<span class="text-xs">{t.placeholderHint}</span>
+	<span class="text-xs">{hasImageStyle ? t.placeholderHint : t.placeholderHintNoStyle}</span>
 </button>
+{#if !hasImageStyle}
+	<!-- Issue #473: this world has no image style, so every generate control in the
+	     dialog this opens (`MediaGallery`, decisions S3/T3) refuses. The box above says
+	     what is available (upload) and names what unlocks the rest; this is a real,
+	     separate link to the fix - it cannot nest inside the box's own `<button>` -
+	     the same settings anchor `media.noStyle.link` already uses once the dialog is
+	     open. -->
+	<!-- eslint-disable svelte/no-navigation-without-resolve -- settings anchor:
+	     resolve() plus a same-page fragment the rule cannot see through. -->
+	<a
+		href={`${resolve(`/w/${universeSlug}/settings`)}#setup-image-style`}
+		class="-mt-1 block text-center text-xs font-medium text-accent-ink hover:underline"
+		class:mb-6={variant === 'band'}
+	>
+		{t.placeholderNoStyleLink}
+	</a>
+	<!-- eslint-enable svelte/no-navigation-without-resolve -->
+{/if}
 
 <MediaGallery bind:open={galleryOpen} data={galleryData} {locale} />

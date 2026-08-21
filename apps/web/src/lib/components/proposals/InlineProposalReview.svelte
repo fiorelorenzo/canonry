@@ -51,10 +51,11 @@
 
 	// T5 (round fifteen), issue #432: the same five pairs `ProposalQueue` builds, off
 	// `queue`'s own verbs rather than the joined phrase `inline.keys` used to compose -
-	// C6's vocabulary is one vocabulary, and now it is stated once.
+	// C6's vocabulary is one vocabulary, and now it is stated once. Issue #473: `j`/`k`
+	// are `next`/`previous`, matching `move(1)`/`move(-1)` below.
 	let keyPairs = $derived<KeyHintPair[]>([
-		{ key: 'j', label: t.queue.keyboardMove },
-		{ key: 'k', label: t.queue.keyboardMove },
+		{ key: 'j', label: t.queue.keyboardNext },
+		{ key: 'k', label: t.queue.keyboardPrevious },
 		{ key: 'a', label: t.queue.keyboardAccept },
 		{ key: 'r', label: t.queue.keyboardReject },
 		{ key: 'u', label: t.queue.keyboardUndo }

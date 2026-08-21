@@ -530,6 +530,9 @@ export const it: Messages = {
 		cover: {
 			placeholderAction: 'Aggiungi una copertina',
 			placeholderHint: 'Carica un\u2019immagine, oppure generane una.',
+			placeholderHintNoStyle:
+				'Carica un\u2019immagine. Per generarne una serve uno stile immagine.',
+			placeholderNoStyleLink: 'Imposta uno stile immagine nelle impostazioni',
 			dialogTitle: (entityName) => `Copertina di ${entityName}`,
 			dialogHint:
 				'Un\u2019immagine che carichi diventa subito la copertina. Una generata lo diventa quando lo decidi tu.',
@@ -892,7 +895,8 @@ export const it: Messages = {
 			acceptedToast: (entityName) => `Accettato: ${entityName ?? 'la voce'}`,
 			undoFailedToast: "Impossibile annullare: non c'è nulla da ripristinare.",
 			undo: 'Annulla',
-			keyboardMove: 'sposta',
+			keyboardNext: 'successiva',
+			keyboardPrevious: 'precedente',
 			keyboardAccept: 'accetta',
 			keyboardReject: 'rifiuta',
 			keyboardUndo: 'annulla'
@@ -1630,7 +1634,7 @@ export const it: Messages = {
 					return labels[type] ?? type;
 				}
 			},
-			searchPlaceholder: 'Cerca per nome o alias\u2026',
+			searchPlaceholder: 'Cerca per nome, alias o testo\u2026',
 			searchClear: 'Cancella ricerca',
 			searchResultCount: (query, count) => {
 				const verb = count === 1 ? '1 voce corrisponde' : `${count} voci corrispondono`;
