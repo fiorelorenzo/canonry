@@ -9,7 +9,7 @@ import { latestArtifact, pinnedNeighbors, runningSessionContext } from '@canonry
 import { isAmbientPackPayload } from '$lib/server/ambient-pack.js';
 import { db } from '$lib/server/db';
 import { requireTableAccess } from './_server/guard.js';
-import { pinCardsFor } from './_server/pin-cards.js';
+import { briefStatusFrom, pinCardsFor } from './_server/pin-cards.js';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async (event) => {
@@ -25,6 +25,19 @@ export const load: LayoutServerLoad = async (event) => {
 	// #477: shared with the declare route (`context/+server.ts`) and its SSE broadcast,
 	// so a pin never reaches the client without the `warm` field the card reads.
 	const pinCards = await pinCardsFor(conn, access.universe.id, pins);
+
+	// #529: the place panel's own brief - the same warm `brief` artifact a pin reads,
+	// subject to the place's own entity id rather than a neighbor's. `briefStatusFrom` is
+	// what keeps "missing" and "stale but still shown" the same vocabulary as every pin row.
+	const placeBrief = context?.placeEntityId
+		? briefStatusFrom(
+				await latestArtifact(conn, {
+					universeId: access.universe.id,
+					kind: 'brief',
+					subjectEntityId: context.placeEntityId
+				})
+			)
+		: null;
 
 	// The declaration control's candidate list (decision E1's #72 lock-in: "an autocomplete
 	// over place-typed entities", never a free-text box). Small by construction - most
@@ -97,6 +110,7 @@ export const load: LayoutServerLoad = async (event) => {
 			: null,
 		pins: pinCards,
 		pinnedElapsedMs,
+		placeBrief,
 		places,
 		sessions,
 		ambientPack

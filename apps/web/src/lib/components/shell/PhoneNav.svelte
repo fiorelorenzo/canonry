@@ -31,10 +31,10 @@
 	 * tabs are ordinary links, so nothing here has to know the panel exists.
 	 *
 	 * AppShell does not mount this at all under `/w/[universe]/table`: that
-	 * route's own `ContextStrip` and `PhoneTabBar` (#81, E4's original) are this
-	 * same pattern already built for that surface, and stacking a second top bar
-	 * or a second bottom bar on top of them is exactly the "two navigation
-	 * patterns at once" this issue rules out.
+	 * route's own `ContextStrip` (top) and, below 640px, `TableDeck` (#529, round
+	 * eighteen) already give that surface its own phone-shaped chrome, and stacking a
+	 * second top bar on top of them is exactly the "two navigation patterns at once"
+	 * this issue rules out.
 	 *
 	 * Issue #379, decision R4: neither piece has room for the setup-checklist row -
 	 * the top bar is three icon buttons and the bottom bar is icon tabs, and both

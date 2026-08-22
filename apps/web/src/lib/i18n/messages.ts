@@ -1505,11 +1505,20 @@ export interface Messages {
 			declaring: string;
 		};
 
+		/** #529: an artifact that exists, fresh or stale, always carries its text - shared
+		 * copy between the place panel's own brief and every pinned NPC's row, since both
+		 * read `BriefStatus`. */
+		brief: {
+			missing: string;
+			mayBeOutdated: string;
+		};
+
 		pinnedCards: {
 			empty: string;
 			listLabel: string;
 			declaredPlace: string;
 			hopsFromPlace: (hops: number) => string;
+			pendingProposal: string;
 			warmBriefAt: (relativeTime: string) => string;
 			staleSince: (relativeTime: string) => string;
 			notWarmedThisSession: string;
@@ -1540,6 +1549,7 @@ export interface Messages {
 			markAsRevealed: string;
 			markAsRevealedDisabledTitle: string;
 			drafting: string;
+			barLabel: string;
 			more: string;
 			nameChildLocation: string;
 			locationPlaceholder: string;
@@ -1573,6 +1583,8 @@ export interface Messages {
 		ambientPlayer: {
 			heading: string;
 			showAudioGraph: string;
+			moodLabel: string;
+			moodOff: string;
 			hideAudioGraph: string;
 			noPackYet: string;
 			layerSummary: (count: number, stale: boolean) => string;
@@ -1624,6 +1636,22 @@ export interface Messages {
 			/** The inline quick-declare `Combobox`'s trigger before a place is chosen
 			 * (#470's empty state, `EmptyState`'s `action` snippet). */
 			choosePlace: string;
+			placeHeading: string;
+			hereHeading: string;
+			noteHeading: string;
+			arrivals: {
+				heading: string;
+				empty: string;
+				noteSaved: (targetName: string) => string;
+			};
+			draftingNpc: string;
+			actionFailed: (action: string, reason: string) => string;
+			unknownReason: string;
+			savedAsProposal: (via: string) => string;
+			savedAsProposalScaffold: (via: string) => string;
+			markedRevealed: (name: string) => string;
+			noteSaveFailed: string;
+			sessionEnded: (proposalCount: number) => string;
 			pinnedHeading: string;
 			quickActionsHeading: string;
 			askHeading: string;
@@ -1638,14 +1666,6 @@ export interface Messages {
 			scaffoldBadge: string;
 			scaffoldTooltipDefault: string;
 			aiUnavailable: (reason: string) => string;
-			draftingNpc: string;
-			actionFailed: (action: string, reason: string) => string;
-			unknownReason: string;
-			savedAsProposal: (via: string) => string;
-			savedAsProposalScaffold: (via: string) => string;
-			markedRevealed: (name: string) => string;
-			noteSaveFailed: string;
-			sessionEnded: (proposalCount: number) => string;
 		};
 
 		/** Server-side text for the `/table` request handlers and their `_server/*`

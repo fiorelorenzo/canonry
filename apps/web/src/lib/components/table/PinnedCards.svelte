@@ -1,11 +1,11 @@
 <script lang="ts">
 	/**
-	 * Issue #73's instant-lane card, sharing E2's warm/warming/cold vocabulary with the
-	 * material #77's triggers pre-compute (its own lock-in note: "the pinned NPC card and
-	 * the pre-warmed brief share one component, not two"). The pin itself - name, type, why
-	 * it is here - is always present, from the 2-hop graph query alone; the warm footer is
-	 * the only part of this card that can ever say "not yet" or "not this session", and it
-	 * never spins while saying it (decision E2 = A, no promised time, no spinner).
+	 * Issue #73's instant-lane row, rebuilt for #529 (round eighteen, W1 = A, the board):
+	 * "who is here, under it: one row per pin with its initials, name, type, its brief in
+	 * full, and why it is pinned." A card that told the GM a brief existed without showing
+	 * it was the defect this issue names outright, so `pin.warm.text` renders in full here
+	 * rather than a relative-time footer - V3's "a card becomes a row with a rule" applies
+	 * directly, since this was the clearest boxed-card-in-a-wrap-grid left in table mode.
 	 */
 	import { resolve } from '$app/paths';
 	import { messages, type Locale } from '$lib/i18n';
@@ -15,21 +15,13 @@
 		$props();
 
 	const t = $derived(messages(locale).table.pinnedCards);
+	const tBrief = $derived(messages(locale).table.brief);
 
 	function initialsOf(name: string): string {
 		const parts = name.split(/\s+/).filter(Boolean);
 		if (parts.length === 0) return '?';
 		if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
 		return `${parts[0]![0]}${parts[parts.length - 1]![0]}`.toUpperCase();
-	}
-
-	function relativeTime(iso: string): string {
-		const ms = Date.now() - new Date(iso).getTime();
-		const minutes = Math.round(ms / 60000);
-		if (minutes < 1) return t.justNow;
-		if (minutes < 60) return t.minutesAgo(minutes);
-		const hours = Math.round(minutes / 60);
-		return t.hoursAgo(hours);
 	}
 </script>
 
@@ -38,44 +30,49 @@
 		{t.empty}
 	</p>
 {:else}
-	<ul class="flex flex-wrap gap-3" aria-label={t.listLabel}>
+	<ul class="flex flex-col" aria-label={t.listLabel}>
 		{#each pins as pin (pin.entityId)}
-			<li class="w-[13rem] rounded-lg border border-line bg-panel p-3">
-				<div class="flex items-start gap-2.5">
-					<span
-						class="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-accent-bg font-mono text-xs font-bold text-accent-ink"
-					>
-						{initialsOf(pin.name)}
-					</span>
-					<div class="min-w-0">
+			<li class="flex items-start gap-3 border-b border-line py-3 last:border-b-0">
+				<span
+					class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-accent-bg font-mono text-label font-bold text-accent-ink"
+				>
+					{initialsOf(pin.name)}
+				</span>
+				<div class="min-w-0 flex-1">
+					<div class="flex flex-wrap items-baseline gap-x-2">
 						<a
 							href={resolve(`/w/${universeSlug}/e/${pin.slug}`)}
-							class="block truncate text-sm font-semibold text-ink hover:underline"
+							class="text-title font-semibold text-ink hover:underline"
 						>
 							{pin.name}
 						</a>
-						<p class="text-xs text-muted">{pin.type}</p>
+						<span class="text-meta text-muted">{pin.type}</span>
+						{#if pin.hasPendingProposal}
+							<span
+								class="rounded-full border border-line-2 bg-panel-2 px-1.5 py-0.5 text-label text-ink-2"
+							>
+								{t.pendingProposal}
+							</span>
+						{/if}
 					</div>
-				</div>
-				<p class="mt-2 text-xs text-ink-2">
-					{#if pin.via}
-						{pin.via.relationLabel}
-						{pin.via.entityName}
-					{:else}
-						{pin.hopDistance === 0 ? t.declaredPlace : t.hopsFromPlace(pin.hopDistance)}
-					{/if}
-				</p>
-				<div class="mt-2.5 flex items-center gap-1.5 border-t border-line pt-2 text-label">
-					{#if pin.warm.status === 'warm'}
-						<span class="h-1.5 w-1.5 flex-none rounded-full bg-accent" aria-hidden="true"></span>
-						<span class="text-muted">{t.warmBriefAt(relativeTime(pin.warm.updatedAt))}</span>
-					{:else if pin.warm.lastWarmedAt}
-						<span class="h-1.5 w-1.5 flex-none rounded-full bg-muted" aria-hidden="true"></span>
-						<span class="text-muted">{t.staleSince(relativeTime(pin.warm.lastWarmedAt))}</span>
-					{:else}
-						<span class="h-1.5 w-1.5 flex-none rounded-full bg-muted" aria-hidden="true"></span>
-						<span class="text-muted">{t.notWarmedThisSession}</span>
-					{/if}
+					<p class="mt-0.5 text-meta text-muted">
+						{#if pin.via}
+							{pin.via.relationLabel}
+							{pin.via.entityName}
+						{:else}
+							{pin.hopDistance === 0 ? t.declaredPlace : t.hopsFromPlace(pin.hopDistance)}
+						{/if}
+					</p>
+					<p class="mt-1.5 text-body text-ink-2">
+						{#if pin.warm.status === 'ready'}
+							{pin.warm.text ?? tBrief.missing}
+							{#if pin.warm.stale}
+								<span class="ml-1 text-label text-muted">({tBrief.mayBeOutdated})</span>
+							{/if}
+						{:else}
+							<span class="text-muted">{tBrief.missing}</span>
+						{/if}
+					</p>
 				</div>
 			</li>
 		{/each}

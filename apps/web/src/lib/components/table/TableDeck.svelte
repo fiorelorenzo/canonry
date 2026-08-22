@@ -1,12 +1,13 @@
 <script lang="ts">
 	/**
-	 * Issue #529, round eighteen: W1 = A for the board (laptop) and B's deck for the
-	 * phone, "not a compromise: it is the same content at the size a phone beside a
-	 * screen can actually be glanced at." One card fills the width - the place first
+	 * Issue #529, round eighteen: W1 = A for the board (`sm`, 640px, and up) and B's deck
+	 * for the phone, "not a compromise: it is the same content at the size a phone beside
+	 * a screen can actually be glanced at." One card fills the width - the place first
 	 * (so a GM sees where they are before who is there), then every pinned neighbour -
-	 * and a thumbnail strip below jumps between them. `md:hidden` on the root is what
-	 * cedes `md` and up to `+page.svelte`'s board; this component never reads or writes
-	 * anything table mode owns beyond the fixed contract's two callbacks.
+	 * and a thumbnail strip below jumps between them. `+page.svelte` is the one that
+	 * decides the breakpoint (`<div class="sm:hidden">` wraps this component), so this
+	 * root carries no breakpoint class of its own: a component should not duplicate a
+	 * cutoff its mount point already owns, with the two free to drift apart.
 	 *
 	 * `PinCard.warm` and `hasPendingProposal` are both mid-migration in #529's own
 	 * worktree (`table/_server/pin-cards.ts`, `types.ts`) as this was written: `warm`
@@ -41,6 +42,7 @@
 		pins,
 		placeName,
 		placeBrief,
+		canReveal,
 		locale,
 		onNote,
 		onReveal
@@ -48,6 +50,9 @@
 		pins: DeckPin[];
 		placeName: string;
 		placeBrief: string | null;
+		/** Mirrors the board's own action bar: reveal needs a declared session (G7), so
+		 * every card's reveal button is disabled the same way with none running. */
+		canReveal: boolean;
 		locale: Locale;
 		onNote: (text: string, pinId: string) => void;
 		onReveal: (pinId: string) => void;
@@ -192,7 +197,7 @@
 	}
 </script>
 
-<div class="flex flex-col gap-3 md:hidden">
+<div class="flex flex-col gap-3">
 	<p class="text-label text-muted" aria-live="polite" aria-atomic="true">
 		{t.positionOf(index + 1, cards.length, currentName)}
 	</p>
@@ -279,7 +284,8 @@
 						<button
 							type="button"
 							onclick={() => markRevealed(pin.entityId)}
-							disabled={revealPending === pin.entityId || revealed.has(pin.entityId)}
+							disabled={!canReveal || revealPending === pin.entityId || revealed.has(pin.entityId)}
+							title={canReveal ? undefined : tDock.markAsRevealedDisabledTitle}
 							class="min-h-[44px] rounded-md bg-accent px-4 text-sm font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-40"
 						>
 							{revealed.has(pin.entityId)

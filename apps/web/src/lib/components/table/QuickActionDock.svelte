@@ -1,14 +1,18 @@
 <script lang="ts">
 	/**
-	 * Issue #74, decision E3 = C: a two-tier dock. Primary row, thumb-sized (E4's own spec:
-	 * "78x48px tab target" carries over to these two big buttons, the ones a running
-	 * campaign reaches for almost every session): mark as revealed, + NPC here. Everything
-	 * else - create a child location, jot a note - sits one tap behind "More".
+	 * Issue #74/#529 (round eighteen, W1 = A): the persistent action bar at the foot of
+	 * the board. E3 = C's two-tier dock - two thumb-sized primaries plus everything else
+	 * one tap behind "More" - is explicitly rejected by this decision: "at a table an
+	 * extra tap is where a GM stops using the product and goes back to their notes."
+	 * Every action here is reachable in the one tap that fires it, or the one tap that
+	 * opens the small field it needs (naming a child location) - never a second tap
+	 * through an overflow first. "Jot a note" moved out of this bar entirely: it is its
+	 * own persistent section on the board now ("A quick note"), not a quick action.
 	 *
 	 * "A quick action is a shortcut to *starting* a proposal, never a shortcut past
 	 * reviewing one" (e3-quick-actions.html) - every branch here either fires instantly at
-	 * the parent (which shows the resulting toast/proposal) or opens a small form first
-	 * (location's name, the note's text) rather than ever writing canon directly.
+	 * the parent (which shows the resulting toast) or opens a small inline form first
+	 * (the location's name) rather than ever writing canon directly.
 	 */
 	import { messages, type Locale } from '$lib/i18n';
 
@@ -20,7 +24,7 @@
 		onMarkRevealed,
 		onNpcHere,
 		onCreateLocation,
-		onJotNote
+		onSearchFocus
 	}: {
 		canReveal: boolean;
 		npcPending: boolean;
@@ -33,12 +37,14 @@
 		onMarkRevealed: () => void;
 		onNpcHere: () => void;
 		onCreateLocation: (label: string) => Promise<void>;
-		onJotNote: () => void;
+		/** #529: "search" is always on the board (`InstantSearch` never hides), so the
+		 * fourth action bar item just moves focus to it rather than opening anything. */
+		onSearchFocus: () => void;
 	} = $props();
 
 	const t = $derived(messages(locale).table);
+	const tControls = $derived(messages(locale).controls);
 
-	let overflowOpen = $state(false);
 	let locationFormOpen = $state(false);
 	let locationLabel = $state('');
 
@@ -49,14 +55,23 @@
 		await onCreateLocation(label);
 		locationLabel = '';
 		locationFormOpen = false;
-		overflowOpen = false;
 	}
 </script>
 
-<!-- #147: every control in this dock stays bespoke. E3's two-tier dock (the two big
-	thumb-sized primary actions plus the "More" overflow) is its own designed thing, not
-	a set of generic buttons, so it keeps its own sizing and styling end to end. -->
-<div class="flex flex-wrap items-center gap-2">
+<!-- #147: every control in this bar stays bespoke, sized for a thumb at a lit table
+	(44px minimum), not shadcn's own Button sizing. -->
+<div
+	class="flex flex-wrap items-center gap-2 border-t border-line bg-paper py-3"
+	aria-label={t.quickActionDock.barLabel}
+>
+	<button
+		type="button"
+		onclick={onNpcHere}
+		disabled={npcPending}
+		class="min-h-[44px] min-w-[78px] rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
+	>
+		{npcPending ? t.quickActionDock.drafting : t.actionLabels.npcHere}
+	</button>
 	<button
 		type="button"
 		onclick={onMarkRevealed}
@@ -66,67 +81,48 @@
 	>
 		{t.quickActionDock.markAsRevealed}
 	</button>
-	<button
-		type="button"
-		onclick={onNpcHere}
-		disabled={npcPending}
-		class="min-h-[44px] min-w-[78px] rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
-	>
-		{npcPending ? t.quickActionDock.drafting : t.actionLabels.npcHere}
-	</button>
-	<div class="relative">
+	{#if locationFormOpen}
+		<form onsubmit={submitLocation} class="flex items-center gap-1.5">
+			<input
+				id="table-location-label"
+				type="text"
+				bind:value={locationLabel}
+				placeholder={t.quickActionDock.locationPlaceholder}
+				aria-label={t.quickActionDock.nameChildLocation}
+				class="min-h-[44px] rounded-md border border-line-2 bg-panel-2 px-2 text-sm text-ink"
+			/>
+			<button
+				type="submit"
+				disabled={locationPending}
+				class="min-h-[44px] rounded-md bg-accent px-3 text-sm font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
+			>
+				{locationPending ? t.quickActionDock.creating : t.quickActionDock.create}
+			</button>
+			<button
+				type="button"
+				onclick={() => {
+					locationFormOpen = false;
+					locationLabel = '';
+				}}
+				class="min-h-[44px] rounded-md border border-line-2 px-3 text-sm text-ink-2 hover:bg-panel-2"
+			>
+				{t.quickNoteForm.cancel}
+			</button>
+		</form>
+	{:else}
 		<button
 			type="button"
-			onclick={() => (overflowOpen = !overflowOpen)}
-			class="min-h-[44px] rounded-md border border-line-2 px-3 py-2.5 text-sm text-ink-2 hover:bg-panel-2"
-			aria-expanded={overflowOpen}
+			onclick={() => (locationFormOpen = true)}
+			class="min-h-[44px] rounded-md border border-line-2 px-3 text-sm text-ink-2 hover:bg-panel-2"
 		>
-			{t.quickActionDock.more} &#9662;
+			{t.actionLabels.createChildLocation}
 		</button>
-		{#if overflowOpen}
-			<div
-				class="absolute top-[calc(100%+6px)] left-0 z-10 flex min-w-[220px] flex-col gap-1 rounded-md border border-line-2 bg-panel p-1.5 shadow-elevated"
-			>
-				{#if locationFormOpen}
-					<form onsubmit={submitLocation} class="flex flex-col gap-1.5 p-1.5">
-						<label for="table-location-label" class="text-xs text-muted"
-							>{t.quickActionDock.nameChildLocation}</label
-						>
-						<input
-							id="table-location-label"
-							type="text"
-							bind:value={locationLabel}
-							placeholder={t.quickActionDock.locationPlaceholder}
-							class="rounded-md border border-line-2 bg-panel-2 px-2 py-1 text-sm text-ink"
-						/>
-						<button
-							type="submit"
-							disabled={locationPending}
-							class="rounded-md bg-accent px-2 py-1 text-xs font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
-						>
-							{locationPending ? t.quickActionDock.creating : t.quickActionDock.create}
-						</button>
-					</form>
-				{:else}
-					<button
-						type="button"
-						onclick={() => (locationFormOpen = true)}
-						class="rounded-md px-2.5 py-1.5 text-left text-sm text-ink-2 hover:bg-panel-2"
-					>
-						{t.actionLabels.createChildLocation}
-					</button>
-				{/if}
-				<button
-					type="button"
-					onclick={() => {
-						overflowOpen = false;
-						onJotNote();
-					}}
-					class="rounded-md px-2.5 py-1.5 text-left text-sm text-ink-2 hover:bg-panel-2"
-				>
-					{t.quickActionDock.jotNote}
-				</button>
-			</div>
-		{/if}
-	</div>
+	{/if}
+	<button
+		type="button"
+		onclick={onSearchFocus}
+		class="min-h-[44px] rounded-md border border-line-2 px-3 text-sm text-ink-2 hover:bg-panel-2"
+	>
+		{tControls.search}
+	</button>
 </div>

@@ -1347,12 +1347,18 @@ export const it: Messages = {
 			declaring: 'Dichiarazione…'
 		},
 
+		brief: {
+			missing: 'Ancora nessuna sintesi per questa voce.',
+			mayBeOutdated: 'potrebbe essere obsoleta'
+		},
+
 		pinnedCards: {
 			empty:
-				'Ancora nessuna relazione a due salti dal luogo dichiarato - la colonna degli appuntati si popola non appena ce n\u2019è una.',
-			listLabel: 'Appuntati dal luogo dichiarato',
+				'Ancora nessuna relazione a due salti dal luogo dichiarato - questo elenco si popola non appena ce n\u2019è una.',
+			listLabel: 'Chi è qui',
 			declaredPlace: 'il luogo dichiarato',
 			hopsFromPlace: (hops) => `a ${hops} ${hops === 1 ? 'salto' : 'salti'} dal luogo dichiarato`,
+			pendingProposal: 'proposta in attesa',
 			warmBriefAt: (relativeTime) => `sintesi precalcolata · ${relativeTime}`,
 			staleSince: (relativeTime) => `obsoleta da ${relativeTime}, si aggiorna al prossimo innesco`,
 			notWarmedThisSession: 'non precalcolato in questa sessione',
@@ -1371,7 +1377,7 @@ export const it: Messages = {
 
 		actionLabels: {
 			npcHere: '+ PNG qui',
-			createChildLocation: '+ Crea un luogo figlio',
+			createChildLocation: '+ Luogo',
 			quickNote: 'nota rapida'
 		},
 
@@ -1379,6 +1385,7 @@ export const it: Messages = {
 			markAsRevealed: 'Segna come rivelato',
 			markAsRevealedDisabledTitle: 'Dichiara una sessione per segnare i luoghi come rivelati',
 			drafting: 'Bozza in corso…',
+			barLabel: 'Azioni del tavolo',
 			more: 'Altro',
 			nameChildLocation: 'Assegna un nome al luogo figlio',
 			locationPlaceholder: 'es. La Cantina di Sale',
@@ -1412,6 +1419,8 @@ export const it: Messages = {
 
 		ambientPlayer: {
 			heading: 'Paesaggio sonoro ambientale',
+			moodLabel: 'Atmosfera sonora',
+			moodOff: 'Spenta',
 			showAudioGraph: 'Mostra il grafico audio',
 			hideAudioGraph: 'Nascondi il grafico audio',
 			noPackYet: 'Nessun pacchetto ambientale generato per questo luogo, per ora.',
@@ -1460,6 +1469,24 @@ export const it: Messages = {
 			noContextDeclared:
 				'Dichiara un luogo per appuntare i suoi personaggi principali e le sue relazioni.',
 			choosePlace: 'Scegli un luogo',
+			placeHeading: 'Il luogo',
+			hereHeading: 'Chi è qui',
+			noteHeading: 'Una nota rapida',
+			arrivals: {
+				heading: 'Arrivato ora',
+				empty: 'Non è ancora arrivato nulla.',
+				noteSaved: (targetName) => `Nota salvata su ${targetName}`
+			},
+			draftingNpc: 'Bozza del PNG in corso…',
+			actionFailed: (action, reason) => `${action} non riuscita: ${reason}`,
+			unknownReason: 'motivo sconosciuto',
+			savedAsProposal: (via) => `Salvata come proposta (${via})`,
+			savedAsProposalScaffold: (via) =>
+				`Salvata come proposta (${via}, nessun modello - uno scheletro da completare)`,
+			markedRevealed: (name) => `${name} segnato come rivelato`,
+			noteSaveFailed: 'Impossibile salvare la nota',
+			sessionEnded: (proposalCount) =>
+				`Sessione terminata. ${proposalCount} proposta${proposalCount === 1 ? '' : 'e'} arrivat${proposalCount === 1 ? 'a' : 'e'} mentre giocavate.`,
 			pinnedHeading: 'Appuntati',
 			quickActionsHeading: 'Azioni rapide',
 			askHeading: 'Chiedi',
@@ -1476,17 +1503,7 @@ export const it: Messages = {
 			aiDraftedBadge: 'Bozza del Loremaster',
 			scaffoldBadge: 'scheletro, nessun modello',
 			scaffoldTooltipDefault: 'Nessun modello disponibile per questa bozza.',
-			aiUnavailable: (reason) => `Loremaster non disponibile: ${reason}`,
-			draftingNpc: 'Bozza del PNG in corso…',
-			actionFailed: (action, reason) => `${action} non riuscita: ${reason}`,
-			unknownReason: 'motivo sconosciuto',
-			savedAsProposal: (via) => `Salvata come proposta (${via})`,
-			savedAsProposalScaffold: (via) =>
-				`Salvata come proposta (${via}, nessun modello - uno scheletro da completare)`,
-			markedRevealed: (name) => `${name} segnato come rivelato`,
-			noteSaveFailed: 'Impossibile salvare la nota',
-			sessionEnded: (proposalCount) =>
-				`Sessione terminata. ${proposalCount} proposta${proposalCount === 1 ? '' : 'e'} arrivat${proposalCount === 1 ? 'a' : 'e'} mentre giocavate.`
+			aiUnavailable: (reason) => `Loremaster non disponibile: ${reason}`
 		},
 
 		server: {
