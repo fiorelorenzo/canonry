@@ -88,16 +88,65 @@ const AGREES_WITH_THE_VALUE = new RegExp(
 	'i'
 );
 
+/** Every word this file knows to be gendered, in one alternation, so the two rules below
+ * share a vocabulary rather than drifting apart. */
+const GENDERED_WORD = `(?:${REGULAR_PARTICIPLE}|(?:${[...IRREGULAR, ...ADJECTIVE].join('|')})[aeio])`;
+
 /**
- * Keys where the word after the value agrees with a noun the sentence fixes rather than
- * with the value itself, so no caller can make it wrong. One entry today.
+ * Issue #584: the mirror of the rule above, and a shape that one is structurally blind to.
+ *
+ * `proposals.queue.acceptedToast` was `Accettato: ${entityName}`, where the participle
+ * comes FIRST and the value it agrees with comes after it. Nothing follows the value, so
+ * `AGREES_WITH_THE_VALUE` reads the line as clean, and it is exactly as wrong: the
+ * participle is doing a heading's work over a name whose gender the catalogue cannot know,
+ * and it disagreed with the "la voce" fallback the same string chose.
+ *
+ * Two things keep it from firing on the rest of the catalogue, and both are the same
+ * observation: a gendered word can only be wrong when the value is the one thing left for
+ * it to agree with.
+ *
+ * The first is that the whole line has to be the gendered word and the value, not just
+ * open with one. A gendered word at the start of a longer sentence nearly always agrees
+ * with a subject the surface fixes and the sentence never names: "derivato da ${universe}"
+ * is about the universe, "usata l'ultima volta il ${date}" about the API key, "Crediti per
+ * ${operation}" is not even a participle. Eighteen lines in the catalogue read that way and
+ * every one of them is correct, so a rule that looked at the first word alone would be
+ * noise.
+ *
+ * The second is that the line has to begin a sentence, which is why this one check is
+ * case-sensitive. "modificata: ${when}" and "cambiata ${when}" are fragments hung under an
+ * entry card that has just rendered the entry's own name, so their subject is on screen and
+ * the lower case is how the catalogue says so. A capitalised line has no such context: it
+ * is a toast or a heading standing on its own, and it has to carry its own subject.
+ */
+const CAPITALISED_GENDERED_WORD =
+	`(?:[A-Z\u00c0-\u00dd][a-z\u00e0-\u00ff]*(?:at[aeio]|it[aeio]|ut[aeio])` +
+	`|(?:${[...IRREGULAR, ...ADJECTIVE].map((stem) => stem[0].toUpperCase() + stem.slice(1)).join('|')})[aeio])`;
+const HEADS_THE_VALUE_ALONE = new RegExp(
+	`^\\s*(?:(?:Non|Gi\u00e0|Ancora|Mai)\\s+${GENDERED_WORD}|${CAPITALISED_GENDERED_WORD})` +
+		`\\s*[:\u00b7\u2013-]?\\s*${VALUE}\\s*$`
+);
+
+/**
+ * Keys where the gendered word agrees with a noun the sentence fixes rather than with the
+ * value itself, so no caller can make it wrong. Three entries today, and the reason has to
+ * be a referent the surface really does fix: a name that carries its own gender into the
+ * sentence is never one of these.
  */
 const REFERENT_IS_FIXED: Record<string, string> = {
 	// A file name is read as "il file <name>", and the referent is the file, which is
 	// masculine whatever the name is. A place name is not like this: "La Locanda" carries
 	// its own gender into the sentence, which is why #576's two strings moved and this
 	// one did not.
-	'import.upload.confirm.uploadedSummary': 'the referent is "il file", not the file name'
+	'import.upload.confirm.uploadedSummary': 'the referent is "il file", not the file name',
+	// Issue #584: these two look exactly like the `acceptedToast` this issue fixed, and
+	// they are the opposite case. The value is a format ("Obsidian", "Markdown") or a
+	// language ("Italiano"), and what the participle agrees with is "il formato" and "la
+	// lingua", which the surface fixes: the upload confirmation detects a format and
+	// nothing else, the language prefix a language and nothing else. `acceptedToast` had
+	// no such referent, because the value there was the subject.
+	'import.upload.confirm.detected': 'the referent is "il formato", not the format name',
+	'entry.language.detectedPrefix': 'the referent is "la lingua", not the language name'
 };
 
 /**
@@ -216,6 +265,73 @@ describe('the Italian catalogue (issue #576)', () => {
 			.filter(([key]) => !(key in REFERENT_IS_FIXED))
 			.filter(([, line]) => AGREES_WITH_THE_VALUE.test(line));
 		expect(offenders.map(([key, line]) => `${key}: ${line}`)).toEqual([]);
+	});
+
+	test('the heading detector recognises the shape #584 removed', () => {
+		// `acceptedToast` before #584, verbatim.
+		expect(HEADS_THE_VALUE_ALONE.test(`Accettato: ${VALUE}`)).toBe(true);
+		expect(HEADS_THE_VALUE_ALONE.test(`Accettata \u00b7 ${VALUE}`)).toBe(true);
+		expect(HEADS_THE_VALUE_ALONE.test(`Rivelato ${VALUE}`)).toBe(true);
+		// A noun in front of the gendered word is the fix, so both of this issue's new
+		// shapes have to read as clean.
+		expect(HEADS_THE_VALUE_ALONE.test(`Proposta accettata: ${VALUE}`)).toBe(false);
+		expect(HEADS_THE_VALUE_ALONE.test(`Rivelazione al gruppo: ${VALUE} \u00b7 X`)).toBe(false);
+		// And so does every line where the gendered word opens a longer sentence whose
+		// subject the surface fixes and the sentence never names. These are real catalogue
+		// lines, and they are the reason this rule reads the whole line rather than its
+		// first word.
+		expect(HEADS_THE_VALUE_ALONE.test(`derivato da ${VALUE}`)).toBe(false);
+		expect(HEADS_THE_VALUE_ALONE.test(`usata l'ultima volta il ${VALUE}`)).toBe(false);
+		expect(HEADS_THE_VALUE_ALONE.test(`Gi\u00e0 spesi: ${VALUE} cr su questo piano`)).toBe(false);
+		// A fragment hung under an entry card whose name is already on screen: lower case is
+		// how the catalogue says the subject is elsewhere, and both of these are real lines
+		// (`universe.index.changedAt`, `works.node.changedAt`) that agree with "la voce"
+		// correctly.
+		expect(HEADS_THE_VALUE_ALONE.test(`cambiata ${VALUE}`)).toBe(false);
+		expect(HEADS_THE_VALUE_ALONE.test(`modificata: ${VALUE}`)).toBe(false);
+		// A heading with nothing interpolated under it is out of scope: this rule is only
+		// about a gendered word whose only possible subject is a value.
+		expect(HEADS_THE_VALUE_ALONE.test('Accettata')).toBe(false);
+	});
+
+	test('never leaves a gendered word alone over an interpolated label', () => {
+		const offenders = lines
+			.filter(([key]) => !(key in REFERENT_IS_FIXED))
+			.filter(([, line]) => HEADS_THE_VALUE_ALONE.test(line));
+		expect(offenders.map(([key, line]) => `${key}: ${line}`)).toEqual([]);
+	});
+
+	test('the accepted toast names the proposal rather than agreeing with the entry', () => {
+		// Guardrail on the shape, the same way the table failure toast has one: the noun
+		// comes first in both branches, so the name that follows governs nothing and the
+		// no-name branch needs no noun of its own.
+		const toast = itMessages.proposals.queue.acceptedToast;
+		expect(toast(VALUE)).toBe(`Proposta accettata: ${VALUE}`);
+		expect(toast(null)).toBe('Proposta accettata');
+		// The counts beside it are the opposite case and stay feminine on purpose: the noun
+		// they agree with is "proposte", which this queue fixes, and the count they agree
+		// with is the one they were handed.
+		expect(itMessages.proposals.queue.acceptedSuffix(1).trim()).toBe('accettata');
+		expect(itMessages.proposals.queue.acceptedSuffix(2).trim()).toBe('accettate');
+		expect(itMessages.proposals.queue.rejectedSuffix(1).trim()).toBe('rifiutata');
+		expect(itMessages.proposals.queue.rejectedSuffix(2).trim()).toBe('rifiutate');
+	});
+
+	test('the entry aside states a revelation as a noun, not as a participle', () => {
+		// Issue #584. These two agree with the entry the panel renders on, which the
+		// interpolation-keyed sweep above structurally cannot see: `notRevealed` has no
+		// interpolation at all, and `revealedIn`'s arguments are a session name and a date
+		// that the participle sits in front of rather than behind. An entry is a "luogo", a
+		// "fazione", a "sessione" or a "personaggio", and those do not share a gender, while
+		// the same aside calls its subject "la voce", so the two readings of the implied
+		// subject disagree and no participle can be right for both. Both lines carry their
+		// own noun instead, which is why no gendered word may appear in either.
+		const sections = itMessages.entry.sections;
+		const gendered = new RegExp(`\\b${GENDERED_WORD}\\b`, 'i');
+		expect(sections.notRevealed).toBe('Nessuna rivelazione al gruppo finora');
+		expect(gendered.test(sections.notRevealed)).toBe(false);
+		expect(gendered.test(sections.revealedIn(VALUE, FILLER))).toBe(false);
+		expect(sections.revealedIn(VALUE, FILLER)).toContain('Rivelazione al gruppo');
 	});
 
 	test('the table failure toast is one sentence per action, not a label plus a suffix', () => {

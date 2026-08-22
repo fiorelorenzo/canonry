@@ -1121,9 +1121,13 @@ export interface Messages {
 		queue: {
 			empty: string;
 			filterShown: (typeLabel: string) => string;
-			/** Text after the bold accepted/rejected counts. */
+			/** Text after the bold accepted/rejected counts. The noun behind them is
+			 * "proposals", which this queue fixes, so an Italian suffix may agree with it. */
 			acceptedSuffix: (count: number) => string;
 			rejectedSuffix: (count: number) => string;
+			/** Issue #584: noun first, name after, in both locales - "Proposal accepted:
+			 * <name>", and the same sentence without the colon when there is no name. The
+			 * name governs nothing, because no catalogue can know its gender. */
 			acceptedToast: (entityName: string | null) => string;
 			/** Issue #498: the accept form's own failure branch - a candidate the
 			 * server refused (an audit flag, guardrail 1's own read of it: nothing to
