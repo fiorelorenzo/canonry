@@ -39,9 +39,9 @@
 	 * - **A tab in the phone's bottom bar, not a circle over the content.** The launcher is
 	 *   `hidden md:flex`; below `md` it is PhoneNav's third tab, which flips the same
 	 *   `quickAskState`. The panel itself is full width above that bar.
-	 * - **Keep is the only write.** Closing this loses the whole conversation, exactly as
-	 *   closing the palette already does, which is what lets `ask/kept` be a history
-	 *   rather than a transcript.
+	 * - **Every turn is kept, automatically.** T10 (#464) repealed "keep is the only
+	 *   write": there is no keep control and no per-turn disclosure card left here, and
+	 *   `ask/kept` is the record of everything asked rather than of what somebody chose.
 	 * - **The theme's own colours, not the copilot's hue.** Paper, `--line`, `--ink` and
 	 *   the umber accent for the launcher, the panel, the context chip and the input, in
 	 *   both palettes (G1).
@@ -53,8 +53,8 @@
 	 *   not exist while the sources sat two lines below it. The Ask route never marked
 	 *   its own copy of the same answer (`routes/w/[universe]/ask/+page.svelte`), which
 	 *   is the precedent this follows. Attribution did not disappear, it moved: this
-	 *   panel's own header and the keep disclosure below each turn already say a copilot
-	 *   generated this and which provider, the job the marker used to do less directly.
+	 *   panel's own header and the standing disclosure above the turns already say a
+	 *   copilot generated this, the job the marker used to do less directly.
 	 *   **C1 is not repealed.** A proposal's own summary still wears the mark wherever it
 	 *   is shown (`aiMarking.ts`, `EntryProseWithSecrets.svelte`, `/dev/ai-marking`),
 	 *   because that text really can become canon. Do not touch `--color-diff-line` or
@@ -65,11 +65,14 @@
 	 * - **An icon closes the panel, not the word.** With its accessible name on
 	 *   `aria-label`, so the control is still named for anything that is not looking at it.
 	 *
-	 * Guardrail 3: the sources ride along with each turn's answer as chips, and each one
-	 * opens the entry or the page it came from. Guardrail 5: the same disclosure sentence
-	 * the Ask route shows beside keep (#290) shows per turn here, because this writes the
-	 * same record; the provider it names arrives on that turn's `done` event and is
-	 * resolved again server-side when the record is actually stored.
+	 * Guardrail 3: the sources ride along with each turn's answer as chips, each one opens
+	 * the entry or the page it came from, and a turn that cited nothing says so
+	 * (`sourcesEmpty`) instead of showing an empty row. Guardrail 5: the disclosure is the
+	 * one standing line above the turns (T10), read before anything is asked, and it makes
+	 * no claim about any particular answer - issue #354, because the per-turn sentence it
+	 * replaced told a GM which provider "wrote the answer from your own canon" on answers
+	 * that cited nothing. Nothing here names a provider any more: `done.provider` still
+	 * arrives on the wire and no surface renders it.
 	 *
 	 * Round eighteen, issue #531 (W3 = B), reverses U11: the Ask page stops being a
 	 * second place to ask and becomes the searchable record of every kept turn, so it
