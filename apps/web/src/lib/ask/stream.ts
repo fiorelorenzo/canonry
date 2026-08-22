@@ -105,10 +105,13 @@ const sourcesEventSchema = z.object({
 	followUps: z.array(z.string())
 });
 const tokenEventSchema = z.object({ delta: z.string() });
+/** Issue #570: `generated` and nothing else. `provider` and `modelId` used to ride along
+ * for the keep card's guardrail 5 sentence; T10 (#464) deleted the card and no surface has
+ * read either field since, so the route stopped resolving them. `answer` and `credits`
+ * still arrive on the wire and are still parsed away here: the answer came token by token
+ * already, and zod strips what this schema does not name. */
 const doneEventSchema = z.object({
-	generated: z.boolean(),
-	provider: z.string().nullable(),
-	modelId: z.string().nullable()
+	generated: z.boolean()
 });
 const errorEventSchema = z.object({ message: z.string() });
 

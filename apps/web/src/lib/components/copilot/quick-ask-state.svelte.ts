@@ -48,7 +48,6 @@ export interface QuickAskTurn {
 	proposalFailures: AskProposalFailure[];
 	askError: string | null;
 	generated: boolean | null;
-	provider: string | null;
 	keeping: boolean;
 	keptId: string | null;
 	keepError: string | null;

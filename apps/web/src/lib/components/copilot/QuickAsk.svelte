@@ -71,8 +71,9 @@
 	 * one standing line above the turns (T10), read before anything is asked, and it makes
 	 * no claim about any particular answer - issue #354, because the per-turn sentence it
 	 * replaced told a GM which provider "wrote the answer from your own canon" on answers
-	 * that cited nothing. Nothing here names a provider any more: `done.provider` still
-	 * arrives on the wire and no surface renders it.
+	 * that cited nothing. Nothing names a provider any more, on this surface or on the
+	 * wire: issue #570 took the `done` event's `provider` and `modelId` out too, and the
+	 * privacy page is where guardrail 5's own copy sends a GM who wants the name.
 	 *
 	 * Round eighteen, issue #531 (W3 = B), reverses U11: the Ask page stops being a
 	 * second place to ask and becomes the searchable record of every kept turn, so it
@@ -287,7 +288,6 @@
 			proposalFailures: [],
 			askError: null,
 			generated: null,
-			provider: null,
 			keeping: false,
 			keptId: null,
 			keepError: null
@@ -338,7 +338,6 @@
 					const turn = liveTurn();
 					if (!turn) return;
 					turn.generated = done.generated;
-					turn.provider = done.provider;
 				},
 				onError: (message) => {
 					const turn = liveTurn();

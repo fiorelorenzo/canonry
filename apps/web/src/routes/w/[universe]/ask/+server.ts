@@ -17,7 +17,6 @@ import {
 	type AskDetailLevel,
 	type AskHistoryTurn
 } from '@canonry/copilot';
-import { ModelNotConfiguredError, resolveModel } from '@canonry/ai';
 import { z } from 'zod';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
@@ -145,30 +144,18 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 						send(controller, 'proposal_failed', failure);
 					}
 				});
-				// Resolved from the same `model_config` row `runAsk` itself read a moment ago, and
-				// left null on the reading-only branch, where no model call happened at all. It fed
-				// the keep card's guardrail 5 sentence, "<provider> wrote the answer from your own
-				// canon" (#290); T10 (#464) deleted that card, and issue #354 is why it does not
-				// come back in that shape - the sentence was untrue on an answer that cited
-				// nothing. No surface renders these two fields today; they stay on the wire
-				// because the `done` event is a contract this route's clients parse.
-				let provider: string | null = null;
-				let modelId: string | null = null;
-				if (result.generated) {
-					try {
-						const model = await resolveModel(conn, 'premium');
-						provider = model.provider;
-						modelId = model.modelId;
-					} catch (err) {
-						if (!(err instanceof ModelNotConfiguredError)) throw err;
-					}
-				}
+				// Issue #570: no provider and no model id. They fed the keep card's guardrail 5
+				// sentence, "<provider> wrote the answer from your own canon" (#290); T10 (#464)
+				// deleted that card, and #354 settled that the disclosure is a standing line read
+				// before anything is asked rather than a claim about one answer, with the privacy
+				// page as the honest place to name a provider. Nothing rendered either field, so
+				// each generated answer was paying for a second `model_config` read - `runAsk`
+				// resolves `premium` itself on the branch that calls a model - to put two strings
+				// on the wire that only looked like the input to a sentence somebody might restore.
 				send(controller, 'done', {
 					answer: result.answer,
 					generated: result.generated,
-					credits: result.credits,
-					provider,
-					modelId
+					credits: result.credits
 				});
 			} catch (err) {
 				send(controller, 'error', {
