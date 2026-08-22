@@ -70,7 +70,10 @@
 
 {#if !data.user}
 	<p class="mt-6 text-sm text-ink-2">
-		<a href={resolve('/auth/sign-in')} class="text-accent hover:underline">{t.signInLink}</a>
+		<a
+			href={resolve('/auth/sign-in')}
+			class="text-accent underline decoration-line-2 underline-offset-2">{t.signInLink}</a
+		>
 		{t.signInPrompt}
 	</p>
 {:else}
@@ -184,8 +187,9 @@
 		<p class="mt-2 text-sm text-ink-2">{t.deleteImpact(data.deletionImpact)}</p>
 		<p class="mt-3 text-sm text-ink-2">
 			{t.deleteExportPrompt}
-			<a href={resolve('/settings/export')} class="text-accent hover:underline"
-				>{t.deleteExportLink}</a
+			<a
+				href={resolve('/settings/export')}
+				class="text-accent underline decoration-line-2 underline-offset-2">{t.deleteExportLink}</a
 			>
 		</p>
 

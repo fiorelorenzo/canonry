@@ -26,13 +26,17 @@
 
 <p class="mt-4 max-w-xl text-sm text-ink-2">
 	{t.language.learnMorePrompt}
-	<a href={resolve('/docs/languages')} class="text-accent hover:underline">{tDocs.title}</a>
+	<a
+		href={resolve('/docs/languages')}
+		class="text-accent underline decoration-line-2 underline-offset-2">{tDocs.title}</a
+	>
 </p>
 
 {#if !data.signedIn}
 	<p class="mt-6 text-sm text-ink-2">
-		<a href={resolve('/auth/sign-in')} class="text-accent hover:underline"
-			>{t.language.signInLink}</a
+		<a
+			href={resolve('/auth/sign-in')}
+			class="text-accent underline decoration-line-2 underline-offset-2">{t.language.signInLink}</a
 		>
 		{t.language.signInPrompt}
 	</p>

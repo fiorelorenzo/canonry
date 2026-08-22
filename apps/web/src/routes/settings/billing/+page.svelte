@@ -29,7 +29,10 @@
 
 {#if !data.signedIn}
 	<p class="mt-6 text-sm text-ink-2">
-		<a href={resolve('/auth/sign-in')} class="text-accent hover:underline">{t.signInLink}</a>
+		<a
+			href={resolve('/auth/sign-in')}
+			class="text-accent underline decoration-line-2 underline-offset-2">{t.signInLink}</a
+		>
 		{t.signInPrompt}
 	</p>
 {:else}
