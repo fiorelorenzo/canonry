@@ -1480,12 +1480,16 @@ export const it: Messages = {
 				noteSaved: (targetName) => `Nota salvata su ${targetName}`
 			},
 			draftingNpc: 'Bozza del PNG in corso…',
-			actionFailed: (action, reason) => `${action} non riuscita: ${reason}`,
+			actionFailed: {
+				npc: (reason) => `Non è stato possibile creare la bozza del PNG: ${reason}`,
+				location: (reason) => `Non è stato possibile creare il luogo figlio: ${reason}`,
+				reveal: (reason) => `Non è stato possibile segnare il luogo come rivelato: ${reason}`
+			},
 			unknownReason: 'motivo sconosciuto',
 			savedAsProposal: (via) => `Salvata come proposta (${via})`,
 			savedAsProposalScaffold: (via) =>
 				`Salvata come proposta (${via}, nessun modello - uno scheletro da completare)`,
-			markedRevealed: (name) => `${name} segnato come rivelato`,
+			markedRevealed: (name) => `Rivelazione registrata: ${name}`,
 			noteSaveFailed: 'Impossibile salvare la nota',
 			sessionEnded: (proposalCount) =>
 				`Sessione terminata. ${proposalCount} proposta${proposalCount === 1 ? '' : 'e'} arrivat${proposalCount === 1 ? 'a' : 'e'} mentre giocavate.`,

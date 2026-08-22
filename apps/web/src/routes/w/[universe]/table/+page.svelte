@@ -98,14 +98,11 @@
 		return t.actionLabels.quickNote;
 	}
 
-	// `fireAction`'s own kind, for the one client-side fallback toast that never reaches
-	// the server's own (already-localized) error message at all - a network failure before
-	// `response.json()` can even parse.
-	function kindLabel(kind: 'npc' | 'location' | 'reveal'): string {
-		if (kind === 'npc') return t.actionLabels.npcHere;
-		if (kind === 'location') return t.actionLabels.createChildLocation;
-		return t.quickActionDock.markAsRevealed;
-	}
+	// #576: the failure toast is one complete sentence per action rather than a label plus
+	// a shared suffix, so nothing in it has to agree with an interpolated value - the
+	// Italian participle used to be hardcoded feminine against whatever label went in. The
+	// stream publishes the action's own id, `fireAction` its `kind`, so both call sites
+	// pick a key here instead of composing a phrase.
 
 	function showToast(message: string) {
 		toast = message;
@@ -138,7 +135,9 @@
 			if (payload.status === 'drafting') showToast(t.home.draftingNpc);
 			else if (payload.status === 'failed')
 				showToast(
-					t.home.actionFailed(actionLabel(payload.action), payload.reason ?? t.home.unknownReason)
+					t.home.actionFailed[payload.action === 'npc-here' ? 'npc' : 'location'](
+						payload.reason ?? t.home.unknownReason
+					)
 				);
 			npcPending = payload.status === 'drafting';
 		} else if (message.type === 'proposal') {
@@ -241,7 +240,7 @@
 			if (!response.ok) {
 				npcPending = false;
 				const body = (await response.json().catch(() => null)) as { message?: string } | null;
-				showToast(body?.message ?? t.home.actionFailed(kindLabel(kind), t.home.unknownReason));
+				showToast(body?.message ?? t.home.actionFailed[kind](t.home.unknownReason));
 				return;
 			}
 			if (kind === 'location')
