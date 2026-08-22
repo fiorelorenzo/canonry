@@ -27,7 +27,7 @@ import { chargeFor, resolveModel, withQuota } from '@canonry/ai';
 import type { Db } from '@canonry/db';
 import { createProposalPlan } from '@canonry/db';
 import type { ProposalPlanRow, ProposalRow } from '@canonry/db';
-import type { Locale } from '@canonry/lang';
+import { splitSecretBlocks, type Locale } from '@canonry/lang';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { mentionsIn } from './candidates.js';
@@ -168,13 +168,39 @@ function spanOf(body: string, sentence: string): { start: number; end: number } 
 	return { start: match.index, end: match.index + match[0].length };
 }
 
+/** #556: same root cause #555 fixed in `ask.ts`'s `ownCanonSentenceCandidates` - a body
+ * here can carry the same shipped `:::secret`/`:::gmnote` fences `spanOf`'s own doc
+ * comment above already had to learn to live with, and calling `splitIntoSentences`
+ * directly on it treats a fence marker line as ordinary prose, joining it into whichever
+ * sentence sits on either side of the boundary. Audit is GM-only, same as Ask -
+ * `runAudit`'s only caller requires universe membership - so a sentence drawn from inside
+ * a secret is fine to surface, but the `:::secret`/`:::gmnote`/`:::` marker lines
+ * themselves are markup, never prose a GM wrote to be read, and a sentence that spans the
+ * boundary is not a sentence anyone wrote either. Splitting through `splitSecretBlocks`
+ * first means every sentence this returns comes from one side of a fence or the other,
+ * never straddling it.
+ *
+ * Copied rather than imported from `ask.ts`: `ownCanonSentenceCandidates` also tracks
+ * each candidate's offset into the whole body, because `ask.ts` has no other way to place
+ * its evidence. Nothing here needs that - every caller below relocates its sentence with
+ * `spanOf` against the real body regardless of where the sentence came from - so sharing
+ * the richer function would mean either padding this file with an offset it throws away
+ * or coupling the two packages' return shapes for no shared benefit. */
+function fenceSafeSentences(body: string): string[] {
+	const sentences: string[] = [];
+	for (const segment of splitSecretBlocks(body)) {
+		sentences.push(...splitIntoSentences(segment.text));
+	}
+	return sentences;
+}
+
 /** The sentence in `body` most similar (Jaccard word overlap) to `target`, or `null` for
  * an empty body. Used for the side of a pair that has no mention evidence of its own: a
  * candidate entity found via mention is one sentence away from a specific statement, but
  * the *edited* entity rarely names the candidate back, so its side of the pair is picked
  * by topical similarity rather than another mention scan. */
 function mostSimilarSentence(body: string, target: string): string | null {
-	const sentences = splitIntoSentences(body).filter((s) => !s.startsWith('#'));
+	const sentences = fenceSafeSentences(body).filter((s) => !s.startsWith('#'));
 	if (sentences.length === 0) return null;
 	const targetTokens = tokenize(target);
 	let best: { sentence: string; score: number } | null = null;
@@ -197,11 +223,21 @@ function statementFor(entity: GraphEntity, sentence: string): AuditFlagStatement
 	};
 }
 
+/** #556: guards the one caller (`findCandidatePairs`'s forward pass, below) that hands
+ * this a `semanticDiff` statement rather than a `fenceSafeSentences` one -
+ * `semanticDiff` still splits a whole body with the unfenced `splitIntoSentences`
+ * (out of scope here: it is shared with `propagate.ts`'s own diff, a different surface
+ * with no audit-flag quote to fix), so an edit landing next to a fence can still hand
+ * this function a "changed" or "added" statement carrying a `:::` marker. Dropped before
+ * `spanOf` even runs, same reasoning as a `spanOf` miss just below: guardrail 3 says a
+ * flag carries the sentence that produced it, and a sentence that was never real prose is
+ * worse than no flag. */
 function editedSideFor(
 	entity: GraphEntity,
 	newBody: string,
 	sentence: string
 ): AuditFlagStatement | null {
+	if (sentence.includes(':::')) return null;
 	const span = spanOf(newBody, sentence);
 	if (!span) return null;
 	return {
@@ -274,7 +310,7 @@ export function findCandidatePairs(
 	for (const other of othersPool) {
 		if (pairs.length >= cap) break;
 		if (seenEntityIds.has(other.id)) continue;
-		for (const sentence of splitIntoSentences(other.body)) {
+		for (const sentence of fenceSafeSentences(other.body)) {
 			if (pairs.length >= cap) break;
 			if (mentionsIn(sentence, [editedEntity]).length === 0) continue;
 			const editedBest = mostSimilarSentence(newBody, sentence);

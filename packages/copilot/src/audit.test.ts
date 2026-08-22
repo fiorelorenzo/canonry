@@ -385,6 +385,69 @@ describe('runAudit (issue #55, SPEC.md §5.2)', () => {
 		const quoted = ledgerBody.slice(ledgerSide!.spanStart, ledgerSide!.spanEnd);
 		expect(quoted).toContain('Aldric Vane');
 		expect(quoted).toContain('payroll');
+		// #556: the same defect for the *other* place this file calls `splitIntoSentences`
+		// directly on a fenced body - a quoted sentence must never carry the fence's own
+		// marker syntax, even though (audit is GM-only) the secret's content is fine to
+		// surface.
+		expect(quoted).not.toContain(':::');
+	});
+
+	it('#556: a sentence right after a closing :::secret marker is quoted on its own, never joined to the fence', async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, { ownerUserId: owner.id });
+
+		// No blank line before `:::secret` or after the closing `:::`: unfenced
+		// `splitIntoSentences` joins both marker lines into whichever sentence sits next to
+		// them. The secret's own content never names Aldric, so the mention search's first
+		// hit is exactly the sentence right after the closing fence - the shape #556 reports
+		// for `mostSimilarSentence` and for this file's other direct `splitIntoSentences`
+		// call, `findCandidatePairs`'s reverse pass.
+		const ledgerBody =
+			'A merchant bank that lends at knife point.\n' +
+			':::secret\n' +
+			'Its ledgers show three unmarked accounts.\n' +
+			':::\n' +
+			'Captain Vane commands the night watch still.';
+		await insertEntity(db, universe.id, {
+			type: 'faction',
+			name: 'The Ashen Ledger',
+			body: ledgerBody
+		});
+
+		const aldricOldBody = 'Captain of the Valdoria Watch.';
+		const aldric = await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Aldric Vane',
+			aliases: ['Captain Vane'],
+			body: aldricOldBody
+		});
+
+		const newBody = 'Dismissed from the watch, he no longer commands anyone.';
+
+		const result = await runAudit({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			editedEntityId: aldric.id,
+			oldBody: aldricOldBody,
+			newBody,
+			locale: 'en',
+			modelFactory: modelFactoryFor(
+				judgmentModel([{ disagree: true, topic: 'whether he still commands the watch' }])
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		expect(result.flags).toHaveLength(1);
+		const [statementA, statementB] = result.flags[0]!.statements;
+		const ledgerSide = statementA.entityId === aldric.id ? statementB : statementA;
+
+		// The point of #556: the evidence is the real sentence after the fence, quoted
+		// verbatim and alone - no `:::secret`/`:::` marker joined onto it, and the recorded
+		// span selects exactly that sentence in the source body.
+		expect(ledgerSide.statement).toBe('Captain Vane commands the night watch still.');
+		expect(ledgerSide.statement).not.toContain(':::');
+		expect(ledgerBody.slice(ledgerSide.spanStart, ledgerSide.spanEnd)).toBe(ledgerSide.statement);
 	});
 });
 
