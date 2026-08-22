@@ -21,6 +21,12 @@
  * audit.ts) and have no real "generate diffs" step ahead of them - `pricing.kind` stays
  * `'total'` for that trigger, and each row keeps its own stored `credits` rather than being
  * overwritten with propagation's per-diff price.
+ *
+ * Issue #508 has since fixed the column itself: `estimated_credits` now means what a plan's
+ * still-open candidates are worth, every accept, reject and drop moves it, and propagation's
+ * plan-level ranking charge is no longer folded into it. The hand-seeded plan below keeps the
+ * old stale shape on purpose, because a plan written before that fix still carries it and
+ * this screen has to stay honest over such a row rather than assume the column is now right.
  */
 import { randomUUID } from 'node:crypto';
 import { closeDb, createDb, eq, type Db } from '@canonry/db';

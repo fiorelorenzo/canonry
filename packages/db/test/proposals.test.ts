@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	acceptProposal,
 	closeDb,
 	createProposalPlan,
 	dropCandidateFromPlan,
+	getProposalPlan,
 	entityDeletedByUndo,
 	getProposal,
 	listProposalsForPlan,
@@ -25,6 +26,7 @@ import {
 } from '../src/index.js';
 import { entity } from '../src/schema/entity.js';
 import { relation, relationType } from '../src/schema/relation.js';
+import { operationPrice } from '../src/schema/prices.js';
 import { revision } from '../src/schema/revision.js';
 import { insertHomebrewUniverse, testDb, unique } from './helpers.js';
 
@@ -973,5 +975,256 @@ describe('proposals', () => {
 		void proposals;
 		const listed = await listProposalsForPlan(db, plan.id);
 		expect(listed.map((p) => p.rank)).toEqual([0, 1]);
+	});
+});
+
+/**
+ * Issue #508. `proposal_plan.estimated_credits` means one thing: what the candidates still
+ * open in this plan are worth at today's prices, one per-candidate charge each (the column's
+ * own comment in schema/proposal.ts carries the definition). Before this, only
+ * `dropCandidateFromPlan` moved it, so a plan whose candidates were accepted or rejected
+ * kept advertising them as still open - which is what the seeded demo plan showed, an
+ * estimate of 4 against one remaining candidate.
+ *
+ * The two prices are deliberately moved apart for this suite's own run. In the seeded
+ * catalogue `propagate.diff` and `audit.flag` are both 1.0000, and that coincidence is
+ * exactly what hid the second bug here: a drop on an audit plan subtracted `propagate.diff`
+ * whatever the trigger was, and every assertion about "the price its trigger implies" passes
+ * by accident while the two agree. With 3 and 7 it cannot. No other test file in this
+ * package asserts a credits value for either row (prices.test.ts only checks that both
+ * exist and are priced as 'generation'), so repricing them here races nothing, and `afterAll`
+ * puts the seeded values back.
+ */
+describe('issue #508: estimated_credits follows a plan through accept, reject and drop', () => {
+	const DIFF_CREDITS = 3;
+	const FLAG_CREDITS = 7;
+	let db: Db;
+	let seededPrices: Array<{ operation: string; credits: number }> = [];
+
+	beforeAll(async () => {
+		db = testDb();
+		seededPrices = await db
+			.select({ operation: operationPrice.operation, credits: operationPrice.credits })
+			.from(operationPrice)
+			.where(inArray(operationPrice.operation, ['propagate.diff', 'audit.flag']));
+		await db
+			.update(operationPrice)
+			.set({ credits: DIFF_CREDITS })
+			.where(eq(operationPrice.operation, 'propagate.diff'));
+		await db
+			.update(operationPrice)
+			.set({ credits: FLAG_CREDITS })
+			.where(eq(operationPrice.operation, 'audit.flag'));
+	});
+
+	afterAll(async () => {
+		for (const row of seededPrices) {
+			await db
+				.update(operationPrice)
+				.set({ credits: row.credits })
+				.where(eq(operationPrice.operation, row.operation));
+		}
+		await closeDb(db);
+	});
+
+	async function savePlanWith(candidates: number, estimatedCredits = candidates * DIFF_CREDITS) {
+		const u = await insertHomebrewUniverse(db);
+		const [target] = await db
+			.insert(entity)
+			.values({
+				universeId: u.id,
+				type: 'faction',
+				name: 'The Ashen Ledger',
+				slug: unique('ashen-ledger'),
+				body: 'A merchant bank that lends at knife point.'
+			})
+			.returning();
+		if (!target) throw new Error('fixture setup failed');
+		const created = await createProposalPlan(db, {
+			universeId: u.id,
+			trigger: 'save',
+			summary: `This change touches ${candidates} entries.`,
+			candidateCap: 10,
+			estimatedCredits,
+			candidates: Array.from({ length: candidates }, (_, rank) => ({
+				kind: 'update' as const,
+				targetEntityId: target.id,
+				rationale: 'They bank with them.',
+				evidence: [],
+				rank
+			}))
+		});
+		return { u, target, ...created };
+	}
+
+	async function draftDiffFor(proposalId: string, target: { body: string }) {
+		await recordProposalDiff(db, {
+			proposalId,
+			patch: { summary: 's', before: target.body, after: `${target.body} And a new line.` },
+			provider: 'test',
+			modelId: 'test-premium',
+			credits: DIFF_CREDITS
+		});
+	}
+
+	/** An audit plan the way `runAudit` writes one: every flag fully drafted and charged at
+	 * `audit.flag` by the time the plan row exists, so the plan's figure is the flags it
+	 * carries and each row carries its own real credits. */
+	async function auditPlanWith(flags: number) {
+		const u = await insertHomebrewUniverse(db);
+		const rows = await db
+			.insert(entity)
+			.values(
+				Array.from({ length: 2 }, (_, i) => ({
+					universeId: u.id,
+					type: 'character' as const,
+					name: `Statement holder ${i}`,
+					slug: unique('statement-holder'),
+					body: 'Says one thing.'
+				}))
+			)
+			.returning();
+		const [a, b] = rows;
+		if (!a || !b) throw new Error('fixture setup failed');
+		const created = await createProposalPlan(db, {
+			universeId: u.id,
+			trigger: 'audit',
+			summary: 'Two entries disagree.',
+			candidateCap: 12,
+			estimatedCredits: flags * FLAG_CREDITS,
+			candidates: Array.from({ length: flags }, (_, rank) => ({
+				kind: 'flag' as const,
+				targetEntityId: a.id,
+				relatedEntityId: b.id,
+				rationale: 'These two disagree about the toll.',
+				evidence: [],
+				rank,
+				credits: FLAG_CREDITS
+			}))
+		});
+		return created;
+	}
+
+	it('accept: the accepted candidate stops being counted as open', async () => {
+		const { plan, proposals, target } = await savePlanWith(2);
+		expect(plan.estimatedCredits).toBe(2 * DIFF_CREDITS);
+
+		await draftDiffFor(proposals[0]!.id, target);
+		await acceptProposal(db, { proposalId: proposals[0]!.id });
+
+		expect((await getProposalPlan(db, plan.id))?.estimatedCredits).toBe(DIFF_CREDITS);
+	});
+
+	it('reject: the rejected candidate stops being counted, and a second reject does not count twice', async () => {
+		const { plan, proposals } = await savePlanWith(2);
+
+		await rejectProposal(db, { proposalId: proposals[0]!.id, reason: 'unrelated' });
+		expect((await getProposalPlan(db, plan.id))?.estimatedCredits).toBe(DIFF_CREDITS);
+
+		// `rejectProposal` is idempotent by decision C7 ("never re-ask"), and that early
+		// return is what keeps the price from coming off twice.
+		await rejectProposal(db, { proposalId: proposals[0]!.id, reason: 'unrelated' });
+		expect((await getProposalPlan(db, plan.id))?.estimatedCredits).toBe(DIFF_CREDITS);
+	});
+
+	it('drop: the dropped candidate comes off at its own price', async () => {
+		const { plan, proposals } = await savePlanWith(2);
+
+		const result = await dropCandidateFromPlan(db, proposals[0]!.id);
+
+		expect(result.plan.estimatedCredits).toBe(DIFF_CREDITS);
+		expect((await getProposalPlan(db, plan.id))?.estimatedCredits).toBe(DIFF_CREDITS);
+	});
+
+	it('undo: an undone accept puts the candidate, and its price, back', async () => {
+		const { u } = await savePlanWith(0, 0);
+		const slug = unique('corvin-ashe');
+		const { plan, proposals } = await createProposalPlan(db, {
+			universeId: u.id,
+			trigger: 'save',
+			summary: 'One new entry.',
+			candidateCap: 10,
+			estimatedCredits: DIFF_CREDITS,
+			candidates: [{ kind: 'create', targetEntityId: null, rationale: 'x', evidence: [], rank: 0 }]
+		});
+		const candidate = proposals[0]!;
+		await recordProposalDiff(db, {
+			proposalId: candidate.id,
+			patch: { type: 'character', name: 'Corvin Ashe', slug, aliases: [], body: 'x' },
+			provider: 'test',
+			modelId: 'test-premium',
+			credits: DIFF_CREDITS
+		});
+
+		await acceptProposal(db, { proposalId: candidate.id });
+		expect((await getProposalPlan(db, plan.id))?.estimatedCredits).toBe(0);
+
+		await undoAcceptedProposal(db, { proposalId: candidate.id });
+		expect((await getProposalPlan(db, plan.id))?.estimatedCredits).toBe(DIFF_CREDITS);
+	});
+
+	it('an audit plan moves by audit.flag price, never by propagate.diff (the coincidence that hid this)', async () => {
+		const { plan, proposals } = await auditPlanWith(2);
+		expect(plan.estimatedCredits).toBe(2 * FLAG_CREDITS);
+
+		const dropped = await dropCandidateFromPlan(db, proposals[0]!.id);
+
+		expect(dropped.plan.estimatedCredits).toBe(FLAG_CREDITS);
+		// What the hardcoded `propagate.diff` lookup produced: 14 - 3. Asserted explicitly
+		// because with the seeded catalogue's two equal prices the correct and the wrong
+		// answer are the same number.
+		expect(dropped.plan.estimatedCredits).not.toBe(2 * FLAG_CREDITS - DIFF_CREDITS);
+
+		// Dismissing a flag (guardrail 7: the only decision a flag can register) counts the
+		// same way a drop does.
+		await rejectProposal(db, { proposalId: proposals[1]!.id });
+		expect((await getProposalPlan(db, plan.id))?.estimatedCredits).toBe(0);
+	});
+
+	it('an audit flag carries its own real credits, not zero', async () => {
+		const { proposals } = await auditPlanWith(1);
+		expect(proposals[0]?.credits).toBe(FLAG_CREDITS);
+	});
+
+	it('a trigger with no per-candidate price leaves the estimate where it is', async () => {
+		const u = await insertHomebrewUniverse(db);
+		// An import is priced per document (`import.document`, charged by the job runner),
+		// never per proposal, so no decision on one of its proposals may move this column.
+		const { plan, proposals } = await createProposalPlan(db, {
+			universeId: u.id,
+			trigger: 'import',
+			summary: 'A new relation type from the export.',
+			candidateCap: 1,
+			estimatedCredits: 5,
+			candidates: [{ kind: 'create', targetEntityId: null, rationale: 'x', evidence: {}, rank: 0 }]
+		});
+
+		await rejectProposal(db, { proposalId: proposals[0]!.id });
+
+		expect((await getProposalPlan(db, plan.id))?.estimatedCredits).toBe(5);
+	});
+
+	it('stops at zero rather than going negative on a plan that was already understated', async () => {
+		const { plan, proposals } = await savePlanWith(2, 0);
+
+		await rejectProposal(db, { proposalId: proposals[0]!.id });
+		await rejectProposal(db, { proposalId: proposals[1]!.id });
+
+		expect((await getProposalPlan(db, plan.id))?.estimatedCredits).toBe(0);
+	});
+
+	it('the shape issue #489 screenshotted: three survivors, two decided, one open', async () => {
+		const { plan, proposals, target } = await savePlanWith(3);
+		expect(plan.estimatedCredits).toBe(3 * DIFF_CREDITS);
+
+		await draftDiffFor(proposals[0]!.id, target);
+		await acceptProposal(db, { proposalId: proposals[0]!.id });
+		await rejectProposal(db, { proposalId: proposals[1]!.id, reason: 'wrong' });
+
+		// One candidate left open, so one candidate's worth left on the plan - never the
+		// three-candidate total the column used to keep.
+		expect((await getProposalPlan(db, plan.id))?.estimatedCredits).toBe(DIFF_CREDITS);
+		const open = await listProposalsForPlan(db, plan.id);
+		expect(open.filter((p) => p.outcome === 'pending')).toHaveLength(1);
 	});
 });

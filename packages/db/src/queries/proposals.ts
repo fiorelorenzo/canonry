@@ -111,6 +111,86 @@ function isEmptyPatch(patch: unknown): boolean {
 	);
 }
 
+/** Issue #508: the one chargeable operation a plan's trigger prices *per candidate*. This
+ * is the unit `proposal_plan.estimated_credits` is made of (see that column's own comment
+ * in schema/proposal.ts), so it is also the amount every path that takes a candidate out
+ * of `pending` has to move the column by. Null for a trigger whose plan carries no
+ * per-candidate figure at all: an import's cost is per document rather than per proposal
+ * (`import.document`, charged by the job runner), and a table quick action's plan is
+ * written with an estimate of zero on purpose.
+ *
+ * Declared as a total record rather than a partial one so that adding a seventh trigger to
+ * `proposal_trigger` fails to compile until somebody says which operation prices it - the
+ * alternative is a new trigger silently getting a zero unit and a column that never moves.
+ * The writers charge these same operations by name (`packages/copilot`'s propagate.ts,
+ * audit.ts, complete.ts and ask-propose.ts); this map is what keeps the arithmetic on the
+ * column in one place instead of once per caller. */
+const PER_CANDIDATE_OPERATION: Record<ProposalTrigger, string | null> = {
+	save: 'propagate.diff',
+	audit: 'audit.flag',
+	complete: 'entry.complete',
+	ask: 'propagate.diff',
+	table: null,
+	import: null
+};
+
+/** A missing price row means the catalogue was edited by hand: `priceOf` throws for an
+ * unpriced operation precisely so a silent zero cannot make something free by accident
+ * (SPEC.md §15). Here it deliberately reads as zero instead of throwing, because the
+ * caller is an accept, a reject or a drop: refusing a GM's decision over a pricing row is
+ * worse than leaving one plan's estimate too high, and nothing about the decision itself
+ * depends on the number. */
+async function perCandidateCredits(tx: Queryable, trigger: ProposalTrigger): Promise<number> {
+	const operation = PER_CANDIDATE_OPERATION[trigger];
+	if (!operation) return 0;
+	const [row] = await tx
+		.select({ credits: operationPrice.credits })
+		.from(operationPrice)
+		.where(eq(operationPrice.operation, operation))
+		.limit(1);
+	return row?.credits ?? 0;
+}
+
+/** Issue #508: the single place `proposal_plan.estimated_credits` moves. Called with -1 by
+ * every path that takes a candidate out of `pending` (accept, reject, drop) and with +1 by
+ * the one path that puts it back (`undoAcceptedProposal`), always inside the caller's own
+ * transaction and after the proposal row is already locked, so the two locks are always
+ * taken in the same order (proposal, then plan) and a concurrent accept and drop on one
+ * plan queue instead of deadlocking.
+ *
+ * Clamped at zero rather than allowed negative: a plan whose stored estimate was already
+ * lower than its candidates are worth (every plan written before this issue) walks down to
+ * zero and stops, instead of turning into a negative number no reader knows how to show. */
+async function shiftPlanEstimate(
+	tx: Queryable,
+	planId: string,
+	openCandidateDelta: -1 | 1
+): Promise<ProposalPlanRow> {
+	const [plan] = await tx
+		.select()
+		.from(proposalPlan)
+		.where(eq(proposalPlan.id, planId))
+		.for('update')
+		.limit(1);
+	if (!plan) throw new ProposalPlanNotFoundError(planId);
+
+	const unit = await perCandidateCredits(tx, plan.trigger);
+	// Rounded to `estimated_credits`'s own numeric(12,4) scale: repeated float subtraction of
+	// a price like 0.3 otherwise leaves 0.7999999999999999 in a column that holds four
+	// decimals, and the difference reads as a figure that never quite reaches zero.
+	const next =
+		Math.round(Math.max(0, plan.estimatedCredits + openCandidateDelta * unit) * 10_000) / 10_000;
+	if (next === plan.estimatedCredits) return plan;
+
+	const [updated] = await tx
+		.update(proposalPlan)
+		.set({ estimatedCredits: next })
+		.where(eq(proposalPlan.id, plan.id))
+		.returning();
+	if (!updated) throw new Error('shiftPlanEstimate: update returned no plan row');
+	return updated;
+}
+
 export interface CreateProposalPlanCandidate {
 	kind: ProposalKind;
 	targetEntityId: string | null;
@@ -121,6 +201,14 @@ export interface CreateProposalPlanCandidate {
 	 * this module never interprets it, only stores and returns it. */
 	evidence: unknown;
 	rank: number;
+	/** Issue #508: what this candidate has already cost, when its trigger pays for it the
+	 * moment it is written. An audit flag is the case that needs it: the flag is fully
+	 * drafted and charged (`audit.flag`) by the time the plan row exists, so its row
+	 * figure is a real number rather than the 0 it used to carry, and the plan screen's
+	 * per-row credits mean something for that trigger too. Omitted (0) for a candidate
+	 * whose work has not happened yet: a propagation candidate is priced later, by
+	 * `recordProposalDiff`, when the `propagate.diff` charge actually lands. */
+	credits?: number;
 }
 
 export interface CreateProposalPlanInput {
@@ -133,6 +221,13 @@ export interface CreateProposalPlanInput {
 	importJobId?: string | null;
 	summary: string;
 	candidateCap: number | null;
+	/** Issue #508: what the candidates in this plan are worth at today's prices, which is
+	 * what `proposal_plan.estimated_credits` means (that column's own comment in
+	 * schema/proposal.ts is the definition). A caller writing a plan whose trigger prices
+	 * per candidate passes `candidates.length` times that trigger's per-candidate price,
+	 * and nothing else: a plan-level charge that has already been spent (propagation's
+	 * `propagate.plan` ranking pass) does not belong in it, because from here on every
+	 * accept, reject and drop moves this figure by exactly one candidate's price. */
 	estimatedCredits: number;
 	/** SPEC.md §17: the interface language the plan's own speech was written in, applied to every
 	 * proposal in it, because one plan has one caller and therefore one reader. This is not the
@@ -190,6 +285,7 @@ export async function createProposalPlan(
 					rationale: candidate.rationale,
 					evidence: candidate.evidence,
 					rank: candidate.rank,
+					credits: candidate.credits ?? 0,
 					locale: input.locale ?? null,
 					outcome: 'pending' as const
 				}))
@@ -206,8 +302,10 @@ export interface DropCandidateResult {
 }
 
 /** decision C3: the GM can drop an entry from the plan before any diff is generated.
- * Recomputes `proposal_plan.estimated_credits` down by whatever `propagate.diff` currently
- * costs, so the estimate a GM sees always reflects what is actually left to spend. */
+ * Issue #508: takes the dropped candidate's own worth off `proposal_plan.estimated_credits`
+ * at the price its plan's trigger implies, which for an audit plan is `audit.flag` and not
+ * `propagate.diff`. That distinction was invisible while both rows read 1 credit, and an
+ * admin repricing either one unmasked it. */
 export async function dropCandidateFromPlan(
 	db: Db,
 	proposalId: string
@@ -226,28 +324,7 @@ export async function dropCandidateFromPlan(
 		if (!existing.planId) throw new Error(`proposal "${proposalId}" has no plan to drop from`);
 		if (!isEmptyPatch(existing.patch)) throw new ProposalHasDiffError(proposalId);
 
-		const [plan] = await tx
-			.select()
-			.from(proposalPlan)
-			.where(eq(proposalPlan.id, existing.planId))
-			.for('update')
-			.limit(1);
-		if (!plan) throw new ProposalPlanNotFoundError(existing.planId);
-
-		const [priceRow] = await tx
-			.select({ credits: operationPrice.credits })
-			.from(operationPrice)
-			.where(eq(operationPrice.operation, 'propagate.diff'))
-			.limit(1);
-		const perEntryCredits = priceRow?.credits ?? 0;
-		const newEstimate = Math.max(0, plan.estimatedCredits - perEntryCredits);
-
-		const [updatedPlan] = await tx
-			.update(proposalPlan)
-			.set({ estimatedCredits: newEstimate })
-			.where(eq(proposalPlan.id, plan.id))
-			.returning();
-		if (!updatedPlan) throw new Error('dropCandidateFromPlan: update returned no plan row');
+		const updatedPlan = await shiftPlanEstimate(tx, existing.planId, -1);
 
 		await tx.delete(proposal).where(eq(proposal.id, proposalId));
 
@@ -663,6 +740,12 @@ async function acceptProposalTx(db: Db, input: AcceptProposalInput): Promise<Pro
 			.where(eq(proposal.id, existing.id))
 			.returning();
 		if (!updated) throw new Error('acceptProposal: update returned no row');
+
+		// Issue #508: this candidate is no longer one of the plan's open ones, so its worth
+		// comes off the plan's estimate in the same transaction as the decision. Without
+		// this, the column only ever moved on a drop, and a plan whose candidates were all
+		// accepted kept advertising them as still outstanding forever.
+		if (existing.planId) await shiftPlanEstimate(tx, existing.planId, -1);
 		return updated;
 	});
 }
@@ -730,6 +813,10 @@ async function foldCreateProposalOntoExistingSlug(
 			.where(eq(proposal.id, existing.id))
 			.returning();
 		if (!updated) throw new Error('acceptProposal: update returned no row');
+
+		// Issue #508, same as the ordinary accept above: this candidate is decided, so the
+		// plan stops counting it among the ones it is still expected to spend on.
+		if (existing.planId) await shiftPlanEstimate(tx, existing.planId, -1);
 		return updated;
 	});
 }
@@ -770,6 +857,11 @@ export async function rejectProposal(db: Db, input: RejectProposalInput): Promis
 			.where(eq(proposal.id, existing.id))
 			.returning();
 		if (!updated) throw new Error('rejectProposal: update returned no row');
+
+		// Issue #508: a rejected candidate is no longer one of the plan's open ones. The
+		// early return above for an already-rejected row is what keeps a double reject from
+		// taking its price off twice.
+		if (existing.planId) await shiftPlanEstimate(tx, existing.planId, -1);
 		return updated;
 	});
 }
@@ -909,6 +1001,12 @@ export async function undoAcceptedProposal(
 			.where(eq(proposal.id, existing.id))
 			.returning();
 		if (!updated) throw new Error('undoAcceptedProposal: update returned no row');
+
+		// Issue #508: the undo puts the candidate back in the queue, so the plan owes its
+		// price again. This is the only path that raises the estimate, and it exists because
+		// the accept above lowered it: a column that only ever falls would leave a plan that
+		// was accepted and undone claiming less than it is going to spend.
+		if (existing.planId) await shiftPlanEstimate(tx, existing.planId, 1);
 		return updated;
 	});
 }
