@@ -30,7 +30,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MockLanguageModelV4 } from 'ai/test';
 import type { LanguageModel } from 'ai';
-import { closeDb, createDb, eq, runMigrations, type Db } from '@canonry/db';
+import { closeDb, eq, type Db } from '@canonry/db';
 import {
 	entity,
 	operationPrice,
@@ -38,7 +38,7 @@ import {
 	universe,
 	user
 } from '@canonry/db/schema';
-import postgres from 'postgres';
+import { openTestDb } from './test-db.js';
 import {
 	GatewayDriver,
 	type GatewayWrapper,
@@ -53,10 +53,15 @@ import { EMBEDDING_MATCH_THRESHOLDS, normalizeForMatching } from './matching.js'
 import type { SimilarityFn } from './matching.js';
 import type { Embedder } from '@canonry/copilot';
 
-const suffix = process.env.TEST_DB_SUFFIX ?? 'guards-local';
-const TEST_DATABASE_URL =
-	process.env.TEST_DATABASE_URL ??
-	`postgres://canonry:canonry@127.0.0.1:55432/canonry_test_jrg_${suffix}`;
+// This file drops and creates nothing. `test-global-setup.ts` has already dropped,
+// recreated and migrated the one database `TEST_DATABASE_URL` names, and a second dropper
+// inside a test file is the collision AGENTS.md describes: CI sets `TEST_DATABASE_URL` to a
+// single deterministic name, so every file in the run collapses onto it, and dropping it
+// mid-run terminates the other files' backends. Locally that hides, because an unset
+// `TEST_DATABASE_URL` gives each file its own suffixed name; in CI it showed up as
+// `42P01 relation "operation_price" does not exist` in a file that had nothing to do with
+// this one. Every fixture below is scoped to a universe of its own, so a shared database is
+// all it needs.
 
 const stubEmbedRelationLabel: Embedder = async (texts) => texts.map(() => [0, 0, 0]);
 const IDENTITY_GATEWAY: GatewayWrapper = (model) => model;
@@ -334,29 +339,8 @@ function field(patch: unknown, key: string): unknown {
 describe('issue #479: the seven proposals a four note vault produced against Valdoria Reach', () => {
 	let db: Db;
 
-	beforeAll(async () => {
-		const target = new URL(TEST_DATABASE_URL);
-		const dbName = target.pathname.replace(/^\//, '');
-		const adminUrl = new URL(TEST_DATABASE_URL);
-		adminUrl.pathname = '/postgres';
-		const admin = postgres(adminUrl.toString(), { max: 1 });
-		try {
-			await admin.unsafe(
-				'select pg_terminate_backend(pid) from pg_stat_activity where datname = $1 and pid <> pg_backend_pid()',
-				[dbName]
-			);
-			await admin.unsafe(`drop database if exists "${dbName}"`);
-			await admin.unsafe(`create database "${dbName}"`);
-		} finally {
-			await admin.end();
-		}
-		const migrator = createDb(TEST_DATABASE_URL, { max: 1 });
-		try {
-			await runMigrations(migrator);
-		} finally {
-			await closeDb(migrator);
-		}
-		db = createDb(TEST_DATABASE_URL, { max: 5 });
+	beforeAll(() => {
+		db = openTestDb();
 	});
 
 	afterAll(async () => {
