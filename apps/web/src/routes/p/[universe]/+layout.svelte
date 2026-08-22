@@ -26,7 +26,7 @@
 
 <div class="min-h-screen bg-paper text-ink">
 	<header class="border-b border-line bg-panel">
-		<div class="mx-auto flex max-w-3xl items-center gap-2 px-6 py-3 text-sm">
+		<div class="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3 text-sm md:px-8">
 			<a
 				href={resolve(`/p/${data.universe.slug}`)}
 				class="font-semibold text-ink hover:text-accent"
@@ -37,7 +37,13 @@
 			<span class="text-xs tracking-wide text-muted uppercase">{t.players.wikiLabel}</span>
 		</div>
 	</header>
-	<main id="main" class="px-6 py-10">
+	<!-- The gutter is `px-4 md:px-8` because that is the contract `PageHeader`'s band
+	     bleeds against (`-mx-4 md:-mx-8`, plus the same padding re-added). This shell had
+	     `px-6`, so at `md` the band bled 32px into a 24px gutter and the public wiki
+	     scrolled 8px sideways at every desktop width - the one horizontal overflow left in
+	     the app after round eighteen. Changing the number here rather than the band's keeps
+	     one contract for every route instead of a second one for this shell. -->
+	<main id="main" class="px-4 py-10 md:px-8">
 		{@render children()}
 	</main>
 </div>

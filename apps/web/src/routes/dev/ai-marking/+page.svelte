@@ -92,7 +92,10 @@
 <svelte:head><title>Component gallery: AI marking and the change bar (dev only)</title></svelte:head
 >
 
-<svelte:element this={page.data.user ? 'div' : 'main'}>
+<svelte:element
+	this={page.data.user ? 'div' : 'main'}
+	class={page.data.user ? undefined : 'px-4 md:px-8'}
+>
 	<PageHeader
 		eyebrow="Internal component gallery, not a product page"
 		title="AI marking and the change bar"

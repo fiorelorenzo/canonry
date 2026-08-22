@@ -40,7 +40,11 @@
 	} = $props();
 </script>
 
-<svelte:element this={page.data.user ? 'div' : 'main'} id={page.data.user ? undefined : 'main'}>
+<svelte:element
+	this={page.data.user ? 'div' : 'main'}
+	id={page.data.user ? undefined : 'main'}
+	class={page.data.user ? undefined : 'px-4 md:px-8'}
+>
 	<PageHeader {eyebrow} {title} />
 
 	<PageBody width="reading">
