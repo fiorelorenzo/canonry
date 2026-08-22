@@ -88,7 +88,7 @@ const UNDISCOVERED_NAME = 'The Quiet Cabal';
 // `packages/db/src/seed-fixture.ts`'s Ashen Ledger secret), because that is the exact
 // string this round's guardrail 6 note names.
 const SEEDED_WORLD_SECRET =
-	'Aldric Vane, the dismissed captain of the Valdoria Watch, is now on its payroll.';
+	"Aldric Vane, the dismissed captain of the Valdoria Watch, is now on the Ashen Ledger's payroll.";
 const SESSION_GMNOTE_TEXT =
 	'GM only: the harbourmaster already knows and is stalling the watch on purpose.';
 // Positive control for the session body filter: real, safe prose that must survive

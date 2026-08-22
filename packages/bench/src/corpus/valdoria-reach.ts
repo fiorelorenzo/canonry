@@ -189,7 +189,7 @@ const theAshenLedger: WorldEntity = {
 	name: 'The Ashen Ledger',
 	aliases: [],
 	language: 'en',
-	lead: 'A merchant bank that lends at knife point and keeps better records than the magistrate.\n\n:::secret\nAldric Vane, the dismissed captain of the Valdoria Watch, is now on its payroll.\n:::\n\n:::gmnote\nIselde Wrenn appointed Aldric, then broke him. Play this reveal as her fault circling back, not his.\n:::',
+	lead: "A merchant bank that lends at knife point and keeps better records than the magistrate.\n\n:::secret\nAldric Vane, the dismissed captain of the Valdoria Watch, is now on the Ashen Ledger's payroll.\n:::\n\n:::gmnote\nIselde Wrenn appointed Aldric, then broke him. Play this reveal as her fault circling back, not his.\n:::",
 	sections: [],
 	tags: ['bank', 'lantern-quarter', 'debt'],
 	image: { file: 'the-ashen-ledger.png', alt: 'Ink-and-wash seal of the Ashen Ledger merchant bank' },
