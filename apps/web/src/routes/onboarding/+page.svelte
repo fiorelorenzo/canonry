@@ -66,45 +66,55 @@
 				<Input id="name" name="name" bind:value={name} placeholder={t.namePlaceholder} required />
 			</div>
 
-			<div class="grid gap-4 sm:grid-cols-3">
-				<div class="flex flex-col gap-3 rounded-lg border border-line bg-panel p-4">
-					<h2 class="text-sm font-medium text-ink">{t.importCard.heading}</h2>
-					<p class="flex-1 text-sm text-ink-2">{t.importCard.description}</p>
+			<!-- V3 = B, and A1's reading room: three starts as rows with a rule between
+			     them, not three bordered cards side by side. The card grid was the last
+			     `sm:grid-cols-3` on a first-run screen, and at 1440 it cost the page
+			     everything: three columns of `text-sm` crammed into the top third of the
+			     viewport, while the same markup read well on a phone because it stacked.
+			     Rows fill the width they are given, so the type can be the type this page
+			     deserves - a `text-title` heading and a `text-body` sentence, the same pair
+			     every pinned row and every entry row uses. The "not configured" start
+			     stays visible rather than being hidden (I4 = B), and as a row it costs one
+			     line instead of a third of the screen. -->
+			<ul class="flex flex-col">
+				<li class="flex flex-col gap-2 border-b border-line py-4 first:pt-0 last:border-b-0">
+					<h2 class="text-title font-semibold text-ink">{t.importCard.heading}</h2>
+					<p class="max-w-measure text-body text-ink-2">{t.importCard.description}</p>
 					<Button
 						type="submit"
 						formaction="?/import"
-						class="self-start"
+						class="mt-1 self-start"
 						disabled={submittingKind !== null}
 					>
 						{submittingKind === 'import' ? t.creating : t.importCard.cta}
 					</Button>
-				</div>
+				</li>
 
-				<div class="flex flex-col gap-3 rounded-lg border border-line bg-panel p-4">
-					<h2 class="text-sm font-medium text-ink">{t.emptyCard.heading}</h2>
-					<p class="flex-1 text-sm text-ink-2">{t.emptyCard.description}</p>
+				<li class="flex flex-col gap-2 border-b border-line py-4 last:border-b-0">
+					<h2 class="text-title font-semibold text-ink">{t.emptyCard.heading}</h2>
+					<p class="max-w-measure text-body text-ink-2">{t.emptyCard.description}</p>
 					<Button
 						type="submit"
 						formaction="?/empty"
 						variant="secondary"
-						class="self-start"
+						class="mt-1 self-start"
 						disabled={submittingKind !== null}
 					>
 						{submittingKind === 'empty' ? t.creating : t.emptyCard.cta}
 					</Button>
-				</div>
+				</li>
 
-				<div class="flex flex-col gap-3 rounded-lg border border-line bg-panel p-4">
+				<li class="flex flex-col gap-2 border-b border-line py-4 last:border-b-0">
 					{#if data.preIndexedBase}
-						<h2 class="text-sm font-medium text-ink">
+						<h2 class="text-title font-semibold text-ink">
 							{t.preindexedCard.heading(data.preIndexedBase.name)}
 						</h2>
-						<p class="flex-1 text-sm text-ink-2">{t.preindexedCard.description}</p>
+						<p class="max-w-measure text-body text-ink-2">{t.preindexedCard.description}</p>
 						<Button
 							type="submit"
 							formaction="?/preindexed"
 							variant="secondary"
-							class="self-start"
+							class="mt-1 self-start"
 							disabled={submittingKind !== null}
 						>
 							{submittingKind === 'preindexed'
@@ -112,11 +122,13 @@
 								: t.preindexedCard.cta(data.preIndexedBase.name)}
 						</Button>
 					{:else}
-						<h2 class="text-sm font-medium text-ink">{t.preindexedCard.genericHeading}</h2>
-						<p class="text-sm text-muted">{t.preindexedCard.notConfigured}</p>
+						<h2 class="text-title font-semibold text-ink">
+							{t.preindexedCard.genericHeading}
+						</h2>
+						<p class="max-w-measure text-body text-muted">{t.preindexedCard.notConfigured}</p>
 					{/if}
-				</div>
-			</div>
+				</li>
+			</ul>
 		</form>
 	</div>
 </PageBody>
