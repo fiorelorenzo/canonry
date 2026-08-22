@@ -213,6 +213,21 @@ minutes old when what you need is a rendered baseline. If a pop has already gone
 lost entry is usually still a dangling commit: `git fsck --unreachable` and look for `WIP on
 w<issue>`.
 
+**And the worse version of the same lesson: `git reset --hard` in a worktree somebody else is
+also in.** On 2026-08-22 round eighteen's #529 had two writers for most of the wave, and twice
+while I was repairing the branch a `reset --hard HEAD` plus a `git merge origin/main` ran inside
+that tree and threw away uncommitted repairs of mine, once silently enough that I only found out
+by re-running `check` and seeing a property I had deleted come back. The reflog was the only
+record: `reset: moving to HEAD` is what it looks like, and it names no author. The agent that
+owned the issue denied both and its account was consistent with what it had actually run, a
+scoped three-file `git checkout --`, so the honest conclusion is that a shared tree has no
+attribution at all. Two rules come out of it. **Nothing uncommitted may live in a worktree while
+another writer might be in it**: commit early, even a `wip` commit you amend, because a commit is
+the only thing `reset --hard` cannot silently eat. And **when a tree turns out to have two
+writers, take the work out of it** rather than negotiating turns: `git worktree add` a fresh one
+from the pushed branch and finish there, which is what actually ended that incident after two
+lost rounds of repair.
+
 **Two more things collide between worktrees that are not the database.** The first is your own file
 tools: a relative path resolves against the session's working directory, not the worktree, and
 in the first parallel wave three agents wrote part of their change into the main checkout that
