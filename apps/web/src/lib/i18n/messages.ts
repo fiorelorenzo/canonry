@@ -1586,6 +1586,31 @@ export interface Messages {
 			layersAriaLabel: string;
 		};
 
+		/** #529 (round eighteen, W1 = B for the phone): `TableDeck.svelte`'s own chrome -
+		 * the position/name announcement, the place card's kind line and empty-brief
+		 * copy, a pin's own missing/empty-brief lines and its stale marker, and the two
+		 * actions (open the entry, mark as revealed) that have no equivalent string
+		 * elsewhere. Everything else the deck says - "Note", the disclaimer, "Mark as
+		 * revealed", why a pin is here - is `quickNoteForm`, `quickActionDock` and
+		 * `pinnedCards` reused outright, since the deck and the board (#529's A) show
+		 * the same content and must say it identically. */
+		deck: {
+			regionLabel: string;
+			stripLabel: string;
+			roleDescription: string;
+			positionOf: (current: number, total: number, name: string) => string;
+			placeKind: string;
+			placeBriefEmpty: string;
+			briefMissing: string;
+			briefEmpty: string;
+			briefMayBeOutdated: string;
+			pendingProposal: string;
+			openEntry: string;
+			revealing: string;
+			revealed: string;
+			noteFormLabel: (name: string) => string;
+		};
+
 		/** `+page.svelte`'s own chrome: the table-mode home screen around the components
 		 * above - section headings, the empty-context prompt, toasts, and the session's
 		 * own live proposal feed (issue #79). */

@@ -1437,6 +1437,23 @@ export const it: Messages = {
 			layersAriaLabel: 'Livelli ambientali'
 		},
 
+		deck: {
+			regionLabel: 'Il mazzo del tavolo',
+			stripLabel: 'Vai a una carta',
+			roleDescription: 'carta',
+			positionOf: (current, total, name) => `${current} di ${total} - ${name}`,
+			placeKind: 'Dove si trova il gruppo',
+			placeBriefEmpty: 'Nessuna sintesi precalcolata per questo luogo, per ora.',
+			briefMissing: 'Nessuna sintesi precalcolata per questo appuntato, per ora.',
+			briefEmpty: 'La sintesi precalcolata non ha ancora un testo.',
+			briefMayBeOutdated: 'potrebbe non essere aggiornata',
+			pendingProposal: 'Proposta in sospeso',
+			openEntry: 'Apri la voce',
+			revealing: 'Segnalazione in corso…',
+			revealed: 'Rivelato',
+			noteFormLabel: (name) => `Nota su ${name}`
+		},
+
 		home: {
 			noContextDeclared:
 				'Dichiara un luogo per appuntare i suoi personaggi principali e le sue relazioni.',
