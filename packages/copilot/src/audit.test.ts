@@ -340,7 +340,7 @@ describe('runAudit (issue #55, SPEC.md §5.2)', () => {
 
 		const ledgerBody =
 			'A merchant bank that lends at knife point.\n\n:::secret\nAldric Vane, the dismissed ' +
-			'captain of the Valdoria Watch,\nis now on its payroll.\n:::';
+			"captain of the Valdoria Watch,\nis now on the Ashen Ledger's payroll.\n:::";
 		await insertEntity(db, universe.id, {
 			type: 'faction',
 			name: 'The Ashen Ledger',
