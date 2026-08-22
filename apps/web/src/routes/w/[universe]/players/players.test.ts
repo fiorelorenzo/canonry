@@ -1,9 +1,10 @@
 /**
- * Issue R11, round thirteen: proof that the GM's players page reads the real
- * `revelation` log (kept per session, across every kind it can carry) and the real
- * gap list `listPublicEntities` already computes for the public wiki - not a page that
- * merely renders without throwing. Runs against the real handlers and a real Postgres,
- * same convention as `e/[slug]/cover-gate.test.ts`.
+ * Issue R11, round thirteen, reshaped by issue #530 (round eighteen): proof that the
+ * GM's players page reads the real `revelation` log (kept per session, across every kind
+ * it can carry), groups it by session server-side, and orders "still behind the screen"
+ * (`listPublicEntities`) with what is connected to something already revealed first - not
+ * a page that merely renders without throwing. Runs against the real handlers and a real
+ * Postgres, same convention as `e/[slug]/cover-gate.test.ts`.
  */
 import { randomUUID } from 'node:crypto';
 import { closeDb, createDb, type Db } from '@canonry/db';
@@ -228,31 +229,39 @@ describe('/w/[universe]/players (issue R11, round thirteen)', () => {
 		} as Parameters<typeof load>[0]);
 	}
 
-	it('shows a member the revealed log with its session, and what is still hidden', async () => {
+	it('shows a member the revealed log grouped by session, and what is still hidden', async () => {
 		const data = (await loadAs(ownerId)) as {
 			log: Array<{
-				kind: 'entity' | 'fact' | 'relation';
+				key: string;
 				sessionName: string | null;
-				label?: string;
-				entity?: { slug: string; name: string; revealed: boolean };
-				relationLabel?: string;
-				from?: { slug: string; name: string; revealed: boolean };
-				to?: { slug: string; name: string; revealed: boolean };
+				items: Array<{
+					kind: 'entity' | 'fact' | 'relation';
+					label?: string;
+					entity?: { slug: string; name: string; revealed: boolean };
+					relationLabel?: string;
+					from?: { slug: string; name: string; revealed: boolean };
+					to?: { slug: string; name: string; revealed: boolean };
+				}>;
 			}>;
-			hidden: Array<{ name: string }>;
+			hidden: Array<{ name: string; connected: boolean }>;
 		};
 
-		expect(data.log).toHaveLength(3);
-		const entityRow = data.log.find((row) => row.kind === 'entity');
-		const factLogRow = data.log.find((row) => row.kind === 'fact');
-		const relationRow = data.log.find((row) => row.kind === 'relation');
+		// Issue #530: every row this fixture confirmed landed in the one session it was
+		// confirmed in, so the whole log is a single group rather than three.
+		expect(data.log).toHaveLength(1);
+		const group = data.log[0];
+		expect(group.sessionName).toBe('The First Session');
+		expect(group.items).toHaveLength(3);
+
+		const entityRow = group.items.find((row) => row.kind === 'entity');
+		const factLogRow = group.items.find((row) => row.kind === 'fact');
+		const relationRow = group.items.find((row) => row.kind === 'relation');
 
 		// #492: the entity row links the entry it names, and its own 'entity'
 		// revelation is exactly what makes `statusBySlug` say 'full', so it also offers
 		// the player's own view of it.
 		expect(entityRow?.entity?.name).toBe('Aldric Revealed');
 		expect(entityRow?.entity?.revealed).toBe(true);
-		expect(entityRow?.sessionName).toBe('The First Session');
 
 		// A fact names its own subject (`fact.entity_id`), not a second entity - the
 		// same one the entity row above names, so the same reveal status applies.
@@ -274,11 +283,24 @@ describe('/w/[universe]/players (issue R11, round thirteen)', () => {
 		expect(hiddenNames).toContain('The Other Side');
 		expect(hiddenNames).not.toContain('Aldric Revealed');
 		expect(hiddenNames).not.toContain('The Secret Cabal');
+
+		// Issue #530: `The Other Side` is one hop from `Aldric Revealed` (the confirmed
+		// relation), so `pinnedNeighbors` marks it connected and it sorts before
+		// `The Unfound Vault`, which touches nothing revealed.
+		const other = data.hidden.find((row) => row.name === 'The Other Side');
+		const vault = data.hidden.find((row) => row.name === 'The Unfound Vault');
+		expect(other?.connected).toBe(true);
+		expect(vault?.connected).toBe(false);
+		expect(data.hidden.indexOf(other!)).toBeLessThan(data.hidden.indexOf(vault!));
 	});
 
 	it('shows a viewer the identical read-only page, not a 404', async () => {
-		const data = (await loadAs(viewerId)) as { log: unknown[]; hidden: unknown[] };
-		expect(data.log).toHaveLength(3);
+		const data = (await loadAs(viewerId)) as {
+			log: Array<{ items: unknown[] }>;
+			hidden: unknown[];
+		};
+		expect(data.log).toHaveLength(1);
+		expect(data.log[0].items).toHaveLength(3);
 		expect(data.hidden.length).toBeGreaterThan(0);
 	});
 

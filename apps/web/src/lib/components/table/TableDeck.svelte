@@ -8,6 +8,23 @@
 	 * decides the breakpoint (`<div class="sm:hidden">` wraps this component), so this
 	 * root carries no breakpoint class of its own: a component should not duplicate a
 	 * cutoff its mount point already owns, with the two free to drift apart.
+	 *
+	 * `PinCard.warm` and `hasPendingProposal` are both mid-migration in #529's own
+	 * worktree (`table/_server/pin-cards.ts`, `types.ts`) as this was written: `warm`
+	 * moves from a status/relative-time pair to `{status:'ready', text, stale} |
+	 * {status:'missing'}` so a stale brief still renders its text instead of dropping
+	 * it, and `hasPendingProposal` is new. `DeckPin` below extends `PinCard` with
+	 * `Omit` + an intersection rather than importing that shape directly, so this file
+	 * compiles and renders correctly whichever side of that migration `types.ts`
+	 * happens to be on - it does not freeze a snapshot of a file this component does
+	 * not own.
+	 *
+	 * Wording is shared rather than reinvented: "why this pin is here" reuses
+	 * `pinnedCards`'s own two phrasings so the board and the deck describe the same
+	 * pin identically, and the note form reuses `quickNoteForm`'s disclaimer and
+	 * button copy for the same reason guardrail 1 gives everywhere else a note is
+	 * taken at the table - it is never applied directly, and every surface that takes
+	 * one says so in the same words.
 	 */
 	import { page } from '$app/state';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -205,7 +222,7 @@
 		onpointerdown={onPointerDown}
 		onpointerup={onPointerUp}
 		onpointercancel={onPointerCancel}
-		class="touch-pan-y rounded-lg border border-line bg-panel p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+		class="touch-pan-y rounded-lg border border-line bg-panel p-4 select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
 	>
 		{#key cardKey}
 			<div

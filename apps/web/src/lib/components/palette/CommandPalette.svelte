@@ -19,7 +19,7 @@
 	 * going to need: `placement="docked"` renders the same `Command.Root` and the same
 	 * `Command.Input` inline, with no dialog around it, which is what the floating
 	 * Loremaster panel mounts. One input implementation in two positions rather than a
-	 * second composer beside this one. Six differences, all of them because a docked
+	 * second composer beside this one. Seven differences, all of them because a docked
 	 * copilot composer is not a command runner:
 	 *
 	 * - No ask row, and Enter always sends (#416, S11, reversing #285's own first cut).
@@ -51,6 +51,10 @@
 	 * - Results render above the input, not below (#381, R6): the panel now pins this
 	 *   composer to its own bottom edge, so a dropdown opening downward would have
 	 *   nowhere to go.
+	 * - Round eighteen (issue #531, W3 = B): the box itself grows with a long question
+	 *   up to a sane cap (`command-input.svelte`'s own `growing` prop), a `Textarea`
+	 *   in place of the dialog placement's single-line `Input` - the composer stays
+	 *   the one place a GM types a question, so a long one has to fit somewhere.
 	 *
 	 * Every row is a real `Command.LinkItem` (a real `<a href>`), not an `onSelect`-only
 	 * click handler - the same mod/ctrl-click-opens-a-tab behaviour a GM expects from
@@ -256,6 +260,7 @@
 			? 'rounded-none! border-0! bg-transparent! shadow-none! px-3! py-1.5! dark:bg-transparent!'
 			: undefined}
 		trailing={docked ? sendControl : undefined}
+		growing={docked}
 	/>
 {/snippet}
 

@@ -181,7 +181,9 @@ export {
 	listPublicEntities,
 	publicEntityBySlug,
 	publicMediaAssetById,
+	publicSessionDiary,
 	revelationLogForUniverse,
+	latestEntityRevelation,
 	type RevelationRow,
 	type RevelationLogEntry,
 	type RevealEntityInput,
@@ -195,7 +197,12 @@ export {
 	type PublicRelationRow,
 	type PublicImageRow,
 	type PublicEntity,
-	type PublicMediaAssetRow
+	type PublicMediaAssetRow,
+	type PublicDiarySession,
+	type DiaryRevelation,
+	type DiaryEntryRef,
+	type DiaryRelationParty,
+	type EntityRevelationRow
 } from './queries/players.js';
 export {
 	getDataSource,

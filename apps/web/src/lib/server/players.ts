@@ -13,15 +13,15 @@
  */
 import {
 	isPubliclyVisible,
-	listPublicEntities,
 	publicEntityBySlug,
 	publicMediaAssetById,
 	publicMentionTargets,
+	publicSessionDiary,
 	universeForExport,
 	type Db,
+	type DiaryRevelation,
 	type PublicFullEntity,
-	type PublicGapEntity,
-	type RevealedEntityListItem
+	type PublicGapEntity
 } from '@canonry/db';
 import type { EntityVisibility } from '@canonry/db/schema';
 import { detectLanguage, stripSecretsForPlayers, type Locale } from '@canonry/lang';
@@ -44,21 +44,62 @@ export async function loadPublicUniverse(
 	return universeForExport(db, universeSlug);
 }
 
-/** #83's index page (V7, DECISIONS.md round seventeen): only entities the party has
- * actually revealed, `gm_only` never listed. `listPublicEntities` itself still returns
- * every revealable entity, gap or full alike - the GM's own `/w/[universe]/players` page
- * (#492) needs that full list to know which names may still link into this wiki - so the
- * filter lives here, at the one seam this file already is, rather than in the shared
- * query. An unrevealed entity keeps its own gap page reachable by slug (E7); it is just
- * never enumerated for a player to browse into, which is the whole of what V7 changed:
- * this index used to publish the shape of the world - every name the GM ever wrote, seen
- * or not - and now only shows what came up at the table. */
-export async function loadPublicIndex(
+/** #530's index page, decision "W2 = A the campaign diary" (round eighteen): the sessions
+ * the party has actually met, newest first, each carrying its own player-visible prose.
+ * `publicSessionDiary` already applies guardrail 6 to *who* qualifies and to *which*
+ * revelations under a qualifying session are safe to name; the one thing left for this
+ * seam - the same seam `loadPublicEntity` below already owns for a single entry - is the
+ * two things that only ever happen at the point a body leaves the database: stripping
+ * `:::secret`/`:::gmnote` fences (a session's body is canon prose exactly like an entry's,
+ * so it gets the identical filter, not a second one) and rewriting an in-body image
+ * reference to its public URL. */
+export interface PlayerDiarySession {
+	id: string;
+	slug: string;
+	name: string;
+	body: string;
+	language: Locale | null;
+	revealedAt: Date;
+	images: PublicFullEntity['images'];
+	coverImageId: string | null;
+	revelations: DiaryRevelation[];
+}
+
+export interface PlayerDiaryData {
+	sessions: PlayerDiarySession[];
+	mentionTargets: PublicMentionTarget[];
+}
+
+export async function loadPlayerDiary(
 	db: Db,
-	universeId: string
-): Promise<RevealedEntityListItem[]> {
-	const entities = await listPublicEntities(db, universeId);
-	return entities.filter((entity) => entity.status === 'full');
+	universeId: string,
+	universeSlug: string,
+	locale?: Locale
+): Promise<PlayerDiaryData> {
+	const [rawSessions, mentionTargets] = await Promise.all([
+		publicSessionDiary(db, universeId, { locale }),
+		publicMentionTargets(db, universeId)
+	]);
+
+	const sessions = await Promise.all(
+		rawSessions.map(async (session) => {
+			const strippedBody = stripSecretsForPlayers(session.body);
+			const body = await resolvePublicBodyImages(db, universeId, universeSlug, strippedBody);
+			return {
+				id: session.id,
+				slug: session.slug,
+				name: session.name,
+				body,
+				language: detectLanguage(body),
+				revealedAt: session.revealedAt,
+				images: session.images,
+				coverImageId: session.coverImageId,
+				revelations: session.revelations
+			};
+		})
+	);
+
+	return { sessions, mentionTargets };
 }
 
 export interface PublicMentionTarget {

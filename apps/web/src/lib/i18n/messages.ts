@@ -582,6 +582,8 @@ export interface Messages {
 		indexTitle: string;
 		indexSubtitle: string;
 		emptyState: string;
+		learnedHeading: string;
+		learnedEmpty: string;
 		gapNoticeBefore: string;
 		gapNoticeAfter: (entityType: string) => string;
 		factsHeading: string;
@@ -748,6 +750,11 @@ export interface Messages {
 			images: string;
 			history: string;
 			audit: string;
+			/** Issue #530 (round eighteen, GM half): the aside's own "learned in" line
+			 * (S5) - `sessionName` and a locale-formatted date already resolved by the
+			 * caller. */
+			revealedIn: (sessionName: string, when: string) => string;
+			notRevealed: string;
 			/** Issue #148 (I10 = B): below `md`, B1's aside can't sit beside the document,
 			 * so it moves behind this trigger into a bottom sheet instead of stacking
 			 * under the prose uninvited - "reachable rather than cropped", not a second
@@ -1596,6 +1603,14 @@ export interface Messages {
 			layersAriaLabel: string;
 		};
 
+		/** #529 (round eighteen, W1 = B for the phone): `TableDeck.svelte`'s own chrome -
+		 * the position/name announcement, the place card's kind line and empty-brief
+		 * copy, a pin's own missing/empty-brief lines and its stale marker, and the two
+		 * actions (open the entry, mark as revealed) that have no equivalent string
+		 * elsewhere. Everything else the deck says - "Note", the disclaimer, "Mark as
+		 * revealed", why a pin is here - is `quickNoteForm`, `quickActionDock` and
+		 * `pinnedCards` reused outright, since the deck and the board (#529's A) show
+		 * the same content and must say it identically. */
 		deck: {
 			regionLabel: string;
 			stripLabel: string;
@@ -2294,6 +2309,12 @@ export interface Messages {
 			hiddenHeading: string;
 			hiddenDescription: string;
 			hiddenEmpty: string;
+			/** Issue #530 (round eighteen, GM half): the badge on a "still behind the
+			 * screen" row that `pinnedNeighbors` (one hop from anything revealed) says is
+			 * connected to what the party already knows - why the list is no longer
+			 * strictly alphabetical. */
+			hiddenConnectedBadge: string;
+			hiddenConnectedHint: string;
 			/** Duplicated per surface rather than shared - see this file's own doc comment
 			 * on `entityTypeLabel`'s existing duplication above `relationTypeLabel`. */
 			entityTypeLabel: (type: string) => string;

@@ -64,7 +64,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
-	import { messages, type Locale } from '$lib/i18n';
+	import { dateFormat, messages, type Locale } from '$lib/i18n';
 	import type { RelationView } from '@canonry/db';
 	import type { EntityType } from '@canonry/db/schema';
 	import RelationsPanel from './RelationsPanel.svelte';
@@ -125,6 +125,7 @@
 		cover,
 		coverUrl,
 		audit,
+		revealedIn,
 		locale,
 		open = $bindable({ ...DEFAULT_SECTIONS_OPEN })
 	}: {
@@ -146,10 +147,30 @@
 		cover: 'band' | 'placeholder' | 'none';
 		coverUrl: string | null;
 		audit: AuditFlagView[];
+		/** Issue #530 (round eighteen, GM half): the entry page's own `revealedIn` -
+		 * `latestEntityRevelation`'s answer, passed straight through. `null` for an
+		 * entity nothing has confirmed an 'entity' revelation for yet. */
+		revealedIn: { confirmedAt: string | Date; sessionName: string | null } | null;
 		locale: Locale;
 		open?: SectionOpenState;
 	} = $props();
 	let t = $derived(messages(locale));
+
+	// Issue #530: the same string/date split `HistoryPanel.svelte` already uses for a
+	// revision's own timestamp - `confirmedAt` crosses the server/client boundary as a
+	// `Date` (SvelteKit's devalue), but this component takes `string | Date` so a caller
+	// serializing through a plain fetch stays valid too.
+	function asDate(value: string | Date): Date {
+		return typeof value === 'string' ? new Date(value) : value;
+	}
+	let revealedInLabel = $derived(
+		revealedIn
+			? t.entry.sections.revealedIn(
+					revealedIn.sessionName ?? t.universe.players.sessionUnknown,
+					dateFormat(locale, { dateStyle: 'medium' }).format(asDate(revealedIn.confirmedAt))
+				)
+			: t.entry.sections.notRevealed
+	);
 
 	let sections = $derived<{ id: SectionId; label: string; count: number }[]>([
 		{ id: 'relations', label: t.entry.sections.relations, count: relations.length },
@@ -310,6 +331,12 @@
 			<EntryCoverPlaceholder {universeSlug} {...media} {locale} variant="aside" />
 		</div>
 	{/if}
+
+	<!-- Issue #530 (round eighteen, GM half): the entry's own "learned in" line - the
+		aside is where the entry's structured facts live (S5), so it goes here rather than
+		in the prose. One static row, not a sixth collapsible section: there is nothing to
+		disclose, it is a single fact either way. -->
+	<p class="border-b border-line p-4 text-sm text-ink-2">{revealedInLabel}</p>
 
 	{#each sections as section (section.id)}
 		<details
