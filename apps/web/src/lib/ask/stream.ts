@@ -44,19 +44,29 @@ export interface AskContext {
 	entityType?: string;
 }
 
+/** Issue #535: a citation is a sentence with its entry. `statement` is the whole of it and
+ * arrives display-ready - `packages/copilot`'s `searchOwnCanon` draws it from one side of a
+ * `:::secret` fence and strips `[[mention]]` syntax before it is sent, so nothing here has
+ * to remember to clean it.
+ *
+ * No `score`, and no `spanStart`/`spanEnd`. The score is the confidence figure guardrail 3
+ * and D6 both refuse, and a field on the wire is a field a component can render; the spans
+ * were never read by anything and would be wrong against a stripped statement anyway. */
 const ownCanonSourceSchema = z.object({
 	kind: z.literal('own_canon'),
 	entityId: z.string(),
 	entityName: z.string(),
 	entitySlug: z.string(),
-	statement: z.string(),
-	spanStart: z.number(),
-	spanEnd: z.number(),
-	score: z.number()
+	statement: z.string()
 });
 
 /** SPEC.md §7: `attribution` and `licence` are shown on every answer this source appears
- * in, a legal requirement rather than a nicety, which is why they are required here. */
+ * in, a legal requirement rather than a nicety, which is why they are required here.
+ *
+ * Issue #535: `statement` is the one sentence of `text` the question touched, and it is
+ * what the footer quotes; `text` is the whole retrieved chunk, which only the model sees.
+ * The kept record stores `statement` too, so a stored citation is a sentence rather than
+ * the paragraph it came out of. */
 const indexedSourceSchema = z.object({
 	kind: z.literal('indexed'),
 	dataSourceId: z.string(),
@@ -64,10 +74,10 @@ const indexedSourceSchema = z.object({
 	breadcrumb: z.string(),
 	url: z.string(),
 	text: z.string(),
+	statement: z.string(),
 	attribution: z.string(),
 	licence: z.string().nullable(),
-	licenceUrl: z.string().nullable(),
-	score: z.number()
+	licenceUrl: z.string().nullable()
 });
 
 const askSourceSchema = z.discriminatedUnion('kind', [ownCanonSourceSchema, indexedSourceSchema]);
@@ -221,6 +231,10 @@ export async function streamAsk(
  * rendered from them: the row cites the entry, and the sentence the answer was grounded
  * on. Shared by both surfaces so one of them cannot quietly start sending a shape the
  * endpoint rejects.
+ *
+ * Issue #535: an indexed source stores `statement`, the sentence, where it used to store
+ * `text`, the whole retrieved chunk. A stored citation that is a paragraph is the
+ * entry-level pointer this issue replaces, and W3 made the stored form the durable one.
  */
 export function keepSourcePayload(sources: readonly AskSource[]): KeepRequestSource[] {
 	return sources.map((source) =>
@@ -231,7 +245,7 @@ export function keepSourcePayload(sources: readonly AskSource[]): KeepRequestSou
 					dataSourceId: source.dataSourceId,
 					pageTitle: source.pageTitle,
 					url: source.url,
-					statement: source.text
+					statement: source.statement
 				}
 	);
 }

@@ -35,10 +35,18 @@ import {
 	MAX_HISTORY_TURNS,
 	MAX_HISTORY_TURN_CHARS,
 	CARRIED_FORWARD_LIMIT,
-	mergeCarriedForwardOwnCanon
+	mergeCarriedForwardOwnCanon,
+	quotedSentenceFromChunk
 } from './ask.js';
-import type { AskContext, AskDetailLevel, AskHistoryTurn, OwnCanonSource } from './ask.js';
+import type {
+	AskContext,
+	AskDetailLevel,
+	AskHistoryTurn,
+	AskSource,
+	OwnCanonSource
+} from './ask.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
+import { READING_ONLY_FALLBACK } from './speech.js';
 import {
 	insertEntity,
 	insertHomebrewUniverse,
@@ -1062,7 +1070,14 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 
 		const system = systemPromptOf(captured!);
 		expect(system).toContain('no sources at all');
-		expect(system).toContain('never answer from general knowledge');
+		// #535 reverses #346's "never answer from general knowledge": with a real floor the
+		// empty state is common, so the model says plainly that nothing in their canon
+		// supports the question and then answers anyway, from general knowledge, labelled as
+		// such. The AI-off path's own sentence is the wording it is told to open with, so a
+		// GM meets one vocabulary for this fact and not two.
+		expect(system).toContain(READING_ONLY_FALLBACK.en);
+		expect(system).toContain('from your own general knowledge');
+		expect(system).toContain('Never present a general-knowledge claim as canon');
 		// The T12 exception is offered (the fixture has one real entry, so a shape exists)
 		// but never forces the model away from refusing a specific missing fact - it is
 		// conditioned on the question, not on whether a shape happens to be available.
@@ -1626,6 +1641,213 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 			expect(result.answer).not.toMatch(/:::/);
 		});
 	});
+
+	describe('issue #535: the floor, and the sentence as the unit of a citation', () => {
+		/** Three entries whose bodies never repeat their own titles, which is how a wiki is
+		 * actually written and the case the floor has to survive. One carries a `:::secret`
+		 * fence and a `[[mention]]` so the quote's cleanliness is checked under the new shape
+		 * rather than only under the old one. */
+		async function world() {
+			const owner = await insertUser(db);
+			const universe = await insertHomebrewUniverse(db, {
+				ownerUserId: owner.id,
+				name: 'Floored Reach'
+			});
+			await insertEntity(db, universe.id, {
+				type: 'character',
+				name: 'Aldric Vane',
+				aliases: ['Captain Vane'],
+				body:
+					'Dismissed from the watch in the thaw after [[The Sable Winter]].\n\n' +
+					':::secret\n' +
+					'He kept a second ledger of every bribe he ever took.\n' +
+					':::\n\n' +
+					'He still drinks at [[The Gilded Rat]], in the corner seat.'
+			});
+			await insertEntity(db, universe.id, {
+				type: 'place',
+				name: 'The Gilded Rat',
+				body: 'An inn in the Lantern Quarter. [[Mother Sennah]] keeps it.'
+			});
+			await insertEntity(db, universe.id, {
+				type: 'character',
+				name: 'Mother Sennah',
+				body: 'She was a field surgeon once, and she was kind about it.'
+			});
+			return { owner, universe };
+		}
+
+		it('a question this world answers keeps its sources, and each one is the sentence rather than the entry', async () => {
+			const { owner, universe } = await world();
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'Which corner seat does Aldric Vane take?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				modelFactory: modelFactoryFor(streamingModel('At the Gilded Rat.')),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			const aldric = result.sources.find(
+				(s): s is OwnCanonSource => s.kind === 'own_canon' && s.entityName === 'Aldric Vane'
+			);
+			expect(aldric).toBeDefined();
+			// The quote is the sentence that answers the question, not the entry's first line
+			// and not the whole body. The entry's own body never says "Aldric Vane", so this
+			// also pins the name-aware half of the bar: without it the floor would answer a
+			// question about a character with nothing from that character's own page.
+			expect(aldric!.statement).toBe('He still drinks at The Gilded Rat, in the corner seat.');
+			expect(result.followUps.length).toBeGreaterThan(0);
+		});
+
+		it('a question this world has nothing to say about cites nothing at all, where the old top-six returned a full list', async () => {
+			const { owner, universe } = await world();
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				// One content word lands anywhere in this canon, `kind`, and it lands on Mother
+				// Sennah in the other sense of the word. That is the shape of every coincidence
+				// left after #346's content-word gate, and it is exactly what the bar removes.
+				question: 'What kind of world is this?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				modelFactory: modelFactoryFor(streamingModel('Nothing here answers that.')),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			expect(result.sources).toEqual([]);
+			expect(result.followUps).toEqual([]);
+		});
+
+		it('the no-sources prompt says nothing supports the question and then allows general knowledge, in the AI-off path’s own words', async () => {
+			const { owner, universe } = await world();
+			let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+			await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'How far is the nearest dragon?',
+				detailLevel: 'normal',
+				locale: 'it',
+				vectorClient,
+				embedder: hashingEmbedder,
+				modelFactory: modelFactoryFor(
+					capturingStreamingModel('Niente nel tuo canone.', (options) => {
+						captured = options;
+					})
+				),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			const system = systemPromptOf(captured!);
+			// One vocabulary for the fact, in the asker's language, not a second one invented
+			// for the AI-on branch.
+			expect(system).toContain(READING_ONLY_FALLBACK.it);
+			expect(system).toContain('from your own general knowledge');
+			// Guardrail 7: the separation is instructed explicitly, not left to the model.
+			expect(system).toContain('Never present a general-knowledge claim as canon');
+		});
+
+		it('a quoted sentence carries neither a [[mention]] nor a :::secret marker, and the AI-off answer quotes it as it stands', async () => {
+			const { owner, universe } = await world();
+			await db
+				.update(universeTable)
+				.set({ aiEnabled: false })
+				.where(eq(universeTable.id, universe.id));
+
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'What second ledger of every bribe did Aldric Vane keep?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				modelFactory: modelFactoryFor(streamingModel('should never be called')),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			const aldric = result.sources.find(
+				(s): s is OwnCanonSource => s.kind === 'own_canon' && s.entityName === 'Aldric Vane'
+			);
+			expect(aldric).toBeDefined();
+			expect(aldric!.statement).toBe('He kept a second ledger of every bribe he ever took.');
+			for (const source of result.sources) {
+				const quote = source.statement;
+				expect(quote).not.toMatch(/\[\[|\]\]/);
+				expect(quote).not.toMatch(/:::/);
+			}
+			expect(result.answer).not.toMatch(/\[\[|\]\]|:::/);
+		});
+
+		it('no similarity figure reaches the payload the UI renders, on either kind of source', async () => {
+			const { owner, universe } = await world();
+			let handed: AskSource[] = [];
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'Which corner seat does Aldric Vane take?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				modelFactory: modelFactoryFor(streamingModel('At the Gilded Rat.')),
+				gateway: IDENTITY_GATEWAY,
+				onSources: (sources) => {
+					handed = sources;
+				}
+			});
+
+			// Guardrail 3 and D6: a number on the wire is a number a component can render, and
+			// this is the one place it can be kept off the wire for good. Checked on both the
+			// streamed payload and the returned result, because they are two separate reads of
+			// the same array and a future change could diverge them.
+			expect(handed.length).toBeGreaterThan(0);
+			for (const source of [...handed, ...result.sources]) {
+				expect(Object.keys(source)).not.toContain('score');
+				expect(Object.values(source).every((v) => typeof v !== 'number')).toBe(true);
+			}
+			expect(JSON.stringify(result.sources)).not.toMatch(/"score"|"similarity"|"confidence"/);
+		});
+	});
+
+	describe('quotedSentenceFromChunk (issue #535, the indexed half)', () => {
+		const chunk =
+			'The Ashen Ledger is a merchant bank in the Lantern Quarter. ' +
+			'It lends at knife point and keeps better records than the magistrate. ' +
+			'Its factor is a man nobody in the quarter will name aloud.';
+
+		it('quotes the one sentence the question touched, never the whole chunk', () => {
+			expect(quotedSentenceFromChunk(chunk, 'Who keeps records in the quarter?', 'en')).toBe(
+				'It lends at knife point and keeps better records than the magistrate.'
+			);
+		});
+
+		it('falls back to the chunk’s opening sentence when nothing in it shares a content word', () => {
+			// The ordinary case for an embedding hit, which is the whole reason layer 2 exists:
+			// it matched on meaning, not on words. An opening sentence names what the chunk is
+			// about, and it is still a sentence, which the chunk is not.
+			expect(quotedSentenceFromChunk(chunk, 'Quanto costa un cavallo?', 'it')).toBe(
+				'The Ashen Ledger is a merchant bank in the Lantern Quarter.'
+			);
+		});
+
+		it('never returns fence markup or mention syntax', () => {
+			const fenced = ':::secret\nHe kept [[a second ledger]] of every bribe.\n:::';
+			const quote = quotedSentenceFromChunk(fenced, 'What second ledger of bribes?', 'en');
+			expect(quote).toBe('He kept a second ledger of every bribe.');
+			expect(quote).not.toMatch(/\[\[|\]\]|:::/);
+		});
+	});
 });
 
 describe('mergeCarriedForwardOwnCanon (issue #439, T12)', () => {
@@ -1635,10 +1857,7 @@ describe('mergeCarriedForwardOwnCanon (issue #439, T12)', () => {
 			entityId,
 			entityName,
 			entitySlug: entityName.toLowerCase().replace(/\s+/g, '-'),
-			statement: `${entityName}'s own statement.`,
-			spanStart: 0,
-			spanEnd: entityName.length,
-			score: 1
+			statement: `${entityName}'s own statement.`
 		};
 	}
 
