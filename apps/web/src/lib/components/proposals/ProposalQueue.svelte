@@ -360,29 +360,43 @@
 		<EmptyState kind="settled" message={t.empty} />
 	{:else}
 		{#each itemsByGroup as { group, list } (group.id)}
+			<!-- Issue #526: `group.heading`, when a route sets one, is the missing h2
+			     between the page's own h1 and each card's own title - previously a plain
+			     `<span>`, so a screen reader walking the queue jumped straight from the
+			     page heading to a run of h3s. `cardHeadingLevel` is what each card below
+			     renders at: h3 under this h2 when the group has one, h2 directly under the
+			     page's own h1 when it does not (the plan and import-job routes, whose one
+			     implicit group renders no heading of its own - #498's doc comment on
+			     `ProposalGroupView.heading`). The button nests inside the `h2` rather than
+			     around it, the WAI-ARIA accordion pattern: a heading's content model is
+			     phrasing content, which a `<button>` satisfies, so this is valid markup
+			     that also keeps the whole row's own click target unchanged. -->
+			{@const cardHeadingLevel = group.heading ? 3 : 2}
 			<section>
 				{#if group.heading}
 					<div class="flex items-center justify-between gap-3 border-t border-line py-2">
-						<button
-							type="button"
-							class="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
-							aria-expanded={openGroups[group.id] ?? false}
-							aria-controls={`qgroup-${group.id}`}
-							onclick={() => (openGroups[group.id] = !openGroups[group.id])}
-						>
-							<span class="min-w-0">
-								<span class="block truncate text-title font-semibold text-ink">
-									{group.heading}
+						<h2 class="min-w-0 flex-1">
+							<button
+								type="button"
+								class="flex w-full items-center justify-between gap-3 text-left font-normal"
+								aria-expanded={openGroups[group.id] ?? false}
+								aria-controls={`qgroup-${group.id}`}
+								onclick={() => (openGroups[group.id] = !openGroups[group.id])}
+							>
+								<span class="min-w-0">
+									<span class="block truncate text-title font-semibold text-ink">
+										{group.heading}
+									</span>
+									{#if group.meta}
+										<span class="block text-meta text-muted">{group.meta}</span>
+									{/if}
 								</span>
-								{#if group.meta}
-									<span class="block text-meta text-muted">{group.meta}</span>
-								{/if}
-							</span>
-							<span class="flex flex-none items-center gap-2 text-meta text-muted">
-								{tInbox.pendingLabel(groupPendingCount(list))}
-								<ChevronDownIcon class={openGroups[group.id] ? 'size-4' : 'size-4 -rotate-90'} />
-							</span>
-						</button>
+								<span class="flex flex-none items-center gap-2 text-meta text-muted">
+									{tInbox.pendingLabel(groupPendingCount(list))}
+									<ChevronDownIcon class={openGroups[group.id] ? 'size-4' : 'size-4 -rotate-90'} />
+								</span>
+							</button>
+						</h2>
 						{#if group.importJobId}
 							<a
 								href={resolve(`/w/${universeSlug}/import/${group.importJobId}/review`)}
@@ -410,13 +424,20 @@
 										onUndo={item.outcome === 'accepted' ? () => undo(item.id) : undefined}
 									/>
 								{:else if item.awaitingDiff}
-									<AwaitingDiffCard candidate={item} {universeSlug} {diffPriceCredits} {locale} />
+									<AwaitingDiffCard
+										candidate={item}
+										{universeSlug}
+										{diffPriceCredits}
+										{locale}
+										headingLevel={cardHeadingLevel}
+									/>
 								{:else}
 									<ProposalDiffCard
 										candidate={item}
 										{universeSlug}
 										showRejectChips={rejectChipsFor === item.id}
 										{locale}
+										headingLevel={cardHeadingLevel}
 										onAccept={() => accept(item.id)}
 										onReject={() => reject(item.id)}
 										onRejectReason={pickReason}

@@ -318,6 +318,7 @@
 							candidates={data.proposals.reviewable}
 							universeSlug={data.universe.slug}
 							locale={data.locale}
+							headingLevel={2}
 							onDecided={() => invalidateAll()}
 						/>
 					{/if}

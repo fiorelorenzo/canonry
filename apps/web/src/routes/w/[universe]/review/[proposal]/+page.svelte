@@ -95,6 +95,7 @@
 				candidate={data.candidate}
 				universeSlug={data.universe.slug}
 				locale={data.locale}
+				headingLevel={2}
 			/>
 		{/if}
 	</div>
