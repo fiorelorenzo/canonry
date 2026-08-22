@@ -142,7 +142,7 @@ export const it: Messages = {
 			launcherHint: 'Chiedi cosa dice già il tuo canone.',
 			context: (pageName) => `su ${pageName}`,
 			disclosure:
-				'Ogni domanda qui viene risposta e conservata automaticamente, come una tua nota raggruppata in una conversazione: non entra a fare parte di una voce senza una proposta che accetti, i giocatori non la vedono, e resta finché non elimini la conversazione. ',
+				'A ogni domanda qui viene data una risposta, conservata automaticamente come una tua nota raggruppata in una conversazione: non entra a fare parte di una voce senza una proposta che accetti, i giocatori non la vedono, e resta finché non elimini la conversazione. ',
 			openInAsk: 'Apri in Chiedi',
 			// R6 (round tredici, #381): tre suggerimenti deterministici, mai da un modello.
 			// `connects` legge il tipo di entità (sei valori), lo stesso schema a una
@@ -1802,7 +1802,7 @@ export const it: Messages = {
 			close: 'Chiudi',
 			loading: 'Caricamento…',
 			disclosure:
-				'Ogni domanda qui viene risposta e conservata automaticamente, come una tua nota raggruppata in questa conversazione: non entra a fare parte di una voce senza una proposta che accetti, i giocatori non la vedono, e resta finché non elimini la conversazione. ',
+				'A ogni domanda qui viene data una risposta, conservata automaticamente come una tua nota raggruppata in questa conversazione: non entra a fare parte di una voce senza una proposta che accetti, i giocatori non la vedono, e resta finché non elimini la conversazione. ',
 			emptyState: {
 				heading: 'Chiedi al Loremaster',
 				body: (universeName) =>
@@ -1982,7 +1982,7 @@ export const it: Messages = {
 				pickError: 'Impossibile impostare quella voce. Riprova.'
 			},
 			loremasterConversations: {
-				text: 'Ogni domanda fatta nel pannello del Loremaster viene risposta e conservata automaticamente, raggruppata per conversazione, finché non la elimini.',
+				text: 'A ogni domanda fatta nel pannello del Loremaster viene data una risposta, conservata automaticamente e raggruppata per conversazione, finché non la elimini.',
 				link: 'Vedi cosa viene conservato'
 			},
 			precedence: {
