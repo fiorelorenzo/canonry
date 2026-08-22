@@ -2203,3 +2203,51 @@ if a GM with three hundred answers finds it thin, that is a measurement for late
 
 Epic [#528](https://github.com/fiorelorenzo/canonry/issues/528), with #529 (W1), #530 (W2) and
 #531 (W3). The defects landed first, in #527, because two of them were mine from the day before.
+
+## Round nineteen, decided 2026-08-22
+
+No new questions were put to Lorenzo this round. Round eighteen's three rebuilds landed and the
+work left was the list of things already filed against them, so this is a record of what was
+fixed and of the two findings that came out of walking the product rather than reading it.
+
+**The product was walked as a brand new account, and the first screen was the weakest one.**
+Signing up on an empty database and looking at what the app shows first found onboarding rendering
+three starts as a `sm:grid-cols-3` grid of bordered cards with `text-sm` headings, so at 1440 the
+whole decision sat in the top third of the viewport in three narrow columns while the same markup
+read well on a phone because it stacked. V3 = B had already decided against that shape and this
+surface never got the pass, so the starts are rows now (#548, #549). The lesson worth keeping is
+the method: a decision that is applied surface by surface leaves the surfaces nobody re-opened,
+and the ones nobody re-opens are the first-run ones, because a developer with a seeded world never
+sees them.
+
+**One horizontal gutter, four shells that did not know it.** Round eighteen moved the page's top
+gutter into `PageHeader`'s band and had the band bleed the horizontal one back out, which cancels
+against the `px-4 md:px-8` `AppShell` supplies. Measuring `scrollWidth` against `clientWidth` on
+every route at three widths found four shells that supply a different gutter or none: the error
+page, `/docs`, the signed-out settings panes, and the players' wiki on `px-6`. Every one of them
+scrolled sideways at desktop width and nobody had noticed, because nobody scrolls a page sideways
+on purpose. Fixed in #547 by making the shells agree with the band rather than softening the band,
+so there is still one contract. `ErrorPage.svelte` also had no `main` landmark at all when signed
+out, which the same wrapper fixed.
+
+**The mention-and-fence family is closed, and it was five surfaces rather than one.** #523 named
+the Ask source chip. #544 put `stripMentionSyntax` on every surface that quotes a stored statement
+as prose, and missed one chip sitting between two it fixed. #555 then found the real cause upstream
+of all of them: `searchOwnCanon` picked its sentence with `splitIntoSentences`, which knows nothing
+about a `:::secret` fence, so a marker could join whichever sentence sat beside it. Two more gaps
+turned up on the way, the G5 side panel endpoint printing an entire body as raw text and
+`FactsPanel`'s source excerpt having no strip while the line above it did. #556 carries the same
+cause in `audit.ts`. The durable point: a display bug whose fix is one function call at one call
+site is almost never one call site, and the grep for the rest of the family is the actual work.
+
+**A rule enforced by grepping comes back.** #506 was the fourth issue to fix the same three
+classes on an inline link by hand, and the count of remaining sites was sixteen across twelve
+files. That is what #551 is for: one component, so the next one cannot drift silently.
+
+### Where round nineteen lands
+
+#547, #549, #550, #552, #553, #554, #555 on `main`, closing #355, #506, #524, #525, #526, #537,
+#545 and #548. Open behind it: #551 (one inline link), #556 (the audit path's own fences), #543 (a
+place's context pack, with a loader behind it) and #537's sibling findings. #479 stays deliberately
+untouched, because an import proposing a duplicate is prompt and matching work to measure with
+`packages/bench`, not a UI correction.
