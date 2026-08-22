@@ -1978,11 +1978,19 @@ export interface Messages {
 			indexedBadge: string;
 			/** issue #346: what the source list actually is, said once above it. It used to be
 			 * rendered as a bare list of chips, which reads as "here is what backed each claim"
-			 * when what it is is the entries whose own wording matched the question. */
+			 * when what it is is the entries whose own wording matched the question. Issue #535
+			 * rewords it around the sentence, since the list is quoted sentences now, and keeps
+			 * it to what is true: these are what the Loremaster was handed, never a claim about
+			 * which of them the answer leaned on hardest. */
 			sourcesNote: string;
 			/** issue #346: shown in the source list's place when retrieval found nothing worth
 			 * citing. A floor with no empty state behind it is six wrong chips replaced by
-			 * silence, which tells a reader less rather than more. */
+			 * silence, which tells a reader less rather than more. Issue #535: it opens with
+			 * the AI-off path's own sentence (`READING_ONLY_FALLBACK` in
+			 * `packages/copilot/src/speech.ts`), because a GM should meet one vocabulary for
+			 * "your canon does not answer this" rather than two, and it now also says what the
+			 * paragraph above it is, since with the floor in place that paragraph is general
+			 * knowledge rather than a refusal. */
 			sourcesEmpty: string;
 			/** Issue #437 (T10) and #455 (U11): a citation whose entry has since been deleted
 			 * says so, on the conversation view, rather than dropping the citation and making

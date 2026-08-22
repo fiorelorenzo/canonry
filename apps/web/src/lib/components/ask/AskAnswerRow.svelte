@@ -88,28 +88,34 @@
 		<p class="text-body leading-relaxed whitespace-pre-wrap text-ink">{turn.answer}</p>
 
 		{#if turn.sources.length > 0}
-			<!-- Guardrail 3: which entry, which sentence, never a bare confidence number. -->
+			<!-- Guardrail 3: which entry, which sentence, never a bare confidence number.
+			     #535: the sentence is the citation, so the row quotes it, in the app's own
+			     quote treatment (`border-line-2`, italic - `EvidencePopover.svelte`). The
+			     entry is the link under it. A name-only pill with the sentence hidden in a
+			     `title` attribute was an entry-level pointer, unreachable by touch and by a
+			     screen reader alike. -->
 			<div class="mt-3 border-t border-line pt-2">
 				<p class="m-0 text-label text-ink-2">{t.sourcesNote}</p>
-				<ul class="mt-1.5 mb-0 flex list-none flex-wrap gap-1.5 p-0">
+				<ul class="mt-1.5 mb-0 flex list-none flex-col gap-2 p-0">
 					{#each turn.sources as source, i (source.kind === 'own_canon' ? (source.entity?.slug ?? `deleted-${i}`) : `${source.url}-${i}`)}
-						<li>
+						<li class="min-w-0">
+							<span class="block border-l-2 border-line-2 pl-2 text-label text-ink-2 italic"
+								>&ldquo;{stripMentionSyntax(source.statement)}&rdquo;</span
+							>
 							{#if source.kind === 'own_canon'}
 								{#if source.entity}
 									<!-- G5: opens the side panel, no preview and no navigation. -->
 									<button
 										type="button"
 										onclick={() => onOpenEntry(source.entity!.slug)}
-										title={stripMentionSyntax(source.statement)}
-										class="inline-flex max-w-56 items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-label text-ink hover:bg-accent-bg"
+										class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-label text-ink hover:bg-accent-bg"
 									>
 										<span class="truncate">{source.entity.name}</span>
 										<span class="shrink-0 text-label text-muted">{t.ownCanonLabel}</span>
 									</button>
 								{:else}
 									<span
-										title={stripMentionSyntax(source.statement)}
-										class="inline-flex max-w-56 items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-label text-ink-2"
+										class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-label text-ink-2"
 									>
 										{t.deletedEntry}
 									</span>
@@ -119,8 +125,7 @@
 									href={source.url}
 									target="_blank"
 									rel="noreferrer"
-									title={stripMentionSyntax(source.statement)}
-									class="inline-flex max-w-64 items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-label"
+									class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-label"
 								>
 									<span class="shrink-0 text-label text-ink-2">{t.indexedBadge}</span>
 									<span class="truncate text-ink">{source.pageTitle}</span>
@@ -135,6 +140,9 @@
 				</ul>
 			</div>
 		{:else}
+			<!-- #535: a stored answer with no citation is one the world had nothing to say
+			     about, and the paragraph above it is general knowledge. The line says both,
+			     because the record outlives the session that produced it (W3). -->
 			<div class="mt-3 border-t border-line pt-2">
 				<p class="m-0 text-label text-ink-2">{t.sourcesEmpty}</p>
 			</div>

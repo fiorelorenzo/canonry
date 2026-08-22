@@ -92,7 +92,6 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { InlineLink } from '$lib/components/ui/link';
 	import { messages, type Locale } from '$lib/i18n';
-	import { stripMentionSyntax } from '$lib/markdown';
 	import { formatShortcut, matchesShortcut, SHORTCUTS } from '$lib/keys';
 	import { ASK_DETAIL_LEVELS, keepAnswer, streamAsk, type AskDetailLevel } from '$lib/ask/stream';
 	import type { UniverseSummary } from '$lib/components/shell/types';
@@ -655,17 +654,25 @@
 							<!-- #436, T9: the sources are a footer under a rule with a small label,
 							     not a fourth paragraph the same size as everything above it.
 							     Guardrail 3: which entry, which sentence, as something a hand can
-							     open, and never a bare confidence score. -->
+							     open, and never a bare confidence score.
+							     #535: the sentence is the citation, so it is what the row shows,
+							     in the app's own quote treatment (`border-line-2`, italic, the way
+							     `EvidencePopover.svelte` and `EntryProse.svelte` already render one).
+							     A wrapping row of name-only pills was an entry-level pointer wearing
+							     a citation's clothes: a reader could not check a single claim
+							     without opening the page. -->
 							<div class="mt-3 border-t border-line pt-2">
 								<p class="m-0 text-label text-ink-2">{askT.sourcesNote}</p>
-								<ul class="mt-1.5 mb-0 flex list-none flex-wrap gap-1.5">
+								<ul class="mt-1.5 mb-0 flex list-none flex-col gap-2">
 									{#each turn.sources as source, i (source.kind === 'own_canon' ? source.entityId : `${source.dataSourceId}-${i}`)}
-										<li>
+										<li class="min-w-0">
+											<span class="block border-l-2 border-line-2 pl-2 text-xs text-ink-2 italic"
+												>&ldquo;{source.statement}&rdquo;</span
+											>
 											{#if source.kind === 'own_canon'}
 												<a
 													href={resolve(`/w/${universeSlug}/e/${source.entitySlug}`)}
-													title={stripMentionSyntax(source.statement)}
-													class="inline-flex max-w-56 items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-xs text-ink hover:bg-accent-bg"
+													class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-xs text-ink hover:bg-accent-bg"
 												>
 													<span class="truncate">{source.entityName}</span>
 													<span class="shrink-0 text-label text-muted">{askT.ownCanonLabel}</span>
@@ -675,8 +682,7 @@
 													href={source.url}
 													target="_blank"
 													rel="noreferrer"
-													title={source.text}
-													class="inline-flex max-w-64 items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-xs"
+													class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-xs"
 												>
 													<span class="shrink-0 text-label text-ink-2">{askT.indexedBadge}</span>
 													<span class="truncate text-ink">{source.pageTitle}</span>
@@ -691,10 +697,12 @@
 								</ul>
 							</div>
 						{:else if turn.sourcesSeen}
-							<!-- #346's other half. A floor on retrieval with nothing behind it turns
-							     six wrong chips into silence, and silence beside an answer reads as
-							     a list that failed to load rather than as a canon this question did
-							     not touch. -->
+							<!-- #346's other half, widened by #535's floor: a floor with nothing
+							     behind it turns six wrong chips into silence, and silence beside an
+							     answer reads as a list that failed to load rather than as a canon
+							     this question did not touch. Since #535 this line also says what
+							     the paragraph above it is, because that paragraph is now general
+							     knowledge rather than a refusal (guardrail 7). -->
 							<div class="mt-3 border-t border-line pt-2">
 								<p class="m-0 text-label text-ink-2">{askT.sourcesEmpty}</p>
 							</div>

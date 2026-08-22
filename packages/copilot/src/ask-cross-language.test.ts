@@ -31,6 +31,7 @@ import { closeDb, eq, type Db } from '@canonry/db';
 import { modelCall } from '@canonry/db/schema';
 import { createVectorClient, type QdrantClient } from '@canonry/vector';
 import { hashingEmbedder } from '@canonry/indexing';
+import { stripMentionSyntax } from '@canonry/lang';
 import { MockLanguageModelV4 } from 'ai/test';
 import type { LanguageModel } from 'ai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -196,22 +197,21 @@ describe('runAsk crosses the language boundary (issue #130, SPEC.md §17)', () =
 
 		// Sources are listed in their own language, never translated into the reader's
 		// interface locale: Corvin Ashe's quoted statement is still the literal English
-		// sentence, word for word.
+		// sentence, word for word. Since #535 it is the sentence as the entry *renders* it,
+		// with `[[...]]` syntax removed, which is the form a GM can actually match against
+		// the page they open.
 		if (corvinSource?.kind !== 'own_canon') throw new Error('expected an own_canon source');
-		expect(corvinSource.statement).toBe('Factor of [[The Ashen Ledger]].');
+		expect(corvinSource.statement).toBe('Factor of The Ashen Ledger.');
 
-		// The quoted span matches its source byte for byte: the exact substring
-		// `entity.body` was sliced at reproduces the quoted statement with no drift, which is
-		// what makes the quotation checkable at all (SPEC.md §17: "a translated quotation...
-		// cannot be found in the entry, and the GM cannot check it").
-		expect(CORVIN_ASHE_BODY.slice(corvinSource.spanStart, corvinSource.spanEnd)).toBe(
-			corvinSource.statement
-		);
+		// The quote is checkable against its source: it occurs verbatim in the rendered body,
+		// which is what SPEC.md §17 is protecting ("a translated quotation... cannot be found
+		// in the entry, and the GM cannot check it").
+		expect(stripMentionSyntax(CORVIN_ASHE_BODY)).toContain(corvinSource.statement);
 
 		// La Casa dei Mercanti's own body also mentions "The Ashen Ledger" by name (issue
 		// #122's rivalry line), so it scores too and is returned as a second source - still
-		// in Italian, still byte-identical to its own body, proving the same "own language,
-		// own byte-for-byte span" contract holds for the Italian side as well, not only the
+		// in Italian, still findable verbatim in its own body, proving the same "own
+		// language, own words" contract holds for the Italian side as well, not only the
 		// English one.
 		const mercantiSource = result.sources.find(
 			(s) => s.kind === 'own_canon' && s.entityId === laCasaDeiMercanti.id
@@ -219,11 +219,9 @@ describe('runAsk crosses the language boundary (issue #130, SPEC.md §17)', () =
 		expect(mercantiSource).toBeDefined();
 		if (mercantiSource?.kind !== 'own_canon') throw new Error('expected an own_canon source');
 		expect(mercantiSource.statement).toBe(
-			'[[The Ashen Ledger]] la considera una concorrente, mai un’alleata, e i loro uomini non bevono mai allo stesso tavolo.'
+			'The Ashen Ledger la considera una concorrente, mai un’alleata, e i loro uomini non bevono mai allo stesso tavolo.'
 		);
-		expect(LA_CASA_DEI_MERCANTI_BODY.slice(mercantiSource.spanStart, mercantiSource.spanEnd)).toBe(
-			mercantiSource.statement
-		);
+		expect(stripMentionSyntax(LA_CASA_DEI_MERCANTI_BODY)).toContain(mercantiSource.statement);
 
 		// The English source outranks the Italian one - it is the more relevant answer to
 		// "who works there", not merely the first one inserted.

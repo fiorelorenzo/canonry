@@ -1745,9 +1745,9 @@ export const en: Messages = {
 			ownCanonLabel: 'your canon',
 			indexedBadge: 'indexed',
 			sourcesNote:
-				'The answer was written from these and from nothing else: the entries whose own wording matched your question.',
+				'The sentences the answer was written from, quoted from the entries they are in. The Loremaster was given these and nothing else.',
 			sourcesEmpty:
-				'Nothing to cite. No entry matched the words of this question, so this answer rests on nothing in your canon.',
+				'Nothing in your own canon matches this question yet, so the answer above is general knowledge and not your world. Name a person, a place or an event from it and there will be something to cite.',
 			deletedEntry: 'This entry has since been deleted.',
 			sourceCount: (count) => {
 				const n = numberFormat('en', {
