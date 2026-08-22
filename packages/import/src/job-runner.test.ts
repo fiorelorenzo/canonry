@@ -1750,6 +1750,11 @@ One document.
 		expect(rows.every((r) => r.targetEntityId === existingEntity.id)).toBe(true);
 	});
 
+	// The proposed name deliberately differs from the seeded one (issue #479): an identical
+	// name is now settled by the free identity step before any scorer runs, so a fixture
+	// that proposes "Aldric Vane" against a seeded "Aldric Vane" never reaches the seam this
+	// test exists to check. Rewording it keeps the semantic path exercised, which is the
+	// point.
 	it('hands the matcher the type, the summary and the source sentence of both sides (issue #310)', async () => {
 		await priceFixture();
 		const { userId, universeId } = await userAndUniverse();
@@ -1798,7 +1803,7 @@ One document.
 
 		const model = scriptedModel([
 			toolCallStep([{ id: 'c1', name: 'source_read', input: { path: 'notes/aldric.md' } }]),
-			entityStep('c2', 'e1', 'Aldric Vane', 'doc-1'),
+			entityStep('c2', 'e1', 'Captain Aldric Vane', 'doc-1'),
 			finishStep('c3')
 		]);
 		const driver = new GatewayDriver({
@@ -1831,7 +1836,7 @@ One document.
 		// The proposed side: its own type, its extracted summary, and the sentence behind
 		// `evidenceSpan` sliced out of the document the driver read.
 		expect(scored.subject.context?.type).toBe('character');
-		expect(scored.subject.context?.summary).toBe('Aldric Vane appears in this document.');
+		expect(scored.subject.context?.summary).toBe('Captain Aldric Vane appears in this document.');
 		expect(scored.subject.context?.sourceSentence).toBe('Aldric Van');
 
 		// The already-existing side: its type, and the first sentence of its body rather than the

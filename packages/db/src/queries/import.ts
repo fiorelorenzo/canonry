@@ -6,7 +6,19 @@
 // acceptProposal - "nothing else in the codebase may write canon from a proposal" holds
 // here too, this file only adds the import-specific bookkeeping (entity_source_ref)
 // around that boundary.
-import { and, count, desc, eq, gte, inArray, isNotNull, lt, notInArray, sql } from 'drizzle-orm';
+import {
+	and,
+	count,
+	desc,
+	eq,
+	gte,
+	inArray,
+	isNotNull,
+	lt,
+	notInArray,
+	or,
+	sql
+} from 'drizzle-orm';
 import type { Db } from '../client.js';
 import { entity } from '../schema/entity.js';
 import type { EntityType, ImportJobStatus, RelationCardinality } from '../schema/enums.js';
@@ -432,11 +444,15 @@ export async function candidateEntitiesForMatching(
  * back out of their patch since `proposal` itself carries no `entity.type` column. A row
  * that does not parse as a create patch (should not happen - job-runner.ts always writes
  * one before the next document can see it, but a bad row should never take an otherwise
- * healthy import down) is skipped rather than thrown on. */
+ * healthy import down) is skipped rather than thrown on.
+ *
+ * `type: null` means every type (issue #479). The semantic step wants one type, because a
+ * pool it scores has to be comparable; the identity guard wants all of them, because the
+ * slug it defends is unique per universe rather than per type. */
 export async function pendingEntityProposalsForJob(
 	db: Db,
 	importJobId: string,
-	type: EntityType,
+	type: EntityType | null,
 	limit = 200
 ): Promise<MatchCandidateRow[]> {
 	const rows = await db
@@ -456,7 +472,7 @@ export async function pendingEntityProposalsForJob(
 	for (const row of rows) {
 		try {
 			const patch = readEntityCreatePatch(row.patch);
-			if (patch.type === type)
+			if (type === null || patch.type === type)
 				candidates.push({
 					id: row.id,
 					name: patch.name,
@@ -474,6 +490,85 @@ export async function pendingEntityProposalsForJob(
 		}
 	}
 	return candidates;
+}
+
+// ---------------------------------------------------------------------------
+// The identity guard (issue #479). `entity_universe_slug_key` is UNIQUE on
+// (universe_id, slug), universe-wide and *not* per type, so a `create` naming a slug
+// the universe already carries is not a proposal a GM can accept: it either fails that
+// constraint or, once the name is reused with a free slug, leaves them two entries with
+// one name. The two pools above cannot see that, because both filter to one entity
+// type: #479's Cairnmouth was proposed as a `place` against a seeded `place` and still
+// missed, and a cross-type collision is invisible to them by construction.
+// ---------------------------------------------------------------------------
+
+export interface EntityIdentityRow {
+	id: string;
+	name: string;
+	slug: string;
+	type: EntityType;
+}
+
+/** Every entity in this universe whose slug or case-folded name is one the caller is
+ * about to propose. Type-blind on purpose (see the block comment above): the constraint
+ * this defends is universe-wide, so narrowing by type here would reintroduce exactly the
+ * hole it exists to close.
+ *
+ * Names and slugs both, because the two can disagree in either direction: a hand-edited
+ * slug no longer matches `slugify(name)`, and two different names ("Saint Merrow's" and
+ * "Saint Merrows") slugify the same. Aliases are deliberately **not** matched. #479's
+ * third defect is a create whose aliases were another entity's name, so treating an
+ * alias as identity would turn that same bad extraction into a false merge, which
+ * SPEC.md §6.4 calls the expensive error. */
+export async function entitiesByIdentity(
+	db: Db,
+	universeId: string,
+	slugs: string[],
+	names: string[]
+): Promise<EntityIdentityRow[]> {
+	const wantedSlugs = [...new Set(slugs.filter((s) => s.length > 0))];
+	const wantedNames = [
+		...new Set(names.map((n) => n.trim().toLowerCase()).filter((n) => n.length > 0))
+	];
+	if (wantedSlugs.length === 0 && wantedNames.length === 0) return [];
+	const clauses = [];
+	if (wantedSlugs.length > 0) clauses.push(inArray(entity.slug, wantedSlugs));
+	if (wantedNames.length > 0) clauses.push(inArray(sql`lower(${entity.name})`, wantedNames));
+	return db
+		.select({ id: entity.id, name: entity.name, slug: entity.slug, type: entity.type })
+		.from(entity)
+		.where(and(eq(entity.universeId, universeId), or(...clauses)));
+}
+
+export interface EntityUpdateTargetRow {
+	id: string;
+	name: string;
+	aliases: string[];
+	body: string;
+}
+
+/** What an `update` proposal would be overwriting, for each of `ids` (issue #479).
+ *
+ * The full `entity.body`, not `MatchCandidateRow.bodyLead`: that one caps at 400
+ * characters because it feeds an embedding over a 200-row pool, and this guard has to
+ * reason about what an accept would *delete*, so a body whose `:::secret` block sits past
+ * that cap must not read as having none. Name and aliases come along because the same
+ * decision needs them: once a refused body write leaves a patch carrying nothing the
+ * entity does not already say, there is no proposal left worth a GM's attention.
+ *
+ * Keyed by id. A caller with no row for an id reads it as "nothing known", which is the
+ * conservative direction: no current body means nothing to lose. */
+export async function entityUpdateTargetsByIds(
+	db: Db,
+	ids: string[]
+): Promise<Map<string, EntityUpdateTargetRow>> {
+	const wanted = [...new Set(ids)];
+	if (wanted.length === 0) return new Map();
+	const rows = await db
+		.select({ id: entity.id, name: entity.name, aliases: entity.aliases, body: entity.body })
+		.from(entity)
+		.where(inArray(entity.id, wanted));
+	return new Map(rows.map((row) => [row.id, row]));
 }
 
 export interface FoldEntitySightingInput {
