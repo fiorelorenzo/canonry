@@ -37,6 +37,7 @@
 	import type { EntityType } from '@canonry/db/schema';
 	import type { Messages } from '$lib/i18n';
 	import { Badge } from '$lib/components/ui/badge';
+	import { cn } from '$lib/utils/cn.js';
 	import {
 		browseQuery,
 		defaultDirectionFor,
@@ -82,14 +83,26 @@
 		sort: EntityBrowserSort;
 		label: string;
 		numeric: boolean;
+		/** #524: relations and facts are comparison columns with nothing to compare on a
+		 * phone - they are also the two columns a real seeded world shows as 0 or 1 on
+		 * almost every row, so a phone spent nearly half its width on non-information.
+		 * Hidden below `sm`, `table-cell` again at `sm` and up, where O1's dense table
+		 * keeps exactly the shape round seventeen's V1 settled. */
+		phoneHidden?: boolean;
+		/** A fixed mobile column width. Only meaningful below `sm`, where the table
+		 * switches to `table-layout: fixed` so the name column gets a definite box to
+		 * truncate against instead of an unbounded one that forces the row wider than
+		 * the screen - `sm:w-auto` gives the width back to auto layout at `sm` and up,
+		 * unchanged from what round seventeen shipped. */
+		phoneWidth?: string;
 	}
 
 	const columns = $derived<Column[]>([
 		{ sort: 'name', label: t.columnName, numeric: false },
-		{ sort: 'type', label: t.columnType, numeric: false },
-		{ sort: 'relations', label: t.columnRelations, numeric: true },
-		{ sort: 'facts', label: t.columnFacts, numeric: true },
-		{ sort: 'changed', label: t.columnChanged, numeric: true }
+		{ sort: 'type', label: t.columnType, numeric: false, phoneWidth: 'w-32' },
+		{ sort: 'relations', label: t.columnRelations, numeric: true, phoneHidden: true },
+		{ sort: 'facts', label: t.columnFacts, numeric: true, phoneHidden: true },
+		{ sort: 'changed', label: t.columnChanged, numeric: true, phoneWidth: 'w-28' }
 	]);
 
 	/** Clicking the column already sorted flips it; clicking another starts from whatever
@@ -147,17 +160,23 @@
 <!-- eslint-disable svelte/no-navigation-without-resolve -- every href below is a resolve()
      result with a query string appended, which the rule cannot see through. -->
 <div class="mt-4 overflow-x-auto rounded-lg border border-line">
-	<table bind:this={tableEl} class="w-full border-collapse text-sm" aria-label={t.tableAriaLabel}>
+	<table
+		bind:this={tableEl}
+		class="w-full table-fixed border-collapse text-sm sm:table-auto"
+		aria-label={t.tableAriaLabel}
+	>
 		<thead>
 			<tr class="border-b border-line-2 bg-panel-2">
 				{#each columns as column (column.sort)}
 					{@const active = params.sort === column.sort}
 					<th
 						scope="col"
-						class="px-3 py-2 text-xs font-semibold tracking-wide text-muted uppercase"
-						class:text-right={column.numeric}
-						class:text-left={!column.numeric}
-						aria-sort={active ? (params.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+						class={cn(
+							'px-2 py-2 text-xs font-semibold tracking-wide text-muted uppercase sm:px-3',
+							column.numeric ? 'text-right' : 'text-left',
+							column.phoneWidth && `${column.phoneWidth} sm:w-auto`,
+							column.phoneHidden && 'hidden sm:table-cell'
+						)}
 					>
 						<a
 							href={headerHref(column)}
@@ -180,23 +199,34 @@
 					class="motion-row-arrive border-b border-line transition-colors last:border-b-0 focus-within:bg-accent-bg"
 					style={`animation-delay: ${Math.min(i, 11) * 40}ms`}
 				>
-					<td class="max-w-measure px-3 py-2">
+					<td class="max-w-measure px-2 py-2 align-middle sm:px-3">
 						<a
 							data-row-link
 							href={resolve(`/w/${universeSlug}/e/${row.slug}`)}
-							class="font-medium text-ink underline decoration-line-2 decoration-1 underline-offset-2 transition-colors hover:text-accent"
+							title={row.name}
+							class="block min-h-11 truncate py-3 font-medium text-ink underline decoration-line-2 decoration-1 underline-offset-2 transition-colors hover:text-accent sm:inline sm:min-h-0 sm:overflow-visible sm:py-0 sm:whitespace-normal"
 						>
 							{row.name}
 						</a>
 					</td>
-					<td class="px-3 py-2">
+					<td class="w-32 px-2 py-2 align-middle sm:w-auto sm:px-3">
 						<Badge variant="secondary" class="font-mono uppercase">
 							{filtersT.typeLabel(row.type)}
 						</Badge>
 					</td>
-					<td class="px-3 py-2 text-right text-ink-2 tabular-nums">{row.relationCount}</td>
-					<td class="px-3 py-2 text-right text-ink-2 tabular-nums">{row.factCount}</td>
-					<td class="px-3 py-2 text-right text-nowrap text-muted tabular-nums">
+					<td
+						class="hidden px-3 py-2 text-right align-middle text-ink-2 tabular-nums sm:table-cell"
+					>
+						{row.relationCount}
+					</td>
+					<td
+						class="hidden px-3 py-2 text-right align-middle text-ink-2 tabular-nums sm:table-cell"
+					>
+						{row.factCount}
+					</td>
+					<td
+						class="w-28 px-2 py-2 text-right align-middle text-nowrap text-muted tabular-nums sm:w-auto sm:px-3"
+					>
 						{relativeTime(row.updatedAt, relativeTimeT)}
 					</td>
 				</tr>
@@ -206,15 +236,21 @@
 </div>
 
 <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
-	<span class="flex items-center gap-1.5">
-		<kbd class="rounded border border-line-2 bg-panel-2 px-1 font-mono">j</kbd>
-		<kbd class="rounded border border-line-2 bg-panel-2 px-1 font-mono">k</kbd>
-		{t.moveHint}
-	</span>
-	<span class="flex items-center gap-1.5">
-		<kbd class="rounded border border-line-2 bg-panel-2 px-1 font-mono">&crarr;</kbd>
-		{t.openHint}
-	</span>
+	<!-- Issue #148: bare `j`/`k`/`↵` hints name keys a phone does not have. Every other
+	     surface with a keyboard hint (CommandPalette, ProposalQueue, InlineProposalReview)
+	     already hides its own behind the shared `KeyHint` component's `sm:flex` default -
+	     this footer hand-rolled the same two spans and never got the same treatment. -->
+	<div class="hidden items-center gap-4 sm:flex">
+		<span class="flex items-center gap-1.5">
+			<kbd class="rounded border border-line-2 bg-panel-2 px-1 font-mono">j</kbd>
+			<kbd class="rounded border border-line-2 bg-panel-2 px-1 font-mono">k</kbd>
+			{t.moveHint}
+		</span>
+		<span class="flex items-center gap-1.5">
+			<kbd class="rounded border border-line-2 bg-panel-2 px-1 font-mono">&crarr;</kbd>
+			{t.openHint}
+		</span>
+	</div>
 	<span class="ml-auto tabular-nums">
 		{t.range(pageWindow.from, pageWindow.to, matchedCount)} &middot; {t.pageOf(
 			pageWindow.page,
@@ -225,7 +261,7 @@
 		{#if pageWindow.page > 1}
 			<a
 				href={`${base}${browseQuery(params, { page: pageWindow.page - 1 })}`}
-				class="rounded-md border border-line-2 px-2 py-1 font-medium text-ink-2 hover:text-ink"
+				class="flex min-h-11 items-center rounded-md border border-line-2 px-2 py-1 font-medium text-ink-2 hover:text-ink sm:min-h-0"
 			>
 				{t.previousPage}
 			</a>
@@ -233,7 +269,7 @@
 		{#if pageWindow.page < pageWindow.pages}
 			<a
 				href={`${base}${browseQuery(params, { page: pageWindow.page + 1 })}`}
-				class="rounded-md border border-line-2 px-2 py-1 font-medium text-ink-2 hover:text-ink"
+				class="flex min-h-11 items-center rounded-md border border-line-2 px-2 py-1 font-medium text-ink-2 hover:text-ink sm:min-h-0"
 			>
 				{t.nextPage}
 			</a>
