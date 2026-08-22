@@ -1399,6 +1399,23 @@ export const en: Messages = {
 			layersAriaLabel: 'Ambient layers'
 		},
 
+		deck: {
+			regionLabel: 'Table deck',
+			stripLabel: 'Jump to a card',
+			roleDescription: 'card',
+			positionOf: (current, total, name) => `${current} of ${total} - ${name}`,
+			placeKind: 'Where the party is',
+			placeBriefEmpty: 'No brief warmed for this place yet.',
+			briefMissing: 'No brief warmed for this pin yet.',
+			briefEmpty: 'The warm brief has no text yet.',
+			briefMayBeOutdated: 'may be outdated',
+			pendingProposal: 'Pending proposal',
+			openEntry: 'Open the entry',
+			revealing: 'Marking as revealed…',
+			revealed: 'Revealed',
+			noteFormLabel: (name) => `Note about ${name}`
+		},
+
 		home: {
 			noContextDeclared: 'Declare a place to pin its main characters and relations.',
 			choosePlace: 'Choose a place',
