@@ -1670,7 +1670,17 @@ export interface Messages {
 				noteSaved: (targetName: string) => string;
 			};
 			draftingNpc: string;
-			actionFailed: (action: string, reason: string) => string;
+			/** Issue #576: one complete sentence per action that can fail, not a label
+			 * plus a shared suffix. The composed shape made the Italian participle agree
+			 * with an interpolated label whose gender the catalogue cannot know ("+ Luogo
+			 * non riuscita"), and no wording fixes that. The three keys are the three
+			 * actions `/table/actions` accepts, so the set is closed and a translator can
+			 * read every sentence it will ever produce. */
+			actionFailed: {
+				npc: (reason: string) => string;
+				location: (reason: string) => string;
+				reveal: (reason: string) => string;
+			};
 			unknownReason: string;
 			savedAsProposal: (via: string) => string;
 			savedAsProposalScaffold: (via: string) => string;

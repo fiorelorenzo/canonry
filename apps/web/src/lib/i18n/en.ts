@@ -1473,7 +1473,11 @@ export const en: Messages = {
 				noteSaved: (targetName) => `Note saved on ${targetName}`
 			},
 			draftingNpc: 'Drafting an NPC…',
-			actionFailed: (action, reason) => `${action} failed: ${reason}`,
+			actionFailed: {
+				npc: (reason) => `Could not draft an NPC here: ${reason}`,
+				location: (reason) => `Could not create that child place: ${reason}`,
+				reveal: (reason) => `Could not mark the place as revealed: ${reason}`
+			},
 			unknownReason: 'unknown reason',
 			savedAsProposal: (via) => `Saved as a proposal (${via})`,
 			savedAsProposalScaffold: (via) =>
