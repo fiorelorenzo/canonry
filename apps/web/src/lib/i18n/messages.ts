@@ -1936,13 +1936,24 @@ export interface Messages {
 			heading: string;
 			newUniverse: string;
 		};
+		/** Issue #531, W3 = B (DECISIONS.md "Round eighteen"): reverses U11. The dock asks
+		 * now (`QuickAsk.svelte`, `shell.quickAsk`); this namespace is what a stored answer
+		 * says wherever it is shown - the per-answer vocabulary (`sourcesNote`,
+		 * `ownCanonLabel`, `propose`, `keep`) shared with the dock, and `history` below,
+		 * this page's own searchable record. `placeholder`/`placeholderFollowUp`/`ask`/
+		 * `asking`/`close`/`loading`/`disclosure`/`emptyState`/`kept` were the old
+		 * composer's own (`AskConversation.svelte`, deleted): `close`/`loading` moved to
+		 * the record's own G5 side panel, `detailLevelLabel`/`levels` moved beside the
+		 * dock's own composer, and the rest go unread now - kept rather than deleted,
+		 * since a shared i18n file never deletes a key a concurrent edit might still be
+		 * touching (said again in the PR body). */
 		ask: {
 			headTitle: (universeName: string) => string;
 			crumb: (universeName: string) => string;
 			placeholder: string;
-			/** Issue #455, decision U11: once the conversation already has a turn, the
-			 * composer's placeholder says "follow-up" rather than repeating the opening
-			 * invitation. */
+			/** Issue #455, decision U11: once the conversation already had a turn, the old
+			 * composer's placeholder said "follow-up" rather than repeating the opening
+			 * invitation. Unread since #531 deleted that composer. */
 			placeholderFollowUp: string;
 			ask: string;
 			asking: string;
@@ -1950,8 +1961,9 @@ export interface Messages {
 			questionRequired: string;
 			methodNotAllowed: string;
 			noLiveModel: string;
-			/** Issue #455, decision U11 (C8 kept): the visible label and the `aria-label`
-			 * on the five-level group beside the composer. */
+			/** Issue #531, W3 = B: C8's five detail levels moved from this page's own
+			 * composer to the dock's - the visible label and the `aria-label` on the
+			 * five-level group beside `QuickAsk.svelte`'s composer now. */
 			detailLevelLabel: string;
 			levels: {
 				'1_line': string;
@@ -1974,18 +1986,19 @@ export interface Messages {
 			 * says so, on the conversation view, rather than dropping the citation and making
 			 * an old answer look less grounded than it was. */
 			deletedEntry: string;
+			/** Issue #531: the record page's own row meta line - "how many sources", beside
+			 * when a turn was asked. */
+			sourceCount: (count: number) => string;
+			/** Issue #531, W3 = B: the record's own G5 side panel - a source click opens this
+			 * rather than navigating, exactly as it always has (G5 is unamended by the
+			 * reversal). */
 			close: string;
 			loading: string;
-			/** Issue #455, decision U11: guardrail 5's disclosure for this page, said once
-			 * above the message list - the same placement T10 gave the docked panel's own
-			 * copy, "the first thing... read before anything is asked" - rather than on a
-			 * card after every turn. Ends in the same policy link `keep.noteLinkBefore`/
-			 * `noteLink` already carries. */
+			/** Issue #455, decision U11. Unread since #531 deleted the composer this was
+			 * written for; guardrail 5's disclosure lives in `history.note` now. */
 			disclosure: string;
-			/** Issue #455, decision U11: the empty state a fresh conversation opens on,
-			 * replacing the old empty question box - a welcome sentence plus deterministic
-			 * suggestions (`shell.quickAsk.suggestions`, the same catalogue R6 built for the
-			 * dock, reused rather than duplicated). */
+			/** Issue #455, decision U11. Unread since #531 deleted the composer this was
+			 * written for. */
 			emptyState: {
 				heading: string;
 				body: (universeName: string) => string;
@@ -2008,8 +2021,7 @@ export interface Messages {
 			 * every turn is kept automatically now, so nothing here is a button's own label
 			 * any more. What is left: the server's own rejection wording for a malformed
 			 * `POST .../ask/keep`, the quiet line a failed auto-keep shows beside its turn
-			 * (`failed`), and the guardrail 5 policy link `disclosure` above and the docked
-			 * panel's own copy both end in. */
+			 * (`failed`), and the guardrail 5 policy link `history.note` ends in. */
 			keep: {
 				failed: string;
 				invalidRequest: string;
@@ -2019,11 +2031,8 @@ export interface Messages {
 				noteLink: string;
 				historyLink: string;
 			};
-			/** #290, reshaped by #437 (T10) into a conversation list and by #455 (U11) into
-			 * this list's real job now that `/ask` itself renders a conversation: an index
-			 * card per conversation, its first question as the heading and a turn count as
-			 * the only other line, linking into the conversation itself rather than
-			 * rendering every turn's question, answer and sources a second time here. */
+			/** #290, reshaped by #437 (T10) into a conversation list. Unread since #531
+			 * (W3 = B) gave `/ask` itself this same job directly, as `history` below. */
 			kept: {
 				headTitle: (universeName: string) => string;
 				crumb: (universeName: string) => string;
@@ -2034,6 +2043,38 @@ export interface Messages {
 				turnCount: (count: number) => string;
 				delete: string;
 				deleteConfirmPrompt: string;
+				deleteConfirmCancel: string;
+				deleteFailed: string;
+				deleteNotFound: string;
+			};
+			/** Issue #531, W3 = B: `/ask` itself, reshaped from a composer into the record -
+			 * one row per answer (question as heading, when it was asked, how many sources,
+			 * the answer's first line), grouped by conversation past one turn, searchable by
+			 * substring over the question and the answer, with a delete that names what it
+			 * removes. `/ask/kept` redirects here (renders nothing of its own any more);
+			 * `/ask/[conversationId]` reuses every field below scoped to one conversation. */
+			history: {
+				headTitle: (universeName: string) => string;
+				crumb: (universeName: string) => string;
+				heading: string;
+				/** Guardrail 5's disclosure, read once at the top of the page as a single
+				 * standing line - not the boxed two-paragraph card this page used to carry.
+				 * Ends in `keep.noteLinkBefore`/`keep.noteLink`. */
+				note: string;
+				searchPlaceholder: string;
+				searchClear: string;
+				/** `kept_answer` already holds the question and the answer as text, so this
+				 * is a free substring match, not a ranked search - counts matching answers
+				 * (rows), not conversations. */
+				searchResultCount: (query: string, count: number) => string;
+				emptyColdMessage: string;
+				emptySearchMessage: (query: string) => string;
+				turnCount: (count: number) => string;
+				delete: string;
+				/** Issue #531: deletion asks first and says what goes - the whole
+				 * conversation's own turn count, not however many rows a live search
+				 * currently leaves visible. */
+				deleteConfirmPrompt: (turnCount: number) => string;
 				deleteConfirmCancel: string;
 				deleteFailed: string;
 				deleteNotFound: string;

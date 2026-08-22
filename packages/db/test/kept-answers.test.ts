@@ -330,6 +330,64 @@ describe('kept answers', () => {
 		expect(solo!.turns[0]!.question).toBe('A completely unrelated question?');
 	});
 
+	// Issue #531, W3 = B: the record page's search - a case-insensitive substring match
+	// against the question or the answer, scoped to rows only (a follow-up that does not
+	// match drops out of its conversation the same way an unmatched standalone turn drops
+	// out of the list entirely).
+	it('filters conversations by a case-insensitive substring match on question or answer', async () => {
+		const { u, cited, keeper } = await fixture();
+		const conversationId = crypto.randomUUID();
+		await keepAnswer(db, {
+			...input(u, keeper, cited.id),
+			conversationId,
+			question: 'Who holds the Ashen Ledger to account?',
+			answer: 'Aldric Vane does, by keeping it afraid.'
+		});
+		await keepAnswer(db, {
+			...input(u, keeper, cited.id),
+			conversationId,
+			question: 'What does the dragon want with the harbour?',
+			answer: 'Nobody has asked it yet.'
+		});
+		await keepAnswer(db, {
+			...input(u, keeper, cited.id),
+			question: 'Where is the Sunken Library?',
+			answer: 'Beneath the tide pools east of Vasa.'
+		});
+
+		const byQuestion = await listKeptConversations(db, {
+			universeId: u.id,
+			keptBy: keeper,
+			query: 'dragon'
+		});
+		expect(byQuestion).toHaveLength(1);
+		expect(byQuestion[0]!.turns.map((t) => t.question)).toEqual([
+			'What does the dragon want with the harbour?'
+		]);
+
+		// Matches the answer text too, case-insensitively, and unrelated casing.
+		const byAnswer = await listKeptConversations(db, {
+			universeId: u.id,
+			keptBy: keeper,
+			query: 'TIDE POOLS'
+		});
+		expect(byAnswer).toHaveLength(1);
+		expect(byAnswer[0]!.turns[0]!.question).toBe('Where is the Sunken Library?');
+
+		// No hits at all: an empty result, not an error.
+		expect(
+			await listKeptConversations(db, { universeId: u.id, keptBy: keeper, query: 'kraken' })
+		).toEqual([]);
+
+		// Whitespace-only is the same as no query.
+		const unfiltered = await listKeptConversations(db, {
+			universeId: u.id,
+			keptBy: keeper,
+			query: '   '
+		});
+		expect(unfiltered).toHaveLength(2);
+	});
+
 	// Issue #455, decision U11: the read `/w/[universe]/ask/[conversationId]` needs -
 	// oldest first, the order the conversation actually happened in, with each turn's own
 	// sources resolved exactly like every other read in this module.

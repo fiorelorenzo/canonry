@@ -1789,6 +1789,14 @@ export const it: Messages = {
 			sourcesEmpty:
 				'Niente da citare. Nessuna voce corrisponde alle parole di questa domanda, quindi questa risposta non si appoggia a nulla del tuo canone.',
 			deletedEntry: 'Questa voce è stata eliminata nel frattempo.',
+			sourceCount: (count) => {
+				const n = numberFormat('it', {
+					maximumFractionDigits: 0,
+					useGrouping: 'always'
+				}).format(count);
+				const form = pluralRules('it').select(Math.round(count));
+				return form === 'one' ? `${n} fonte` : `${n} fonti`;
+			},
 			close: 'Chiudi',
 			loading: 'Caricamento…',
 			disclosure:
@@ -1840,6 +1848,43 @@ export const it: Messages = {
 				},
 				delete: 'Elimina',
 				deleteConfirmPrompt: 'Eliminare questa intera conversazione definitivamente?',
+				deleteConfirmCancel: 'Annulla',
+				deleteFailed: 'Non è stato possibile eliminare questa conversazione.',
+				deleteNotFound: 'Questa conversazione non esiste più.'
+			},
+			history: {
+				headTitle: (universeName) => `Conversazioni: ${universeName}`,
+				crumb: (universeName) => `Conversazioni · ${universeName}`,
+				heading: 'Conversazioni',
+				note: 'Il Loremaster conserva automaticamente ogni domanda e risposta, come una tua nota raggruppata per conversazione. Nulla qui entra a fare parte di una voce senza una proposta che accetti, i giocatori non la vedono, e una conversazione resta finché non la elimini.',
+				searchPlaceholder: 'Cerca cosa hai chiesto…',
+				searchClear: 'Cancella ricerca',
+				searchResultCount: (query, count) => {
+					const answers =
+						count === 1 ? '1 risposta corrisponde a' : `${count} risposte corrispondono a`;
+					return `${answers} "${query}".`;
+				},
+				emptyColdMessage:
+					'Ancora nulla. Chiedi qualcosa al Loremaster dal pannello, e comparirà qui.',
+				emptySearchMessage: (query) => `Nessuna risposta corrisponde a "${query}".`,
+				turnCount: (count) => {
+					const n = numberFormat('it', {
+						maximumFractionDigits: 0,
+						useGrouping: 'always'
+					}).format(count);
+					const form = pluralRules('it').select(Math.round(count));
+					return form === 'one' ? `${n} scambio` : `${n} scambi`;
+				},
+				delete: 'Elimina',
+				deleteConfirmPrompt: (turnCount) => {
+					const n = numberFormat('it', {
+						maximumFractionDigits: 0,
+						useGrouping: 'always'
+					}).format(turnCount);
+					const form = pluralRules('it').select(Math.round(turnCount));
+					const exchanges = form === 'one' ? `${n} scambio` : `${n} scambi`;
+					return `Eliminare questa conversazione e i suoi ${exchanges} in modo definitivo? Non si può annullare.`;
+				},
 				deleteConfirmCancel: 'Annulla',
 				deleteFailed: 'Non è stato possibile eliminare questa conversazione.',
 				deleteNotFound: 'Questa conversazione non esiste più.'

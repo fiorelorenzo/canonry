@@ -88,6 +88,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { messages, type Locale } from '$lib/i18n';
+	import { stripMentionSyntax } from '$lib/markdown';
 	import { formatShortcut, matchesShortcut, SHORTCUTS } from '$lib/keys';
 	import { ASK_DETAIL_LEVELS, keepAnswer, streamAsk, type AskDetailLevel } from '$lib/ask/stream';
 	import type { UniverseSummary } from '$lib/components/shell/types';
@@ -246,6 +247,21 @@
 		await tick();
 		pillEl?.focus();
 	}
+
+	/** Issue #531, W3 = B: the global command palette's own typed-question row
+	 * (`CommandPalette.svelte`, dialog placement) used to hand a question straight to
+	 * the route at `/ask?q=...`, which answered it inline - the composer that used to
+	 * live there is gone, so C8's "the palette launches the flow" now means launching
+	 * this panel instead. The palette sets `quickAskState.pendingQuestion` and closes
+	 * itself; this effect is the one place that reads it, so there is exactly one
+	 * `ask()` call site regardless of which surface started it. */
+	$effect(() => {
+		const pending = quickAskState.pendingQuestion;
+		if (pending === null) return;
+		quickAskState.pendingQuestion = null;
+		open();
+		void ask(pending);
+	});
 
 	async function ask(nextQuestion: string) {
 		const q = nextQuestion.trim();
@@ -645,7 +661,7 @@
 											{#if source.kind === 'own_canon'}
 												<a
 													href={resolve(`/w/${universeSlug}/e/${source.entitySlug}`)}
-													title={source.statement}
+													title={stripMentionSyntax(source.statement)}
 													class="inline-flex max-w-56 items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-xs text-ink hover:bg-accent-bg"
 												>
 													<span class="truncate">{source.entityName}</span>

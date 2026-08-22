@@ -488,7 +488,7 @@
 				<div class="border-t border-line pt-4">
 					<p class="max-w-measure text-sm text-ink-2">{t.loremasterConversations.text}</p>
 					<a
-						href={resolve(`/w/${data.current.slug}/ask/kept`)}
+						href={resolve(`/w/${data.current.slug}/ask`)}
 						class="mt-2 inline-block text-sm text-accent hover:underline"
 						>{t.loremasterConversations.link}</a
 					>

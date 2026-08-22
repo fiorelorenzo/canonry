@@ -10,10 +10,15 @@
 	 * Three result kinds, exactly A3 = C's decision: jump to an entry (server side
 	 * name/alias search only, `palette-search/+server.ts` - never the fast/vector lane,
 	 * out of scope for this issue), run an action (nav destinations, New entry, New
-	 * universe, the settings panes - `actions.ts`), and a typed question, which routes
-	 * to Ask rather than answering inline (C8, G5) - `question.ts`'s classifier decides
-	 * whether that row shows, and the matching entity still renders underneath it, "in
-	 * case a name was meant" (A3's own mock).
+	 * universe, the settings panes - `actions.ts`), and a typed question - `question.ts`'s
+	 * classifier decides whether that row shows, and the matching entity still renders
+	 * underneath it, "in case a name was meant" (A3's own mock). Issue #531, W3 = B: the
+	 * question row used to link straight to `/ask?q=...`, which answered it inline on
+	 * that page (C8). That page stopped being a composer - the dock is where a GM asks
+	 * now - so selecting the row sets `quickAskState.pendingQuestion` and closes this
+	 * dialog instead; `QuickAsk.svelte`'s own effect is what actually asks it. C8 still
+	 * holds: the palette launches the flow, it just launches the panel rather than a
+	 * page.
 	 *
 	 * Issue #285 (decision O3) grows the second placement this component was always
 	 * going to need: `placement="docked"` renders the same `Command.Root` and the same
@@ -84,6 +89,7 @@
 	import { filterActions, paletteActions } from './actions';
 	import { looksLikeQuestion } from './question';
 	import { paletteState } from './palette-state.svelte';
+	import { quickAskState } from '$lib/components/copilot/quick-ask-state.svelte';
 
 	let {
 		mode,
@@ -147,11 +153,6 @@
 	const trimmedQuery = $derived(query.trim());
 	const isQuestion = $derived(looksLikeQuestion(query));
 	const actions = $derived(filterActions(paletteActions(mode, universeSlug, locale), query));
-	const askHref = $derived(
-		universeSlug
-			? `${resolve(`/w/${universeSlug}/ask`)}?q=${encodeURIComponent(trimmedQuery)}`
-			: null
-	);
 	const showResults = $derived(
 		docked ? trimmedQuery.length > 0 && trimmedQuery !== askedQuery : true
 	);
@@ -219,6 +220,16 @@
 	function rowSelected() {
 		if (docked) onNavigate?.();
 		else closePalette();
+	}
+
+	/** Issue #531, W3 = B: the dialog placement's own typed-question row, dialog mode
+	 * only - the docked placement has no such row (S11, `ask()` below already sends
+	 * whatever is in the box). Hands the question to the dock rather than navigating,
+	 * since the dock is what asks now - see this file's own header comment. */
+	function askElsewhere() {
+		if (trimmedQuery.length === 0) return;
+		quickAskState.pendingQuestion = trimmedQuery;
+		closePalette();
 	}
 
 	function ask() {
@@ -309,13 +320,13 @@
 				{/if}
 			{/if}
 		{:else}
-			{#if isQuestion && askHref}
+			{#if isQuestion && universeSlug}
 				<Command.Group heading={t.askHeading}>
-					<Command.LinkItem href={askHref} onSelect={rowSelected}>
+					<Command.Item value={`ask:${trimmedQuery}`} onSelect={askElsewhere}>
 						<span aria-hidden="true">✦</span>
 						<span class="min-w-0 truncate">{t.askAction(trimmedQuery)}</span>
 						<Command.Shortcut>{t.askHint}</Command.Shortcut>
-					</Command.LinkItem>
+					</Command.Item>
 				</Command.Group>
 			{/if}
 
