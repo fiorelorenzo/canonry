@@ -119,7 +119,7 @@
 									href={source.url}
 									target="_blank"
 									rel="noreferrer"
-									title={source.statement}
+									title={stripMentionSyntax(source.statement)}
 									class="inline-flex max-w-64 items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-label"
 								>
 									<span class="shrink-0 text-label text-ink-2">{t.indexedBadge}</span>
