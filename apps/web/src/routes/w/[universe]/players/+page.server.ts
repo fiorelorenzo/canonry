@@ -8,6 +8,9 @@
  * shape is still exactly what its other caller (a future universe-wide feed) would want.
  * `listPublicEntities` still answers what is still behind the screen
  * (`/p/[universe]`'s own index query, filtered to the entries it renders as a gap page).
+ * #537: that query now excludes `'session'` entities outright, so a night at the table
+ * never shows up in this list beside a genuine gap - a session is not a thing the party
+ * discovers by name, it is when they discovered things.
  * Guardrail 6: this is GM chrome reading GM data, never a second renderer of
  * `/p/[universe]` - it shows the GM the same facts that route would eventually show a
  * player, not that route's own prose.
@@ -67,15 +70,24 @@ interface SessionGroup {
 }
 
 /** Folds the flat, newest-first log into session groups, newest session first. Grouped by
- * `sessionName` rather than a session id: `RevelationLogEntry` (w530's own query) never
- * carried one, since the public wiki has no use for it either - a display string is all
- * either surface renders. Every row with no session (`sessionEntityId` null - a live tap
- * whose session entity was later deleted, or none was ever declared) collects into one
- * "untracked" group instead of scattering across as many one-row groups. */
-function groupBySession(items: Array<LogItem & { sessionName: string | null }>): SessionGroup[] {
+ * `sessionId` now (#537), not by `sessionName`: two sessions sharing a name - a GM naming
+ * things "Session 1" in two arcs - used to merge into one group under the display string,
+ * because `revelationLogForUniverse` (w530's own query) carried only the name. The id was
+ * always sitting in `revelation.session_entity_id`; #537 has the query select it alongside
+ * the name it already joins for, in `packages/db`, since that is where the foreign key
+ * lives and where every other id/name pair in this file's rows comes from. The grouping
+ * itself stays here rather than moving into the query: #536 already reasoned that this
+ * route is the only reader that needs groups, and #537 changes only which column it groups
+ * on, not who owns the grouping. Every row with no session (`sessionEntityId` null - a live
+ * tap whose session entity was later deleted, or none was ever declared) still collects
+ * into one "untracked" group instead of scattering across as many one-row groups: null
+ * carries no identity to split on either. */
+function groupBySession(
+	items: Array<LogItem & { sessionId: string | null; sessionName: string | null }>
+): SessionGroup[] {
 	const groups = new Map<string, SessionGroup>();
-	for (const { sessionName, ...item } of items) {
-		const key = sessionName ?? '';
+	for (const { sessionId, sessionName, ...item } of items) {
+		const key = sessionId ?? '';
 		let group = groups.get(key);
 		if (!group) {
 			group = { key, sessionName, latestAt: item.confirmedAt, items: [] };
@@ -104,25 +116,28 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		revealed: statusBySlug.get(ref.slug) === 'full'
 	});
 
-	const mappedLog = log.map((entry): LogItem & { sessionName: string | null } =>
-		entry.kind === 'relation'
-			? {
-					id: entry.id,
-					kind: entry.kind,
-					confirmedAt: entry.confirmedAt,
-					sessionName: entry.sessionName,
-					relationLabel: entry.relationLabel,
-					from: revealedRef(entry.from),
-					to: revealedRef(entry.to)
-				}
-			: {
-					id: entry.id,
-					kind: entry.kind,
-					confirmedAt: entry.confirmedAt,
-					sessionName: entry.sessionName,
-					label: entry.label,
-					entity: revealedRef(entry.entity)
-				}
+	const mappedLog = log.map(
+		(entry): LogItem & { sessionId: string | null; sessionName: string | null } =>
+			entry.kind === 'relation'
+				? {
+						id: entry.id,
+						kind: entry.kind,
+						confirmedAt: entry.confirmedAt,
+						sessionId: entry.sessionId,
+						sessionName: entry.sessionName,
+						relationLabel: entry.relationLabel,
+						from: revealedRef(entry.from),
+						to: revealedRef(entry.to)
+					}
+				: {
+						id: entry.id,
+						kind: entry.kind,
+						confirmedAt: entry.confirmedAt,
+						sessionId: entry.sessionId,
+						sessionName: entry.sessionName,
+						label: entry.label,
+						entity: revealedRef(entry.entity)
+					}
 	);
 
 	const hiddenEntities = entities.filter((entity) => entity.status === 'gap');

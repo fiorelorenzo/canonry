@@ -11,6 +11,7 @@ import {
 	revealEntityLive,
 	revealFactLive,
 	revealRelationLive,
+	revelationLogForUniverse,
 	setEntityCover,
 	setMediaAssetGmOnly,
 	type Db
@@ -187,6 +188,88 @@ describe('players', () => {
 			const aldricRow = rows.find((r) => r.id === aldric.id);
 			expect(aldricRow?.status).toBe('full');
 			expect(aldricRow?.revealedAt).toBeInstanceOf(Date);
+		});
+
+		// #537: a session entity is itself `revealable` by default and can carry its own
+		// confirmed 'entity' revelation (a GM revealing "tonight happened" as a fact), but
+		// it is not a thing the party discovers by name the way a person or a place is -
+		// it is when they discovered things - so it must never show up in this index,
+		// confirmed or not.
+		it('never includes a session entity, confirmed or not', async () => {
+			const { u, session } = await worldFixture();
+			const before = await listPublicEntities(db, u.id);
+			expect(before.map((r) => r.id)).not.toContain(session.id);
+
+			await revealEntityLive(db, {
+				universeId: u.id,
+				entityId: session.id,
+				sessionEntityId: session.id
+			});
+			const after = await listPublicEntities(db, u.id);
+			expect(after.map((r) => r.id)).not.toContain(session.id);
+		});
+	});
+
+	// #537: `RevelationLogEntry` used to carry only a session's display name, so the GM
+	// players page grouped revelations by that string - two sessions sharing a name
+	// (a GM naming things "Session 1" in two arcs) would merge into one group. The id
+	// was always available on `revelation.session_entity_id`; these prove the query now
+	// selects it.
+	describe('revelationLogForUniverse', () => {
+		it("carries each row's real session id alongside its display name", async () => {
+			const { u, session, aldric } = await worldFixture();
+			const revealed = await revealEntityLive(db, {
+				universeId: u.id,
+				entityId: aldric.id,
+				sessionEntityId: session.id
+			});
+			const rows = await revelationLogForUniverse(db, u.id);
+			const row = rows.find((r) => r.id === revealed.id);
+			expect(row?.sessionId).toBe(session.id);
+			expect(row?.sessionName).toBe('Session 1');
+		});
+
+		it('gives two same-named sessions distinct ids, so a caller can group by identity rather than by string', async () => {
+			const { u, aldric } = await worldFixture();
+			const [sessionA] = await db
+				.insert(entity)
+				.values({
+					universeId: u.id,
+					type: 'session',
+					name: 'Session 1',
+					slug: unique('session-a')
+				})
+				.returning();
+			const [sessionB] = await db
+				.insert(entity)
+				.values({
+					universeId: u.id,
+					type: 'session',
+					name: 'Session 1',
+					slug: unique('session-b')
+				})
+				.returning();
+			if (!sessionA || !sessionB) throw new Error('fixture setup failed');
+
+			const revealedA = await revealEntityLive(db, {
+				universeId: u.id,
+				entityId: aldric.id,
+				sessionEntityId: sessionA.id
+			});
+			const revealedB = await revealEntityLive(db, {
+				universeId: u.id,
+				entityId: aldric.id,
+				sessionEntityId: sessionB.id
+			});
+
+			const rows = await revelationLogForUniverse(db, u.id);
+			const rowA = rows.find((r) => r.id === revealedA.id);
+			const rowB = rows.find((r) => r.id === revealedB.id);
+			expect(rowA?.sessionName).toBe('Session 1');
+			expect(rowB?.sessionName).toBe('Session 1');
+			expect(rowA?.sessionId).toBe(sessionA.id);
+			expect(rowB?.sessionId).toBe(sessionB.id);
+			expect(rowA?.sessionId).not.toBe(rowB?.sessionId);
 		});
 	});
 
