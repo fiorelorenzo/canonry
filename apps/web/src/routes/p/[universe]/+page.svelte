@@ -1,43 +1,114 @@
 <script lang="ts">
 	/**
-	 * V7 (DECISIONS.md, round seventeen): only what the party has revealed is listed here.
-	 * An unrevealed entity used to appear as a greyed-out row naming it; that published the
-	 * shape of the world before anyone at the table had heard of it, which is the one thing
-	 * a players' wiki must not do. A gap page for an unrevealed entity is still reachable by
-	 * its own URL (E7) - a mention inside revealed prose still links to it - it is just not
-	 * enumerated for browsing. At the start of a campaign this list is honestly empty.
+	 * #530, decision "W2 = A the campaign diary" (round eighteen): the players' wiki index
+	 * is the sessions the party has met, newest first, each carrying the GM's own prose and
+	 * what the table learned that night - not an alphabetical name list (V7, round
+	 * seventeen, superseded here as the whole surface's shape). `data.sessions` is already
+	 * `loadPlayerDiary`'s player-safe shape: guardrail 6 decided *which* sessions and *which*
+	 * revelations inside them appear before this template ever runs, same as every other
+	 * `/p/**` page in this directory.
 	 *
-	 * Issue #127: `t` is chrome, in the visitor's negotiated `data.locale` - the entity
-	 * `name`s below are canon, never touched by it (SPEC.md §17's third rule: an entry's
-	 * own language is not the reader's to overrule).
+	 * A session's own body is canon prose (guardrail 6's own note for this round): it goes
+	 * through `EntryProse` exactly like an entry's, `:::secret`/`:::gmnote` already stripped
+	 * by the server load, no second filter drawn here. E7's rule still governs an
+	 * unrevealed session - it simply is not in `data.sessions` at all - and a revelation
+	 * naming an entry the party has not read yet links straight to that entry's own gap
+	 * page (E7), the same link `PublicRelationsList` already draws.
+	 *
+	 * Issue #127: `t` is chrome, in the visitor's negotiated `data.locale`. Every session
+	 * `name`, every revealed entry `name`/`label`, and the session's own prose are canon -
+	 * never touched by it (SPEC.md §17's third rule).
 	 */
 	import { resolve } from '$app/paths';
-	import { messages } from '$lib/i18n';
+	import { dateFormat, messages } from '$lib/i18n';
 	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import { EmptyState } from '$lib/components/ui/empty-state';
+	import EntryProse from '$lib/components/entry/EntryProse.svelte';
+	import EntryCover from '$lib/components/media/EntryCover.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 	let t = $derived(messages(data.locale));
+
+	function formatWhen(value: Date | string): string {
+		const date = typeof value === 'string' ? new Date(value) : value;
+		return dateFormat(data.locale, { dateStyle: 'long' }).format(date);
+	}
 </script>
 
 <svelte:head><title>{t.players.indexTitle} &middot; {data.universe.name}</title></svelte:head>
 
 <PageHeader title={t.players.indexTitle} description={t.players.indexSubtitle} />
 <PageBody width="reading">
-	{#if data.entities.length === 0}
+	{#if data.sessions.length === 0}
 		<EmptyState kind="cold" message={t.players.emptyState} />
 	{:else}
-		<ul class="divide-y divide-line">
-			{#each data.entities as row (row.id)}
-				<li class="flex items-center gap-3 py-3">
-					<a
-						href={resolve(`/p/${data.universe.slug}/${row.slug}`)}
-						class="text-base font-medium text-ink hover:text-accent"
-					>
-						{row.name}
-					</a>
-					<span class="text-xs tracking-wide text-muted uppercase">{row.type}</span>
+		<ul class="flex flex-col divide-y divide-line">
+			{#each data.sessions as session (session.id)}
+				<li class="py-8 first:pt-0">
+					<p class="text-meta text-muted">{formatWhen(session.revealedAt)}</p>
+					<h2 class="mt-1 text-title font-semibold text-ink">{session.name}</h2>
+
+					{#if session.coverImageId}
+						<div class="mt-3">
+							<EntryCover
+								src={resolve(`/p/${data.universe.slug}/media/${session.coverImageId}`)}
+								alt={session.name}
+								entityType="session"
+							/>
+						</div>
+					{/if}
+
+					<article lang={session.language ?? undefined} class="mt-3">
+						<EntryProse
+							body={session.body}
+							universeSlug={data.universe.slug}
+							mentionTargets={data.mentionTargets}
+							surface="public"
+							locale={data.locale}
+						/>
+					</article>
+
+					<section class="mt-4">
+						<h3 class="text-label font-semibold tracking-wide text-muted uppercase">
+							{t.players.learnedHeading}
+						</h3>
+						{#if session.revelations.length === 0}
+							<EmptyState kind="settled" message={t.players.learnedEmpty} />
+						{:else}
+							<ul class="mt-2 flex flex-col gap-2">
+								{#each session.revelations as rev (rev.id)}
+									<li class="text-body text-ink-2">
+										{#if rev.kind === 'relation'}
+											<a
+												href={resolve(`/p/${data.universe.slug}/${rev.from.slug}`)}
+												class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
+												>{rev.from.name}</a
+											>
+											{#if rev.from.status === 'gap'}
+												<span class="text-meta text-muted">({t.players.notDiscovered})</span>
+											{/if}
+											{rev.relationLabel}
+											<a
+												href={resolve(`/p/${data.universe.slug}/${rev.to.slug}`)}
+												class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
+												>{rev.to.name}</a
+											>
+											{#if rev.to.status === 'gap'}
+												<span class="text-meta text-muted">({t.players.notDiscovered})</span>
+											{/if}
+										{:else}
+											<a
+												href={resolve(`/p/${data.universe.slug}/${rev.entity.slug}`)}
+												class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
+												>{rev.label}</a
+											>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</section>
 				</li>
 			{/each}
 		</ul>

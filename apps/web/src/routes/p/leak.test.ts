@@ -34,8 +34,7 @@ import {
 	revealEntityLive,
 	revealFactLive,
 	setEntityCover,
-	type Db,
-	type RevealedEntityListItem
+	type Db
 } from '@canonry/db';
 import {
 	entity,
@@ -47,7 +46,7 @@ import {
 	universe,
 	user
 } from '@canonry/db/schema';
-import type { PublicEntityPageData, PublicUniverse } from '$lib/server/players';
+import type { PlayerDiaryData, PublicEntityPageData, PublicUniverse } from '$lib/server/players';
 import type { MentionPreviewData } from '$lib/mentionPreview';
 import { isHttpError } from '@sveltejs/kit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -84,7 +83,35 @@ const GM_ONLY_BODY = 'GM-only body nobody but the table owner should ever read.'
 const UNPUBLISHED_IMAGE_PROMPT = 'a forbidden portrait describing the true villain, never shown';
 const UNPUBLISHED_IMAGE_PATH = '/media/unpublished-leak-test-portrait.png';
 const UNDISCOVERED_NAME = 'The Quiet Cabal';
+// #530: the campaign diary adds a session's own body as a new player-visible surface, so
+// it needs its own fenced secret and GM note - the seeded world's own text (verbatim from
+// `packages/db/src/seed-fixture.ts`'s Ashen Ledger secret), because that is the exact
+// string this round's guardrail 6 note names.
+const SEEDED_WORLD_SECRET =
+	'Aldric Vane, the dismissed captain of the Valdoria Watch, is now on its payroll.';
+const SESSION_GMNOTE_TEXT =
+	'GM only: the harbourmaster already knows and is stalling the watch on purpose.';
+// Positive control for the session body filter: real, safe prose that must survive
+// stripping right beside the fences that must not.
+const SESSION_SAFE_PROSE = 'The party gathered at the harbour to plan the next move.';
+// A session nobody has revealed at all - no self-reveal, and nothing revealed inside it -
+// must not appear in the diary, not its name and not a word of its prose (E7 applied to a
+// session rather than suspended for one).
+const UNREVEALED_SESSION_NAME = 'The Off-Book Session';
+const UNREVEALED_SESSION_PROSE =
+	'A session nobody at the table has heard of yet, played entirely off the books.';
+// A fact can be confirmed without its own subject entity ever being independently
+// revealed (this file's own fixture already proves that gap exists); the diary must drop
+// the fact rather than let it name the still-undiscovered subject.
+const UNDISCOVERED_ENTITY_FACT_STATEMENT =
+	'The Quiet Cabal keeps its ledgers in a false-bottomed drawer nobody has found.';
 
+// `UNREVEALED_SESSION_NAME` is deliberately not in this list: `publicMentionTargets`
+// legitimately carries every non-`gm_only` entity's name and slug, sessions included, the
+// same way it already carries `UNDISCOVERED_NAME` on every other route in this file - a
+// mention inside revealed prose has to resolve to *something*, gap or full. What must
+// never happen is the session appearing in the diary's own enumeration, checked directly
+// against `result.sessions` below, not against the whole payload.
 const BANNED_NEEDLES = [
 	SECRET_TEXT,
 	GMNOTE_TEXT,
@@ -92,7 +119,11 @@ const BANNED_NEEDLES = [
 	GM_ONLY_NAME,
 	GM_ONLY_BODY,
 	UNPUBLISHED_IMAGE_PROMPT,
-	UNPUBLISHED_IMAGE_PATH
+	UNPUBLISHED_IMAGE_PATH,
+	SEEDED_WORLD_SECRET,
+	SESSION_GMNOTE_TEXT,
+	UNREVEALED_SESSION_PROSE,
+	UNDISCOVERED_ENTITY_FACT_STATEMENT
 ];
 
 function assertNoLeak(payload: unknown): void {
@@ -105,6 +136,8 @@ function assertNoLeak(payload: unknown): void {
 describe('players wiki: leak test (#85)', () => {
 	let db: Db;
 	let universeRow: { id: string; ownerUserId: string; slug: string };
+	let sessionEntity: { id: string; slug: string };
+	let unrevealedSessionEntity: { id: string; slug: string };
 	let revealedEntity: { id: string; slug: string };
 	let gmOnlyEntity: { id: string; slug: string };
 	let undiscoveredEntity: { id: string; slug: string };
@@ -132,10 +165,42 @@ describe('players wiki: leak test (#85)', () => {
 		if (!uni) throw new Error('universe insert did not return a row');
 		universeRow = uni;
 
+		const sessionBody = [
+			SESSION_SAFE_PROSE,
+			'',
+			':::secret',
+			SEEDED_WORLD_SECRET,
+			':::',
+			'',
+			':::gmnote',
+			SESSION_GMNOTE_TEXT,
+			':::'
+		].join('\n');
 		const [session] = await db
 			.insert(entity)
-			.values({ universeId: uni.id, type: 'session', name: 'Session 1', slug: unique('session') })
+			.values({
+				universeId: uni.id,
+				type: 'session',
+				name: 'Session 1',
+				slug: unique('session'),
+				body: sessionBody
+			})
 			.returning();
+
+		// #530: never revealed at all, not even a self-reveal, and nothing points to it as
+		// the session a revelation happened in - the diary must not enumerate it and must
+		// not leak a word of its prose.
+		const [unrevealedSession] = await db
+			.insert(entity)
+			.values({
+				universeId: uni.id,
+				type: 'session',
+				name: UNREVEALED_SESSION_NAME,
+				slug: unique('off-book-session'),
+				body: UNREVEALED_SESSION_PROSE
+			})
+			.returning();
+		if (!unrevealedSession) throw new Error('unrevealed session insert did not return a row');
 
 		const body = [
 			'A merchant bank that lends at knife point, holding most of the Lantern Quarter\u2019s debt.',
@@ -181,6 +246,8 @@ describe('players wiki: leak test (#85)', () => {
 		revealedEntity = revealed;
 		gmOnlyEntity = gmOnly;
 		undiscoveredEntity = undiscovered;
+		sessionEntity = session;
+		unrevealedSessionEntity = unrevealedSession;
 
 		// Facts on the revealed entity. One confirmed and safely outside every fence (must
 		// appear), one never revealed (must never appear), and three confirmed ones whose
@@ -264,6 +331,40 @@ describe('players wiki: leak test (#85)', () => {
 		if (!revealedFact || !unrevealedFact || fencedFacts.length !== 3)
 			throw new Error('fact insert failed');
 		fencedFactIds = fencedFacts.map((f) => f.id);
+
+		// #530: a fact can be confirmed without its own subject entity ever being
+		// independently revealed (`unrevealedFact` above proves the reverse gap already);
+		// this is that same gap from the entity's side, and it has to survive the new
+		// per-session "what was learned" list too.
+		const [undiscoveredRevision] = await db
+			.insert(revision)
+			.values({
+				universeId: uni.id,
+				entityId: undiscovered.id,
+				authorKind: 'human',
+				name: UNDISCOVERED_NAME,
+				body: 'Nobody has found this yet.'
+			})
+			.returning();
+		if (!undiscoveredRevision) throw new Error('undiscovered revision insert failed');
+		const [undiscoveredFact] = await db
+			.insert(fact)
+			.values({
+				universeId: uni.id,
+				entityId: undiscovered.id,
+				statement: UNDISCOVERED_ENTITY_FACT_STATEMENT,
+				sourceRevisionId: undiscoveredRevision.id,
+				spanStart: 0,
+				spanEnd: 10,
+				authorKind: 'human'
+			})
+			.returning();
+		if (!undiscoveredFact) throw new Error('undiscovered fact insert failed');
+		await revealFactLive(db, {
+			universeId: uni.id,
+			factId: undiscoveredFact.id,
+			sessionEntityId: session.id
+		});
 
 		// An unrevealed relation from the revealed entity to the gm_only one - must never
 		// surface the gm_only entity's name through the relations list.
@@ -359,25 +460,57 @@ describe('players wiki: leak test (#85)', () => {
 		});
 	});
 
-	it("the index route lists only the revealed entity, and leaks neither the gm_only entity nor an unrevealed one's name (V7, DECISIONS.md)", async () => {
+	it('the diary route lists only the session the party has met, its prose filtered like any entry, and never a name or fact the party has not earned (#530, V7, DECISIONS.md)', async () => {
 		const layoutData = await loadUniverseLayout();
 		const raw = await loadIndex({ parent: async () => layoutData } as Parameters<
 			typeof loadIndex
 		>[0]);
-		const result = raw as { entities: RevealedEntityListItem[] };
+		const result = raw as PlayerDiaryData;
 		assertNoLeak(result);
-		expect(
-			JSON.stringify(result),
-			`leaked "${UNDISCOVERED_NAME}" into the index payload`
-		).not.toContain(UNDISCOVERED_NAME);
 
-		const ids = result.entities.map((e) => e.id);
-		expect(ids).not.toContain(gmOnlyEntity.id);
-		expect(ids).not.toContain(undiscoveredEntity.id);
-		expect(ids).toContain(revealedEntity.id);
+		// The met session is here; the never-revealed one is not - not its id, not its
+		// name, not a word of its prose. Checked against `result.sessions` specifically
+		// (never against the whole payload, which legitimately carries the session's name
+		// and slug in `mentionTargets` - see this file's own comment on `BANNED_NEEDLES`
+		// above), because the diary's own enumeration is what E7's rule actually governs.
+		const sessionIds = result.sessions.map((s) => s.id);
+		expect(sessionIds).toContain(sessionEntity.id);
+		expect(sessionIds).not.toContain(unrevealedSessionEntity.id);
+		const sessionsJson = JSON.stringify(result.sessions);
+		expect(sessionsJson).not.toContain(unrevealedSessionEntity.slug);
+		expect(sessionsJson).not.toContain(UNREVEALED_SESSION_NAME);
 
-		const revealedRow = result.entities.find((e) => e.id === revealedEntity.id);
-		expect(revealedRow?.status).toBe('full');
+		const session = result.sessions.find((s) => s.id === sessionEntity.id);
+		if (!session) throw new Error('expected the met session in the diary');
+
+		// Positive control: the session's own safe prose really is there, so the fences'
+		// absence below is a real filter, not an empty response.
+		expect(session.body).toContain(SESSION_SAFE_PROSE);
+		// Guardrail 6's own note for this round: a session's body is canon prose, so its
+		// `:::secret`/`:::gmnote` fences go through the same filter an entry's does -
+		// neither the seeded world's own payroll secret nor the session's GM note, and
+		// not the fence markers themselves.
+		expect(session.body).not.toContain(SEEDED_WORLD_SECRET);
+		expect(session.body).not.toContain(SESSION_GMNOTE_TEXT);
+		expect(session.body).not.toContain(':::secret');
+		expect(session.body).not.toContain(':::gmnote');
+
+		// What the party learned: the revealed entity and its one safe fact are there...
+		const entityRefs = session.revelations.filter((r) => r.kind === 'entity');
+		expect(entityRefs.map((r) => r.entity.slug)).toContain(revealedEntity.slug);
+		const factRefs = session.revelations.filter((r) => r.kind === 'fact');
+		expect(factRefs.map((r) => r.label)).toContain('The Ashen Ledger lends at knife point.');
+
+		// ...the gm_only entity's revelation never surfaces, simulated bug and all...
+		expect(entityRefs.map((r) => r.entity.slug)).not.toContain(gmOnlyEntity.slug);
+		// ...none of the three fenced facts on the revealed entity surface either, even
+		// though every one of them carries a confirmed revelation (#306, same rule as the
+		// entity page), and neither does the fact revealed on the still-undiscovered
+		// entity - five confirmed fact revelations point at this session, and exactly one
+		// of them, the safe one, is player-safe to name.
+		expect(factRefs).toHaveLength(1);
+		expect(factRefs.map((r) => r.label)).not.toContain(UNDISCOVERED_ENTITY_FACT_STATEMENT);
+		expect(entityRefs.map((r) => r.entity.slug)).not.toContain(undiscoveredEntity.slug);
 	});
 
 	it('the revealed entity route serves the confirmed fact, never the unrevealed one, and no secret or GM note', async () => {
