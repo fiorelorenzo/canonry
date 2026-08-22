@@ -866,12 +866,41 @@ export const en: Messages = {
 		checklist: {
 			keptSuffix: (total, cap) =>
 				cap === null ? ` of ${total} kept \u00b7 no cap` : ` of ${total} kept \u00b7 cap ${cap}`,
-			estimatedCredits: (credits) => {
-				const form = pluralRules('en').select(credits);
-				return {
-					prefix: 'Est. ',
-					suffix: form === 'one' ? ' credit to generate diffs' : ' credits to generate diffs'
-				};
+			spentCredits: {
+				audit: (credits) => {
+					const form = pluralRules('en').select(credits);
+					return {
+						prefix: '',
+						suffix:
+							form === 'one'
+								? ' credit already spent on the flag still open'
+								: ' credits already spent on the flags still open'
+					};
+				},
+				complete: (credits) => {
+					const form = pluralRules('en').select(credits);
+					return {
+						prefix: '',
+						suffix:
+							form === 'one'
+								? ' credit already spent on this completion'
+								: ' credits already spent on this completion'
+					};
+				},
+				ask: (credits) => {
+					const form = pluralRules('en').select(credits);
+					return {
+						prefix: '',
+						suffix:
+							form === 'one'
+								? ' credit already spent on this draft'
+								: ' credits already spent on this draft'
+					};
+				}
+			},
+			chargedElsewhere: {
+				table: 'This quick action has already spent its credits.',
+				import: 'This import has already spent its credits, one charge per document.'
 			},
 			toGenerate: (count, perDiffCreditsFormatted) => ({
 				prefix: `${count} \u00d7 ${perDiffCreditsFormatted} cr = `,

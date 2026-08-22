@@ -880,15 +880,41 @@ export const it: Messages = {
 				const capPart = cap === null ? 'nessun limite' : `limite ${cap}`;
 				return ` su ${total} ${word} \u00b7 ${capPart}`;
 			},
-			estimatedCredits: (credits) => {
-				const form = pluralRules('it').select(credits);
-				return {
-					prefix: 'Stima: ',
-					suffix:
-						form === 'one'
-							? ' credito per generare le differenze'
-							: ' crediti per generare le differenze'
-				};
+			spentCredits: {
+				audit: (credits) => {
+					const form = pluralRules('it').select(credits);
+					return {
+						prefix: '',
+						suffix:
+							form === 'one'
+								? ' credito già speso per la segnalazione ancora aperta'
+								: ' crediti già spesi per le segnalazioni ancora aperte'
+					};
+				},
+				complete: (credits) => {
+					const form = pluralRules('it').select(credits);
+					return {
+						prefix: '',
+						suffix:
+							form === 'one'
+								? ' credito già speso per questo completamento'
+								: ' crediti già spesi per questo completamento'
+					};
+				},
+				ask: (credits) => {
+					const form = pluralRules('it').select(credits);
+					return {
+						prefix: '',
+						suffix:
+							form === 'one'
+								? ' credito già speso per questa bozza'
+								: ' crediti già spesi per questa bozza'
+					};
+				}
+			},
+			chargedElsewhere: {
+				table: 'Questa azione rapida ha già speso i suoi crediti.',
+				import: 'Questa importazione ha già speso i suoi crediti, uno per documento.'
 			},
 			toGenerate: (count, perDiffCreditsFormatted) => ({
 				prefix: `${count} \u00d7 ${perDiffCreditsFormatted} cr = `,
