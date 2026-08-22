@@ -90,7 +90,8 @@ const SHELL_ROUTES = [
 	'./w/[universe]/import/+page.svelte',
 	'./w/[universe]/import/[job]/review/+page.svelte',
 	'./w/[universe]/players/+page.svelte',
-	'./w/[universe]/ask/kept/+page.svelte',
+	'./w/[universe]/ask/+page.svelte',
+	'./w/[universe]/ask/[conversationId]/+page.svelte',
 	'./w/[universe]/settings/+page.svelte',
 	'./w/[universe]/settings/relations/+page.svelte',
 	'./w/[universe]/works/+page.svelte',
@@ -127,24 +128,10 @@ describe('every shell route opens on the same band (V1 = B, #494)', () => {
 		expect(tag).toBe('PageHeader');
 	});
 
-	// Both `/w/[universe]/ask` and `/w/[universe]/ask/[conversationId]` render nothing
-	// but `<AskConversation .../>` - the band actually lives in that shared component,
-	// checked once here rather than by proxy on both thin route files.
-	it('AskConversation.svelte renders PageHeader first, unwrapped', () => {
-		const source = read('../lib/components/ask/AskConversation.svelte');
-		const markup = markupOnly(source);
-		// Two routes render this component, so its own `<svelte:head>` plus doc comment
-		// come before the first real element same as any page - reuse the same helper
-		// starting from its outermost `<div class="flex h-full flex-col">`.
-		const tag = firstRenderedTag(
-			markup.slice(markup.indexOf('<div class="flex h-full flex-col">'))
-		);
-		expect(tag).toBe('div');
-		const inner = markup.slice(
-			markup.indexOf('>', markup.indexOf('<div class="flex h-full flex-col">')) + 1
-		);
-		expect(firstRenderedTag(inner.trim())).toBe('PageHeader');
-	});
+	// `/w/[universe]/ask` and `/w/[universe]/ask/[conversationId]` are both covered by
+	// the loop above now - issue #531 (W3 = B) deleted `AskConversation.svelte` and gave
+	// each route its own `PageHeader` directly, since neither shares markup with the
+	// other any more (the old shared composer is the dock's now, `QuickAsk.svelte`).
 
 	// `/docs`, `/docs/import`, `/docs/import/[source]`, `/docs/languages` and
 	// `/privacy` all delegate their chrome to this one component - checked once here
@@ -173,7 +160,6 @@ describe('every shell route opens on the same band (V1 = B, #494)', () => {
 const GUARDED_FILES = [
 	...SHELL_ROUTES,
 	'./w/[universe]/works/[work]/+layout.svelte',
-	'../lib/components/ask/AskConversation.svelte',
 	'../lib/components/docs/DocPage.svelte',
 	'../lib/components/shell/ErrorPage.svelte'
 ] as const;

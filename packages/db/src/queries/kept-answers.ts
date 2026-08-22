@@ -10,7 +10,7 @@
 // their own world, so nothing expires it and nothing sweeps it. `deleteKeptAnswer` issues a
 // real `delete`, with no soft-delete column anywhere in the schema to make "gone" mean
 // "hidden", and `kept_answer_source` follows on the foreign key's cascade.
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, or } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import { entity } from '../schema/entity.js';
 import type { AskDetailLevel, EntityType, KeptAnswerSourceKind } from '../schema/enums.js';
@@ -183,6 +183,11 @@ export interface ListKeptAnswersInput {
 	universeId: string;
 	keptBy: string;
 	limit?: number;
+	/** Issue #531, W3 = B: a case-insensitive substring match against `question` or
+	 * `answer`. Free rather than ranked on purpose - the decision names `kept_answer`
+	 * as already holding both as text, so a substring match costs nothing extra, and a
+	 * ranked search would. Empty/whitespace-only is treated as no filter. */
+	query?: string;
 }
 
 const DEFAULT_LIST_LIMIT = 50;
@@ -250,10 +255,24 @@ export async function listKeptConversations(
 	db: Db,
 	input: ListKeptAnswersInput
 ): Promise<KeptConversation[]> {
+	const trimmedQuery = input.query?.trim();
+	const searchFilter =
+		trimmedQuery && trimmedQuery.length > 0
+			? or(
+					ilike(keptAnswer.question, `%${trimmedQuery}%`),
+					ilike(keptAnswer.answer, `%${trimmedQuery}%`)
+				)
+			: undefined;
 	const rows = await db
 		.select()
 		.from(keptAnswer)
-		.where(and(eq(keptAnswer.universeId, input.universeId), eq(keptAnswer.keptBy, input.keptBy)))
+		.where(
+			and(
+				eq(keptAnswer.universeId, input.universeId),
+				eq(keptAnswer.keptBy, input.keptBy),
+				searchFilter
+			)
+		)
 		.orderBy(asc(keptAnswer.keptAt))
 		.limit(CONVERSATION_ROWS_LIMIT);
 	if (rows.length === 0) return [];

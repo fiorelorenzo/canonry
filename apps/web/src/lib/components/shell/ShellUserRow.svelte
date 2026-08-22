@@ -203,7 +203,7 @@
 			<DropdownMenu.Separator />
 			<DropdownMenu.Item>
 				{#snippet child({ props })}
-					<a href={resolve(`/w/${universeSlug}/ask/kept`)} {...props}>
+					<a href={resolve(`/w/${universeSlug}/ask`)} {...props}>
 						{askT.keep.historyLink}
 					</a>
 				{/snippet}

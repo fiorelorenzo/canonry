@@ -1708,6 +1708,14 @@ export const en: Messages = {
 			sourcesEmpty:
 				'Nothing to cite. No entry matched the words of this question, so this answer rests on nothing in your canon.',
 			deletedEntry: 'This entry has since been deleted.',
+			sourceCount: (count) => {
+				const n = numberFormat('en', {
+					maximumFractionDigits: 0,
+					useGrouping: 'always'
+				}).format(count);
+				const form = pluralRules('en').select(Math.round(count));
+				return form === 'one' ? `${n} source` : `${n} sources`;
+			},
 			close: 'Close',
 			loading: 'Loading…',
 			disclosure:
@@ -1755,6 +1763,42 @@ export const en: Messages = {
 				},
 				delete: 'Delete',
 				deleteConfirmPrompt: 'Delete this whole conversation permanently?',
+				deleteConfirmCancel: 'Cancel',
+				deleteFailed: 'Could not delete that conversation.',
+				deleteNotFound: 'That conversation is already gone.'
+			},
+			history: {
+				headTitle: (universeName) => `Conversations: ${universeName}`,
+				crumb: (universeName) => `Conversations · ${universeName}`,
+				heading: 'Conversations',
+				note: 'The Loremaster keeps every question and answer automatically, as your own note grouped by conversation. Nothing here becomes part of an entry without a proposal you accept, players never see it, and a conversation stays until you delete it.',
+				searchPlaceholder: 'Search what you asked…',
+				searchClear: 'Clear search',
+				searchResultCount: (query, count) => {
+					const answers = count === 1 ? '1 answer matches' : `${count} answers match`;
+					return `${answers} "${query}".`;
+				},
+				emptyColdMessage:
+					'Nothing yet. Ask the Loremaster something from the panel, and it appears here.',
+				emptySearchMessage: (query) => `No answers match "${query}".`,
+				turnCount: (count) => {
+					const n = numberFormat('en', {
+						maximumFractionDigits: 0,
+						useGrouping: 'always'
+					}).format(count);
+					const form = pluralRules('en').select(Math.round(count));
+					return form === 'one' ? `${n} exchange` : `${n} exchanges`;
+				},
+				delete: 'Delete',
+				deleteConfirmPrompt: (turnCount) => {
+					const n = numberFormat('en', {
+						maximumFractionDigits: 0,
+						useGrouping: 'always'
+					}).format(turnCount);
+					const form = pluralRules('en').select(Math.round(turnCount));
+					const exchanges = form === 'one' ? `${n} exchange` : `${n} exchanges`;
+					return `Delete this conversation and its ${exchanges} permanently? This cannot be undone.`;
+				},
 				deleteConfirmCancel: 'Cancel',
 				deleteFailed: 'Could not delete that conversation.',
 				deleteNotFound: 'That conversation is already gone.'

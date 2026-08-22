@@ -3,6 +3,12 @@
  * locked-in bar). A small JSON read, gated the same way every route under this universe
  * is, so a source click can open the panel without a full page navigation away from the
  * answer it sits beside.
+ *
+ * Issue #531, W3 = B (DECISIONS.md "Round eighteen"): G5 is unamended by the reversal -
+ * "G5's source panel stays what a source click opens" - so this endpoint keeps serving
+ * both the record's own pages (`/ask`, `/ask/[conversationId]`) and, unchanged, the
+ * dock never used it (`QuickAsk.svelte`'s own source chips have always linked straight
+ * to the entry).
  */
 import { error, json } from '@sveltejs/kit';
 import { universeAccessBySlug } from '@canonry/db';
