@@ -92,7 +92,7 @@
 				>
 					<h3 class="text-base font-semibold text-ink">{plan.name}</h3>
 					<p class="mt-1 text-2xl font-semibold text-ink">
-						{eurFormat.format(plan.priceEurPerMonth)}<span class="text-sm font-normal text-muted"
+						{eurFormat.format(plan.priceEurPerMonth)}<span class="text-sm font-normal text-ink-2"
 							>{t.perMonth}</span
 						>
 					</p>

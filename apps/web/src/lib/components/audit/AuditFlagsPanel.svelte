@@ -60,7 +60,7 @@
 						</div>
 					{/each}
 				</div>
-				<p class="mt-2 text-xs text-muted">{t.entry.audit.disclaimer}</p>
+				<p class="mt-2 text-xs text-ink-2">{t.entry.audit.disclaimer}</p>
 				<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
 					<form
 						method="POST"
@@ -77,7 +77,7 @@
 							{dismissing[flag.id] ? t.entry.audit.dismissing : t.entry.audit.dismiss}
 						</Button>
 					</form>
-					<span class="text-muted">{t.entry.audit.openBoth}</span>
+					<span class="text-ink-2">{t.entry.audit.openBoth}</span>
 					{#each flag.statements as statement (statement.entityId)}
 						<a
 							href={resolve(`/w/${universeSlug}/e/${statement.entitySlug}`)}

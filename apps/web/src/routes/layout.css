@@ -184,6 +184,16 @@
 	--color-danger: #a03a22;
 	--color-danger-bg: #f8e7e0;
 
+	/* Secondary text on any of the five tinted backgrounds above (`accent-bg`, `diff-bg`,
+	 * `ok-bg`, `warn-bg`, `danger-bg`) is `--color-ink-2`, never `--color-muted`. Measured,
+	 * because it is not obvious: muted fails AA against every one of the five in at least
+	 * one palette and against four of them in both (accent 4.30/3.97, diff 3.59/3.52, ok
+	 * 4.45/3.86, warn 4.54/4.06, danger 4.37/4.39, light/dark). `ink-2` clears it on all
+	 * ten with room (6.70 at worst). Muted is a paper-and-panel ink: it is the right value
+	 * on `--color-paper` and `--color-panel`, and the wrong one the moment a surface takes
+	 * a hue. Two sites shipped the wrong pairing before this was written down, the audit
+	 * panel's disclaimer and the billing page's "/month". */
+
 	/* Prose measure. Long enough to read, short enough to scan back to the start of
 	 * the next line, which is what the reading room is for. */
 	--container-measure: 34rem;
