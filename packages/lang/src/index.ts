@@ -45,3 +45,8 @@ export {
 	type SecretSegment,
 	type SourceSegment
 } from './secret-blocks.js';
+// #545: the mention-syntax counterpart to the fence definition above, needed by
+// `packages/copilot`'s Ask (its AI-off answer quotes canon directly, no component in
+// between) as well as by `apps/web` components. See the module's own doc for why it
+// moved here rather than staying `apps/web`-only.
+export { stripMentionSyntax } from './mentions.js';

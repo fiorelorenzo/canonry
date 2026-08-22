@@ -48,7 +48,7 @@ import {
 	retrieveForUniverse,
 	type RetrievalHit
 } from '@canonry/indexing';
-import { functionWords, type Locale } from '@canonry/lang';
+import { functionWords, splitSecretBlocks, stripMentionSyntax, type Locale } from '@canonry/lang';
 import { stepCountIs, streamText, tool } from 'ai';
 import { z } from 'zod';
 import { jaccard, splitIntoSentences, tokenize } from './diff.js';
@@ -209,6 +209,29 @@ function contentTokens(text: string, functionTokenSet: ReadonlySet<string>): Set
  * so, and both Ask surfaces carry the sentence that explains it. The embedding layer has
  * no such blind spot and is unchanged, so a world with an indexed corpus still answers a
  * question whose words appear nowhere in it. */
+/** #355: `splitIntoSentences` treats a `:::secret`/`:::gmnote` fence marker line as
+ * ordinary prose, so a naive call over a whole body can quote a sentence with its fence
+ * syntax still attached (`"The Ashen Ledger: \":::secret Aldric Vane ... :::\""`). Ask is
+ * GM-only - `runAsk`'s only caller requires universe membership
+ * (`routes/w/[universe]/ask`) - so a sentence drawn from inside a secret is fine to
+ * surface, guardrail 6 is never in play here, but the `:::secret` / `:::` delimiter lines
+ * themselves are markup, never prose a GM wrote to be read. Splitting per
+ * `splitSecretBlocks` segment first means every candidate sentence comes from one side of
+ * a fence boundary or the other, never straddling it, so the marker lines can never become
+ * part of a quoted `statement`. `start` is scoped to the segment's own offset into `body`,
+ * tighter than a whole-body `indexOf` and immune to matching an identical sentence that
+ * recurs on the far side of a fence. */
+function ownCanonSentenceCandidates(body: string): Array<{ sentence: string; start: number }> {
+	const candidates: Array<{ sentence: string; start: number }> = [];
+	for (const segment of splitSecretBlocks(body)) {
+		for (const sentence of splitIntoSentences(segment.text).filter((s) => !s.startsWith('#'))) {
+			const offset = segment.text.indexOf(sentence);
+			if (offset >= 0) candidates.push({ sentence, start: segment.start + offset });
+		}
+	}
+	return candidates;
+}
+
 async function searchOwnCanon(
 	db: Db,
 	universeId: string,
@@ -226,22 +249,21 @@ async function searchOwnCanon(
 
 	const scored: OwnCanonSource[] = [];
 	for (const row of rows) {
-		const sentences = splitIntoSentences(row.body).filter((s) => !s.startsWith('#'));
-		let best: { sentence: string; score: number } | null = null;
-		for (const sentence of sentences) {
-			const score = jaccard(contentTokens(sentence, functionTokenSet), questionTokens);
-			if (!best || score > best.score) best = { sentence, score };
+		const candidates = ownCanonSentenceCandidates(row.body);
+		let best: { sentence: string; start: number; score: number } | null = null;
+		for (const candidate of candidates) {
+			const score = jaccard(contentTokens(candidate.sentence, functionTokenSet), questionTokens);
+			if (!best || score > best.score) best = { ...candidate, score };
 		}
 		if (best && best.score > 0) {
-			const start = row.body.indexOf(best.sentence);
 			scored.push({
 				kind: 'own_canon',
 				entityId: row.id,
 				entityName: row.name,
 				entitySlug: row.slug,
 				statement: best.sentence,
-				spanStart: start,
-				spanEnd: start + best.sentence.length,
+				spanStart: best.start,
+				spanEnd: best.start + best.sentence.length,
 				score: best.score
 			});
 		}
@@ -612,12 +634,16 @@ function noSourcesInstruction(sourceCount: number, hasWorldShape: boolean): stri
 
 /** Layer 1's own honest fallback answer when generation is off: the best-matching
  * sentences quoted verbatim, never a synthesized claim - there is no model call here to
- * make one. */
+ * make one. #545: `ownCanonSentenceCandidates` above already keeps a `:::secret`/`:::`
+ * fence marker out of `statement`, so all that is left for this, the third and last place
+ * in the #523/#355/#545 family, is the same `[[mention]]` strip the two component-side
+ * fixes already apply - here because this text reaches the GM with no component and no
+ * model in between, straight from the stored sentence to the answer they read. */
 function readingOnlyAnswer(locale: Locale, sources: OwnCanonSource[]): string {
 	if (sources.length === 0) return READING_ONLY_FALLBACK[locale];
 	return sources
 		.slice(0, 2)
-		.map((s) => s.statement)
+		.map((s) => stripMentionSyntax(s.statement))
 		.join(' ');
 }
 

@@ -1532,6 +1532,100 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 			expect(calls.filter((c) => c.userId === owner.id)).toHaveLength(0);
 		});
 	});
+
+	describe('#355/#545: a fence and a mention in the source body never reach a source statement or the AI-off answer as raw markup', () => {
+		async function fencedFixture() {
+			const owner = await insertUser(db);
+			const universe = await insertHomebrewUniverse(db, {
+				ownerUserId: owner.id,
+				name: 'Fenced Reach'
+			});
+			await insertEntity(db, universe.id, {
+				type: 'faction',
+				name: 'The Ashen Ledger',
+				body:
+					'Aldric Vane now answers to [[The Ashen Ledger]] after the Sable Winter.\n\n' +
+					':::secret\n' +
+					'The Ledger launders stolen coin through smuggling docks at midnight.\n' +
+					':::\n\n' +
+					'Everyone at the Gilded Rat knows he drinks alone by the fire.'
+			});
+			return { owner, universe };
+		}
+
+		it('#355: a source statement quoted from inside a :::secret fence carries the content but never the fence markers', async () => {
+			const { owner, universe } = await fencedFixture();
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'Where does the Ledger launder stolen coin through smuggling docks at midnight?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				modelFactory: modelFactoryFor(streamingModel('should not need the model for retrieval')),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			const ownCanon = result.sources.find(
+				(s): s is OwnCanonSource => s.kind === 'own_canon' && s.entityName === 'The Ashen Ledger'
+			);
+			expect(ownCanon).toBeDefined();
+			expect(ownCanon!.statement).toContain('smuggling docks at midnight');
+			expect(ownCanon!.statement).not.toMatch(/:::/);
+		});
+
+		it('#545: the AI-off answer strips a [[mention]] bracket out of the quoted sentence', async () => {
+			const { owner, universe } = await fencedFixture();
+			await db
+				.update(universeTable)
+				.set({ aiEnabled: false })
+				.where(eq(universeTable.id, universe.id));
+
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'Who does Aldric Vane answer to?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				modelFactory: modelFactoryFor(streamingModel('should never be called')),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			expect(result.generated).toBe(false);
+			expect(result.answer).toContain('The Ashen Ledger');
+			expect(result.answer).not.toMatch(/\[\[|\]\]/);
+		});
+
+		it('#545: the AI-off answer strips the :::secret fence markers out of a quoted sentence, keeping the GM-visible content', async () => {
+			const { owner, universe } = await fencedFixture();
+			await db
+				.update(universeTable)
+				.set({ aiEnabled: false })
+				.where(eq(universeTable.id, universe.id));
+
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'Where does the Ledger launder stolen coin through smuggling docks at midnight?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				modelFactory: modelFactoryFor(streamingModel('should never be called')),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			expect(result.generated).toBe(false);
+			expect(result.answer).toContain('smuggling docks at midnight');
+			expect(result.answer).not.toMatch(/:::/);
+		});
+	});
 });
 
 describe('mergeCarriedForwardOwnCanon (issue #439, T12)', () => {
