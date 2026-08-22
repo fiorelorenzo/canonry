@@ -283,6 +283,10 @@ describe('/w/[universe]/players (issue R11, round thirteen)', () => {
 		expect(hiddenNames).toContain('The Other Side');
 		expect(hiddenNames).not.toContain('Aldric Revealed');
 		expect(hiddenNames).not.toContain('The Secret Cabal');
+		// #537: a session entity is not something the party discovers by name, so it must
+		// never appear beside a genuine gap even though it is `revealable` and has no
+		// confirmed 'entity' revelation of its own here.
+		expect(hiddenNames).not.toContain('The First Session');
 
 		// Issue #530: `The Other Side` is one hop from `Aldric Revealed` (the confirmed
 		// relation), so `pinnedNeighbors` marks it connected and it sorts before
@@ -292,6 +296,72 @@ describe('/w/[universe]/players (issue R11, round thirteen)', () => {
 		expect(other?.connected).toBe(true);
 		expect(vault?.connected).toBe(false);
 		expect(data.hidden.indexOf(other!)).toBeLessThan(data.hidden.indexOf(vault!));
+	});
+
+	// #537: `RevelationLogEntry` used to carry only a session's display name, so the
+	// loader's own `groupBySession` merged two sessions that happened to share one. A
+	// fresh universe here, not the shared fixture above, because this scenario is about
+	// the shape of the grouping itself and must not perturb the other tests' expectations
+	// of exactly one session group.
+	it('#537: two sessions sharing a name produce two groups, not one merged by display string', async () => {
+		const key = unique('rematch');
+		const [owner] = await db
+			.insert(user)
+			.values({ id: key, name: 'Rematch Owner', email: `${key}@example.test` })
+			.returning({ id: user.id });
+		if (!owner) throw new Error('user insert did not return a row');
+
+		const [uni] = await db
+			.insert(universe)
+			.values({
+				ownerUserId: owner.id,
+				name: 'Rematch Universe',
+				slug: unique('rematch-universe'),
+				kind: 'homebrew'
+			})
+			.returning({ id: universe.id, slug: universe.slug });
+		if (!uni) throw new Error('universe insert did not return a row');
+
+		const [sessionA, sessionB, subject] = await db
+			.insert(entity)
+			.values([
+				{ universeId: uni.id, type: 'session', name: 'Session 1', slug: unique('session-a') },
+				{ universeId: uni.id, type: 'session', name: 'Session 1', slug: unique('session-b') },
+				{ universeId: uni.id, type: 'character', name: 'A Face at the Table', slug: unique('face') }
+			])
+			.returning({ id: entity.id });
+		if (!sessionA || !sessionB || !subject) {
+			throw new Error('entity insert did not return three rows');
+		}
+
+		await db.insert(revelation).values([
+			{
+				universeId: uni.id,
+				kind: 'entity',
+				entityId: subject.id,
+				sessionEntityId: sessionA.id,
+				confirmedAt: new Date(Date.now() - 1000)
+			},
+			{
+				universeId: uni.id,
+				kind: 'entity',
+				entityId: subject.id,
+				sessionEntityId: sessionB.id,
+				confirmedAt: new Date()
+			}
+		]);
+
+		const data = (await load({
+			params: { universe: uni.slug },
+			locals: { user: { id: owner.id }, locale: 'en' }
+		} as Parameters<typeof load>[0])) as {
+			log: Array<{ key: string; sessionName: string | null }>;
+		};
+
+		expect(data.log).toHaveLength(2);
+		expect(data.log[0].sessionName).toBe('Session 1');
+		expect(data.log[1].sessionName).toBe('Session 1');
+		expect(data.log[0].key).not.toBe(data.log[1].key);
 	});
 
 	it('shows a viewer the identical read-only page, not a 404', async () => {

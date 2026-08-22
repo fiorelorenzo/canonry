@@ -244,7 +244,11 @@ export interface RevealedEntityListItem {
 /** The players' wiki index: every `revealable` entity in the universe, `gm_only` excluded
  * entirely (not even as a name), each carrying whether it has a confirmed 'entity'
  * revelation. E7's gap page is reachable by browsing this list, not only by following a
- * mention out of already-revealed prose (see the E7 artifact's own cost note on option C). */
+ * mention out of already-revealed prose (see the E7 artifact's own cost note on option C).
+ * #537: a `'session'` entity is excluded too, here rather than in either caller - a
+ * session is not a thing the party discovers by name the way a person or a place is, it
+ * is when they discovered things, so it never belongs in a list of what may still be
+ * revealed (the GM's own players page) or of what already has been (the public index). */
 export async function listPublicEntities(
 	db: Db,
 	universeId: string
@@ -261,7 +265,13 @@ export async function listPublicEntities(
 				isNotNull(revelation.confirmedAt)
 			)
 		)
-		.where(and(eq(entity.universeId, universeId), ne(entity.visibility, 'gm_only')))
+		.where(
+			and(
+				eq(entity.universeId, universeId),
+				ne(entity.visibility, 'gm_only'),
+				ne(entity.type, 'session')
+			)
+		)
 		.groupBy(entity.id)
 		.orderBy(asc(entity.name));
 
@@ -938,12 +948,22 @@ export interface RevelationLogEntityRef {
 /** Issue #492: what a row's entry name(s) link to. `'entity'`/`'fact'` name exactly one
  * entry - the fact's own subject, `fact.entity_id`, since a fact is by construction
  * (SPEC.md §4.2) extracted from one entry's body and never carries a second one. A
- * `'relation'` row names two, so it carries both rather than picking a side. */
+ * `'relation'` row names two, so it carries both rather than picking a side.
+ *
+ * Issue #537: `sessionId` travels beside `sessionName` here now, not only in the loader
+ * that groups by it. The query already joins to the session entity for its name, so the
+ * real foreign key (`revelation.session_entity_id`) costs nothing extra to select, and a
+ * display string was never a safe grouping key - two sessions named "Session 1" in two
+ * different arcs merge under it. The grouping itself stays where #536 put it, in
+ * `apps/web`'s own loader: this route is still the only reader that needs groups, and the
+ * query's flat, ungrouped shape is still what a future universe-wide feed would want. What
+ * moved is only the column a caller groups on. */
 export type RevelationLogEntry =
 	| {
 			id: string;
 			kind: 'entity';
 			confirmedAt: Date;
+			sessionId: string | null;
 			sessionName: string | null;
 			label: string;
 			entity: RevelationLogEntityRef;
@@ -952,6 +972,7 @@ export type RevelationLogEntry =
 			id: string;
 			kind: 'fact';
 			confirmedAt: Date;
+			sessionId: string | null;
 			sessionName: string | null;
 			label: string;
 			entity: RevelationLogEntityRef;
@@ -960,6 +981,7 @@ export type RevelationLogEntry =
 			id: string;
 			kind: 'relation';
 			confirmedAt: Date;
+			sessionId: string | null;
 			sessionName: string | null;
 			label: string;
 			relationLabel: string;
@@ -989,6 +1011,7 @@ export async function revelationLogForUniverse(
 		.select({
 			id: revelation.id,
 			confirmedAt: revelation.confirmedAt,
+			sessionId: revelationLogSession.id,
 			sessionName: revelationLogSession.name,
 			label: entity.name,
 			slug: entity.slug
@@ -1014,6 +1037,7 @@ export async function revelationLogForUniverse(
 		.select({
 			id: revelation.id,
 			confirmedAt: revelation.confirmedAt,
+			sessionId: revelationLogSession.id,
 			sessionName: revelationLogSession.name,
 			label: fact.statement,
 			entitySlug: entity.slug,
@@ -1041,6 +1065,7 @@ export async function revelationLogForUniverse(
 		.select({
 			id: revelation.id,
 			confirmedAt: revelation.confirmedAt,
+			sessionId: revelationLogSession.id,
 			sessionName: revelationLogSession.name,
 			fromName: revelationLogFromEntity.name,
 			fromSlug: revelationLogFromEntity.slug,
@@ -1083,6 +1108,7 @@ export async function revelationLogForUniverse(
 							id: row.id,
 							kind: 'entity' as const,
 							confirmedAt: row.confirmedAt,
+							sessionId: row.sessionId,
 							sessionName: row.sessionName,
 							label: row.label,
 							entity: { slug: row.slug, name: row.label }
@@ -1097,6 +1123,7 @@ export async function revelationLogForUniverse(
 							id: row.id,
 							kind: 'fact' as const,
 							confirmedAt: row.confirmedAt,
+							sessionId: row.sessionId,
 							sessionName: row.sessionName,
 							label: row.label,
 							entity: { slug: row.entitySlug, name: row.entityName }
@@ -1111,6 +1138,7 @@ export async function revelationLogForUniverse(
 							id: row.id,
 							kind: 'relation' as const,
 							confirmedAt: row.confirmedAt,
+							sessionId: row.sessionId,
 							sessionName: row.sessionName,
 							label: `${row.fromName} ${row.relationLabel} ${row.toName}`,
 							relationLabel: row.relationLabel,
