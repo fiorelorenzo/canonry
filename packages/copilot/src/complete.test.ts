@@ -160,6 +160,57 @@ describe('completeEntry (issue #54, SPEC.md §5)', () => {
 		expect(plan?.status).toBe('spent');
 	});
 
+	it('issue #559: a mention sentence quoted as completion evidence never carries a :::secret marker', async () => {
+		// The other entity's body is shaped the way a GM writes one: a fence closes and the
+		// next sentence starts on the line after the marker. Completion scans that body for
+		// mentions of the thin entry, and the sentence it finds becomes evidence in the
+		// prompt and in the proposal a GM reads. Split without knowing about the fence, the
+		// marker line joins the paragraph beside it and the evidence is markup glued to
+		// prose, a sentence nobody wrote quoted back as if somebody had.
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, { ownerUserId: owner.id });
+		const thin = await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Corvin Ashe',
+			body: ''
+		});
+		await insertEntity(db, universe.id, {
+			type: 'character',
+			name: 'Mother Sennah',
+			body: 'Keeps the house.\n\n:::secret\nShe was a fence for years.\n:::\nShe still pays [[Corvin Ashe]] every week.'
+		});
+
+		let captured: { prompt: Array<{ role: string; content: unknown }> } | undefined;
+		const result = await completeEntry({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			entityId: thin.id,
+			locale: 'en',
+			modelFactory: modelFactoryFor(
+				capturingScriptedModel({ summary: 's', after: 'a' }, (options) => {
+					captured = options;
+				})
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		const mentions = result.evidence.filter(
+			(e): e is Extract<typeof e, { kind: 'mention' }> => e.kind === 'mention'
+		);
+		expect(mentions.length).toBeGreaterThan(0);
+		for (const evidence of mentions) {
+			expect(evidence.sourceSentence).not.toContain(':::');
+		}
+		expect(mentions.map((e) => e.sourceSentence)).toContain(
+			'She still pays [[Corvin Ashe]] every week.'
+		);
+
+		// And the prompt the model actually saw carries the same clean sentence, since that
+		// is the copy the drafted body is written from.
+		expect(userPromptOf(captured!)).not.toContain(':::');
+	});
+
 	it('refuses to run when the universe has generation switched off (guardrail 4)', async () => {
 		const owner = await insertUser(db);
 		const universe = await insertHomebrewUniverse(db, { ownerUserId: owner.id, aiEnabled: false });

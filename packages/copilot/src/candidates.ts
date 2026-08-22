@@ -14,7 +14,7 @@
  * the entity that changed, even though no formal `relation` row connects them at all.
  * Graph hops alone would miss him entirely.
  */
-import { splitIntoSentences, type FactChange } from './diff.js';
+import { fenceSafeSentences, type FactChange } from './diff.js';
 
 export interface GraphEntity {
 	id: string;
@@ -255,7 +255,7 @@ export function buildCandidatePool(
 
 	// 3. Reverse mention: which other entities already talk about the one that changed?
 	for (const other of othersPool) {
-		for (const sentence of splitIntoSentences(other.body)) {
+		for (const sentence of fenceSafeSentences(other.body)) {
 			for (const { matchedText } of mentionsIn(sentence, [editedEntity])) {
 				const entry = ensure(other.id);
 				entry.evidence.push({

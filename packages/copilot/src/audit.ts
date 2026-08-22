@@ -27,13 +27,13 @@ import { chargeFor, resolveModel, withQuota } from '@canonry/ai';
 import type { Db } from '@canonry/db';
 import { createProposalPlan } from '@canonry/db';
 import type { ProposalPlanRow, ProposalRow } from '@canonry/db';
-import { splitSecretBlocks, type Locale } from '@canonry/lang';
+import type { Locale } from '@canonry/lang';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { mentionsIn } from './candidates.js';
 import type { CandidateGraph, GraphEntity } from './candidates.js';
 import { loadCandidateGraph } from './db-graph.js';
-import { jaccard, semanticDiff, splitIntoSentences, tokenize } from './diff.js';
+import { fenceSafeSentences, jaccard, semanticDiff, tokenize } from './diff.js';
 import type { FactChange } from './diff.js';
 import { routeModel } from './models.js';
 import type { GatewayWrapper, ModelFactory, RoutedModel } from './models.js';
@@ -166,32 +166,6 @@ function spanOf(body: string, sentence: string): { start: number; end: number } 
 	const match = new RegExp(pattern).exec(body);
 	if (!match) return null;
 	return { start: match.index, end: match.index + match[0].length };
-}
-
-/** #556: same root cause #555 fixed in `ask.ts`'s `ownCanonSentenceCandidates` - a body
- * here can carry the same shipped `:::secret`/`:::gmnote` fences `spanOf`'s own doc
- * comment above already had to learn to live with, and calling `splitIntoSentences`
- * directly on it treats a fence marker line as ordinary prose, joining it into whichever
- * sentence sits on either side of the boundary. Audit is GM-only, same as Ask -
- * `runAudit`'s only caller requires universe membership - so a sentence drawn from inside
- * a secret is fine to surface, but the `:::secret`/`:::gmnote`/`:::` marker lines
- * themselves are markup, never prose a GM wrote to be read, and a sentence that spans the
- * boundary is not a sentence anyone wrote either. Splitting through `splitSecretBlocks`
- * first means every sentence this returns comes from one side of a fence or the other,
- * never straddling it.
- *
- * Copied rather than imported from `ask.ts`: `ownCanonSentenceCandidates` also tracks
- * each candidate's offset into the whole body, because `ask.ts` has no other way to place
- * its evidence. Nothing here needs that - every caller below relocates its sentence with
- * `spanOf` against the real body regardless of where the sentence came from - so sharing
- * the richer function would mean either padding this file with an offset it throws away
- * or coupling the two packages' return shapes for no shared benefit. */
-function fenceSafeSentences(body: string): string[] {
-	const sentences: string[] = [];
-	for (const segment of splitSecretBlocks(body)) {
-		sentences.push(...splitIntoSentences(segment.text));
-	}
-	return sentences;
 }
 
 /** The sentence in `body` most similar (Jaccard word overlap) to `target`, or `null` for
