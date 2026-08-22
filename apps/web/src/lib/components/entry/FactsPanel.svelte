@@ -7,6 +7,7 @@
 	 */
 	import { messages, type Locale } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { stripMentionSyntax } from '$lib/markdown';
 	import type { AuthorKind } from '@canonry/db/schema';
 
 	export interface FactRow {
@@ -62,7 +63,7 @@
 					onclick={() => onToggle(fact)}
 				>
 					<span class="w-4 flex-none font-mono text-xs text-muted">{i + 1}</span>
-					<span class="min-w-0 break-words text-ink-2">{fact.statement}</span>
+					<span class="min-w-0 break-words text-ink-2">{stripMentionSyntax(fact.statement)}</span>
 				</button>
 				{#if activeFactId === fact.id}
 					<p class="mt-2 pl-6 text-xs text-muted italic">&ldquo;{fact.sourceExcerpt}&rdquo;</p>

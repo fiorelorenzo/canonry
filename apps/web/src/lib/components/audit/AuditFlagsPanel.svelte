@@ -11,6 +11,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { messages, type Locale } from '$lib/i18n';
+	import { stripMentionSyntax } from '$lib/markdown';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
 
@@ -53,7 +54,9 @@
 							>
 								{statement.entityName}
 							</a>
-							<p class="mt-1 text-ink-2 italic">&ldquo;{statement.statement}&rdquo;</p>
+							<p class="mt-1 text-ink-2 italic">
+								&ldquo;{stripMentionSyntax(statement.statement)}&rdquo;
+							</p>
 						</div>
 					{/each}
 				</div>

@@ -9,6 +9,7 @@
 <script lang="ts">
 	import type { PublicFactRow } from '@canonry/db';
 	import { messages, type Locale } from '$lib/i18n';
+	import { stripMentionSyntax } from '$lib/markdown';
 
 	let { facts, locale }: { facts: PublicFactRow[]; locale: Locale } = $props();
 	let t = $derived(messages(locale));
@@ -21,7 +22,7 @@
 		</h2>
 		<ul class="mt-2 space-y-1.5">
 			{#each facts as fact (fact.id)}
-				<li class="text-sm text-ink-2">{fact.statement}</li>
+				<li class="text-sm text-ink-2">{stripMentionSyntax(fact.statement)}</li>
 			{/each}
 		</ul>
 	</section>
