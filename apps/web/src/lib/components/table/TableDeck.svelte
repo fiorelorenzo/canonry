@@ -42,6 +42,7 @@
 		pins,
 		placeName,
 		placeBrief,
+		placeContext,
 		canReveal,
 		locale,
 		onNote,
@@ -50,6 +51,9 @@
 		pins: DeckPin[];
 		placeName: string;
 		placeBrief: string | null;
+		/** The place's own `context_pack` text, same shape as `placeBrief` - shown only
+		 * on the place card (card 0), never on a pin's. */
+		placeContext: string | null;
 		/** Mirrors the board's own action bar: reveal needs a declared session (G7), so
 		 * every card's reveal button is disabled the same way with none running. */
 		canReveal: boolean;
@@ -59,6 +63,7 @@
 	} = $props();
 
 	const t = $derived(messages(locale).table.deck);
+	const tHome = $derived(messages(locale).table.home);
 	const tPinned = $derived(messages(locale).table.pinnedCards);
 	const tNote = $derived(messages(locale).table.quickNoteForm);
 	const tDock = $derived(messages(locale).table.quickActionDock);
@@ -239,6 +244,10 @@
 						</div>
 					</div>
 					<p class="mt-3 text-body text-ink">{placeBrief ?? t.placeBriefEmpty}</p>
+					<p class="mt-3 text-label font-semibold tracking-wide text-muted uppercase">
+						{tHome.nearbyHeading}
+					</p>
+					<p class="mt-1 text-body text-ink">{placeContext ?? t.placeContextEmpty}</p>
 				{:else}
 					{@const pin = current.pin}
 					<div class="flex items-start gap-2.5">

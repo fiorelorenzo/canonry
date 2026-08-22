@@ -41,6 +41,7 @@
 	let pinnedElapsedMs = $state<number | null>(data.pinnedElapsedMs);
 	let ambientPack = $state(data.ambientPack);
 	let placeBrief = $state(data.placeBrief);
+	let placeContext = $state(data.placeContext);
 
 	// `data` changes on `invalidateAll()` (declaring context, marking revealed, exiting);
 	// SSE messages and optimistic updates below also write these directly, so they stay
@@ -52,6 +53,7 @@
 		pinnedElapsedMs = data.pinnedElapsedMs;
 		ambientPack = data.ambientPack;
 		placeBrief = data.placeBrief;
+		placeContext = data.placeContext;
 	});
 
 	let showDeclareForm = $state(false);
@@ -212,6 +214,7 @@
 			await invalidateAll();
 			context = data.context;
 			placeBrief = data.placeBrief;
+			placeContext = data.placeContext;
 		} finally {
 			declaringContext = false;
 		}
@@ -313,6 +316,7 @@
 	// a card with no room for a second line about its own cache, so the deck gets the text
 	// (or null) and nothing else.
 	const deckPlaceBrief = $derived(placeBrief?.status === 'ready' ? placeBrief.text : null);
+	const deckPlaceContext = $derived(placeContext?.status === 'ready' ? placeContext.text : null);
 </script>
 
 <PageHeader title={t.title} />
@@ -453,6 +457,17 @@
 							{#if placeBrief?.status === 'ready' && placeBrief.stale}
 								<p class="mt-1 text-label text-muted">{t.brief.mayBeOutdated}</p>
 							{/if}
+							<p class="mt-3 text-meta font-semibold tracking-wide text-muted uppercase">
+								{t.home.nearbyHeading}
+							</p>
+							<p class="mt-1 text-body text-ink-2">
+								{placeContext?.status === 'ready'
+									? (placeContext.text ?? t.brief.missing)
+									: t.brief.missing}
+							</p>
+							{#if placeContext?.status === 'ready' && placeContext.stale}
+								<p class="mt-1 text-label text-muted">{t.brief.mayBeOutdated}</p>
+							{/if}
 						</section>
 
 						<section aria-labelledby="table-here-heading">
@@ -531,6 +546,7 @@
 					{pins}
 					placeName={context.placeName ?? ''}
 					placeBrief={deckPlaceBrief}
+					placeContext={deckPlaceContext}
 					canReveal={context.sessionEntityId !== null}
 					locale={data.locale}
 					onNote={handleDeckNote}
