@@ -16,6 +16,20 @@ export type DetectedDetail =
 	| { kind: 'generic'; files: number };
 
 /**
+ * Issue #572: the `proposal_trigger` values the plan checklist's credits line is written
+ * for, split by which of the three lines they read. `save` is absent on purpose: it has its
+ * own pair of keys (`toGenerate`/`alreadySpent`), because it is the only trigger with a real
+ * diff-generation step still ahead of it.
+ *
+ * Declared here rather than imported from `@canonry/db` so this file stays a description of
+ * copy and nothing else. `$lib/proposals/creditsLine.ts` is what ties the two together, as a
+ * total record over the enum, so a seventh trigger fails to compile there until its line is
+ * chosen.
+ */
+export type PlanSpentTrigger = 'audit' | 'complete' | 'ask';
+export type PlanChargedElsewhereTrigger = 'table' | 'import';
+
+/**
  * The one shape `en.ts` and `it.ts` both have to satisfy, written down explicitly rather
  * than inferred from either of them. That is what makes a missing key a typecheck
  * failure: `export const it: Messages = {...}` is checked against *this* interface, so
@@ -1069,12 +1083,21 @@ export interface Messages {
 			/** Text after the bold "kept" count: " of {total} kept · cap {cap}", or "· no
 			 * cap" when the GM turned the limit off - never "cap null". */
 			keptSuffix: (total: number, cap: number | null) => string;
-			/** Issue #489: the single combined total this component showed before propagation's
-			 * checklist got its own reconciling breakdown (`toGenerate`/`alreadySpent` below) -
-			 * still used for every other trigger this checklist renders for, where there is no
-			 * real "generate diffs" step ahead of it (an audit plan, whose flags are already
-			 * fully priced when written). Wraps the bold, pre-formatted credits figure. */
-			estimatedCredits: (credits: number) => { prefix: string; suffix: string };
+			/** Issue #572: the charge an audit, a completion or an Ask draft has already made,
+			 * keyed by the plan's trigger because the words differ per trigger (flags still
+			 * open, this completion, this draft) - see `$lib/proposals/creditsLine.ts` for why
+			 * the mapping is a total record over `proposal_trigger`. Never an estimate: these
+			 * candidates are drafted and paid for the moment they are written, and the figure
+			 * falls as the GM settles them. Wraps the bold, pre-formatted credits figure. */
+			spentCredits: Record<
+				PlanSpentTrigger,
+				(credits: number) => { prefix: string; suffix: string }
+			>;
+			/** Issue #572: the two triggers priced per something other than a candidate, where
+			 * a plan's stored figure is zero by construction. One sentence naming the charge
+			 * that has already happened, and deliberately no number: a bold zero on a plan an
+			 * import really did pay for is the same dishonesty in the other direction. */
+			chargedElsewhere: Record<PlanChargedElsewhereTrigger, string>;
 			/** Issue #489: propagation's reconciling total for the "generate diffs" action -
 			 * `perDiffCreditsFormatted` (already locale-formatted by the caller) appears in the
 			 * prefix beside `count`, the bold count-times-price total sits in between, so a GM

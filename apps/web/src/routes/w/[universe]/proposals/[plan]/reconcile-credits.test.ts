@@ -18,9 +18,10 @@
  *
  * A second case covers the other trigger that can still reach this page before 'spent': an
  * audit plan, whose flags are already fully priced when written (packages/copilot/src/
- * audit.ts) and have no real "generate diffs" step ahead of them - `pricing.kind` stays
- * `'total'` for that trigger, and each row keeps its own stored `credits` rather than being
- * overwritten with propagation's per-diff price.
+ * audit.ts) and have no real "generate diffs" step ahead of them - `pricing.kind` is
+ * `'spent'` for that trigger (issue #572, which is also what decides the sentence around
+ * the figure), and each row keeps its own stored `credits` rather than being overwritten
+ * with propagation's per-diff price.
  *
  * Issue #508 has since fixed the column itself: `estimated_credits` now means what a plan's
  * still-open candidates are worth, every accept, reject and drop moves it, and propagation's
@@ -263,10 +264,13 @@ describe('the plan page (#489): the credit figures reconcile even from a stale s
 		expect(toGenerate).toBe(1);
 	});
 
-	it('keeps the single combined total, and each row its own real credits, for a trigger with no diff-generation step', async () => {
+	it('keeps the figure, and each row its own real credits, for a trigger with no diff-generation step', async () => {
 		const data = await loadPlan(auditPlanId);
 
-		if (data.pricing.kind !== 'total') throw new Error('expected total pricing');
+		// Issue #572: an audit plan's figure is a charge already made, so it travels under its
+		// own discriminant rather than sharing propagation's forward-looking one.
+		if (data.pricing.kind !== 'spent') throw new Error('expected spent pricing');
+		expect(data.pricing.trigger).toBe('audit');
 		expect(data.pricing.estimatedCredits).toBe(5);
 
 		expect(data.checklistRows).toHaveLength(1);
