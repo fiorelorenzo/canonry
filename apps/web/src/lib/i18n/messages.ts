@@ -582,6 +582,8 @@ export interface Messages {
 		indexTitle: string;
 		indexSubtitle: string;
 		emptyState: string;
+		learnedHeading: string;
+		learnedEmpty: string;
 		gapNoticeBefore: string;
 		gapNoticeAfter: (entityType: string) => string;
 		factsHeading: string;

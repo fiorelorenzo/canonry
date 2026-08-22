@@ -32,7 +32,7 @@
  * fence hides rather than two that can drift.
  */
 import { isPlayerVisibleSpan } from '@canonry/lang';
-import { and, asc, desc, eq, isNotNull, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, ne, or, sql } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Db } from '../client.js';
@@ -583,6 +583,343 @@ export async function publicMediaAssetById(
 	if (!revealRow?.confirmedAt) return undefined;
 
 	return { path: row.path, mimeType: row.mimeType };
+}
+
+// -----------------------------------------------------------------------------------------
+// Read: the campaign diary (issue #530, decision "W2 = A rebuild the players' wiki as
+// sessions"). `listPublicEntities` above lists entities; this groups the same underlying
+// `revelation` rows by the session they happened in and pairs each with the session's own
+// body - a session is an entity like any other (SPEC.md §4.2), so its prose is written by
+// the GM and gated by exactly the same rules, nothing bespoke.
+// -----------------------------------------------------------------------------------------
+
+export interface DiaryEntryRef {
+	slug: string;
+	name: string;
+}
+
+/** A relation row names two entries, and unlike `entity`/`fact` above, either one can
+ * still be a gap - matching `publicEntityBySlug`'s own relations (E7's point that a name
+ * reached by following a revealed link is not the index enumerating it). `status` is what
+ * lets a caller render the same "(not yet discovered)" annotation the entity page already
+ * does, rather than a plain link that promises more than the destination has. */
+export interface DiaryRelationParty extends DiaryEntryRef {
+	status: 'full' | 'gap';
+}
+
+/** One line of "what the party learned" under a session, filtered for guardrail 6 rather
+ * than for a GM's eyes the way `revelationLogForUniverse` below is. An `'entity'` row's
+ * target is player-safe by construction (a `kind: 'entity'` revelation *is* that entity
+ * becoming visible) - excluded only if it targets another `'session'`, which would just be
+ * one diary entry citing itself or a neighbour as if it were something learned. A `'fact'`
+ * row is dropped entirely unless its own subject entity is independently revealed too:
+ * without that, `entity` would name a still-undiscovered entry, which is the leak an
+ * unrevealed entity's fact could cause that an unrevealed entity's own row never can (a
+ * `kind: 'fact'` revelation does not imply a `kind: 'entity'` one - see this file's own
+ * comment on `revelationLogForUniverse`'s fact branch). A `'relation'` row is kept even
+ * where one party is still a gap, but dropped outright where either party is `gm_only`. */
+export type DiaryRevelation =
+	| { id: string; kind: 'entity'; confirmedAt: Date; label: string; entity: DiaryEntryRef }
+	| { id: string; kind: 'fact'; confirmedAt: Date; label: string; entity: DiaryEntryRef }
+	| {
+			id: string;
+			kind: 'relation';
+			confirmedAt: Date;
+			relationLabel: string;
+			from: DiaryRelationParty;
+			to: DiaryRelationParty;
+	  };
+
+export interface PublicDiarySession {
+	id: string;
+	slug: string;
+	name: string;
+	/** Raw stored markdown, `:::secret`/`:::gmnote` fences included - the same contract as
+	 * `PublicFullEntity.body`: `apps/web/src/lib/server/players.ts` runs it through
+	 * `stripSecretsForPlayers` before it ever reaches a page's data. See this file's module
+	 * doc; a session's body is canon prose and gets no second filter. */
+	body: string;
+	/** The earliest confirmed reveal touching this session: its own `'entity'` revelation
+	 * when the GM tapped the session itself (identical to any other entry), or - the
+	 * seeded world's own state, where session-1 was never separately revealed even though
+	 * five things were confirmed inside it - the first of those things instead. Either way
+	 * this is "when the table first knew this session happened", not a stored play date:
+	 * there is no such column, and #530's own brief is explicit that this needs none. */
+	revealedAt: Date;
+	images: PublicImageRow[];
+	coverImageId: string | null;
+	revelations: DiaryRevelation[];
+}
+
+const diaryEntityRef = alias(entity, 'diary_entity_ref');
+const diaryFactEntity = alias(entity, 'diary_fact_entity');
+const diaryRelFrom = alias(entity, 'diary_rel_from');
+const diaryRelTo = alias(entity, 'diary_rel_to');
+
+/** #530's diary: every `'session'`-type entity the party has actually met, newest first,
+ * each carrying its own player-visible prose and what was learned inside it. "Met" is a
+ * union of two things, both real states #530's acceptance render proves distinct: the
+ * session itself carries a confirmed `'entity'` revelation (E5's live tap or the log
+ * confirm, run against the session exactly like any other entry), or at least one
+ * player-safe revelation names it as the session it happened in - E7's rule applied to a
+ * session rather than suspended for one, per this round's own guardrail 6 note. Neither on
+ * its own: a session with nothing confirmed anywhere near it does not appear at all, same
+ * as an entity nobody has revealed. A `gm_only` session is excluded outright, the same
+ * defense-in-depth every other read in this file applies. */
+export async function publicSessionDiary(
+	db: Db,
+	universeId: string,
+	opts?: { locale?: string }
+): Promise<PublicDiarySession[]> {
+	const locale = opts?.locale;
+
+	const sessions = await db
+		.select({
+			id: entity.id,
+			slug: entity.slug,
+			name: entity.name,
+			body: entity.body,
+			coverAssetId: entity.coverAssetId
+		})
+		.from(entity)
+		.where(
+			and(
+				eq(entity.universeId, universeId),
+				eq(entity.type, 'session'),
+				ne(entity.visibility, GM_ONLY_VISIBILITY)
+			)
+		);
+	if (sessions.length === 0) return [];
+	const sessionIds = sessions.map((row) => row.id);
+
+	const selfRevealRows = await db
+		.select({
+			sessionId: revelation.entityId,
+			revealedAt: sql<Date>`min(${revelation.confirmedAt})`
+		})
+		.from(revelation)
+		.where(
+			and(
+				eq(revelation.universeId, universeId),
+				eq(revelation.kind, 'entity'),
+				isNotNull(revelation.confirmedAt),
+				inArray(revelation.entityId, sessionIds)
+			)
+		)
+		.groupBy(revelation.entityId);
+	// See `listPublicEntities`'s own comment: postgres.js only auto-decodes a plain column
+	// reference, not a raw `min(...)` aggregate, which comes back as wire text.
+	const selfRevealedAtBySession = new Map(
+		selfRevealRows.map((row) => [
+			row.sessionId as string,
+			new Date(row.revealedAt as unknown as string)
+		])
+	);
+
+	const entityChildRows = await db
+		.select({
+			id: revelation.id,
+			sessionId: revelation.sessionEntityId,
+			confirmedAt: revelation.confirmedAt,
+			slug: diaryEntityRef.slug,
+			name: diaryEntityRef.name
+		})
+		.from(revelation)
+		.innerJoin(diaryEntityRef, eq(diaryEntityRef.id, revelation.entityId))
+		.where(
+			and(
+				eq(revelation.universeId, universeId),
+				eq(revelation.kind, 'entity'),
+				isNotNull(revelation.confirmedAt),
+				inArray(revelation.sessionEntityId, sessionIds),
+				ne(diaryEntityRef.visibility, GM_ONLY_VISIBILITY),
+				ne(diaryEntityRef.type, 'session')
+			)
+		);
+
+	// #306: a revealed fact whose evidence span reaches into a `:::secret`/`:::gmnote`
+	// fence in its source revision is dropped whole, statement included - the same
+	// `isPlayerVisibleSpan` filter `publicEntityBySlug` runs, on the same raw source body,
+	// so there is one definition of what a fence hides rather than two that can drift.
+	// The subject-revealed gate is a second, independent condition: `exists(...)` rather
+	// than a join, so a subject revealed under more than one session container (the
+	// schema allows it) can never duplicate this row.
+	const factChildRowsRaw = await db
+		.select({
+			id: revelation.id,
+			sessionId: revelation.sessionEntityId,
+			confirmedAt: revelation.confirmedAt,
+			statement: fact.statement,
+			spanStart: fact.spanStart,
+			spanEnd: fact.spanEnd,
+			sourceBody: revision.body,
+			slug: diaryFactEntity.slug,
+			name: diaryFactEntity.name
+		})
+		.from(revelation)
+		.innerJoin(fact, eq(fact.id, revelation.factId))
+		.innerJoin(revision, eq(revision.id, fact.sourceRevisionId))
+		.innerJoin(diaryFactEntity, eq(diaryFactEntity.id, fact.entityId))
+		.where(
+			and(
+				eq(revelation.universeId, universeId),
+				eq(revelation.kind, 'fact'),
+				isNotNull(revelation.confirmedAt),
+				inArray(revelation.sessionEntityId, sessionIds),
+				ne(diaryFactEntity.visibility, GM_ONLY_VISIBILITY),
+				sql`exists (
+					select 1 from ${revelation} as diary_fact_subject_reveal
+					where diary_fact_subject_reveal.entity_id = ${diaryFactEntity.id}
+						and diary_fact_subject_reveal.kind = 'entity'
+						and diary_fact_subject_reveal.confirmed_at is not null
+				)`
+			)
+		);
+	// Withheld here, not by the caller (same guarantee `publicEntityBySlug` gives): a
+	// fenced sentence never leaves this function, so `sourceBody` is never carried into
+	// `factChildRows` below.
+	const factChildRows = factChildRowsRaw.filter((row) =>
+		isPlayerVisibleSpan(row.sourceBody, row.spanStart, row.spanEnd)
+	);
+
+	const relationLabel =
+		locale === undefined
+			? sql<string>`${relationType.label}`
+			: sql<string>`coalesce(${relationTypeLabel.label}, ${relationType.label})`;
+	// Mirrors `publicEntityBySlug`'s own `otherRevealedAt`: whether a party has its own
+	// confirmed `'entity'` revelation, independent of this relation's - a relation being
+	// revealed does not itself reveal either party (E7).
+	const fromRevealedAt = sql<Date | null>`(
+		select max(diary_rel_from_reveal.confirmed_at) from ${revelation} as diary_rel_from_reveal
+		where diary_rel_from_reveal.entity_id = ${diaryRelFrom.id}
+			and diary_rel_from_reveal.kind = 'entity'
+			and diary_rel_from_reveal.confirmed_at is not null
+	)`;
+	const toRevealedAt = sql<Date | null>`(
+		select max(diary_rel_to_reveal.confirmed_at) from ${revelation} as diary_rel_to_reveal
+		where diary_rel_to_reveal.entity_id = ${diaryRelTo.id}
+			and diary_rel_to_reveal.kind = 'entity'
+			and diary_rel_to_reveal.confirmed_at is not null
+	)`;
+	let relationQuery = db
+		.select({
+			id: revelation.id,
+			sessionId: revelation.sessionEntityId,
+			confirmedAt: revelation.confirmedAt,
+			fromSlug: diaryRelFrom.slug,
+			fromName: diaryRelFrom.name,
+			fromRevealedAt,
+			toSlug: diaryRelTo.slug,
+			toName: diaryRelTo.name,
+			toRevealedAt,
+			relationLabel
+		})
+		.from(revelation)
+		.innerJoin(relation, eq(relation.id, revelation.relationId))
+		.innerJoin(relationType, eq(relationType.id, relation.relationTypeId))
+		.innerJoin(diaryRelFrom, eq(diaryRelFrom.id, relation.fromEntityId))
+		.innerJoin(diaryRelTo, eq(diaryRelTo.id, relation.toEntityId))
+		.$dynamic();
+	if (locale !== undefined) {
+		relationQuery = relationQuery.leftJoin(
+			relationTypeLabel,
+			and(
+				eq(relationTypeLabel.relationTypeId, relationType.id),
+				eq(relationTypeLabel.locale, locale)
+			)
+		);
+	}
+	const relationChildRows = await relationQuery.where(
+		and(
+			eq(revelation.universeId, universeId),
+			eq(revelation.kind, 'relation'),
+			isNotNull(revelation.confirmedAt),
+			inArray(revelation.sessionEntityId, sessionIds),
+			ne(diaryRelFrom.visibility, GM_ONLY_VISIBILITY),
+			ne(diaryRelTo.visibility, GM_ONLY_VISIBILITY)
+		)
+	);
+
+	const imageRows = await db
+		.select({ id: mediaAsset.id, kind: mediaAsset.kind, entityId: mediaAsset.entityId })
+		.from(mediaAsset)
+		.where(and(inArray(mediaAsset.entityId, sessionIds), eq(mediaAsset.gmOnly, false)));
+	const imagesBySession = new Map<string, PublicImageRow[]>();
+	for (const row of imageRows) {
+		const list = imagesBySession.get(row.entityId!) ?? [];
+		list.push({ id: row.id, kind: row.kind });
+		imagesBySession.set(row.entityId!, list);
+	}
+
+	const revelationsBySession = new Map<string, DiaryRevelation[]>();
+	const earliestChildAtBySession = new Map<string, Date>();
+	const noteChild = (sessionId: string | null, at: Date | null, entry: DiaryRevelation) => {
+		if (!sessionId || !at) return;
+		const list = revelationsBySession.get(sessionId) ?? [];
+		list.push(entry);
+		revelationsBySession.set(sessionId, list);
+		const earliest = earliestChildAtBySession.get(sessionId);
+		if (!earliest || at < earliest) earliestChildAtBySession.set(sessionId, at);
+	};
+	for (const row of entityChildRows) {
+		if (!row.confirmedAt) continue;
+		noteChild(row.sessionId, row.confirmedAt, {
+			id: row.id,
+			kind: 'entity',
+			confirmedAt: row.confirmedAt,
+			label: row.name,
+			entity: { slug: row.slug, name: row.name }
+		});
+	}
+	for (const row of factChildRows) {
+		if (!row.confirmedAt) continue;
+		noteChild(row.sessionId, row.confirmedAt, {
+			id: row.id,
+			kind: 'fact',
+			confirmedAt: row.confirmedAt,
+			label: row.statement,
+			entity: { slug: row.slug, name: row.name }
+		});
+	}
+	for (const row of relationChildRows) {
+		if (!row.confirmedAt) continue;
+		noteChild(row.sessionId, row.confirmedAt, {
+			id: row.id,
+			kind: 'relation',
+			confirmedAt: row.confirmedAt,
+			relationLabel: row.relationLabel,
+			from: { slug: row.fromSlug, name: row.fromName, status: row.fromRevealedAt ? 'full' : 'gap' },
+			to: { slug: row.toSlug, name: row.toName, status: row.toRevealedAt ? 'full' : 'gap' }
+		});
+	}
+
+	const result: PublicDiarySession[] = [];
+	for (const row of sessions) {
+		const revealedAt = selfRevealedAtBySession.get(row.id) ?? earliestChildAtBySession.get(row.id);
+		if (!revealedAt) continue; // E7: unrevealed, does not appear at all.
+
+		const images = imagesBySession.get(row.id) ?? [];
+		const cover =
+			row.coverAssetId === null
+				? null
+				: (images.find((image) => image.id === row.coverAssetId && image.kind === 'image') ?? null);
+		const revelations = (revelationsBySession.get(row.id) ?? []).sort(
+			(a, b) => a.confirmedAt.getTime() - b.confirmedAt.getTime()
+		);
+
+		result.push({
+			id: row.id,
+			slug: row.slug,
+			name: row.name,
+			body: row.body,
+			revealedAt,
+			images,
+			coverImageId: cover?.id ?? null,
+			revelations
+		});
+	}
+
+	return result.sort((a, b) => b.revealedAt.getTime() - a.revealedAt.getTime());
 }
 
 // -----------------------------------------------------------------------------------------
