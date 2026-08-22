@@ -34,7 +34,24 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		error(404, messages(locals.locale).entry.errors.noSuchImage);
 	}
 
-	const bytes = await mediaStorage().read(asset.path);
+	// A row whose bytes are gone answers 404, not 500. The two are not the same claim: a
+	// 500 says the server broke, and an `<img>` pointing at one logs a console error on
+	// every render of the page that carries it, which is what a restored database whose
+	// media directory did not come with it looks like from the browser. The row being
+	// present and the file being absent is a real state (a restore, a half-finished
+	// migration between storage roots, a file removed underneath us), and the honest
+	// answer for it is the same as for an id that never existed: this image is not here.
+	// `EntryCoverPlaceholder` and the gallery's own broken-image handling then do what
+	// they already do for a missing cover, instead of showing a broken bitmap.
+	let bytes: Uint8Array;
+	try {
+		bytes = await mediaStorage().read(asset.path);
+	} catch (cause) {
+		if ((cause as NodeJS.ErrnoException)?.code === 'ENOENT') {
+			error(404, messages(locals.locale).entry.errors.noSuchImage);
+		}
+		throw cause;
+	}
 	return new Response(new Uint8Array(bytes), {
 		headers: {
 			'content-type': asset.mimeType,
