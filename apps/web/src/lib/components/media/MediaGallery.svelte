@@ -85,6 +85,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Dialog, DialogContent, DialogTitle } from '$lib/components/ui/dialog';
 	import { Segmented, type SegmentedOption } from '$lib/components/ui/segmented';
+	import { InlineLink } from '$lib/components/ui/link';
 	import type { ImageFeature } from '@canonry/db/schema';
 	import { IMAGE_WIDTH_PERCENTS, type ImageWidthPercent } from '$lib/markdown';
 	import GenerateDialog from './GenerateDialog.svelte';
@@ -436,12 +437,12 @@
 		{t.entry.media.noStyle.notice}
 		<!-- eslint-disable svelte/no-navigation-without-resolve -- settings anchor:
 			     resolve() plus a same-page fragment the rule cannot see through. -->
-		<a
+		<InlineLink
 			href={`${resolve(`/w/${data.universeSlug}/settings`)}#setup-image-style`}
-			class="font-medium text-accent-ink hover:underline"
+			class="font-medium"
 		>
 			{t.entry.media.noStyle.link}
-		</a>
+		</InlineLink>
 		<!-- eslint-enable svelte/no-navigation-without-resolve -->
 	</p>
 {/snippet}

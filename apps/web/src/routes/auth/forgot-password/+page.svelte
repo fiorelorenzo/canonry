@@ -12,6 +12,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import { InlineLink } from '$lib/components/ui/link';
 	import { messages } from '$lib/i18n';
 	import type { ActionData, PageData } from './$types';
 
@@ -58,9 +59,6 @@
 	{/if}
 
 	<p class="mt-4 text-center text-sm text-ink-2">
-		<a
-			href={resolve('/auth/sign-in')}
-			class="text-accent underline decoration-line-2 underline-offset-2">{t.backToSignIn}</a
-		>
+		<InlineLink href={resolve('/auth/sign-in')}>{t.backToSignIn}</InlineLink>
 	</p>
 </AuthShell>

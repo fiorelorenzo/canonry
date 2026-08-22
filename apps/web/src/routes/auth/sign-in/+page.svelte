@@ -26,6 +26,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import { InlineLink } from '$lib/components/ui/link';
 	import { messages } from '$lib/i18n';
 	import type { ActionData, PageData } from './$types';
 
@@ -117,12 +118,9 @@
 				autocomplete="current-password"
 				required
 			/>
-			<a
-				href={resolve('/auth/forgot-password')}
-				class="text-sm text-accent underline decoration-line-2 underline-offset-2"
-			>
+			<InlineLink href={resolve('/auth/forgot-password')} class="text-sm">
 				{t.forgotPasswordLink}
-			</a>
+			</InlineLink>
 		</div>
 
 		<Button type="submit" disabled={submitting} class="mt-2 w-full">
@@ -136,9 +134,6 @@
 
 	<p class="mt-4 text-center text-sm text-ink-2">
 		{t.noAccount}
-		<a
-			href={resolve('/auth/sign-up')}
-			class="text-accent underline decoration-line-2 underline-offset-2">{t.signUpLink}</a
-		>
+		<InlineLink href={resolve('/auth/sign-up')}>{t.signUpLink}</InlineLink>
 	</p>
 </AuthShell>

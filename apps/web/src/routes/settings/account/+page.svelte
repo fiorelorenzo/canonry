@@ -29,6 +29,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import { InlineLink } from '$lib/components/ui/link';
 	import { messages } from '$lib/i18n';
 	import type { ActionData, PageData } from './$types';
 
@@ -70,10 +71,7 @@
 
 {#if !data.user}
 	<p class="mt-6 text-sm text-ink-2">
-		<a
-			href={resolve('/auth/sign-in')}
-			class="text-accent underline decoration-line-2 underline-offset-2">{t.signInLink}</a
-		>
+		<InlineLink href={resolve('/auth/sign-in')}>{t.signInLink}</InlineLink>
 		{t.signInPrompt}
 	</p>
 {:else}
@@ -187,10 +185,7 @@
 		<p class="mt-2 text-sm text-ink-2">{t.deleteImpact(data.deletionImpact)}</p>
 		<p class="mt-3 text-sm text-ink-2">
 			{t.deleteExportPrompt}
-			<a
-				href={resolve('/settings/export')}
-				class="text-accent underline decoration-line-2 underline-offset-2">{t.deleteExportLink}</a
-			>
+			<InlineLink href={resolve('/settings/export')}>{t.deleteExportLink}</InlineLink>
 		</p>
 
 		{#if form?.deleteRequested}

@@ -36,6 +36,7 @@
 	import CircleHelpIcon from '@lucide/svelte/icons/circle-help';
 	import { dateFormat, messages, type Locale } from '$lib/i18n';
 	import * as Popover from '$lib/components/ui/popover';
+	import { InlineLink } from '$lib/components/ui/link';
 	import type { ShellQuota } from './types';
 
 	let { quota, locale }: { quota: ShellQuota; locale: Locale } = $props();
@@ -55,12 +56,9 @@
 
 {#snippet popoverFooter()}
 	<p class="text-xs text-muted-foreground">{renewalText}</p>
-	<a
-		href={resolve('/settings/billing')}
-		class="text-xs text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
-	>
+	<InlineLink href={resolve('/settings/billing')} class="text-xs">
 		{accountMenuT.planAndCredits}
-	</a>
+	</InlineLink>
 {/snippet}
 
 <div class="flex flex-col gap-2">

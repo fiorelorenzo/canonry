@@ -22,6 +22,7 @@
 	import { messages, numberFormat } from '$lib/i18n';
 	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import ProposalDiffCard from '$lib/components/proposals/ProposalDiffCard.svelte';
+	import { InlineLink } from '$lib/components/ui/link';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -73,20 +74,16 @@
 				</p>
 				<p class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
 					{#if data.candidate.planId}
-						<a
-							class="text-accent hover:underline"
+						<InlineLink
 							href={resolve(`/w/${data.universe.slug}/proposals/${data.candidate.planId}`)}
 						>
 							{t.review.awaitingDiff.planLink}
-						</a>
+						</InlineLink>
 					{/if}
 					{#if data.candidate.targetSlug}
-						<a
-							class="text-accent hover:underline"
-							href={resolve(`/w/${data.universe.slug}/e/${data.candidate.targetSlug}`)}
-						>
+						<InlineLink href={resolve(`/w/${data.universe.slug}/e/${data.candidate.targetSlug}`)}>
 							{t.review.awaitingDiff.backToEntry}
-						</a>
+						</InlineLink>
 					{/if}
 				</p>
 			</div>

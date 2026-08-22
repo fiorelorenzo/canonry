@@ -21,6 +21,7 @@
 	import { renderOutcomeNote } from '$lib/import/outcome-note';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
+	import { InlineLink } from '$lib/components/ui/link';
 	import ProposalQueue, {
 		type ProposalGroupView
 	} from '$lib/components/proposals/ProposalQueue.svelte';
@@ -132,12 +133,9 @@
 				<ul class="mt-3 flex flex-col gap-1.5">
 					{#each data.missingFromSource as item (item.id)}
 						<li>
-							<a
-								href={resolve(`/w/${data.universe.slug}/e/${item.slug}`)}
-								class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
-							>
+							<InlineLink href={resolve(`/w/${data.universe.slug}/e/${item.slug}`)}>
 								{item.name}
-							</a>
+							</InlineLink>
 							<span
 								class="ml-1 rounded-full bg-accent-bg px-1.5 py-0.5 font-mono text-[10px] text-accent-ink uppercase"
 							>

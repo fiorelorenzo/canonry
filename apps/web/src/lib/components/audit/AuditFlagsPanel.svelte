@@ -14,6 +14,7 @@
 	import { stripMentionSyntax } from '$lib/markdown';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
+	import { InlineLink } from '$lib/components/ui/link';
 
 	export interface AuditFlagStatementView {
 		entityId: string;
@@ -79,14 +80,13 @@
 					</form>
 					<span class="text-muted">{t.entry.audit.openBoth}</span>
 					{#each flag.statements as statement (statement.entityId)}
-						<a
+						<InlineLink
 							href={resolve(`/w/${universeSlug}/e/${statement.entitySlug}`)}
 							target="_blank"
 							rel="noopener"
-							class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
 						>
 							{statement.entityName} &#8599;
-						</a>
+						</InlineLink>
 					{/each}
 				</div>
 			</li>

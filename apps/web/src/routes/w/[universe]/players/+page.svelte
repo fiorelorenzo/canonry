@@ -33,6 +33,7 @@
 	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import MentionPreview from '$lib/components/entry/MentionPreview.svelte';
+	import { InlineLink } from '$lib/components/ui/link';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -86,11 +87,9 @@
 			</h2>
 
 			{#snippet nameLink(ref: { slug: string; name: string; revealed: boolean }, text: string)}
-				<a
+				<InlineLink
 					href={resolve(`/w/${data.universe.slug}/e/${ref.slug}`)}
-					data-entry-slug={ref.slug}
-					class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
-					>{text}</a
+					data-entry-slug={ref.slug}>{text}</InlineLink
 				>{#if ref.revealed}<Button
 						href={resolve(`/p/${data.universe.slug}/${ref.slug}`)}
 						data-entry-slug={ref.slug}

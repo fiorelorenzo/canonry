@@ -7,6 +7,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
+	import { InlineLink } from '$lib/components/ui/link';
 	import { messages } from '$lib/i18n';
 	import type { PageData } from './$types';
 
@@ -22,8 +23,6 @@
 <AuthShell locale={data.locale} title={t.title} subtitle={t.subtitle}>
 	<p class="text-sm text-ink-2">{t.body}</p>
 	<p class="mt-4 text-center text-sm text-ink-2">
-		<a href={resolve('/')} class="text-accent underline decoration-line-2 underline-offset-2"
-			>{t.homeLink}</a
-		>
+		<InlineLink href={resolve('/')}>{t.homeLink}</InlineLink>
 	</p>
 </AuthShell>

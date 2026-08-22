@@ -46,6 +46,7 @@
 	import SquarePenIcon from '@lucide/svelte/icons/square-pen';
 	import type { FactRow } from '$lib/components/entry/FactsPanel.svelte';
 	import type { FactSpan } from '$lib/markdown';
+	import { InlineLink } from '$lib/components/ui/link';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -328,8 +329,7 @@
 					     place would be accepting something nobody could read. -->
 						<p class="mb-0 text-xs text-muted">
 							{t.proposals.inline.awaitingDiff(data.proposals.awaitingDiff.count)}
-							<a
-								class="text-accent hover:underline"
+							<InlineLink
 								href={data.proposals.awaitingDiff.planId
 									? resolve(
 											`/w/${data.universe.slug}/proposals/${data.proposals.awaitingDiff.planId}`
@@ -337,7 +337,7 @@
 									: resolve(`/w/${data.universe.slug}/proposals`)}
 							>
 								{t.proposals.inline.awaitingDiffLink}
-							</a>
+							</InlineLink>
 						</p>
 					{/if}
 				</div>

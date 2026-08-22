@@ -30,6 +30,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import AskConversationGroup from '$lib/components/ask/AskConversationGroup.svelte';
 	import AskEntryPanel from '$lib/components/ask/AskEntryPanel.svelte';
+	import { InlineLink } from '$lib/components/ui/link';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -163,8 +164,7 @@
 			     the boxed two-paragraph card this page used to carry. -->
 			<p class="max-w-measure text-label text-ink-2">
 				{th.note}
-				{t.keep.noteLinkBefore}<a href={resolve('/privacy')} class="text-accent underline"
-					>{t.keep.noteLink}</a
+				{t.keep.noteLinkBefore}<InlineLink href={resolve('/privacy')}>{t.keep.noteLink}</InlineLink
 				>.
 			</p>
 

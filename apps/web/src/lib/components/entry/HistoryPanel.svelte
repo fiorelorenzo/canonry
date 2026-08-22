@@ -26,6 +26,7 @@
 	import { resolve } from '$app/paths';
 	import { dateFormat, messages, type Locale } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { InlineLink } from '$lib/components/ui/link';
 	import type { AuthorKind } from '@canonry/db/schema';
 	import RevisionBadge from './RevisionBadge.svelte';
 
@@ -117,12 +118,12 @@
 								<RevisionBadge kind={revision.authorKind} {locale} />
 							</div>
 							{#if revision.proposalId}
-								<a
+								<InlineLink
 									href={resolve(`/w/${universeSlug}/review/${revision.proposalId}`)}
-									class="mt-0.5 inline-block text-xs text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
+									class="mt-0.5 inline-block text-xs"
 								>
 									{t.entry.history.proposalLink}
-								</a>
+								</InlineLink>
 							{/if}
 						</li>
 					{/each}
