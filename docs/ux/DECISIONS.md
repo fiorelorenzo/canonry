@@ -36,71 +36,71 @@ option is what stops it being reopened in six months.
 
 ### Foundations
 
-| Id | Decision | Chosen |
-| --- | --- | --- |
-| A1 | Visual language and density | **B, reading room.** Warm paper, serif for canon prose and entry titles, burnt umber accent, a hue reserved for the copilot. Amended round eleven: that hue is no longer violet, see P1 |
-| A2 | Information architecture | **A, fixed sidebar** with the universe switcher on top, capped at seven items, the palette as overflow |
-| A3 | Palette and keyboard | **C, one box** that routes a typed question to Ask instead of answering inline. Amended: the shortcuts have to be cross platform |
+| Id  | Decision                    | Chosen                                                                                                                                                                                  |
+| --- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1  | Visual language and density | **B, reading room.** Warm paper, serif for canon prose and entry titles, burnt umber accent, a hue reserved for the copilot. Amended round eleven: that hue is no longer violet, see P1 |
+| A2  | Information architecture    | **A, fixed sidebar** with the universe switcher on top, capped at seven items, the palette as overflow                                                                                  |
+| A3  | Palette and keyboard        | **C, one box** that routes a typed question to Ask instead of answering inline. Amended: the shortcuts have to be cross platform                                                        |
 
 ### Canon
 
-| Id | Decision | Chosen |
-| --- | --- | --- |
-| B1 | Entry page anatomy | **C, document plus a switching right column**: relations, facts, images, history |
-| B2 | Editor and mentions | **C, markdown with live decorations.** Amended: a graphical menu for anyone who does not want to type markdown; round twelve's Q4 makes that menu icon buttons with a tooltip each, and adds a preview, since decoration is not a preview |
-| B3 | Relations and inference | **A, in the margin**, with one-click confirm and retype |
-| B4 | Facts and provenance | **B, on demand.** Facts closed by default, a permanent non-violet human against ai-accepted badge in history |
-| B5 | Works and scenes | **A, tree beside a scene editor**, with the affected-scene signal read only |
+| Id  | Decision                | Chosen                                                                                                                                                                                                                                    |
+| --- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1  | Entry page anatomy      | **C, document plus a switching right column**: relations, facts, images, history                                                                                                                                                          |
+| B2  | Editor and mentions     | **C, markdown with live decorations.** Amended: a graphical menu for anyone who does not want to type markdown; round twelve's Q4 makes that menu icon buttons with a tooltip each, and adds a preview, since decoration is not a preview |
+| B3  | Relations and inference | **A, in the margin**, with one-click confirm and retype                                                                                                                                                                                   |
+| B4  | Facts and provenance    | **B, on demand.** Facts closed by default, a permanent non-violet human against ai-accepted badge in history                                                                                                                              |
+| B5  | Works and scenes        | **A, tree beside a scene editor**, with the affected-scene signal read only                                                                                                                                                               |
 
 ### The copilot loop
 
-| Id | Decision | Chosen |
-| --- | --- | --- |
-| C1 | AI text marking | **B, underline and margin marker.** Unaccepted wording never enters the entry's own reading flow. The mechanism is unamended; only its hue moved, see P1 |
-| C2 | Proposal routing | **A, an inbox**, with a quiet arrival signal and never a modal |
-| C3 | The plan | **A, flat checklist** ordered by relevance, entries droppable before any diff is written |
-| C4 | Diff layout | **C, in place**, and the toggle is repealed by round twelve's Q1: every changed part shows at once with its context. Amended round eleven: the diff has its own colour, distinct from C1's marking, see P3 |
-| C5 | Evidence | **B, popover on the changed text**, forced open where nothing but weak evidence backs the candidate. Amended (#270): weak means embedding similarity, or the GM's own request for a proposal made from Ask, and the popover names which of the two |
-| C6 | Accept and reject | **B, keyboard queue**, `j k a r u`, buttons always visible |
-| C7 | Reject reasons | **A, chips with a free text escape** |
-| C8 | Ask mode | **B, command palette.** Amended: the palette launches the flow, an answer can move into a dedicated page, a source click goes to that entry |
-| C9 | Audit flags | **B, a badge on the entry**, reading the same flag list an aside section shows |
-| C10 | AI off | **B, per universe** |
+| Id  | Decision          | Chosen                                                                                                                                                                                                                                             |
+| --- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1  | AI text marking   | **B, underline and margin marker.** Unaccepted wording never enters the entry's own reading flow. The mechanism is unamended; only its hue moved, see P1                                                                                           |
+| C2  | Proposal routing  | **A, an inbox**, with a quiet arrival signal and never a modal                                                                                                                                                                                     |
+| C3  | The plan          | **A, flat checklist** ordered by relevance, entries droppable before any diff is written                                                                                                                                                           |
+| C4  | Diff layout       | **C, in place**, and the toggle is repealed by round twelve's Q1: every changed part shows at once with its context. Amended round eleven: the diff has its own colour, distinct from C1's marking, see P3                                         |
+| C5  | Evidence          | **B, popover on the changed text**, forced open where nothing but weak evidence backs the candidate. Amended (#270): weak means embedding similarity, or the GM's own request for a proposal made from Ask, and the popover names which of the two |
+| C6  | Accept and reject | **B, keyboard queue**, `j k a r u`, buttons always visible                                                                                                                                                                                         |
+| C7  | Reject reasons    | **A, chips with a free text escape**                                                                                                                                                                                                               |
+| C8  | Ask mode          | **B, command palette.** Amended: the palette launches the flow, an answer can move into a dedicated page, a source click goes to that entry                                                                                                        |
+| C9  | Audit flags       | **B, a badge on the entry**, reading the same flag list an aside section shows                                                                                                                                                                     |
+| C10 | AI off            | **B, per universe**                                                                                                                                                                                                                                |
 
 ### Import and onboarding
 
-| Id | Decision | Chosen |
-| --- | --- | --- |
-| D1 | Source selection | **C, detect then confirm** |
-| D2 | Estimate and run | **B, live feed of proposals**, so review starts before the import ends |
-| D3 | The dry run | **A, four bucket cards.** Conflicts never get a bulk control |
-| D4 | Import review | **B, one queue** in C6's vocabulary, with type filters |
-| D5 | Field conflicts | **A, two columns**: keep mine, take theirs, keep both, edit now |
-| D6 | The matching question | **B, collected** and asked as one batch before the dry run, with no similarity number shown |
-| D7 | Onboarding | **A, import first**, with the pre-indexed universe path as the fallback |
+| Id  | Decision              | Chosen                                                                                      |
+| --- | --------------------- | ------------------------------------------------------------------------------------------- |
+| D1  | Source selection      | **C, detect then confirm**                                                                  |
+| D2  | Estimate and run      | **B, live feed of proposals**, so review starts before the import ends                      |
+| D3  | The dry run           | **A, four bucket cards.** Conflicts never get a bulk control                                |
+| D4  | Import review         | **B, one queue** in C6's vocabulary, with type filters                                      |
+| D5  | Field conflicts       | **A, two columns**: keep mine, take theirs, keep both, edit now                             |
+| D6  | The matching question | **B, collected** and asked as one batch before the dry run, with no similarity number shown |
+| D7  | Onboarding            | **A, import first**, with the pre-indexed universe path as the fallback                     |
 
 ### Table and players
 
-| Id | Decision | Chosen |
-| --- | --- | --- |
-| E1 | Table mode | **B, a mode the whole app switches into** |
-| E2 | Lane latency | **A, progressive arrival with a quiet marker.** No spinner, no promised time |
-| E3 | Quick actions | **C, two-tier dock** |
-| E4 | Phone | **A, bottom tabs** |
-| E5 | Reveal | **C, session log confirmed after the table breaks** |
-| E6 | Secrets | **A, inline block typed in place**, with a preview toggle |
-| E7 | Players wiki | **C, undiscovered shown as a gap page** |
+| Id  | Decision      | Chosen                                                                       |
+| --- | ------------- | ---------------------------------------------------------------------------- |
+| E1  | Table mode    | **B, a mode the whole app switches into**                                    |
+| E2  | Lane latency  | **A, progressive arrival with a quiet marker.** No spinner, no promised time |
+| E3  | Quick actions | **C, two-tier dock**                                                         |
+| E4  | Phone         | **A, bottom tabs**                                                           |
+| E5  | Reveal        | **C, session log confirmed after the table breaks**                          |
+| E6  | Secrets       | **A, inline block typed in place**, with a preview toggle                    |
+| E7  | Players wiki  | **C, undiscovered shown as a gap page**                                      |
 
 ### Media, money and meta
 
-| Id | Decision | Chosen |
-| --- | --- | --- |
-| F1 | Image generation | **C, one action** that always confirms the spend |
-| F2 | Quota and cost | **A, a meter in the shell**, carrying the included quota and the warm budget separately |
-| F3 | Privacy and keys | **C, contextual**, at the moment content leaves, linking to a settings panel |
-| F4 | Export | **A, flat zip in Settings, unadvertised** |
-| F5 | Metrics | **B, an admin surface** inside the product, per playbook rather than aggregate |
-| F6 | Landing | **C, the demo as the hero**, no copy above it |
+| Id  | Decision         | Chosen                                                                                  |
+| --- | ---------------- | --------------------------------------------------------------------------------------- |
+| F1  | Image generation | **C, one action** that always confirms the spend                                        |
+| F2  | Quota and cost   | **A, a meter in the shell**, carrying the included quota and the warm budget separately |
+| F3  | Privacy and keys | **C, contextual**, at the moment content leaves, linking to a settings panel            |
+| F4  | Export           | **A, flat zip in Settings, unadvertised**                                               |
+| F5  | Metrics          | **B, an admin surface** inside the product, per playbook rather than aggregate          |
+| F6  | Landing          | **C, the demo as the hero**, no copy above it                                           |
 
 ## The three amendments
 
@@ -140,19 +140,19 @@ loud.
 
 ## Round two, decided 2026-08-13
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| G1 | Does table mode go dark, or does the reading room stay light? | **B, dark as a whole-app preference.** A setting for the entire product, prep included, and table mode inherits whatever the preference already is |
-| G2 | Where does serif stop? | **C, serif everywhere**, down to the number columns, with no boundary rule to argue about |
-| G3 | Which keys, on three platforms? | **B, bare keys inside a focused review surface** (`j k a r u`), modifiers everywhere else |
-| G4 | Which shape does the formatting menu take? | **A, an always-visible toolbar**, which depends on no trigger character |
-| G5 | What is the Ask page, and what does a source click do? | **A, expand in place, amended**: a source click opens a side panel holding that entry, no preview and no navigation |
-| G6 | Do the 19 unchanged-field updates need an accept? | **A, informational, no accept.** Already in the spec: guardrail 1 names this as its one exception |
-| G7 | What do players see before the log is confirmed? | **C, live for what the GM taps**, the log for everything else |
-| G8 | Do proposals arrive during play? | **B, propagation keeps running**, the inbox stays silent in table mode, the count rides on the way out |
-| G9 | What does off cover? | **A, generation stops, retrieval keeps reading.** Semantic search, mention suggestions and a derived universe's base-corpus read all continue |
-| G10 | Where is the lock-in answer said? | **A, one sentence below the landing demo**, plus a docs page |
-| G11 | How often does the product ask before spending? | **A, confirm every paid action** |
+| Id  | Question                                                      | Chosen                                                                                                                                             |
+| --- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G1  | Does table mode go dark, or does the reading room stay light? | **B, dark as a whole-app preference.** A setting for the entire product, prep included, and table mode inherits whatever the preference already is |
+| G2  | Where does serif stop?                                        | **C, serif everywhere**, down to the number columns, with no boundary rule to argue about                                                          |
+| G3  | Which keys, on three platforms?                               | **B, bare keys inside a focused review surface** (`j k a r u`), modifiers everywhere else                                                          |
+| G4  | Which shape does the formatting menu take?                    | **A, an always-visible toolbar**, which depends on no trigger character                                                                            |
+| G5  | What is the Ask page, and what does a source click do?        | **A, expand in place, amended**: a source click opens a side panel holding that entry, no preview and no navigation                                |
+| G6  | Do the 19 unchanged-field updates need an accept?             | **A, informational, no accept.** Already in the spec: guardrail 1 names this as its one exception                                                  |
+| G7  | What do players see before the log is confirmed?              | **C, live for what the GM taps**, the log for everything else                                                                                      |
+| G8  | Do proposals arrive during play?                              | **B, propagation keeps running**, the inbox stays silent in table mode, the count rides on the way out                                             |
+| G9  | What does off cover?                                          | **A, generation stops, retrieval keeps reading.** Semantic search, mention suggestions and a derived universe's base-corpus read all continue      |
+| G10 | Where is the lock-in answer said?                             | **A, one sentence below the landing demo**, plus a docs page                                                                                       |
+| G11 | How often does the product ask before spending?               | **A, confirm every paid action**                                                                                                                   |
 
 ### The amendment
 
@@ -182,10 +182,10 @@ sentence beside it load-bearing, which is the whole of round three.
 
 ## Round three, decided 2026-08-14
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| H1 | What the switch is called when off still spends, and whether reading counts against the quota | **B's half, with a mechanism neither option had: reading is free, and every price lives in a table an admin edits** |
-| H2 | The mark, the favicon, and what the brand may spend | **C, the tie: two entries and the link between them, drawn so the link is also the C** |
+| Id  | Question                                                                                      | Chosen                                                                                                              |
+| --- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| H1  | What the switch is called when off still spends, and whether reading counts against the quota | **B's half, with a mechanism neither option had: reading is free, and every price lives in a table an admin edits** |
+| H2  | The mark, the favicon, and what the brand may spend                                           | **C, the tie: two entries and the link between them, drawn so the link is also the C**                              |
 
 H1 was answered by removing the problem rather than by wording around it, and the
 answer is larger than the question:
@@ -269,18 +269,18 @@ recommendation.
 render as a bare column under a forty pixel bar. Eight routes have the frame and eighteen
 do not, and the eighteen are every screen a new account meets before it has a universe.
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| I1 | What the app serves at `/` to somebody signed out, now that the landing lives elsewhere | **B, a door page**: the spec's own sentence, sign in and create an account, and the links a visitor is owed |
-| I2 | Sign in and sign up | **C for sign-in, B for sign-up**: one layout, the title page, with an optional right pane carrying the argument where somebody is deciding |
-| I3 | The home page, signed in | **B, the shell reaches outside a universe**, with C's redirect as the zero-universe behaviour |
-| I4 | Creating a universe | **B, one creation surface**: `/onboarding` absorbs `/u/new` and offers three starts |
-| I5 | Where the language switch lives | **B, a row in the account menu**, endonyms, with the settings page behind it |
-| I6 | The account, and five settings pages with no home | **B, an account menu in the shell plus one two-pane settings page**, with a real Account pane |
-| I7 | The universe home, and the entry browser that was never built | **C, one page two modes**: the browser, with a collapsible overview strip above it. **Superseded by O1 on 2026-08-19**: two surfaces, a home at `/w/<slug>` and the browser at `/w/<slug>/entries` |
-| I8 | Nine empty states, nine hand-written sentences | **A, one component, three variants**: cold start, settled, derived absence |
-| I9 | Who owns the controls | **C, shadcn-svelte as the control layer**, with components of our own only where it has no answer |
-| I10 | The phone | **B, one responsive shell**, E4's bottom tabs generalised past table mode |
+| Id  | Question                                                                                | Chosen                                                                                                                                                                                             |
+| --- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I1  | What the app serves at `/` to somebody signed out, now that the landing lives elsewhere | **B, a door page**: the spec's own sentence, sign in and create an account, and the links a visitor is owed                                                                                        |
+| I2  | Sign in and sign up                                                                     | **C for sign-in, B for sign-up**: one layout, the title page, with an optional right pane carrying the argument where somebody is deciding                                                         |
+| I3  | The home page, signed in                                                                | **B, the shell reaches outside a universe**, with C's redirect as the zero-universe behaviour                                                                                                      |
+| I4  | Creating a universe                                                                     | **B, one creation surface**: `/onboarding` absorbs `/u/new` and offers three starts                                                                                                                |
+| I5  | Where the language switch lives                                                         | **B, a row in the account menu**, endonyms, with the settings page behind it                                                                                                                       |
+| I6  | The account, and five settings pages with no home                                       | **B, an account menu in the shell plus one two-pane settings page**, with a real Account pane                                                                                                      |
+| I7  | The universe home, and the entry browser that was never built                           | **C, one page two modes**: the browser, with a collapsible overview strip above it. **Superseded by O1 on 2026-08-19**: two surfaces, a home at `/w/<slug>` and the browser at `/w/<slug>/entries` |
+| I8  | Nine empty states, nine hand-written sentences                                          | **A, one component, three variants**: cold start, settled, derived absence                                                                                                                         |
+| I9  | Who owns the controls                                                                   | **C, shadcn-svelte as the control layer**, with components of our own only where it has no answer                                                                                                  |
+| I10 | The phone                                                                               | **B, one responsive shell**, E4's bottom tabs generalised past table mode                                                                                                                          |
 
 **I7 no longer holds.** It is the only answer in round four that the shipped version of itself
 argued out of: one page in two modes was more than the zero the product had, and having used it,
@@ -350,23 +350,23 @@ board said Done for a shell that does not exist outside a universe. Round four i
 filed as new work under a new epic, [#135](https://github.com/fiorelorenzo/canonry/issues/135),
 rather than as reopened tickets:
 
-| Issue | What | Decision |
-| --- | --- | --- |
-| #136 | The home page renders "Sign in" twice | defect, no decision |
-| #137 | "Match system" renders light on a dark machine | defect, G1 |
-| #138 | A door at the app root | I1 |
-| #139 | The auth pages as a title page, with the argument beside sign-up | I2 |
-| #140 | A new account lands on onboarding instead of an empty page | I3, the interim half |
-| #141 | The shell reaches outside a universe | I3 |
-| #142 | One creation surface for a new universe | I4 |
-| #143 | An account menu and one settings page with a sub-nav | I6 |
-| #144 | The language control in the account menu | I5 |
-| #145 | The entry browser, with the overview strip above it | I7 |
-| #146 | One empty state component, three variants | I8 |
-| #147 | shadcn-svelte as the control layer | I9 |
-| #148 | One responsive shell, phone included | I10 |
-| #149 | The command palette | A3, G3 |
-| #150 | The quota meter in the shell | F2 |
+| Issue | What                                                             | Decision             |
+| ----- | ---------------------------------------------------------------- | -------------------- |
+| #136  | The home page renders "Sign in" twice                            | defect, no decision  |
+| #137  | "Match system" renders light on a dark machine                   | defect, G1           |
+| #138  | A door at the app root                                           | I1                   |
+| #139  | The auth pages as a title page, with the argument beside sign-up | I2                   |
+| #140  | A new account lands on onboarding instead of an empty page       | I3, the interim half |
+| #141  | The shell reaches outside a universe                             | I3                   |
+| #142  | One creation surface for a new universe                          | I4                   |
+| #143  | An account menu and one settings page with a sub-nav             | I6                   |
+| #144  | The language control in the account menu                         | I5                   |
+| #145  | The entry browser, with the overview strip above it              | I7                   |
+| #146  | One empty state component, three variants                        | I8                   |
+| #147  | shadcn-svelte as the control layer                               | I9                   |
+| #148  | One responsive shell, phone included                             | I10                  |
+| #149  | The command palette                                              | A3, G3               |
+| #150  | The quota meter in the shell                                     | F2                   |
 
 The last two are not round four answers. They are decided-but-unbuilt work the pass found
 while looking for something else, and #149 is worth recording on its own: **the command
@@ -411,9 +411,9 @@ schema, `universeAccessBySlug` resolved a slug with no owner filter and no order
 same URL could resolve to a different universe between two requests. Answering it turned out
 to require answering a question round four never asked.
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| J1 | What the top-level URL segments mean, now that user profiles are certain | **`/u/<handle>` a person, `/w/<slug>` a world, `/p/<slug>` the players' wiki** |
+| Id  | Question                                                                 | Chosen                                                                         |
+| --- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| J1  | What the top-level URL segments mean, now that user profiles are certain | **`/u/<handle>` a person, `/w/<slug>` a world, `/p/<slug>` the players' wiki** |
 
 **Answered by a fourth way, not by picking among three.** #153 was framed as a scoping
 question: global uniqueness, or resolution scoped to the viewer, my own preference going in.
@@ -457,9 +457,9 @@ is the whole point of freeing the segment deliberately rather than leaving a tra
 
 ## Round six, decided 2026-08-16
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| K1 | Are relation types a fixed catalogue or can the Loremaster invent them? | **Free labels, reconciled**: the model may propose any label, a resolver matches it against what exists, and creating a type is a proposal a GM accepts |
+| Id  | Question                                                                | Chosen                                                                                                                                                  |
+| --- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| K1  | Are relation types a fixed catalogue or can the Loremaster invent them? | **Free labels, reconciled**: the model may propose any label, a resolver matches it against what exists, and creating a type is a proposal a GM accepts |
 
 **The product already answered this twice, and differently.** `relation_type` is a table,
 not an enum, `label` and `inverse_label` are `text`, unique per universe rather than drawn
@@ -521,12 +521,11 @@ and because the alternative this decision refuses is worse: a GM's world stuck a
 forever, or a product that keeps inventing them with nobody reviewing it, which is the bug
 K1 exists to close.
 
-
 ## Round seven, decided 2026-08-16
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| L1 | A relation label reads as interface, so a language switch should change it. Which labels, and how, without making anybody wait? | **Identity moves off the label.** A stable `key` carries identity, the ten shipped labels ship in the i18n bundle in every locale, and a universe's own labels display as authored |
+| Id  | Question                                                                                                                        | Chosen                                                                                                                                                                             |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L1  | A relation label reads as interface, so a language switch should change it. Which labels, and how, without making anybody wait? | **Identity moves off the label.** A stable `key` carries identity, the ten shipped labels ship in the i18n bundle in every locale, and a universe's own labels display as authored |
 
 K1 made relation types free. L1 answers what happens to them when the interface changes
 language, and it starts by noticing that the label was doing three jobs and only one of them
@@ -575,9 +574,9 @@ Built as epic #194 with #195, #196, #197 and #198.
 
 ## Round eight, decided 2026-08-19
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| M1 | The product is built and `canonry.io` still says "coming". What is the landing page for now? | **A door, not a waiting list.** The page's job becomes getting a stranger into the product or into a world they can read, and the waiting list stops being the primary action |
+| Id  | Question                                                                                     | Chosen                                                                                                                                                                        |
+| --- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1  | The product is built and `canonry.io` still says "coming". What is the landing page for now? | **A door, not a waiting list.** The page's job becomes getting a stranger into the product or into a world they can read, and the waiting list stops being the primary action |
 
 **What changed is the product, not the page.** F6 chose the propagation demo as the hero and
 G10 put the export sentence under it, and both still hold: nothing above the demo, one place
@@ -617,13 +616,13 @@ Tracked as `canonry-landing#9`, with `canonry-landing#8` for the consent record,
 
 ## Round nine, decided 2026-08-19
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| N1 | The propagation cap was a hardcoded ~10 with no arithmetic behind it. Does it become a per-universe setting, and what happens at the edges - no limit, and a GM who already said a plan was "too much"? | **A per-universe setting, 25 by default, with an explicit no-limit option.** Null means no limit, a real value rather than a sentinel, and the reject signal's floor of 3 never applies once the limit is off |
+| Id  | Question                                                                                                                                                                                                | Chosen                                                                                                                                                                                                        |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| N1  | The propagation cap was a hardcoded ~10 with no arithmetic behind it. Does it become a per-universe setting, and what happens at the edges - no limit, and a GM who already said a plan was "too much"? | **A per-universe setting, 25 by default, with an explicit no-limit option.** Null means no limit, a real value rather than a sentinel, and the reject signal's floor of 3 never applies once the limit is off |
 
 **The old number was a guess, and I could tell because nobody could point at the
 arithmetic behind it.** SPEC 5.1 has said "~10 entries per plan" since the first draft,
-cited only to the suggestion-fatigue research (`07`), which argues for *some* ceiling
+cited only to the suggestion-fatigue research (`07`), which argues for _some_ ceiling
 and says nothing about which one. The right number depends on how connected a world is
 and how much a GM wants to review in one sitting, which is what a setting is for rather
 than a constant every universe inherits whether it fits or not.
@@ -677,12 +676,12 @@ other way: I opened the preview, disliked four things, and drew the options inst
 any of them inside a component. Drawn in the morning, answered the same day, which is the whole
 argument for drawing them.
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| O1 | The world home is four small cells over a flat list. Is it big editorial sections, a browser that grows up, or two surfaces? | **C, two surfaces, honestly split.** A world home at `/w/<slug>`, and the browser as a dense table at `/w/<slug>/entries` |
-| O2 | An entry has no cover image and a five-tab aside that clips its own last label at 256px. Where does the cover live, and what carries the structured layer? | **A, a cover band above the title, and the aside loses its tabs** for stacked collapsible sections. Amended round eleven: there is a placeholder after all, for a writer only, see P6 |
-| O3 | Ask has three doors, all of which navigate away, and it remembers nothing. Does the copilot get a floating composer on every page, and what does the dedicated page become? | **A, a floating pill that expands in place.** Amended: the theme's own colours rather than the copilot's violet, and an icon to close rather than the word |
-| O4 | Which control replaces a native select, and does one control fit both a two-option toggle and every entity in the world? | **B, three controls, chosen by what the list is** |
+| Id  | Question                                                                                                                                                                    | Chosen                                                                                                                                                                                |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| O1  | The world home is four small cells over a flat list. Is it big editorial sections, a browser that grows up, or two surfaces?                                                | **C, two surfaces, honestly split.** A world home at `/w/<slug>`, and the browser as a dense table at `/w/<slug>/entries`                                                             |
+| O2  | An entry has no cover image and a five-tab aside that clips its own last label at 256px. Where does the cover live, and what carries the structured layer?                  | **A, a cover band above the title, and the aside loses its tabs** for stacked collapsible sections. Amended round eleven: there is a placeholder after all, for a writer only, see P6 |
+| O3  | Ask has three doors, all of which navigate away, and it remembers nothing. Does the copilot get a floating composer on every page, and what does the dedicated page become? | **A, a floating pill that expands in place.** Amended: the theme's own colours rather than the copilot's violet, and an icon to close rather than the word                            |
+| O4  | Which control replaces a native select, and does one control fit both a two-option toggle and every entity in the world?                                                    | **B, three controls, chosen by what the list is**                                                                                                                                     |
 
 **Every one of the four took the recommendation**, which has not happened in any earlier round
 and is worth reading as evidence about the questions rather than about the answers: these were
@@ -797,7 +796,6 @@ filed for the persistence O3 deliberately did not settle. The artifacts keep the
 their rejected sections, as every artifact in this set does, because the reasoning behind an
 option that lost is what stops it being reopened in six months.
 
-
 ## Round eleven, decided 2026-08-20
 
 Round eleven has no artifacts, and that is the one thing to say about it before the
@@ -813,15 +811,15 @@ Two of the nine reverse a recorded decision, four are defects against one, and t
 never decided at all. Separating those was most of the work, because "I do not like it" and
 "this contradicts what we wrote down" want different answers.
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| P1 | The copilot's hue reads as a cold blue against warm paper. Does the marking keep violet? | **No.** C1's mechanism stands, its hue is re-derived onto the palette's own warm axis |
-| P2 | Nine surfaces wear the copilot's colour as furniture. Does O3's amendment reach them? | **Yes.** O3 was applied to one component and it was always a rule, not a patch |
-| P3 | C4 never named the diff's colours and the diff inherited the marking's. Same colour or two? | **Two.** "This clause changed" and "nobody has accepted this wording" are different claims |
-| P4 | The floating panel is 352px wide. Is that the size? | **No.** It grows, most of all horizontally, and the width is stated rather than inherited |
-| P5 | Where does a history of kept answers live, given A2's cap of seven? | **In the account menu's own surface**, not as a tenth thing shouting above the nav |
-| P6 | Does an entry with no cover show a placeholder? | **Yes, for somebody who can write to that world**, and it is the affordance that starts a generation. Amended next day by Q5: it offers upload or generate where it stands, rather than pointing at the Images panel |
-| P7 | The world home opens on three figures nobody needed. What goes there? | **Nothing that is already in the shell.** The masthead earns its space or loses it |
+| Id  | Question                                                                                    | Chosen                                                                                                                                                                                                               |
+| --- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | The copilot's hue reads as a cold blue against warm paper. Does the marking keep violet?    | **No.** C1's mechanism stands, its hue is re-derived onto the palette's own warm axis                                                                                                                                |
+| P2  | Nine surfaces wear the copilot's colour as furniture. Does O3's amendment reach them?       | **Yes.** O3 was applied to one component and it was always a rule, not a patch                                                                                                                                       |
+| P3  | C4 never named the diff's colours and the diff inherited the marking's. Same colour or two? | **Two.** "This clause changed" and "nobody has accepted this wording" are different claims                                                                                                                           |
+| P4  | The floating panel is 352px wide. Is that the size?                                         | **No.** It grows, most of all horizontally, and the width is stated rather than inherited                                                                                                                            |
+| P5  | Where does a history of kept answers live, given A2's cap of seven?                         | **In the account menu's own surface**, not as a tenth thing shouting above the nav                                                                                                                                   |
+| P6  | Does an entry with no cover show a placeholder?                                             | **Yes, for somebody who can write to that world**, and it is the affordance that starts a generation. Amended next day by Q5: it offers upload or generate where it stands, rather than pointing at the Images panel |
+| P7  | The world home opens on three figures nobody needed. What goes there?                       | **Nothing that is already in the shell.** The masthead earns its space or loses it                                                                                                                                   |
 
 ### P1, and why this is A1's amendment rather than C1's
 
@@ -896,8 +894,8 @@ human has not yet agreed to something.
 C4 picked "in place with a toggle" and never named a colour. G1 later refers to "C1's marking
 and C4's diff colours" as though both had been decided, and the diff quietly ended up using
 `--color-ai-bg`, the same tint as the marking and as all nine pieces of furniture above. The
-result is that a reader cannot distinguish *this clause is what changed* from *nobody has
-accepted this wording*, which are two different claims about the same sentence and the whole
+result is that a reader cannot distinguish _this clause is what changed_ from _nobody has
+accepted this wording_, which are two different claims about the same sentence and the whole
 point of showing a diff before an accept.
 
 The diff gets its own treatment, derived from the palette rather than borrowed. Guardrail 3 is
@@ -958,14 +956,14 @@ eleven and for the same reason: the answers came from working in the thing, so t
 artifacts and the register keeps no rows. Two amend a decision, one amends a decision taken
 **yesterday**, one is a defect against what a decision claimed, and two are new.
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| Q1 | The diff hides half of itself behind a toggle. One wording at a time, or every changed part at once? | **Every changed part, with its context, and the toggle goes.** C4's toggle is repealed |
-| Q2 | The entry's right column stops where its content stops. Does it run the page? | **Full height.** B1's switching column becomes a column, not a box |
-| Q3 | A mention is a link and nothing else. Does it preview? | **Yes, on hover and on focus**, through the same filter that decides whether it resolves at all |
-| Q4 | The editor's controls are text buttons and there is no preview. | **Icon buttons with a tooltip each, and a preview.** No control in this product ships an unlabelled icon |
-| Q5 | The cover placeholder points at another panel, and no entity type is portrait. | **The placeholder offers upload or generate where it stands**, and the ratios gain portrait |
-| Q6 | There is no motion system and `prefers-reduced-motion` is honoured in one place. | **A motion system, with reduced motion as a first-class preference**, the way G1 made dark one |
+| Id  | Question                                                                                             | Chosen                                                                                                   |
+| --- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Q1  | The diff hides half of itself behind a toggle. One wording at a time, or every changed part at once? | **Every changed part, with its context, and the toggle goes.** C4's toggle is repealed                   |
+| Q2  | The entry's right column stops where its content stops. Does it run the page?                        | **Full height.** B1's switching column becomes a column, not a box                                       |
+| Q3  | A mention is a link and nothing else. Does it preview?                                               | **Yes, on hover and on focus**, through the same filter that decides whether it resolves at all          |
+| Q4  | The editor's controls are text buttons and there is no preview.                                      | **Icon buttons with a tooltip each, and a preview.** No control in this product ships an unlabelled icon |
+| Q5  | The cover placeholder points at another panel, and no entity type is portrait.                       | **The placeholder offers upload or generate where it stands**, and the ratios gain portrait              |
+| Q6  | There is no motion system and `prefers-reduced-motion` is honoured in one place.                     | **A motion system, with reduced motion as a first-class preference**, the way G1 made dark one           |
 
 ### Q1 repeals C4's toggle, and the data was always there
 
@@ -1052,7 +1050,7 @@ That reaches further than a constant, and the part to get right is where the sha
 #332 put `aspectRatio` on the `image_model_config` row, one per feature, because a model that
 cannot honour a ratio must fail on save rather than silently return 16:9. A ratio that varies by
 entity type cannot live on a per-feature row. However that is resolved, the two must not end up
-disagreeing: the shape a cover is *generated* at and the shape it is *displayed* at being
+disagreeing: the shape a cover is _generated_ at and the shape it is _displayed_ at being
 different is how an image arrives pre-cropped wrong.
 
 ### Q6, and why reduced motion is in the decision rather than in a review comment
@@ -1093,20 +1091,20 @@ I checked each of the four defects rather than trusting the screenshot, because 
 and a dislike want different answers and because two of them turned out not to be what the
 symptom said. The evidence is in each section.
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| R1 | A portrait cover sits in a band above the title, where its own ratio makes it small. Where does a portrait go? | **Beside the title, as a margin figure.** The band stays for the wide ratios |
-| R2 | The generate modal opens in the top-left corner of the window. | **The three native `<dialog>`s become the vendored Dialog.** Tailwind's preflight zeroed the margin the browser centres a modal with |
-| R3 | The generate modal says "style: none set" and there is nowhere to set one. | **The universe's image style and the Loremaster's voice become settable**, and the voice reaches the prompt it was written for |
-| R4 | A setting that changes what the product does is unset, and only one surface says so. | **One checklist, said twice**: at the point of use, and once in the shell |
-| R5 | The dock throws the conversation away on every navigation. | **It keeps it. Only the context changes.** O3's "abandoned stays abandoned" is repealed for the panel |
-| R6 | The pill sits in the bottom-right corner, small, and says nothing about what it can do. | **Bottom centre, bigger, with three suggestions** drawn from where the GM is standing |
-| R7 | A generated cover is still "private", and publishing it is a second click nobody asked for. | **An image's audience follows its entry.** Attaching is the accept, and `published_to_players` becomes `gm_only` |
-| R8 | The GM/player view is a label beside a button, and the language switch is a row of buttons that will not scale. | **A switch for the view, a Select for both languages.** O4 applied rather than reopened |
-| R9 | An inserted image has one size, and write and preview are two different heights. | **The image carries a width**, and the two modes share one box |
-| R10 | The entry's images live in three places with three different rules, and the insert modal lists them in a 448px column. | **One media surface per entry**, reached from the rail, the placeholder and the editor |
-| R11 | Players and Import are in the sidebar and both 404. | **Both become real pages.** A nav item that cannot be reached is not a nav item |
-| R12 | Search on the entries page looks broken. | **It reads bodies too, and says what it did.** It was never broken, which is the finding |
+| Id  | Question                                                                                                               | Chosen                                                                                                                               |
+| --- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| R1  | A portrait cover sits in a band above the title, where its own ratio makes it small. Where does a portrait go?         | **Beside the title, as a margin figure.** The band stays for the wide ratios                                                         |
+| R2  | The generate modal opens in the top-left corner of the window.                                                         | **The three native `<dialog>`s become the vendored Dialog.** Tailwind's preflight zeroed the margin the browser centres a modal with |
+| R3  | The generate modal says "style: none set" and there is nowhere to set one.                                             | **The universe's image style and the Loremaster's voice become settable**, and the voice reaches the prompt it was written for       |
+| R4  | A setting that changes what the product does is unset, and only one surface says so.                                   | **One checklist, said twice**: at the point of use, and once in the shell                                                            |
+| R5  | The dock throws the conversation away on every navigation.                                                             | **It keeps it. Only the context changes.** O3's "abandoned stays abandoned" is repealed for the panel                                |
+| R6  | The pill sits in the bottom-right corner, small, and says nothing about what it can do.                                | **Bottom centre, bigger, with three suggestions** drawn from where the GM is standing                                                |
+| R7  | A generated cover is still "private", and publishing it is a second click nobody asked for.                            | **An image's audience follows its entry.** Attaching is the accept, and `published_to_players` becomes `gm_only`                     |
+| R8  | The GM/player view is a label beside a button, and the language switch is a row of buttons that will not scale.        | **A switch for the view, a Select for both languages.** O4 applied rather than reopened                                              |
+| R9  | An inserted image has one size, and write and preview are two different heights.                                       | **The image carries a width**, and the two modes share one box                                                                       |
+| R10 | The entry's images live in three places with three different rules, and the insert modal lists them in a 448px column. | **One media surface per entry**, reached from the rail, the placeholder and the editor                                               |
+| R11 | Players and Import are in the sidebar and both 404.                                                                    | **Both become real pages.** A nav item that cannot be reached is not a nav item                                                      |
+| R12 | Search on the entries page looks broken.                                                                               | **It reads bodies too, and says what it did.** It was never broken, which is the finding                                             |
 
 ### R1, and why the band was right and still is
 
@@ -1148,7 +1146,7 @@ that the moment I9 landed.
 ### R3, and a column the spec has always had and nothing has ever read
 
 The modal says `Stile: nessuno impostato` and offers a `modifica` link, and that link edits
-the *entry's* override (`entity.image_prompt_modifier`). The universe's own style,
+the _entry's_ override (`entity.image_prompt_modifier`). The universe's own style,
 `universe.image_style_id` and the `image_style` row behind it, has no interface anywhere in
 the product. F1 said style is shared at the universe level and overridable per entry, and
 only the override was ever built, so the shared half has been unreachable since #65. The
@@ -1195,7 +1193,7 @@ effect watching `page.url.pathname` closes the panel on any navigation, with the
 that a panel left open would be "talking about somewhere else".
 
 Having used it, that argument is exactly backwards. The reason to ask the copilot from
-inside the page is that the next thing you do is *go and look*, and going to look is a
+inside the page is that the next thing you do is _go and look_, and going to look is a
 navigation. Losing the answer at the moment it becomes useful is the worst possible time to
 lose it. And the panel is not talking about somewhere else: it is talking about what I
 asked, which does not stop being true because I clicked a source chip.
@@ -1567,7 +1565,6 @@ own paper rather than the palette's chrome.
 Epic [#405](https://github.com/fiorelorenzo/canonry/issues/405), one issue per decision, and
 S2 owns the wave's migration slot because the style catalogue is the only schema change.
 
-
 ## Round fifteen, decided 2026-08-20
 
 Twelve, from the same evening, and the pattern in them is worth naming before the table: the
@@ -1579,20 +1576,20 @@ reason, and that is not a coincidence: C1 chose a hue and a shape for one job, m
 unaccepted AI text inside canon prose, and every surface that borrowed it for something else
 has read wrong.
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| T1 | Two text buttons sit above the view control and neither says what it does. | **The view control goes on top, and the two become icon buttons with a tooltip each** |
-| T2 | A mention in prose previews; the same entry in the sidebar's recents does not. | **The preview follows the link, not the prose.** Any link naming an entry gets it |
-| T3 | With no style, the generate button is replaced by a sentence. | **The button stays and is disabled, with the warning beside it.** S3's refusal survives; its shape does not |
-| T4 | The proposal card is violet and its diff does not read like a diff. | **No copilot hue on the card, and the diff reads like git**: removals struck through, additions bold |
-| T5 | The shortcut hints are five bare letters in a row. | **A key-hint shape**, one component, everywhere a shortcut is offered |
-| T6 | The Save button sits on top of the textarea, and the view control sits inside the editor. | **Save leaves the box and the view control leaves the editor** |
-| T7 | A violet "in arrivo" announces a streaming answer. | **A cursor in the theme's own colour**, the shape ai-game already proved |
-| T8 | The composer still reads as a box dropped into the panel. | **Borderless, and part of the panel** |
-| T9 | The question, the answer and the sources are three sizes of the same grey. | **The shape ai-game proved**: the question as a heading, the answer as prose, the sources as a footer |
-| T10 | Keep is a card with two buttons and a paragraph, on every turn. | **Every turn is kept, and the card goes.** One icon button opens a turn on the Ask page |
-| T11 | The dock covers content on the edit page. | **It never covers content anywhere.** The shell reserves its height |
-| T12 | Is it actually a conversation, and can it answer about the world rather than an entry? | **Both, verified rather than assumed** |
+| Id  | Question                                                                                  | Chosen                                                                                                      |
+| --- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| T1  | Two text buttons sit above the view control and neither says what it does.                | **The view control goes on top, and the two become icon buttons with a tooltip each**                       |
+| T2  | A mention in prose previews; the same entry in the sidebar's recents does not.            | **The preview follows the link, not the prose.** Any link naming an entry gets it                           |
+| T3  | With no style, the generate button is replaced by a sentence.                             | **The button stays and is disabled, with the warning beside it.** S3's refusal survives; its shape does not |
+| T4  | The proposal card is violet and its diff does not read like a diff.                       | **No copilot hue on the card, and the diff reads like git**: removals struck through, additions bold        |
+| T5  | The shortcut hints are five bare letters in a row.                                        | **A key-hint shape**, one component, everywhere a shortcut is offered                                       |
+| T6  | The Save button sits on top of the textarea, and the view control sits inside the editor. | **Save leaves the box and the view control leaves the editor**                                              |
+| T7  | A violet "in arrivo" announces a streaming answer.                                        | **A cursor in the theme's own colour**, the shape ai-game already proved                                    |
+| T8  | The composer still reads as a box dropped into the panel.                                 | **Borderless, and part of the panel**                                                                       |
+| T9  | The question, the answer and the sources are three sizes of the same grey.                | **The shape ai-game proved**: the question as a heading, the answer as prose, the sources as a footer       |
+| T10 | Keep is a card with two buttons and a paragraph, on every turn.                           | **Every turn is kept, and the card goes.** One icon button opens a turn on the Ask page                     |
+| T11 | The dock covers content on the edit page.                                                 | **It never covers content anywhere.** The shell reserves its height                                         |
+| T12 | Is it actually a conversation, and can it answer about the world rather than an entry?    | **Both, verified rather than assumed**                                                                      |
 
 ### T1, and why the buttons lose their words
 
@@ -1750,20 +1747,20 @@ telling us the hue was never the carrier.
 The rest is one redesign, two settings, and eight defects, four of which are mine from
 tonight.
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| U1 | The relation catalogue page is unwatchable. | **A page with a shape**, inside the settings shell, with the ten shipped labels readable and the GM's own types the subject |
-| U2 | The Loremaster's voice is a textarea, next to a style catalogue with pictures. | **Narration presets on the image styles' own pattern**, plus a custom voice |
-| U3 | A new universe caps propagation at 25. | **No limit by default.** A world that already chose a number keeps it |
-| U4 | The view control sits under the title's icon buttons, and its sentence is printed twice. | **Same row as the icon buttons, and the sentence is said once** |
-| U5 | The aside's entry links do not preview, and it has its own scrollbar. | **They preview, and the page keeps the only scrollbar** |
-| U6 | A cover can be set from the gallery and never changed from where it is shown. | **Changed where it is shown** |
-| U7 | The history is a list of rows nobody can read, and a settled proposal is unreachable. | **A readable list, and each revision links to the proposal behind it** |
-| U8 | The editor shows a view control while you are writing. | **Only in preview** |
-| U9 | The evidence popover is violet and its trigger says `Prova`. | **No hue, and a trigger that says what it opens** |
-| U10 | The copilot's hue keeps turning up where it does not belong. | **The tokens are deleted.** C1's mark keeps its dashed underline and its marker, hue-less |
-| U11 | The Ask page is a question box with one answer under it. | **A conversation**, the shape ai-game's loremaster page proved |
-| U12 | The entries search needs Enter, and offers three controls for two jobs. | **Filters as you type, with one clear** |
+| Id  | Question                                                                                 | Chosen                                                                                                                      |
+| --- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| U1  | The relation catalogue page is unwatchable.                                              | **A page with a shape**, inside the settings shell, with the ten shipped labels readable and the GM's own types the subject |
+| U2  | The Loremaster's voice is a textarea, next to a style catalogue with pictures.           | **Narration presets on the image styles' own pattern**, plus a custom voice                                                 |
+| U3  | A new universe caps propagation at 25.                                                   | **No limit by default.** A world that already chose a number keeps it                                                       |
+| U4  | The view control sits under the title's icon buttons, and its sentence is printed twice. | **Same row as the icon buttons, and the sentence is said once**                                                             |
+| U5  | The aside's entry links do not preview, and it has its own scrollbar.                    | **They preview, and the page keeps the only scrollbar**                                                                     |
+| U6  | A cover can be set from the gallery and never changed from where it is shown.            | **Changed where it is shown**                                                                                               |
+| U7  | The history is a list of rows nobody can read, and a settled proposal is unreachable.    | **A readable list, and each revision links to the proposal behind it**                                                      |
+| U8  | The editor shows a view control while you are writing.                                   | **Only in preview**                                                                                                         |
+| U9  | The evidence popover is violet and its trigger says `Prova`.                             | **No hue, and a trigger that says what it opens**                                                                           |
+| U10 | The copilot's hue keeps turning up where it does not belong.                             | **The tokens are deleted.** C1's mark keeps its dashed underline and its marker, hue-less                                   |
+| U11 | The Ask page is a question box with one answer under it.                                 | **A conversation**, the shape ai-game's loremaster page proved                                                              |
+| U12 | The entries search needs Enter, and offers three controls for two jobs.                  | **Filters as you type, with one clear**                                                                                     |
 
 ### U1, and what a catalogue page is for
 
@@ -1895,6 +1892,7 @@ form: the form stays, with the debounce as an enhancement over it rather than a 
 
 Epic [#449](https://github.com/fiorelorenzo/canonry/issues/449), one issue per decision. U2 and
 U3 land together because they are one migration.
+
 ## Round seventeen, decided 2026-08-21
 
 Sixteen rounds of this file were written the same way: I used the preview, disliked some things,
@@ -1915,16 +1913,16 @@ were rendered as working UI on a URL rather than as a file, because Lorenzo answ
 phone. The other four had no drawing worth making: they are a defect with three plausible
 answers, and the argument is in the prose.
 
-| Id | Question | Chosen |
-| --- | --- | --- |
-| V1 | The title of a page lands in seven vertical and six horizontal positions. What holds a page? | **B, one header band and three declared widths.** Every route opens with the same band; the body declares reading, working or wide |
-| V2 | The proposal inbox is three rows saying almost nothing. | **A, the inbox is the queue.** Every waiting proposal, its diff, accept in place |
-| V3 | Sixty-six arbitrary font sizes, no type or elevation tokens, Tailwind's grey shadows on warm paper. | **B, one step up and flat.** Every size up a notch, a 12px floor, cards become hairline-ruled rows |
-| V6 | The GM's own accepted canon wears C1's "written by the AI, not accepted" mark. | **A, a change bar in the margin.** The mark goes back to being only for AI text |
-| V7 | The players' index publishes the name of every entry, revealed or not. | **A, only what was revealed** |
-| V9 | The motion system exists and almost nothing uses it. | **C, the widest of the three**: state changes, list arrival, navigation, and micro-interactions on controls |
-| V10 | The reading room's serif is never downloaded, so it is a different face on every platform. | **C, Literata, shipped with the app** |
-| V11 | No click that reloads from the server gives any signal. | **C, a progress bar plus a pending state on every form** |
+| Id  | Question                                                                                            | Chosen                                                                                                                             |
+| --- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| V1  | The title of a page lands in seven vertical and six horizontal positions. What holds a page?        | **B, one header band and three declared widths.** Every route opens with the same band; the body declares reading, working or wide |
+| V2  | The proposal inbox is three rows saying almost nothing.                                             | **A, the inbox is the queue.** Every waiting proposal, its diff, accept in place                                                   |
+| V3  | Sixty-six arbitrary font sizes, no type or elevation tokens, Tailwind's grey shadows on warm paper. | **B, one step up and flat.** Every size up a notch, a 12px floor, cards become hairline-ruled rows                                 |
+| V6  | The GM's own accepted canon wears C1's "written by the AI, not accepted" mark.                      | **A, a change bar in the margin.** The mark goes back to being only for AI text                                                    |
+| V7  | The players' index publishes the name of every entry, revealed or not.                              | **A, only what was revealed**                                                                                                      |
+| V9  | The motion system exists and almost nothing uses it.                                                | **C, the widest of the three**: state changes, list arrival, navigation, and micro-interactions on controls                        |
+| V10 | The reading room's serif is never downloaded, so it is a different face on every platform.          | **C, Literata, shipped with the app**                                                                                              |
+| V11 | No click that reloads from the server gives any signal.                                             | **C, a progress bar plus a pending state on every form**                                                                           |
 
 ### V1, and what a page is allowed to decide for itself
 
@@ -2092,3 +2090,116 @@ Epic [#466](https://github.com/fiorelorenzo/canonry/issues/466). The nine defect
 because two of them were P0 and one of them was the front door. The eight decisions land in two
 waves after them: V1, V3, V10 and V11 first, since they are the floor everything else stands on,
 then V2, V6, V7 and V9 on top of it.
+
+## Round eighteen, decided 2026-08-22
+
+Round seventeen shipped in one day and Lorenzo used the deployed preview the same evening. What
+came back was three defects and three surfaces, and the split matters: the defects were mine, two
+of them regressions from that day's own work, and the surfaces were the ones round seventeen never
+touched. "Bruttissime e inutili... rivediamo completamente i flussi, il design, tutto. ripartiamo
+da zero praticamente."
+
+The three defects are fixed in #527 and needed no decision. They are recorded here because two of
+them are the cost of a decision taken carelessly, and that is worth keeping: T11's reserve, which
+#488 moved from the scrollable content into `main`'s own box, was right for the launcher and wrong
+for a panel that grows to 70vh, so opening the dock cut the page instead of covering it; and V1's
+sticky band sat 32px below the scrollport's edge because `main` owned the top gutter and a sticky
+offset resolves against the padding box, so content scrolled through the strip above it. The third
+was older and worse: the sidebar counted a pending proposal the inbox structurally could not show,
+because both of its queries start from a plan and `packages/warm` writes one without.
+
+The three surfaces were decided from an interactive artifact rather than from drawn stills, which
+is new in this set and is the right shape for what was being asked: two of the three questions are
+about a _flow_, and a still image cannot show one. The options were built as working HTML with real
+controls and served over the tailnet, so the mocks could be used rather than looked at.
+
+| Id  | Question                                                                           | Chosen                                                                                                                                             |
+| --- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| W1  | Table mode is unusable. What is on the screen while people are at the table?       | **A, the board.** One screen: the place and its brief, the people present each with theirs, a persistent action bar. Nothing hidden behind a name  |
+| W2  | The players' wiki is an alphabetical list of three names. What does a player read? | **A, the campaign diary.** The index is the sessions, newest first, each carrying the GM's own prose and what the party learned that night         |
+| W3  | The Ask page and the dock are the same surface twice. Which one is which?          | **B, the notebook.** The dock is where you ask; the page becomes the searchable record of what you asked and what it answered. **U11 is reversed** |
+
+### W1, and the finding that decided it
+
+The complaint was that table mode is ugly and useless. The measurement is that it is _empty of
+what it already owns_. `packages/warm` pre-computes and pays for, before a session starts: a
+two-line `brief` per place, a `context_pack` over its neighbourhood, three `npc_draft` proposals,
+an `ambient_pack` of audio layers, and a `portrait` per pinned NPC. The two-hop neighbour query
+answers in under 100ms on a warmed place. And what a pinned character's card shows is the
+initials, the name, the type, and the line "warm brief as of 40 seconds ago": it tells the GM a
+brief exists and does not show it to them. `AmbientPlayer` is in the page and wired to nothing.
+
+So the rebuild is not a layout exercise. **The card is the brief.** The place carries its own,
+each person present carries theirs, the ambient pack has a control, and everything the copilot
+already wrote is on the screen without a tap.
+
+**This rejects E3, and says why.** E3 = C chose a two-tier quick-action dock and it was never
+built; the artifact drew it faithfully as direction C. It loses on the one constraint that governs
+this surface: at a table an extra tap is not friction, it is the moment a GM stops using the
+product and goes back to their notes. Three actions do not need a dock, and a dock hides the
+proposals that arrive during play behind a name (G8 wanted them quiet, not invisible). If the
+action repertoire ever reaches eight, C is the answer and this entry is where to find it.
+
+**The phone gets B's shape rather than A's.** Below 640px the board becomes the deck: one card at
+a time, large enough to read from a metre, with the rest as a thumbnail strip. That is not a
+compromise, it is the same content at the size a phone beside a screen can actually be glanced at,
+and it is what E4 = A's bottom tabs were reaching for.
+
+What does not change: E2's progressive arrival with no spinner and no promised time, G7's live
+reveal for what the GM taps, G8's silent inbox with the count riding on the way out.
+
+### W2, and the data that was being thrown away
+
+Every `revelation` row carries the **session** it happened in and a timestamp, and every session is
+an entity with a body the GM wrote: "The party arrived in the Lantern Quarter and started asking
+questions about Aldric Vane." So the wiki can tell the party what happened, session by session, in
+the GM's own words, with no model call and no new column. What it does instead is sort the revealed
+names alphabetically, which is what V7 left behind yesterday when it stopped the index publishing
+every name in the world: honest, and not a place anybody wants to spend time.
+
+The diary is the index. Sessions newest first, each with its own prose and the entries, facts and
+relations revealed in it, and an entry's own page says which session it was learned in.
+
+**Guardrail 6 gets harder here, not easier, and that is the part to get right.** A session's body
+is canon prose like any other, so it can carry `:::secret` and `:::gmnote` fences, and publishing
+it means passing it through the same player-visible filter every entry body already goes through
+(`isPlayerVisibleSpan`, #322) rather than a new one. A session that has not been revealed does not
+appear at all: it is an entity, and E7's rule about unrevealed entities does not stop applying
+because the surface changed shape. The leak test gains a needle per case.
+
+E7 keeps the gap page: a player following a link out of a session log to something they have heard
+of and not explored still gets "you have heard of this", not a 404.
+
+### W3 reverses U11, three days after it was taken, and here is what that costs
+
+U11 made the Ask page a conversation on the shape ai-game's loremaster page proved. R5 had already
+kept the dock's conversation across a navigation, and T10 had made every turn kept automatically.
+The three together produced what Lorenzo was looking at: two conversation surfaces over one data
+model, with the page being the one that has more room and less to do.
+
+The visible symptoms are real and measured: on the seeded two-turn conversation at 1440x900, 145px
+of pinned disclosure, about 550px of source cards, and the answer above the fold, because the list
+is scrolled to the bottom of the last turn and the bottom of a turn is its sources. But polishing
+those leaves the duplication in place, and the page would go on being the worse copy of a panel
+already under the GM's thumb.
+
+So each surface gets one job. **The dock asks**: it keeps R5's conversation, T10's automatic keep,
+S11's composer, all of it. **The page remembers**: a searchable record of what was asked and what
+came back, one row per answer, expandable, with its sources under the one you opened. `ask/kept`
+stops being a second list of the same thing because the page _is_ that list.
+
+What this costs, plainly. U11's own argument was that the page is the surface with room and the
+dock had outgrown it, and that argument was right about the room and wrong about the job: room is
+what a record wants, not what a chat wants. Somebody who wants to type a long question now types it
+in a 400px panel, which is the real loss and is accepted, because the alternative is two places to
+have the same conversation and no way to find either one afterwards. C8's five detail levels stay
+with the composer, in the dock. G5's source panel stays what a source click opens.
+
+The one thing this decision does not answer is search quality: `kept_answer` holds the question and
+the answer as text, so a substring search is free and a ranked one is not. Free is what ships;
+if a GM with three hundred answers finds it thin, that is a measurement for later, not a guess now.
+
+### Where round eighteen lands
+
+Epic [#528](https://github.com/fiorelorenzo/canonry/issues/528), with #529 (W1), #530 (W2) and
+#531 (W3). The defects landed first, in #527, because two of them were mine from the day before.
