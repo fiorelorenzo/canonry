@@ -5,7 +5,7 @@
  * estimate, generating diffs charges the premium model, accepting writes exactly one
  * revision and is idempotent, and the AI switch stops all of it.
  */
-import { closeDb, eq, type Db } from '@canonry/db';
+import { closeDb, eq, priceOf, type Db } from '@canonry/db';
 import { entity, modelCall } from '@canonry/db/schema';
 import {
 	acceptProposal,
@@ -278,11 +278,18 @@ describe('propagation pipeline against the real database', () => {
 			gateway: IDENTITY_GATEWAY
 		});
 		expect(result!.proposals).toHaveLength(1);
-		const before = result!.plan.estimatedCredits;
+
+		// #508: the plan's stored estimate is what its one surviving candidate is worth at
+		// `propagate.diff`, and nothing else. `writePlanRationale`'s own `propagate.plan`
+		// charge used to be added into the same column, which made it a mixture of money
+		// already spent and money not yet spent that could never reach zero as the GM worked
+		// through the plan. That charge is recorded in `model_call` like every other.
+		const diffPrice = (await priceOf(db, 'propagate.diff')).credits;
+		expect(result!.plan.estimatedCredits).toBe(diffPrice);
 
 		const dropped = await dropCandidateFromPlan(db, result!.proposals[0]!.id);
 
-		expect(dropped.plan.estimatedCredits).toBeLessThan(before);
+		expect(dropped.plan.estimatedCredits).toBe(0);
 	});
 
 	it('generating diffs charges the premium model, records usage, and marks the plan spent', async () => {

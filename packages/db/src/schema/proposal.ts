@@ -59,7 +59,30 @@ export const proposalPlan = pgTable(
 		importJobId: uuid('import_job_id').references(() => importJob.id, { onDelete: 'set null' }),
 		summary: text('summary').notNull().default(''),
 		status: proposalPlanStatusEnum('status').notNull().default('planning'),
-		// What generating the surviving diffs is expected to cost, shown before it is spent.
+		// Issue #508 settles what this column means, because two readings were both in the
+		// code and they disagree: it is **what the candidates still open in this plan are
+		// worth at today's prices**, one per-candidate charge each, and nothing else. It is
+		// not a record of what the plan cost. Every path that takes a candidate out of
+		// 'pending' (accept, reject, drop) takes its price off, and the one path that puts
+		// a candidate back (undoAcceptedProposal) adds it again; the price is the one the
+		// plan's own trigger implies, which is `propagate.diff` for a save plan and
+		// `audit.flag` for an audit plan (PER_CANDIDATE_OPERATION in
+		// queries/proposals.ts). A plan-level charge that was already spent, propagation's
+		// `propagate.plan` ranking pass, is deliberately not in here: it made the column a
+		// figure that could never reach zero and that no reader could decompose.
+		//
+		// What this column is therefore NOT is the margin record. SPEC.md §15 answers the
+		// margin question from `model_call` (§11.5), which records every call with its
+		// tokens and its euro cost whether or not it charged credits, and that is the row
+		// to read for "what did this plan cost us". Reading spend off a column that falls
+		// as a GM works through a queue is how it was being read wrong before.
+		//
+		// For a save plan the figure is money not yet spent (the diffs are generated
+		// later, and #489's plan screen derives its own reconciling figures live from
+		// `operation_price` rather than from here). For an audit plan the flags were paid
+		// for when they were written, so the same figure is what the open flags cost; both
+		// readings count only the candidates still open, which is what makes one column
+		// true for both triggers.
 		estimatedCredits: numeric('estimated_credits', { precision: 12, scale: 4, mode: 'number' })
 			.notNull()
 			.default(0),

@@ -5,7 +5,7 @@
  * case, so this exercises the exact scenario the UX artifact and the acceptance criteria
  * both name.
  */
-import { closeDb, eq, type Db } from '@canonry/db';
+import { closeDb, eq, priceOf, type Db } from '@canonry/db';
 import { modelCall } from '@canonry/db/schema';
 import { MockLanguageModelV4 } from 'ai/test';
 import type { LanguageModel } from 'ai';
@@ -586,5 +586,57 @@ describe('findCandidatePairs uncapped, and the pair census (issue #278)', () => 
 		} finally {
 			delete process.env.CANONRY_AUDIT_PAIR_CENSUS;
 		}
+	});
+
+	it('#508: the plan carries what its flags are worth, and every flag carries its own credits', async () => {
+		const owner = await insertUser(db);
+		const universe = await insertHomebrewUniverse(db, { ownerUserId: owner.id });
+		const watch = await insertEntity(db, universe.id, {
+			type: 'faction',
+			name: 'The Valdoria Watch',
+			body: 'The Valdoria Watch keeps the harbour.'
+		});
+		for (let i = 0; i < 6; i++) {
+			await insertEntity(db, universe.id, {
+				type: 'character',
+				name: `Witness ${i}`,
+				body: `Witness ${i} says The Valdoria Watch has kept the harbour badly since the thaw.`
+			});
+		}
+
+		// Only the first pair examined disagrees, so this run charges for every pair it looked
+		// at (`model_call`, one row each) and writes exactly one flag.
+		const result = await runAudit({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			editedEntityId: watch.id,
+			oldBody: 'The Valdoria Watch keeps the harbour.',
+			newBody: 'The Valdoria Watch keeps the harbour and answers to nobody at all.',
+			locale: 'en',
+			modelFactory: modelFactoryFor(
+				judgmentModel([
+					{ disagree: true, topic: 'who the watch answers to' },
+					{ disagree: false, topic: '' }
+				])
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		expect(result.examined).toBe(AUDIT_PAIR_CAP);
+		expect(result.flags).toHaveLength(1);
+
+		const flagPrice = (await priceOf(db, 'audit.flag')).credits;
+		// `estimated_credits` is what the plan's open candidates are worth, so one flag's
+		// price - never the five examined pairs it used to record, which made this column a
+		// spend figure while every other trigger treats it as a per-candidate one. The run's
+		// real cost stays in `model_call`, asserted below.
+		expect(result.plan?.estimatedCredits).toBe(flagPrice);
+		// And the flag's own row figure means something now: it used to be 0 for every audit
+		// flag ever written, which is #489's complaint one trigger over.
+		expect(result.flags[0]!.proposal.credits).toBe(flagPrice);
+
+		const charged = await db.select().from(modelCall).where(eq(modelCall.universeId, universe.id));
+		expect(charged).toHaveLength(AUDIT_PAIR_CAP);
 	});
 });

@@ -493,9 +493,13 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
 			input.locale
 		),
 		candidateCap: cap,
-		// Real spend, not a forward-looking estimate: every pair examined above is already
-		// charged by the time this plan is written, so this is what the run actually cost.
-		estimatedCredits: pairs.length * price.credits,
+		// Issue #508: what the flags this plan carries are worth at `audit.flag`'s price,
+		// which is the one thing `proposal_plan.estimated_credits` means (see that column's
+		// comment in @canonry/db). It counted every pair examined, including the ones that
+		// agreed and produced no flag, which made it a record of the run's spend in a column
+		// nothing else treats that way: that record is `model_call`, written per judged pair
+		// by `judgeStatementPair` above, and it stays complete whatever this figure says.
+		estimatedCredits: survivors.length * price.credits,
 		locale: input.locale,
 		candidates: survivors.map((s, index) => ({
 			kind: 'flag' as const,
@@ -508,7 +512,11 @@ export async function runAudit(input: RunAuditInput): Promise<RunAuditResult> {
 				input.locale
 			),
 			evidence: [s.pair.a, s.pair.b],
-			rank: index
+			rank: index,
+			// Issue #508: a flag is fully drafted and charged the moment it is found, so its
+			// own row carries the real figure rather than the 0 it used to store, which is
+			// what makes the plan screen's per-row credits honest for this trigger too.
+			credits: price.credits
 		}))
 	});
 

@@ -184,7 +184,13 @@ export async function planPropagation(
 	const survivors = capped.filter((c) => rationaleById.has(c.entityId));
 
 	const diffPrice = await chargeFor(input.db, 'propagate.diff');
-	const estimatedCredits = planRationale.credits + survivors.length * diffPrice.credits;
+	// Issue #508: what the surviving candidates are worth at `propagate.diff`'s price, and
+	// only that. `writePlanRationale`'s own `propagate.plan` charge used to be added in here
+	// too, which made one column a sum of money already spent and money not yet spent: it
+	// could never reach zero as the GM worked through the plan, and #489's plan screen had to
+	// stop reading it and derive both figures live to say anything true. That charge is
+	// recorded where every charge is, in `model_call` (SPEC.md §11.5).
+	const estimatedCredits = survivors.length * diffPrice.credits;
 
 	const { plan, proposals } = await createProposalPlan(input.db, {
 		universeId: input.universeId,

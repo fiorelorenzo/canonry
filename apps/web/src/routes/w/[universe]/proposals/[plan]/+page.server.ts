@@ -44,13 +44,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// diffs" step ahead of it here - shows the reconciling count x price = total, plus the
 	// plan-level `propagate.plan` ranking charge as its own already-spent figure. Both are
 	// looked up live rather than trusted from the plan's stored `estimated_credits`, which
-	// bundles the two together and only ever moves down via `dropCandidateFromPlan` - it
-	// goes stale the moment a candidate leaves pending any other way (see the PR for the
-	// seeded plan that showed exactly this). Every other trigger that can still reach this
-	// page before 'spent' (today: an audit plan, whose flags are fully priced the moment
-	// they are written - packages/copilot/src/audit.ts) keeps the single stored total this
-	// page has always shown; that number's own labelling is a separate, unfiled question
-	// this issue does not cover.
+	// bundles the two together and is therefore not decomposable into the three figures this
+	// screen has to reconcile. Issue #508 has since made that column mean one thing - what
+	// the plan's still-open candidates are worth, moved by every accept, reject and drop -
+	// and taken the plan-level ranking charge out of it, so it no longer goes stale; this
+	// screen still derives its own figures, because a display needs the price and the count
+	// separately and not their product. Every other trigger that can still reach this page
+	// before 'spent' (today: an audit plan, whose flags are fully priced the moment they are
+	// written - packages/copilot/src/audit.ts) keeps the single stored total this page has
+	// always shown, which after #508 is what the flags still open cost; that number's own
+	// labelling is a separate, unfiled question neither issue covers.
 	const pricing =
 		detail.plan.trigger === 'save'
 			? await (async () => {
