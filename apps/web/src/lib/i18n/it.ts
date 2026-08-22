@@ -458,9 +458,11 @@ export const it: Messages = {
 		wikiLabel: 'Wiki dei giocatori',
 		notDiscovered: 'Non ancora scoperto',
 		revealed: 'Rivelato',
-		indexTitle: 'Tutto ciò che il tavolo ha toccato',
-		indexSubtitle: "Ciò che il gruppo ha scoperto finora, e nient'altro.",
-		emptyState: 'Non è stato ancora detto nulla ad alta voce.',
+		indexTitle: 'Il diario di campagna',
+		indexSubtitle: 'Ogni sessione vissuta dal gruppo, dalla più recente, nelle parole del master.',
+		emptyState: 'Il tavolo non si è ancora riunito.',
+		learnedHeading: 'Cosa ha scoperto il gruppo',
+		learnedEmpty: 'Nessuna scoperta registrata in questa sessione.',
 		gapNoticeBefore: 'Hai sentito il nome. Nessuno al tavolo ha ancora scoperto abbastanza su',
 		gapNoticeAfter: (type) => `perché questa pagina di tipo ${type} dica di più, per ora.`,
 		factsHeading: 'Cosa si sa',
@@ -575,6 +577,8 @@ export const it: Messages = {
 			images: 'Immagini',
 			history: 'Cronologia',
 			audit: 'Verifica',
+			revealedIn: (sessionName, when) => `Rivelato in ${sessionName} \u00b7 ${when}`,
+			notRevealed: 'Non ancora rivelato al gruppo',
 			mobile: {
 				trigger: 'Dettagli',
 				closeLabel: 'Chiudi i dettagli',
@@ -1435,6 +1439,23 @@ export const it: Messages = {
 			layersAriaLabel: 'Livelli ambientali'
 		},
 
+		deck: {
+			regionLabel: 'Il mazzo del tavolo',
+			stripLabel: 'Vai a una carta',
+			roleDescription: 'carta',
+			positionOf: (current, total, name) => `${current} di ${total} - ${name}`,
+			placeKind: 'Dove si trova il gruppo',
+			placeBriefEmpty: 'Nessuna sintesi precalcolata per questo luogo, per ora.',
+			briefMissing: 'Nessuna sintesi precalcolata per questo appuntato, per ora.',
+			briefEmpty: 'La sintesi precalcolata non ha ancora un testo.',
+			briefMayBeOutdated: 'potrebbe non essere aggiornata',
+			pendingProposal: 'Proposta in sospeso',
+			openEntry: 'Apri la voce',
+			revealing: 'Segnalazione in corso…',
+			revealed: 'Rivelato',
+			noteFormLabel: (name) => `Nota su ${name}`
+		},
+
 		home: {
 			noContextDeclared:
 				'Dichiara un luogo per appuntare i suoi personaggi principali e le sue relazioni.',
@@ -2109,6 +2130,8 @@ export const it: Messages = {
 			hiddenHeading: 'Ancora dietro lo schermo',
 			hiddenDescription: 'Rivelabile, e non ancora trovato.',
 			hiddenEmpty: "Non c'è più nulla da scoprire.",
+			hiddenConnectedBadge: 'Collegato',
+			hiddenConnectedHint: 'Legato a qualcosa che il gruppo già conosce.',
 			entityTypeLabel: (type) => {
 				const labels: Record<string, string> = {
 					character: 'Personaggio',

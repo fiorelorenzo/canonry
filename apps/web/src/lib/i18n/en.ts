@@ -456,9 +456,12 @@ export const en: Messages = {
 		wikiLabel: "Players' wiki",
 		notDiscovered: 'Not yet discovered',
 		revealed: 'Revealed',
-		indexTitle: 'Everything the table has touched',
-		indexSubtitle: 'What the party has revealed so far, and nothing else.',
-		emptyState: 'Nothing has been said aloud yet.',
+		indexTitle: 'The campaign diary',
+		indexSubtitle:
+			'Every session the party has lived through, newest first, in the GM\u2019s own words.',
+		emptyState: 'The table has not met yet.',
+		learnedHeading: 'What the party learned',
+		learnedEmpty: 'Nothing was logged from this session.',
 		gapNoticeBefore: 'You have heard the name. Nobody at the table has learned enough about',
 		gapNoticeAfter: (type) => `for this ${type} page to say more; yet.`,
 		factsHeading: "What's known",
@@ -570,6 +573,8 @@ export const en: Messages = {
 			images: 'Images',
 			history: 'History',
 			audit: 'Audit',
+			revealedIn: (sessionName, when) => `Revealed in ${sessionName} \u00b7 ${when}`,
+			notRevealed: 'Not yet revealed to the party',
 			mobile: {
 				trigger: 'Details',
 				closeLabel: 'Close details',
@@ -1399,6 +1404,23 @@ export const en: Messages = {
 			layersAriaLabel: 'Ambient layers'
 		},
 
+		deck: {
+			regionLabel: 'Table deck',
+			stripLabel: 'Jump to a card',
+			roleDescription: 'card',
+			positionOf: (current, total, name) => `${current} of ${total} - ${name}`,
+			placeKind: 'Where the party is',
+			placeBriefEmpty: 'No brief warmed for this place yet.',
+			briefMissing: 'No brief warmed for this pin yet.',
+			briefEmpty: 'The warm brief has no text yet.',
+			briefMayBeOutdated: 'may be outdated',
+			pendingProposal: 'Pending proposal',
+			openEntry: 'Open the entry',
+			revealing: 'Marking as revealed…',
+			revealed: 'Revealed',
+			noteFormLabel: (name) => `Note about ${name}`
+		},
+
 		home: {
 			noContextDeclared: 'Declare a place to pin its main characters and relations.',
 			choosePlace: 'Choose a place',
@@ -2057,6 +2079,8 @@ export const en: Messages = {
 			hiddenHeading: 'Still behind the screen',
 			hiddenDescription: 'Revealable, and not yet found.',
 			hiddenEmpty: 'Nothing is left to discover.',
+			hiddenConnectedBadge: 'Connected',
+			hiddenConnectedHint: 'Linked to something the party already knows.',
 			entityTypeLabel: (type) => {
 				const labels: Record<string, string> = {
 					character: 'Character',

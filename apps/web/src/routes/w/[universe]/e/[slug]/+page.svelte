@@ -373,6 +373,7 @@
 				media={mediaSectionData}
 				{cover}
 				{coverUrl}
+				revealedIn={data.entity.revealedIn}
 				locale={data.locale}
 			/>
 		</div>
@@ -413,6 +414,7 @@
 						media={mediaSectionData}
 						cover="none"
 						coverUrl={null}
+						revealedIn={data.entity.revealedIn}
 						locale={data.locale}
 					/>
 				</Sheet.Content>
