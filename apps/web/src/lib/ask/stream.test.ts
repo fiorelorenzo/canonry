@@ -66,7 +66,7 @@ describe('consumeAskStream', () => {
 			streamOf([
 				`event: sources\ndata: ${JSON.stringify({ sources: [ownCanon], followUps: ['Who owes him?'] })}\n\n`,
 				'event: token\ndata: {"delta":"a"}\n\nevent: token\ndata: {"delta":"b"}\n\n',
-				'event: done\ndata: {"generated":true,"provider":"anthropic","modelId":"m","answer":"ab","credits":1}\n\n'
+				'event: done\ndata: {"generated":true,"answer":"ab","credits":1}\n\n'
 			]),
 			{
 				onSources: (list) => {
@@ -82,7 +82,7 @@ describe('consumeAskStream', () => {
 		);
 		expect(seen).toEqual(['sources', 'token', 'token', 'done']);
 		expect(sources).toEqual([ownCanon]);
-		expect(done).toEqual({ generated: true, provider: 'anthropic', modelId: 'm' });
+		expect(done).toEqual({ generated: true });
 	});
 
 	it('reads a final event that arrived without its trailing blank line', async () => {
