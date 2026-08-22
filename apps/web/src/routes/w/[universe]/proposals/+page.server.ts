@@ -20,6 +20,7 @@ import { db } from '$lib/server/db';
 import {
 	propagationGroupsForInbox,
 	importGroupsForInbox,
+	planlessCandidatesForInbox,
 	enrichCandidates,
 	acceptAnyProposalForUniverse,
 	rejectProposal,
@@ -47,9 +48,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// `propagate.diff` prices every awaiting-diff candidate the inbox might show,
 	// regardless of which plan it is waiting in (issue #468's own reuse) - one lookup
 	// for the whole page rather than one per plan.
-	const [planGroups, importGroups, diffPrice] = await Promise.all([
+	const [planGroups, importGroups, planless, diffPrice] = await Promise.all([
 		propagationGroupsForInbox(conn, access.universe.id),
 		importGroupsForInbox(conn, access.universe.id),
+		// Round eighteen: a pending proposal with no plan is still pending, and both queries
+		// above start from a plan, so without this one the sidebar's count and this page
+		// disagreed - the warm cache's own NPC draft (`packages/warm/src/store.ts`) writes
+		// exactly that row. See `planlessCandidatesForInbox`'s own comment.
+		planlessCandidatesForInbox(conn, access.universe.id),
 		priceOf(conn, 'propagate.diff')
 	]);
 
@@ -70,7 +76,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			createdAt: g.job.createdAt,
 			total: g.candidates.length,
 			candidates: enrichCandidates(g.candidates)
-		}))
+		})),
+		planlessCandidates: enrichCandidates(planless)
 	};
 };
 

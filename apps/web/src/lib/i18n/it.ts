@@ -838,6 +838,7 @@ export const it: Messages = {
 			},
 			pendingLabel: (count) => `${count} in sospeso`,
 			importFrom: (playbook) => `Dopo un\u2019importazione ${playbook}`,
+			planless: 'Abbozzata preparando il tavolo',
 			importSummary: (total, pending) => {
 				const form = pluralRules('it').select(total);
 				return `${total} ${form === 'one' ? 'proposta' : 'proposte'}: ${pending} in sospeso`;

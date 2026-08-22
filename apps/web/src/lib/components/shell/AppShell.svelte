@@ -65,13 +65,25 @@
 	// out. Every other signed-in route gets PhoneNav; this one keeps what it has.
 	const isTableMode = $derived(page.route.id === '/w/[universe]/table');
 
-	/** Issue #438, decision T11: the total bottom-of-viewport exclusion zone `main`
-	 * reserves so nothing real ever sits under PhoneNav's bar or QuickAsk's own
-	 * launcher/panel. Both publishers self-zero when their own chrome is not currently
-	 * rendered (`shell-layout-state.svelte.ts`'s own doc comment), including in table
-	 * mode, where neither one mounts at all - so this needs no `isTableMode` check of
-	 * its own to hold E3 = C's "table mode gets no padding" rule; it holds by
-	 * construction. */
+	/** Issue #438, decision T11, narrowed by round eighteen: the bottom-of-viewport
+	 * exclusion zone `main` reserves is **the launcher's band, never the open panel's**.
+	 *
+	 * T11 said the shell reserves the dock's height so nothing real is ever underneath it,
+	 * and #488 made that reserve come out of `main`'s own box rather than out of its
+	 * scrollable content, which was right for the launcher and wrong for the panel: the
+	 * panel grows to `max-h-[70vh]`, so opening it took up to seventy per cent of the
+	 * viewport out of the scrollport and the page visibly *cut* instead of being covered.
+	 * Lorenzo's words, from the deployed preview: "quando si apre il dock del loremaster è
+	 * come se tagliasse il contenuto della pagina al posto che starci sopra".
+	 *
+	 * The distinction is what the reserve is for. The launcher is always there and nobody
+	 * asked for it, so content underneath it would be content the reader cannot reach
+	 * without moving something they did not put there. The panel is transient, dismissible
+	 * and deliberately opened, which is exactly the case where covering is the expected
+	 * behaviour: it is how every dialog and every chat panel in the world behaves, and the
+	 * reader closes it. So QuickAsk's panel publishes no height at all now, and the
+	 * launcher's own band stays reserved while the panel is open so the page does not jump
+	 * a hundred pixels each time it opens (`QuickAsk.svelte` holds that value). */
 	const dockReserve = $derived(shellLayoutState.phoneNavHeight + shellLayoutState.dockHeight);
 </script>
 
@@ -141,10 +153,23 @@
 			     that can overflow is exactly axe's documented exception - the two rules
 			     disagree here on purpose, not by oversight. -->
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+			<!-- Round eighteen: no top padding here, on purpose. V1's header band is
+			     `position: sticky; top: 0`, and sticky offsets resolve against the
+			     scrollport's *padding* box, so a `pt-8` on this element parked the band 32px
+			     down from the scrollport's edge and left a 32px strip above it that scrolled
+			     content passed straight through. On the entries table that showed a sliver
+			     of a row above the page title; on the players page it showed the whole
+			     "open the players' wiki" button sitting over the header. Lorenzo saw both on
+			     the preview: "il contenuto delle pagine a volte finisce sopra l'header
+			     sticky". The gutter moved into `PageHeader` itself, which bleeds it back out
+			     horizontally, so the band's own paper starts at the scrollport's edge and
+			     there is nothing above it to see through. Every route inside this shell
+			     opens with that band (V1 = B, and `page-header-offset.test.ts` is what keeps
+			     it true), so no route loses its top gutter by this. -->
 			<main
 				id="main"
 				tabindex="0"
-				class="mb-[var(--dock-reserve,0px)] min-w-0 flex-1 overflow-y-auto px-4 pt-4 pb-4 md:px-8 md:pt-8 md:pb-8"
+				class="mb-[var(--dock-reserve,0px)] min-w-0 flex-1 overflow-y-auto px-4 pb-4 md:px-8 md:pb-8"
 				style:--dock-reserve="{dockReserve}px"
 			>
 				<NavProgressBar />

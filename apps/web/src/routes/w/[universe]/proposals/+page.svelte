@@ -43,8 +43,25 @@
 		].sort((a, b) => b.sortKey - a.sortKey)
 	);
 
-	let groups = $derived<ProposalGroupView[]>(
-		rawGroups.map((g) =>
+	let groups = $derived<ProposalGroupView[]>([
+		// Round eighteen: the plan-less group goes first, because it is the one nothing else
+		// in the product surfaces. A pending proposal with no plan is written by the warm
+		// cache's own NPC draft (`packages/warm/src/store.ts`), was counted by the sidebar,
+		// and had nowhere to be read: "mi dice che c'e una proposta nella sidebar ma poi
+		// nella pagina proposte non c'e niente". Its heading names where it came from
+		// rather than a plan it does not have.
+		...(data.planlessCandidates.length > 0
+			? [
+					{
+						id: 'planless',
+						heading: t.inbox.planless,
+						meta: t.inbox.entriesLabel(data.planlessCandidates.length),
+						importJobId: null,
+						candidates: data.planlessCandidates
+					}
+				]
+			: []),
+		...rawGroups.map((g) =>
 			g.kind === 'plan'
 				? {
 						id: g.id,
@@ -61,7 +78,7 @@
 						candidates: g.candidates
 					}
 		)
-	);
+	]);
 </script>
 
 <svelte:head><title>{t.title} &middot; {data.universe.name}</title></svelte:head>

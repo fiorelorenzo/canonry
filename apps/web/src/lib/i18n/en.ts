@@ -827,6 +827,7 @@ export const en: Messages = {
 			},
 			pendingLabel: (count) => `${count} pending`,
 			importFrom: (playbook) => `After a ${playbook} import`,
+			planless: 'Drafted while preparing the table',
 			importSummary: (total, pending) => {
 				const form = pluralRules('en').select(total);
 				return `${total} ${form === 'one' ? 'proposal' : 'proposals'}: ${pending} pending`;

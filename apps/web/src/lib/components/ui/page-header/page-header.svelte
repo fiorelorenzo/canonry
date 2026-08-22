@@ -43,9 +43,18 @@
 	} = $props();
 </script>
 
+<!-- Round eighteen: the band carries the page's top gutter itself (`pt-4`/`md:pt-8`) and
+     bleeds it back out horizontally (`-mx-4 px-4`), rather than sitting inside a gutter
+     `main` supplies. A sticky offset resolves against the scrollport's padding box, so
+     while `main` had the top padding this band parked 32px below the scrollport's edge and
+     left a 32px strip above itself for content to scroll through - visibly, on the entries
+     table and the players page. With the gutter inside the band, `top: 0` is the
+     scrollport's own edge and the band's paper covers the full width on the way past.
+     `main` keeps the horizontal and bottom gutters, which is why this only bleeds the two
+     sides it re-adds. -->
 <header
 	data-page-band
-	class="sticky top-0 z-10 mb-6 border-b border-line bg-paper pb-6 md:mb-8 md:pb-8"
+	class="sticky top-0 z-10 -mx-4 mb-6 border-b border-line bg-paper px-4 pt-4 pb-6 md:-mx-8 md:mb-8 md:px-8 md:pt-8 md:pb-8"
 >
 	<div class="flex flex-wrap items-start justify-between gap-4">
 		<div class="min-w-0">
