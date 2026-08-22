@@ -1312,12 +1312,18 @@ export const en: Messages = {
 			declaring: 'Declaring…'
 		},
 
+		brief: {
+			missing: 'No brief for this one yet.',
+			mayBeOutdated: 'may be outdated'
+		},
+
 		pinnedCards: {
 			empty:
-				'No relations two hops from the declared place yet - the pinned column fills in once one exists.',
-			listLabel: 'Pinned by the declared place',
+				'No relations two hops from the declared place yet - this list fills in once one exists.',
+			listLabel: 'Who is here',
 			declaredPlace: 'the declared place',
 			hopsFromPlace: (hops) => `${hops} hop${hops === 1 ? '' : 's'} from the declared place`,
+			pendingProposal: 'pending proposal',
 			warmBriefAt: (relativeTime) => `warm brief · ${relativeTime}`,
 			staleSince: (relativeTime) => `stale since ${relativeTime}, refreshes next trigger`,
 			notWarmedThisSession: 'not warmed this session',
@@ -1336,7 +1342,7 @@ export const en: Messages = {
 
 		actionLabels: {
 			npcHere: '+ NPC here',
-			createChildLocation: '+ Create a child location',
+			createChildLocation: '+ Place',
 			quickNote: 'quick note'
 		},
 
@@ -1344,6 +1350,7 @@ export const en: Messages = {
 			markAsRevealed: 'Mark as revealed',
 			markAsRevealedDisabledTitle: 'Declare a session to mark places as revealed',
 			drafting: 'Drafting…',
+			barLabel: 'Table actions',
 			more: 'More',
 			nameChildLocation: 'Name the child location',
 			locationPlaceholder: 'e.g. The Salt Cellar',
@@ -1377,6 +1384,8 @@ export const en: Messages = {
 
 		ambientPlayer: {
 			heading: 'Ambient soundscape',
+			moodLabel: 'Ambient mood',
+			moodOff: 'Off',
 			showAudioGraph: 'Show audio graph',
 			hideAudioGraph: 'Hide audio graph',
 			noPackYet: 'No ambient pack generated for this place yet.',
@@ -1399,9 +1408,46 @@ export const en: Messages = {
 			layersAriaLabel: 'Ambient layers'
 		},
 
+		deck: {
+			regionLabel: 'Table deck',
+			stripLabel: 'Jump to a card',
+			roleDescription: 'card',
+			positionOf: (current, total, name) => `${current} of ${total} - ${name}`,
+			placeKind: 'Where the party is',
+			placeBriefEmpty: 'No brief warmed for this place yet.',
+			placeContextEmpty: 'No neighbourhood summary warmed for this place yet.',
+			briefMissing: 'No brief warmed for this pin yet.',
+			briefEmpty: 'The warm brief has no text yet.',
+			briefMayBeOutdated: 'may be outdated',
+			pendingProposal: 'Pending proposal',
+			openEntry: 'Open the entry',
+			revealing: 'Marking as revealed…',
+			revealed: 'Revealed',
+			noteFormLabel: (name) => `Note about ${name}`
+		},
+
 		home: {
 			noContextDeclared: 'Declare a place to pin its main characters and relations.',
 			choosePlace: 'Choose a place',
+			placeHeading: 'The place',
+			hereHeading: 'Who is here',
+			noteHeading: 'A quick note',
+			nearbyHeading: 'Nearby',
+			arrivals: {
+				heading: 'Arrived now',
+				empty: 'Nothing has arrived yet.',
+				noteSaved: (targetName) => `Note saved on ${targetName}`
+			},
+			draftingNpc: 'Drafting an NPC…',
+			actionFailed: (action, reason) => `${action} failed: ${reason}`,
+			unknownReason: 'unknown reason',
+			savedAsProposal: (via) => `Saved as a proposal (${via})`,
+			savedAsProposalScaffold: (via) =>
+				`Saved as a proposal (${via}, no model - a scaffold to fill in)`,
+			markedRevealed: (name) => `${name} marked as revealed`,
+			noteSaveFailed: 'Could not save that note',
+			sessionEnded: (proposalCount) =>
+				`Session ended. ${proposalCount} proposal${proposalCount === 1 ? '' : 's'} arrived while you played.`,
 			pinnedHeading: 'Pinned',
 			quickActionsHeading: 'Quick actions',
 			askHeading: 'Ask',
@@ -1416,17 +1462,7 @@ export const en: Messages = {
 			aiDraftedBadge: 'AI-drafted',
 			scaffoldBadge: 'scaffold, no model',
 			scaffoldTooltipDefault: 'No model was available for this draft.',
-			aiUnavailable: (reason) => `AI unavailable: ${reason}`,
-			draftingNpc: 'Drafting an NPC…',
-			actionFailed: (action, reason) => `${action} failed: ${reason}`,
-			unknownReason: 'unknown reason',
-			savedAsProposal: (via) => `Saved as a proposal (${via})`,
-			savedAsProposalScaffold: (via) =>
-				`Saved as a proposal (${via}, no model - a scaffold to fill in)`,
-			markedRevealed: (name) => `${name} marked as revealed`,
-			noteSaveFailed: 'Could not save that note',
-			sessionEnded: (proposalCount) =>
-				`Session ended. ${proposalCount} proposal${proposalCount === 1 ? '' : 's'} arrived while you played.`
+			aiUnavailable: (reason) => `AI unavailable: ${reason}`
 		},
 
 		server: {

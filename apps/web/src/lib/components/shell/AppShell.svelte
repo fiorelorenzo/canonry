@@ -59,9 +59,9 @@
 	);
 
 	// Issue #148 (I10 = B): `/w/[universe]/table` already carries its own phone-shaped
-	// top strip (`ContextStrip`) and bottom tabs (`PhoneTabBar`, E4's original) -
-	// mounting PhoneNav there too would stack two top bars and two tab bars on a
-	// 390px screen, exactly the "two navigation patterns at once" this issue rules
+	// top strip (`ContextStrip`) and, below 640px, `TableDeck` (#529, round eighteen) in
+	// place of the whole board - mounting PhoneNav there too would stack a second top bar
+	// on a 390px screen, exactly the "two navigation patterns at once" this issue rules
 	// out. Every other signed-in route gets PhoneNav; this one keeps what it has.
 	const isTableMode = $derived(page.route.id === '/w/[universe]/table');
 

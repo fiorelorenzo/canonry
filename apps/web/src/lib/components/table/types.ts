@@ -7,6 +7,12 @@
 import type { EntitySearchHit } from '@canonry/db';
 import type { EntityType, ProposalKind } from '@canonry/db/schema';
 
+/** #529: an artifact that exists, fresh or stale, always carries its text; `missing` is the
+ * one case with nothing to show yet. Shared between a pin's own brief and the declared
+ * place's own brief (`table/_server/pin-cards.ts`'s `briefStatusFrom`). */
+export type BriefStatus =
+	{ status: 'ready'; text: string | null; stale: boolean } | { status: 'missing' };
+
 export interface PinCard {
 	entityId: string;
 	name: string;
@@ -14,9 +20,10 @@ export interface PinCard {
 	slug: string;
 	hopDistance: number;
 	via: { relationLabel: string; entityName: string } | null;
-	warm:
-		| { status: 'warm'; updatedAt: string; text: string | null }
-		| { status: 'cold'; lastWarmedAt: string | null };
+	warm: BriefStatus;
+	/** #529: a pin whose entity has a pending (undecided) proposal against it - the board's
+	 * "who is here" row and the deck both say so rather than leaving it silent. */
+	hasPendingProposal: boolean;
 }
 
 export interface TableContext {

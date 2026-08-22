@@ -1,10 +1,16 @@
 <script lang="ts">
 	/**
-	 * The table-mode home screen: #73's pinned cards, #74's dock, #75's search, #80's quick
-	 * note, all wired to #79's ordered SSE stream so a quick action's result and a second
-	 * device's changes both arrive without a reload. #81's phone layout reuses every one of
-	 * these components; only the surrounding chrome (tabs vs. one screen) differs by
-	 * viewport, via `md:` - see the markup below.
+	 * Round eighteen, W1 = A (#529): table mode as one screen showing what the copilot has
+	 * already written and paid for, not a card that says a brief exists without showing it.
+	 * The action bar, the ambient mood control and search are persistent chrome, rendered
+	 * once above the board/deck split and shown at every viewport - "a persistent action
+	 * bar, not a dock" holds on a phone exactly as it does on a laptop. Below that: at
+	 * `sm` (640px) and up this is the board, the declared place with its own brief and its
+	 * context_pack, every pinned NPC's brief in full, this session's SSE arrivals newest
+	 * first, and a quick note. Below 640px `TableDeck` takes over that part alone - one
+	 * card at a time, place first, then every pin, with a thumbnail strip to jump between
+	 * them. E3 = C's two-tier dock is rejected outright: every action here fires in the
+	 * one tap that starts it, never a second tap through an overflow first.
 	 */
 	import { untrack } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
@@ -16,13 +22,12 @@
 	import QuickActionDock from '$lib/components/table/QuickActionDock.svelte';
 	import QuickNoteForm from '$lib/components/table/QuickNoteForm.svelte';
 	import InstantSearch from '$lib/components/table/InstantSearch.svelte';
-	import PhoneTabBar from '$lib/components/table/PhoneTabBar.svelte';
-	import { Badge } from '$lib/components/ui/badge';
+	import TableDeck from '$lib/components/table/TableDeck.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { connectTableStream, type TableStreamMessage } from '$lib/components/table/stream-client';
 	import { messages } from '$lib/i18n';
-	import { SHORTCUTS, formatShortcut } from '$lib/keys';
 	import type { ProposalSummary } from '$lib/components/table/types';
 	import type { PageData } from './$types';
 
@@ -35,16 +40,20 @@
 	let pins = $state(data.pins);
 	let pinnedElapsedMs = $state<number | null>(data.pinnedElapsedMs);
 	let ambientPack = $state(data.ambientPack);
+	let placeBrief = $state(data.placeBrief);
+	let placeContext = $state(data.placeContext);
 
 	// `data` changes on `invalidateAll()` (declaring context, marking revealed, exiting);
-	// SSE messages and optimistic updates below also write these three directly, so they
-	// stay `$state` rather than `$derived` - this effect is only the "resync from the
-	// server" half of that, not the only writer.
+	// SSE messages and optimistic updates below also write these directly, so they stay
+	// `$state` rather than `$derived` - this effect is only the "resync from the server"
+	// half of that, not the only writer.
 	$effect(() => {
 		context = data.context;
 		pins = data.pins;
 		pinnedElapsedMs = data.pinnedElapsedMs;
 		ambientPack = data.ambientPack;
+		placeBrief = data.placeBrief;
+		placeContext = data.placeContext;
 	});
 
 	let showDeclareForm = $state(false);
@@ -62,16 +71,27 @@
 	let toast = $state<string | null>(null);
 	let proposals = $state<ProposalSummary[]>([]);
 	let sessionEndedBanner = $state<string | null>(null);
-	let activeTab = $state<'here' | 'actions' | 'ask' | 'queue'>('here');
 	let quickPlaceId = $state<string | null>(null);
 
-	const paletteShortcut = SHORTCUTS.find((shortcut) => shortcut.id === 'palette');
+	interface Arrival {
+		id: number;
+		text: string;
+	}
+	// #529: "arrived now", the right column's ordered feed - G8's propagation, which used
+	// to run silent behind only a count on the exit button, made discoverable rather than
+	// invisible. Newest first, and only the three kinds the decision names: a proposal
+	// landing (a note worded distinctly from any other quick action) and a reveal.
+	let arrivals = $state<Arrival[]>([]);
+
+	function pushArrival(id: number, text: string) {
+		arrivals = [{ id, text }, ...arrivals];
+	}
 
 	// The three quick actions publish a stable id over SSE (never a display phrase, which
 	// would freeze that event's "via"/"action" attribution in whatever locale published
-	// it) - this is the one place that id becomes the label the dock's own buttons show,
-	// so a GM never sees a mix of one translated phrase and one English one for the same
-	// tap (`table.actionLabels`, shared with `QuickActionDock.svelte`).
+	// it) - this is the one place that id becomes the label the action bar's own buttons
+	// show, so a GM never sees a mix of one translated phrase and one English one for the
+	// same tap (`table.actionLabels`, shared with `QuickActionDock.svelte`).
 	function actionLabel(id: 'npc-here' | 'create-child-location' | 'quick-note'): string {
 		if (id === 'npc-here') return t.actionLabels.npcHere;
 		if (id === 'create-child-location') return t.actionLabels.createChildLocation;
@@ -125,14 +145,19 @@
 			const payload = message.data as ProposalSummary;
 			proposals = [...proposals, payload];
 			npcPending = false;
-			showToast(
-				payload.drafted === 'scaffold'
-					? t.home.savedAsProposalScaffold(actionLabel(payload.via))
-					: t.home.savedAsProposal(actionLabel(payload.via))
-			);
+			const text =
+				payload.via === 'quick-note'
+					? t.home.arrivals.noteSaved(payload.targetName ?? actionLabel(payload.via))
+					: payload.drafted === 'scaffold'
+						? t.home.savedAsProposalScaffold(actionLabel(payload.via))
+						: t.home.savedAsProposal(actionLabel(payload.via));
+			showToast(text);
+			pushArrival(message.id, text);
 		} else if (message.type === 'reveal') {
 			const payload = message.data as { name: string };
-			showToast(t.home.markedRevealed(payload.name));
+			const text = t.home.markedRevealed(payload.name);
+			showToast(text);
+			pushArrival(message.id, text);
 		} else if (message.type === 'session-ended') {
 			sessionEndedBanner = t.home.sessionEnded(proposals.length);
 		}
@@ -188,6 +213,8 @@
 			showDeclareForm = false;
 			await invalidateAll();
 			context = data.context;
+			placeBrief = data.placeBrief;
+			placeContext = data.placeContext;
 		} finally {
 			declaringContext = false;
 		}
@@ -240,12 +267,31 @@
 		}
 	}
 
+	// #529: TableDeck's fixed contract calls `onNote(text, pinId)` - that argument order
+	// and shape is the deck's own, not this route's - so this adapts it onto the one
+	// `/table/notes` call every note-taking surface on this page already shares.
+	function handleDeckNote(text: string, targetEntityId: string) {
+		void submitNote({ targetEntityId, note: text });
+	}
+
+	// #529: TableDeck's "mark as revealed" lives on a pin card by construction (one card
+	// fills the screen), but reveal itself is still place-scoped (G7, a non-goal here) -
+	// every card's button reveals the one declared place, same as the board's own action
+	// bar button does.
+	function handleDeckReveal(_pinId: string) {
+		void fireAction('reveal');
+	}
+
 	async function exitTableMode() {
 		await fetch(`/w/${data.universeSlug}/table/end`, { method: 'POST' });
 		sessionEndedBanner = t.home.sessionEnded(proposals.length);
 		context = null;
 		pins = [];
 		await invalidateAll();
+	}
+
+	function focusSearch() {
+		document.getElementById('table-instant-search')?.focus();
 	}
 
 	// The empty state's own quick-declare `Combobox` (#470, O4 = B): the same place
@@ -264,6 +310,13 @@
 					: []
 			)
 	);
+
+	// TableDeck's fixed contract takes `placeBrief: string | null`, not the `BriefStatus`
+	// object every other surface on this page reads - staleness has nowhere to render on
+	// a card with no room for a second line about its own cache, so the deck gets the text
+	// (or null) and nothing else.
+	const deckPlaceBrief = $derived(placeBrief?.status === 'ready' ? placeBrief.text : null);
+	const deckPlaceContext = $derived(placeContext?.status === 'ready' ? placeContext.text : null);
 </script>
 
 <PageHeader title={t.title} />
@@ -286,18 +339,18 @@
      nobody chose. -->
 <PageBody width="wide">
 	<div class="flex flex-col gap-5 px-4 py-5">
-		<!-- #367 (Q6): four things on this page arrive rather than being there, and all four
-	     are the decision's own cases. This banner and the toast below it are a state that
-	     changed where a GM mid-session would otherwise wonder whether the tap registered;
-	     the two forms further down are panels expanding in place. Nothing leaves on an
-	     animation: at a table an action has to be over when the finger lifts. Table mode
-	     never renders `ModelRunning`, so none of this competes with a model.
+		<!-- #367 (Q6): things on this page arrive rather than being there. This banner and
+		     the toast below it are a state that changed where a GM mid-session would
+		     otherwise wonder whether the tap registered; the declare and note forms are
+		     panels expanding in place. Nothing leaves on an animation: at a table an action
+		     has to be over when the finger lifts. Table mode never renders `ModelRunning`,
+		     so none of this competes with a model.
 
-	     V9 (round seventeen, #501) adds a fifth: the queue tab's own list, below, fades in
-	     each row exactly once as it lands over SSE ("a row arriving when a proposal lands",
-	     docs/ux/MOTION.md) - one row at a time, never the cascade V9's other case reserves
-	     for a list arriving whole on mount, since this list never does that; it starts
-	     empty and grows one proposal at a time for as long as the session runs. -->
+		     #529 (round eighteen) adds the arrivals column: each row fades in exactly once
+		     as it lands over SSE ("a row arriving when a proposal lands", docs/ux/MOTION.md)
+		     - one row at a time, never the cascade that case reserves for a list arriving
+		     whole on mount, since this list never does that; it starts empty and grows one
+		     arrival at a time for as long as the session runs. -->
 		{#if sessionEndedBanner}
 			<div
 				class="animate-in rounded-md border border-line-2 bg-panel-2 p-3 text-sm text-ink-2 duration-move ease-arrive fade-in-0 slide-in-from-top-1"
@@ -336,7 +389,7 @@
 					<div class="flex w-full max-w-xs flex-col gap-1">
 						<label
 							for="table-quick-place"
-							class="font-mono text-[10px] tracking-wide text-muted uppercase"
+							class="font-mono text-label tracking-wide text-muted uppercase"
 						>
 							{t.declareContext.whereArePlayers}
 						</label>
@@ -353,136 +406,143 @@
 				{/snippet}
 			</EmptyState>
 		{:else}
-			<section class="hidden md:block" class:!block={activeTab === 'here'}>
-				<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
-					{t.home.pinnedHeading}
-				</h2>
-				<PinnedCards {pins} universeSlug={data.universeSlug} locale={data.locale} />
-			</section>
-
-			<section
-				class="hidden md:block"
-				class:!block={activeTab === 'here' || activeTab === 'actions'}
-			>
-				<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
-					{t.home.quickActionsHeading}
-				</h2>
-				<QuickActionDock
-					canReveal={context.sessionEntityId !== null}
-					{npcPending}
-					locationPending={locationCreating}
-					locale={data.locale}
-					onMarkRevealed={() => fireAction('reveal')}
-					onNpcHere={() => fireAction('npc')}
-					onCreateLocation={(label) => fireAction('location', label)}
-					onJotNote={() => (showNoteForm = true)}
-				/>
-				<div class="mt-3">
-					<AmbientPlayer
-						universeSlug={data.universeSlug}
-						userId={data.userId}
-						pack={ambientPack}
-						locale={data.locale}
-					/>
-				</div>
-			</section>
-
-			{#if showNoteForm}
-				<section
-					class="hidden animate-in duration-move ease-arrive fade-in-0 slide-in-from-top-1 md:block"
-					class:!block={activeTab === 'actions'}
-				>
-					<QuickNoteForm
-						targets={noteTargets}
-						locale={data.locale}
-						pending={noteSubmitting}
-						onSubmit={submitNote}
-						onCancel={() => (showNoteForm = false)}
-					/>
-				</section>
-			{/if}
-
-			<section class="hidden md:block" class:!block={activeTab === 'here'}>
+			<!-- #529: the action bar, the ambient mood control and search are persistent
+			     chrome - "a persistent action bar, not a dock" - so all three render once,
+			     above the board/deck split, and stay identical at every viewport instead
+			     of disappearing below `sm`. -->
+			<QuickActionDock
+				canReveal={context.sessionEntityId !== null}
+				{npcPending}
+				locationPending={locationCreating}
+				locale={data.locale}
+				onMarkRevealed={() => fireAction('reveal')}
+				onNpcHere={() => fireAction('npc')}
+				onCreateLocation={(label) => fireAction('location', label)}
+				onSearchFocus={focusSearch}
+			/>
+			<AmbientPlayer universeSlug={data.universeSlug} pack={ambientPack} locale={data.locale} />
+			<div class="border-t border-line pt-5">
 				<InstantSearch universeSlug={data.universeSlug} locale={data.locale} />
-			</section>
+			</div>
 
-			<section class="hidden md:block" class:!block={activeTab === 'ask'}>
-				<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
-					{t.home.askHeading}
-				</h2>
-				<p class="text-sm text-muted">
-					{t.home.askNotBuilt}
-					{#if paletteShortcut}
-						{t.home.askOpensFromPalette(formatShortcut(paletteShortcut))}
-					{/if}
-				</p>
-			</section>
+			<!-- The board: `sm` (640px) and up, one continuous screen, nothing behind a
+			     tab. Below that, `TableDeck` takes over the place-and-pins portion alone
+			     (its own file, #529): one card at a time, large enough to read from a
+			     metre, with a thumbnail strip to jump between them. -->
+			<div class="hidden sm:flex sm:flex-col sm:gap-6">
+				<div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+					<div class="flex flex-col gap-6 lg:min-w-0 lg:flex-1">
+						<section aria-labelledby="table-place-heading" class="border-b border-line pb-5">
+							<p class="text-label font-semibold tracking-wide text-muted uppercase">
+								{t.home.placeHeading}
+							</p>
+							<h2 id="table-place-heading" class="mt-1 text-title font-semibold text-ink">
+								{context.placeName}
+							</h2>
+							<p class="mt-2 text-body text-ink-2">
+								{placeBrief?.status === 'ready'
+									? (placeBrief.text ?? t.brief.missing)
+									: t.brief.missing}
+							</p>
+							{#if placeBrief?.status === 'ready' && placeBrief.stale}
+								<p class="mt-1 text-label text-muted">{t.brief.mayBeOutdated}</p>
+							{/if}
+							<p class="mt-3 text-meta font-semibold tracking-wide text-muted uppercase">
+								{t.home.nearbyHeading}
+							</p>
+							<p class="mt-1 text-body text-ink-2">
+								{placeContext?.status === 'ready'
+									? (placeContext.text ?? t.brief.missing)
+									: t.brief.missing}
+							</p>
+							{#if placeContext?.status === 'ready' && placeContext.stale}
+								<p class="mt-1 text-label text-muted">{t.brief.mayBeOutdated}</p>
+							{/if}
+						</section>
 
-			<section class="hidden md:block" class:!block={activeTab === 'queue'}>
-				<h2 class="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
-					{t.home.proposalsHeading}
-				</h2>
-				{#if proposals.length === 0}
-					<p class="text-sm text-muted">
-						{t.home.proposalsEmpty}
-					</p>
-				{:else}
-					<ul class="flex flex-col gap-1.5">
-						{#each proposals as proposal (proposal.proposalId)}
-							<li
-								class="animate-in rounded-md border border-line bg-panel p-2.5 text-sm duration-fade ease-arrive fade-in-0"
+						<section aria-labelledby="table-here-heading">
+							<h2
+								id="table-here-heading"
+								class="mb-2 text-label font-semibold tracking-wide text-muted uppercase"
 							>
-								<!-- Round eleven P2 (#344): both of these name a kind, they are not wording
-								a model produced, so they wear the theme's own panel and line. The one
-								below sits next to a Badge variant="secondary" for the scaffold case and
-								now matches it, which is what it should have been doing. -->
-								<span
-									class="rounded-full border border-line-2 bg-panel-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-2"
+								{t.home.hereHeading}
+							</h2>
+							<PinnedCards {pins} universeSlug={data.universeSlug} locale={data.locale} />
+						</section>
+					</div>
+
+					<div class="flex flex-col gap-6 lg:w-80 lg:flex-none">
+						<section aria-labelledby="table-arrivals-heading">
+							<h2
+								id="table-arrivals-heading"
+								class="mb-2 text-label font-semibold tracking-wide text-muted uppercase"
+							>
+								{t.home.arrivals.heading}
+							</h2>
+							{#if arrivals.length === 0}
+								<p class="text-sm text-muted">{t.home.arrivals.empty}</p>
+							{:else}
+								<ul class="flex flex-col" aria-live="polite">
+									{#each arrivals as arrival (arrival.id)}
+										<li
+											class="animate-in border-b border-line py-2 text-sm text-ink-2 duration-fade ease-arrive fade-in-0 last:border-b-0"
+										>
+											{arrival.text}
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</section>
+
+						<section aria-labelledby="table-note-heading">
+							<div class="flex items-center justify-between gap-2">
+								<h2
+									id="table-note-heading"
+									class="text-label font-semibold tracking-wide text-muted uppercase"
 								>
-									{t.home.proposalLabel} &middot; {proposal.kind}
-								</span>
-								<span class="ml-2 text-muted">{t.home.from(actionLabel(proposal.via))}</span>
-								{#if proposal.drafted === 'model'}
-									<span
-										class="ml-2 rounded-full border border-line-2 bg-panel-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-2"
-										title={t.home.aiDraftedTooltip}
-									>
-										{t.home.aiDraftedBadge}
-									</span>
-								{:else if proposal.drafted === 'scaffold'}
-									<Badge
+									{t.home.noteHeading}
+								</h2>
+								{#if !showNoteForm}
+									<Button
+										type="button"
 										variant="secondary"
-										class="ml-2 font-mono text-[10px] text-muted"
-										title={proposal.unavailableReason ?? t.home.scaffoldTooltipDefault}
+										size="sm"
+										onclick={() => (showNoteForm = true)}
 									>
-										{t.home.scaffoldBadge}
-									</Badge>
+										{t.quickActionDock.jotNote}
+									</Button>
 								{/if}
-								{#if proposal.targetName}
-									<p class="mt-1 text-ink-2">{proposal.targetName}</p>
-								{:else if proposal.rationale}
-									<p class="mt-1 text-ink-2">{proposal.rationale}</p>
-								{/if}
-								{#if proposal.preview}
-									<p class="mt-1 text-xs text-ink-2">{proposal.preview}</p>
-								{/if}
-								{#if proposal.drafted === 'scaffold' && proposal.unavailableReason && proposal.targetName}
-									<p class="mt-1 text-[11px] text-muted">
-										{t.home.aiUnavailable(proposal.unavailableReason)}
-									</p>
-								{/if}
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</section>
+							</div>
+							{#if showNoteForm}
+								<div
+									class="mt-2 animate-in duration-move ease-arrive fade-in-0 slide-in-from-top-1"
+								>
+									<QuickNoteForm
+										targets={noteTargets}
+										locale={data.locale}
+										pending={noteSubmitting}
+										onSubmit={submitNote}
+										onCancel={() => (showNoteForm = false)}
+									/>
+								</div>
+							{/if}
+						</section>
+					</div>
+				</div>
+			</div>
+
+			<div class="sm:hidden">
+				<TableDeck
+					{pins}
+					placeName={context.placeName ?? ''}
+					placeBrief={deckPlaceBrief}
+					placeContext={deckPlaceContext}
+					canReveal={context.sessionEntityId !== null}
+					locale={data.locale}
+					onNote={handleDeckNote}
+					onReveal={handleDeckReveal}
+				/>
+			</div>
 		{/if}
 	</div>
 </PageBody>
-
-<PhoneTabBar
-	active={activeTab}
-	queueCount={proposals.length}
-	locale={data.locale}
-	onSelect={(tab) => (activeTab = tab)}
-/>
