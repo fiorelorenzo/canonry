@@ -149,8 +149,74 @@ export function preFilterCandidates(
 		.map((scored) => scored.candidate);
 }
 
+/**
+ * The identity pool's rows (issue #479): an existing entity, or a still-pending `create`
+ * from this same job, addressed by the two things `entity_universe_slug_key` and a GM's
+ * eyes actually collide on. `type` is carried so the caller can see a cross-type
+ * collision, which is a different situation from a same-type one and not the matcher's to
+ * settle.
+ */
+export interface IdentityCandidate {
+	id: string;
+	name: string;
+	slug: string;
+	type: string | null;
+}
+
+/**
+ * The subject's own identity keys, as the create patch would write them.
+ *
+ * `slug` is the caller's, not derived here: `job-runner.ts` owns `slugify` and the patch
+ * it writes has to agree with what this compares, so passing it in is what keeps the two
+ * from drifting.
+ */
+export interface SubjectIdentity {
+	name: string;
+	slug: string;
+}
+
+/**
+ * A collision between the subject's identity and something the universe already carries
+ * (issue #479).
+ *
+ * **This is not a similarity decision and does not erode SPEC.md §6.4's "normalised names
+ * and aliases stay in the loop as a cheap pre-filter and as a tie-breaker, never as the
+ * decision."** §6.4 forbids string matching from *deciding a match* in place of the
+ * semantic step, because "the Gilded Rat" and "Il Ratto Dorato" are one inn no regex will
+ * pair. This is the opposite direction and a different question: `entity_universe_slug_key`
+ * is UNIQUE on (universe_id, slug), so a `create` on a slug the universe already holds is
+ * not a write the database will take. There is no false merge available here to weigh
+ * against a false split, because the alternative to folding is a proposal that cannot be
+ * accepted at all - it either fails that constraint or leaves the GM two entries with one
+ * name, which is exactly what #479 reports.
+ *
+ * Slug before name, because the slug is the constraint; the name is the same collision
+ * seen through a hand-edited slug. Aliases are not compared - see `entitiesByIdentity`'s
+ * own note on why treating one as identity would turn #479's third defect into a false
+ * merge.
+ */
+export function findIdentityCollision(
+	subject: SubjectIdentity,
+	candidates: IdentityCandidate[]
+): { candidate: IdentityCandidate; via: 'slug' | 'name' } | null {
+	const slug = subject.slug.trim().toLowerCase();
+	if (slug.length > 0) {
+		const bySlug = candidates.find((c) => c.slug.trim().toLowerCase() === slug);
+		if (bySlug) return { candidate: bySlug, via: 'slug' };
+	}
+	const name = normalizeForMatching(subject.name);
+	if (name.length > 0) {
+		const byName = candidates.find((c) => normalizeForMatching(c.name) === name);
+		if (byName) return { candidate: byName, via: 'name' };
+	}
+	return null;
+}
+
 export type MatchDecision =
 	| { outcome: 'exact'; candidateId: string }
+	/** A deterministic identity collision (issue #479), free and settled before any
+	 * similarity call. Never a `create`: the caller folds it or drops it. */
+	| { outcome: 'identity'; candidateId: string; via: 'slug' | 'name' }
 	| { outcome: 'match'; candidateId: string; similarity: number }
 	| { outcome: 'ask'; candidateIds: string[]; similarity: number }
 	| { outcome: 'new' };
@@ -276,6 +342,12 @@ export interface ResolveMatchInput {
 	 * job (SPEC.md §6.5: "every tool call is checked against the job's universe"), not
 	 * this function's. */
 	candidates: MatchCandidate[];
+	/** SPEC.md §6.4's order gains a step between the external id and the embeddings
+	 * (issue #479): a free, deterministic identity collision check against everything the
+	 * universe already carries under this slug or name, type-blind. Absent means the caller
+	 * has no identity pool to offer, which is what every pre-#479 caller and the matching
+	 * benchmark pass; the outcome is then exactly what it was. */
+	identity?: { subject: SubjectIdentity; candidates: IdentityCandidate[] };
 	similarity: SimilarityFn;
 	thresholds: MatchThresholds;
 	/** Caps how many candidates ever reach `similarity` (issue #36/#37's "cheapest
@@ -288,13 +360,30 @@ const DEFAULT_PRE_FILTER_LIMIT = 20;
 
 /**
  * Runs SPEC.md §6.4's full matching order for one proposed entity: exact source-ref match
- * first (free), then semantic similarity over a name-overlap-narrowed candidate set,
- * classified against `thresholds` into a decisive match, a decisive new entity, or the
- * in-between band that must be asked rather than guessed.
+ * first (free), then the identity collision guard (also free, issue #479), then semantic
+ * similarity over a name-overlap-narrowed candidate set, classified against `thresholds`
+ * into a decisive match, a decisive new entity, or the in-between band that must be asked
+ * rather than guessed.
+ *
+ * The identity step sits above the scorer rather than beside it, and #479 is why: the
+ * scorer had the right candidate in hand and still said `new`. An identical name is not
+ * decisive in the text `matchTextFor` embeds, because since issue #310 both sides carry
+ * three lines of context and only one of the four lines agreed - cosine 0.5446 on
+ * `alibaba/qwen3-embedding-4b`, under a `newBelow` of 0.60, so the in-between band was
+ * never even reached. The lexical fallback misses the same pair for its own reason (0.4231
+ * under a `newBelow` of 0.50, because the subject carried a foreign alias). A guard that
+ * runs before either scorer is the only one that cannot be re-broken by a threshold move,
+ * a model swap or a change to what gets embedded.
  */
 export async function resolveMatch(input: ResolveMatchInput): Promise<MatchDecision> {
 	if (input.exactSourceRefMatch) {
 		return { outcome: 'exact', candidateId: input.exactSourceRefMatch.id };
+	}
+	if (input.identity) {
+		const collision = findIdentityCollision(input.identity.subject, input.identity.candidates);
+		if (collision) {
+			return { outcome: 'identity', candidateId: collision.candidate.id, via: collision.via };
+		}
 	}
 	if (input.candidates.length === 0) {
 		return { outcome: 'new' };

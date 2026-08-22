@@ -68,6 +68,8 @@ import {
 	createImportJob,
 	createProposalPlan,
 	findEntityBySourceRef,
+	entitiesByIdentity,
+	entityUpdateTargetsByIds,
 	foldEntitySightingIntoPendingProposal,
 	getBalance,
 	getImportJob,
@@ -118,10 +120,17 @@ import type { ImageStore } from './images.js';
 import {
 	oneLineSummary,
 	resolveMatch,
+	type IdentityCandidate,
 	type MatchCandidate,
 	type MatchThresholds,
 	type SimilarityFn
 } from './matching.js';
+import {
+	bodyWriteVerdict,
+	isBareMention,
+	pruneForeignAliases,
+	updatePatchAddsNothing
+} from './proposal-guards.js';
 import type { OutcomeNoteLossy, OutcomeNoteOffender, OutcomeNotePayload } from './outcome-note.js';
 
 // ---------------------------------------------------------------------------
@@ -876,6 +885,27 @@ function spanText(text: string | undefined, span: { start: number; end: number }
 	return sliced.length > 0 ? sliced : null;
 }
 
+/** The names that belong to somebody else, for `pruneForeignAliases` (issue #479): every
+ * other entity this document proposed, plus every entity or pending create the identity
+ * pool turned up that this payload did *not* resolve to.
+ *
+ * `resolvedId` is what the payload matched, or null for a create. Excluding it is what
+ * keeps a legitimate alias alive: an entity whose own name came back from the identity
+ * lookup must not have that name treated as a stranger's. */
+function foreignNamesFor(
+	payload: EntityProposalPayload,
+	proposedInDocument: EntityProposalPayload[],
+	identityCandidates: IdentityCandidate[],
+	resolvedId: string | null
+): string[] {
+	return [
+		...proposedInDocument
+			.filter((other) => other !== payload && other.name !== payload.name)
+			.map((other) => other.name),
+		...identityCandidates.filter((row) => row.id !== resolvedId).map((row) => row.name)
+	];
+}
+
 /**
  * SPEC.md §6.1's "match against what already exists, merge, resolve conflicts - a
  * deterministic engine, this is where damage would happen, so no model decides it." Runs
@@ -906,6 +936,47 @@ async function materializeDocumentProposals(
 	const resolved: ResolvedEntityCandidate[] = [];
 	const sourceTexts = await readSourceTextsForContext(params, buffer);
 
+	// The identity pool (issue #479), built once for the document rather than per entity:
+	// everything the universe already carries under a slug or a name this document is about
+	// to propose, plus this job's own still-pending creates, both type-blind because
+	// `entity_universe_slug_key` is unique per universe and not per type. This is the step
+	// SPEC.md §6.4's order was missing between the external id and the embeddings: #479's
+	// Cairnmouth reached the scorer with the right candidate in its pool and came back
+	// `new` anyway, at cosine 0.5446 under a `newBelow` of 0.60, because an identical name
+	// is one line of four in the text `matchTextFor` embeds.
+	//
+	// Aliases go into the *names* asked for but never into the identity comparison: they
+	// are here so `pruneForeignAliases` can see that an alias is somebody else's title,
+	// which is #479's third defect and would become a false merge if it counted as
+	// identity.
+	const proposedEntities = [...buffer.entities.values()];
+	const [existingIdentities, pendingIdentities] = await Promise.all([
+		entitiesByIdentity(
+			db,
+			params.universeId,
+			proposedEntities.map((payload) => slugify(payload.name)),
+			proposedEntities.flatMap((payload) => [payload.name, ...payload.aliases])
+		),
+		pendingEntityProposalsForJob(db, params.dbJobId, null)
+	]);
+	const identityCandidates: IdentityCandidate[] = [
+		...existingIdentities,
+		...pendingIdentities.map((row) => ({
+			id: row.id,
+			name: row.name,
+			// The pending create's patch wrote `slugify(payload.name)` (see the create branch
+			// below), so recomputing it here is reading back the same value rather than
+			// guessing at one.
+			slug: slugify(row.name),
+			type: row.type as string
+		}))
+	];
+	// Every name this document put on the table, the entity's own and its neighbours'.
+	// `isBareMention` subtracts these before asking whether anything is left
+	// that the source actually says: "the marsh road" in #479's Cairnmouth body is another
+	// entry's title, not a fact about the town.
+	const documentNames = proposedEntities.flatMap((payload) => [payload.name, ...payload.aliases]);
+
 	for (const [localId, payload] of buffer.entities) {
 		localIdToType.set(localId, payload.type);
 		const exact = await findEntityBySourceRef(
@@ -920,7 +991,10 @@ async function materializeDocumentProposals(
 					candidateEntitiesForMatching(db, params.universeId, payload.type),
 					pendingEntityProposalsForJob(db, params.dbJobId, payload.type)
 				]);
-		const pendingProposalIds = new Set(pendingPool.map((p) => p.id));
+		// Type-blind on purpose (issue #479): an identity collision can land on a pending
+		// create of a *different* type, and that still has to fold rather than become a
+		// second proposal on the same slug.
+		const pendingProposalIds = new Set(pendingIdentities.map((p) => p.id));
 
 		const decision = await resolveMatch({
 			subject: {
@@ -937,13 +1011,28 @@ async function materializeDocumentProposals(
 			exactSourceRefMatch: exact
 				? { id: exact.entityId, name: exact.name, aliases: exact.aliases }
 				: null,
+			// Omitted rather than passed as undefined when an external id already decided it:
+			// `exactSourceRefMatch` short-circuits first anyway, and the free identity lookup
+			// has nothing to add to a decision SPEC.md §6.4 already calls step 1.
+			...(exact
+				? {}
+				: {
+						identity: {
+							subject: { name: payload.name, slug: slugify(payload.name) },
+							candidates: identityCandidates
+						}
+					}),
 			candidates: [...candidatePool, ...pendingPool].map(toMatchCandidate),
 			similarity: params.similarity,
 			thresholds: params.thresholds
 		});
 
-		if (decision.outcome === 'exact' || decision.outcome === 'match') {
-			if (decision.outcome === 'match' && pendingProposalIds.has(decision.candidateId)) {
+		if (
+			decision.outcome === 'exact' ||
+			decision.outcome === 'match' ||
+			decision.outcome === 'identity'
+		) {
+			if (decision.outcome !== 'exact' && pendingProposalIds.has(decision.candidateId)) {
 				// SPEC.md §6.4's order extended to the job's own output (issue #160): this
 				// document's sighting matches a `create` proposal an earlier document in
 				// this same job already wrote, still pending. It folds into that proposal -
@@ -968,7 +1057,51 @@ async function materializeDocumentProposals(
 				});
 				continue;
 			}
+			// Guardrail 3 as a precondition rather than a decoration (issue #479): a payload
+			// whose body shares not one content word with the document it claims to come from
+			// has no evidence to show, so there is no proposal to make. #479's Cairnmouth was
+			// never described in the vault at all - it appeared as a `[[Cairnmouth]]` link in
+			// two other notes and the model wrote "A place mentioned in relation to the marsh
+			// road", a sentence about the import. The resolution still stands, and that
+			// matters: `localIdToEntityId` is set, so a relation this document really does
+			// support ("warden of the marsh road east of Cairnmouth") still points at the
+			// right entity. What is dropped is the entity-content proposal, not the sighting.
 			localIdToEntityId.set(localId, decision.candidateId);
+			if (
+				isBareMention({
+					name: payload.name,
+					body: payload.summary,
+					sourceText: sourceTexts.get(payload.sourceRef.path),
+					documentNames
+				})
+			) {
+				continue;
+			}
+
+			const target = (await entityUpdateTargetsByIds(db, [decision.candidateId])).get(
+				decision.candidateId
+			);
+			const bodyVerdict = bodyWriteVerdict(target?.body ?? '', payload.summary);
+			const aliases = pruneForeignAliases(
+				payload.name,
+				payload.aliases,
+				foreignNamesFor(payload, proposedEntities, identityCandidates, decision.candidateId)
+			);
+			// SPEC.md §6.4's "field edited by the user, unchanged at the source: leave it
+			// alone", read at the level of the whole proposal (issue #479). Once a refused
+			// body write has taken `after` out, an update that repeats the entity's own name
+			// and no new alias costs the GM a decision and changes nothing.
+			if (
+				updatePatchAddsNothing({
+					currentName: target?.name ?? payload.name,
+					currentAliases: target?.aliases ?? [],
+					proposedName: payload.name,
+					proposedAliases: aliases,
+					writesBody: !bodyVerdict.loses
+				})
+			) {
+				continue;
+			}
 			resolved.push({
 				localId,
 				candidate: {
@@ -986,12 +1119,30 @@ async function materializeDocumentProposals(
 				},
 				patch: {
 					name: payload.name,
-					aliases: payload.aliases,
-					after: payload.summary,
+					aliases,
+					// A refused body write drops `after` from the patch rather than softening
+					// it: `acceptProposal` writes `body: patch.after ?? current.body`, so an
+					// absent `after` is exactly "leave the body alone" and needs no new
+					// vocabulary on the accept side.
+					...(bodyVerdict.loses ? {} : { after: payload.summary }),
 					language: payload.language
 				}
 			});
 		} else {
+			// Same guardrail 3 precondition as the update branch, and the reason it has to be
+			// on both: #479's Cairnmouth only became an update once the identity guard above
+			// existed. In a universe that does not already carry the name, the identical bad
+			// extraction is a `create` whose whole body is a sentence about the import.
+			if (
+				isBareMention({
+					name: payload.name,
+					body: payload.summary,
+					sourceText: sourceTexts.get(payload.sourceRef.path),
+					documentNames
+				})
+			) {
+				continue;
+			}
 			const ambiguousCandidateIds = decision.outcome === 'ask' ? decision.candidateIds : [];
 			resolved.push({
 				localId,
@@ -1018,7 +1169,11 @@ async function materializeDocumentProposals(
 					type: payload.type,
 					name: payload.name,
 					slug: slugify(payload.name),
-					aliases: payload.aliases,
+					aliases: pruneForeignAliases(
+						payload.name,
+						payload.aliases,
+						foreignNamesFor(payload, proposedEntities, identityCandidates, null)
+					),
 					body: payload.summary,
 					language: payload.language
 				}
