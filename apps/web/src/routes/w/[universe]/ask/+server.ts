@@ -145,10 +145,13 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 						send(controller, 'proposal_failed', failure);
 					}
 				});
-				// #290: the `keep` control's guardrail 5 sentence names the provider that wrote
-				// this answer, and only the server knows which one that is. Resolved from the same
-				// `model_config` row `runAsk` itself read a moment ago, and left null on the
-				// reading-only branch, where no model call happened at all.
+				// Resolved from the same `model_config` row `runAsk` itself read a moment ago, and
+				// left null on the reading-only branch, where no model call happened at all. It fed
+				// the keep card's guardrail 5 sentence, "<provider> wrote the answer from your own
+				// canon" (#290); T10 (#464) deleted that card, and issue #354 is why it does not
+				// come back in that shape - the sentence was untrue on an answer that cited
+				// nothing. No surface renders these two fields today; they stay on the wire
+				// because the `done` event is a contract this route's clients parse.
 				let provider: string | null = null;
 				let modelId: string | null = null;
 				if (result.generated) {
