@@ -573,7 +573,7 @@ export const en: Messages = {
 			images: 'Images',
 			history: 'History',
 			audit: 'Audit',
-			revealedIn: (sessionName, when) => `Revealed in ${sessionName} \u00b7 ${when}`,
+			revealedIn: (sessionName, when) => `Revealed to the party in ${sessionName} \u00b7 ${when}`,
 			notRevealed: 'Not yet revealed to the party',
 			mobile: {
 				trigger: 'Details',
@@ -922,7 +922,8 @@ export const en: Messages = {
 			filterShown: (typeLabel) => `(${typeLabel} shown)`,
 			acceptedSuffix: () => ' accepted',
 			rejectedSuffix: () => ' rejected',
-			acceptedToast: (entityName) => `Accepted ${entityName ?? 'entry'}`,
+			acceptedToast: (entityName) =>
+				entityName ? `Proposal accepted: ${entityName}` : 'Proposal accepted',
 			acceptFailedToast: 'That decision did not go through.',
 			undoFailedToast: 'Could not undo - nothing recorded to restore to.',
 			undo: 'Undo',

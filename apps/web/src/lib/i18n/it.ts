@@ -577,8 +577,16 @@ export const it: Messages = {
 			images: 'Immagini',
 			history: 'Cronologia',
 			audit: 'Verifica',
-			revealedIn: (sessionName, when) => `Rivelato in ${sessionName} \u00b7 ${when}`,
-			notRevealed: 'Non ancora rivelato al gruppo',
+			// Issue #584: "Rivelato" agreed with the entry the panel renders on, which is a
+			// place, a faction, a session or a character, and Italian gives each of those its
+			// own gender ("luogo" against "fazione"). Worse, the same aside calls its subject
+			// "la voce" throughout, so the two readings of the implied subject disagree about
+			// which form is correct and no single participle can be right. Both lines are
+			// noun-led instead, agreeing with "rivelazione", which the string supplies itself.
+			// That is also the shape every sibling in this block already has ("Nessuna
+			// relazione registrata finora", "Nessun fatto estratto finora").
+			revealedIn: (sessionName, when) => `Rivelazione al gruppo: ${sessionName} \u00b7 ${when}`,
+			notRevealed: 'Nessuna rivelazione al gruppo finora',
 			mobile: {
 				trigger: 'Dettagli',
 				closeLabel: 'Chiudi i dettagli',
@@ -934,11 +942,19 @@ export const it: Messages = {
 		queue: {
 			empty: "Non c'è più nulla da revisionare.",
 			filterShown: (typeLabel) => `(solo ${typeLabel})`,
+			// Issue #584: the count is what these agree with, and the noun behind them is
+			// "proposte", which this queue fixes: it counts nothing else, ever. So the
+			// feminine is safe here in a way it is not one line down.
 			acceptedSuffix: (count) =>
 				pluralRules('it').select(count) === 'one' ? ' accettata' : ' accettate',
 			rejectedSuffix: (count) =>
 				pluralRules('it').select(count) === 'one' ? ' rifiutata' : ' rifiutate',
-			acceptedToast: (entityName) => `Accettato: ${entityName ?? 'la voce'}`,
+			// Issue #584: "Accettato" was a participle doing a heading's work, agreeing with
+			// an entity name whose gender the catalogue cannot know, and disagreeing with the
+			// "la voce" fallback the same string chose. It agrees with "proposta" now, which
+			// is in the sentence, so any name is safe and the fallback needs no noun at all.
+			acceptedToast: (entityName) =>
+				entityName ? `Proposta accettata: ${entityName}` : 'Proposta accettata',
 			acceptFailedToast: 'Non è stato possibile registrare la decisione.',
 			undoFailedToast: "Impossibile annullare: non c'è nulla da ripristinare.",
 			undo: 'Annulla',
