@@ -103,6 +103,7 @@ export {
 	oneLineSummary,
 	nameOverlapScore,
 	preFilterCandidates,
+	findIdentityCollision,
 	EMBEDDING_MATCH_THRESHOLDS,
 	MATCH_THRESHOLDS,
 	type MatchCandidate,
@@ -111,8 +112,19 @@ export {
 	type MatchDecision,
 	type MatchThresholds,
 	type SimilarityFn,
-	type ResolveMatchInput
+	type ResolveMatchInput,
+	type IdentityCandidate,
+	type SubjectIdentity
 } from './matching.js';
+
+export {
+	bodyWriteVerdict,
+	isBareMention,
+	pruneForeignAliases,
+	updatePatchAddsNothing,
+	type BareMentionInput,
+	type BodyWriteVerdict
+} from './proposal-guards.js';
 
 export {
 	runMatchingBenchmark,

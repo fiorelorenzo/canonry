@@ -1813,9 +1813,9 @@ export const it: Messages = {
 			ownCanonLabel: 'il tuo canone',
 			indexedBadge: 'indicizzata',
 			sourcesNote:
-				'La risposta è scritta da queste e da nient’altro: le voci le cui parole corrispondono alla tua domanda.',
+				'Le frasi da cui è scritta la risposta, citate dalle voci in cui si trovano. Il Loremaster ha avuto queste e nient’altro.',
 			sourcesEmpty:
-				'Niente da citare. Nessuna voce corrisponde alle parole di questa domanda, quindi questa risposta non si appoggia a nulla del tuo canone.',
+				'Il tuo canone non contiene ancora nulla che risponda a questa domanda, quindi qui sopra c’è conoscenza generale e non il tuo mondo. Fai il nome di una persona, di un luogo o di un evento e ci sarà qualcosa da citare.',
 			deletedEntry: 'Questa voce è stata eliminata nel frattempo.',
 			sourceCount: (count) => {
 				const n = numberFormat('it', {

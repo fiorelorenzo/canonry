@@ -11,6 +11,8 @@ import {
 	countRunningImportJobs,
 	createImportJob,
 	createProposalPlan,
+	entitiesByIdentity,
+	entityUpdateTargetsByIds,
 	foldEntitySightingIntoPendingProposal,
 	getProposal,
 	missingEntitySourceRefsForJob,
@@ -564,6 +566,86 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 			// over the wire to use the first sentence of each.
 			expect(aldric.bodyLead).toBe(body.slice(0, 400));
 			expect(aldric.bodyLead.length).toBeLessThan(body.length);
+		});
+	});
+
+	describe('entitiesByIdentity / entityUpdateTargetsByIds (issue #479)', () => {
+		it('finds a collision across entity types, which is what both candidate pools are blind to', async () => {
+			const { universe: u } = await jobFixture();
+			await db.insert(entity).values({
+				universeId: u.id,
+				type: 'place',
+				name: 'Cairnmouth',
+				slug: 'cairnmouth',
+				body: 'A fishing town two days up the coast.'
+			});
+
+			// The pool the semantic step gets, asked for the type a bad extraction proposed.
+			expect(await candidateEntitiesForMatching(db, u.id, 'faction')).toEqual([]);
+			// The identity lookup, which is the one that has to see it: `entity_universe_slug_key`
+			// is UNIQUE on (universe_id, slug) and takes no notice of the type.
+			const found = await entitiesByIdentity(db, u.id, ['cairnmouth'], []);
+			expect(found.map((row) => [row.name, row.type])).toEqual([['Cairnmouth', 'place']]);
+		});
+
+		it('matches a case-folded name when the stored slug was edited away from it', async () => {
+			const { universe: u } = await jobFixture();
+			await db.insert(entity).values({
+				universeId: u.id,
+				type: 'place',
+				name: 'Cairnmouth',
+				slug: unique('cairnmouth-the-town'),
+				body: ''
+			});
+			expect(await entitiesByIdentity(db, u.id, ['cairnmouth'], [])).toEqual([]);
+			const byName = await entitiesByIdentity(db, u.id, ['cairnmouth'], ['CAIRNMOUTH']);
+			expect(byName.map((row) => row.name)).toEqual(['Cairnmouth']);
+		});
+
+		it('never reaches out of the universe, and answers nothing for nothing', async () => {
+			const { universe: u } = await jobFixture();
+			const other = await jobFixture();
+			await db.insert(entity).values({
+				universeId: other.universe.id,
+				type: 'place',
+				name: 'Cairnmouth',
+				slug: 'cairnmouth',
+				body: ''
+			});
+			expect(await entitiesByIdentity(db, u.id, ['cairnmouth'], ['Cairnmouth'])).toEqual([]);
+			expect(await entitiesByIdentity(db, u.id, [], [])).toEqual([]);
+			expect(await entitiesByIdentity(db, u.id, [''], ['  '])).toEqual([]);
+		});
+
+		it('reads a whole body, not the capped head the matcher gets', async () => {
+			const { universe: u } = await jobFixture();
+			// The shape that made this query necessary: a `:::secret` sitting past
+			// `candidateEntitiesForMatching`'s 400 character cut, so a guard reading the lead
+			// would decide there was no secret to lose.
+			const body = `${'A merchant bank that lends at knife point. '.repeat(12)}\n\n:::secret\nAldric Vane is on its payroll.\n:::`;
+			expect(body.length).toBeGreaterThan(400);
+			const [row] = await db
+				.insert(entity)
+				.values({
+					universeId: u.id,
+					type: 'faction',
+					name: 'The Ashen Ledger',
+					slug: unique('the-ashen-ledger'),
+					aliases: ['The Ledger'],
+					body
+				})
+				.returning();
+			if (!row) throw new Error('fixture setup failed');
+
+			const targets = await entityUpdateTargetsByIds(db, [row.id, row.id]);
+			expect(targets.get(row.id)).toEqual({
+				id: row.id,
+				name: 'The Ashen Ledger',
+				aliases: ['The Ledger'],
+				body
+			});
+			expect(targets.get(row.id)?.body).toContain(':::secret');
+			expect(await entityUpdateTargetsByIds(db, [])).toEqual(new Map());
 		});
 	});
 

@@ -32,10 +32,7 @@ const ownCanon: AskSource = {
 	entityId: '11111111-1111-4111-8111-111111111111',
 	entityName: 'Aldric Vane',
 	entitySlug: 'aldric-vane',
-	statement: 'He now answers to the Ashen Ledger.',
-	spanStart: 0,
-	spanEnd: 35,
-	score: 0.82
+	statement: 'He now answers to the Ashen Ledger.'
 };
 
 const indexed: AskSource = {
@@ -44,11 +41,11 @@ const indexed: AskSource = {
 	pageTitle: 'Ashen Ledger',
 	breadcrumb: 'Factions / Ashen Ledger',
 	url: 'https://example.invalid/ashen-ledger',
-	text: 'The Ashen Ledger keeps the debts of the drowned quarter.',
+	text: 'The Ashen Ledger keeps the debts of the drowned quarter. It lends at knife point.',
+	statement: 'The Ashen Ledger keeps the debts of the drowned quarter.',
 	attribution: 'Example Compendium',
 	licence: 'CC BY 4.0',
-	licenceUrl: 'https://example.invalid/licence',
-	score: 0.51
+	licenceUrl: 'https://example.invalid/licence'
 };
 
 describe('consumeAskStream', () => {
@@ -121,7 +118,10 @@ describe('keepSourcePayload', () => {
 		expect(parsed.success).toBe(true);
 	});
 
-	it('cites a reference and the sentence it grounded on, never the rendered prose', () => {
+	it('cites a reference and the one sentence it grounded on, never the chunk and never the rendered prose', () => {
+		// #535: `statement` for the indexed source too, not `text` - the retrieved chunk here
+		// is two sentences, and a stored citation that is a paragraph is the entry-level
+		// pointer the sentence-level citation replaces.
 		expect(keepSourcePayload([ownCanon, indexed])).toEqual([
 			{ kind: 'own_canon', entityId: ownCanon.entityId, statement: ownCanon.statement },
 			{

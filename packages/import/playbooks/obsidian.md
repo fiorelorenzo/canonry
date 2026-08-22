@@ -1,6 +1,6 @@
 ---
 id: obsidian
-version: 4
+version: 5
 name: Obsidian vault
 description: Imports a folder or zip of an Obsidian vault, treating every wikilink as a candidate relation.
 modelPurpose: cheap
@@ -66,7 +66,11 @@ meaning:
 
 - `aliases:` (a YAML list, either `aliases: [Foo, Bar]` or a `-` bulleted block) is the
   alternate name list Obsidian itself uses for link resolution. Pass it straight through
-  as this entity's `aliases`.
+  as this entity's `aliases`. **This list, and an explicit "also known as" in the note's
+  own prose, are the only places an alias may come from.** An alias is another name for
+  _this_ entity and nothing else: never put a wikilink target there, never a phrase you
+  lifted out of a sentence, and never the name of another entity, however closely the two
+  are related. A place whose road is famous is not also called that road.
 - `tags:` is a hint for entity typing (see below), not a fact to propose on its own.
 
 Any other frontmatter key that is not `aliases` or `tags` and holds a short scalar value
@@ -103,13 +107,21 @@ itself resolves a bare name to whichever file has it, its "shortest path" defaul
 | `![[Note Name]]`                  | embed (transclusion) of another note - treat as a link, but it signals a tighter relation than a bare mention                                                                                                                 |
 | `![[picture.png]]`                | image embed - not a relation. Read the bytes with `source_read`'s sibling for binary content by calling `image_store` on the path, and pass the returned `assetId` in this note's own `images` when you call `entity_propose` |
 
-Before proposing a relation, make sure the target note actually exists in this export
-(`source_list`/`source_read` it) and propose a minimal entity for it if you have not
-already: a short `summary` from what that note itself says is enough, you do not have
-to fully process a note you are only visiting for context. **Do not propose a relation
-whose target is this same note** (a self block link, or a link that resolves back to
-the file you are processing): `relation_propose` also rejects this, so do not waste a
-step on it.
+Before proposing a relation, resolve the target note with `source_list`/`source_read`.
+
+**If the export has no note for that target, propose no entity for it and no relation to
+it.** A name you have only seen inside a wikilink is not canon: the vault has told you
+that something is called that and nothing else, and there is no `summary` you could write
+from it except a sentence about the import itself. Write that sentence and you have
+invented a fact, which the first rule of this playbook forbids. Leave the link alone; the
+note that describes it will be processed in its own turn, or it does not exist and the GM
+will notice its absence far sooner than they will notice a stub.
+
+If the target note does exist, propose a minimal entity for it if you have not already: a
+short `summary` **from what that note itself says**, and you do not have to fully process
+a note you are only visiting for context. **Do not propose a relation whose target is
+this same note** (a self block link, or a link that resolves back to the file you are
+processing): `relation_propose` also rejects this, so do not waste a step on it.
 
 A link with no obvious label (a bare `[[Note]]` mention in prose) still deserves a
 relation; use a plain label like `mentions` / `mentioned by` when the surrounding
@@ -132,6 +144,25 @@ Sable#Council Seat]]`): this is a **typed** candidate relation. Use the field's 
   `owned by`; `Location:: [[X]]` becomes label `located in` / inverse `contains`. For a
   key this list does not cover, use your judgment but keep the label and its inverse
   a genuine pair (asking "does this read correctly from both ends?").
+
+## What a `summary` is, and what it is never
+
+A `summary` describes the entity, in the words the note uses about it. It is read by a GM
+beside their own writing, and on an entity that already exists in their world it is
+offered as a replacement for what they wrote, so a sentence that adds nothing costs them
+a decision and gains them nothing.
+
+So never write a summary about the import. `"A place mentioned in relation to the marsh
+road"`, `"An organization referenced by this note"`, `"A faction that appears in the
+session log"`: each of these describes where you found the name rather than what the thing
+is, and none of them is canon. If the note you read does not say what the entity is, you
+have nothing to summarise, and the answer is to propose no entity rather than to fill the
+field. The relation you are about to propose already records that the two are connected;
+the summary does not need to repeat it.
+
+The same applies to describing an entity purely through another one. `"A faction to which
+the toll company pays a tithe"` is a relation written out as prose: propose the relation
+and leave the entity to the note that actually describes it.
 
 ## Steps
 
@@ -161,9 +192,11 @@ Sable#Council Seat]]`): this is a **typed** candidate relation. Use the field's 
    { "path": "images/aldric-portrait.png" }
    ```
 
-3. **Follow every wikilink and Dataview link target.** For each one: resolve the
-   target note (`source_list`/`source_read` as needed), propose a minimal entity for
-   it if it is not already proposed in this document, then call `relation_propose`:
+3. **Follow every wikilink and Dataview link target.** For each one: resolve the target
+   note with `source_list`/`source_read`. **If the export carries no note for it, skip
+   that link entirely: no entity, no relation.** Otherwise propose a minimal entity for
+   it if it is not already proposed in this document, summarised from that note's own
+   text, then call `relation_propose`:
 
    ```json
    {

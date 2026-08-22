@@ -83,12 +83,12 @@ export function splitIntoSentences(body: string): string[] {
  * surface; `stripSecretsForPlayers` is what a player-facing surface uses, and it is a
  * different question with a different answer.
  *
- * `ask.ts` keeps its own variant because it also needs each sentence's offset into the
- * whole body, which nothing else does: every caller here relocates its sentence with
- * `spanOf` against the real body regardless of where the sentence came from, so carrying
- * an offset they discard would be the only thing shared. Found the hard way three times
- * (#355, #556, #559), which is why it lives beside the splitter it corrects rather than
- * being copied a fourth time. */
+ * Every caller in the package uses this one now. `ask.ts` kept a private variant until
+ * #535, because it also tracked each sentence's offset into the whole body to fill
+ * `OwnCanonSource.spanStart`/`spanEnd`; nothing ever read those two numbers, #535 deleted
+ * them, and the variant went with them. Found the hard way four times (#355, #556, #559,
+ * #545), which is why this lives beside the splitter it corrects rather than being copied
+ * a fifth time. */
 export function fenceSafeSentences(body: string): string[] {
 	const sentences: string[] = [];
 	for (const segment of splitSecretBlocks(body)) {
