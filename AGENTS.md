@@ -288,18 +288,29 @@ recommendation and what the choice locks in. Start at `docs/ux/index.html`, whic
 carries the inventory of every surface the product has to grow and the review rubric
 the guardrails turn into.
 
-**`docs/ux/DECISIONS.md` is the answer set.** The first thirty-eight were decided on
-2026-08-13, including the visual language (the reading room: warm paper, serif for
-canon prose, violet spent only on the copilot), and eleven follow-on questions, ids G1
-to G11, are still open. The register in `docs/ux/assets/ux.js` carries the same answers
-so an artifact shows its decision at the top.
+**`docs/ux/DECISIONS.md` is the answer set.** Seventeen rounds and a hundred-odd answers,
+the first thirty-eight on 2026-08-13, including the visual language (the reading room: warm
+paper, serif for canon prose and entry titles, burnt umber accent). No gate is open: rounds
+one to three answered questions asked before there was code, and every round since came from
+using the deployed preview, which is why several answers reverse an earlier one. Two worth
+knowing before you touch a component: the copilot's own hue was deleted in U10 after being
+rejected on three surfaces, so unaccepted AI text is marked by shape rather than by colour,
+and V1 gives every route one header band with three declared body widths. The register in
+`docs/ux/assets/ux.js` carries the same answers so an artifact shows its decision at the top.
 
 Before you build a screen, read the decision that gates it, and build what was decided
-rather than what the artifact recommended, since those differ in three places. If the
-gate is one of the open G questions, say so on the issue instead of settling it by
-accident inside a component: that is the whole reason this set exists. Changing a
-decision means editing `DECISIONS.md` and the register together, and saying so on the
-issues it blocks.
+rather than what the artifact recommended, since those differ in three places. If a decision
+has to move, say so on the issue instead of settling it by accident inside a component: that
+is the whole reason this set exists. Changing a decision means editing `DECISIONS.md` and the
+register together, and saying so on the issues it blocks.
+
+**`docs/ux/REFERENCES.md` is the other input**, added 2026-08-22: eleven files under
+`docs/ux/references/`, one per cluster of surfaces, each a list of named mechanics from real
+products with the URL that was opened to check the claim, what to take, and what does not
+survive our guardrails. It exists because seventeen rounds of looking at our own preview can
+only ever improve what is already there. Nothing in it is a decision, and four of its
+recommendations touch a decision on record, so it is read before a redesign and quoted in an
+issue, never applied on its own authority.
 
 ## Design and UI
 
