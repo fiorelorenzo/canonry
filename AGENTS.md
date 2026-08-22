@@ -156,14 +156,15 @@ nothing local reproduces that job, so do not report it as verified.
 eleven `packages/*` that typecheck are on `^7.0.2`, the native port, and stay there: that is
 what `pnpm check` runs, and each package's `node_modules/.bin/tsc` resolves its own copy, so
 the root version reaches none of them. What the root version does reach is
-`node_modules/typescript/lib`, which is the one place `typescript-language-server` looks for a
-`tsserver.js` before it gives up. TypeScript 7 ships no `tsserver.js` at all, so with `^7.0.2`
-at the root every LSP consumer in this repo got "Could not find a valid TypeScript
-installation" and no references, no rename and no definition, which is how #570 ended up
-deleting an exported field with grep as its only evidence. `^6.0.3` at the root, matching
-`apps/web`, fixes that for any client with no configuration file to know about. So do not
-"align" the root with the packages: that reintroduces #585, and it fails silently, since an
-agent that gets no server just falls back to grep.
+`node_modules/typescript/lib`, which is the only one of the three directories
+`typescript-language-server` will look in that a pnpm repo actually has. TypeScript 7 ships
+no `tsserver.js` at all, so with `^7.0.2` at the root every LSP consumer in this repo got
+"Could not find a valid TypeScript installation" and no references, no rename and no
+definition, which is what #570 hit when it wanted references before deleting an exported
+field. `^6.0.3` at the root, matching `apps/web`, fixes that for any client with no
+configuration file to know about. So do not "align" the root with the packages: that
+reintroduces #585, and it fails silently, since an agent that gets no server falls back to
+grep.
 
 **One migration per wave.** `pnpm --filter @canonry/db generate` numbers the next migration
 sequentially and also writes `migrations/meta/_journal.json` and a snapshot. Two agents
