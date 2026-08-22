@@ -117,7 +117,10 @@
 				autocomplete="current-password"
 				required
 			/>
-			<a href={resolve('/auth/forgot-password')} class="text-sm text-accent hover:underline">
+			<a
+				href={resolve('/auth/forgot-password')}
+				class="text-sm text-accent underline decoration-line-2 underline-offset-2"
+			>
 				{t.forgotPasswordLink}
 			</a>
 		</div>

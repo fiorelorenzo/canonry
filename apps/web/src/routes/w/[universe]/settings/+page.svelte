@@ -210,10 +210,10 @@
 		{/snippet}
 		<p class="mt-4 max-w-measure text-sm text-ink-2">
 			{t.introBefore(data.current.name)}<a
-				class="text-accent hover:underline"
+				class="text-accent underline decoration-line-2 underline-offset-2"
 				href={resolve('/settings/appearance')}>{t.appearanceLink}</a
 			>{t.introAnd}<a
-				class="text-accent hover:underline"
+				class="text-accent underline decoration-line-2 underline-offset-2"
 				href={resolve(`/settings/export/${data.current.slug}`)}>{t.exportLink}</a
 			>{t.introAfter}
 		</p>
@@ -489,7 +489,7 @@
 					<p class="max-w-measure text-sm text-ink-2">{t.loremasterConversations.text}</p>
 					<a
 						href={resolve(`/w/${data.current.slug}/ask`)}
-						class="mt-2 inline-block text-sm text-accent hover:underline"
+						class="mt-2 inline-block text-sm text-accent underline decoration-line-2 underline-offset-2"
 						>{t.loremasterConversations.link}</a
 					>
 				</div>
@@ -644,7 +644,7 @@
 										</Badge>
 										<a
 											href={resolve(`/w/${data.current.slug}/e/${row.entitySlug}`)}
-											class="text-accent hover:underline"
+											class="text-accent underline decoration-line-2 underline-offset-2"
 										>
 											{row.entityName}
 										</a>
