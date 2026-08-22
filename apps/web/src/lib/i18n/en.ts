@@ -866,12 +866,41 @@ export const en: Messages = {
 		checklist: {
 			keptSuffix: (total, cap) =>
 				cap === null ? ` of ${total} kept \u00b7 no cap` : ` of ${total} kept \u00b7 cap ${cap}`,
-			estimatedCredits: (credits) => {
-				const form = pluralRules('en').select(credits);
-				return {
-					prefix: 'Est. ',
-					suffix: form === 'one' ? ' credit to generate diffs' : ' credits to generate diffs'
-				};
+			spentCredits: {
+				audit: (credits) => {
+					const form = pluralRules('en').select(credits);
+					return {
+						prefix: '',
+						suffix:
+							form === 'one'
+								? ' credit already spent on the flag still open'
+								: ' credits already spent on the flags still open'
+					};
+				},
+				complete: (credits) => {
+					const form = pluralRules('en').select(credits);
+					return {
+						prefix: '',
+						suffix:
+							form === 'one'
+								? ' credit already spent on this completion'
+								: ' credits already spent on this completion'
+					};
+				},
+				ask: (credits) => {
+					const form = pluralRules('en').select(credits);
+					return {
+						prefix: '',
+						suffix:
+							form === 'one'
+								? ' credit already spent on this draft'
+								: ' credits already spent on this draft'
+					};
+				}
+			},
+			chargedElsewhere: {
+				table: 'This quick action has already spent its credits.',
+				import: 'This import has already spent its credits, one charge per document.'
 			},
 			toGenerate: (count, perDiffCreditsFormatted) => ({
 				prefix: `${count} \u00d7 ${perDiffCreditsFormatted} cr = `,
@@ -1749,9 +1778,9 @@ export const en: Messages = {
 			ownCanonLabel: 'your canon',
 			indexedBadge: 'indexed',
 			sourcesNote:
-				'The answer was written from these and from nothing else: the entries whose own wording matched your question.',
+				'The sentences the answer was written from, quoted from the entries they are in. The Loremaster was given these and nothing else.',
 			sourcesEmpty:
-				'Nothing to cite. No entry matched the words of this question, so this answer rests on nothing in your canon.',
+				'Nothing in your own canon matches this question yet, so the answer above is general knowledge and not your world. Name a person, a place or an event from it and there will be something to cite.',
 			deletedEntry: 'This entry has since been deleted.',
 			sourceCount: (count) => {
 				const n = numberFormat('en', {

@@ -7,6 +7,7 @@
 	 */
 	import { enhance } from '$app/forms';
 	import { messages, numberFormat, type Locale } from '$lib/i18n';
+	import type { PlanChargedElsewhereTrigger, PlanSpentTrigger } from '$lib/i18n/messages';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
 	import ModelRunning from '$lib/components/copilot/ModelRunning.svelte';
@@ -28,16 +29,18 @@
 		locale
 	}: {
 		rows: ChecklistRow[];
-		/** issue #489: `propagate.diff` prices per candidate (docs/ux/DECISIONS.md G11), so a
-		 * plan that still has a real "generate diffs" step ahead of it shows the reconciling
-		 * count x price = total, plus the plan-level ranking charge as its own separate
-		 * already-spent figure - never one number that quietly bundles both. Every other
-		 * trigger this checklist still renders for (an audit plan, whose flags are fully
-		 * priced the moment they are written) keeps the single combined total this component
-		 * always showed. */
+		/** issue #489 and #572: which of the three credits lines this plan reads is a fact
+		 * about its trigger, decided once in `$lib/proposals/creditsLine.ts`. `perDiff` is
+		 * propagation, the one trigger with a real "generate diffs" step still ahead of it:
+		 * `propagate.diff` prices per candidate (docs/ux/DECISIONS.md G11), so it shows the
+		 * reconciling count x price = total plus the plan-level ranking charge as its own
+		 * separate already-spent figure, never one number that quietly bundles both.
+		 * `spent` carries the figure a trigger has already paid for what is still open, and
+		 * `chargedElsewhere` carries no figure at all. */
 		pricing:
 			| { kind: 'perDiff'; diffPriceCredits: number; alreadySpentCredits: number }
-			| { kind: 'total'; estimatedCredits: number };
+			| { kind: 'spent'; trigger: PlanSpentTrigger; estimatedCredits: number }
+			| { kind: 'chargedElsewhere'; trigger: PlanChargedElsewhereTrigger };
 		candidateCap: number | null;
 		locale: Locale;
 	} = $props();
@@ -73,12 +76,13 @@
 				>{toGenerate.prefix}<b class="text-ink">{fmt(toGenerateCredits)}</b
 				>{toGenerate.suffix}</span
 			>
-		{:else}
-			{@const estimate = t.estimatedCredits(pricing.estimatedCredits)}
+		{:else if pricing.kind === 'spent'}
+			{@const spent = t.spentCredits[pricing.trigger](pricing.estimatedCredits)}
 			<span
-				>{estimate.prefix}<b class="text-ink">{fmt(pricing.estimatedCredits)}</b
-				>{estimate.suffix}</span
+				>{spent.prefix}<b class="text-ink">{fmt(pricing.estimatedCredits)}</b>{spent.suffix}</span
 			>
+		{:else}
+			<span>{t.chargedElsewhere[pricing.trigger]}</span>
 		{/if}
 	</div>
 	{#if pricing.kind === 'perDiff'}

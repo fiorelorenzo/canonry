@@ -880,15 +880,41 @@ export const it: Messages = {
 				const capPart = cap === null ? 'nessun limite' : `limite ${cap}`;
 				return ` su ${total} ${word} \u00b7 ${capPart}`;
 			},
-			estimatedCredits: (credits) => {
-				const form = pluralRules('it').select(credits);
-				return {
-					prefix: 'Stima: ',
-					suffix:
-						form === 'one'
-							? ' credito per generare le differenze'
-							: ' crediti per generare le differenze'
-				};
+			spentCredits: {
+				audit: (credits) => {
+					const form = pluralRules('it').select(credits);
+					return {
+						prefix: '',
+						suffix:
+							form === 'one'
+								? ' credito già speso per la segnalazione ancora aperta'
+								: ' crediti già spesi per le segnalazioni ancora aperte'
+					};
+				},
+				complete: (credits) => {
+					const form = pluralRules('it').select(credits);
+					return {
+						prefix: '',
+						suffix:
+							form === 'one'
+								? ' credito già speso per questo completamento'
+								: ' crediti già spesi per questo completamento'
+					};
+				},
+				ask: (credits) => {
+					const form = pluralRules('it').select(credits);
+					return {
+						prefix: '',
+						suffix:
+							form === 'one'
+								? ' credito già speso per questa bozza'
+								: ' crediti già spesi per questa bozza'
+					};
+				}
+			},
+			chargedElsewhere: {
+				table: 'Questa azione rapida ha già speso i suoi crediti.',
+				import: 'Questa importazione ha già speso i suoi crediti, uno per documento.'
 			},
 			toGenerate: (count, perDiffCreditsFormatted) => ({
 				prefix: `${count} \u00d7 ${perDiffCreditsFormatted} cr = `,
@@ -1791,9 +1817,9 @@ export const it: Messages = {
 			ownCanonLabel: 'il tuo canone',
 			indexedBadge: 'indicizzata',
 			sourcesNote:
-				'La risposta è scritta da queste e da nient’altro: le voci le cui parole corrispondono alla tua domanda.',
+				'Le frasi da cui è scritta la risposta, citate dalle voci in cui si trovano. Il Loremaster ha avuto queste e nient’altro.',
 			sourcesEmpty:
-				'Niente da citare. Nessuna voce corrisponde alle parole di questa domanda, quindi questa risposta non si appoggia a nulla del tuo canone.',
+				'Il tuo canone non contiene ancora nulla che risponda a questa domanda, quindi qui sopra c’è conoscenza generale e non il tuo mondo. Fai il nome di una persona, di un luogo o di un evento e ci sarà qualcosa da citare.',
 			deletedEntry: 'Questa voce è stata eliminata nel frattempo.',
 			sourceCount: (count) => {
 				const n = numberFormat('it', {

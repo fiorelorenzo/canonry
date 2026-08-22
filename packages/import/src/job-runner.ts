@@ -68,6 +68,8 @@ import {
 	createImportJob,
 	createProposalPlan,
 	findEntityBySourceRef,
+	entitiesByIdentity,
+	entityUpdateTargetsByIds,
 	foldEntitySightingIntoPendingProposal,
 	getBalance,
 	getImportJob,
@@ -77,6 +79,7 @@ import {
 	pendingEntityProposalsForJob,
 	proposeRelationTypeVocabulary,
 	queuePositionFor,
+	recordEntitySourceRef,
 	recordProposalDiff,
 	settleImportJob,
 	spendCredits,
@@ -118,10 +121,17 @@ import type { ImageStore } from './images.js';
 import {
 	oneLineSummary,
 	resolveMatch,
+	type IdentityCandidate,
 	type MatchCandidate,
 	type MatchThresholds,
 	type SimilarityFn
 } from './matching.js';
+import {
+	bodyWriteVerdict,
+	isBareMention,
+	pruneForeignAliases,
+	updatePatchAddsNothing
+} from './proposal-guards.js';
 import type { OutcomeNoteLossy, OutcomeNoteOffender, OutcomeNotePayload } from './outcome-note.js';
 
 // ---------------------------------------------------------------------------
@@ -722,7 +732,8 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 			ctx.params,
 			event.documentId,
 			buffer,
-			ctx.contentHashByDocument.get(event.documentId) ?? ''
+			ctx.contentHashByDocument.get(event.documentId) ?? '',
+			event.status
 		);
 		if (proposalsCreated > 0 && ctx.params.userId) {
 			await spendCredits(ctx.params.db, {
@@ -876,14 +887,145 @@ function spanText(text: string | undefined, span: { start: number; end: number }
 	return sliced.length > 0 ? sliced : null;
 }
 
+/** The names that belong to somebody else, for `pruneForeignAliases` (issue #479): every
+ * other entity this document proposed, plus every entity or pending create the identity
+ * pool turned up that this payload did *not* resolve to.
+ *
+ * `resolvedId` is what the payload matched, or null for a create. Excluding it is what
+ * keeps a legitimate alias alive: an entity whose own name came back from the identity
+ * lookup must not have that name treated as a stranger's. */
+function foreignNamesFor(
+	payload: EntityProposalPayload,
+	proposedInDocument: EntityProposalPayload[],
+	identityCandidates: IdentityCandidate[],
+	resolvedId: string | null
+): string[] {
+	return [
+		...proposedInDocument
+			.filter((other) => other !== payload && other.name !== payload.name)
+			.map((other) => other.name),
+		...identityCandidates.filter((row) => row.id !== resolvedId).map((row) => row.name)
+	];
+}
+
+/**
+ * What one document's sightings did when the engine declined them (issue #573), kept so
+ * the end of `materializeDocumentProposals` can tell "the engine looked and deliberately
+ * had nothing to propose" from "this run did not get to the end of it". Every field is a
+ * reason to re-read the document on the next import; `ontoEntityIds` is the only one that
+ * can earn it a skip, and only at size 1. See `declinedDocumentEarnsSourceRef`.
+ */
+interface DeclineLedger {
+	/** The already-existing entities this document's declined sightings resolved onto,
+	 * de-duplicated. Dynamic, and `.size` is the whole decision, so a `Set`. */
+	ontoEntityIds: Set<string>;
+	/** Sightings the engine declined with no existing entity behind them: a `create` whose
+	 * body was a bare mention (issue #479). There is no entity for a source ref to point
+	 * at, so the document is re-read. */
+	withoutEntity: number;
+	/** Sightings that folded into a still-pending create (issue #178). Those already
+	 * carry this document's path and hash into the surviving proposal, so the accept
+	 * writes the ref and this function must not write one first: the entity does not
+	 * exist yet. */
+	folded: number;
+	/** Relations dropped for this run because an endpoint was not a real entity yet, or
+	 * because both endpoints resolved onto the same one. The first of those is recoverable
+	 * on a later import once the endpoint exists, and only if the document is read again. */
+	droppedRelations: number;
+	/** Relation-type vocabulary proposals written for this document (decision K1, issue
+	 * #190). They do not appear in `allCandidates`, so a document that produced one and
+	 * nothing else did produce something, and is not a declined document at all. */
+	vocabularyProposals: number;
+}
+
+function newDeclineLedger(): DeclineLedger {
+	return {
+		ontoEntityIds: new Set<string>(),
+		withoutEntity: 0,
+		folded: 0,
+		droppedRelations: 0,
+		vocabularyProposals: 0
+	};
+}
+
+/**
+ * Whether a document that produced no proposal at all has earned the `entity_source_ref`
+ * row that makes the next import skip it (issue #573).
+ *
+ * **The cost this exists for.** `entity_source_ref` was only ever written on accept, and
+ * `run()`'s skip reads that table, so a document the engine deliberately produced nothing
+ * for left no row, and every later import re-read it, re-ran the driver on it and paid for
+ * the tokens again. Correctness was never affected (SPEC.md §6.4's acceptance test is that
+ * the second run produces zero changes, and it did: the same nothing), which is why this is
+ * a cost and §14-latency defect rather than a canon one.
+ *
+ * **Guardrail 1, argued rather than waved at.** This is a write with no proposal behind it,
+ * so it has to stand where SPEC.md §6.4's named exception stands, and it stands narrower.
+ * That exception writes a canon *field* when the source changed and the user never touched
+ * it, and it is allowed because the merge engine and not a model made the write. This
+ * writes no canon field at all: `entity_source_ref` is provenance (which system, which
+ * document, which bytes), it carries no `revision`, nothing about the entity's body, name,
+ * aliases or relations moves, and nothing reaches a player. The decision is taken by the
+ * deterministic half of the pipeline SPEC.md §6.1 describes as "no model decides it": the
+ * model's sighting only named an entity, and §6.4's matching plus #479's guards are what
+ * concluded there was nothing to propose. What the write *can* do is stop the next import
+ * reading a document, and that is why the conditions below are the conservative half of the
+ * argument rather than a formality.
+ *
+ * **Every condition is "or else the document is read again".** Losing a document silently
+ * is worse than paying for it twice, so an outcome that is ambiguous re-reads:
+ *
+ *  - the document reached `finished`, which in this pipeline means the model called
+ *    `job_finish` (tools.ts is the only emitter of that status). `stopped_at_ceiling`,
+ *    `cancelled` and `failed` never reach here as anything but a re-read, and the two that
+ *    do reach this function are separated by `documentStatus`;
+ *  - it produced no proposal of any kind, vocabulary proposals included;
+ *  - nothing folded and no relation was dropped, both of which are work a later import can
+ *    still recover but only if it reads the document;
+ *  - every declined sighting resolved onto an already-existing entity, and onto exactly
+ *    **one** of them. This is the condition that is not obvious. `entity_source_ref` is
+ *    unique on `(source_system, external_id)`, so one document path can hold one row and
+ *    that row names one entity, and `findEntityBySourceRef` is §6.4 step 1: `resolveMatch`
+ *    returns `exact` on it without looking at the name. A path pointing at whichever of
+ *    three cross-linked entries happened to be first would therefore make the next import
+ *    propose an update to the wrong entity, which is the false merge §6.4 weights heaviest.
+ *    At size 1 the row is exactly the one an accepted update from this document would have
+ *    written, and issue #178 already writes that shape for a folded document.
+ *
+ * A document with no sighting at all (`job_finish` with outcome `skipped` - an empty note,
+ * a template) never reaches this function, because `handleEvent` only calls it when the
+ * document buffered something. That case leaks the same way and cannot be fixed here:
+ * `entity_source_ref.entity_id` is `NOT NULL`, the table has no `universe_id` of its own
+ * (every read scopes through the entity join), and there is no entity to point at. It needs
+ * a document-level row, which is a migration, and it is written up on issue #573 rather
+ * than guessed at here.
+ */
+function declinedDocumentEarnsSourceRef(
+	documentStatus: DocumentStatus,
+	declined: DeclineLedger
+): boolean {
+	return (
+		documentStatus === 'finished' &&
+		declined.withoutEntity === 0 &&
+		declined.folded === 0 &&
+		declined.droppedRelations === 0 &&
+		declined.vocabularyProposals === 0 &&
+		declined.ontoEntityIds.size === 1
+	);
+}
+
 /**
  * SPEC.md §6.1's "match against what already exists, merge, resolve conflicts - a
  * deterministic engine, this is where damage would happen, so no model decides it." Runs
  * `resolveMatch` (matching.ts) for every entity this document proposed, turns the
- * decision into a real `proposal` row (never a silent write - guardrail 1's only
+ * decision into a real `proposal` row (never a silent write to canon - guardrail 1's only
  * exception is a genuinely unchanged field, handled upstream by the content-hash
  * short-circuit before this function is ever called), then does the same for relations
  * whose endpoints both resolved to real, already-existing entities.
+ *
+ * The one row this writes without a proposal behind it is provenance rather than canon:
+ * issue #573's `entity_source_ref` for a document the engine deliberately produced nothing
+ * for. `declinedDocumentEarnsSourceRef` carries that argument and the conditions.
  *
  * issue #126: every patch carries `language`, straight from `payload.language` (the
  * per-document detection `GatewayDriver` already ran - see `EntityProposalPayload`'s own
@@ -897,14 +1039,61 @@ async function materializeDocumentProposals(
 	params: RunImportJobParams,
 	documentId: string,
 	buffer: DocumentBuffer,
-	contentHash: string
+	contentHash: string,
+	/** This document's terminal status (issue #573). Only `'finished'` is the model
+	 * asserting it had nothing more to say; `'stopped_at_ceiling'` is the other status
+	 * that reaches here, and a document cut off mid-run must never earn the source ref
+	 * `declinedDocumentEarnsSourceRef` writes. */
+	documentStatus: DocumentStatus
 ): Promise<number> {
 	const { db } = params;
 	const locale: Locale = params.locale ?? 'en';
 	const localIdToEntityId = new Map<string, string>();
 	const localIdToType = new Map<string, EntityProposalPayload['type']>();
 	const resolved: ResolvedEntityCandidate[] = [];
+	const declined = newDeclineLedger();
 	const sourceTexts = await readSourceTextsForContext(params, buffer);
+
+	// The identity pool (issue #479), built once for the document rather than per entity:
+	// everything the universe already carries under a slug or a name this document is about
+	// to propose, plus this job's own still-pending creates, both type-blind because
+	// `entity_universe_slug_key` is unique per universe and not per type. This is the step
+	// SPEC.md §6.4's order was missing between the external id and the embeddings: #479's
+	// Cairnmouth reached the scorer with the right candidate in its pool and came back
+	// `new` anyway, at cosine 0.5446 under a `newBelow` of 0.60, because an identical name
+	// is one line of four in the text `matchTextFor` embeds.
+	//
+	// Aliases go into the *names* asked for but never into the identity comparison: they
+	// are here so `pruneForeignAliases` can see that an alias is somebody else's title,
+	// which is #479's third defect and would become a false merge if it counted as
+	// identity.
+	const proposedEntities = [...buffer.entities.values()];
+	const [existingIdentities, pendingIdentities] = await Promise.all([
+		entitiesByIdentity(
+			db,
+			params.universeId,
+			proposedEntities.map((payload) => slugify(payload.name)),
+			proposedEntities.flatMap((payload) => [payload.name, ...payload.aliases])
+		),
+		pendingEntityProposalsForJob(db, params.dbJobId, null)
+	]);
+	const identityCandidates: IdentityCandidate[] = [
+		...existingIdentities,
+		...pendingIdentities.map((row) => ({
+			id: row.id,
+			name: row.name,
+			// The pending create's patch wrote `slugify(payload.name)` (see the create branch
+			// below), so recomputing it here is reading back the same value rather than
+			// guessing at one.
+			slug: slugify(row.name),
+			type: row.type as string
+		}))
+	];
+	// Every name this document put on the table, the entity's own and its neighbours'.
+	// `isBareMention` subtracts these before asking whether anything is left
+	// that the source actually says: "the marsh road" in #479's Cairnmouth body is another
+	// entry's title, not a fact about the town.
+	const documentNames = proposedEntities.flatMap((payload) => [payload.name, ...payload.aliases]);
 
 	for (const [localId, payload] of buffer.entities) {
 		localIdToType.set(localId, payload.type);
@@ -920,7 +1109,10 @@ async function materializeDocumentProposals(
 					candidateEntitiesForMatching(db, params.universeId, payload.type),
 					pendingEntityProposalsForJob(db, params.dbJobId, payload.type)
 				]);
-		const pendingProposalIds = new Set(pendingPool.map((p) => p.id));
+		// Type-blind on purpose (issue #479): an identity collision can land on a pending
+		// create of a *different* type, and that still has to fold rather than become a
+		// second proposal on the same slug.
+		const pendingProposalIds = new Set(pendingIdentities.map((p) => p.id));
 
 		const decision = await resolveMatch({
 			subject: {
@@ -937,13 +1129,28 @@ async function materializeDocumentProposals(
 			exactSourceRefMatch: exact
 				? { id: exact.entityId, name: exact.name, aliases: exact.aliases }
 				: null,
+			// Omitted rather than passed as undefined when an external id already decided it:
+			// `exactSourceRefMatch` short-circuits first anyway, and the free identity lookup
+			// has nothing to add to a decision SPEC.md §6.4 already calls step 1.
+			...(exact
+				? {}
+				: {
+						identity: {
+							subject: { name: payload.name, slug: slugify(payload.name) },
+							candidates: identityCandidates
+						}
+					}),
 			candidates: [...candidatePool, ...pendingPool].map(toMatchCandidate),
 			similarity: params.similarity,
 			thresholds: params.thresholds
 		});
 
-		if (decision.outcome === 'exact' || decision.outcome === 'match') {
-			if (decision.outcome === 'match' && pendingProposalIds.has(decision.candidateId)) {
+		if (
+			decision.outcome === 'exact' ||
+			decision.outcome === 'match' ||
+			decision.outcome === 'identity'
+		) {
+			if (decision.outcome !== 'exact' && pendingProposalIds.has(decision.candidateId)) {
 				// SPEC.md §6.4's order extended to the job's own output (issue #160): this
 				// document's sighting matches a `create` proposal an earlier document in
 				// this same job already wrote, still pending. It folds into that proposal -
@@ -966,9 +1173,56 @@ async function materializeDocumentProposals(
 					sourceRef: payload.sourceRef,
 					contentHash
 				});
+				declined.folded += 1;
 				continue;
 			}
+			// Guardrail 3 as a precondition rather than a decoration (issue #479): a payload
+			// whose body shares not one content word with the document it claims to come from
+			// has no evidence to show, so there is no proposal to make. #479's Cairnmouth was
+			// never described in the vault at all - it appeared as a `[[Cairnmouth]]` link in
+			// two other notes and the model wrote "A place mentioned in relation to the marsh
+			// road", a sentence about the import. The resolution still stands, and that
+			// matters: `localIdToEntityId` is set, so a relation this document really does
+			// support ("warden of the marsh road east of Cairnmouth") still points at the
+			// right entity. What is dropped is the entity-content proposal, not the sighting.
 			localIdToEntityId.set(localId, decision.candidateId);
+			if (
+				isBareMention({
+					name: payload.name,
+					body: payload.summary,
+					sourceText: sourceTexts.get(payload.sourceRef.path),
+					documentNames
+				})
+			) {
+				declined.ontoEntityIds.add(decision.candidateId);
+				continue;
+			}
+
+			const target = (await entityUpdateTargetsByIds(db, [decision.candidateId])).get(
+				decision.candidateId
+			);
+			const bodyVerdict = bodyWriteVerdict(target?.body ?? '', payload.summary);
+			const aliases = pruneForeignAliases(
+				payload.name,
+				payload.aliases,
+				foreignNamesFor(payload, proposedEntities, identityCandidates, decision.candidateId)
+			);
+			// SPEC.md §6.4's "field edited by the user, unchanged at the source: leave it
+			// alone", read at the level of the whole proposal (issue #479). Once a refused
+			// body write has taken `after` out, an update that repeats the entity's own name
+			// and no new alias costs the GM a decision and changes nothing.
+			if (
+				updatePatchAddsNothing({
+					currentName: target?.name ?? payload.name,
+					currentAliases: target?.aliases ?? [],
+					proposedName: payload.name,
+					proposedAliases: aliases,
+					writesBody: !bodyVerdict.loses
+				})
+			) {
+				declined.ontoEntityIds.add(decision.candidateId);
+				continue;
+			}
 			resolved.push({
 				localId,
 				candidate: {
@@ -986,12 +1240,31 @@ async function materializeDocumentProposals(
 				},
 				patch: {
 					name: payload.name,
-					aliases: payload.aliases,
-					after: payload.summary,
+					aliases,
+					// A refused body write drops `after` from the patch rather than softening
+					// it: `acceptProposal` writes `body: patch.after ?? current.body`, so an
+					// absent `after` is exactly "leave the body alone" and needs no new
+					// vocabulary on the accept side.
+					...(bodyVerdict.loses ? {} : { after: payload.summary }),
 					language: payload.language
 				}
 			});
 		} else {
+			// Same guardrail 3 precondition as the update branch, and the reason it has to be
+			// on both: #479's Cairnmouth only became an update once the identity guard above
+			// existed. In a universe that does not already carry the name, the identical bad
+			// extraction is a `create` whose whole body is a sentence about the import.
+			if (
+				isBareMention({
+					name: payload.name,
+					body: payload.summary,
+					sourceText: sourceTexts.get(payload.sourceRef.path),
+					documentNames
+				})
+			) {
+				declined.withoutEntity += 1;
+				continue;
+			}
 			const ambiguousCandidateIds = decision.outcome === 'ask' ? decision.candidateIds : [];
 			resolved.push({
 				localId,
@@ -1018,7 +1291,11 @@ async function materializeDocumentProposals(
 					type: payload.type,
 					name: payload.name,
 					slug: slugify(payload.name),
-					aliases: payload.aliases,
+					aliases: pruneForeignAliases(
+						payload.name,
+						payload.aliases,
+						foreignNamesFor(payload, proposedEntities, identityCandidates, null)
+					),
 					body: payload.summary,
 					language: payload.language
 				}
@@ -1034,12 +1311,20 @@ async function materializeDocumentProposals(
 		const toType = localIdToType.get(relationPayload.toLocalId);
 		// See this module's doc comment: a relation to a not-yet-existing entity has no
 		// real id to reference and is dropped for this run, not invented a workaround for.
-		if (!fromEntityId || !toEntityId || !fromType || !toType) continue;
+		// Issue #573 counts it, because "for this run" is only true if there is a later run
+		// that reads this document again.
+		if (!fromEntityId || !toEntityId || !fromType || !toType) {
+			declined.droppedRelations += 1;
+			continue;
+		}
 		// Two local ids in *this* document can also resolve onto the same target (issue
 		// #160): the relation between them would otherwise be a self-loop, which
 		// `relation_from_ne_to` refuses at accept time anyway. Never propose one - there
 		// is nothing a GM could usefully accept about an entity relating to itself.
-		if (fromEntityId === toEntityId) continue;
+		if (fromEntityId === toEntityId) {
+			declined.droppedRelations += 1;
+			continue;
+		}
 
 		const resolution = await resolveRelationType(
 			{ db, embed: params.embedRelationLabel },
@@ -1089,13 +1374,33 @@ async function materializeDocumentProposals(
 			provider: 'import',
 			modelId: params.playbook.id
 		});
+		declined.vocabularyProposals += 1;
 	}
 
 	const allCandidates = [
 		...resolved.map((r) => r.candidate),
 		...relationCandidates.map((r) => r.candidate)
 	];
-	if (allCandidates.length === 0) return 0;
+	if (allCandidates.length === 0) {
+		// `run()`'s skip looks a ref up by `JobDocument.sourcePath`, so that is the key this
+		// has to write, not the path off a payload's `sourceRef`. They are the same string
+		// today (tools.ts stamps it from the document context and the model cannot pass one),
+		// and reading it from the job's own document list is what keeps them the same string
+		// if that ever stops being true. No path, no key the skip could ever match, so no row.
+		const sourcePath = params.documents.find((doc) => doc.id === documentId)?.sourcePath;
+		const [entityId] = [...declined.ontoEntityIds];
+		if (sourcePath && entityId && declinedDocumentEarnsSourceRef(documentStatus, declined)) {
+			await recordEntitySourceRef(db, {
+				entityId,
+				sourceSystem: params.sourceSystem,
+				externalId: sourcePath,
+				sourceUrl: null,
+				contentHash,
+				lastImportJobId: params.dbJobId
+			});
+		}
+		return 0;
+	}
 
 	const { proposals } = await createProposalPlan(db, {
 		universeId: params.universeId,

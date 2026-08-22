@@ -10,6 +10,7 @@ import { priceOf, universeAccessBySlug } from '@canonry/db';
 import { generatePlanDiffs, AiDisabledError } from '@canonry/copilot';
 import { MissingGatewayEnvError } from '@canonry/ai';
 import { db } from '$lib/server/db';
+import { PLAN_CREDITS_LINE } from '$lib/proposals/creditsLine';
 import { modelFactory, identityGateway } from '$lib/server/copilot';
 import {
 	planDetailFor,
@@ -40,22 +41,24 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const { conn, access, detail } = await loadPlan(locals, params.universe, params.plan);
 
 	// Issue #489: `propagate.diff` prices per candidate (docs/ux/DECISIONS.md G11), so a
-	// propagation plan (trigger 'save') - the only trigger that still has a real "generate
-	// diffs" step ahead of it here - shows the reconciling count x price = total, plus the
-	// plan-level `propagate.plan` ranking charge as its own already-spent figure. Both are
-	// looked up live rather than trusted from the plan's stored `estimated_credits`, which
-	// bundles the two together and is therefore not decomposable into the three figures this
-	// screen has to reconcile. Issue #508 has since made that column mean one thing - what
-	// the plan's still-open candidates are worth, moved by every accept, reject and drop -
-	// and taken the plan-level ranking charge out of it, so it no longer goes stale; this
-	// screen still derives its own figures, because a display needs the price and the count
-	// separately and not their product. Every other trigger that can still reach this page
-	// before 'spent' (today: an audit plan, whose flags are fully priced the moment they are
-	// written - packages/copilot/src/audit.ts) keeps the single stored total this page has
-	// always shown, which after #508 is what the flags still open cost; that number's own
-	// labelling is a separate, unfiled question neither issue covers.
+	// propagation plan shows the reconciling count x price = total, plus the plan-level
+	// `propagate.plan` ranking charge as its own already-spent figure. Both are looked up
+	// live rather than trusted from the plan's stored `estimated_credits`, which is not
+	// decomposable into the three figures this screen has to reconcile. Issue #508 has since
+	// made that column mean one thing - what the plan's still-open candidates are worth,
+	// moved by every accept, reject and drop - and taken the plan-level ranking charge out of
+	// it; this screen still derives its own figures, because a display needs the price and
+	// the count separately and not their product.
+	//
+	// Issue #572: which line every other trigger reads is decided once, as a total record
+	// over `proposal_trigger`, in `$lib/proposals/creditsLine.ts`. An audit flag, a
+	// completion and an Ask draft are all written already drafted and already charged, so
+	// their figure is a charge and says so; an import and a table quick action are priced
+	// per document and per action, so their plan figure is zero by construction and the line
+	// carries no number at all.
+	const line = PLAN_CREDITS_LINE[detail.plan.trigger];
 	const pricing =
-		detail.plan.trigger === 'save'
+		line.kind === 'perDiff'
 			? await (async () => {
 					const [diffPrice, planPrice] = await Promise.all([
 						priceOf(conn, 'propagate.diff'),
@@ -67,7 +70,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 						alreadySpentCredits: planPrice.credits
 					};
 				})()
-			: { kind: 'total' as const, estimatedCredits: detail.plan.estimatedCredits };
+			: line.kind === 'spent'
+				? {
+						kind: 'spent' as const,
+						trigger: line.trigger,
+						estimatedCredits: detail.plan.estimatedCredits
+					}
+				: { kind: 'chargedElsewhere' as const, trigger: line.trigger };
 
 	return {
 		universe: { slug: access.universe.slug, name: access.universe.name },

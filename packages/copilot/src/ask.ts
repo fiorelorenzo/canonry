@@ -48,10 +48,10 @@ import {
 	retrieveForUniverse,
 	type RetrievalHit
 } from '@canonry/indexing';
-import { functionWords, splitSecretBlocks, stripMentionSyntax, type Locale } from '@canonry/lang';
+import { functionWords, stripMentionSyntax, type Locale } from '@canonry/lang';
 import { stepCountIs, streamText, tool } from 'ai';
 import { z } from 'zod';
-import { jaccard, splitIntoSentences, tokenize } from './diff.js';
+import { fenceSafeSentences, jaccard, tokenize } from './diff.js';
 import {
 	READING_ONLY_FALLBACK,
 	TELL_ME_MORE,
@@ -67,21 +67,48 @@ import { entryEditPropose, entryPropose, type ProposeResult } from './ask-propos
  * (docs/ux/c8-ask-mode.html), never a settings dialog. */
 export type AskDetailLevel = '1_line' | 'short' | 'normal' | 'detailed' | 'full';
 
+/** Issue #535: a citation is a sentence with the entry it came from, never an entry with
+ * an excerpt guessed beside it. `statement` is therefore the whole of the evidence and is
+ * display-ready: `ownCanonSentenceFor` below draws it from one side of a
+ * `:::secret`/`:::gmnote` fence and strips `[[mention]]` syntax before it is stored here,
+ * so no surface has to remember to clean it (#523, #355, #545 were three separate
+ * renderings of the same sentence each forgetting a different half of that).
+ *
+ * No score. Guardrail 3 and D6 both refuse a similarity number in front of a GM, and
+ * `searchOwnCanon`'s own comment below explains why the number could not be trusted even
+ * if the guardrails allowed it. The ranking still needs one, so it lives on
+ * `RankedOwnCanonSource`, which never leaves this package. */
 export interface OwnCanonSource {
 	kind: 'own_canon';
 	entityId: string;
 	entityName: string;
 	entitySlug: string;
 	statement: string;
-	spanStart: number;
-	spanEnd: number;
+}
+
+/** The same source with the two numbers the ranking is made of. Internal to this package
+ * on purpose: `ask-propose.ts` needs `score` for `proposal.evidence`'s own
+ * `similarity` field, which is a stored provenance record a reviewer reads through
+ * `normalizeEvidence`, not something Ask ever renders. `runAsk` narrows this to
+ * `OwnCanonSource` before anything crosses the wire. */
+export interface RankedOwnCanonSource extends OwnCanonSource {
 	score: number;
+	/** How many of the question's content words this sentence carries - the number the
+	 * floor is actually made of. See `MIN_SHARED_CONTENT_WORDS`. */
+	shared: number;
 }
 
 /** SPEC.md §7 / issue #60's minimum bar: "a derived-corpus card (badge, source name,
  * licence, link) that survives being narrow" - `attribution` and `licence` are shown on
  * *every* answer this source appears in, a legal requirement (SPEC.md §7), not a nicety.
- */
+ *
+ * Issue #535: `text` is the retrieved chunk, which is what the model is given, and
+ * `statement` is the one sentence inside it that the question actually touched, which is
+ * what a reader is shown. They are two different things and were the same thing until
+ * now: the footer quoted a whole chunk and called it a citation, which is the entry-level
+ * pointer this issue exists to replace. Both are kept because narrowing the prompt to one
+ * sentence would take context away from the answer to make the footer honest, and the
+ * footer can be honest without that trade. */
 export interface IndexedSource {
 	kind: 'indexed';
 	dataSourceId: string;
@@ -89,10 +116,10 @@ export interface IndexedSource {
 	breadcrumb: string;
 	url: string;
 	text: string;
+	statement: string;
 	attribution: string;
 	licence: string | null;
 	licenceUrl: string | null;
-	score: number;
 }
 
 export type AskSource = OwnCanonSource | IndexedSource;
@@ -187,49 +214,125 @@ function contentTokens(text: string, functionTokenSet: ReadonlySet<string>): Set
  * 18 words instead of 6 returns the same five entries in the same order, where the union in
  * the denominator used to move every score.
  *
- * **There is no similarity floor, and the same measurement is why.** A floor was the
- * obvious half of #346 and no number does this job. Before the change a coincidence scored
- * 0.2000 ("Give me an overview of the setting." against Corvin Ashe, shared words `of the`)
- * while a real citation scored 0.1200 ("What happened during The Sable Winter?" against
- * Mother Sennah, shared words `the sable winter`), so any floor that drops the first drops
- * the second. That is not a badly chosen number, it is the wrong shape: Jaccard is a ratio
- * over the union of two token sets, so it moves with how long the question and the sentence
- * happen to be, and it is therefore not comparable between two different questions. A
- * relative floor fails for the same reason, measured: on the Sable Winter question the
- * top entry and the fifth sit at 0.1667 and 0.1200, a narrower spread than the one between
- * a coincidence and a citation across questions. What separates a citation from a
- * coincidence is not how much overlap there is but which words overlap, exactly as issue
- * #270 found for proposal evidence, and this is that finding applied to the layer #270
- * left alone. It is also why nothing here reports a score to a GM: guardrail 3 says
- * evidence is which entry and which sentence and never a bare confidence number, and a
- * number this scale cannot support would be the same lie in smaller print.
+ * **There is a floor since issue #535, and it is counted in words rather than measured as
+ * a ratio.** #346 was right that no Jaccard threshold does this job, and #535's sweep says
+ * it more sharply: the lowest threshold that silences the corpus's one remaining
+ * coincidence also drops 19 citations the word bar keeps, while still admitting 4
+ * coincidences elsewhere. What is comparable between two questions is how much of the
+ * *question* an entry answers, so that is what the floor counts. `MIN_SHARED_CONTENT_WORDS`
+ * carries the whole measurement; this paragraph is the summary, not the evidence.
+ *
+ * Nothing here reports a score to a GM either way: guardrail 3 says evidence is which
+ * entry and which sentence and never a bare confidence number, D6 settled the same
+ * question for entity matching, and a number this scale cannot support would be the same
+ * lie in smaller print. `OwnCanonSource` has no `score` field at all so that this cannot
+ * be undone by a component reading one.
  *
  * A question with no content words at all (a pure "Tell me about this world.") returns
  * nothing rather than everything: layer 1 has no lexical handle on the canon, so it says
  * so, and both Ask surfaces carry the sentence that explains it. The embedding layer has
  * no such blind spot and is unchanged, so a world with an indexed corpus still answers a
  * question whose words appear nowhere in it. */
-/** #355: `splitIntoSentences` treats a `:::secret`/`:::gmnote` fence marker line as
- * ordinary prose, so a naive call over a whole body can quote a sentence with its fence
- * syntax still attached (`"The Ashen Ledger: \":::secret Aldric Vane ... :::\""`). Ask is
- * GM-only - `runAsk`'s only caller requires universe membership
- * (`routes/w/[universe]/ask`) - so a sentence drawn from inside a secret is fine to
- * surface, guardrail 6 is never in play here, but the `:::secret` / `:::` delimiter lines
- * themselves are markup, never prose a GM wrote to be read. Splitting per
- * `splitSecretBlocks` segment first means every candidate sentence comes from one side of
- * a fence boundary or the other, never straddling it, so the marker lines can never become
- * part of a quoted `statement`. `start` is scoped to the segment's own offset into `body`,
- * tighter than a whole-body `indexOf` and immune to matching an identical sentence that
- * recurs on the far side of a fence. */
-function ownCanonSentenceCandidates(body: string): Array<{ sentence: string; start: number }> {
-	const candidates: Array<{ sentence: string; start: number }> = [];
-	for (const segment of splitSecretBlocks(body)) {
-		for (const sentence of splitIntoSentences(segment.text).filter((s) => !s.startsWith('#'))) {
-			const offset = segment.text.indexOf(sentence);
-			if (offset >= 0) candidates.push({ sentence, start: segment.start + offset });
-		}
+/** #355, #545, #565: a candidate sentence must come from one side of a
+ * `:::secret`/`:::gmnote` fence or the other, never straddle it, or the quote carries the
+ * marker line as though a GM had written it. `fenceSafeSentences` (diff.ts) is the one
+ * shared splitter for that since #565, and this is the fourth caller. Ask is GM-only -
+ * `runAsk`'s only caller requires universe membership - so a sentence drawn from inside a
+ * secret is fine to surface; the marker lines are markup, and never prose.
+ *
+ * Heading lines are dropped: `splitIntoSentences` emits one unit per heading, and "##
+ * Standing in the city" is a section label, not a sentence anybody can check a claim
+ * against.
+ *
+ * Issue #535 removed this file's own offset-tracking variant, which existed only to fill
+ * `OwnCanonSource.spanStart`/`spanEnd`. Nothing ever read those two numbers - not a
+ * component, not the kept record, not `ask-propose` - and a span into the raw body would
+ * have been wrong the moment `statement` became the mention-stripped sentence. */
+function ownCanonSentenceCandidates(body: string): string[] {
+	return fenceSafeSentences(body).filter((sentence) => !sentence.startsWith('#'));
+}
+
+/** The floor, issue #535. An entry is cited when it answers at least this many of the
+ * question's content words with the sentence being quoted, and a question with fewer
+ * content words than this has to be answered whole:
+ * `Math.min(MIN_SHARED_CONTENT_WORDS, questionTokens.size)`. See `sharedWithQuestion` for
+ * what "answers" counts.
+ *
+ * **2, swept against the seeded sample world**: 17 entries, 34 questions in both locales,
+ * 20 the world genuinely answers and 14 it does not.
+ *
+ * | bar | supported questions left with no source | unsupported questions still citing |
+ * | --- | --- | --- |
+ * | 1 | 0 of 20 | 1 of 14 |
+ * | 2 | 3 of 20 | 0 of 14 |
+ * | 3 | 5 of 20 | 0 of 14 |
+ *
+ * One shared content word is what a coincidence looks like: at bar 1 "What kind of world
+ * is this?" cites Mother Sennah, because she was kind, in the other sense. Two is what a
+ * citation looks like. Three costs five questions and buys nothing.
+ *
+ * **What bar 2 costs, named rather than averaged.** Three questions lose their sources:
+ * "Tell me about the magistrate." (Iselde Wrenn's body says "Harbour magistrate." and
+ * nothing else the question touches), "What is the strait called?", and "Tell me about the
+ * Smugglers Ledger." (which fails for a different reason: `tokenize` keeps the apostrophe,
+ * so the entry's own `Smugglers'` never matches a question's `Smugglers`; filed separately).
+ * All three are the same shape, a question that names a thing by a common noun instead of
+ * by its title, and the empty state's own copy is the remedy: name a person, a place or an
+ * event. That is a dead end a GM can walk out of. It is not the same kind of wrong as
+ * citing a sentence that does not support the answer.
+ *
+ * **Why the bar counts words instead of thresholding the ratio, measured rather than
+ * asserted.** The scores of a real citation and of a coincidence overlap: the four correct
+ * citations for "Where is Cairnmouth?" score 0.1667, 0.1111, 0.1000 and 0.0000, and the
+ * `kind` coincidence scores 0.1250, inside that band. Swept, the lowest Jaccard floor that
+ * silences the coincidence is 0.130, and at 0.130 it also drops 19 of the citations this
+ * bar keeps while still admitting 4 one-word coincidences elsewhere; at 0.200 it drops 35
+ * and still admits 3. It is worse on both axes at once, and the reason is structural:
+ * Jaccard divides by the union of two token sets, so it falls as the sentence gets longer
+ * and is not comparable between two questions. How much of the question an entry answers
+ * is comparable, because the denominator is the question.
+ *
+ * **And there is no count floor on top of the bar, which was measured rather than
+ * assumed.** Consensus renders no verdict below five contributing papers and the shape is
+ * right, but the number is not transferable to a seventeen-entry world. Under this bar the
+ * supported questions cite 1, 2, 3, 4, 5 or 6 entries, and both of the two that cite
+ * exactly one cite the correct one: "What is the Drowned Concord?" and "What happened to
+ * the harbour court?" each have exactly one sentence in canon, and each finds it. A count
+ * floor of 2 would answer both with "nothing in this world supports that" while holding
+ * the sentence that does, which is a lie and precisely what guardrail 3 forbids. So N is
+ * 1: one entry clearing the bar is support. */
+const MIN_SHARED_CONTENT_WORDS = 2;
+
+/** An indexed chunk has no entry title of its own to fold in, so it passes this where
+ * layer 1 passes an entry's name and aliases. */
+const EMPTY_TOKENS: ReadonlySet<string> = new Set<string>();
+
+/** How many of the question's content words this entry answers with this sentence.
+ *
+ * The entry's own name and aliases count, and that is not a convenience, it is the
+ * difference between the floor working and the floor breaking the product. A wiki entry
+ * almost never repeats its own title in its body: Aldric Vane's entry opens "Dismissed
+ * from the watch in the thaw after the Sable Winter", and the words "Aldric Vane" appear
+ * nowhere in it. Counting the sentence alone, "Why was Aldric Vane dismissed?" shares one
+ * word with the entry that answers it, and a bar of two would tell a GM their world says
+ * nothing about the character whose page they are standing on. A sentence inside Aldric
+ * Vane's entry is about Aldric Vane; the title is the strongest signal in the entry, not
+ * an absent one. Aliases for the same reason: "Captain Vane" is how half the canon refers
+ * to him.
+ *
+ * Only the count is name-aware. `jaccard` below still measures the sentence alone, since
+ * that is the tie-break for which sentence in the entry to quote, and the title is equally
+ * true of all of them. */
+function sharedWithQuestion(
+	sentenceTokens: ReadonlySet<string>,
+	nameTokens: ReadonlySet<string>,
+	questionTokens: ReadonlySet<string>
+): number {
+	let shared = 0;
+	for (const token of questionTokens) {
+		if (sentenceTokens.has(token) || nameTokens.has(token)) shared++;
 	}
-	return candidates;
+	return shared;
 }
 
 async function searchOwnCanon(
@@ -237,39 +340,100 @@ async function searchOwnCanon(
 	universeId: string,
 	question: string,
 	locale: Locale
-): Promise<OwnCanonSource[]> {
+): Promise<RankedOwnCanonSource[]> {
 	const functionTokenSet = functionTokens(locale);
 	const questionTokens = contentTokens(question, functionTokenSet);
 	if (questionTokens.size === 0) return [];
+	const required = Math.min(MIN_SHARED_CONTENT_WORDS, questionTokens.size);
 
 	const rows = await db
-		.select({ id: entity.id, name: entity.name, slug: entity.slug, body: entity.body })
+		.select({
+			id: entity.id,
+			name: entity.name,
+			slug: entity.slug,
+			aliases: entity.aliases,
+			body: entity.body
+		})
 		.from(entity)
 		.where(eq(entity.universeId, universeId));
 
-	const scored: OwnCanonSource[] = [];
+	const scored: RankedOwnCanonSource[] = [];
 	for (const row of rows) {
-		const candidates = ownCanonSentenceCandidates(row.body);
-		let best: { sentence: string; start: number; score: number } | null = null;
-		for (const candidate of candidates) {
-			const score = jaccard(contentTokens(candidate.sentence, functionTokenSet), questionTokens);
-			if (!best || score > best.score) best = { ...candidate, score };
+		const nameTokens = contentTokens(
+			[row.name, ...(row.aliases ?? [])].join(' '),
+			functionTokenSet
+		);
+		// Still the best sentence per entity rather than every sentence that clears: six
+		// quotes from one entry would answer a question worse than six from six, and the
+		// follow-ups (`deriveFollowUps`) are built from the distinct entries a source list
+		// names. The unit of a citation is the sentence; the unit of the *list* is still the
+		// entry, and nothing measured here argues for changing that half.
+		let best: { sentence: string; score: number; shared: number } | null = null;
+		for (const sentence of ownCanonSentenceCandidates(row.body)) {
+			const sentenceTokens = contentTokens(sentence, functionTokenSet);
+			const shared = sharedWithQuestion(sentenceTokens, nameTokens, questionTokens);
+			if (shared < required) continue;
+			const score = jaccard(sentenceTokens, questionTokens);
+			// Ranked on how much of the question the entry answers first, and only then on how
+			// concisely this sentence says it: on "Who holds the debt of the Lantern Quarter?"
+			// the sentence carrying all four content words is a long one and Jaccard alone
+			// ranked it fourth, behind "An inn in the Lantern Quarter."
+			if (!best || shared > best.shared || (shared === best.shared && score > best.score)) {
+				best = { sentence, score, shared };
+			}
 		}
-		if (best && best.score > 0) {
-			scored.push({
-				kind: 'own_canon',
-				entityId: row.id,
-				entityName: row.name,
-				entitySlug: row.slug,
-				statement: best.sentence,
-				spanStart: best.start,
-				spanEnd: best.start + best.sentence.length,
-				score: best.score
-			});
+		if (!best) continue;
+		scored.push({
+			kind: 'own_canon',
+			entityId: row.id,
+			entityName: row.name,
+			entitySlug: row.slug,
+			statement: stripMentionSyntax(best.sentence),
+			score: best.score,
+			shared: best.shared
+		});
+	}
+	scored.sort((a, b) => b.shared - a.shared || b.score - a.score);
+	return scored.slice(0, OWN_CANON_LIMIT);
+}
+
+/** Issue #535, the indexed half of "the quote is the unit": a retrieved chunk is a
+ * paragraph or more, and quoting a whole chunk under a Sources heading is the
+ * entry-level pointer this issue replaces. Narrow it to the one sentence the question
+ * actually touched, by the same content-word overlap layer 1 ranks with, so both kinds of
+ * citation are a sentence a reader can check.
+ *
+ * No floor here. Layer 2 already has one, measured where the vectors are
+ * (`retriever.ts`'s `DEFAULT_THRESHOLD`, re-derived at 2325 chunks by #278), and it
+ * cleared this chunk before we ever got to look inside it; picking which sentence to quote
+ * from a chunk that already qualified is a different question from whether to cite it at
+ * all. When no sentence shares a content word - the ordinary case for an embedding hit,
+ * which is the point of having an embedding layer - the first sentence is quoted, because
+ * a chunk's opening sentence is the one that names what it is about. Never the whole
+ * chunk, and never nothing.
+ *
+ * Exported for its own unit test: this is a pure function of two strings and the locale,
+ * and testing it through a live Qdrant collection would test Qdrant. */
+export function quotedSentenceFromChunk(
+	chunkText: string,
+	question: string,
+	locale: Locale
+): string {
+	const functionTokenSet = functionTokens(locale);
+	const questionTokens = contentTokens(question, functionTokenSet);
+	const sentences = fenceSafeSentences(chunkText).filter((s) => !s.startsWith('#'));
+	const first = sentences[0] ?? chunkText.trim();
+	let best: { sentence: string; score: number; shared: number } | null = null;
+	for (const sentence of sentences) {
+		const sentenceTokens = contentTokens(sentence, functionTokenSet);
+		const shared = sharedWithQuestion(sentenceTokens, EMPTY_TOKENS, questionTokens);
+		if (shared === 0) continue;
+		const score = jaccard(sentenceTokens, questionTokens);
+		if (!best || shared > best.shared || (shared === best.shared && score > best.score)) {
+			best = { sentence, score, shared };
 		}
 	}
-	scored.sort((a, b) => b.score - a.score);
-	return scored.slice(0, OWN_CANON_LIMIT);
+	return stripMentionSyntax(best?.sentence ?? first);
 }
 
 /** Layer 2: real retrieval through `@canonry/indexing` against a real Qdrant collection.
@@ -286,6 +450,10 @@ async function searchIndexed(input: {
 	universeId: string;
 	baseUniverseId: string | null;
 	question: string;
+	/** #535: the asker's locale, for `quotedSentenceFromChunk`'s content-word gate. Which
+	 * language the chunk itself is written in is a separate question this never asks, the
+	 * same way layer 1 never asks it. */
+	locale: Locale;
 }): Promise<IndexedSource[]> {
 	// No `embedding` purpose configured yet is a normal state for a fresh deployment or a
 	// universe with nothing indexed - layer 1 (own canon) still has to answer on its own,
@@ -333,10 +501,10 @@ async function searchIndexed(input: {
 			breadcrumb: payload.breadcrumb,
 			url: payload.url,
 			text: payload.text,
+			statement: quotedSentenceFromChunk(payload.text, input.question, input.locale),
 			attribution: source?.attribution ?? source?.name ?? 'indexed source',
 			licence: source?.licence ?? null,
-			licenceUrl: source?.licenceUrl ?? null,
-			score: hit.score
+			licenceUrl: source?.licenceUrl ?? null
 		};
 	});
 }
@@ -489,13 +657,13 @@ export const CARRIED_FORWARD_LIMIT = 3;
  * `entitySlug`, `statement` are exactly what layer 1 always returns - so a chip for a
  * carried-forward source still names the real entry it came from, never the current
  * question (guardrail 3). Exported for a focused unit test of that guarantee. */
-export function mergeCarriedForwardOwnCanon(
-	fresh: OwnCanonSource[],
-	carried: OwnCanonSource[]
-): OwnCanonSource[] {
+export function mergeCarriedForwardOwnCanon<T extends OwnCanonSource>(
+	fresh: T[],
+	carried: T[]
+): T[] {
 	if (carried.length === 0) return fresh;
 	const seen = new Set(fresh.map((s) => s.entityId));
-	const additions: OwnCanonSource[] = [];
+	const additions: T[] = [];
 	for (const source of carried) {
 		if (seen.has(source.entityId)) continue;
 		seen.add(source.entityId);
@@ -602,22 +770,43 @@ function renderWorldShapeForPrompt(shape: WorldShape | null): string {
  * answered "if you share canon text or world notes, I can identify the most important
  * people", to a GM who has seventeen entries. The refusal has to name the real reason,
  * that this question's words touched none of them, or it reads as the product not being
- * able to see the canon it is looking at. The suggestion is in it for the same reason:
- * naming a person, a place or an event is what actually gets layer 1 to bite, so saying so
- * turns a dead end into the next thing to type. Empty string when there are sources, so
- * the ordinary path carries no instruction about a case it is not in. `hasWorldShape`
- * (issue #439, T12) is the one addition since #346: a computed "canon shape" is available
- * for a broad question about the world as a whole, and the instruction below says exactly
- * when it may replace this refusal rather than sit beside it silently. */
-function noSourcesInstruction(sourceCount: number, hasWorldShape: boolean): string {
+ * able to see the canon it is looking at. Empty string when there are sources, so the
+ * ordinary path carries no instruction about a case it is not in.
+ *
+ * **Issue #535 reverses one clause of #346's version, deliberately: "never answer from
+ * general knowledge instead" is now the opposite instruction.** #346 wrote that when the
+ * empty state was rare, reached only by a question with no content words at all. The floor
+ * (`MIN_SHARED_CONTENT_WORDS`) makes it the ordinary answer to any question this world has
+ * nothing to say about, and a product that answers "your entries do not mention dragons"
+ * and stops there is refusing to be useful about the one thing it could still help with.
+ * So the shape is: say plainly that nothing in their canon supports this, then answer
+ * anyway, from general knowledge, with that said in the answer rather than only in a UI
+ * label a reader may not connect to the paragraph. Guardrail 7 is why the separation has
+ * to be explicit: an answer that mixes the two without saying which is which is claiming
+ * their canon says something it does not.
+ *
+ * The wording the model is told to open with is the AI-off path's own sentence
+ * (`READING_ONLY_FALLBACK`), passed in rather than restated, so the two states a GM meets
+ * for the same fact - retrieval found nothing, and generation is switched off and
+ * retrieval found nothing - say it the same way in both locales.
+ *
+ * `hasWorldShape` (issue #439, T12) is unchanged: a computed "canon shape" answers a
+ * broad question about the world as a whole from real figures, and that is better than
+ * general knowledge whenever it applies. */
+function noSourcesInstruction(sourceCount: number, hasWorldShape: boolean, locale: Locale): string {
 	if (sourceCount > 0) return '';
 	const refusal =
 		"Nothing in the GM's canon matched the words of this question, so there are no " +
-		'sources at all. Say that in one sentence: their entries were searched, and no ' +
-		'wording in them matched this question. Then suggest naming a person, a place or an ' +
-		'event from their world. Never suggest they share, paste or provide canon - they have ' +
-		'canon, this question simply did not touch any of it - and never answer from general ' +
-		'knowledge instead. ';
+		'sources at all. Open with exactly this sentence, on its own line: "' +
+		READING_ONLY_FALLBACK[locale] +
+		'" Then answer the question anyway, from your own general knowledge, and say in ' +
+		'your own words that this is general knowledge and not something their world says. ' +
+		'Never present a general-knowledge claim as canon, never name a person, place, ' +
+		'faction or event as if it came from their entries, and never say or imply that ' +
+		'their canon agrees with any of it. Close by suggesting they name a person, a place ' +
+		'or an event from their world, since that is what makes their canon searchable. ' +
+		'Never suggest they share, paste or provide canon - they have canon, this question ' +
+		'simply did not touch any of it. ';
 	if (!hasWorldShape) return refusal;
 	return (
 		refusal +
@@ -625,25 +814,28 @@ function noSourcesInstruction(sourceCount: number, hasWorldShape: boolean): stri
 		'world or canon as a whole - its size, what kinds of entries it has, what has ' +
 		'changed recently, what is thinly documented - rather than about one specific named ' +
 		'person, place or event, answer instead from the "Canon shape" line below the ' +
-		'sources. Say plainly that you are describing the shape of the canon, not quoting ' +
-		'it, and never turn those figures into a specific name, relationship or event detail ' +
-		'they do not literally give you. If the question names something specific this data ' +
-		'does not cover, use the refusal above instead, not this exception. '
+		'sources, and do not answer from general knowledge at all. Say plainly that you are ' +
+		'describing the shape of the canon, not quoting it, and never turn those figures ' +
+		'into a specific name, relationship or event detail they do not literally give you. ' +
+		'If the question names something specific this data does not cover, use the general ' +
+		'answer above instead, not this exception. '
 	);
 }
 
 /** Layer 1's own honest fallback answer when generation is off: the best-matching
  * sentences quoted verbatim, never a synthesized claim - there is no model call here to
- * make one. #545: `ownCanonSentenceCandidates` above already keeps a `:::secret`/`:::`
- * fence marker out of `statement`, so all that is left for this, the third and last place
- * in the #523/#355/#545 family, is the same `[[mention]]` strip the two component-side
- * fixes already apply - here because this text reaches the GM with no component and no
- * model in between, straight from the stored sentence to the answer they read. */
+ * make one, which is also why this branch never gains #535's general-knowledge answer:
+ * with generation off there is no general knowledge in the room, and guardrail 4's promise
+ * is a good wiki, not a worse copilot.
+ *
+ * #535: `statement` arrives from `searchOwnCanon` already stripped of `[[mention]]`
+ * syntax and already fence-safe, so the third and last member of the #523/#355/#545 family
+ * is now a plain read rather than a strip this file has to remember. */
 function readingOnlyAnswer(locale: Locale, sources: OwnCanonSource[]): string {
 	if (sources.length === 0) return READING_ONLY_FALLBACK[locale];
 	return sources
 		.slice(0, 2)
-		.map((s) => stripMentionSyntax(s.statement))
+		.map((s) => s.statement)
 		.join(' ');
 }
 
@@ -801,14 +993,23 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 			embedder: input.embedder,
 			universeId: input.universeId,
 			baseUniverseId: universeRow.kind === 'derived' ? universeRow.baseUniverseId : null,
-			question: retrievalQuery
+			question: retrievalQuery,
+			locale: input.locale
 		}),
 		priorGmTurn
 			? searchOwnCanon(input.db, input.universeId, priorGmTurn, input.locale)
-			: Promise.resolve([])
+			: Promise.resolve<RankedOwnCanonSource[]>([])
 	]);
 	const ownCanon = mergeCarriedForwardOwnCanon(ownCanonFresh, ownCanonCarried);
-	const sources: AskSource[] = [...ownCanon, ...indexed];
+	// #535: `score` and `shared` stop here. `ownCanon` keeps them because
+	// `entry_propose`/`entry_edit_propose` write `similarity` into `proposal.evidence`
+	// below; `sources` is what reaches `onSources`, the SSE payload and the kept record,
+	// and a number a component could render would be exactly the confidence figure
+	// guardrail 3 and D6 refuse.
+	const sources: AskSource[] = [
+		...ownCanon.map(({ score: _score, shared: _shared, ...source }): OwnCanonSource => source),
+		...indexed
+	];
 	const followUps = deriveFollowUps(input.locale, sources);
 	input.onSources?.(sources, followUps);
 
@@ -928,7 +1129,7 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 						'proposal was NOT created - tell the GM the attempt failed and repeat the ' +
 						'"error" field verbatim; never say you proposed or created anything for that ' +
 						'call. ' +
-						noSourcesInstruction(sources.length, worldShape !== null) +
+						noSourcesInstruction(sources.length, worldShape !== null, input.locale) +
 						speechInstruction(input.locale) +
 						// Issue #378, decision R3: last in the system prompt, after every guardrail
 						// and the locale rule above it, so an adversarial description can only ever
