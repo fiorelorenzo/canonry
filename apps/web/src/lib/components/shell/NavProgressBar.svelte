@@ -59,7 +59,12 @@
 <!-- Negative margins undo `main`'s own `px-4 pt-4 md:px-8 md:pt-8` gutters (AppShell.svelte)
      so the bar spans the true top edge of the scroll container flush, the way a page loader
      reads, rather than sitting indented inside the content padding. -->
-<div class="sticky top-0 z-40 -mx-4 -mt-4 h-0 md:-mx-8 md:-mt-8" aria-hidden="true">
+<!-- Round eighteen: no `-mt-*` any more. This used to pull itself up through `main`'s own
+     top padding to reach the scrollport's edge; that padding moved into `PageHeader`'s
+     band, so a sticky band has nothing above it for content to scroll through, and the
+     scrollport's edge is now exactly where this element already sits. The horizontal
+     bleed stays: the bar spans the full width, gutters included. -->
+<div class="sticky top-0 z-40 -mx-4 h-0 md:-mx-8" aria-hidden="true">
 	<div
 		class="h-0.5 w-full transition-opacity duration-fade ease-arrive"
 		style:opacity={shown ? 1 : 0}

@@ -136,6 +136,21 @@
 	let scrollAreaEl = $state<HTMLDivElement | null>(null);
 	let composerQuestion = $state('');
 
+	/** Round eighteen: the launcher's own band, remembered, so opening the panel does not
+	 * collapse the reserve `main` is holding.
+	 *
+	 * The panel no longer publishes a height (its own comment in the markup says why), and
+	 * the launcher is unmounted while the panel is open, so `measureDockElement`'s teardown
+	 * would zero `shellLayoutState.dockHeight` and every page would jump up by the
+	 * launcher's height each time the panel opened and back down when it closed. The last
+	 * measured launcher band is kept here and re-published for as long as the panel is
+	 * open: the reserve stays exactly what it is with the panel shut, which is the only
+	 * value that makes opening and closing it cost the page nothing. */
+	let launcherReserve = $state(0);
+	$effect(() => {
+		if (quickAskState.open) shellLayoutState.dockHeight = launcherReserve;
+	});
+
 	/** Issue #455, decision U11: `openInAsk` navigates to the URL naming this turn's own
 	 * conversation rather than handing an in-memory snapshot to the route (see that
 	 * function's own comment for why). It has to know whether the specific turn it was
@@ -429,10 +444,17 @@
 	     wait, and Q6 refuses anything that moves during that. Closing is instant, because a
 	     panel that takes 200ms to get out of the way is the "delays an action behind its
 	     own animation" case. -->
+	<!-- Round eighteen: this panel publishes **no** height, deliberately, where it used to
+	     publish its own into `shellLayoutState.dockHeight`. T11 asked the shell to reserve
+	     the dock's band so nothing real sits underneath it, and #488 made that reserve come
+	     out of `main`'s own box - both right for the launcher and wrong here, because this
+	     panel grows to `max-h-[70vh]`, so opening it took most of the viewport out of the
+	     scrollport and the page cut instead of being covered. A transient, dismissible
+	     surface the reader just opened is the one case where covering is the expected
+	     behaviour. `AppShell.svelte`'s own comment carries the full reasoning. -->
 	<section
 		class="fixed inset-x-2 bottom-16 z-30 flex max-h-[70vh] animate-in flex-col overflow-hidden rounded-xl border border-line-2 bg-panel shadow-elevated duration-move ease-arrive fade-in-0 slide-in-from-bottom-2 md:inset-x-auto md:right-auto md:bottom-6 md:left-1/2 md:w-[calc(var(--container-measure)+1.5rem)] md:-translate-x-1/2"
 		aria-label={t.name}
-		use:measureDockElement={(h) => (shellLayoutState.dockHeight = h)}
 	>
 		<div class="flex items-center gap-2 border-b border-line px-3 py-2">
 			<span aria-hidden="true" class="text-accent">✦</span>
@@ -686,7 +708,15 @@
 		aria-expanded={false}
 		aria-label={t.openLabel}
 		class="fixed bottom-6 left-1/2 z-30 hidden w-[calc(var(--container-measure)+1.5rem)] -translate-x-1/2 flex-col items-stretch gap-0.5 rounded-xl border border-line-2 bg-panel px-4 py-2.5 text-left shadow-elevated hover:bg-panel-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none md:flex"
-		use:measureDockElement={(h) => (shellLayoutState.dockHeight = h)}
+		use:measureDockElement={(h) => {
+			// A zero here is either the `md` breakpoint hiding this launcher or its own
+			// teardown as the panel opens; neither is a reason to forget what the band was,
+			// which is what `launcherReserve` is for. `dockHeight` still takes the zero, so
+			// the reserve does collapse where the launcher genuinely is not rendered (a
+			// phone, where PhoneNav's bar is the reserve instead).
+			if (h > 0) launcherReserve = h;
+			shellLayoutState.dockHeight = h;
+		}}
 	>
 		<span class="flex items-center gap-2">
 			<span aria-hidden="true" class="size-1.5 rounded-full bg-accent"></span>

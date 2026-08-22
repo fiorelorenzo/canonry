@@ -17,6 +17,7 @@ import {
 	desc,
 	eq,
 	inArray,
+	isNull,
 	sql,
 	acceptProposal,
 	rejectProposal,
@@ -289,6 +290,43 @@ export async function importGroupsForInbox(
 			return { job: j.job, candidates: detail?.candidates ?? [] };
 		})
 	);
+}
+
+/**
+ * Round eighteen: the pending proposals that belong to **no plan at all**, which both
+ * queries above structurally cannot see, since each one starts from a plan (or from an
+ * import job) and joins down to its proposals.
+ *
+ * They exist, and one path writes them today: `packages/warm/src/store.ts` inserts a
+ * `draft_entity` straight into `proposal` with no `plan_id` when the warm cache drafts an
+ * NPC while preparing a table. `pendingProposalCount` above counts every pending row in
+ * the universe, so the sidebar said "Proposals 1" while this page said "nothing pending",
+ * which is the worst shape a copilot's inbox can take: the product claims something is
+ * waiting and offers nowhere to see it. Lorenzo hit it on the deployed preview.
+ *
+ * The fix is this function rather than a narrower count, because the count is the honest
+ * one: a pending proposal is pending whether or not something grouped it. C2 = A made the
+ * inbox where proposals arrive, and grouping by plan is a presentation choice inside it,
+ * never a filter on what arrives. `inboxCountsReconcile` in this file's own test asserts
+ * the invariant directly: the candidates the inbox renders, summed, equal
+ * `pendingProposalCount`.
+ */
+export async function planlessCandidatesForInbox(
+	db: Db,
+	universeId: string
+): Promise<ProposalCandidate[]> {
+	const rows = await db
+		.select()
+		.from(proposal)
+		.where(
+			and(
+				eq(proposal.universeId, universeId),
+				eq(proposal.outcome, 'pending'),
+				isNull(proposal.planId)
+			)
+		)
+		.orderBy(desc(proposal.createdAt));
+	return resolveCandidates(db, rows);
 }
 
 /** The evidence shape `job-runner.ts`'s `matchEvidence` writes onto an import proposal -

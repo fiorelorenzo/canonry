@@ -1036,6 +1036,13 @@ export interface Messages {
 			entriesLabel: (total: number) => string;
 			pendingLabel: (count: number) => string;
 			importFrom: (playbook: string) => string;
+			/** Round eighteen: the heading for the pending proposals that belong to no plan.
+			 * Only one path writes them today, the warm cache drafting an NPC while a table
+			 * is being prepared (`packages/warm/src/store.ts`), so the words name that
+			 * rather than saying "no plan", which is a fact about our schema and not about
+			 * the GM's world. If a second path ever writes one, this string stops being
+			 * true and wants splitting by trigger the way `provenance` already is. */
+			planless: string;
 			importSummary: (total: number, pending: number) => string;
 			openImportReview: string;
 		};
