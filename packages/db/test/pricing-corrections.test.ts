@@ -9,16 +9,25 @@
  * charges, so both facts are checked against the migrated database rather than reviewed once.
  *
  * `scene` is deliberately not asserted here. media.test.ts in this package owns that row
- * outright, deletes it before every test and says so in its own doc comment, so reading its
- * price from a second file would either race that or force a cross-file lock on the table for
- * the sake of one number. Migration 0044's comment records what re-reading Replicate's price
- * for it on 2026-08-19 said, which is that it needed no change.
+ * outright and deletes it before every test, and reading its price from a second file would
+ * force a cross-file lock for the sake of one number. Migration 0044's comment records what
+ * re-reading Replicate's price for it on 2026-08-19 said, which is that it needed no change.
+ *
+ * The "seeded image prices" block below still takes `lockImageModelConfigForFile` (#341):
+ * it reads `portrait`/`variants`, and any file that later rewrites those rows as a fixture
+ * (media.test.ts did, before #235 moved it to `scene`) races this file's assertions unless
+ * both sides hold the lock. See test/helpers.ts's doc comment on the lock.
  */
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, priceOf, type Db } from '../src/index.js';
 import { imageModelConfig } from '../src/schema/media.js';
-import { testDb } from './helpers.js';
+import {
+	lockableTestDb,
+	lockImageModelConfigForFile,
+	testDb,
+	unlockImageModelConfigForFile
+} from './helpers.js';
 
 describe('import.match.embed (issue #309)', () => {
 	let db: Db;
@@ -61,11 +70,13 @@ describe('import.match.embed (issue #309)', () => {
 describe('seeded image prices (issue #333)', () => {
 	let db: Db;
 
-	beforeAll(() => {
-		db = testDb();
+	beforeAll(async () => {
+		db = lockableTestDb();
+		await lockImageModelConfigForFile(db);
 	});
 
 	afterAll(async () => {
+		await unlockImageModelConfigForFile(db);
 		await closeDb(db);
 	});
 

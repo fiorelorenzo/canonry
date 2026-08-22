@@ -1,11 +1,44 @@
 import { randomUUID } from 'node:crypto';
-import { createDb, type Db } from '../src/index.js';
+import { createDb, sql, type Db } from '../src/index.js';
 import { user } from '../src/schema/auth.js';
 import { universe } from '../src/schema/universe.js';
 import { TEST_DATABASE_URL } from './env.js';
 
 export function testDb(): Db {
 	return createDb(TEST_DATABASE_URL, { max: 5 });
+}
+
+/**
+ * `image_model_config` is a global singleton (one active row per feature). Two files in
+ * this package's own test/ drive its `portrait`/`variants` rows -
+ * pricing-corrections.test.ts asserts the exact params the migrations leave there, and any
+ * future file that rewrites those rows as a fixture (media.test.ts did, before it moved to
+ * the `scene` feature specifically to avoid this) races it - Vitest runs this package's
+ * files in parallel against the one database `testDb` points at (#341, #193 one package
+ * over; see packages/media/src/test-db.ts's `lockImageModelConfigForFile`, which this
+ * mirrors). A session-scoped Postgres advisory lock, acquired once in a file's `beforeAll`
+ * and released once in its `afterAll`, turns concurrent files' runs into a deterministic
+ * queue instead: whichever acquires it first finishes its whole use of the table before the
+ * other's first query runs.
+ *
+ * The lock is tied to the Postgres session (connection) that takes it, so every query made
+ * while holding it has to run on that same connection - `testDb`'s five-connection pool
+ * cannot guarantee that. Use `lockableTestDb`, not `testDb`, for a `db` passed here.
+ *
+ * Any future test file that reads or writes `image_model_config` must take this same lock
+ * in its own `beforeAll`/`afterAll` (scoped to just the describe block that touches the
+ * table, if the rest of the file does not) or it is exposed to the identical race.
+ */
+export function lockableTestDb(): Db {
+	return createDb(TEST_DATABASE_URL, { max: 1 });
+}
+
+export async function lockImageModelConfigForFile(db: Db): Promise<void> {
+	await db.execute(sql`select pg_advisory_lock(hashtext('image_model_config'), 0)`);
+}
+
+export async function unlockImageModelConfigForFile(db: Db): Promise<void> {
+	await db.execute(sql`select pg_advisory_unlock(hashtext('image_model_config'), 0)`);
 }
 
 /** A short, collision-free suffix so parallel test files never trip each other's unique
