@@ -97,12 +97,51 @@ export function fenceSafeSentences(body: string): string[] {
 	return sentences;
 }
 
+/** A word's own apostrophes, and the two of them that carry no meaning worth a separate
+ * token. Applied in this order: an English possessive `'s` comes off first, then whatever
+ * apostrophes are left at either end of the word. An apostrophe *inside* a word is never
+ * touched.
+ *
+ * Issue #577. The token pattern below has always included `'`, so `Smugglers'` and
+ * `Smugglers` were two unrelated tokens and the sample world's entry The Smugglers'
+ * Ledger could not be found by a GM who typed its name without the apostrophe. Both forms
+ * mean the same word, and a lexical layer that treats them as different words is not
+ * being strict, it is being wrong about English.
+ *
+ * **Trailing only, and that is a decision about Italian.** In Italian an apostrophe is an
+ * elision rather than a possessive and it sits *inside* the word: `l'oste`, `dell'inverno`,
+ * `un'ora`, `nell'ombra`. Splitting on it would be a different fix with a different blast
+ * radius, and a bad one here: `@canonry/lang`'s Italian function-word list carries `un`
+ * and `all` but no bare `l`, `dell`, `nell` or `d`, so the halves of an elision would
+ * arrive at Ask's content-word filter as content words and score matches on the article.
+ * So an internal apostrophe is left exactly as it was, every one of those words tokenizes
+ * today as it did before, and Italian elision stays an open question rather than a
+ * side effect. The one Italian token this does move is `c'`, from `c'è` (the `è` is outside
+ * the pattern's alphabet, so the token was already truncated): it becomes `c`, on both
+ * sides at once, because the function-word list is tokenized through this very function.
+ *
+ * That last part is what keeps the possessive strip from leaking into the function-word
+ * filter as well. Every `X's` in the English list normalises onto a base that list already
+ * carries (`it's`/`it`, `that's`/`that`, `there's`/`there`, `who's`/`who`), with one
+ * exception worth naming rather than hiding: `let's` becomes `let`, so a canon sentence's
+ * ordinary verb "let" is now filtered as a function word. One word, in exchange for every
+ * possessive in a world's canon matching its plain form. */
+const POSSESSIVE_SUFFIX_RE = /'s$/;
+const EDGE_APOSTROPHES_RE = /^'+|'+$/g;
+
 /** Exported for `ask.ts` (own-canon relevance scoring) and `audit.ts` (picking the most
  * topically similar sentence in a candidate entity's body): a small, deterministic
  * word-overlap measure, not a private implementation detail of the semantic diff alone. */
 export function tokenize(sentence: string): Set<string> {
 	const words = sentence.toLowerCase().match(/[a-z0-9']+/g) ?? [];
-	return new Set(words);
+	const tokens = new Set<string>();
+	for (const word of words) {
+		const normalised = word.replace(POSSESSIVE_SUFFIX_RE, '').replace(EDGE_APOSTROPHES_RE, '');
+		// An apostrophe on its own, or a bare `'s`, is punctuation the pattern happened to
+		// match. It was a token before this and never carried anything.
+		if (normalised.length > 0) tokens.add(normalised);
+	}
+	return tokens;
 }
 
 export function jaccard(a: Set<string>, b: Set<string>): number {

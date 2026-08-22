@@ -1820,6 +1820,124 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		});
 	});
 
+	describe('issue #577: a possessive and its plain form are the same word to layer 1', () => {
+		it('cites the entry whose own name carries the apostrophe when the GM types it without one', async () => {
+			const owner = await insertUser(db);
+			const universe = await insertHomebrewUniverse(db, {
+				ownerUserId: owner.id,
+				name: 'Valdoria Reach'
+			});
+			// The sample world's own entry, verbatim. Its body never says "Smugglers", so the
+			// name is the only place that word appears and `sharedWithQuestion`'s name-aware
+			// half is the whole of the match: before #577 the question's `smugglers` and the
+			// name's `smugglers'` were two unrelated tokens, the entry answered one content
+			// word (`ledger`), and #535's floor of two dropped it.
+			await insertEntity(db, universe.id, {
+				type: 'item',
+				name: "The Smugglers' Ledger",
+				body: 'A ledger nobody at the table has read yet, kept by whoever is running goods through the Lantern Quarter that week.'
+			});
+
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'Tell me about the Smugglers Ledger.',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				modelFactory: modelFactoryFor(streamingModel('Nobody admits to owning it.')),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			const source = result.sources.find(
+				(s): s is OwnCanonSource =>
+					s.kind === 'own_canon' && s.entityName === "The Smugglers' Ledger"
+			);
+			expect(source).toBeDefined();
+			expect(source!.statement).toBe(
+				'A ledger nobody at the table has read yet, kept by whoever is running goods through the Lantern Quarter that week.'
+			);
+		});
+
+		it('and the other way round, when the apostrophe is in the question and not in the canon', async () => {
+			const owner = await insertUser(db);
+			const universe = await insertHomebrewUniverse(db, {
+				ownerUserId: owner.id,
+				name: 'Valdoria Reach'
+			});
+			await insertEntity(db, universe.id, {
+				type: 'item',
+				name: 'The Smugglers Ledger',
+				body: 'A ledger nobody at the table has read yet, kept by whoever is running goods that week.'
+			});
+
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: "Tell me about the Smugglers' Ledger.",
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				modelFactory: modelFactoryFor(streamingModel('Nobody admits to owning it.')),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			expect(
+				result.sources.some(
+					(s) => s.kind === 'own_canon' && s.entityName === 'The Smugglers Ledger'
+				)
+			).toBe(true);
+		});
+
+		it('ranks the entry that answers the question first, where a straight apostrophe used to lose to a typographic one', async () => {
+			const owner = await insertUser(db);
+			const universe = await insertHomebrewUniverse(db, {
+				ownerUserId: owner.id,
+				name: 'Valdoria Reach'
+			});
+			// Both of these sentences are the sample world's, and the difference between them
+			// is punctuation a GM cannot see: Corvin Ashe's entry writes `Quarter's` with a
+			// straight apostrophe, which the token pattern kept, and Session 3's recap writes
+			// `Quarter\u2019s` with a typographic one, which was outside the pattern and so
+			// already split into `quarter`. So the session recap answered four of the
+			// question's content words and the entry that actually holds the debt answered
+			// three, and the recap ranked first.
+			await insertEntity(db, universe.id, {
+				type: 'character',
+				name: 'Corvin Ashe',
+				body: "Factor of the Ashen Ledger. He holds most of the Lantern Quarter's debt and none of its affection."
+			});
+			await insertEntity(db, universe.id, {
+				type: 'session',
+				name: 'Session 2',
+				body: 'Corvin Ashe was waiting on the steps afterwards, which is how the party learned who holds the Lantern Quarter\u2019s debt, and that La Casa dei Mercanti keeps its own book of the same loans.'
+			});
+
+			const result = await runAsk({
+				db,
+				userId: owner.id,
+				universeId: universe.id,
+				question: 'Who holds the debt of the Lantern Quarter?',
+				detailLevel: 'normal',
+				locale: 'en',
+				vectorClient,
+				embedder: hashingEmbedder,
+				modelFactory: modelFactoryFor(streamingModel('Corvin Ashe.')),
+				gateway: IDENTITY_GATEWAY
+			});
+
+			const own = result.sources.filter((s) => s.kind === 'own_canon');
+			expect(own.map((s) => (s.kind === 'own_canon' ? s.entityName : ''))).toEqual([
+				'Corvin Ashe',
+				'Session 2'
+			]);
+		});
+	});
+
 	describe('quotedSentenceFromChunk (issue #535, the indexed half)', () => {
 		const chunk =
 			'The Ashen Ledger is a merchant bank in the Lantern Quarter. ' +

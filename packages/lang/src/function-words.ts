@@ -22,7 +22,13 @@
  *   makes the comparison exact under a tokenizer that drops accents (Italian `perché`
  *   and a canon sentence's `perché` both become `perch`) without this file having to
  *   know that, and it keeps one tokenizer in the codebase rather than two that agree
- *   until they do not.
+ *   until they do not. It is also what let issue #577 fold a trailing possessive `'s`
+ *   without touching this file: every `X's` here lands on a base the list already
+ *   carries (`it's` on `it`, `that's` on `that`), and Italian `c'è` on `c`, on both
+ *   sides of the comparison at once. The one word that changes meaning in passing is
+ *   `let's`, which becomes `let`, so an ordinary English verb is filtered as a function
+ *   word. Named there rather than fixed here, because a list tuned around a tokenizer
+ *   is the coupling the first bullet exists to avoid.
  * - **A published-shape list, not a tuned one.** These are the ordinary closed classes,
  *   articles, prepositions, conjunctions, pronouns, auxiliaries, determiners and
  *   question words. Nothing here was added because it improved a demo question, which

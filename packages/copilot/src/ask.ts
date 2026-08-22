@@ -264,22 +264,29 @@ function ownCanonSentenceCandidates(body: string): string[] {
  * | bar | supported questions left with no source | unsupported questions still citing |
  * | --- | --- | --- |
  * | 1 | 0 of 20 | 1 of 14 |
- * | 2 | 3 of 20 | 0 of 14 |
+ * | 2 | 3 of 20 (2 since #577, see below) | 0 of 14 |
  * | 3 | 5 of 20 | 0 of 14 |
  *
  * One shared content word is what a coincidence looks like: at bar 1 "What kind of world
  * is this?" cites Mother Sennah, because she was kind, in the other sense. Two is what a
  * citation looks like. Three costs five questions and buys nothing.
  *
- * **What bar 2 costs, named rather than averaged.** Three questions lose their sources:
+ * **What bar 2 costs, named rather than averaged.** Two questions lose their sources:
  * "Tell me about the magistrate." (Iselde Wrenn's body says "Harbour magistrate." and
- * nothing else the question touches), "What is the strait called?", and "Tell me about the
- * Smugglers Ledger." (which fails for a different reason: `tokenize` keeps the apostrophe,
- * so the entry's own `Smugglers'` never matches a question's `Smugglers`; filed separately).
- * All three are the same shape, a question that names a thing by a common noun instead of
- * by its title, and the empty state's own copy is the remedy: name a person, a place or an
- * event. That is a dead end a GM can walk out of. It is not the same kind of wrong as
- * citing a sentence that does not support the answer.
+ * nothing else the question touches) and "What is the strait called?". Both are the same
+ * shape, a question that names a thing by a common noun instead of by its title, and the
+ * empty state's own copy is the remedy: name a person, a place or an event. That is a dead
+ * end a GM can walk out of. It is not the same kind of wrong as citing a sentence that
+ * does not support the answer.
+ *
+ * A third question used to sit in that list and no longer does. "Tell me about the
+ * Smugglers Ledger." was lost for a reason that had nothing to do with how it was phrased:
+ * `tokenize` kept a trailing apostrophe, so the entry's own `Smugglers'` and the question's
+ * `Smugglers` were two unrelated words. Issue #577 normalised that, and the same question
+ * now cites The Smugglers' Ledger and quotes the sentence. The bar itself did not move; the
+ * table's row above is the sweep behind this constant and was not re-run, so read its `2`
+ * cell as "3 questions measured, 1 of which #577 has since fixed" rather than as a second
+ * measurement.
  *
  * **Why the bar counts words instead of thresholding the ratio, measured rather than
  * asserted.** The scores of a real citation and of a coincidence overlap: the four correct
