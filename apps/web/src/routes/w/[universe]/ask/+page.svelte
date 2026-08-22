@@ -163,7 +163,7 @@
 			     the boxed two-paragraph card this page used to carry. -->
 			<p class="max-w-measure text-label text-ink-2">
 				{th.note}
-				{t.keep.noteLinkBefore}<a href={resolve('/privacy')} class="text-accent hover:underline"
+				{t.keep.noteLinkBefore}<a href={resolve('/privacy')} class="text-accent underline"
 					>{t.keep.noteLink}</a
 				>.
 			</p>

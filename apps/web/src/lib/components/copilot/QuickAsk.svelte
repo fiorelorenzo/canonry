@@ -71,9 +71,13 @@
 	 * same record; the provider it names arrives on that turn's `done` event and is
 	 * resolved again server-side when the record is actually stored.
 	 *
-	 * Detail levels are not here on purpose. The panel asks at `normal`, and "open in Ask"
-	 * carries a turn's answer onto the route where C8's five levels live, rather than a
-	 * second row of five buttons in a narrow box.
+	 * Issue #531, W3 = B (DECISIONS.md "Round eighteen"): C8's five detail levels move
+	 * here now, beside this composer, because the page they used to live beside stopped
+	 * being a composer at all - "C8's five detail levels stay with the composer, in the
+	 * dock." A `Select` (I9: a shipped vocabulary gets `select`, not five buttons), the
+	 * same compact trigger `LocaleSwitcher.svelte`'s own two-value picker uses, storing
+	 * nothing beyond this session - the panel forgets it exactly as it forgets `turns`
+	 * (`close()`'s own `reset()`).
 	 */
 	import { tick } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -83,10 +87,11 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import CommandPalette from '$lib/components/palette/CommandPalette.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as Select from '$lib/components/ui/select';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { messages, type Locale } from '$lib/i18n';
 	import { formatShortcut, matchesShortcut, SHORTCUTS } from '$lib/keys';
-	import { keepAnswer, streamAsk, type AskDetailLevel } from '$lib/ask/stream';
+	import { ASK_DETAIL_LEVELS, keepAnswer, streamAsk, type AskDetailLevel } from '$lib/ask/stream';
 	import type { UniverseSummary } from '$lib/components/shell/types';
 	import {
 		measureDockElement,
@@ -113,7 +118,12 @@
 	// Non-null: `ask` is an entry in keys.ts's own SHORTCUTS table.
 	const askShortcut = SHORTCUTS.find((shortcut) => shortcut.id === 'ask')!;
 
-	const DETAIL_LEVEL: AskDetailLevel = 'normal';
+	/** Bindable to the `Select` in the composer band below; a fresh session (`reset()`)
+	 * always starts back at `normal` rather than remembering the last level picked.
+	 * Plain `string`, not `AskDetailLevel`, because bits-ui's own `Select.Root.value`
+	 * is - cast at the two call sites that actually send it, the same shape
+	 * `NewEntryDialog.svelte`'s own `entityType` state already uses for its picker. */
+	let detailLevel = $state<string>('normal');
 
 	/** #380's contract: `streamAsk`'s request, extended with the previous turns and the
 	 * page context. Declared locally rather than imported from `$lib/ask/stream` because
@@ -222,6 +232,7 @@
 		quickAskState.turns = [];
 		quickAskState.conversationId = crypto.randomUUID();
 		composerQuestion = '';
+		detailLevel = 'normal';
 		keepPromises.clear();
 	}
 
@@ -239,6 +250,21 @@
 		await tick();
 		pillEl?.focus();
 	}
+
+	/** Issue #531, W3 = B: the global command palette's own typed-question row
+	 * (`CommandPalette.svelte`, dialog placement) used to hand a question straight to
+	 * the route at `/ask?q=...`, which answered it inline - the composer that used to
+	 * live there is gone, so C8's "the palette launches the flow" now means launching
+	 * this panel instead. The palette sets `quickAskState.pendingQuestion` and closes
+	 * itself; this effect is the one place that reads it, so there is exactly one
+	 * `ask()` call site regardless of which surface started it. */
+	$effect(() => {
+		const pending = quickAskState.pendingQuestion;
+		if (pending === null) return;
+		quickAskState.pendingQuestion = null;
+		open();
+		void ask(pending);
+	});
 
 	async function ask(nextQuestion: string) {
 		const q = nextQuestion.trim();
@@ -282,7 +308,7 @@
 		const requestArgs: AskRequestArgs = {
 			universeSlug,
 			question: q,
-			detailLevel: DETAIL_LEVEL,
+			detailLevel: detailLevel as AskDetailLevel,
 			history: buildHistory(precedingTurns),
 			context: askContext
 		};
@@ -347,7 +373,7 @@
 				universeSlug,
 				question: turn.question,
 				answer: turn.answer,
-				detailLevel: DETAIL_LEVEL,
+				detailLevel: detailLevel as AskDetailLevel,
 				askedFromPath: page.url.pathname,
 				sources: turn.sources,
 				conversationId: quickAskState.conversationId
@@ -359,21 +385,26 @@
 		}
 	}
 
-	/** Issue #455, decision U11: a URL naming the conversation, not `askHandoff`'s old
-	 * in-memory snapshot of one answer - askHandoff is gone. Two reasons: first, the issue
-	 * asks that opening a turn "lands in the conversation it belongs to rather than in a
-	 * page showing one answer", and a handoff carrying one turn's own fields could not do
-	 * that without learning to carry every other turn beside it too, which is
-	 * `kept_answer.conversation_id` and the route's own `load` already, not another copy
-	 * of the same state. Second, #446 already keeps every turn as it completes, so the row
-	 * this turn belongs to exists (or is about to) the moment a GM can click this at all -
-	 * `keepPromises` is what lets this wait on that one write rather than the route racing
-	 * it, so the loaded conversation never falls one turn short of what was open here.
+	/** Issue #455/#531 (U11, then W3 = B): a URL naming the conversation, not
+	 * `askHandoff`'s old in-memory snapshot of one answer - askHandoff is gone. Two
+	 * reasons: first, the issue asks that opening a turn "lands in the conversation it
+	 * belongs to rather than in a page showing one answer", and a handoff carrying one
+	 * turn's own fields could not do that without learning to carry every other turn
+	 * beside it too, which is `kept_answer.conversation_id` and the route's own `load`
+	 * already, not another copy of the same state. Second, #446 already keeps every turn
+	 * as it completes, so the row this turn belongs to exists (or is about to) the moment
+	 * a GM can click this at all - `keepPromises` is what lets this wait on that one write
+	 * rather than the route racing it, so the loaded conversation never falls one turn
+	 * short of what was open here, and `turn.keptId` is then the real row id to land on:
+	 * `?turn=<keptAnswerId>` names exactly the turn this button was on, resolved
+	 * server-side by that route so the row opens already expanded rather than the GM
+	 * landing on the top of a record they have to go find their own answer inside.
 	 * `close()` remains the one navigation R5 lets end the conversation (S10): the thing
 	 * the panel held is now the page. */
 	async function openInAsk(turn: QuickAskTurn) {
 		await (keepPromises.get(turn.id) ?? Promise.resolve());
-		await goto(resolve(`/w/${universeSlug}/ask/${quickAskState.conversationId}`));
+		const target = resolve(`/w/${universeSlug}/ask/${quickAskState.conversationId}`);
+		await goto(turn.keptId ? `${target}?turn=${turn.keptId}` : target);
 		await close();
 	}
 
@@ -692,6 +723,30 @@
 				bind:query={composerQuestion}
 				onAsk={ask}
 			/>
+			<!-- Issue #531, W3 = B: C8's five detail levels, moved here from the page's own
+			     composer (deleted) - a `Select` (I9), not a row of five buttons, since this
+			     band is already narrow. -->
+			<div class="flex items-center gap-2 border-t border-line px-3 py-1.5">
+				<span id="quick-ask-detail-level-label" class="text-label text-ink-2">
+					{askT.detailLevelLabel}
+				</span>
+				<Select.Root type="single" bind:value={detailLevel}>
+					<Select.Trigger
+						size="sm"
+						aria-labelledby="quick-ask-detail-level-label"
+						class="h-6 border-0 bg-transparent px-1.5 text-label text-ink-2 shadow-none hover:bg-panel-2"
+					>
+						{askT.levels[detailLevel as AskDetailLevel]}
+					</Select.Trigger>
+					<Select.Content>
+						{#each ASK_DETAIL_LEVELS as level (level)}
+							<Select.Item value={level} label={askT.levels[level]}>
+								{askT.levels[level]}
+							</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
 		</div>
 	</section>
 {:else}

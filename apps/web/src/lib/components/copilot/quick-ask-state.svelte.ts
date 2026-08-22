@@ -57,5 +57,11 @@ export interface QuickAskTurn {
 export const quickAskState = $state({
 	open: false,
 	turns: [] as QuickAskTurn[],
-	conversationId: crypto.randomUUID()
+	conversationId: crypto.randomUUID(),
+	/** Issue #531, W3 = B: the global command palette's own typed-question row sets
+	 * this and opens the panel rather than linking to `/ask?q=...`, which stopped
+	 * answering questions once that page's own composer was deleted - the palette
+	 * launches the flow (C8), and the flow is this panel's now. `QuickAsk.svelte`'s own
+	 * effect is the only reader, and clears it back to `null` the moment it acts on it. */
+	pendingQuestion: null as string | null
 });
