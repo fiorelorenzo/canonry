@@ -12,6 +12,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { detectLanguage } from '@canonry/lang';
 import { closeDb, createDb, type Db } from './client.js';
 import { revealEntityLive, revealFactLive, revealRelationLive } from './queries/players.js';
+import { putArtifact } from './queries/warm.js';
 import { upsertUniverseNarrationStyle } from './queries/narration.js';
 import { entity } from './schema/entity.js';
 import { fact } from './schema/fact.js';
@@ -444,6 +445,27 @@ export async function seedFixture(
 		universeId: world.id,
 		relationId: memberRelationId,
 		sessionEntityId: sessionId
+	});
+
+	// Issue #543: the demo world's own context_pack, so table mode's board and TableDeck
+	// never show an empty "Nearby" panel on a fresh seed. Payload shape (`{ text }`) is
+	// confirmed, not invented: `canonry_w529_demo`, the round eighteen board rebuild's own
+	// demo database, already held a real `context_pack` row shaped exactly like this, the
+	// same `{ text }` shape `briefTextOf` (table/_server/pin-cards.ts) already reads off a
+	// `brief` artifact. `putArtifact` tolerates a repeat insert on the unique (kind,
+	// subject, fingerprint) index, so re-running this function - which deletes and rebuilds
+	// the whole universe first anyway - never leaves a second row behind.
+	const valdoriaId = bySlug.get('valdoria');
+	if (!valdoriaId) throw new Error('fixture entity valdoria does not resolve');
+	await putArtifact(db, {
+		universeId: world.id,
+		kind: 'context_pack',
+		subjectEntityId: valdoriaId,
+		payload: {
+			text: "Nearby: the Gilded Rat (Mother Sennah's tavern), the Valdoria Watch barracks (Aldric Vane's old command), and La Casa dei Mercanti's counting-house - three factions within a two-minute walk of the quay."
+		},
+		fingerprint: `seed-ctx-${valdoriaId}`,
+		credits: 0
 	});
 
 	// The derived case from SAMPLE-WORLD.md, so the universe switcher can show precedence

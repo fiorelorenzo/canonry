@@ -1618,6 +1618,7 @@ export interface Messages {
 			positionOf: (current: number, total: number, name: string) => string;
 			placeKind: string;
 			placeBriefEmpty: string;
+			placeContextEmpty: string;
 			briefMissing: string;
 			briefEmpty: string;
 			briefMayBeOutdated: string;
@@ -1637,6 +1638,7 @@ export interface Messages {
 			 * (#470's empty state, `EmptyState`'s `action` snippet). */
 			choosePlace: string;
 			placeHeading: string;
+			nearbyHeading: string;
 			hereHeading: string;
 			noteHeading: string;
 			arrivals: {

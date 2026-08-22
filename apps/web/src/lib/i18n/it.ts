@@ -1455,6 +1455,7 @@ export const it: Messages = {
 			positionOf: (current, total, name) => `${current} di ${total} - ${name}`,
 			placeKind: 'Dove si trova il gruppo',
 			placeBriefEmpty: 'Nessuna sintesi precalcolata per questo luogo, per ora.',
+			placeContextEmpty: 'Nessuna sintesi dei dintorni precalcolata per questo luogo, per ora.',
 			briefMissing: 'Nessuna sintesi precalcolata per questo appuntato, per ora.',
 			briefEmpty: 'La sintesi precalcolata non ha ancora un testo.',
 			briefMayBeOutdated: 'potrebbe non essere aggiornata',
@@ -1470,6 +1471,7 @@ export const it: Messages = {
 				'Dichiara un luogo per appuntare i suoi personaggi principali e le sue relazioni.',
 			choosePlace: 'Scegli un luogo',
 			placeHeading: 'Il luogo',
+			nearbyHeading: 'Nei dintorni',
 			hereHeading: 'Chi è qui',
 			noteHeading: 'Una nota rapida',
 			arrivals: {

@@ -39,6 +39,19 @@ export const load: LayoutServerLoad = async (event) => {
 			)
 		: null;
 
+	// #529: the place's own `context_pack` neighbourhood summary - same warm-artifact
+	// vocabulary as `placeBrief` above, just a different `kind`, so the board's "Nearby"
+	// section and `TableDeck`'s own place card (`placeContext` prop) read one status shape.
+	const placeContext = context?.placeEntityId
+		? briefStatusFrom(
+				await latestArtifact(conn, {
+					universeId: access.universe.id,
+					kind: 'context_pack',
+					subjectEntityId: context.placeEntityId
+				})
+			)
+		: null;
+
 	// The declaration control's candidate list (decision E1's #72 lock-in: "an autocomplete
 	// over place-typed entities", never a free-text box). Small by construction - most
 	// universes hold a few dozen places at most - so listing them outright rather than
@@ -111,6 +124,7 @@ export const load: LayoutServerLoad = async (event) => {
 		pins: pinCards,
 		pinnedElapsedMs,
 		placeBrief,
+		placeContext,
 		places,
 		sessions,
 		ambientPack
