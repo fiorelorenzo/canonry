@@ -1618,7 +1618,6 @@ export interface Messages {
 			positionOf: (current: number, total: number, name: string) => string;
 			placeKind: string;
 			placeBriefEmpty: string;
-			placeContextEmpty: string;
 			briefMissing: string;
 			briefEmpty: string;
 			briefMayBeOutdated: string;
@@ -1640,7 +1639,6 @@ export interface Messages {
 			placeHeading: string;
 			hereHeading: string;
 			noteHeading: string;
-			nearbyHeading: string;
 			arrivals: {
 				heading: string;
 				empty: string;

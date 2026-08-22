@@ -1420,7 +1420,6 @@ export const en: Messages = {
 			positionOf: (current, total, name) => `${current} of ${total} - ${name}`,
 			placeKind: 'Where the party is',
 			placeBriefEmpty: 'No brief warmed for this place yet.',
-			placeContextEmpty: 'No neighbourhood summary warmed for this place yet.',
 			briefMissing: 'No brief warmed for this pin yet.',
 			briefEmpty: 'The warm brief has no text yet.',
 			briefMayBeOutdated: 'may be outdated',
@@ -1437,7 +1436,6 @@ export const en: Messages = {
 			placeHeading: 'The place',
 			hereHeading: 'Who is here',
 			noteHeading: 'A quick note',
-			nearbyHeading: 'Nearby',
 			arrivals: {
 				heading: 'Arrived now',
 				empty: 'Nothing has arrived yet.',

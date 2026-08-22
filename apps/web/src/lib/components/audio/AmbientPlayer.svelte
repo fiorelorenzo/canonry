@@ -1,37 +1,36 @@
 <script lang="ts">
 	/**
-	 * Issue #69's client player, mounted in table mode's persistent action row
-	 * (`w/[universe]/table/+page.svelte`). `pack` is the declared place's current
-	 * `ambient_pack` summary from `+layout.server.ts` - reactive to it, not owning it:
-	 * when the GM declares a new place, `pack.id` changes and this component crossfades
-	 * to it on its own, which is SPEC.md §8's "the GM commands, the system anticipates"
-	 * applied to sound. `null` means no pack has been generated for the declared place
-	 * yet, shown as a quiet fact (decision E2: no spinner, no promised time), not an
-	 * error.
+	 * Issue #69's client player, mounted at table mode's `#table-ambient-slot`
+	 * (`w/[universe]/table/+page.svelte`, agreed with the table agent). `pack` is the
+	 * declared place's current `ambient_pack` summary from
+	 * `w/[universe]/table/+layout.server.ts` - reactive to it, not owning it: when the
+	 * GM declares a new place, `pack.id` changes and this component crossfades to it on
+	 * its own, which is SPEC.md §8's "the GM commands, the system anticipates" applied to
+	 * sound. `null` means no pack has been generated for the declared place yet, which is
+	 * shown as a quiet fact (decision E2: no spinner, no promised time), not an error.
 	 *
-	 * #529 (round eighteen, W1 = A) rebuilt this down to reference file 09's Syrinscape
-	 * shape: "the GM's one action is picking the mood's name, and the crossfade is what
-	 * the system does in response, invisible as an action of its own... a GM picking a
-	 * mood mid-session should never see a mixer this deep, only the mood's name and, if
-	 * anything, one master crossfade duration behind it." What shipped before this was a
-	 * full mixer - master volume, per-layer mute/volume, a manual crossfade-seconds
-	 * number field, an audio-graph diagnostics toggle - which is exactly what the
-	 * decision calls "wired to nothing": present on screen, but nothing a GM running a
-	 * game ever reaches for mid-scene. The whole surface is one `Segmented` (O4 = B, a
-	 * binary state), Off against the pack's own generated description as its "mood"
-	 * name, since this product has one ambient pack per declared place rather than a
-	 * library of named moods to choose between. The crossfade duration is fixed
-	 * (`DEFAULT_CROSSFADE_SECONDS`) and never GM-set. The per-device mixer preferences
-	 * that used to back the old sliders (`prefs.ts`) are deleted, not left dark beside
-	 * the new control - nothing here reads or writes them any more.
-	 *
-	 * Everything below `AudioContext` creation lives in `ambient-player.ts`, unchanged:
-	 * this file only owns the UI and reacting to prop changes.
+	 * Everything below `AudioContext` creation lives in `ambient-player.ts`; this file
+	 * owns the UI, the localStorage preferences (`prefs.ts`) and reacting to prop
+	 * changes. `window.__ambientEngine` is a deliberate escape hatch for issue #69's own
+	 * verification method - reading the live Web Audio graph back with `tab.evaluate` -
+	 * and touches nothing this component does not already expose through its own state.
 	 */
-	import { onDestroy } from 'svelte';
-	import { Segmented } from '$lib/components/ui/segmented';
+	import { onDestroy, onMount } from 'svelte';
+	import { Button } from '$lib/components/ui/button';
 	import { messages, type Locale } from '$lib/i18n';
-	import { AmbientEngine, type LayerSpec, type PackSpec } from './ambient-player.js';
+	import {
+		AmbientEngine,
+		type LayerSpec,
+		type PackSpec,
+		type PackVoice
+	} from './ambient-player.js';
+	import {
+		DEFAULT_MASTER_VOLUME,
+		layerPrefsOrDefault,
+		loadAudioPrefs,
+		saveAudioPrefs,
+		type AudioPrefs
+	} from './prefs.js';
 
 	interface PackSummary {
 		id: string;
@@ -42,10 +41,12 @@
 
 	let {
 		universeSlug,
+		userId,
 		pack,
 		locale
 	}: {
 		universeSlug: string;
+		userId: string;
 		pack: PackSummary | null;
 		locale: Locale;
 	} = $props();
@@ -53,17 +54,51 @@
 	const t = $derived(messages(locale).table.ambientPlayer);
 
 	const DEFAULT_CROSSFADE_SECONDS = 4;
+	const DIAGNOSTICS_REFRESH_MS = 500;
 
 	let engine: AmbientEngine | null = null;
-	let mood = $state<'off' | 'on'>('off');
+	let started = $state(false);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let contextState = $state<AudioContextState | 'unstarted'>('unstarted');
 	let currentPackId = $state<string | null>(null);
+	let currentDescription = $state<string | null>(null);
+	let activeLayers = $state<LayerSpec[]>([]);
 	let loadErrors = $state<Array<{ layerId: string; message: string }>>([]);
+	let crossfadeSeconds = $state(DEFAULT_CROSSFADE_SECONDS);
+	let showDiagnostics = $state(false);
+	let diagnosticsTick = $state(0);
+
+	let prefs: AudioPrefs = { masterVolume: DEFAULT_MASTER_VOLUME, layers: {} };
+	let masterVolume = $state(DEFAULT_MASTER_VOLUME);
+	let layerVolumes = $state<Record<string, { muted: boolean; volume: number }>>({});
+	let activeVoice: PackVoice | null = null;
+
+	function persistPrefs(): void {
+		prefs = { masterVolume, layers: layerVolumes };
+		saveAudioPrefs(window.localStorage, userId, prefs);
+	}
+
+	onMount(() => {
+		prefs = loadAudioPrefs(window.localStorage, userId);
+		masterVolume = prefs.masterVolume;
+		layerVolumes = { ...prefs.layers };
+
+		const diagnosticsTimer = window.setInterval(() => {
+			diagnosticsTick++;
+			if (engine) contextState = engine.contextState;
+		}, DIAGNOSTICS_REFRESH_MS);
+		return () => window.clearInterval(diagnosticsTimer);
+	});
 
 	onDestroy(() => {
 		engine?.stopAll();
+		if (
+			typeof window !== 'undefined' &&
+			(window as unknown as Record<string, unknown>).__ambientEngine === engine
+		) {
+			delete (window as unknown as Record<string, unknown>).__ambientEngine;
+		}
 	});
 
 	async function fetchPackSpec(id: string): Promise<PackSpec> {
@@ -77,23 +112,39 @@
 		return { id: body.id, description: body.description, layers: body.layers };
 	}
 
+	function applyStoredPrefs(voice: PackVoice): void {
+		if (!engine) return;
+		for (const layer of voice.layers) {
+			const layerPrefs = layerPrefsOrDefault(prefs, layer.spec.id, layer.spec.volume);
+			layerVolumes[layer.spec.id] = layerPrefs;
+			engine.setLayerMuted(voice, layer.spec.id, layerPrefs.muted);
+			engine.setLayerVolume(voice, layer.spec.id, layerPrefs.volume);
+		}
+		engine.setMasterVolume(masterVolume);
+	}
+
 	async function start(): Promise<void> {
 		if (!pack || loading) return;
 		error = null;
 		loading = true;
 		try {
 			engine ??= new AmbientEngine();
+			(window as unknown as Record<string, unknown>).__ambientEngine = engine;
 			await engine.resume();
 			contextState = engine.contextState;
 
 			const spec = await fetchPackSpec(pack.id);
 			const voice = await engine.playNewPack(spec);
+			applyStoredPrefs(voice);
+
+			activeVoice = voice;
 			currentPackId = spec.id;
+			currentDescription = spec.description;
+			activeLayers = spec.layers;
 			loadErrors = voice.loadErrors;
-			mood = 'on';
+			started = true;
 		} catch (err) {
 			error = err instanceof Error ? err.message : t.couldNotStart;
-			mood = 'off';
 		} finally {
 			loading = false;
 		}
@@ -105,8 +156,13 @@
 		loading = true;
 		try {
 			const spec = await fetchPackSpec(id);
-			const voice = await engine.crossfadeTo(spec, DEFAULT_CROSSFADE_SECONDS);
+			const voice = await engine.crossfadeTo(spec, crossfadeSeconds);
+			applyStoredPrefs(voice);
+
+			activeVoice = voice;
 			currentPackId = spec.id;
+			currentDescription = spec.description;
+			activeLayers = spec.layers;
 			loadErrors = voice.loadErrors;
 		} catch (err) {
 			error = err instanceof Error ? err.message : t.crossfadeFailed;
@@ -115,29 +171,19 @@
 		}
 	}
 
-	function stop(): void {
-		mood = 'off';
-		currentPackId = null;
-		engine?.stopWithFade(DEFAULT_CROSSFADE_SECONDS);
-	}
-
-	function onMoodChange(next: string): void {
-		if (next === 'on') void start();
-		else stop();
-	}
-
-	// Reacts to the GM declaring a new place while the mood is already "on": `pack` is
-	// owned by the caller, this only watches it. A place with no pack yet fades the
-	// current one to silence rather than cutting it mid-waveform; picking "on" again
-	// once a pack exists is the GM's own next tap, not something this effect assumes.
+	// Reacts to the GM declaring a new place: `pack` is owned by the caller, this only
+	// watches it. Nothing runs before `start()` has been clicked once - autoplay stays
+	// blocked until the explicit user gesture issue #69 requires.
 	$effect(() => {
 		const nextId = pack?.id ?? null;
-		if (mood !== 'on' || loading) return;
+		if (!started || loading) return;
 		if (nextId && nextId !== currentPackId) {
-			void crossfadeToPack(nextId);
+			crossfadeToPack(nextId);
 		} else if (!nextId && currentPackId) {
 			currentPackId = null;
-			engine?.stopWithFade(DEFAULT_CROSSFADE_SECONDS);
+			currentDescription = null;
+			activeLayers = [];
+			engine?.stopWithFade(crossfadeSeconds);
 		}
 	});
 
@@ -147,57 +193,168 @@
 		contextState = engine.contextState;
 	}
 
-	const moodOptions = $derived(
-		pack
-			? [
-					{ value: 'off', label: t.moodOff },
-					{ value: 'on', label: pack.description }
-				]
-			: [{ value: 'off', label: t.moodOff }]
-	);
+	function toggleMute(layerId: string): void {
+		if (!engine || !activeVoice) return;
+		const current = layerVolumes[layerId] ?? { muted: false, volume: 0.5 };
+		const next = { ...current, muted: !current.muted };
+		layerVolumes[layerId] = next;
+		engine.setLayerMuted(activeVoice, layerId, next.muted);
+		persistPrefs();
+	}
+
+	function setLayerVolume(layerId: string, volume: number): void {
+		if (!engine || !activeVoice) return;
+		const current = layerVolumes[layerId] ?? { muted: false, volume };
+		const next = { ...current, volume };
+		layerVolumes[layerId] = next;
+		engine.setLayerVolume(activeVoice, layerId, volume);
+		persistPrefs();
+	}
+
+	function setMaster(volume: number): void {
+		masterVolume = volume;
+		engine?.setMasterVolume(volume);
+		persistPrefs();
+	}
+
+	const diagnostics = $derived.by(() => {
+		void diagnosticsTick;
+		return engine?.snapshot() ?? null;
+	});
 </script>
 
-<div class="flex flex-col gap-1.5" data-testid="ambient-player">
-	<span id="table-mood-label" class="font-mono text-label tracking-wide text-muted uppercase">
-		{t.moodLabel}
-	</span>
+<div class="rounded-lg border border-line bg-panel p-3" data-testid="ambient-player">
+	<div class="flex items-center justify-between gap-2">
+		<h3 class="text-sm font-semibold text-ink">{t.heading}</h3>
+		{#if started}
+			<Button
+				type="button"
+				variant="link"
+				size="sm"
+				class="h-auto p-0 text-muted hover:text-ink"
+				onclick={() => (showDiagnostics = !showDiagnostics)}
+			>
+				{showDiagnostics ? t.hideAudioGraph : t.showAudioGraph}
+			</Button>
+		{/if}
+	</div>
 
-	{#if !pack}
-		<p class="text-label text-muted">{t.noPackYet}</p>
+	<!-- `started` is read FIRST on purpose. Svelte 5 tracks dependencies as they are
+		actually read, so `!pack && !started` never reads `started` while a pack exists,
+		the chain never re-runs when playback begins, and the body stays on the Play
+		button forever while the header above it updates. Do not reorder this. -->
+	{#if !started && !pack}
+		<p class="mt-2 text-sm text-muted">{t.noPackYet}</p>
+	{:else if !started}
+		<p class="mt-2 text-sm text-ink-2">{pack?.description}</p>
+		<p class="text-xs text-muted">
+			{t.layerSummary(pack?.layerCount ?? 0, pack?.stale ?? false)}
+		</p>
+		<Button type="button" class="mt-2" onclick={start} disabled={loading}>
+			{loading ? t.starting : t.play}
+		</Button>
 	{:else}
-		<Segmented
-			name="table-ambient-mood"
-			labelledby="table-mood-label"
-			value={mood}
-			options={moodOptions}
-			onchange={onMoodChange}
-		/>
+		{#if contextState === 'suspended'}
+			<p class="mt-2 rounded-md border border-line bg-panel-2 px-3 py-2 text-sm text-ink-2">
+				{t.audioPausedByBrowser}
+				<Button
+					type="button"
+					variant="link"
+					size="sm"
+					class="ml-1 h-auto p-0"
+					onclick={resumeAudio}
+				>
+					{t.enableAudio}
+				</Button>
+			</p>
+		{/if}
 
-		{#if pack.stale}
-			<p class="text-label text-muted">{t.layerSummary(pack.layerCount, pack.stale)}</p>
+		<p class="mt-2 text-sm text-ink-2">{currentDescription}</p>
+
+		{#if loadErrors.length > 0}
+			<p class="mt-1 text-xs text-danger">
+				{t.layersFailedToLoad(loadErrors.length)}
+			</p>
+		{/if}
+
+		<!-- #147: the mixer below - mute toggle, master/crossfade/layer sliders - stays
+			native. It is the ambient player's transport, not a form: the range inputs
+			carry the browser's own slider track and thumb, which an Input's text-box
+			chrome would replace, and the mute glyph is a two-state icon, not a label a
+			Button variant expresses. -->
+		<div class="mt-3 flex items-center gap-2">
+			<label class="flex items-center gap-2 text-xs text-ink-2" for="ambient-master-volume">
+				{t.master}
+				<input
+					id="ambient-master-volume"
+					type="range"
+					min="0"
+					max="1"
+					step="0.01"
+					value={masterVolume}
+					oninput={(e) => setMaster(Number(e.currentTarget.value))}
+				/>
+			</label>
+			<label class="flex items-center gap-1 text-xs text-muted" for="ambient-crossfade-seconds">
+				{t.crossfade}
+				<input
+					id="ambient-crossfade-seconds"
+					type="number"
+					min="1"
+					max="20"
+					step="0.5"
+					class="w-14 rounded border border-line bg-panel px-1 py-0.5"
+					value={crossfadeSeconds}
+					oninput={(e) => (crossfadeSeconds = Number(e.currentTarget.value))}
+				/>
+				s
+			</label>
+		</div>
+
+		<ul class="mt-3 flex flex-col gap-1.5" aria-label={t.layersAriaLabel}>
+			{#each activeLayers as layer (layer.id)}
+				{@const layerState = layerVolumes[layer.id] ?? { muted: false, volume: layer.volume }}
+				<li class="flex items-center gap-2 text-xs">
+					<button
+						type="button"
+						class="w-4 flex-none text-center"
+						aria-pressed={layerState.muted}
+						aria-label={layerState.muted ? t.unmuteLayer(layer.prompt) : t.muteLayer(layer.prompt)}
+						onclick={() => toggleMute(layer.id)}
+					>
+						{layerState.muted ? '🔇' : '🔊'}
+					</button>
+					<span
+						class="w-16 flex-none rounded-full bg-panel-2 px-2 py-0.5 text-center text-label text-ink-2"
+					>
+						{layer.loopType}
+					</span>
+					<span class="flex-1 truncate text-ink-2">{layer.prompt}</span>
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.01"
+						value={layerState.volume}
+						oninput={(e) => setLayerVolume(layer.id, Number(e.currentTarget.value))}
+					/>
+				</li>
+			{/each}
+		</ul>
+
+		{#if showDiagnostics && diagnostics}
+			<pre
+				class="mt-3 overflow-x-auto rounded-md border border-line bg-panel-2 p-2 text-label text-ink-2">{JSON.stringify(
+					diagnostics,
+					null,
+					2
+				)}</pre>
 		{/if}
 	{/if}
 
-	{#if loading}
-		<p class="text-label text-muted">{t.starting}</p>
-	{/if}
-
-	{#if mood === 'on' && contextState === 'suspended'}
-		<button
-			type="button"
-			onclick={resumeAudio}
-			class="w-fit text-left text-label text-ink-2 underline"
-		>
-			{t.audioPausedByBrowser}
-			{t.enableAudio}
-		</button>
-	{/if}
-
-	{#if loadErrors.length > 0}
-		<p class="text-label text-danger">{t.layersFailedToLoad(loadErrors.length)}</p>
-	{/if}
-
 	{#if error}
-		<p class="text-label text-danger">{error}</p>
+		<p class="mt-2 rounded-md border border-danger bg-danger-bg px-3 py-2 text-sm text-danger">
+			{error}
+		</p>
 	{/if}
 </div>
