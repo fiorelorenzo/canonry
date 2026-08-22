@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCandidatePool, type CandidateGraph } from './candidates.js';
+import { buildCandidatePool, type CandidateEvidence, type CandidateGraph } from './candidates.js';
 import { semanticDiff } from './diff.js';
 
 // A trimmed slice of packages/eval's valdoria-reach world, just enough to exercise every
@@ -133,6 +133,53 @@ describe('buildCandidatePool', () => {
 		const cairnmouth = pool.find((c) => c.entityId === 'cairnmouth');
 		expect(cairnmouth).toBeDefined();
 		expect(cairnmouth!.evidence[0]).toMatchObject({ kind: 'embedding', similarity: 0.9 });
+	});
+
+	it('never quotes a reverse-mention sentence that straddles a :::secret fence (#559)', () => {
+		// A body shaped the way a GM actually writes one: a fence closes, and the next
+		// sentence starts on the line after the marker. The plain splitter treats `:::` as
+		// ordinary prose and glues it to whichever paragraph it lands beside, so the
+		// evidence a proposal quotes came back as markup joined to a sentence. This is the
+		// evidence a GM reads before accepting, so a sentence nobody wrote is worse here
+		// than on any display surface.
+		const graph: CandidateGraph = {
+			entities: [
+				{
+					id: 'the-gilded-rat',
+					type: 'place',
+					name: 'The Gilded Rat',
+					aliases: [],
+					body: 'An inn on the waterfront.',
+					language: null
+				},
+				{
+					id: 'mother-sennah',
+					type: 'character',
+					name: 'Mother Sennah',
+					aliases: [],
+					body: 'Keeps the house.\n\n:::secret\nShe was a fence for years.\n:::\nShe still runs [[The Gilded Rat]] every night.',
+					language: null
+				}
+			],
+			relations: []
+		};
+		const diff = semanticDiff('An inn on the waterfront.', 'An inn on the waterfront. It is busy.');
+		const pool = buildCandidatePool(graph, 'the-gilded-rat', diff);
+		const sennah = pool.find((c) => c.entityId === 'mother-sennah');
+		expect(sennah).toBeDefined();
+
+		// `kind` is the union's discriminant, so this narrows to the mention variant and
+		// `sourceSentence` is typed rather than asserted.
+		const quoted = sennah!.evidence
+			.filter((e): e is Extract<CandidateEvidence, { kind: 'mention' }> => e.kind === 'mention')
+			.map((e) => e.sourceSentence);
+		expect(quoted.length).toBeGreaterThan(0);
+		for (const sentence of quoted) {
+			expect(sentence).not.toContain(':::');
+		}
+		// And the sentence that actually names the edited entity is the whole sentence,
+		// not the tail of one the marker line was glued onto.
+		expect(quoted).toContain('She still runs [[The Gilded Rat]] every night.');
 	});
 
 	it('throws for an edited entity id that is not in the graph', () => {

@@ -29,7 +29,7 @@ import { z } from 'zod';
 import { mentionsIn } from './candidates.js';
 import type { CandidateEvidence, GraphEntity, GraphRelationEdge } from './candidates.js';
 import { loadCandidateGraph } from './db-graph.js';
-import { splitIntoSentences } from './diff.js';
+import { fenceSafeSentences } from './diff.js';
 import { routeModel } from './models.js';
 import type { GatewayWrapper, ModelFactory } from './models.js';
 import { requireAiEnabled } from './propagate.js';
@@ -72,7 +72,7 @@ function relationEvidence(entityId: string, relations: GraphRelationEdge[]): Can
 function mentionEvidence(target: GraphEntity, others: GraphEntity[]): CandidateEvidence[] {
 	const evidence: CandidateEvidence[] = [];
 	for (const other of others) {
-		for (const sentence of splitIntoSentences(other.body)) {
+		for (const sentence of fenceSafeSentences(other.body)) {
 			const hit = mentionsIn(sentence, [target]);
 			if (hit.length > 0) {
 				evidence.push({

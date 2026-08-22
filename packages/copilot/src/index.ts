@@ -4,6 +4,7 @@
 export {
 	semanticDiff,
 	splitIntoSentences,
+	fenceSafeSentences,
 	tokenize,
 	jaccard,
 	type FactChange,

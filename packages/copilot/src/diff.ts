@@ -11,6 +11,7 @@
  * a word-overlap heuristic turns a coincidental add+remove pair into a single "changed"
  * entry when they are clearly the same fact reworded.
  */
+import { splitSecretBlocks } from '@canonry/lang';
 
 export type FactChangeKind = 'added' | 'removed' | 'changed';
 
@@ -66,6 +67,34 @@ export function splitIntoSentences(body: string): string[] {
 	}
 	flush();
 	return units;
+}
+
+/** `splitIntoSentences`, but no sentence ever spans a `:::secret`/`:::gmnote` boundary.
+ *
+ * The plain splitter knows nothing about a fence, so a marker line is just a line: it
+ * joins whichever paragraph it sits next to, and the sentence that comes back is markup
+ * glued to prose, or two halves of two different thoughts. That is wrong wherever a
+ * sentence is going to be quoted back to a reader as evidence, which is every caller
+ * below. Splitting each `splitSecretBlocks` segment separately means every sentence comes
+ * from one side of a fence or the other.
+ *
+ * This is deliberately about the *shape* of the sentence and not about hiding a secret.
+ * Every caller here is GM-only, so a sentence drawn from inside a fence is fine to
+ * surface; `stripSecretsForPlayers` is what a player-facing surface uses, and it is a
+ * different question with a different answer.
+ *
+ * `ask.ts` keeps its own variant because it also needs each sentence's offset into the
+ * whole body, which nothing else does: every caller here relocates its sentence with
+ * `spanOf` against the real body regardless of where the sentence came from, so carrying
+ * an offset they discard would be the only thing shared. Found the hard way three times
+ * (#355, #556, #559), which is why it lives beside the splitter it corrects rather than
+ * being copied a fourth time. */
+export function fenceSafeSentences(body: string): string[] {
+	const sentences: string[] = [];
+	for (const segment of splitSecretBlocks(body)) {
+		sentences.push(...splitIntoSentences(segment.text));
+	}
+	return sentences;
 }
 
 /** Exported for `ask.ts` (own-canon relevance scoring) and `audit.ts` (picking the most
