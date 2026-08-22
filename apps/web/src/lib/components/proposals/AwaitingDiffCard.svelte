@@ -12,6 +12,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { messages, numberFormat, type Locale } from '$lib/i18n';
+	import { InlineLink } from '$lib/components/ui/link';
 
 	let {
 		candidate,
@@ -62,20 +63,14 @@
 	</p>
 	<p class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-body">
 		{#if candidate.planId}
-			<a
-				class="text-accent hover:underline"
-				href={resolve(`/w/${universeSlug}/proposals/${candidate.planId}`)}
-			>
+			<InlineLink href={resolve(`/w/${universeSlug}/proposals/${candidate.planId}`)}>
 				{t.review.awaitingDiff.planLink}
-			</a>
+			</InlineLink>
 		{/if}
 		{#if candidate.targetSlug}
-			<a
-				class="text-accent hover:underline"
-				href={resolve(`/w/${universeSlug}/e/${candidate.targetSlug}`)}
-			>
+			<InlineLink href={resolve(`/w/${universeSlug}/e/${candidate.targetSlug}`)}>
 				{t.review.awaitingDiff.backToEntry}
-			</a>
+			</InlineLink>
 		{/if}
 	</p>
 </div>

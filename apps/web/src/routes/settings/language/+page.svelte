@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
+	import { InlineLink } from '$lib/components/ui/link';
 	import { LOCALE_NAMES, LOCALES, messages } from '$lib/i18n';
 	import type { ActionData, PageData } from './$types';
 
@@ -26,18 +27,12 @@
 
 <p class="mt-4 max-w-xl text-sm text-ink-2">
 	{t.language.learnMorePrompt}
-	<a
-		href={resolve('/docs/languages')}
-		class="text-accent underline decoration-line-2 underline-offset-2">{tDocs.title}</a
-	>
+	<InlineLink href={resolve('/docs/languages')}>{tDocs.title}</InlineLink>
 </p>
 
 {#if !data.signedIn}
 	<p class="mt-6 text-sm text-ink-2">
-		<a
-			href={resolve('/auth/sign-in')}
-			class="text-accent underline decoration-line-2 underline-offset-2">{t.language.signInLink}</a
-		>
+		<InlineLink href={resolve('/auth/sign-in')}>{t.language.signInLink}</InlineLink>
 		{t.language.signInPrompt}
 	</p>
 {:else}

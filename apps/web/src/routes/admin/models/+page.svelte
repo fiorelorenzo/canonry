@@ -9,6 +9,7 @@
 	import ProviderSelect from '$lib/components/admin/ProviderSelect.svelte';
 	import CurrencySelect from '$lib/components/admin/CurrencySelect.svelte';
 	import { COVER_ASPECT_RATIOS } from '$lib/components/media/cover-crop';
+	import { InlineLink } from '$lib/components/ui/link';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -177,9 +178,7 @@
 		<p class="mt-2 max-w-measure text-sm text-ink-2">
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 			{@html t.models.imageIntro2Pre}
-			<a href={resolve('/admin/pricing')} class="text-accent-ink hover:underline"
-				>{t.pricing.title}</a
-			>.
+			<InlineLink href={resolve('/admin/pricing')}>{t.pricing.title}</InlineLink>.
 		</p>
 
 		<div class="mt-8 overflow-x-auto rounded-lg border border-line">

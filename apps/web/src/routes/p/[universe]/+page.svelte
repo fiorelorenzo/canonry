@@ -25,6 +25,7 @@
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import EntryProse from '$lib/components/entry/EntryProse.svelte';
 	import EntryCover from '$lib/components/media/EntryCover.svelte';
+	import { InlineLink } from '$lib/components/ui/link';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -80,28 +81,22 @@
 								{#each session.revelations as rev (rev.id)}
 									<li class="text-body text-ink-2">
 										{#if rev.kind === 'relation'}
-											<a
-												href={resolve(`/p/${data.universe.slug}/${rev.from.slug}`)}
-												class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
-												>{rev.from.name}</a
+											<InlineLink href={resolve(`/p/${data.universe.slug}/${rev.from.slug}`)}
+												>{rev.from.name}</InlineLink
 											>
 											{#if rev.from.status === 'gap'}
 												<span class="text-meta text-muted">({t.players.notDiscovered})</span>
 											{/if}
 											{rev.relationLabel}
-											<a
-												href={resolve(`/p/${data.universe.slug}/${rev.to.slug}`)}
-												class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
-												>{rev.to.name}</a
+											<InlineLink href={resolve(`/p/${data.universe.slug}/${rev.to.slug}`)}
+												>{rev.to.name}</InlineLink
 											>
 											{#if rev.to.status === 'gap'}
 												<span class="text-meta text-muted">({t.players.notDiscovered})</span>
 											{/if}
 										{:else}
-											<a
-												href={resolve(`/p/${data.universe.slug}/${rev.entity.slug}`)}
-												class="text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
-												>{rev.label}</a
+											<InlineLink href={resolve(`/p/${data.universe.slug}/${rev.entity.slug}`)}
+												>{rev.label}</InlineLink
 											>
 										{/if}
 									</li>

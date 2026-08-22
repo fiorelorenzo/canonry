@@ -46,6 +46,7 @@
 	import { resolve } from '$app/paths';
 	import { coverAsideStyle, coverBandStyle } from './cover-crop';
 	import MediaGallery, { type MediaGalleryData } from './MediaGallery.svelte';
+	import { InlineLink } from '$lib/components/ui/link';
 	import { messages, type Locale } from '$lib/i18n';
 
 	let {
@@ -133,13 +134,12 @@
 	     open. -->
 	<!-- eslint-disable svelte/no-navigation-without-resolve -- settings anchor:
 	     resolve() plus a same-page fragment the rule cannot see through. -->
-	<a
+	<InlineLink
 		href={`${resolve(`/w/${universeSlug}/settings`)}#setup-image-style`}
-		class="-mt-1 block text-center text-xs font-medium text-accent-ink hover:underline"
-		class:mb-6={variant === 'band'}
+		class="-mt-1 block text-center text-xs font-medium {variant === 'band' ? 'mb-6' : ''}"
 	>
 		{t.placeholderNoStyleLink}
-	</a>
+	</InlineLink>
 	<!-- eslint-enable svelte/no-navigation-without-resolve -->
 {/if}
 

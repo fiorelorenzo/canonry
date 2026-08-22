@@ -13,6 +13,7 @@
 -->
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { InlineLink } from '$lib/components/ui/link';
 	import type { PublicRelationRow } from '@canonry/db';
 	import { messages, type Locale } from '$lib/i18n';
 
@@ -36,12 +37,9 @@
 						{t.relationTypeLabel(rel.key)?.[rel.direction === 'from' ? 'label' : 'inverseLabel'] ??
 							rel.label}
 					</span>
-					<a
-						href={resolve(`/p/${universeSlug}/${rel.other.slug}`)}
-						class="ml-1 text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
-					>
+					<InlineLink href={resolve(`/p/${universeSlug}/${rel.other.slug}`)} class="ml-1">
 						{rel.other.name}
-					</a>
+					</InlineLink>
 					{#if rel.other.status === 'gap'}
 						<span class="ml-1 text-xs text-muted">({t.players.notDiscovered})</span>
 					{/if}

@@ -52,6 +52,7 @@
 	import SettingsShell from '$lib/components/settings/SettingsShell.svelte';
 	import UniverseSettingsRail from '$lib/components/settings/UniverseSettingsRail.svelte';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { InlineLink } from '$lib/components/ui/link';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -209,12 +210,10 @@
 			/>
 		{/snippet}
 		<p class="mt-4 max-w-measure text-sm text-ink-2">
-			{t.introBefore(data.current.name)}<a
-				class="text-accent underline decoration-line-2 underline-offset-2"
-				href={resolve('/settings/appearance')}>{t.appearanceLink}</a
-			>{t.introAnd}<a
-				class="text-accent underline decoration-line-2 underline-offset-2"
-				href={resolve(`/settings/export/${data.current.slug}`)}>{t.exportLink}</a
+			{t.introBefore(data.current.name)}<InlineLink href={resolve('/settings/appearance')}
+				>{t.appearanceLink}</InlineLink
+			>{t.introAnd}<InlineLink href={resolve(`/settings/export/${data.current.slug}`)}
+				>{t.exportLink}</InlineLink
 			>{t.introAfter}
 		</p>
 
@@ -487,10 +486,9 @@
 			     anything is asked, is the primary disclosure). -->
 				<div class="border-t border-line pt-4">
 					<p class="max-w-measure text-sm text-ink-2">{t.loremasterConversations.text}</p>
-					<a
+					<InlineLink
 						href={resolve(`/w/${data.current.slug}/ask`)}
-						class="mt-2 inline-block text-sm text-accent underline decoration-line-2 underline-offset-2"
-						>{t.loremasterConversations.link}</a
+						class="mt-2 inline-block text-sm">{t.loremasterConversations.link}</InlineLink
 					>
 				</div>
 
@@ -642,12 +640,9 @@
 										<Badge variant="secondary" class="text-muted uppercase">
 											{t.precedence.supersededBadge}
 										</Badge>
-										<a
-											href={resolve(`/w/${data.current.slug}/e/${row.entitySlug}`)}
-											class="text-accent underline decoration-line-2 underline-offset-2"
-										>
+										<InlineLink href={resolve(`/w/${data.current.slug}/e/${row.entitySlug}`)}>
 											{row.entityName}
-										</a>
+										</InlineLink>
 										<form
 											method="POST"
 											action="?/removeSupersede"

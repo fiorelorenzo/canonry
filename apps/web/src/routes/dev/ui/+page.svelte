@@ -11,6 +11,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Badge } from '$lib/components/ui/badge';
+	import { InlineLink } from '$lib/components/ui/link';
 	import * as Select from '$lib/components/ui/select';
 	import { Segmented } from '$lib/components/ui/segmented';
 	import { Switch } from '$lib/components/ui/switch';
@@ -163,6 +164,30 @@
 						{#each badgeVariantList as variant (variant)}
 							<Badge {variant}>{variant}</Badge>
 						{/each}
+					</div>
+
+					<h3 class="mb-2 text-sm font-semibold text-ink">Inline link (#551)</h3>
+					<div class="mb-6 flex flex-col gap-2 rounded border border-line bg-panel p-4">
+						<p class="max-w-measure text-sm text-ink-2">
+							The shape carries no hover-only state: this sentence has
+							<InlineLink href="https://github.com/fiorelorenzo/canonry/issues/551"
+								>an inline link</InlineLink
+							>
+							sitting in it, underlined at rest so the accessibility floor #493 set never depends on a
+							pointer being there. An
+							<InlineLink
+								href="https://github.com/fiorelorenzo/canonry/issues/551"
+								target="_blank"
+								rel="noopener"
+							>
+								external one
+							</InlineLink> carries the same shape, the usual anchor attributes passed straight through.
+						</p>
+						<p class="text-xs text-muted">
+							Not this component: a navigation row, a card surface, or a control that only looks
+							like a link - see the component's own doc comment for the three call sites #551 left
+							alone on that ground.
+						</p>
 					</div>
 
 					<h3 class="mb-2 text-sm font-semibold text-ink">Input, Label, Textarea</h3>

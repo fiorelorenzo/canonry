@@ -13,6 +13,7 @@
 	 * two different accounts of the same pending work.
 	 */
 	import { resolve } from '$app/paths';
+	import { InlineLink } from '$lib/components/ui/link';
 	import type { Messages } from '$lib/i18n';
 
 	interface WaitingPlan {
@@ -65,12 +66,12 @@
 			<span class="shrink-0 font-mono text-xs text-muted tabular-nums">
 				{proposalsT.inbox.pendingLabel(plan.pending)}
 			</span>
-			<a
+			<InlineLink
 				href={resolve(`/w/${universeSlug}/proposals/${plan.id}`)}
-				class="shrink-0 text-xs font-medium text-accent-ink hover:underline"
+				class="shrink-0 text-xs font-medium"
 			>
 				{t.reviewLink} &rarr;
-			</a>
+			</InlineLink>
 		</li>
 	{/each}
 	{#each importJobs as job (job.id)}
@@ -81,12 +82,12 @@
 			<span class="shrink-0 font-mono text-xs text-muted tabular-nums">
 				{proposalsT.inbox.pendingLabel(job.pending)}
 			</span>
-			<a
+			<InlineLink
 				href={resolve(`/w/${universeSlug}/import/${job.id}/review`)}
-				class="shrink-0 text-xs font-medium text-accent-ink hover:underline"
+				class="shrink-0 text-xs font-medium"
 			>
 				{t.reviewLink} &rarr;
-			</a>
+			</InlineLink>
 		</li>
 	{/each}
 </ul>
@@ -97,10 +98,10 @@
      room, this is the honest "there is more" affordance and it counts every pending proposal
      in the world, not the ones shown. -->
 {#if totalPending > shownPending}
-	<a
+	<InlineLink
 		href={resolve(`/w/${universeSlug}/proposals`)}
-		class="mt-2 inline-block text-xs font-medium text-accent-ink hover:underline"
+		class="mt-2 inline-block text-xs font-medium"
 	>
 		{t.reviewAll(totalPending)}
-	</a>
+	</InlineLink>
 {/if}

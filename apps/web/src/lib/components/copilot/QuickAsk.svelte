@@ -87,6 +87,7 @@
 	import CommandPalette from '$lib/components/palette/CommandPalette.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Tooltip from '$lib/components/ui/tooltip';
+	import { InlineLink } from '$lib/components/ui/link';
 	import { messages, type Locale } from '$lib/i18n';
 	import { stripMentionSyntax } from '$lib/markdown';
 	import { formatShortcut, matchesShortcut, SHORTCUTS } from '$lib/keys';
@@ -510,9 +511,8 @@
 		     Ends in the same policy link the Ask route's own keep control still carries
 		     (`askT.keep.noteLinkBefore`/`noteLink`), reused rather than duplicated. -->
 		<p class="m-0 border-b border-line px-3 py-1.5 text-label text-ink-2">
-			{t.disclosure}{askT.keep.noteLinkBefore}<a
-				href={resolve('/privacy')}
-				class="text-accent hover:underline">{askT.keep.noteLink}</a
+			{t.disclosure}{askT.keep.noteLinkBefore}<InlineLink href={resolve('/privacy')}
+				>{askT.keep.noteLink}</InlineLink
 			>.
 		</p>
 

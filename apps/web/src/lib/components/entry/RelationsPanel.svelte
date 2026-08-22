@@ -7,6 +7,7 @@
 	 * propagation lands, a pending row belongs in this same panel, not a new one.
 	 */
 	import { resolve } from '$app/paths';
+	import { InlineLink } from '$lib/components/ui/link';
 	import { messages, type Locale } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import type { RelationView } from '@canonry/db';
@@ -34,13 +35,13 @@
 						relation.direction === 'from' ? 'label' : 'inverseLabel'
 					] ?? relation.label}
 				</span>
-				<a
+				<InlineLink
 					href={resolve(`/w/${universeSlug}/e/${relation.other.slug}`)}
 					data-entry-slug={relation.other.slug}
-					class="ml-1 text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
+					class="ml-1"
 				>
 					{relation.other.name}
-				</a>
+				</InlineLink>
 			</li>
 		{/each}
 	</ul>

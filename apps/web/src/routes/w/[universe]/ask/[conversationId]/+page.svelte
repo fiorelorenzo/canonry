@@ -13,6 +13,7 @@
 	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
 	import AskConversationGroup from '$lib/components/ask/AskConversationGroup.svelte';
 	import AskEntryPanel from '$lib/components/ask/AskEntryPanel.svelte';
+	import { InlineLink } from '$lib/components/ui/link';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -56,12 +57,9 @@
 	<div class="flex flex-col md:flex-row">
 		<div class="min-w-0 flex-1 px-4 py-8 md:px-8">
 			<p class="mb-4">
-				<a
-					href={resolve(`/w/${data.universeSlug}/ask`)}
-					class="text-label text-accent hover:underline"
-				>
+				<InlineLink href={resolve(`/w/${data.universeSlug}/ask`)} class="text-label">
 					&larr; {th.heading}
-				</a>
+				</InlineLink>
 			</p>
 
 			{#if form?.message}

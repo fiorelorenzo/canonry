@@ -4,6 +4,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { InlineLink } from '$lib/components/ui/link';
 	import { dateFormat, messages } from '$lib/i18n';
 	import { providerLabel } from '$lib/providers';
 	import type { ActionData, PageData } from './$types';
@@ -57,18 +58,13 @@
 	</p>
 	<p class="mt-2 mb-0">
 		<strong class="text-ink">{t.infoPara3Bold}</strong>{t.infoPara3After}
-		<a href={resolve('/privacy')} class="text-accent underline decoration-line-2 underline-offset-2"
-			>{t.infoPara3Link}</a
-		>.
+		<InlineLink href={resolve('/privacy')}>{t.infoPara3Link}</InlineLink>.
 	</p>
 </div>
 
 {#if !data.signedIn}
 	<p class="mt-6 max-w-measure text-sm text-ink-2">
-		<a
-			href={resolve('/auth/sign-in')}
-			class="text-accent underline decoration-line-2 underline-offset-2">{t.signInLink}</a
-		>
+		<InlineLink href={resolve('/auth/sign-in')}>{t.signInLink}</InlineLink>
 		{t.signInPrompt}
 	</p>
 {:else}

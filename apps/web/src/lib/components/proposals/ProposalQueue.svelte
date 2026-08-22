@@ -70,6 +70,7 @@
 	import { enhance } from '$app/forms';
 	import { messages, type Locale } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { InlineLink } from '$lib/components/ui/link';
 	import { KeyHint, type KeyHintPair } from '$lib/components/ui/key-hint';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ProposalDiffCard from './ProposalDiffCard.svelte';
@@ -398,12 +399,12 @@
 							</button>
 						</h2>
 						{#if group.importJobId}
-							<a
+							<InlineLink
 								href={resolve(`/w/${universeSlug}/import/${group.importJobId}/review`)}
-								class="flex-none text-label text-accent hover:underline"
+								class="flex-none text-label"
 							>
 								{tInbox.openImportReview}
-							</a>
+							</InlineLink>
 						{/if}
 					</div>
 				{/if}
