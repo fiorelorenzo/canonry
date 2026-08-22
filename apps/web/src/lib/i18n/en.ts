@@ -573,6 +573,8 @@ export const en: Messages = {
 			images: 'Images',
 			history: 'History',
 			audit: 'Audit',
+			revealedIn: (sessionName, when) => `Revealed in ${sessionName} \u00b7 ${when}`,
+			notRevealed: 'Not yet revealed to the party',
 			mobile: {
 				trigger: 'Details',
 				closeLabel: 'Close details',
@@ -2016,6 +2018,8 @@ export const en: Messages = {
 			hiddenHeading: 'Still behind the screen',
 			hiddenDescription: 'Revealable, and not yet found.',
 			hiddenEmpty: 'Nothing is left to discover.',
+			hiddenConnectedBadge: 'Connected',
+			hiddenConnectedHint: 'Linked to something the party already knows.',
 			entityTypeLabel: (type) => {
 				const labels: Record<string, string> = {
 					character: 'Character',

@@ -750,6 +750,11 @@ export interface Messages {
 			images: string;
 			history: string;
 			audit: string;
+			/** Issue #530 (round eighteen, GM half): the aside's own "learned in" line
+			 * (S5) - `sessionName` and a locale-formatted date already resolved by the
+			 * caller. */
+			revealedIn: (sessionName: string, when: string) => string;
+			notRevealed: string;
 			/** Issue #148 (I10 = B): below `md`, B1's aside can't sit beside the document,
 			 * so it moves behind this trigger into a bottom sheet instead of stacking
 			 * under the prose uninvited - "reachable rather than cropped", not a second
@@ -2257,6 +2262,12 @@ export interface Messages {
 			hiddenHeading: string;
 			hiddenDescription: string;
 			hiddenEmpty: string;
+			/** Issue #530 (round eighteen, GM half): the badge on a "still behind the
+			 * screen" row that `pinnedNeighbors` (one hop from anything revealed) says is
+			 * connected to what the party already knows - why the list is no longer
+			 * strictly alphabetical. */
+			hiddenConnectedBadge: string;
+			hiddenConnectedHint: string;
 			/** Duplicated per surface rather than shared - see this file's own doc comment
 			 * on `entityTypeLabel`'s existing duplication above `relationTypeLabel`. */
 			entityTypeLabel: (type: string) => string;
