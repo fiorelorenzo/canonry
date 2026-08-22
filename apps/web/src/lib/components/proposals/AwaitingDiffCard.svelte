@@ -17,7 +17,8 @@
 		candidate,
 		universeSlug,
 		diffPriceCredits,
-		locale
+		locale,
+		headingLevel
 	}: {
 		candidate: {
 			id: string;
@@ -29,6 +30,10 @@
 		universeSlug: string;
 		diffPriceCredits: number;
 		locale: Locale;
+		/** Issue #526: same caller-supplied level as `ProposalDiffCard`, which this card
+		 * stands in for whenever a candidate's diff has not been generated yet - see that
+		 * component's own doc comment. */
+		headingLevel: 2 | 3;
 	} = $props();
 
 	let t = $derived(messages(locale).proposals);
@@ -43,7 +48,9 @@
 
 <div class="border-t border-line pt-4" data-proposal-id={candidate.id}>
 	<p class="mb-2 font-mono text-label text-ink-2 uppercase">{t.review.awaitingDiff.kicker}</p>
-	<h3 class="text-title text-ink">{t.review.awaitingDiff.body(title)}</h3>
+	<svelte:element this={`h${headingLevel}`} class="text-title text-ink">
+		{t.review.awaitingDiff.body(title)}
+	</svelte:element>
 	<p class="mt-1 max-w-measure text-body text-ink-2">{t.review.awaitingDiff.noDiffYet}</p>
 	<p class="mt-3 max-w-measure text-body text-ink-2">
 		<span class="font-medium text-ink">{t.review.awaitingDiff.reasonLabel}</span>

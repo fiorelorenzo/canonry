@@ -34,6 +34,7 @@
 		candidates,
 		universeSlug,
 		locale,
+		headingLevel,
 		onDecided
 	}: {
 		/** Already enriched server-side, exactly as the queue receives them. Newest last:
@@ -41,6 +42,10 @@
 		candidates: DiffCandidateView[];
 		universeSlug: string;
 		locale: Locale;
+		/** Issue #526: forwarded straight to `ProposalDiffCard` - this region has no
+		 * heading of its own (it is `aria-label`led, not titled), so the caller states
+		 * the same level it would have passed the card directly. */
+		headingLevel: 2 | 3;
 		/** Fired after a decision the surrounding page has to reflect: on the entry page an
 		 * accepted `update` changes the prose above this region, so the page re-runs its own
 		 * load rather than this component patching canon text it does not own. */
@@ -219,6 +224,7 @@
 			{universeSlug}
 			showRejectChips={false}
 			{locale}
+			{headingLevel}
 			onAccept={() => void decide('accept')}
 			onReject={() => void decide('reject')}
 			onRejectReason={(reason) => void pickReason(reason)}

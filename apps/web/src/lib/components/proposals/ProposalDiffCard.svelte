@@ -70,6 +70,7 @@
 		universeSlug,
 		showRejectChips = false,
 		locale,
+		headingLevel,
 		onAccept,
 		onReject,
 		onRejectReason,
@@ -81,6 +82,14 @@
 		 * not blocking the queue (see ProposalQueue's handler). */
 		showRejectChips?: boolean;
 		locale: Locale;
+		/** Issue #526: the page around this card decides how deep its own title nests,
+		 * because two callers put it at different depths - `h2` directly under a page's
+		 * own `h1` (the single-proposal route, and a plan/import queue whose one implicit
+		 * group renders no heading of its own), `h3` under the inbox's own group heading
+		 * (`ProposalQueue`, whenever `group.heading` is set). No default: a hardcoded
+		 * level was only ever right for whichever caller last touched this file, and #526
+		 * is exactly that drift made visible. */
+		headingLevel: 2 | 3;
 		/** Issue #453: all four are absent on the read-only settled-proposal page
 		 * (`review/[proposal]/+page.svelte`), reached from a revision's own history link -
 		 * guardrail 3 wants that proposal's evidence readable there, not a second decision
@@ -152,7 +161,9 @@
 					{title}
 				</a>
 			{:else}
-				<h3 class="text-title font-semibold text-ink">{title}</h3>
+				<svelte:element this={`h${headingLevel}`} class="text-title font-semibold text-ink">
+					{title}
+				</svelte:element>
 			{/if}
 			<p class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
 				<span class="rounded-full bg-panel-2 px-1.5 py-0.5 font-mono uppercase">

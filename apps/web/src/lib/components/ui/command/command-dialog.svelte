@@ -34,17 +34,29 @@
 		} = $props();
 </script>
 
+<!-- Issue #525: `Dialog.Header`/`Title`/`Description` used to sit as a sibling of
+     `Dialog.Content`, both direct children of `Dialog.Root` - a plain provider with no
+     DOM node of its own - so the sr-only header rendered wherever this component
+     mounts in the tree (always, since the palette is always mounted for mod+K)
+     rather than inside the dialog's own `role="dialog"` surface, which is the one
+     element axe's `region` rule does not require to sit inside a landmark. Nesting it
+     inside `Dialog.Content` matches the vendored gallery's own reference usage
+     (`routes/dev/ui/+page.svelte`) and changes nothing about naming: bits-ui wires
+     `Dialog.Content`'s `aria-labelledby`/`aria-describedby` off `Title`/`Description`
+     through `Dialog.Root`'s own shared state, which tracks component-tree
+     descendants rather than DOM position, so the accessible name and description were
+     never broken - only where the text nodes themselves lived in the tree. -->
 <Dialog.Root bind:open {...restProps}>
-	<Dialog.Header class="sr-only">
-		<Dialog.Title>{title}</Dialog.Title>
-		<Dialog.Description>{description}</Dialog.Description>
-	</Dialog.Header>
 	<Dialog.Content
 		class={cn('top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0', className)}
 		{showCloseButton}
 		{closeLabel}
 		{portalProps}
 	>
+		<Dialog.Header class="sr-only">
+			<Dialog.Title>{title}</Dialog.Title>
+			<Dialog.Description>{description}</Dialog.Description>
+		</Dialog.Header>
 		<Command {...restProps} bind:value bind:ref {children} />
 	</Dialog.Content>
 </Dialog.Root>
