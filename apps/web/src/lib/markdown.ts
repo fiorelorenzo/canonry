@@ -17,7 +17,13 @@
  */
 import MarkdownIt from 'markdown-it';
 import type { Env, Token } from 'markdown-it';
-import { stripSecretsForPlayers } from '@canonry/lang';
+import { stripMentionSyntax, stripSecretsForPlayers } from '@canonry/lang';
+
+/** Re-exported from `@canonry/lang` (#545): `packages/copilot`'s Ask needed the same
+ * strip for its AI-off answer, which cannot import from `apps/web`, so the definition
+ * moved there and this file keeps its own many existing `stripMentionSyntax` imports
+ * working unchanged. See that module's own doc for the full reasoning. */
+export { stripMentionSyntax };
 
 /** The slice of an entity a mention needs to resolve and link to it. Deliberately not the
  * full entity row: this travels into `env` on every render call. */
@@ -360,17 +366,6 @@ export function normalizeMentions(body: string, targets: MentionTarget[]): strin
 		const target = resolveMentionName(rawName, targets);
 		return target ? `[[${target.name}]]` : whole;
 	});
-}
-
-/**
- * Strips a `[[Name]]` mention down to its bare name, for display contexts that quote raw
- * body text as prose rather than rendering it as markdown - the Facts panel's excerpt,
- * say, which is meant to read like the sentence it evidences, brackets and all being
- * markdown syntax the GM never wrote to be read. The stored span itself is untouched;
- * this only shapes what a caller shows next to it.
- */
-export function stripMentionSyntax(text: string): string {
-	return text.replace(/\[\[([^\]\n]+)\]\]/g, '$1');
 }
 
 /**

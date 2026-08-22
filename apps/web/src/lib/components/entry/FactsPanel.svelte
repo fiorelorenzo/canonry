@@ -66,7 +66,9 @@
 					<span class="min-w-0 break-words text-ink-2">{stripMentionSyntax(fact.statement)}</span>
 				</button>
 				{#if activeFactId === fact.id}
-					<p class="mt-2 pl-6 text-xs text-muted italic">&ldquo;{fact.sourceExcerpt}&rdquo;</p>
+					<p class="mt-2 pl-6 text-xs text-muted italic">
+						&ldquo;{stripMentionSyntax(fact.sourceExcerpt)}&rdquo;
+					</p>
 				{/if}
 			</li>
 		{/each}
