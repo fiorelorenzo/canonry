@@ -74,61 +74,75 @@
 	<title>{isNotFound ? t.notFoundHeading : t.serverErrorHeading}: Canonry</title>
 </svelte:head>
 
-<PageHeader
-	eyebrow={String(page.status)}
-	title={isNotFound ? t.notFoundHeading : t.serverErrorHeading}
-/>
+<!-- Round eighteen: `PageHeader`'s band bleeds its own gutter back out (`-mx-4
+     md:-mx-8`, re-adding the same padding), which cancels exactly against the
+     `px-4 md:px-8` `AppShell`'s `main` supplies. Signed out there is no shell, so
+     this rendered the band 64px wider than the viewport and the error page was the
+     one surface in the app you could scroll sideways. The wrapper supplies that
+     gutter, and picks `main` over `div` for the same reason #491's settings wrapper
+     does: `AppShell` only owns the landmark once there is a session, so without
+     this an unauthenticated error page had none at all. -->
+<svelte:element
+	this={isSignedIn ? 'div' : 'main'}
+	id={isSignedIn ? undefined : 'main'}
+	class={isSignedIn ? undefined : 'px-4 md:px-8'}
+>
+	<PageHeader
+		eyebrow={String(page.status)}
+		title={isNotFound ? t.notFoundHeading : t.serverErrorHeading}
+	/>
 
-<PageBody width="reading">
-	<div class="mt-6">
-		{#if isNotFound}
-			<EmptyState kind="derived" message={t.notFoundBody}>
-				{#snippet action()}
-					<div class="flex flex-wrap justify-center gap-2">
-						{#if universeSlug}
-							<Button href={resolve(`/w/${universeSlug}`)} variant="secondary" size="sm">
-								{t.worldHomeAction}
+	<PageBody width="reading">
+		<div class="mt-6">
+			{#if isNotFound}
+				<EmptyState kind="derived" message={t.notFoundBody}>
+					{#snippet action()}
+						<div class="flex flex-wrap justify-center gap-2">
+							{#if universeSlug}
+								<Button href={resolve(`/w/${universeSlug}`)} variant="secondary" size="sm">
+									{t.worldHomeAction}
+								</Button>
+								<Button href={resolve(`/w/${universeSlug}/entries`)} variant="secondary" size="sm">
+									{t.entriesAction}
+								</Button>
+							{:else if isSignedIn}
+								<Button href={resolve('/')} variant="secondary" size="sm">
+									{t.allUniversesAction}
+								</Button>
+							{/if}
+							{#if isSignedIn}
+								<Button
+									type="button"
+									variant="secondary"
+									size="sm"
+									onclick={() => (paletteState.open = true)}
+								>
+									{t.searchAction}
+								</Button>
+							{/if}
+						</div>
+					{/snippet}
+				</EmptyState>
+			{:else}
+				<EmptyState kind="derived" message={t.serverErrorBody}>
+					{#snippet action()}
+						<div class="flex flex-wrap justify-center gap-2">
+							<Button href={retryHref} data-sveltekit-reload variant="secondary" size="sm">
+								{t.retryAction}
 							</Button>
-							<Button href={resolve(`/w/${universeSlug}/entries`)} variant="secondary" size="sm">
-								{t.entriesAction}
-							</Button>
-						{:else if isSignedIn}
-							<Button href={resolve('/')} variant="secondary" size="sm">
-								{t.allUniversesAction}
-							</Button>
-						{/if}
-						{#if isSignedIn}
-							<Button
-								type="button"
-								variant="secondary"
-								size="sm"
-								onclick={() => (paletteState.open = true)}
-							>
-								{t.searchAction}
-							</Button>
-						{/if}
-					</div>
-				{/snippet}
-			</EmptyState>
-		{:else}
-			<EmptyState kind="derived" message={t.serverErrorBody}>
-				{#snippet action()}
-					<div class="flex flex-wrap justify-center gap-2">
-						<Button href={retryHref} data-sveltekit-reload variant="secondary" size="sm">
-							{t.retryAction}
-						</Button>
-						{#if universeSlug}
-							<Button href={resolve(`/w/${universeSlug}`)} variant="secondary" size="sm">
-								{t.worldHomeAction}
-							</Button>
-						{:else if isSignedIn}
-							<Button href={resolve('/')} variant="secondary" size="sm">
-								{t.allUniversesAction}
-							</Button>
-						{/if}
-					</div>
-				{/snippet}
-			</EmptyState>
-		{/if}
-	</div>
-</PageBody>
+							{#if universeSlug}
+								<Button href={resolve(`/w/${universeSlug}`)} variant="secondary" size="sm">
+									{t.worldHomeAction}
+								</Button>
+							{:else if isSignedIn}
+								<Button href={resolve('/')} variant="secondary" size="sm">
+									{t.allUniversesAction}
+								</Button>
+							{/if}
+						</div>
+					{/snippet}
+				</EmptyState>
+			{/if}
+		</div>
+	</PageBody>
+</svelte:element>

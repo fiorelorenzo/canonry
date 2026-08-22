@@ -55,7 +55,11 @@
 	const header = $derived(HEADERS[page.route.id ?? ''] ?? { title: '' });
 </script>
 
-<svelte:element this={page.data.user ? 'div' : 'main'} id={page.data.user ? undefined : 'main'}>
+<svelte:element
+	this={page.data.user ? 'div' : 'main'}
+	id={page.data.user ? undefined : 'main'}
+	class={page.data.user ? undefined : 'px-4 md:px-8'}
+>
 	<PageHeader title={header.title} description={header.description} />
 	<PageBody width="working">
 		<SettingsShell>

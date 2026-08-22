@@ -121,7 +121,10 @@
      the tag AppShell is not already providing, rather than duplicating the whole
      gallery body once per branch. -->
 <Tooltip.Provider>
-	<svelte:element this={page.data.user ? 'div' : 'main'}>
+	<svelte:element
+		this={page.data.user ? 'div' : 'main'}
+		class={page.data.user ? undefined : 'px-4 md:px-8'}
+	>
 		<PageHeader
 			eyebrow="Internal component gallery, not a product page"
 			title="shadcn-svelte control layer"
