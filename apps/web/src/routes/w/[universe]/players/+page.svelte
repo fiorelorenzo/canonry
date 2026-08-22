@@ -1,9 +1,13 @@
 <script lang="ts">
 	/**
-	 * Issue R11, round thirteen: the GM's side of the players' wiki. No write action lives
-	 * here - a reveal happens in Table mode (E5 = C), and an invitation does not exist
-	 * anywhere in the product yet, so `invitationsNotice` says that in one sentence rather
-	 * than the page growing a button that writes nothing.
+	 * Issue R11, round thirteen, reshaped by issue #530 (round eighteen, W2 = A): the GM's
+	 * side of the players' wiki now reads by session, newest first, matching the shape the
+	 * public wiki itself reads in (the campaign diary, W2). `data.log` is already grouped
+	 * server-side (`+page.server.ts`'s `groupBySession`) - this component only renders the
+	 * groups, newest session first, each session's own rows newest first inside it. No
+	 * write action lives here - a reveal happens in Table mode (E5 = C), and an invitation
+	 * does not exist anywhere in the product yet, so `invitationsNotice` says that in one
+	 * sentence rather than the page growing a button that writes nothing.
 	 *
 	 * Issue #492: every name in the log is a link now. An entity row's whole label already
 	 * is the entry's own name; a fact row's label is the statement `fact.entity_id` was
@@ -16,6 +20,11 @@
 	 * the player see" being the question this page exists to answer (R11's own doc
 	 * comment on `+page.server.ts`). Both links carry `data-entry-slug` (#442, T2), so
 	 * `MentionPreview` below previews either one for free.
+	 *
+	 * Issue #530's second half: "still behind the screen" (`data.hidden`) is now ordered
+	 * connected-first (`+page.server.ts`'s `connected` flag, from `pinnedNeighbors`), and
+	 * says so with a small badge - reordering an alphabetical-looking list with no visible
+	 * reason would read as broken, not curated.
 	 */
 	import { resolve } from '$app/paths';
 	import { dateFormat, messages } from '$lib/i18n';
@@ -33,6 +42,13 @@
 	function formatWhen(value: string | Date): string {
 		const date = typeof value === 'string' ? new Date(value) : value;
 		return dateFormat(data.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+	}
+
+	// The session heading needs only a date, not a time - the time each row carries below
+	// it is what actually varies within one night at the table.
+	function formatSessionDate(value: string | Date): string {
+		const date = typeof value === 'string' ? new Date(value) : value;
+		return dateFormat(data.locale, { dateStyle: 'medium' }).format(date);
 	}
 
 	// Mention preview delegates off this element (#429/#442), one instance for the whole
@@ -96,25 +112,39 @@
 					{/snippet}
 				</EmptyState>
 			{:else}
-				<ul class="flex flex-col gap-2.5">
-					{#each data.log as entry (entry.id)}
-						<li class="flex flex-col gap-0.5 text-sm">
-							<span class="text-ink">
-								{#if entry.kind === 'relation'}
-									{@render nameLink(entry.from, entry.from.name)}
-									{entry.relationLabel}
-									{@render nameLink(entry.to, entry.to.name)}
-								{:else}
-									{@render nameLink(entry.entity, entry.label)}
-								{/if}
-							</span>
-							<span class="text-xs text-muted">
-								{t.kindLabel[entry.kind]} &middot; {entry.sessionName ?? t.sessionUnknown} &middot;
-								{formatWhen(entry.confirmedAt)}
-							</span>
-						</li>
+				<div class="flex flex-col gap-6">
+					{#each data.log as group (group.key)}
+						<section aria-labelledby="session-{group.key || 'untracked'}">
+							<h3
+								id="session-{group.key || 'untracked'}"
+								class="mb-2 flex items-baseline justify-between gap-3 border-b border-line pb-1 text-sm font-semibold text-ink"
+							>
+								<span>{group.sessionName ?? t.sessionUnknown}</span>
+								<span class="text-xs font-normal text-muted"
+									>{formatSessionDate(group.latestAt)}</span
+								>
+							</h3>
+							<ul class="flex flex-col gap-2.5">
+								{#each group.items as entry (entry.id)}
+									<li class="flex flex-col gap-0.5 text-sm">
+										<span class="text-ink">
+											{#if entry.kind === 'relation'}
+												{@render nameLink(entry.from, entry.from.name)}
+												{entry.relationLabel}
+												{@render nameLink(entry.to, entry.to.name)}
+											{:else}
+												{@render nameLink(entry.entity, entry.label)}
+											{/if}
+										</span>
+										<span class="text-xs text-muted">
+											{t.kindLabel[entry.kind]} &middot; {formatWhen(entry.confirmedAt)}
+										</span>
+									</li>
+								{/each}
+							</ul>
+						</section>
 					{/each}
-				</ul>
+				</div>
 				<MentionPreview
 					container={revealedContainer}
 					universeSlug={data.universe.slug}
@@ -140,7 +170,17 @@
 								href={resolve(`/w/${data.universe.slug}/e/${entity.slug}`)}
 								class="flex items-center justify-between gap-3 py-2 text-sm text-ink-2 transition-colors hover:text-ink"
 							>
-								<span>{entity.name}</span>
+								<span class="flex items-center gap-2">
+									{#if entity.connected}
+										<span
+											class="rounded-full bg-accent-bg px-2 py-0.5 text-xs text-accent-ink"
+											title={t.hiddenConnectedHint}
+										>
+											{t.hiddenConnectedBadge}
+										</span>
+									{/if}
+									<span>{entity.name}</span>
+								</span>
 								<span class="text-xs tracking-wide text-muted uppercase"
 									>{t.entityTypeLabel(entity.type)}</span
 								>

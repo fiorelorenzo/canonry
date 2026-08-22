@@ -1,6 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import {
 	historyFor,
+	latestEntityRevelation,
 	mediaAssetsForEntity,
 	priceOf,
 	relationsFor,
@@ -108,7 +109,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		variantsModel,
 		pendingProposals,
 		review,
-		openFlags
+		openFlags,
+		revealedIn
 	] = await Promise.all([
 		relationsFor(conn, current.id, locals.locale),
 		historyFor(conn, current.id),
@@ -130,7 +132,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		// diff, layout and evidence view the queue renders, and collapsing the two would
 		// make the C1 marking pay for the joins it has no use for.
 		reviewableProposalsForEntity(conn, world.id, current.id),
-		openAuditFlagsForEntity(conn, world.id, current.id)
+		openAuditFlagsForEntity(conn, world.id, current.id),
+		// Issue #530 (round eighteen, GM half): "which session was this revealed in, and
+		// when" - the aside's own one-liner (S5), not the prose. `undefined` when this
+		// entity has no confirmed 'entity' revelation at all, which the page below reads
+		// as "not yet revealed".
+		latestEntityRevelation(conn, current.id)
 	]);
 
 	// V6 = A, #499: which of the entry's own sentences a pending proposal would replace or
@@ -200,7 +207,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			// page. Guardrail 6 is not this loader's business - this is the GM's own surface,
 			// and `/p/<slug>` resolves its own cover against visible, revealed assets only.
 			coverAssetId: current.coverAssetId,
-			updatedAt: current.updatedAt
+			updatedAt: current.updatedAt,
+			// Issue #530 (round eighteen, GM half): `latestEntityRevelation`'s own answer,
+			// passed straight through - `null`, not `undefined`, so it survives SvelteKit's
+			// devalue serialization the same way every other optional field on this object
+			// already does.
+			revealedIn: revealedIn ?? null
 		},
 		mentionTargets: universeEntities,
 		publicMentionTargets: publicMentionTargetsFrom(universeEntities),

@@ -1124,3 +1124,40 @@ export async function revelationLogForUniverse(
 
 	return items.sort((a, b) => b.confirmedAt.getTime() - a.confirmedAt.getTime()).slice(0, limit);
 }
+
+export interface EntityRevelationRow {
+	confirmedAt: Date;
+	sessionName: string | null;
+}
+
+/** Issue #530 (round eighteen, GM half): the one line the GM entry page needs - when this
+ * specific entity's own 'entity' revelation was confirmed, and in which session, or
+ * `undefined` if it never has been. Same shape as `publicEntityBySlug`'s own inline lookup
+ * above (`revealRow`): the latest confirmed row, since the unique index on
+ * (entity, session) above allows more than one confirmation of the same entity across
+ * different sessions, and "revealed" already means "as of the most recent one" everywhere
+ * else this file answers that question. Deliberately its own query rather than a filter
+ * over `revelationLogForUniverse`'s full-universe result: that call is a member's own
+ * page-load cost already, and this one is one entity's. */
+export async function latestEntityRevelation(
+	db: Db,
+	entityId: string
+): Promise<EntityRevelationRow | undefined> {
+	const [row] = await db
+		.select({ confirmedAt: revelation.confirmedAt, sessionName: revelationLogSession.name })
+		.from(revelation)
+		.leftJoin(revelationLogSession, eq(revelationLogSession.id, revelation.sessionEntityId))
+		.where(
+			and(
+				eq(revelation.entityId, entityId),
+				eq(revelation.kind, 'entity'),
+				isNotNull(revelation.confirmedAt)
+			)
+		)
+		.orderBy(desc(revelation.confirmedAt))
+		.limit(1);
+
+	return row?.confirmedAt
+		? { confirmedAt: row.confirmedAt, sessionName: row.sessionName }
+		: undefined;
+}
