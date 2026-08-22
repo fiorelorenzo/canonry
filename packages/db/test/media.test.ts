@@ -6,9 +6,12 @@
  * "never delete anything".
  *
  * `scene` carries no seed data (migration 0011 only seeds `portrait`/`variants`) and no
- * other test file in this package drives it, so this file owns it outright with no
- * cross-file locking needed - unlike packages/media's own image_model_config tests,
- * which share `portrait`/`variants` across two files and take an advisory lock for it.
+ * other test file in this package drives that feature, so this describe block never
+ * collides with pricing-corrections.test.ts's reads of `portrait`/`variants` on the rows
+ * themselves. It still takes `lockImageModelConfigForFile` (#341) because the lock is
+ * scoped to the whole table, not a feature, and every file that touches
+ * `image_model_config` takes it - see that helper's own doc comment in test/helpers.ts for
+ * why, and for what a new file touching this table has to do.
  */
 import { randomUUID } from 'node:crypto';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -30,7 +33,14 @@ import {
 import { entity } from '../src/schema/entity.js';
 import { imageModelConfig, imageStyle } from '../src/schema/media.js';
 import { universe } from '../src/schema/universe.js';
-import { insertHomebrewUniverse, testDb, unique } from './helpers.js';
+import {
+	insertHomebrewUniverse,
+	lockableTestDb,
+	lockImageModelConfigForFile,
+	testDb,
+	unique,
+	unlockImageModelConfigForFile
+} from './helpers.js';
 
 const FEATURE = 'scene' as const;
 const IMAGE_PRICE_PARAM_KEYS = ['pricePerImage', 'currency'] as const;
@@ -38,11 +48,13 @@ const IMAGE_PRICE_PARAM_KEYS = ['pricePerImage', 'currency'] as const;
 describe('upsertImageModel (queries/media.ts, issue #235)', () => {
 	let db: Db;
 
-	beforeAll(() => {
-		db = testDb();
+	beforeAll(async () => {
+		db = lockableTestDb();
+		await lockImageModelConfigForFile(db);
 	});
 
 	afterAll(async () => {
+		await unlockImageModelConfigForFile(db);
 		await closeDb(db);
 	});
 
