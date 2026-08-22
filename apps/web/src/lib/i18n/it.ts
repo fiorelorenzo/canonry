@@ -933,7 +933,7 @@ export const it: Messages = {
 
 		queue: {
 			empty: "Non c'è più nulla da revisionare.",
-			filterShown: (typeLabel) => `(${typeLabel} mostrati)`,
+			filterShown: (typeLabel) => `(solo ${typeLabel})`,
 			acceptedSuffix: (count) =>
 				pluralRules('it').select(count) === 'one' ? ' accettata' : ' accettate',
 			rejectedSuffix: (count) =>
