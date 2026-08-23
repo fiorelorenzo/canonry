@@ -442,8 +442,12 @@ above is that path being exercised rather than anything about the model.
 
 **Replicate throttles hard below $5 of credit.** 6 predictions a minute with a burst of 1,
 which the bench paces around at one submission every 11 seconds. A GM clicking Generate twice
-inside ten seconds would meet the same 429 as a failed generation, and the product does not
-retry it. Not fixed here.
+inside ten seconds meets the same 429 as a failed generation, which is why #334 captured that
+response and taught `submitPrediction` (`packages/ai/src/replicate.ts`) to retry it in place:
+it honours Replicate's own `Retry-After` header, falls back to the body's own `retry_after`
+field, and gives up as `ReplicateThrottledError` after 30 seconds of waiting or 6 attempts,
+whichever comes first. The retry runs inside `withQuota`'s callback, so a submission that
+gets through on its third try is still one `model_call` row and one charge.
 
 ### What this measures and what it does not
 
@@ -474,22 +478,32 @@ carries each model's own `aspect_ratio` enum, read from its Replicate schema, an
 save and the submission refuse a value the target model does not list rather than letting
 Replicate fall back to its default, which is the failure this issue is.
 
-| feature | model | shape | why |
+| feature | row's shape | model | why |
 | --- | --- | --- | --- |
-| `portrait` | prunaai/p-image | `3:2` | the shape the cover band crops a character and an item to (`COVER_RATIO`, #284) |
-| `variants` | black-forest-labs/flux-schnell | `3:2` | four alternates of what `portrait` produces, so it has to match |
-| `scene` | bytedance/seedream-4 | `16:9` | measured: every arm of the #258 sweep rendered at 16:9 |
+| `portrait` | `3:2` | prunaai/p-image | the shape #332 chose to follow the cover band, since superseded per entity type (below) |
+| `variants` | `3:2` | black-forest-labs/flux-schnell | four alternates of what `portrait` produces, so it has to match |
+| `scene` | `16:9` | bytedance/seedream-4 | measured: every arm of the #258 sweep rendered at 16:9 |
 
-**`portrait`'s 3:2 is a decision and not a measurement, unlike everything else in this file.**
-It follows the display: `COVER_RATIO` puts a character and an item at 3/2, a faction at 16/9
-and a place, an event and a session at 21/9, so a 3:2 source is exact for the two types whose
-picture is a subject and a top-and-bottom crop for the wider four, which is what
-`COVER_POSITION` was written for. 16:9 was the opposite, wider than every band but a place's,
-so a character's cover lost 14 per cent of its width at the sides and `COVER_POSITION`'s
-`center top` for a character could not do anything at all. The tighter shapes #332 floats,
-3:4 and 1:1, are a composition question rather than a cropping one and want the judged sweep
-that issue describes: at 3:4 a place's 21/9 band keeps 32 per cent of the height, so that
-trade needs a number behind it. That sweep is still owed.
+**The row is no longer what a cover is generated at, and this is the one claim in this file
+that a later decision moved.** Round twelve's Q5 (#366) added a per-request `aspectRatio` to
+`generateImages`, because a cover's shape is a property of its subject rather than of the
+feature: `packages/media/src/generate.ts` takes the request's value over the row's, and
+`/w/[universe]/e/[slug]/media/generate` passes `COVER_ASPECT_RATIO[entityType]` for
+`portrait` and `variants` and nothing at all for `scene`. So the row's `3:2` is the default
+for a caller with no entity type to speak for, which is the bench, and what a GM's cover is
+actually asked for is the table in `apps/web/src/lib/components/media/cover-crop.ts`: `3:4`
+for a character and an item, `4:3` for a faction, `16:9` for a place, an event and a session.
+
+**That also settled #332's open question, by a different route than the sweep it asked
+for.** This section used to say that `portrait`'s 3:2 followed `COVER_RATIO`'s 3/2 for a
+character, and that the tighter 3:4 and 1:1 wanted a judged sweep before anybody shipped
+them. Neither half survived. #284's own numbers were wrong, since a `3 / 2` character is a
+landscape and no entity type was portrait at all; Q5 re-derived the whole table from the
+constraint that the shape a cover is generated at and the shape it is displayed at must not
+differ; and 21:9 left the product entirely, because `prunaai/p-image`'s enum has no such
+value and a band nothing can generate is a band that is always a crop of something else. A
+judged sweep of 3:4 against 1:1 for a character is still owed, but it is now a question
+about a shape that ships rather than about one that might.
 
 ## What a throttled ElevenLabs sound generation looks like (issue #337)
 
@@ -567,6 +581,19 @@ hold at most three of the four slots. A 429 in production means something else w
 the account at the same time, and the candidates are the preview and prod stacks sharing
 one ElevenLabs account, a bench run, and the ElevenLabs dashboard. That is exactly the case
 a retry is for, and it is also why the retry is short.
+
+**The 3 stays, and #594 is where that was decided rather than left alone.** The reasoning
+is on `DEFAULT_PROVIDER_CONCURRENCY`'s own comment, and it is three things. A semaphore set
+to the exact ceiling stops being a semaphore, since the first extra call is then a 429 and
+the retry above becomes the normal path instead of the exceptional one. The ceiling is per
+subscription and `preview` and `prod` carry the same `ELEVENLABS_API_KEY` value on prodbox,
+so 4 is the total for both stacks together and the fourth slot is the other stack's floor:
+one in-flight generation, which is all a sequential layer render ever needs. And the 4 is an
+observation about a `payg` account rather than a published number, so a limit equal to it
+would break silently on a plan change while a limit under it degrades to queueing. Whether
+the two stacks should share an account at all is a spend question, and 4 becomes safe the
+day they stop: `MEDIA_CONCURRENCY_ELEVENLABS=4` in that stack's secrets, with no code
+change, which is what #70 built the override for.
 
 **Three things this response does not carry, and the retry is written around their
 absence.** There is no `Retry-After` header. There is no `retry_after` field, or any other

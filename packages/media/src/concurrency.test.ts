@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ProviderLimiter, Semaphore, readProviderConcurrencyConfig } from './concurrency.js';
+import {
+	ELEVENLABS_MEASURED_CONCURRENCY_CEILING,
+	ProviderLimiter,
+	Semaphore,
+	readProviderConcurrencyConfig
+} from './concurrency.js';
 
 /** A promise this test controls the resolution of, standing in for "the provider call is
  * still in flight" without any real wall-clock wait. */
@@ -137,5 +142,35 @@ describe('ProviderLimiter', () => {
 		} as NodeJS.ProcessEnv);
 		expect(config.replicate).toBe(4);
 		expect(config.elevenlabs).toBe(3);
+	});
+});
+
+describe('the default ElevenLabs limit against the measured ceiling (#594)', () => {
+	it('leaves a slot on the account when this process is at its own limit', async () => {
+		// The ceiling is per ElevenLabs subscription, and preview and prod share one, so a
+		// process saturating its own semaphore must still not be holding every slot the
+		// account has: the one it leaves is what the other stack generates in, and what
+		// keeps ElevenLabsThrottledError's retry an exceptional path rather than the normal
+		// one. Driven through the real semaphore rather than compared to a literal, so it
+		// is the gating that is asserted: raise the default to the ceiling and the fourth
+		// call below starts, which is the failure.
+		const limiter = new ProviderLimiter(readProviderConcurrencyConfig({} as NodeJS.ProcessEnv));
+		const gates = Array.from({ length: ELEVENLABS_MEASURED_CONCURRENCY_CEILING }, () => gate());
+		let inFlight = 0;
+
+		const calls = gates.map((g) =>
+			limiter.run('elevenlabs', async () => {
+				inFlight++;
+				await g.promise;
+				inFlight--;
+			})
+		);
+
+		await flush();
+		expect(inFlight).toBeLessThan(ELEVENLABS_MEASURED_CONCURRENCY_CEILING);
+
+		for (const g of gates) g.resolve();
+		await Promise.all(calls);
+		expect(inFlight).toBe(0);
 	});
 });
