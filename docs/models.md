@@ -148,6 +148,28 @@ worth having, that is not a close call. If the audit is ever switched off,
 half times more, and is twice as slow. Nothing about the previous choice was wrong except
 that nobody had measured it.
 
+**The `extract` column covers seven documents and none of them is a OneNote page**, which
+issue #329 found while re-scoring extraction after a change to `onenote.md`. The reason is
+dated rather than deliberate: `KNOWN_PLAYBOOK_IDS` carried no `onenote` entry when this task
+was written, so an export fell through to the generic path, which enumerates only `.md` and
+`.txt`, and imported nothing. #162 fixed that months before this table was measured and the
+task's own comment kept saying otherwise. So 0.839 above is a seven-case number, and nothing
+in it moves when a OneNote prompt changes.
+
+`packages/bench` now carries two `onenote` cases, both subpages, whose only expected relation
+is the parent/subpage one that the export's folder tree implies rather than its prose. On
+2026-08-23, `google/gemini-3.1-flash-lite` against the shipped prompt, three runs of each:
+**0.625 to 0.767, and the folder-tree relation found in 5 of 6 runs.** They are not folded
+into the table above, because that would silently redefine a column other rows were measured
+on; the next full `--purpose cheap` sweep will include them and can restate it.
+
+Two things to read them with. A perfect run cannot score 1.0: the playbook requires proposing
+a minimal entity for the parent page and for every page this one links to, and the corpus gold
+for a document names only the entities that document is about, so those legitimate proposals
+count against precision. And the one run that missed the relation is the same run that
+finished in 8 steps rather than 12: on this loop the failure mode is stopping early, not
+reading the tree wrongly.
+
 ## `multimodal`: google/gemini-3.1-flash-lite
 
 No row existed. The corpus's PDF carries three pages with no text layer at all, verified

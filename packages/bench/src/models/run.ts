@@ -28,6 +28,7 @@ interface Args {
 	purposes: BenchPurpose[];
 	only: string[];
 	tasks: string[];
+	cases: string[];
 	refreshCatalogue: boolean;
 }
 
@@ -37,6 +38,7 @@ function parseArgs(argv: string[]): Args {
 		purposes: [],
 		only: [],
 		tasks: [],
+		cases: [],
 		refreshCatalogue: false
 	};
 	for (let i = 0; i < argv.length; i++) {
@@ -47,6 +49,7 @@ function parseArgs(argv: string[]): Args {
 		else if (flag === '--purpose') args.purposes.push(argv[++i] as BenchPurpose);
 		else if (flag === '--only') args.only.push(argv[++i]!);
 		else if (flag === '--task') args.tasks.push(argv[++i]!);
+		else if (flag === '--case') args.cases.push(argv[++i]!);
 		else throw new Error(`unknown flag ${flag}`);
 	}
 	if (args.purposes.length === 0 && !args.preflight) {
@@ -103,6 +106,17 @@ async function main(): Promise<void> {
 			const all = tasksFor(purpose);
 			const tasks: BenchTask[] =
 				args.tasks.length === 0 ? all : all.filter((t) => args.tasks.includes(t.id));
+			if (args.cases.length > 0) {
+				// A typo in a case id would otherwise run zero cases and report a candidate with
+				// no tasks, which reads like a model that answered nothing.
+				const known = new Set((await Promise.all(tasks.map((t) => t.caseIds()))).flat());
+				const unknown = args.cases.filter((id) => !known.has(id));
+				if (unknown.length > 0) {
+					throw new Error(
+						`no such case for purpose ${purpose}: ${unknown.join(', ')}. Known: ${[...known].join(', ')}`
+					);
+				}
+			}
 			const candidates = CANDIDATES[purpose].filter(
 				(c) => args.only.length === 0 || args.only.includes(c.slug)
 			);
@@ -123,6 +137,7 @@ async function main(): Promise<void> {
 					purpose,
 					candidate,
 					tasks,
+					cases: args.cases,
 					onCase: (taskId, outcome) => {
 						const mark = outcome.ok ? outcome.score.toFixed(2) : 'FAIL';
 						process.stdout.write(`  ${taskId.padEnd(10)} ${outcome.caseId.padEnd(34)} ${mark}\n`);

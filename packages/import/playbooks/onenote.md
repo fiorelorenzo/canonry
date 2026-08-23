@@ -5,6 +5,18 @@ name: OneNote page export
 description: Imports one page from a folder tree of exported OneNote pages, trusting the folder hierarchy for parent/subpage relations.
 modelPurpose: cheap
 stepBudget: 60
+# The two paragraphs below the opening block explain what this playbook targets and why the
+# binary .onepkg/.one format is deferred. They change no tool call, and they are re-sent to
+# the model on every step of every document, so issue #329 cut them to one sentence and
+# measured what that saved: 578 tokens off a 2,928-token system prompt, and 5 to 11 per cent
+# MORE money per model call, because the shorter prefix stops earning Google's implicit
+# prompt cache. The trim was reverted on that measurement (docs/loop-cost.md, "What #329
+# measured"); these paragraphs are load-bearing for cost even though they are not
+# load-bearing for behaviour, which is not an argument for adding more of them.
+# Provenance a maintainer might come here for (how the folder tree is produced, why the
+# binary format waits): docs/onenote-export.md, plus SPEC.md §6.6 and §6.10.
+# Frontmatter comments are stripped before the body becomes the system prompt, so this
+# block is free at run time. A maintainer reads it; the model never sees it.
 ---
 
 # Canonry - OneNote Import Playbook
