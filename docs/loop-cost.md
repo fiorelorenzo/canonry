@@ -620,6 +620,173 @@ Total spend for this measurement: **107.3983 credits, EUR 1.07** at the 100-cred
 rate in `packages/ai/src/usage.ts`, over the three jobs above. No run was repeated for a
 nicer number.
 
+## What #606 measured: the other six playbooks, against our own corpus
+
+The section above measured `onenote` and left the other six as that number times their own
+playbook's `stepBudget` over onenote's 60. That formula is what this section refutes, so the
+order matters: the numbers came first and the conclusion about the formula came out of them.
+
+Twelve imports, 2026-08-23, driven through the product's own upload path (`POST` to
+`/onboarding/import`'s `upload`, `confirm` and `start` actions, so detection, enumeration, the
+estimate, admission and `startImportRun` all ran the way a GM's click runs them), one fresh
+empty universe per job, `google/gemini-3.1-flash-lite` on `cheap` with
+`pricePerCachedInputMTok` present, which is the same model and the same arithmetic #330 used.
+Every figure is read off `import_job`:
+
+```sql
+SELECT playbook, count(*) AS jobs, sum(document_count) AS docs,
+       round(sum(spent_credits), 4) AS credits,
+       round(sum(spent_credits) / sum(document_count), 4) AS credits_per_doc,
+       round(sum(extract(epoch FROM (finished_at - started_at))::numeric)
+             / sum(document_count), 1) AS seconds_per_doc
+FROM import_job GROUP BY playbook ORDER BY playbook;
+```
+
+| playbook    | jobs | docs | credits | per document | seconds per doc | was (inferred) |
+| ----------- | ---- | ---- | ------- | ------------ | --------------- | -------------- |
+| obsidian    | 1    | 35   | 30.3658 | **0.8676**   | 23.3            | 1.1492         |
+| world-anvil | 1    | 32   | 23.8399 | **0.7450**   | 12.6            | 0.9577         |
+| kanka       | 1    | 7    | 6.7393  | **0.9628**   | 17.6            | 0.9577         |
+| docx        | 4    | 4    | 3.0197  | **0.7549**   | 12.5            | 0.7661         |
+| pdf         | 2    | 2    | 1.9397  | **0.9699**   | 25.3            | 0.7661         |
+| generic     | 3    | 12   | 9.6364  | **0.8030**   | 15.5            | 0.7661         |
+
+**Every input is our own corpus, and that is the honest caveat on all six.** `pnpm --filter
+@canonry/bench corpus` renders one sample world (`packages/bench/src/corpus/valdoria-reach.ts`,
+`v1` = 32 entities and 28 relations) into each format, so these are six readings of one world rather than six
+worlds, where onenote's row is 93 documents of somebody's real 70-page campaign notebook. A
+real GM export with ten times the entries and a decade of cross-references may well cost more
+per document, and none of these six should be read as saying it will not. What they do say is
+that a measured figure from our own fixtures is much better evidence than a figure scaled off
+a different playbook, which is what they replace.
+
+Which archive is behind each row, since "the corpus" is not specific enough to re-run:
+
+| playbook    | uploaded                                                                      |
+| ----------- | ----------------------------------------------------------------------------- |
+| obsidian    | `obsidian/v1.zip`, 42 files, 35 documents                                     |
+| world-anvil | `world-anvil/v1.zip`, 70 files, 32 documents                                  |
+| kanka       | `kanka/v1.zip`, 13 files, 7 documents                                         |
+| docx        | `docx/v1/*.docx` and `docx/v2/*.docx`, four single-file uploads of 1 document |
+| pdf         | `pdf/v1/players-handout.pdf` and `pdf/v2/...`, two single-file uploads        |
+| generic     | `generic/v1.zip`, `generic/v2.zip` (5 documents each) and `docx/v1.zip`       |
+
+Two of those rows need their shape explained rather than just named. **A `docx` job is one
+Word file, by construction**: `detectSource` sniffs a _sole_ archive entry, so a zip holding
+two `.docx` files falls through to `generic`, which is what the third generic job is, and the
+only way to reach the `docx` playbook is to upload one document. Four uploads is therefore
+what four `docx` documents costs, and the same is true of `pdf` with two. **And that third
+generic job is pooled in rather than set aside**: it is a real `generic` job over two real
+documents, the pooling is by document, and it is the same arithmetic
+`estimateAveragesForPlaybook` performs on real rows. Its own figure was 0.9944 per document
+against 0.7167 and 0.8129 for the two markdown-and-text exports, so a Word file read as
+generic text costs more than a session note, which is worth knowing on its own.
+
+**Scaling linearly in `stepBudget` does not survive the six.** Group the seven measured rows
+by the step budget they share:
+
+| stepBudget | playbooks                               | spread within the class |
+| ---------- | --------------------------------------- | ----------------------- |
+| 60         | onenote 1.1492, obsidian 0.8676         | 1.32x                   |
+| 50         | world-anvil 0.7450, kanka 0.9628        | 1.29x                   |
+| 40         | docx 0.7549, generic 0.8030, pdf 0.9699 | 1.29x                   |
+
+The class means are 1.0084, 0.8539 and 0.8426, a 1.20x spread, against 1.29x to 1.32x _within_
+each class. So the variable the old formula divided by explains less of the variation than it
+leaves behind. Restrict to one corpus, which is the only comparison that is not confounded by
+which world was imported, and it explains nothing at all: drop onenote and the three class
+means are 0.8676, 0.8539 and 0.8426, flat to within **3 per cent** across step budgets 60, 50
+and 40. The old formula would have predicted a 1.5x spread across those same three classes.
+
+The mechanism is in the jobs rather than in the arithmetic. A step budget is a ceiling, and
+**one job of the twelve reached one**: obsidian settled `stopped_at_ceiling` because 2 of its
+35 documents ran out of steps, and the other 90 documents of this measurement finished with
+steps to spare. For a document that never approaches its ceiling, the ceiling cannot be what
+sets its price. What sets it is how much the document finds, which is #271's finding restated:
+every step resends the accumulated transcript including every proposal already made, so cost
+grows with what a document turns out to contain, and no playbook frontmatter knows that in
+advance. `packages/import/src/estimate.ts` therefore carries seven measured constants and no
+formula, and the fallback for an unknown playbook id is a constant too.
+
+**No measured row carries a margin, and the unmeasured fallback takes the dearest measured
+row.** #606 asked both questions on purpose, because #330 declined to add a margin and the
+consequence was two rows sitting below a document this file had already measured. The answer
+is still no margin, for three reasons that the measurement itself now supports. A per-document
+average is what a consent screen is for, and padding it overstates what the GM will be
+charged, which is its own harm under SPEC.md §15. What protects a job from a low estimate is
+`IMPORT_BUDGET_HEADROOM_MULTIPLIER`, and it has now been watched working twice: #330's notebook
+was quoted 37, budgeted 222 and spent 75.8718, and #606's obsidian vault was quoted 41,
+budgeted 246 and spent 30.3658. And the row a playbook needs is a real job in that playbook,
+which the historical-average path installs the first time one finishes. The one place a margin
+does belong is the case with no measurement at all: `UNMEASURED_PLAYBOOK_ESTIMATE`, reached
+only by a playbook id that has no row, used to fall back to the _cheapest_ inferred figure
+(0.7661) and now takes the dearest measured one (1.1492), because for a playbook nobody has
+ever run there is no evidence it is cheaper than the dearest thing we have run.
+
+**Wall clock is raised where it was measured higher and never lowered.** These twelve jobs ran
+20 documents wide on a box with other agents on it, which is why this document keeps wall clock
+out of its own tables, so a reading is an upper bound rather than a figure. An upper bound is
+evidence for raising a timeout constant and not for lowering one, and raising one is nearly
+free: a slow job spends nothing extra by being slow, and `IMPORT_TIMEOUT_HEADROOM_MULTIPLIER`
+triples it anyway. So obsidian takes 24 seconds (23.3 measured, was 20), pdf 26 (25.3, was
+13.3), kanka 18 (17.6, was 16.7) and generic 16 (15.5, was 13.3), while onenote keeps #330's
+20, world-anvil keeps 17 and docx 14, each of which measured lower than the number it kept.
+
+**The seven-row table, before and after.**
+
+| playbook    | stepBudget | before | after      | seconds        | measured?                  |
+| ----------- | ---------- | ------ | ---------- | -------------- | -------------------------- |
+| onenote     | 60         | 1.1492 | **1.1492** | 20 (unchanged) | yes, #330, a real notebook |
+| obsidian    | 60         | 1.1492 | **0.8676** | 20 -> 24       | yes, #606, our corpus      |
+| world-anvil | 50         | 0.9577 | **0.7450** | 16.7 -> 17     | yes, #606, our corpus      |
+| kanka       | 50         | 0.9577 | **0.9628** | 16.7 -> 18     | yes, #606, our corpus      |
+| docx        | 40         | 0.7661 | **0.7549** | 13.3 -> 14     | yes, #606, our corpus      |
+| pdf         | 40         | 0.7661 | **0.9699** | 13.3 -> 26     | yes, #606, our corpus      |
+| generic     | 40         | 0.7661 | **0.8030** | 13.3 -> 16     | yes, #606, our corpus      |
+
+The two rows #330 flagged as being below a measured document are the interesting ones. `pdf`
+moved up 27 per cent, which is the direction that flag pointed. `kanka` barely moved (0.9577
+to 0.9628), so its flag turns out to have been about the wrong thing: the sweep at the top of
+this document repriced `kanka/characters.json` at roughly 2.8 to 3.8 credits, and a whole
+kanka job still averages 0.9628 per document, which is the distinction between the cost of a
+job's most expensive document and the cost of its average one. `obsidian` and `world-anvil`
+both moved _down_, by a quarter, which no amount of reasoning about link-following predicted.
+
+**What the confirm screen now says, from a database with no import history.** The same
+`upload` and `confirm` actions, against a freshly migrated database so the cold-start branch is
+the one that answers, one upload per playbook:
+
+| playbook    | docs | quoted before | quoted now | what those documents actually spent |
+| ----------- | ---- | ------------- | ---------- | ----------------------------------- |
+| obsidian    | 35   | 41            | **31**     | 30.3658                             |
+| world-anvil | 32   | 31            | **24**     | 23.8399                             |
+| kanka       | 7    | 7             | **7**      | 6.7393                              |
+| docx        | 1    | 1             | **1**      | 0.4834                              |
+| pdf         | 1    | 1             | **1**      | 0.9347                              |
+| generic     | 5    | 4             | **5**      | 3.5833                              |
+
+Every quote covers what the job then spent, which is the invariant `estimate.test.ts` now pins
+for all seven rows rather than pinning the formula. The single-document rows quote 1 either
+way, so `pdf`'s and `docx`'s new figures only change the arithmetic for a batch: twenty PDFs
+used to quote 16 and now quote 20, against a measured 19.4.
+
+**The historical-average path fires here too, and there is one case where it does not.** The
+second generic upload was quoted 5 credits for five documents off the previous generic job's
+real 0.9944 rather than off any cold-start row, so #330's finding repeats: a wrong constant
+misprices exactly one job per playbook per deployment, which is the frame this whole table
+should be read in and the reason not to buy another decimal place. The exception is the
+obsidian job. `estimateAveragesForPlaybook` filters `status = 'finished'`, and that job settled
+`stopped_at_ceiling` because two of its documents hit their step ceiling, so it installs no
+history at all and the next obsidian import on that deployment would be quoted off the
+constant again. A playbook whose jobs keep stopping at a step ceiling never leaves its
+cold-start row, and the jobs being excluded are the expensive ones, so what history the
+estimate does learn is biased cheap. Issue #610 carries that.
+
+Total spend for this measurement: **75.5408 credits, EUR 0.76** at the 100-credits-per-euro
+rate in `packages/ai/src/usage.ts`, over the twelve jobs above, 92 documents for a pooled
+0.8211 per document. No run was repeated for a nicer number, and the obsidian run in
+particular was left as the ceiling-stopped job it is.
+
 ## Re-running this
 
 ```bash
@@ -633,6 +800,18 @@ Needs `AI_GATEWAY_API_KEY` and a `DATABASE_URL` whose name ends in `_bench` or `
 same refusal every runner in that package makes. Writes `.data/loop-cost.json`, which holds
 every sample, so a different breakdown can be computed from a recorded run without spending
 again, and `.data/loop-cost.md`, which holds the tables above.
+
+**Neither the #330 nor the #606 table came from that harness**, and this is the part a
+maintainer will otherwise reconstruct from scratch. A cold-start row has to be read off a real
+`import_job`, so those runs went through the app: a scratch database, `pnpm --filter
+@canonry/db migrate`, a dev server pointed at it, an account created through
+`POST /api/auth/sign-up/email`, one `INSERT INTO universe`/`universe_member` per job so each
+import lands in a fresh empty world, a wide `user_billing` balance, and then a `POST` to
+`/onboarding/import?/upload`, `?/confirm` and `?/start` carrying the session cookie and an
+`x-sveltekit-action` header, which is the only way to exercise detection, the estimate,
+admission and `startImportRun` as one piece. `?/confirm` spends nothing, so the quote a table
+gives can be re-read at any time without paying for it; `?/start` is the consent click and the
+only thing that costs money.
 
 The instrumentation is `profileStep` and `toolSchemaChars` in
 `packages/import/src/transcript-profile.ts`, reached through an optional `profiler` on

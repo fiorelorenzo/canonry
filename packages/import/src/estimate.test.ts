@@ -13,12 +13,14 @@ import {
 	IMPORT_TIMEOUT_FLOOR_MS,
 	IMPORT_TIMEOUT_HEADROOM_MULTIPLIER,
 	PLAYBOOK_COLD_START_ESTIMATE,
-	timeoutMsForEstimate
+	timeoutMsForEstimate,
+	UNMEASURED_PLAYBOOK_ESTIMATE
 } from './estimate.js';
 import { BUILTIN_PLAYBOOK_IDS } from './playbooks.generated.js';
-import { loadBuiltinPlaybook } from './playbook.js';
 
 describe('PLAYBOOK_COLD_START_ESTIMATE (issue #272): every shipped playbook, not just onenote', () => {
+	const credits = (id: string) => PLAYBOOK_COLD_START_ESTIMATE[id]!.avgCreditsPerDocument;
+
 	it('carries a row for every built-in playbook id', () => {
 		for (const id of BUILTIN_PLAYBOOK_IDS) {
 			expect(PLAYBOOK_COLD_START_ESTIMATE[id], `missing row for "${id}"`).toBeDefined();
@@ -26,10 +28,10 @@ describe('PLAYBOOK_COLD_START_ESTIMATE (issue #272): every shipped playbook, not
 	});
 
 	it('every row is well clear of the old flat guesses (0.2-0.5 credits/document) that produced #261 and #272', () => {
-		// This bound was `> 1` until #330 re-derived the table off two real `.mht` jobs, which
-		// took onenote from 2.816 to 1.1492 and the three stepBudget-40 rows to 0.7661 with it.
+		// This bound was `> 1` until #330 re-derived the table off two real `.mht` jobs, and
+		// #606 then measured the other six, which put the whole table between 0.745 and 1.1492.
 		// The guard it exists to be is against sliding back to the old guesses, so it tracks
-		// the top of that band (0.5) rather than a round number the old calibration happened
+		// the top of that band (0.5) rather than a round number a later calibration happens
 		// to clear.
 		for (const id of BUILTIN_PLAYBOOK_IDS) {
 			expect(
@@ -39,41 +41,87 @@ describe('PLAYBOOK_COLD_START_ESTIMATE (issue #272): every shipped playbook, not
 		}
 	});
 
-	it("every row is exactly onenote's measured figure scaled by that playbook's own stepBudget (issue #330)", async () => {
-		// The invariant #330 asks for: the six inferred rows are calibrated off the one
-		// measured row, and nothing about the table says so at a glance. A row hardcoded to a
-		// number of its own, or a change to onenote's figure that the derived rows did not
-		// follow, fails here rather than shipping a table whose comment lies about its own
-		// provenance. Step budgets come from the real playbook frontmatter, not a copy of it.
-		const onenote = PLAYBOOK_COLD_START_ESTIMATE.onenote!;
-		const onenoteBudget = (await loadBuiltinPlaybook('onenote')).stepBudget;
+	it('every row quotes at or above what the real job behind it actually spent (issue #606)', () => {
+		// The invariant that replaces #330's "every row is onenote scaled by its stepBudget".
+		// Each pair below is a real `import_job` measurement: the documents that were imported
+		// through the product's own upload path and the credits they billed, pooled per
+		// playbook the same way `estimateAveragesForPlaybook` pools real rows. The contract a
+		// cold-start row has is that the number the GM consents to covers the work, so a row
+		// lowered by a later edit fails here rather than shipping a consent screen that
+		// understates. docx passes only because `estimateImportJob` rounds up (4 x 0.7549 is
+		// 3.0196 against 3.0197 spent), which is honest: the screen shows whole credits.
+		const measured: Record<string, { documents: number; spentCredits: number; seconds: number }> = {
+			// #330, two real `.mht` jobs of a real notebook, 479.2s + 952.9s.
+			onenote: { documents: 93, spentCredits: 106.8722, seconds: 1432.1 },
+			// #606, one job per playbook against the bench corpus unless noted.
+			obsidian: { documents: 35, spentCredits: 30.3658, seconds: 814.8 },
+			'world-anvil': { documents: 32, spentCredits: 23.8399, seconds: 402.0 },
+			kanka: { documents: 7, spentCredits: 6.7393, seconds: 123.2 },
+			// four single-file uploads, one document each
+			docx: { documents: 4, spentCredits: 3.0197, seconds: 50.0 },
+			// two single-file uploads
+			pdf: { documents: 2, spentCredits: 1.9397, seconds: 50.5 },
+			// three jobs: two generic exports of 5, plus a zip of two `.docx`
+			generic: { documents: 12, spentCredits: 9.6364, seconds: 186.4 }
+		};
+
 		for (const id of BUILTIN_PLAYBOOK_IDS) {
-			const { stepBudget } = await loadBuiltinPlaybook(id);
-			const row = PLAYBOOK_COLD_START_ESTIMATE[id]!;
-			expect(row.avgCreditsPerDocument, `"${id}" credits`).toBeCloseTo(
-				(onenote.avgCreditsPerDocument * stepBudget) / onenoteBudget,
-				10
+			const job = measured[id];
+			expect(job, `"${id}" has no recorded measurement`).toBeDefined();
+			const { estimate, timeoutMs } = deriveJobBudget(
+				PLAYBOOK_COLD_START_ESTIMATE[id]!,
+				job!.documents
 			);
-			expect(row.avgSecondsPerDocument, `"${id}" seconds`).toBeCloseTo(
-				(onenote.avgSecondsPerDocument * stepBudget) / onenoteBudget,
-				10
-			);
+			expect(estimate.estimatedCredits, `"${id}" quote`).toBeGreaterThanOrEqual(job!.spentCredits);
+			// And the wall clock it derives covers the run it came from, which is the failure
+			// `timeoutMsForEstimate` exists for: a job killed one minute after its own estimate.
+			expect(timeoutMs, `"${id}" timeout`).toBeGreaterThan(job!.seconds * 1000);
 		}
 	});
 
-	it("obsidian lands on exactly onenote's measured number - same stepBudget, same mandatory link-following shape (#272's own \"off by roughly the factor onenote's was\")", () => {
-		expect(PLAYBOOK_COLD_START_ESTIMATE.obsidian).toEqual(PLAYBOOK_COLD_START_ESTIMATE.onenote);
+	it('no row is another row scaled by its stepBudget any more, so playbooks sharing a budget differ (issue #606)', () => {
+		// This is the regression guard on #606's own finding. Until #606 the six unmeasured
+		// rows were onenote's figure times their own `stepBudget` over 60, so obsidian equalled
+		// onenote exactly and the other pairs collapsed onto two values. Six real measurements
+		// say a step budget predicts almost nothing: obsidian and onenote share 60 and differ
+		// by 1.32x, world-anvil and kanka share 50 and differ by 1.29x, and among the three
+		// that share 40 the spread is 1.29x. Reinstating any formula makes these equal again.
+
+		expect(credits('obsidian')).not.toBe(credits('onenote'));
+		expect(credits('world-anvil')).not.toBe(credits('kanka'));
+		expect(credits('docx')).not.toBe(credits('pdf'));
+		expect(credits('docx')).not.toBe(credits('generic'));
 	});
 
-	it('a lower-stepBudget playbook (docx/pdf/generic, 40) is cheaper than a higher-stepBudget one (onenote/obsidian, 60), not equal or inverted', () => {
-		expect(PLAYBOOK_COLD_START_ESTIMATE.docx!.avgCreditsPerDocument).toBeLessThan(
-			PLAYBOOK_COLD_START_ESTIMATE.onenote!.avgCreditsPerDocument
-		);
-		expect(PLAYBOOK_COLD_START_ESTIMATE.docx).toEqual(PLAYBOOK_COLD_START_ESTIMATE.pdf);
-		expect(PLAYBOOK_COLD_START_ESTIMATE.docx).toEqual(PLAYBOOK_COLD_START_ESTIMATE.generic);
+	it('a lower stepBudget is not a cheaper playbook: pdf (40) costs more per document than obsidian (60)', () => {
+		// The measured inversion, kept as a test because it is the whole reason the formula
+		// went. pdf was the row the old scaling put furthest out, inferred at 0.7661 against a
+		// measured 0.9699, and obsidian was inferred at 1.1492 against a measured 0.8676. A
+		// single PDF is one big document that the loop reads in full; an Obsidian note is small
+		// and most of them find little to propose.
+		expect(credits('pdf')).toBeGreaterThan(credits('obsidian'));
 	});
 
-	it('the seven constants sit much closer together than the old table (0.2-0.5, a 2.5x spread) despite still varying by stepBudget', () => {
+	it('the unmeasured-playbook fallback is at least as expensive as every measured row (issue #606)', () => {
+		// #272's rule made checkable: for a playbook nobody has run there is no evidence it is
+		// cheaper than the dearest one we have measured, and guessing low costs a job that
+		// cannot finish. Before #606 this fallback was the cheapest inferred row.
+		for (const id of BUILTIN_PLAYBOOK_IDS) {
+			const row = PLAYBOOK_COLD_START_ESTIMATE[id]!;
+			expect(
+				UNMEASURED_PLAYBOOK_ESTIMATE.avgCreditsPerDocument,
+				`cheaper than "${id}"`
+			).toBeGreaterThanOrEqual(row.avgCreditsPerDocument);
+			expect(
+				UNMEASURED_PLAYBOOK_ESTIMATE.avgSecondsPerDocument,
+				`faster than "${id}"`
+			).toBeGreaterThanOrEqual(row.avgSecondsPerDocument);
+		}
+	});
+
+	it('the seven constants sit much closer together than the old table (0.2-0.5, a 2.5x spread)', () => {
+		// 0.745 (world-anvil) to 1.1492 (onenote) after #606, a 1.54x spread across seven
+		// measurements of six different formats, against the 2.5x spread of the guesses.
 		const values = BUILTIN_PLAYBOOK_IDS.map(
 			(id) => PLAYBOOK_COLD_START_ESTIMATE[id]!.avgCreditsPerDocument
 		);
@@ -113,11 +161,15 @@ describe('deriveJobBudget / budgetCreditsForEstimate (issue #261 item 3, #272)',
 		expect(budgetCredits).toBe(486);
 	});
 
-	it("a 35-document obsidian-shaped job (issue #272's own question) quotes 41 credits / 12 minutes and budgets 246", () => {
+	it("the real 35-document obsidian vault (issue #272's own question, measured in #606) quotes 31 credits / 14 minutes and budgets 186", () => {
+		// This was 41 / 12 / 246 while obsidian carried onenote's number. #606 imported the
+		// corpus's own 35-document vault and it billed 30.3658, so the quote covers it by 0.63
+		// of a credit and the budget by six times that.
 		const { estimate, budgetCredits } = deriveJobBudget(PLAYBOOK_COLD_START_ESTIMATE.obsidian!, 35);
-		expect(estimate.estimatedCredits).toBe(41);
-		expect(estimate.estimatedMinutes).toBe(12);
-		expect(budgetCredits).toBe(246);
+		expect(estimate.estimatedCredits).toBe(31);
+		expect(estimate.estimatedCredits).toBeGreaterThan(30.3658);
+		expect(estimate.estimatedMinutes).toBe(14);
+		expect(budgetCredits).toBe(186);
 	});
 
 	it('budgetCreditsForEstimate always derives from the estimate - never a free-floating number a caller could substitute', () => {
@@ -148,8 +200,10 @@ describe('timeoutMsForEstimate: the wall clock a job is allowed, derived not fix
 
 	it('scales with the estimate for a large job rather than staying flat', () => {
 		const { estimate, timeoutMs } = deriveJobBudget(PLAYBOOK_COLD_START_ESTIMATE.obsidian!, 35);
-		expect(estimate.estimatedMinutes).toBe(12);
-		expect(timeoutMs).toBe(36 * 60_000);
+		expect(estimate.estimatedMinutes).toBe(14);
+		// 42 minutes against the 814.8 seconds #606's own 35-document vault took, which is the
+		// margin the 3x multiplier is for: that run was 20 documents wide on a loaded box.
+		expect(timeoutMs).toBe(42 * 60_000);
 	});
 
 	it('always derives from the estimate, so no caller can substitute a flat number', () => {
