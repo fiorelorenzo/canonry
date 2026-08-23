@@ -277,8 +277,16 @@ interface DocumentBuffer {
 	relations: RelationProposalPayload[];
 }
 
+/** What a checkpoint entry can say about one document. `skipped_unchanged` is not a
+ * `DocumentStatus`, deliberately: no driver ever emits it, because it is this runner's own
+ * record that it never handed the document to a driver at all. It used to be written as
+ * `finished`, which made a skipped document indistinguishable from one that ran and let a
+ * partial re-import divide its real spend by all its documents (issue #620). Both are
+ * terminal for a resume: neither is re-run when `run` is called again on the same job. */
+type CheckpointDocumentStatus = DocumentStatus | 'skipped_unchanged';
+
 interface CheckpointShape {
-	documents: Record<string, { status: DocumentStatus }>;
+	documents: Record<string, { status: CheckpointDocumentStatus }>;
 }
 
 function readCheckpoint(value: unknown): CheckpointShape {
@@ -286,7 +294,7 @@ function readCheckpoint(value: unknown): CheckpointShape {
 	const record = value as Record<string, unknown>;
 	const documents = record.documents;
 	if (typeof documents !== 'object' || documents === null) return { documents: {} };
-	return { documents: documents as Record<string, { status: DocumentStatus }> };
+	return { documents: documents as Record<string, { status: CheckpointDocumentStatus }> };
 }
 
 async function hashOf(sources: SourceReader, path: string): Promise<string> {
@@ -541,8 +549,9 @@ export class ImportJobRunner {
 
 	/** Runs (or resumes) one import job to completion. Safe to call again with the same
 	 * `dbJobId` after a crash or a cancel: documents the checkpoint already marks
-	 * `finished` are skipped, and a document whose content is unchanged since the last
-	 * import of the same source ref is skipped before the driver ever sees it. */
+	 * `finished` or `skipped_unchanged` are skipped, and a document whose content is
+	 * unchanged since the last import of the same source ref is skipped before the driver
+	 * ever sees it. */
 	async run(params: RunImportJobParams): Promise<RunImportJobResult> {
 		const { db } = params;
 		const jobRow = await getImportJob(db, params.dbJobId);
@@ -552,7 +561,8 @@ export class ImportJobRunner {
 		const documentsToRun: JobDocument[] = [];
 		const contentHashByDocument = new Map<string, string>();
 		for (const doc of params.documents) {
-			if (checkpoint.documents[doc.id]?.status === 'finished') continue;
+			const recorded = checkpoint.documents[doc.id]?.status;
+			if (recorded === 'finished' || recorded === 'skipped_unchanged') continue;
 
 			const contentHash = await hashOf(params.sources, doc.sourcePath);
 			contentHashByDocument.set(doc.id, contentHash);
@@ -574,7 +584,9 @@ export class ImportJobRunner {
 					lostToolCallCount: 0,
 					detail: 'unchanged since the last import'
 				});
-				checkpoint.documents[doc.id] = { status: 'finished' };
+				// Not `finished`: this document cost nothing, and `estimate.ts` divides a
+				// job's real spend by the documents that did cost something (issue #620).
+				checkpoint.documents[doc.id] = { status: 'skipped_unchanged' };
 				continue;
 			}
 			documentsToRun.push(doc);

@@ -15,8 +15,15 @@
  */
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { closeDb, getImportJob, type Db } from '@canonry/db';
-import { importJob, operationPrice, universe, user } from '@canonry/db/schema';
+import { closeDb, eq, getImportJob, type Db } from '@canonry/db';
+import {
+	importJob,
+	operationPrice,
+	proposal,
+	proposalPlan,
+	universe,
+	user
+} from '@canonry/db/schema';
 import type { LanguageModel } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
 import {
@@ -25,6 +32,7 @@ import {
 	type PlaybookEstimateBasis
 } from './estimate.js';
 import {
+	acceptImportProposal,
 	admitAndCreateImportJob,
 	estimateImportJob,
 	ImportJobRunner,
@@ -88,6 +96,10 @@ async function insertJob(input: {
 	/** Per-document terminal statuses, in order. Fewer entries than `documentCount` is the
 	 * shape a job-wide credit ceiling leaves: the rest never started. */
 	ran?: ('finished' | 'stopped_at_ceiling' | 'cancelled' | 'failed')[];
+	/** Documents this job skipped because they were unchanged since the last import
+	 * (issue #620). Checkpointed `skipped_unchanged`, which is terminal for the runner and
+	 * not evidence about what a document costs. */
+	skipped?: number;
 	/** Wall clock the job took, or `null` for a row that never recorded one (a job still
 	 * running, or one whose settle never landed). */
 	seconds: number | null;
@@ -97,6 +109,9 @@ async function insertJob(input: {
 	ran.forEach((status, index) => {
 		documents[`doc-${index}`] = { status };
 	});
+	for (let index = 0; index < (input.skipped ?? 0); index++) {
+		documents[`skipped-${index}`] = { status: 'skipped_unchanged' };
+	}
 	const start = new Date('2026-08-23T10:00:00.000Z');
 	const startedAt = input.seconds === null ? null : start;
 	const finishedAt =
@@ -648,5 +663,270 @@ One document.
 		expect(averages.avgCreditsPerDocument).toBeCloseTo(4, 10);
 		expect(before.estimatedCredits).toBe(3);
 		expect(after.estimatedCredits).toBe(8);
+	});
+});
+
+// ---------------------------------------------------------------------------------------
+// Issue #620: a document skipped as unchanged is not a document the job's spend divides by.
+// ---------------------------------------------------------------------------------------
+
+describe('estimateAveragesForPlaybook: a partial re-import (issue #620)', () => {
+	it('pools a real job and a partial re-import without the average falling', async () => {
+		const playbook = playbookId();
+		// The first import of a forty-document export, in the small: ten documents ran and
+		// the job billed 20 credits, so a document of this playbook costs 2.
+		await insertJob({
+			playbook,
+			status: 'finished',
+			documentCount: 10,
+			spentCredits: 20,
+			ran: ranAll(10),
+			seconds: 100
+		});
+		// The normal shape of a second import: the GM changed three pages and imported
+		// again. Three documents ran and cost 6, seven were skipped as unchanged and cost
+		// nothing. Dividing 26 credits by 20 documents reads 1.3, which is the direction
+		// `estimate.ts` says not to err in; dividing by the 13 that cost something reads 2.
+		await insertJob({
+			playbook,
+			status: 'finished',
+			documentCount: 10,
+			spentCredits: 6,
+			ran: ranAll(3),
+			skipped: 7,
+			seconds: 30
+		});
+
+		const averages = await estimateAveragesForPlaybook(db, playbook);
+		expect(averages.basis.source).toBe('history');
+		expect(averages.basis.jobsPooled).toBe(2);
+		expect(averages.basis.documentsPooled).toBe(13);
+		expect(averages.avgCreditsPerDocument).toBeCloseTo(2, 10);
+		// The assertion the issue asks for, stated as the property rather than as the
+		// arithmetic: pooling a re-import that cost nothing per skipped document must never
+		// read cheaper than the job it is pooled with.
+		expect(averages.avgCreditsPerDocument).toBeGreaterThanOrEqual(2);
+	});
+
+	it('subtracts nothing when a checkpoint carries no skipped entry, so #610 rows read as before', async () => {
+		const playbook = playbookId();
+		await insertJob({
+			playbook,
+			status: 'finished',
+			documentCount: 10,
+			spentCredits: 20,
+			ran: ranAll(10),
+			seconds: 100
+		});
+		const averages = await estimateAveragesForPlaybook(db, playbook);
+		expect(averages.basis.documentsPooled).toBe(10);
+		expect(averages.avgCreditsPerDocument).toBeCloseTo(2, 10);
+	});
+
+	it('excludes a re-import that skipped every document, which is #610 zero-spend guard', async () => {
+		const playbook = playbookId();
+		await insertJob({
+			playbook,
+			status: 'finished',
+			documentCount: 10,
+			spentCredits: 0,
+			skipped: 10,
+			seconds: 4
+		});
+		const averages = await estimateAveragesForPlaybook(db, playbook);
+		expect(averages.basis.source).toBe('cold_start');
+		expect(averages.basis.ignored).toEqual([{ reason: 'no_documents_ran', jobs: 1 }]);
+	});
+});
+
+describe('the bug itself: a real partial re-import through the real runner (issue #620)', () => {
+	it('checkpoints the unchanged document as skipped, so the next quote does not read low', async () => {
+		await db
+			.insert(operationPrice)
+			.values({
+				operation: 'import.document',
+				label: 'Import extraction per document',
+				credits: 1,
+				kind: 'import'
+			})
+			.onConflictDoNothing({ target: operationPrice.operation });
+
+		const playbook = loadPlaybook(`---
+id: w620-reimport
+version: 1
+name: Re-import fixture
+description: A four-step playbook, so every document finishes cleanly.
+stepBudget: 4
+---
+
+Read the document, propose what it names, then finish.
+
+## Inputs
+
+One document.
+
+## Tools
+
+- \`entity_propose\` - propose an entity.
+- \`job_finish\` - close the run.
+
+## Steps
+
+1. Propose, then finish.
+
+   \`\`\`json
+   { "outcome": "completed" }
+   \`\`\`
+`);
+		const playbookName = playbookId();
+		const documents = [
+			{ id: 'doc-a', sourcePath: 'notes/a.md' },
+			{ id: 'doc-b', sourcePath: 'notes/b.md' }
+		];
+		const baseParams = {
+			db,
+			universeId,
+			sourceSystem: playbookName,
+			userId,
+			playbook,
+			documents,
+			images: new InMemoryImageStore(),
+			budget: { maxCredits: WIDE_BUDGET_CREDITS },
+			similarity: () => 0,
+			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
+			timeoutMs: 30_000
+		} satisfies Omit<RunImportJobParams, 'dbJobId' | 'driver' | 'sources'>;
+
+		async function admit(sha: string): Promise<string> {
+			const admission = await admitAndCreateImportJob(db, {
+				universeId,
+				createdBy: userId,
+				sourceType: 'obsidian',
+				playbook: playbookName,
+				playbookVersion: playbook.version,
+				artefactPath: 's3://w620/export.zip',
+				artefactBytes: 100,
+				artefactSha256: sha.repeat(64),
+				documentCount: documents.length,
+				budgetCredits: WIDE_BUDGET_CREDITS,
+				estimate: { documentCount: 2, estimatedMinutes: 1, estimatedCredits: 10 },
+				concurrencyLimit: 20
+			});
+			expect(admission.admitted).toBe(true);
+			return admission.jobId;
+		}
+
+		// First import: both documents run, two steps each, 2 credits a step, so 8 credits
+		// over 2 documents. `GatewayDriver.startJob` walks `job.documents` in order, so the
+		// scripted responses line up with the documents.
+		const firstJobId = await admit('d');
+		const firstRun = await new ImportJobRunner().run({
+			...baseParams,
+			dbJobId: firstJobId,
+			driver: new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(
+					new MockLanguageModelV4({
+						provider: 'test',
+						modelId: 'test-cheap',
+						doGenerate: [
+							entityStep('a1', 'ea1', 'Aldric Voss', 'doc-a'),
+							finishStep('a2'),
+							entityStep('b1', 'eb1', 'Sera Voss', 'doc-b'),
+							finishStep('b2')
+						]
+					})
+				)
+			}),
+			sources: new InMemorySourceReader({
+				files: {
+					'notes/a.md': 'Aldric Voss commands the harbour watch.',
+					'notes/b.md': 'Sera Voss keeps the reach.'
+				}
+			})
+		});
+		expect(firstRun.finalStatus).toBe('finished');
+		const firstRow = await getImportJob(db, firstJobId);
+		expect(firstRow.spentCredits).toBeCloseTo(8, 10);
+
+		// The GM reviews the first import and accepts both entries. Nothing exists until a
+		// human accepts (guardrail 1), and `findEntityBySourceRef` only ever matches an
+		// entity that exists, so this is what makes the second import able to skip anything
+		// at all. Each accept carries the content hash the proposal's own evidence recorded.
+		const firstProposals = await db
+			.select({ id: proposal.id, evidence: proposal.evidence, planId: proposal.planId })
+			.from(proposal)
+			.innerJoin(proposalPlan, eq(proposal.planId, proposalPlan.id))
+			.where(eq(proposalPlan.importJobId, firstJobId));
+		expect(firstProposals).toHaveLength(2);
+		for (const row of firstProposals) {
+			const evidence = row.evidence;
+			if (typeof evidence !== 'object' || evidence === null) throw new Error('no evidence');
+			const record: Record<string, unknown> = { ...evidence };
+			const documentId = record.documentId;
+			const contentHash = record.contentHash;
+			if (typeof documentId !== 'string' || typeof contentHash !== 'string') {
+				throw new Error('evidence did not name its document');
+			}
+			await acceptImportProposal(db, {
+				proposalId: row.id,
+				sourceSystem: playbookName,
+				externalId: documentId === 'doc-a' ? 'notes/a.md' : 'notes/b.md',
+				sourceUrl: null,
+				contentHash,
+				importJobId: firstJobId
+			});
+		}
+
+		// Second import: the GM edited one page of two. `notes/a.md` is byte-identical, so
+		// the runner skips it before the driver sees it and the model is only ever asked
+		// about `notes/b.md`.
+		const secondJobId = await admit('e');
+		const secondModel = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			doGenerate: [entityStep('c1', 'ec1', 'Sera Voss the Younger', 'doc-b'), finishStep('c2')]
+		});
+		const secondRun = await new ImportJobRunner().run({
+			...baseParams,
+			dbJobId: secondJobId,
+			driver: new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(secondModel)
+			}),
+			sources: new InMemorySourceReader({
+				files: {
+					'notes/a.md': 'Aldric Voss commands the harbour watch.',
+					'notes/b.md': 'Sera Voss keeps the reach, and her daughter keeps the ledger.'
+				}
+			})
+		});
+		expect(secondRun.finalStatus).toBe('finished');
+		expect(secondRun.documents.map((doc) => doc.status)).toEqual(['skipped_unchanged', 'finished']);
+		expect(secondModel.doGenerateCalls).toHaveLength(2);
+
+		// The checkpoint the real runner really wrote, which is the whole fix: `doc-a` says
+		// it was skipped rather than saying it finished like `doc-b`.
+		const secondRow = await getImportJob(db, secondJobId);
+		expect(secondRow.spentCredits).toBeCloseTo(4, 10);
+		expect(secondRow.checkpoint).toMatchObject({
+			documents: { 'doc-a': { status: 'skipped_unchanged' }, 'doc-b': { status: 'finished' } }
+		});
+
+		// 12 credits over the 3 documents that cost something, not over all 4. Before this
+		// change the pool read 3 per document for work that had just billed 4, and the next
+		// two-document upload of this playbook was quoted 6 rather than 8.
+		const averages = await estimateAveragesForPlaybook(db, playbookName);
+		expect(averages.basis.jobsPooled).toBe(2);
+		expect(averages.basis.documentsPooled).toBe(3);
+		expect(averages.avgCreditsPerDocument).toBeCloseTo(4, 10);
+		expect(
+			estimateImportJob({
+				documentCount: 2,
+				avgCreditsPerDocument: averages.avgCreditsPerDocument,
+				avgSecondsPerDocument: averages.avgSecondsPerDocument
+			}).estimatedCredits
+		).toBe(8);
 	});
 });
