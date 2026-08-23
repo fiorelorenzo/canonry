@@ -1055,7 +1055,10 @@ export const it: Messages = {
 				};
 				return labels[type] ?? type;
 			},
-			rejectReasonLabel: (value) => PROPOSAL_REJECT_REASON_LABELS_IT[value] ?? value
+			rejectReasonLabel: (value) => PROPOSAL_REJECT_REASON_LABELS_IT[value] ?? value,
+			waitingOnEntries: (names) =>
+				`Accetta prima ${names}, poi questo collegamento potrà essere accettato`,
+			supersededEndpoint: 'Scartato: una voce necessaria a questo collegamento è stata rifiutata'
 		},
 
 		filterBuckets: {
@@ -1214,7 +1217,9 @@ export const it: Messages = {
 				proposalNotFound: (proposalId) => `Nessuna proposta "${proposalId}" in questo import.`,
 				missingProposalOrReason: 'ID proposta o motivo mancante.',
 				proposalNotRejected: 'Quella proposta non è stata rifiutata.',
-				missingFilterType: 'Tipo di filtro mancante.'
+				missingFilterType: 'Tipo di filtro mancante.',
+				relationEndpointNotAccepted:
+					"Questo collegamento nomina una voce che l'import sta ancora proponendo. Accetta prima quella voce."
 			}
 		},
 

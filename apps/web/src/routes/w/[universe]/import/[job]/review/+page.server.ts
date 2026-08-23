@@ -34,6 +34,7 @@ import {
 	undoAcceptedProposal,
 	ProposalNotFoundError,
 	ProposalAlreadyDecidedError,
+	RelationEndpointNotAcceptedError,
 	ProposalNotAcceptedError,
 	UndoNotPossibleError,
 	type ProposalCandidate,
@@ -132,6 +133,13 @@ export const actions: Actions = {
 			});
 			return { id: accepted.id };
 		} catch (err) {
+			// Issue #613: a relation whose entry is still only proposed. The card withholds
+			// Accept for exactly this case, so reaching here means a second tab or a stale
+			// page posted it; 409 with the sentence that says what to accept first, rather
+			// than a 500 on a state the queue is allowed to be in.
+			if (err instanceof RelationEndpointNotAcceptedError) {
+				return fail(409, { error: t.relationEndpointNotAccepted });
+			}
 			if (err instanceof ProposalNotFoundError || err instanceof ProposalAlreadyDecidedError) {
 				return fail(409, { error: err.message });
 			}

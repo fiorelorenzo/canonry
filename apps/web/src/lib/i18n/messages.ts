@@ -1253,6 +1253,14 @@ export interface Messages {
 			 * stable English tokens, mapped back to its label, or free text passed through
 			 * unchanged (the GM's own words, already in their language). */
 			rejectReasonLabel: (value: string) => string;
+			/** Issue #613: this relation names an entry the same import is still proposing, so
+			 * it cannot be accepted until that entry is. Names the entries rather than
+			 * counting them: "waiting on 2" tells a GM nothing about what to accept. */
+			waitingOnEntries: (names: string) => string;
+			/** Issue #613: the settled state of a relation whose entry was rejected. Not
+			 * "rejected": the GM decided the entry, not the relation, and the badge has to
+			 * say which of the two happened. */
+			supersededEndpoint: string;
 		};
 		filterBuckets: {
 			all: string;
@@ -1428,6 +1436,10 @@ export interface Messages {
 				missingProposalOrReason: string;
 				proposalNotRejected: string;
 				missingFilterType: string;
+				/** Issue #613: the accept a relation refuses while an entry it names is still
+				 * only proposed. Reachable even though the card withholds Accept for that
+				 * case, because a queue open in a second tab can post one anyway. */
+				relationEndpointNotAccepted: string;
 			};
 		};
 		/** issue #263: `import_job.outcome_note` renders as a stable machine-readable

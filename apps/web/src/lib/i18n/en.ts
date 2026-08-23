@@ -1023,7 +1023,9 @@ export const en: Messages = {
 				};
 				return labels[type] ?? type;
 			},
-			rejectReasonLabel: (value) => PROPOSAL_REJECT_REASON_LABELS_EN[value] ?? value
+			rejectReasonLabel: (value) => PROPOSAL_REJECT_REASON_LABELS_EN[value] ?? value,
+			waitingOnEntries: (names) => `Accept ${names} first, then this link can be accepted`,
+			supersededEndpoint: 'Dropped: an entry this link needs was rejected'
 		},
 
 		filterBuckets: {
@@ -1173,7 +1175,9 @@ export const en: Messages = {
 				proposalNotFound: (proposalId) => `No proposal "${proposalId}" in this job.`,
 				missingProposalOrReason: 'Missing proposal ID or reason.',
 				proposalNotRejected: 'That proposal is not rejected.',
-				missingFilterType: 'Missing filter type.'
+				missingFilterType: 'Missing filter type.',
+				relationEndpointNotAccepted:
+					'This link names an entry the import is still proposing. Accept that entry first.'
 			}
 		},
 
