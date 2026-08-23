@@ -1388,16 +1388,7 @@ export const it: Messages = {
 							'browser. Esporta o stampa lo stesso contenuto in PDF e carica quel file',
 						xps:
 							'un documento XPS, che è lo stesso blocco appunti stampato che sarebbe un PDF e per ' +
-							'cui Canonry non ha un lettore. Stampa o esporta la stessa cosa in PDF e carica quel file',
-						onestore:
-							'uno dei file di sezione binari di OneNote, e Canonry non ha un lettore per questo ' +
-							"formato. Esporta il blocco appunti o la sezione in PDF o DOCX dall'app desktop di " +
-							'OneNote e carica quel file',
-						onepkg:
-							'un pacchetto di OneNote, cioè un archivio cabinet Microsoft che contiene il blocco ' +
-							'appunti in quello stesso formato binario, e Canonry non ha un lettore per questo. ' +
-							"Esporta in PDF o DOCX dall'app desktop di OneNote, oppure esporta l'albero delle " +
-							"pagine come spiega la guida all'import da OneNote"
+							'cui Canonry non ha un lettore. Stampa o esporta la stessa cosa in PDF e carica quel file'
 					}[format];
 					const chiusa = 'Non è partito niente e non hai speso nessun credito.';
 					return `Canonry non riesce a leggere "${path}": è ${cosa}. ${chiusa}`;

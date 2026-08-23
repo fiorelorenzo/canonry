@@ -70,6 +70,13 @@ export interface SourceReader {
 	 * the GM exported at, which is a thing OneNote's own `.mht` genuinely does not carry.
 	 * Optional because the in-memory double has no upload behind it. */
 	readonly oneNoteEnvelopes?: number;
+	/** How many were OneNote's own binary `.one` sections or `.onepkg` notebooks this
+	 * reader expanded into page trees (issue #603). Separate from the count above because
+	 * the two say opposite things about scope, which is the only reason detection cares:
+	 * an expanded `.mht` may be a whole notebook silently missing pages, while a `.onepkg`
+	 * is a whole notebook missing none, measured in `docs/onenote-export.md`. So this one
+	 * raises no scope notice, and that is the point of counting it apart. */
+	readonly oneStoreNotebooks?: number;
 }
 
 export class SourceNotFoundError extends Error {

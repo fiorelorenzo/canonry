@@ -57,7 +57,8 @@ import { SourceNotFoundError } from './sources.js';
 import { extractPdfText, renderPdfPage, type PdfTextExtraction } from './pdf.js';
 import { extractDocxText, type DocxTextExtraction } from './docx.js';
 import { sniffUpload, type UploadSniff } from './upload-format.js';
-import { expandOneNoteMhtml } from './mhtml.js';
+import { expandOneNoteMhtml, type ExpandedEntry } from './mhtml.js';
+import { expandOneStore, OneStoreParseError } from './onestore.js';
 import {
 	DEFAULT_MEDIA_STORE_LIMITS,
 	ImageDimensionsTooLargeError,
@@ -348,6 +349,13 @@ export class ArchiveSourceReader implements SourceReader {
 	 * Counted here because this is the only place that knows: by the time anything walks
 	 * the entries, an expanded envelope and a real exported page tree look alike. */
 	oneNoteEnvelopes = 0;
+	/** `SourceReader.oneStoreNotebooks`: how many were OneNote's own binary `.one` or
+	 * `.onepkg` files that `expandOneStore` turned into a page tree (issue #603). Separate
+	 * from the count above rather than folded into it, because the two say opposite things
+	 * about scope: an expanded `.mht` may be a whole notebook missing pages, and a `.onepkg`
+	 * is a whole notebook that is missing none. This is the provenance field, and the only
+	 * thing downstream that can tell the two readers' trees apart. */
+	oneStoreNotebooks = 0;
 	private readonly entries = new Map<string, StoredEntry>();
 	private readonly limits: ArchiveLimits;
 
@@ -420,6 +428,27 @@ export class ArchiveSourceReader implements SourceReader {
 				reader.entries.set(path, { path, content: entry.bytes });
 			}
 			reader.oneNoteEnvelopes += 1;
+			return reader;
+		}
+
+		// **OneNote's own binary formats are the fourth case** (issue #603), and they behave
+		// exactly like the third: one file, many documents, expanded here into the same
+		// `onenote.md` tree so every caller downstream sees a folder tree it already knows.
+		// The difference is that this tree has real parents in it, because [MS-ONESTORE]
+		// records a `PageLevel` per page and the `.mht` envelope records nothing.
+		if (format === 'onestore' || format === 'onepkg') {
+			for (const entry of expandOneStore(data, {
+				fileName: leaf === '' ? `notebook.${format === 'onepkg' ? 'onepkg' : 'one'}` : leaf,
+				kind: format,
+				limits: {
+					maxTotalBytes: limits.maxTotalUncompressedBytes,
+					maxAttachmentBytes: limits.maxEntryUncompressedBytes
+				}
+			})) {
+				const path = normalizeEntryPath(entry.path);
+				reader.entries.set(path, { path, content: entry.bytes });
+			}
+			reader.oneStoreNotebooks += 1;
 			return reader;
 		}
 
@@ -507,33 +536,66 @@ export class ArchiveSourceReader implements SourceReader {
 	}
 
 	/**
-	 * Replaces every entry that is a OneNote Single File Web Page with the page tree it
-	 * holds (issue #592). `openUpload` does this for a `.mht` uploaded on its own; this does
+	 * Replaces every entry that is one of OneNote's own single-file exports with the page
+	 * tree it holds: a Single File Web Page (issue #592), or a `.one` section or `.onepkg`
+	 * notebook (issue #603). `openUpload` does this for one uploaded on its own; this does
 	 * it for one inside a zip, which is the shape the OneNote import guide actually tells a
 	 * GM to produce ("on its own or zipped"), and without it that instruction would be a lie
-	 * for this format: the envelope is text, so a `generic` run would accept it as one
-	 * document and spend credits reading a MIME header.
+	 * for these formats: the envelope is text, so a `generic` run would accept it as one
+	 * document and spend credits reading a MIME header, and the binary ones would be refused
+	 * outright.
 	 *
 	 * The expansion lands under the entry's own directory and a folder named after it, so
 	 * `sections/Mondo.mht` becomes `sections/Mondo/<page>.htm` and two sections exported
 	 * separately into one zip stay apart. Every copy counts against the same caps, since
 	 * they are derived from this reader's own limits.
+	 *
+	 * A file that cannot be parsed is **left where it is** rather than dropped. For a `.mht`
+	 * that never happens, because the sniff already proved it is one; for a binary section
+	 * it can, since the sniff only reads a file GUID and the revision store behind it may
+	 * still be truncated or a version this parser does not know. Leaving it means the upload
+	 * still describes what the GM sent, and `documentsForPlaybook` skips it as an entry no
+	 * playbook claims, rather than the whole upload failing over one bad section.
 	 */
 	private expandOneNoteEnvelopes(): void {
 		for (const entry of [...this.entries.values()]) {
-			if (sniffUpload(entry.content, { unzip: unzipSync }).format !== 'onenote-mhtml') continue;
+			const { format } = sniffUpload(entry.content, { unzip: unzipSync });
+			if (format !== 'onenote-mhtml' && format !== 'onestore' && format !== 'onepkg') continue;
 			const slash = entry.path.lastIndexOf('/');
 			const directory = slash === -1 ? '' : `${entry.path.slice(0, slash)}/`;
-			const expanded = expandOneNoteMhtml(entry.content, {
-				notebookName: entry.path.slice(slash + 1),
-				limits: {
-					maxParts: this.limits.maxEntries,
-					maxPartBytes: this.limits.maxEntryUncompressedBytes,
-					maxTotalBytes: this.limits.maxTotalUncompressedBytes
-				}
-			});
+			const leaf = entry.path.slice(slash + 1);
+
+			let expanded: ExpandedEntry[];
+			try {
+				expanded =
+					format === 'onenote-mhtml'
+						? expandOneNoteMhtml(entry.content, {
+								notebookName: leaf,
+								limits: {
+									maxParts: this.limits.maxEntries,
+									maxPartBytes: this.limits.maxEntryUncompressedBytes,
+									maxTotalBytes: this.limits.maxTotalUncompressedBytes
+								}
+							})
+						: expandOneStore(entry.content, {
+								fileName: leaf,
+								kind: format,
+								limits: {
+									maxTotalBytes: this.limits.maxTotalUncompressedBytes,
+									maxAttachmentBytes: this.limits.maxEntryUncompressedBytes
+								}
+							});
+			} catch (cause) {
+				if (cause instanceof OneStoreParseError) continue;
+				throw cause;
+			}
+
 			this.entries.delete(entry.path);
-			this.oneNoteEnvelopes += 1;
+			if (format === 'onenote-mhtml') {
+				this.oneNoteEnvelopes += 1;
+			} else {
+				this.oneStoreNotebooks += 1;
+			}
 			for (const page of expanded) {
 				const path = normalizeEntryPath(`${directory}${page.path}`);
 				this.entries.set(path, { path, content: page.bytes });

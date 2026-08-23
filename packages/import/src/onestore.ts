@@ -104,45 +104,51 @@ export interface ExpandOneStoreOptions {
 	limits: OneStoreLimits;
 }
 
-interface WasmLink {
+export interface OneStoreLink {
 	target: string;
 	start: number;
 	end: number;
 }
 
-interface WasmAsset {
+export interface OneStoreAsset {
 	name: string;
 	off: number;
 	len: number;
 	alt: string;
 }
 
-type WasmBlock =
-	| { k: 'p'; text: string; links: WasmLink[]; indent: number; list: 'bullet' | 'number' | null }
-	| { k: 'table'; rows: WasmBlock[][][] }
+export type OneStoreBlock =
+	| {
+			k: 'p';
+			text: string;
+			links: OneStoreLink[];
+			indent: number;
+			list: 'bullet' | 'number' | null;
+	  }
+	| { k: 'table'; rows: OneStoreBlock[][][] }
 	| { k: 'image'; asset: number }
 	| { k: 'file'; asset: number }
 	| { k: 'ink'; text: string };
 
-interface WasmPage {
+export interface OneStorePage {
 	title: string;
 	level: number;
 	id: string;
 	created: number;
 	updated: number;
-	blocks: WasmBlock[];
-	assets: WasmAsset[];
+	blocks: OneStoreBlock[];
+	assets: OneStoreAsset[];
 }
 
-interface WasmSection {
+export interface OneStoreSection {
 	name: string;
-	pages: WasmPage[];
+	pages: OneStorePage[];
 }
 
 type WasmResult =
 	| {
 			ok: true;
-			sections: WasmSection[];
+			sections: OneStoreSection[];
 			blobBytes: number;
 			attachmentsSeen: number;
 			attachmentsDropped: number;
@@ -183,7 +189,7 @@ interface WasmExports {
 let compiled: WebAssembly.Module | undefined;
 
 export interface ParsedOneStore {
-	sections: WasmSection[];
+	sections: OneStoreSection[];
 	blobs: Buffer;
 	attachmentsSeen: number;
 	attachmentsDropped: number;
@@ -272,11 +278,11 @@ function escapeHtml(text: string): string {
  * cannot move a later one's offsets, and overlapping links are dropped rather than nested,
  * because an `<a>` inside an `<a>` is not valid HTML and OneNote does not produce one.
  */
-function paragraphHtml(text: string, links: readonly WasmLink[]): string {
+function paragraphHtml(text: string, links: readonly OneStoreLink[]): string {
 	if (links.length === 0) return escapeHtml(text);
 
 	const ordered = [...links].sort((a, b) => a.start - b.start);
-	const kept: WasmLink[] = [];
+	const kept: OneStoreLink[] = [];
 	let reach = 0;
 	for (const link of ordered) {
 		if (link.start < reach || link.end > text.length) continue;
@@ -302,7 +308,7 @@ function paragraphHtml(text: string, links: readonly WasmLink[]): string {
  * `stripHtmlPresentationNoise` would delete. A non-list paragraph's indent is dropped on
  * purpose: `docs/corpus-onenote.md` measured that indentation inside a page tracks where
  * the GM put a note container on the canvas, not any hierarchy. */
-function blocksHtml(blocks: readonly WasmBlock[], attachmentFolder: string): string {
+function blocksHtml(blocks: readonly OneStoreBlock[], attachmentFolder: string): string {
 	const out: string[] = [];
 	let openLists: Array<'ul' | 'ol'> = [];
 
@@ -315,6 +321,13 @@ function blocksHtml(blocks: readonly WasmBlock[], attachmentFolder: string): str
 			const tag = block.list === 'number' ? 'ol' : 'ul';
 			const depth = Math.min(block.indent, 8) + 1;
 			closeTo(depth);
+			// A bulleted run followed by a numbered run at the same depth is two lists, not
+			// one, so the open one closes when the marker changes. Without this the second
+			// run's items land inside the first list and a numbered list silently becomes
+			// bulleted.
+			if (openLists.length === depth && openLists[depth - 1] !== tag) {
+				out.push(`</${openLists.pop()}>`);
+			}
 			while (openLists.length < depth) {
 				out.push(`<${tag}>`);
 				openLists.push(tag);
@@ -394,12 +407,25 @@ class Names {
  * its navigation pane draws the same tree. A page whose level skips ahead of anything seen
  * so far is attached to the deepest page there is rather than dropped.
  */
-export function expandOneStore(
-	data: Uint8Array,
-	options: ExpandOneStoreOptions
-): ExpandedEntry[] {
-	const parsed = parseOneStore(data, options);
+export function expandOneStore(data: Uint8Array, options: ExpandOneStoreOptions): ExpandedEntry[] {
+	return oneStoreTree(parseOneStore(data, options), options);
+}
 
+/**
+ * The tree half, taking what the parser produced rather than the file.
+ *
+ * Split out because it is the half whose behaviour is ours: the path layout, the nesting
+ * off `PageLevel`, duplicate titles, link rewriting, the asset folders and the cumulative
+ * cap are all decisions made here, while the half above is `onenote_parser` reading a
+ * binary format. A valid `.one` cannot be hand-authored to fixture size (it is a whole
+ * revision store, and a hand-rolled one would prove that this code agrees with our reading
+ * of [MS-ONESTORE] rather than with what OneNote writes), so this seam is what lets every
+ * one of those decisions be tested against a fixture on the invented world.
+ */
+export function oneStoreTree(
+	parsed: ParsedOneStore,
+	options: Pick<ExpandOneStoreOptions, 'fileName' | 'kind' | 'limits'>
+): ExpandedEntry[] {
 	const stem = options.fileName
 		.replace(/\\/g, '/')
 		.split('/')
@@ -428,7 +454,7 @@ export function expandOneStore(
 	const pathByTitle = new Map<string, string>();
 
 	interface Planned {
-		page: WasmPage;
+		page: OneStorePage;
 		path: string;
 		folder: string;
 		name: string;
@@ -436,10 +462,7 @@ export function expandOneStore(
 	const planned: Planned[] = [];
 
 	for (const [index, section] of parsed.sections.entries()) {
-		const sectionSegment = names.take(
-			root,
-			titleToSegment(section.name) || `Section ${index + 1}`
-		);
+		const sectionSegment = names.take(root, titleToSegment(section.name) || `Section ${index + 1}`);
 		const sectionDirectory = root === '' ? sectionSegment : `${root}/${sectionSegment}`;
 
 		// `childDirectory[n]` is where a page of level `n + 1` goes. Index 0 is the section
@@ -486,31 +509,27 @@ export function expandOneStore(
 		// export. Rewritten to the target's own entry path when the target is in this
 		// upload, so `onenote.md`'s link rule sees a relation it can ground, and left alone
 		// otherwise, because a link out of the export is not a relation we can resolve.
-		body = body.replace(
-			/href="onenote:#([^"]*)"/gi,
-			(whole, encoded: string) => {
-				const raw = encoded.replace(/&amp;/gi, '&');
-				const pageId = /[?&]page-id=(\{[^&}]*\})/i.exec(raw)?.[1];
-				const byId = pageId === undefined ? undefined : pathById.get(pageId);
-				// Both lookups earn their place, measured on the corpus: inside a `.onepkg`
-				// the `page-id` GUID matches a page's own `link_target_id`, because the
-				// package carries the `.onetoc2` that resolves it, while in a bare `.one`
-				// section it never does and the title is the only thing that works.
-				const encodedTitle = raw.split('&')[0] ?? '';
-				let title = encodedTitle;
-				try {
-					title = decodeURIComponent(encodedTitle);
-				} catch {
-					// A stray `%` in a page title is not an encoding, so the raw form is right.
-				}
-				const target = byId ?? pathByTitle.get(title) ?? pathByTitle.get(encodedTitle);
-				return target === undefined ? whole : `href="${escapeHtml(target)}"`;
+		body = body.replace(/href="onenote:#([^"]*)"/gi, (whole, encoded: string) => {
+			const raw = encoded.replace(/&amp;/gi, '&');
+			const pageId = /[?&]page-id=(\{[^&}]*\})/i.exec(raw)?.[1];
+			const byId = pageId === undefined ? undefined : pathById.get(pageId);
+			// Both lookups earn their place, measured on the corpus: inside a `.onepkg`
+			// the `page-id` GUID matches a page's own `link_target_id`, because the
+			// package carries the `.onetoc2` that resolves it, while in a bare `.one`
+			// section it never does and the title is the only thing that works.
+			const encodedTitle = raw.split('&')[0] ?? '';
+			let title = encodedTitle;
+			try {
+				title = decodeURIComponent(encodedTitle);
+			} catch {
+				// A stray `%` in a page title is not an encoding, so the raw form is right.
 			}
-		);
+			const target = byId ?? pathByTitle.get(title) ?? pathByTitle.get(encodedTitle);
+			return target === undefined ? whole : `href="${escapeHtml(target)}"`;
+		});
 
 		const title = escapeHtml(page.title || name);
-		const document =
-			`<html>\n<head>\n${HEAD}\n<title>${title}</title>\n</head>\n<body>\n${body}\n</body>\n</html>\n`;
+		const document = `<html>\n<head>\n${HEAD}\n<title>${title}</title>\n</head>\n<body>\n${body}\n</body>\n</html>\n`;
 		push(path, new Uint8Array(Buffer.from(document, 'utf8')));
 	}
 

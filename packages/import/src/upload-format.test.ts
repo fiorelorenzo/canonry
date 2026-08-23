@@ -98,11 +98,19 @@ describe('every format OneNote exports is identified from its own bytes (issue #
 		}
 	});
 
-	it('the four formats with no reader are exactly the ones refused', () => {
-		expect([...UNREADABLE_UPLOAD_FORMATS]).toEqual(['mhtml', 'xps', 'onestore', 'onepkg']);
+	it('the two formats with no reader are exactly the ones refused', () => {
+		expect([...UNREADABLE_UPLOAD_FORMATS]).toEqual(['mhtml', 'xps']);
 		for (const format of ['zip', 'pdf', 'docx', 'other'] as const) {
 			expect(isUnreadableUploadFormat(format)).toBe(false);
 		}
+	});
+
+	it('OneNote\u2019s own binary formats are read rather than refused (issue #603)', () => {
+		// They were both in the set above until `onestore.ts` existed. Asserted from the
+		// outside, on the two formats rather than on the reader, because the refusal is what
+		// a GM met and this is the line that says they no longer do.
+		expect(isUnreadableUploadFormat('onestore')).toBe(false);
+		expect(isUnreadableUploadFormat('onepkg')).toBe(false);
 	});
 });
 

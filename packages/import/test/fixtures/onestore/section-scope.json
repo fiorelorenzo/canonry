@@ -1,0 +1,90 @@
+{
+	"ok": true,
+	"sections": [
+		{
+			"name": "Handouts",
+			"pages": [
+				{
+					"title": "The Sunken Archive",
+					"level": 1,
+					"id": "{22222222-2222-4222-8222-222222222222}",
+					"created": 1712581748,
+					"updated": 1712581748,
+					"blocks": [
+						{
+							"k": "p",
+							"text": "Three floors below the Council hall, reached by the dry stair. See Flooded Stacks for the lowest floor.",
+							"links": [
+								{
+									"target": "onenote:#Flooded Stacks&section-id={A0000000-0000-4000-8000-000000000001}&page-id={33333333-3333-4333-8333-333333333333}",
+									"start": 67,
+									"end": 81
+								}
+							],
+							"indent": 0,
+							"list": null
+						},
+						{ "k": "image", "asset": 0 }
+					],
+					"assets": [{ "name": "archive-map.png", "off": 0, "len": 256, "alt": "The dry stair" }]
+				},
+				{
+					"title": "Flooded Stacks",
+					"level": 2,
+					"id": "{33333333-3333-4333-8333-333333333333}",
+					"created": 1712581748,
+					"updated": 1712581748,
+					"blocks": [
+						{
+							"k": "p",
+							"text": "The lower archive floods every spring tide.",
+							"links": [],
+							"indent": 0,
+							"list": null
+						},
+						{ "k": "p", "text": "Salt damage to the ledgers", "links": [], "indent": 0, "list": "bullet" },
+						{ "k": "p", "text": "Two shelves permanently submerged", "links": [], "indent": 1, "list": "bullet" },
+						{ "k": "p", "text": "First: bail the west aisle", "links": [], "indent": 0, "list": "number" },
+						{ "k": "image", "asset": 0 }
+					],
+					"assets": [{ "name": "stacks-sketch.png", "off": 256, "len": 233, "alt": "" }]
+				},
+				{
+					"title": "Flooded Stacks",
+					"level": 2,
+					"id": "{44444444-4444-4444-8444-444444444444}",
+					"created": 1712581748,
+					"updated": 1712581748,
+					"blocks": [
+						{
+							"k": "table",
+							"rows": [
+								[
+									[{ "k": "p", "text": "Tide", "links": [], "indent": 0, "list": null }],
+									[{ "k": "p", "text": "Depth", "links": [], "indent": 0, "list": null }]
+								],
+								[
+									[{ "k": "p", "text": "Spring", "links": [], "indent": 0, "list": null }],
+									[{ "k": "p", "text": "Four feet", "links": [], "indent": 0, "list": null }]
+								]
+							]
+						}
+					],
+					"assets": []
+				},
+				{
+					"title": "",
+					"level": 1,
+					"id": "",
+					"created": 1712581748,
+					"updated": 1712581748,
+					"blocks": [{ "k": "ink", "text": "ask Mother Sennah", "links": [], "indent": 0, "list": null }],
+					"assets": []
+				}
+			]
+		}
+	],
+	"blobBytes": 489,
+	"attachmentsSeen": 2,
+	"attachmentsDropped": 0
+}
