@@ -787,6 +787,131 @@ rate in `packages/ai/src/usage.ts`, over the twelve jobs above, 92 documents for
 0.8211 per document. No run was repeated for a nicer number, and the obsidian run in
 particular was left as the ceiling-stopped job it is.
 
+## What #610 changed: which settled jobs are evidence about what a document costs
+
+The section above ends by naming the hole it left. #606's obsidian job spent 30.3658 real
+credits over 35 real documents and installed no history at all, because
+`estimateAveragesForPlaybook` filtered `status = 'finished'` and that job settled
+`stopped_at_ceiling`. The consequence is worse than losing one measurement: a playbook whose
+jobs keep running out of steps never leaves its cold-start constant however many jobs it has
+run, and the jobs the filter drops are the dearest ones, so what history a deployment does
+learn is biased cheap. This section is what replaced that filter.
+
+**The question is per status, not per flag.** Six statuses exist
+(`packages/db/src/schema/enums.ts`), and the answers are not symmetric:
+
+| status               | evidence?                            | why                                                                     |
+| -------------------- | ------------------------------------ | ----------------------------------------------------------------------- |
+| `queued`             | no                                   | nothing ran, and `spent_credits` is 0 by construction                   |
+| `running`            | no                                   | the spend so far is a prefix of the job's spend, and `finished_at` is null |
+| `finished`           | yes                                  | every document reached a terminal outcome and none was cut short         |
+| `stopped_at_ceiling` | **yes, over the documents that ran** | two opposite stops wear this status, both usable with the right denominator |
+| `cancelled`          | no                                   | a click or a timeout aborted it mid-step, at a point the work did not choose |
+| `failed`             | no                                   | the document stopped where the error was, and errors arrive early        |
+
+The two "no" rows at the bottom are worth one more sentence each, because both spent real
+credits on real documents and it would be easy to read that as evidence. A cancelled job's
+ratio is a number about when somebody clicked, or about how long
+`IMPORT_TIMEOUT_HEADROOM_MULTIPLIER` allowed, and neither is a fact about a document. A
+failed job's credits are real, but a model call fails early far more often than late (a bad
+credential, a schema the model cannot fill), so its ratio reads low for a reason that has
+nothing to do with cost. `running` is the sharpest of the three: pooling a prefix of a job's
+spend against documents that have not all run yet is the one shape of this arithmetic that is
+guaranteed to read low.
+
+**`stopped_at_ceiling` is two stops sharing one status, and they are opposite cases.** A
+per-document **step ceiling** (`gateway-driver.ts` exhausting `playbook.stepBudget`) leaves
+every document of the job run: the numerator is honest, the denominator is honest, and the
+documents that hit the ceiling spent the most steps a document is allowed, so they are the
+dearest documents the job had rather than truncated cheap ones. Pooling such a job can only
+push the average up. A job-wide **credit ceiling** (`startJob`'s outer loop returning once
+`budget.exceeded()`) is the opposite: the documents it never started cost nothing and are
+still counted in `document_count`, so dividing by `document_count` produces a number about
+our own budget rather than about a document. That second case is the one #610's own text
+proposed to keep excluding, by reading `outcome_note`'s offender reason in a `where` or by
+adding a settled column for it.
+
+**Counting documents rather than jobs makes both cases usable and needs neither.** Issue #27
+checkpoints one entry per document that reaches a terminal outcome, so `import_job.checkpoint`
+already holds exactly the documents a job's spend is attributable to, and their absence is
+exactly how `job-runner.ts` tells the two ceilings apart in the first place. So the
+denominator is the checkpointed count rather than `document_count`, capped at
+`document_count`, and a `finished` job keeps `document_count` because that is what the status
+means. Two properties come out of that, both of which matter more than the extra data:
+
+- It is **never the optimistic choice.** The count it divides by is at most `document_count`,
+  so every figure the function returns is at or above the figure a plain widening of the
+  filter would have returned. That is a structural property of the denominator, not a
+  judgement about which ceiling is which.
+- A credit-ceiling job is **the strongest evidence a deployment can produce that the estimate
+  is too low**, and the old filter threw it away. Such a job spent within one step's worst
+  case of its whole budget, and the budget is `IMPORT_BUDGET_HEADROOM_MULTIPLIER` (6) times
+  the quote, so its per-document figure lands far above the figure that produced the quote.
+
+**Two zero-spend cases are now excluded that used to be pooled**, and this is the second bias
+found while writing this, in the same direction as the first. A re-import of an unchanged
+export finishes having spent nothing over a full `document_count`, because issue #36 skips an
+unchanged document before the driver ever sees it; a ceiling that refuses a document's very
+first step (`wouldExceedCeiling`, before the model is called) settles the same way. Both used
+to be pooled, and the old `totalCredits > 0` guard only caught them when such a job was the
+*only* history: one real job plus one unchanged re-import of five times its size pooled to a
+fifth of the real figure. The guard is now per row, so a job that spent nothing is not
+evidence that a document is cheap. Same for wall clock: a row with no `started_at`/`finished_at`
+contributed no seconds and still contributed documents to the seconds denominator, which
+pulled the figure down, and this document's own rule is that wall clock is raised on evidence
+and never lowered on it.
+
+**What the checkpoint does not record, which is the honest limit of all this.** It carries
+each document's *status* and not its *cost*, so there is no way to average over only the
+documents that completed and leave the truncated ones out; the truncated ones are pooled in,
+which is safe only because a document truncated by a step ceiling is the dearest kind. And a
+document skipped as unchanged is checkpointed `finished` exactly like one that ran, so a
+**partial** re-import (some documents changed, most not) still pools documents that cost
+nothing and still reads low. The per-row spend guard catches the whole-job case and not that
+one. Closing it means recording per-document credits, or marking a skipped document as skipped
+in the checkpoint; both live in `job-runner.ts` rather than in `estimate.ts`, and neither is
+done here. `credit_transaction` does carry one row per document that proposed anything
+(`import-document:<jobId>:<documentId>`), which looks like the missing denominator and is not:
+it is written only when a job has a `userId` and only when the document created a proposal, so
+a document that ran and found nothing would be missing from it, and a bench or system run
+would have none at all.
+
+**And the silence is now broken, which is the part of #610 that is not arithmetic.** Nothing
+anywhere said that a playbook was quoting off a constant *because* its jobs kept being passed
+over: the cold-start branch looked identical whether a deployment had run zero obsidian
+imports or forty cancelled ones. `estimateAveragesForPlaybook` now returns a `basis` alongside
+the two numbers (`source`, the jobs and documents pooled, and what was ignored and why), and
+when it falls back to a constant for a playbook that has in fact run jobs it writes one line
+on the `import_estimate` channel naming the reasons. A genuine first import stays silent,
+because there is nothing to say about it.
+
+**The reproduction, on a synthetic ceiling rather than a real one.** A real ceiling-stopped
+job costs money to produce and #606 already produced one, so this is
+`estimate-history.test.ts`'s own run: the real `ImportJobRunner` and the real `GatewayDriver`
+over a two-step playbook and two documents, where the first proposes and calls `job_finish`
+and the second proposes twice and never finishes, so its step ceiling is what ends it. The
+mock model's prices are set so a step bills 2 credits, since a mock at the real `cheap` rates
+bills a thousandth of a credit and would prove the mechanism while inverting its direction.
+
+| what                                | row                                                                                                |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| settled status                      | `stopped_at_ceiling`                                                                               |
+| `outcome_note`                      | `{"v":1,"kind":"offender","offender":{"path":"notes/b.md","othersCount":0,"reason":"step_ceiling"}}` |
+| documents / spent                   | 2 / 8.0000 credits                                                                                 |
+| checkpoint                          | `doc-a: finished`, `doc-b: stopped_at_ceiling`                                                      |
+| next 2-document job quoted **before** | **3** credits (the cold-start constant: no history was installed)                                 |
+| next 2-document job quoted **after**  | **8** credits (4.0000 per document, off the job above)                                            |
+
+So the second job used to be quoted 3 for work the first one had just billed 8, and is now
+quoted 8. Mapped back onto #606's real obsidian job, the same change makes 35 documents for
+30.3658 credits install 0.8676 per document as that deployment's own obsidian figure, which
+happens to equal the shipped constant only because #606 hand-wrote the constant off that very
+job. On a GM's own export, which #606 is explicit may cost more than our corpus, that row is
+the deployment learning something instead of discarding it.
+
+No credits were spent on this section: the change is a query and a denominator, and every
+claim above is pinned by a test that fails on `6aad98a`.
+
 ## Re-running this
 
 ```bash

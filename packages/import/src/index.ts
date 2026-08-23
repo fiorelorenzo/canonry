@@ -226,11 +226,17 @@ export {
 
 export {
 	PLAYBOOK_COLD_START_ESTIMATE,
+	UNMEASURED_PLAYBOOK_ESTIMATE,
+	HISTORY_EVIDENCE_STATUSES,
 	estimateAveragesForPlaybook,
 	IMPORT_BUDGET_HEADROOM_MULTIPLIER,
 	budgetCreditsForEstimate,
 	deriveJobBudget,
 	IMPORT_TIMEOUT_HEADROOM_MULTIPLIER,
 	IMPORT_TIMEOUT_FLOOR_MS,
-	timeoutMsForEstimate
+	timeoutMsForEstimate,
+	type PlaybookAverages,
+	type PlaybookEstimateBasis,
+	type PlaybookHistoryExclusion,
+	type EstimateBasisSink
 } from './estimate.js';
