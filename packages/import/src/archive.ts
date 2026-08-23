@@ -56,6 +56,7 @@ import type {
 import { SourceNotFoundError } from './sources.js';
 import { extractPdfText, renderPdfPage, type PdfTextExtraction } from './pdf.js';
 import { extractDocxText, type DocxTextExtraction } from './docx.js';
+import { sniffUpload, type UploadSniff } from './upload-format.js';
 import {
 	DEFAULT_MEDIA_STORE_LIMITS,
 	ImageDimensionsTooLargeError,
@@ -349,6 +350,56 @@ export class ArchiveSourceReader implements SourceReader {
 		this.artefactSha256 = artefactSha256;
 	}
 
+	/**
+	 * What the upload action actually calls (issue #591). An export is not always an
+	 * archive: OneNote hands a GM one file, the PDF guide says "any PDF file, uploaded
+	 * directly", and the upload form's own `accept` offers `.pdf`, `.docx`, `.md` and
+	 * `.txt`. Before this existed the only path was `open`, so a single non-zip file was
+	 * refused with "archive failed to parse: invalid zip data" and a single file that
+	 * happened to be OPC (a `.docx`, an `.xps`) was unpacked into its own plumbing and
+	 * routed to `generic`: a one-page DOCX reached the estimate screen as eleven
+	 * documents of `word/styles.xml` and friends, with a Start button under it.
+	 *
+	 * So the decision is made on the bytes, not the extension: `sniffUpload` says whether
+	 * this is an archive to walk or one document to hand a playbook, and an OPC package
+	 * counts as a document rather than an archive even though it parses as a zip. A
+	 * single document becomes a one-entry reader keyed by the upload's own file name,
+	 * which is what makes every downstream caller work unchanged - `detectSource` sees
+	 * one `.pdf` and routes to `pdf`, exactly as it does for a zip containing one.
+	 *
+	 * `fileName` is somebody else's string, so it goes through the same
+	 * `normalizeEntryPath` a zip entry does, and its directory part is dropped: a browser
+	 * only ever sends a leaf name, and honouring one would put an upload's own name in
+	 * charge of where it lands in the reader's namespace. A name that survives none of
+	 * that falls back to `upload`, because refusing an upload over its file name would be
+	 * a worse failure than reading it under a dull one.
+	 */
+	static openUpload(
+		data: Uint8Array,
+		fileName: string,
+		limits: ArchiveLimits = DEFAULT_ARCHIVE_LIMITS
+	): ArchiveSourceReader {
+		if (data.byteLength > limits.maxArchiveBytes) {
+			throw new ArchiveTooLargeError(
+				`upload is ${data.byteLength} bytes, over the ${limits.maxArchiveBytes} byte limit`
+			);
+		}
+		if (sniffUpload(data, { unzip: unzipSync }).format === 'zip') {
+			return ArchiveSourceReader.open(data, limits);
+		}
+
+		const reader = new ArchiveSourceReader(limits, createHash('sha256').update(data).digest('hex'));
+		const leaf = fileName.replace(/\\/g, '/').split('/').pop() ?? '';
+		let path: string;
+		try {
+			path = normalizeEntryPath(leaf);
+		} catch {
+			path = 'upload';
+		}
+		reader.entries.set(path, { path, content: data });
+		return reader;
+	}
+
 	static open(
 		data: Uint8Array,
 		limits: ArchiveLimits = DEFAULT_ARCHIVE_LIMITS
@@ -479,6 +530,15 @@ export class ArchiveSourceReader implements SourceReader {
 		const entry = this.entries.get(path);
 		if (!entry) throw new SourceNotFoundError(path);
 		return { mimeType: guessMimeType(path), base64: Buffer.from(entry.content).toString('base64') };
+	}
+
+	/** `SourceReader.sniffEntry` against this entry's own stored bytes, with the zip
+	 * discrimination wired in so an OPC package inside an upload is named (`docx`, `xps`)
+	 * rather than reported as a nested archive. Reads no more than `sniffUpload` does. */
+	async sniffEntry(path: string): Promise<UploadSniff> {
+		const entry = this.entries.get(path);
+		if (!entry) throw new SourceNotFoundError(path);
+		return sniffUpload(entry.content, { unzip: unzipSync });
 	}
 
 	/** Renders one page of a `.pdf` entry through `renderPdfPage` (issue #39), then checks

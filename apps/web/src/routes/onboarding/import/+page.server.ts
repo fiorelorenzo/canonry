@@ -7,7 +7,6 @@
  * numbers, `start` is the one action that actually admits and runs a job.
  */
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { universeAccessBySlug, type UniverseAccess } from '@canonry/db';
 import { ArchiveSourceReader, DEFAULT_ARCHIVE_LIMITS } from '@canonry/import';
@@ -25,7 +24,9 @@ import {
 	ImportQuotaExceededError,
 	KNOWN_PLAYBOOK_IDS,
 	loadBuiltinPlaybook,
+	openStoredUpload,
 	PLAYBOOK_LABELS,
+	refuseUnreadableUpload,
 	startImportRun,
 	storeUpload,
 	tempUploadPath,
@@ -79,7 +80,7 @@ export const actions: Actions = {
 		const bytes = new Uint8Array(await file.arrayBuffer());
 		let reader: ArchiveSourceReader;
 		try {
-			reader = ArchiveSourceReader.open(bytes, DEFAULT_ARCHIVE_LIMITS);
+			reader = ArchiveSourceReader.openUpload(bytes, file.name, DEFAULT_ARCHIVE_LIMITS);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			return fail(400, {
@@ -88,8 +89,20 @@ export const actions: Actions = {
 			});
 		}
 
+		// Issue #591: a format nobody wrote a reader for is refused here and nowhere later,
+		// because here is the last point at which no `tempId` exists yet - so there is no
+		// path from this upload to an `import_job` row, and SPEC.md §15's "no opaque
+		// credits" holds structurally rather than by a later check remembering to fire.
+		const refusal = await refuseUnreadableUpload(reader);
+		if (refusal) {
+			return fail(400, {
+				stage: 'upload' as const,
+				error: t.unreadableFormat(refusal.format, refusal.path)
+			});
+		}
+
 		const detected = await detectSource(reader);
-		const { tempId } = await storeUpload(bytes);
+		const { tempId } = await storeUpload(bytes, file.name);
 
 		return {
 			stage: 'confirm' as const,
@@ -98,7 +111,8 @@ export const actions: Actions = {
 			fileBytes: bytes.byteLength,
 			playbookId: detected.playbookId,
 			confident: detected.confident,
-			detail: detected.detail
+			detail: detected.detail,
+			notice: detected.notice
 		};
 	},
 
@@ -125,7 +139,8 @@ export const actions: Actions = {
 			fileBytes,
 			playbookId,
 			confident: true,
-			detail: null
+			detail: null,
+			notice: null
 		};
 
 		if (!hasLiveGatewayCredentials() && !FAKE_DRIVER_SUPPORTED_PLAYBOOKS.has(playbookId)) {
@@ -135,8 +150,7 @@ export const actions: Actions = {
 			});
 		}
 
-		const bytes = await readFile(tempUploadPath(tempId));
-		const reader = ArchiveSourceReader.open(bytes, DEFAULT_ARCHIVE_LIMITS);
+		const { reader } = await openStoredUpload(tempId);
 		const documents = await documentsForPlaybook(playbookId, reader);
 		if (documents.length === 0) {
 			return fail(400, {
@@ -173,8 +187,7 @@ export const actions: Actions = {
 		}
 		const playbookId = playbookIdRaw;
 
-		const bytes = await readFile(tempUploadPath(tempId));
-		const reader = ArchiveSourceReader.open(bytes, DEFAULT_ARCHIVE_LIMITS);
+		const { bytes, reader } = await openStoredUpload(tempId);
 		const documents = await documentsForPlaybook(playbookId, reader);
 		const playbook = await loadBuiltinPlaybook(playbookId);
 		const averages = await estimateAveragesFor(db(), playbookId);

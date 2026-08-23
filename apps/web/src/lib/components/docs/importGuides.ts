@@ -163,7 +163,7 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 	{
 		slug: 'onenote',
 		label: 'OneNote',
-		summary: 'Page tree preferred, PDF/DOCX/.onepkg as fallback',
+		summary: 'Page tree preferred, PDF or DOCX as the fallback that works',
 		sections: [
 			{
 				heading: 'What to hand Canonry',
@@ -179,11 +179,20 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 					),
 					p(
 						'If you cannot produce that tree, export the whole notebook or a section to PDF or ' +
-							'DOCX from the Windows desktop app instead, or to .onepkg from OneNote on the web ' +
-							'with a personal Microsoft account, and hand Canonry that file. It is read through ' +
-							'the PDF or DOCX guide, the same as any other PDF or DOCX, keeping every page but ' +
-							"losing the notebook's own hierarchy: a subpage becomes just another heading once " +
-							'the export flattens it.'
+							'DOCX from the Windows desktop app and hand Canonry that file, on its own or zipped. ' +
+							'It is read through the PDF or DOCX guide, the same as any other PDF or DOCX, keeping ' +
+							"every page but losing the notebook's own hierarchy: a subpage becomes just another " +
+							'heading once the export flattens it. Canonry can tell that a PDF came out of ' +
+							"OneNote's own printer, so it says so on the confirmation screen rather than letting " +
+							'you think the hierarchy came across.'
+					),
+					p(
+						'The other four things the export menu offers are refused, and refused before an ' +
+							'import starts rather than partway through it, so nothing is spent on them: ' +
+							'Single File Web Page (.mht), XPS (.xps), and OneNote\u2019s own binary files ' +
+							'(.one, .onetoc2, and the .onepkg package OneNote on the web produces). Canonry ' +
+							'reads what a file is from its bytes, not from its name, so renaming one does not ' +
+							'get it through.'
 					)
 				]
 			},
@@ -198,7 +207,7 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 							'OneNote playbook; say no and it falls back to a short list of other playbooks. A ' +
 							'notebook where no page embeds an image has no such folder for Canonry to key on, ' +
 							'so detection will not recognise it as OneNote - bring in at least one page with ' +
-							'an embedded image if you can, or use the PDF, DOCX or .onepkg fallback above.'
+							'an embedded image if you can, or use the PDF or DOCX fallback above.'
 					)
 				]
 			},
@@ -206,13 +215,13 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 				heading: 'What it reads',
 				blocks: [
 					p(
-						"The notebook's own hierarchy is what a flattened PDF or DOCX export throws away, " +
-							'and it is the reason this path exists: a page sitting in a folder named after ' +
-							'another page is proposed as a subpage of it, with the folder tree itself standing ' +
-							"as the evidence, since OneNote's own export produced it rather than anything " +
-							'written in the page itself. Every link to another page in the tree becomes a ' +
-							'candidate relation the same way, and every embedded image travels across as an ' +
-							"attachment on the page's own entity. A page's title becomes its entity name."
+						'Only the page tree carries the hierarchy, and that is the reason that path exists: a ' +
+							'page sitting in a folder named after another page is proposed as a subpage of it, ' +
+							'with the folder tree itself standing as the evidence, since OneNote\u2019s own ' +
+							'export produced it rather than anything written in the page itself. Every link to ' +
+							'another page in the tree becomes a candidate relation the same way, and every ' +
+							"embedded image travels across as an attachment on the page's own entity. A page's " +
+							'title becomes its entity name.'
 					)
 				]
 			},
@@ -226,12 +235,18 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 							'app gives you.'
 					),
 					warn(
-						'A .onepkg file is not readable yet. The format is documented, but no reader has ' +
-							'been built for it, deferred rather than refused. If .onepkg is your only option, ' +
-							'for instance from OneNote on the web, export to PDF instead, or move to the ' +
-							'Windows desktop app if you have access to one. Web export also only covers a ' +
+						'The .onepkg, .one and .onetoc2 formats are not readable. They are documented, and a ' +
+							'reader for them is deferred rather than refused, so for now export to PDF or DOCX ' +
+							'from the Windows desktop app instead. OneNote on the web also only covers a ' +
 							'personal Microsoft or OneDrive account; a work, school or SharePoint account is ' +
 							'not covered by that path.'
+					),
+					warn(
+						'Single File Web Page (.mht) is the one worth knowing about, because it looks like it ' +
+							'should work: it is HTML written by OneNote itself, and close to the shape the page ' +
+							'tree has. It is not readable yet either, and the reason it is not quietly handed to ' +
+							'the generic text playbook meanwhile is that doing so spends credits reading the ' +
+							'MIME envelope rather than the notebook.'
 					)
 				]
 			}
