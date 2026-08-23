@@ -32,6 +32,7 @@ import {
 	acceptProposal,
 	createProposalPlan,
 	readEntityCreatePatch,
+	reconcileRelationEndpoints,
 	recordProposalDiff,
 	ProposalAlreadyDecidedError,
 	ProposalNotFoundError,
@@ -936,8 +937,16 @@ export async function acceptImportProposal(
 // ---------------------------------------------------------------------------
 
 export interface RelationTypeWaitingRelation {
-	fromEntityId: string;
-	toEntityId: string;
+	/** The entity this relation starts at. Null when the entity does not exist yet because
+	 * the same import is proposing it (issue #613), in which case `fromProposalId` names the
+	 * `create` proposal that will. Exactly one of the two is set. */
+	fromEntityId: string | null;
+	/** Issue #613. Absent on every row written before that issue, which is why the two
+	 * fields above and below are read defensively rather than destructured: a vocabulary
+	 * proposal is a jsonb patch that can outlive a deploy. */
+	fromProposalId?: string | null;
+	toEntityId: string | null;
+	toProposalId?: string | null;
 	rationale: string;
 	/** The same shape a plain 'relation' proposal's evidence already carries
 	 * ({ documentId, sourceRef, evidenceSpan } - job-runner.ts's own comment on
@@ -1351,6 +1360,15 @@ export async function acceptRelationTypeProposal(
 							targetEntityId: r.fromEntityId,
 							relationTypeId,
 							relatedEntityId: r.toEntityId,
+							// Issue #613: a relation can be waiting on two different things at once -
+							// this vocabulary question, and the entries at its ends that the same
+							// import is still only proposing. Answering the vocabulary question is
+							// not answering the other one, so the unblocked proposal carries the
+							// endpoint pointers through and stays unacceptable until those accepts
+							// resolve them. Order between the two does not matter, which is the whole
+							// reason the endpoint lives on the proposal rather than in a second queue.
+							targetEntityProposalId: r.fromProposalId ?? null,
+							relatedEntityProposalId: r.toProposalId ?? null,
 							patch: {},
 							rationale: r.rationale,
 							evidence: r.evidence,
@@ -1360,6 +1378,16 @@ export async function acceptRelationTypeProposal(
 					)
 					.returning({ id: proposal.id })
 			: [];
+
+		// Issue #613: these relations were held while the vocabulary question was open, and
+		// by the time it is answered the entries at their ends have very often been accepted
+		// already - on the OneNote notebook that was most of them. Nothing else would ever
+		// resolve those endpoints, because `resolveRelationEndpoints` fires from inside an
+		// accept and these rows did not exist when it ran.
+		await reconcileRelationEndpoints(
+			tx,
+			unblocked.map((row) => row.id)
+		);
 
 		const [updated] = await tx
 			.update(proposal)

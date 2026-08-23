@@ -94,6 +94,8 @@ export {
 	UndoNotPossibleError,
 	EntitySlugCollisionUnresolvedError,
 	RelationTypeNotAdmittedError,
+	RelationEndpointNotAcceptedError,
+	RELATION_ENDPOINT_REJECTED,
 	type ProposalRow,
 	type ProposalPlanRow,
 	type CreateProposalPlanCandidate,

@@ -215,6 +215,7 @@ export {
 	type RunImportJobParams,
 	type RunImportJobResult,
 	type DocumentOutcome,
+	type RelationDropLedger,
 	type AcceptImportProposalInput
 } from './job-runner.js';
 

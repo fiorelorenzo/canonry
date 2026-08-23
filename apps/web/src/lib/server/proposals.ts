@@ -32,6 +32,7 @@ import {
 	isRelationTypeProposalKind,
 	ProposalNotFoundError,
 	ProposalAlreadyDecidedError,
+	RelationEndpointNotAcceptedError,
 	ProposalCannotBeAcceptedError,
 	ProposalNotAcceptedError,
 	ProposalHasDiffError,
@@ -79,6 +80,7 @@ export {
 	getProposal,
 	ProposalNotFoundError,
 	ProposalAlreadyDecidedError,
+	RelationEndpointNotAcceptedError,
 	ProposalCannotBeAcceptedError,
 	ProposalNotAcceptedError,
 	ProposalHasDiffError,
@@ -414,6 +416,10 @@ export interface RelationTypeSummary {
 export interface RelationVocabWaitingRelation {
 	fromEntity: EntitySummary | null;
 	toEntity: EntitySummary | null;
+	/** Issue #613: the name the pending `create` at this end declares, when the entry does
+	 * not exist yet. Exactly one of `fromEntity` and `fromPendingName` is ever set. */
+	fromPendingName: string | null;
+	toPendingName: string | null;
 	rationale: string;
 	evidence: unknown;
 }
@@ -453,6 +459,14 @@ export interface ProposalCandidate {
 	targetEntity: EntitySummary | null;
 	/** The relation's "to" side. Null unless `proposal.kind === 'relation'`. */
 	relatedEntity: EntitySummary | null;
+	/** Issue #613: the entry a relation's "from" end names while that entry is still one of
+	 * this import's own pending proposals. Null once the endpoint's accept has filled
+	 * `targetEntity` in, and null for a relation whose end was canon from the start. It is
+	 * the patch's declared name rather than an entity, because there is no entity yet, which
+	 * is the whole point: guardrail 3 still wants the card to read "A is a subpage of B"
+	 * before either A or B exists. */
+	targetPendingName: string | null;
+	relatedPendingName: string | null;
 	relationType: RelationTypeSummary | null;
 	/** Set only for the three relation-type vocabulary kinds (issue #190, K1) - null
 	 * for everything else, same convention as `relationType` above. */
@@ -500,14 +514,26 @@ function patchName(patch: unknown): string | null {
 export async function resolveCandidates(db: Db, rows: ProposalRow[]): Promise<ProposalCandidate[]> {
 	const entityIds = new Set<string>();
 	const relationTypeIds = new Set<string>();
+	// Issue #613: a vocabulary patch's waiting relation and a plain relation candidate can
+	// each name an endpoint by proposal rather than by entity. Both are collected here so
+	// the whole screen still costs two queries.
+	const endpointProposalIds = new Set<string>();
 	for (const row of rows) {
 		if (row.targetEntityId) entityIds.add(row.targetEntityId);
 		if (row.relatedEntityId) entityIds.add(row.relatedEntityId);
 		if (row.relationTypeId) relationTypeIds.add(row.relationTypeId);
+		if (!row.targetEntityId && row.targetEntityProposalId) {
+			endpointProposalIds.add(row.targetEntityProposalId);
+		}
+		if (!row.relatedEntityId && row.relatedEntityProposalId) {
+			endpointProposalIds.add(row.relatedEntityProposalId);
+		}
 		if (isRelationTypeProposalKind(row.kind)) {
 			for (const waiting of (row.patch as RelationTypeVocabPatch).relations) {
-				entityIds.add(waiting.fromEntityId);
-				entityIds.add(waiting.toEntityId);
+				if (waiting.fromEntityId) entityIds.add(waiting.fromEntityId);
+				else if (waiting.fromProposalId) endpointProposalIds.add(waiting.fromProposalId);
+				if (waiting.toEntityId) entityIds.add(waiting.toEntityId);
+				else if (waiting.toProposalId) endpointProposalIds.add(waiting.toProposalId);
 			}
 		}
 	}
@@ -528,12 +554,28 @@ export async function resolveCandidates(db: Db, rows: ProposalRow[]): Promise<Pr
 		: [];
 	const relationTypeById = new Map(relationTypeRows.map((row) => [row.id, row]));
 
+	const endpointRows = endpointProposalIds.size
+		? await db
+				.select({ id: proposal.id, patch: proposal.patch })
+				.from(proposal)
+				.where(inArray(proposal.id, [...endpointProposalIds]))
+		: [];
+	const endpointNameById = new Map(endpointRows.map((row) => [row.id, patchName(row.patch)]));
+
 	return rows.map((row) => {
 		const targetRow = row.targetEntityId ? entityById.get(row.targetEntityId) : undefined;
 		const relatedRow = row.relatedEntityId ? entityById.get(row.relatedEntityId) : undefined;
 		const relTypeRow = row.relationTypeId ? relationTypeById.get(row.relationTypeId) : undefined;
 		const targetEntity = targetRow ? summarize(targetRow) : null;
 		const relatedEntity = relatedRow ? summarize(relatedRow) : null;
+		const targetPendingName =
+			!targetRow && row.targetEntityProposalId
+				? (endpointNameById.get(row.targetEntityProposalId) ?? null)
+				: null;
+		const relatedPendingName =
+			!relatedRow && row.relatedEntityProposalId
+				? (endpointNameById.get(row.relatedEntityProposalId) ?? null)
+				: null;
 		const relationTypeSummary = relTypeRow
 			? {
 					id: relTypeRow.id,
@@ -543,7 +585,12 @@ export async function resolveCandidates(db: Db, rows: ProposalRow[]): Promise<Pr
 				}
 			: null;
 		const relationVocab = isRelationTypeProposalKind(row.kind)
-			? relationVocabFor(row.patch as RelationTypeVocabPatch, relTypeRow ?? null, entityById)
+			? relationVocabFor(
+					row.patch as RelationTypeVocabPatch,
+					relTypeRow ?? null,
+					entityById,
+					endpointNameById
+				)
 			: null;
 
 		const filterType: EntityType | 'relation' | 'relation_type' = isRelationTypeProposalKind(
@@ -558,6 +605,8 @@ export async function resolveCandidates(db: Db, rows: ProposalRow[]): Promise<Pr
 			proposal: row,
 			targetEntity,
 			relatedEntity,
+			targetPendingName,
+			relatedPendingName,
 			relationType: relationTypeSummary,
 			relationVocab,
 			filterType
@@ -574,14 +623,29 @@ export async function resolveCandidates(db: Db, rows: ProposalRow[]): Promise<Pr
 function relationVocabFor(
 	patch: RelationTypeVocabPatch,
 	existingTypeRow: typeof relationType.$inferSelect | null,
-	entityById: Map<string, typeof entity.$inferSelect>
+	entityById: Map<string, typeof entity.$inferSelect>,
+	/** Issue #613: a waiting relation's end can be one of this import's own pending
+	 * proposals rather than an entity, so the card falls back to the name that proposal
+	 * declares. Without it the vocabulary question rendered "? mentors ?" for exactly the
+	 * relations a first import produces, which is every one of them. */
+	endpointNameById: Map<string, string | null>
 ): RelationVocabCandidate {
 	const relations: RelationVocabWaitingRelation[] = patch.relations.map((r) => {
-		const fromRow = entityById.get(r.fromEntityId);
-		const toRow = entityById.get(r.toEntityId);
+		const fromRow = r.fromEntityId ? entityById.get(r.fromEntityId) : undefined;
+		const toRow = r.toEntityId ? entityById.get(r.toEntityId) : undefined;
 		return {
 			fromEntity: fromRow ? summarize(fromRow) : null,
 			toEntity: toRow ? summarize(toRow) : null,
+			fromPendingName: fromRow
+				? null
+				: r.fromProposalId
+					? (endpointNameById.get(r.fromProposalId) ?? null)
+					: null,
+			toPendingName: toRow
+				? null
+				: r.toProposalId
+					? (endpointNameById.get(r.toProposalId) ?? null)
+					: null,
 			rationale: r.rationale,
 			evidence: r.evidence
 		};
@@ -632,9 +696,16 @@ function relationVocabFor(
 	// key present), so the missing side falls back to the first waiting relation's own
 	// entity type - the side that was already fine - so `addFrom`/`addTo` here always
 	// name the complete pair accepting would add, never half of one.
+	// Issue #613: an end that is still a pending proposal has no entity row to read a type
+	// off, so the fallback simply does not fire and the sentence names the side the
+	// resolver did fill in. A widen against two brand-new entries is not a shape the
+	// resolver produces (it only widens a type that already matched), so this is the
+	// defensive branch rather than the common one.
 	const first = patch.relations[0];
-	const fallbackFrom = first ? (entityById.get(first.fromEntityId)?.type ?? null) : null;
-	const fallbackTo = first ? (entityById.get(first.toEntityId)?.type ?? null) : null;
+	const fallbackFrom =
+		first?.fromEntityId != null ? (entityById.get(first.fromEntityId)?.type ?? null) : null;
+	const fallbackTo =
+		first?.toEntityId != null ? (entityById.get(first.toEntityId)?.type ?? null) : null;
 	return {
 		kind: patch.kind,
 		key,
@@ -700,6 +771,10 @@ export interface DiffCandidate {
 	targetType: EntityType | null;
 	targetSlug: string | null;
 	relatedName: string | null;
+	/** Issue #613: the entries this relation is waiting on, by name. Non-empty only for a
+	 * `relation` proposal whose endpoint is still one of this import's own pending
+	 * proposals; `ProposalDiffCard` shows them and withholds Accept while it is. */
+	waitingOnEntries: string[];
 	relationLabel: string | null;
 	/** #196: `relationType.key` - null for anything that is not a plain `relation`
 	 * proposal, mirroring `relationLabel`'s own null case. */
@@ -761,8 +836,8 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 				relations: candidate.relationVocab.relations.map((r) => {
 					const relationEvidence = normalizeEvidence(p.trigger, r.evidence);
 					return {
-						fromName: r.fromEntity?.name ?? null,
-						toName: r.toEntity?.name ?? null,
+						fromName: r.fromEntity?.name ?? r.fromPendingName,
+						toName: r.toEntity?.name ?? r.toPendingName,
 						rationale: r.rationale,
 						evidenceViews: relationEvidence.views,
 						evidenceCaveat: relationEvidence.caveat
@@ -780,10 +855,17 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 		rationale: p.rationale,
 		rejectReason: p.rejectReason,
 		credits: p.credits,
-		targetName: candidate.targetEntity?.name ?? patchName(p.patch),
+		targetName: candidate.targetEntity?.name ?? candidate.targetPendingName ?? patchName(p.patch),
 		targetType: candidate.targetEntity?.type ?? patchType(p.patch),
 		targetSlug: candidate.targetEntity?.slug ?? null,
-		relatedName: candidate.relatedEntity?.name ?? null,
+		relatedName: candidate.relatedEntity?.name ?? candidate.relatedPendingName,
+		// Issue #613: the names a GM has to accept before this relation can be accepted,
+		// which is what the card says instead of leaving an Accept button that 409s. Empty
+		// for every proposal whose ends are already real, which is every kind but this one.
+		waitingOnEntries: [
+			...(candidate.targetEntity ? [] : [candidate.targetPendingName]),
+			...(candidate.relatedEntity ? [] : [candidate.relatedPendingName])
+		].filter((name): name is string => typeof name === 'string' && name.length > 0),
 		relationLabel: candidate.relationType?.label ?? null,
 		relationKey: candidate.relationType?.key ?? null,
 		diff,

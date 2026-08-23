@@ -49,14 +49,37 @@
  *   before this issue) now points its `credit_transaction` row at the document's most
  *   recent `model_call` row instead of leaving `model_call_id` null.
  *
- * One deliberate scope boundary, stated rather than hidden: a relation whose endpoint is
- * a brand-new (not yet accepted) entity cannot be written as a `proposal` row under the
- * current schema (`proposal.kind = 'relation'` requires two real, already-existing
- * entity ids). Such relations are dropped for this run rather than invented a workaround
- * for - the entities they would connect still get proposed, and the relation becomes
- * proposable once one side is accepted and a later import (or a manual link) supplies it.
- * The same drop applies when both endpoints resolve to the *same* entity (issue #160): a
- * self-relation is never proposed at all, since `relation_from_ne_to` would refuse it.
+ * **A relation whose ends this same job is still only proposing** (issue #613). This used to
+ * be a stated scope boundary: `proposal.kind = 'relation'` wanted two real entity ids, and a
+ * relation that had neither was dropped, on the reasoning that the entities were still
+ * proposed and a later import would supply the link. That reasoning held while a relation was
+ * an occasional edge between two documents. It stopped holding when #603 made the point of
+ * reading `.one` the parent/subpage tree, which arrives whole on run one: measured on a real
+ * notebook, 203 of 203 relations had both ends new and every one was thrown away, tokens paid
+ * for and output discarded.
+ *
+ * So an endpoint may now be a *proposal* rather than an entity
+ * (`proposal.target_entity_proposal_id` / `related_entity_proposal_id`, whose comment in
+ * `packages/db`'s `schema/proposal.ts` carries the state table). The relation is a real,
+ * pending `relation` proposal from the moment this file writes it: in the queue, showing its
+ * own evidence, rejectable. Three pieces, and nothing else:
+ *
+ *  - here, `RelationEndpoint` says which of the three shapes each end is (an existing
+ *    entity, a pending `create` an earlier document folded onto, or a `create` in this same
+ *    document's plan, which has no id until `createProposalPlan` chooses one and therefore
+ *    travels as an index into that plan);
+ *  - `acceptProposal` on the entry at one end fills that end's entity id in
+ *    (`resolveRelationEndpoints`). That writes no relation and touches no canon: it swaps a
+ *    pointer on a row that stays `pending`, and the relation still reaches canon only through
+ *    its own accept, with its own allowed_from/allowed_to check (#191). Guardrail 1 is why it
+ *    is a pointer swap and not a cascade that writes the edge;
+ *  - `rejectProposal` on that entry settles the relations that can now never resolve as
+ *    `superseded`, so nothing sits pending forever pointing at an entry that will not exist.
+ *
+ * Two drops remain, and both are drops because no accept order reaches them: an endpoint the
+ * engine declined outright (a bare mention, issue #479, or a local id the model named in a
+ * relation without ever proposing an entity for it), and both ends landing on the *same*
+ * entry (issue #160), which `relation_from_ne_to` would refuse anyway.
  */
 import { createHash } from 'node:crypto';
 import {
@@ -305,6 +328,49 @@ export interface RunImportJobParams {
 	locale?: Locale;
 }
 
+/**
+ * Why the relations one document proposed did not become `relation` proposals (issue
+ * #613). Broken down rather than counted as one number, because the breakdown is the
+ * whole question: a relation whose two ends are both entities this same job is proposing
+ * becomes proposable the moment the GM accepts them, while one whose end the engine
+ * declined outright has no accept order that reaches it. #573 already counted the total;
+ * counting only the total is what made the loss look like an edge case for two releases.
+ */
+export interface RelationDropLedger {
+	/** Every relation this document proposed that did not become a pending `relation`
+	 * proposal in its own plan: the sum of the five fields below. A relation held for a
+	 * vocabulary question (decision K1) is not in here at all - it is waiting on a
+	 * proposal the GM can already see, which is not a drop. */
+	total: number;
+	/** Both endpoints are entities this job proposes and has not written yet. */
+	bothEndsProposed: number;
+	/** One endpoint is canon that already exists, the other is one of this job's own
+	 * pending proposals. */
+	oneEndProposed: number;
+	/** At least one endpoint is neither: the engine declined that sighting (a bare
+	 * mention, issue #479) or the model named a local id it never proposed an entity
+	 * for. No accept order reaches this one. */
+	noEndProposed: number;
+	/** Both endpoints resolved onto the same entity (issue #160). Never proposable at
+	 * all: `relation_from_ne_to` refuses a self-loop. */
+	selfLoop: number;
+	/** Endpoints that are not real yet but were parked against the proposals that will
+	 * make them real, so accepting those unblocks the relation into its own proposal.
+	 * Counted apart from the drops above because it is the opposite of a drop. */
+	deferred: number;
+}
+
+export function newRelationDropLedger(): RelationDropLedger {
+	return {
+		total: 0,
+		bothEndsProposed: 0,
+		oneEndProposed: 0,
+		noEndProposed: 0,
+		selfLoop: 0,
+		deferred: 0
+	};
+}
+
 export interface DocumentOutcome {
 	documentId: string;
 	/** issue #177: `JobDocument.sourcePath`, the file a GM actually wrote and would
@@ -320,6 +386,11 @@ export interface DocumentOutcome {
 	 * emitted for it (gateway-driver.ts, guardrail 3). Zero for a clean run and for
 	 * `skipped_unchanged`, which never ran a step at all. */
 	lostToolCallCount: number;
+	/** issue #613: what became of the relations this document proposed. All zeroes for a
+	 * document that never reached the merge engine (`skipped_unchanged`, `cancelled`,
+	 * `failed`), which is the honest answer for one: nothing became of them because
+	 * nothing was decided. */
+	droppedRelations: RelationDropLedger;
 	/** issue #177: the settling `progress` event's own `detail` (issue #169 made every
 	 * terminal status specific and legible - "stuck in a loop: source_list was called
 	 * with identical arguments 4 times in a row..." rather than a generic "this
@@ -499,6 +570,7 @@ export class ImportJobRunner {
 					entityCount: 0,
 					relationCount: 0,
 					proposalsCreated: 0,
+					droppedRelations: newRelationDropLedger(),
 					lostToolCallCount: 0,
 					detail: 'unchanged since the last import'
 				});
@@ -726,15 +798,18 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 	if (event.type !== 'progress' || !DOCUMENT_TERMINAL_STATUSES.includes(event.status)) return;
 
 	let proposalsCreated = 0;
+	let relationDrops = newRelationDropLedger();
 	const buffer = ctx.buffers.get(event.documentId);
 	if (buffer && (event.status === 'finished' || event.status === 'stopped_at_ceiling')) {
-		proposalsCreated = await materializeDocumentProposals(
+		const materialized = await materializeDocumentProposals(
 			ctx.params,
 			event.documentId,
 			buffer,
 			ctx.contentHashByDocument.get(event.documentId) ?? '',
 			event.status
 		);
+		proposalsCreated = materialized.proposalsCreated;
+		relationDrops = materialized.relationDrops;
 		if (proposalsCreated > 0 && ctx.params.userId) {
 			await spendCredits(ctx.params.db, {
 				userId: ctx.params.userId,
@@ -762,6 +837,7 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 		entityCount: event.entityCount,
 		relationCount: event.relationCount,
 		proposalsCreated,
+		droppedRelations: relationDrops,
 		lostToolCallCount: ctx.partialLossByDocument.get(event.documentId) ?? 0,
 		detail: event.detail
 	});
@@ -779,6 +855,130 @@ interface ResolvedEntityCandidate {
 	localId: string;
 	candidate: CreateProposalPlanCandidate;
 	patch: unknown;
+}
+
+/** What one document's materialisation produced, for the outcome the run reports. The
+ * count was the whole return value until issue #613 needed the relation ledger beside
+ * it, and the two travel together because they come out of the same pass. */
+interface MaterializeResult {
+	proposalsCreated: number;
+	relationDrops: RelationDropLedger;
+}
+
+/**
+ * One end of a relation this document proposed, in the three shapes it can actually be
+ * (issue #613). Nothing else is a valid endpoint: a local id that is none of these has no
+ * entry behind it at all and its relation is dropped.
+ *
+ *  - `entity`: canon that already exists, either matched by source ref or by the merge
+ *    engine. The only shape that existed before this issue, and the only one that can be
+ *    accepted immediately.
+ *  - `proposal`: a still-pending `create` an *earlier* document in this same job wrote,
+ *    which this document's sighting folded into (issue #160). Its id is real, so it goes
+ *    straight onto the relation row.
+ *  - `candidate`: a `create` this same document is about to write, identified by its index
+ *    in the plan being built, because that is the only handle that exists before
+ *    `createProposalPlan` has chosen the ids. `createProposalPlan` resolves it inside its
+ *    own transaction.
+ */
+type RelationEndpoint =
+	| { kind: 'entity'; entityId: string }
+	| { kind: 'proposal'; proposalId: string }
+	| { kind: 'candidate'; index: number };
+
+/** A relation whose type is an unanswered vocabulary question (decision K1), held until
+ * the plan exists. It cannot be written inside the relation loop any more: an endpoint of
+ * kind `candidate` has no id until `createProposalPlan` has run, and the vocabulary
+ * proposal's patch is jsonb that has to carry a durable reference rather than an index
+ * into a local array. */
+interface VocabularyWaitingRelation {
+	resolution: RelationTypeVocabResolutionInput;
+	from: RelationEndpoint;
+	to: RelationEndpoint;
+	rationale: string;
+	evidence: unknown;
+}
+
+function endpointFor(
+	localId: string,
+	localIdToEntityId: Map<string, string>,
+	localIdToCandidate: Map<string, RelationEndpoint>
+): RelationEndpoint | null {
+	const entityId = localIdToEntityId.get(localId);
+	if (entityId) return { kind: 'entity', entityId };
+	return localIdToCandidate.get(localId) ?? null;
+}
+
+/** Whether both ends of a relation land on the same entry, whichever shape they arrived
+ * in. Two `candidate` ends are never equal: each `create` takes its own index. */
+function sameEndpoint(a: RelationEndpoint, b: RelationEndpoint): boolean {
+	if (a.kind !== b.kind) return false;
+	if (a.kind === 'entity' && b.kind === 'entity') return a.entityId === b.entityId;
+	if (a.kind === 'proposal' && b.kind === 'proposal') return a.proposalId === b.proposalId;
+	return false;
+}
+
+/** The `CreateProposalPlanCandidate` fields one end contributes. An `entity` end
+ * contributes none of them: its id is already on `targetEntityId`/`relatedEntityId`, and a
+ * present-but-undefined key is not the same as an absent one under
+ * `exactOptionalPropertyTypes`, which is why this returns a spread rather than assigning. */
+function endpointRefs(
+	side: 'target' | 'related',
+	endpoint: RelationEndpoint
+): Partial<CreateProposalPlanCandidate> {
+	if (endpoint.kind === 'entity') return {};
+	if (endpoint.kind === 'proposal') {
+		return side === 'target'
+			? { targetEntityProposalId: endpoint.proposalId }
+			: { relatedEntityProposalId: endpoint.proposalId };
+	}
+	return side === 'target'
+		? { targetEntityProposalIndex: endpoint.index }
+		: { relatedEntityProposalIndex: endpoint.index };
+}
+
+/** The endpoint's real proposal id, once the plan has been written. A `candidate` end is
+ * resolved through the plan's own returned rows, in the same order they were passed in. */
+function endpointProposalId(endpoint: RelationEndpoint, proposals: ProposalRow[]): string | null {
+	if (endpoint.kind === 'entity') return null;
+	if (endpoint.kind === 'proposal') return endpoint.proposalId;
+	const row = proposals[endpoint.index];
+	if (!row) {
+		throw new Error(
+			`materializeDocumentProposals: relation endpoint names candidate ${endpoint.index}, which the plan did not return`
+		);
+	}
+	return row.id;
+}
+
+/** Writes (or folds into) one vocabulary proposal per queued relation, once the plan's own
+ * `create` rows have ids. Sequential rather than `Promise.all`, and that is the point:
+ * `proposeRelationTypeVocabulary` folds a repeat sighting into the proposal a previous call
+ * created, so two concurrent calls asking the same question would both find nothing and both
+ * create one, which is the "twelve relations, twelve questions" shape decision K1 exists to
+ * avoid. */
+async function writeVocabularyProposals(
+	params: RunImportJobParams,
+	waiting: VocabularyWaitingRelation[],
+	proposals: ProposalRow[]
+): Promise<void> {
+	for (const item of waiting) {
+		await proposeRelationTypeVocabulary(params.db, {
+			universeId: params.universeId,
+			importJobId: params.dbJobId,
+			resolution: item.resolution,
+			relation: {
+				fromEntityId: item.from.kind === 'entity' ? item.from.entityId : null,
+				fromProposalId: endpointProposalId(item.from, proposals),
+				toEntityId: item.to.kind === 'entity' ? item.to.entityId : null,
+				toProposalId: endpointProposalId(item.to, proposals),
+				rationale: item.rationale,
+				evidence: item.evidence
+			},
+			provider: 'import',
+			modelId: params.playbook.id
+		});
+	}
 }
 
 /** Translates `@canonry/copilot`'s `RelationTypeResolution` into the plain shape
@@ -928,10 +1128,11 @@ interface DeclineLedger {
 	 * writes the ref and this function must not write one first: the entity does not
 	 * exist yet. */
 	folded: number;
-	/** Relations dropped for this run because an endpoint was not a real entity yet, or
-	 * because both endpoints resolved onto the same one. The first of those is recoverable
-	 * on a later import once the endpoint exists, and only if the document is read again. */
-	droppedRelations: number;
+	/** issue #613: the per-reason breakdown of the relations this document did not get to
+	 * propose. `relationDrops.total` is what `declinedDocumentEarnsSourceRef` reads, and
+	 * it means what the single counter before it meant: work a later import can still
+	 * recover, but only if the document is read again. */
+	relationDrops: RelationDropLedger;
 	/** Relation-type vocabulary proposals written for this document (decision K1, issue
 	 * #190). They do not appear in `allCandidates`, so a document that produced one and
 	 * nothing else did produce something, and is not a declined document at all. */
@@ -943,7 +1144,7 @@ function newDeclineLedger(): DeclineLedger {
 		ontoEntityIds: new Set<string>(),
 		withoutEntity: 0,
 		folded: 0,
-		droppedRelations: 0,
+		relationDrops: newRelationDropLedger(),
 		vocabularyProposals: 0
 	};
 }
@@ -1008,7 +1209,7 @@ function declinedDocumentEarnsSourceRef(
 		documentStatus === 'finished' &&
 		declined.withoutEntity === 0 &&
 		declined.folded === 0 &&
-		declined.droppedRelations === 0 &&
+		declined.relationDrops.total === 0 &&
 		declined.vocabularyProposals === 0 &&
 		declined.ontoEntityIds.size === 1
 	);
@@ -1045,10 +1246,16 @@ async function materializeDocumentProposals(
 	 * that reaches here, and a document cut off mid-run must never earn the source ref
 	 * `declinedDocumentEarnsSourceRef` writes. */
 	documentStatus: DocumentStatus
-): Promise<number> {
+): Promise<MaterializeResult> {
 	const { db } = params;
 	const locale: Locale = params.locale ?? 'en';
 	const localIdToEntityId = new Map<string, string>();
+	// issue #613: the local ids whose entry this job is only *proposing*, and which of the
+	// two proposal shapes that is (`RelationEndpoint`'s own comment has both). A local id in
+	// neither this map nor `localIdToEntityId` has no entry behind it at all: the engine
+	// declined that sighting, or the model named it in a relation without ever proposing an
+	// entity for it, and a relation naming it is the one loss that stays a loss.
+	const localIdToCandidate = new Map<string, RelationEndpoint>();
 	const localIdToType = new Map<string, EntityProposalPayload['type']>();
 	const resolved: ResolvedEntityCandidate[] = [];
 	const declined = newDeclineLedger();
@@ -1173,6 +1380,9 @@ async function materializeDocumentProposals(
 					sourceRef: payload.sourceRef,
 					contentHash
 				});
+				// issue #613: the surviving proposal is what a relation naming this local id
+				// has to wait for, so this sighting is 'proposed' rather than nothing.
+				localIdToCandidate.set(localId, { kind: 'proposal', proposalId: decision.candidateId });
 				declined.folded += 1;
 				continue;
 			}
@@ -1266,6 +1476,9 @@ async function materializeDocumentProposals(
 				continue;
 			}
 			const ambiguousCandidateIds = decision.outcome === 'ask' ? decision.candidateIds : [];
+			// issue #613: this document is proposing the entity, so a relation naming it is
+			// waiting on an accept rather than on nothing.
+			localIdToCandidate.set(localId, { kind: 'candidate', index: resolved.length });
 			resolved.push({
 				localId,
 				candidate: {
@@ -1304,25 +1517,32 @@ async function materializeDocumentProposals(
 	}
 
 	const relationCandidates: Array<{ candidate: CreateProposalPlanCandidate; patch: unknown }> = [];
+	// Decision K1's own queue, drained after the plan exists rather than inside this loop:
+	// see `vocabularyWaiting`'s type above for why the two cannot happen in one pass.
+	const vocabularyWaiting: VocabularyWaitingRelation[] = [];
 	for (const relationPayload of buffer.relations) {
-		const fromEntityId = localIdToEntityId.get(relationPayload.fromLocalId);
-		const toEntityId = localIdToEntityId.get(relationPayload.toLocalId);
+		const from = endpointFor(relationPayload.fromLocalId, localIdToEntityId, localIdToCandidate);
+		const to = endpointFor(relationPayload.toLocalId, localIdToEntityId, localIdToCandidate);
 		const fromType = localIdToType.get(relationPayload.fromLocalId);
 		const toType = localIdToType.get(relationPayload.toLocalId);
-		// See this module's doc comment: a relation to a not-yet-existing entity has no
-		// real id to reference and is dropped for this run, not invented a workaround for.
-		// Issue #573 counts it, because "for this run" is only true if there is a later run
-		// that reads this document again.
-		if (!fromEntityId || !toEntityId || !fromType || !toType) {
-			declined.droppedRelations += 1;
+		// The one loss issue #613 does not recover, and the only one left: an endpoint the
+		// engine declined outright (a bare mention, issue #479) or a local id the model named
+		// in a relation without ever proposing an entity for it. There is no proposal to wait
+		// for, so no accept order reaches this relation and a later import is the only way
+		// back - which is why issue #573 still counts it as a reason to re-read the document.
+		if (!from || !to || !fromType || !toType) {
+			declined.relationDrops.total += 1;
+			declined.relationDrops.noEndProposed += 1;
 			continue;
 		}
 		// Two local ids in *this* document can also resolve onto the same target (issue
-		// #160): the relation between them would otherwise be a self-loop, which
+		// #160), whether that target is an entity or one of this job's own pending
+		// proposals: the relation between them would be a self-loop, which
 		// `relation_from_ne_to` refuses at accept time anyway. Never propose one - there
 		// is nothing a GM could usefully accept about an entity relating to itself.
-		if (fromEntityId === toEntityId) {
-			declined.droppedRelations += 1;
+		if (sameEndpoint(from, to)) {
+			declined.relationDrops.total += 1;
+			declined.relationDrops.selfLoop += 1;
 			continue;
 		}
 
@@ -1346,12 +1566,20 @@ async function materializeDocumentProposals(
 		};
 
 		if (resolution.kind === 'existing') {
+			// Issue #613: whichever of the two ends is still a proposal travels as a proposal
+			// reference rather than stopping the relation here. The row this writes is a
+			// pending `relation` proposal either way, shown with its own evidence and
+			// accepted on its own; the only difference is that an unresolved end refuses the
+			// accept until the entry at that end is accepted first.
+			if (from.kind !== 'entity' || to.kind !== 'entity') declined.relationDrops.deferred += 1;
 			relationCandidates.push({
 				candidate: {
 					kind: 'relation',
-					targetEntityId: fromEntityId,
+					targetEntityId: from.kind === 'entity' ? from.entityId : null,
 					relationTypeId: resolution.type.id,
-					relatedEntityId: toEntityId,
+					relatedEntityId: to.kind === 'entity' ? to.entityId : null,
+					...endpointRefs('target', from),
+					...endpointRefs('related', to),
 					rationale,
 					evidence,
 					rank: resolved.length + relationCandidates.length
@@ -1366,13 +1594,17 @@ async function materializeDocumentProposals(
 		// one vocabulary proposal this job's own review queue shows, and only a GM's
 		// accept on that proposal unblocks this relation into its own pending `relation`
 		// proposal. See proposeRelationTypeVocabulary's own comment for the fold shape.
-		await proposeRelationTypeVocabulary(db, {
-			universeId: params.universeId,
-			importJobId: params.dbJobId,
+		//
+		// Issue #613 moved the write out of this loop: an endpoint that is a `create` in
+		// this document's own plan has no id until `createProposalPlan` below has run, and a
+		// vocabulary patch is jsonb that outlives this function, so it cannot carry an index
+		// into an array that no longer exists. Queued here, written once the ids are real.
+		vocabularyWaiting.push({
 			resolution: toVocabResolutionInput(resolution),
-			relation: { fromEntityId, toEntityId, rationale, evidence },
-			provider: 'import',
-			modelId: params.playbook.id
+			from,
+			to,
+			rationale,
+			evidence
 		});
 		declined.vocabularyProposals += 1;
 	}
@@ -1382,6 +1614,9 @@ async function materializeDocumentProposals(
 		...relationCandidates.map((r) => r.candidate)
 	];
 	if (allCandidates.length === 0) {
+		// No candidates means no `candidate`-kind endpoint can exist either (there is nothing
+		// for an index to point at), so the vocabulary queue is safe to drain with no plan.
+		await writeVocabularyProposals(params, vocabularyWaiting, []);
 		// `run()`'s skip looks a ref up by `JobDocument.sourcePath`, so that is the key this
 		// has to write, not the path off a payload's `sourceRef`. They are the same string
 		// today (tools.ts stamps it from the document context and the model cannot pass one),
@@ -1399,7 +1634,7 @@ async function materializeDocumentProposals(
 				lastImportJobId: params.dbJobId
 			});
 		}
-		return 0;
+		return { proposalsCreated: 0, relationDrops: declined.relationDrops };
 	}
 
 	const { proposals } = await createProposalPlan(db, {
@@ -1428,7 +1663,11 @@ async function materializeDocumentProposals(
 		)
 	);
 
-	return proposals.length;
+	// Decision K1's queue, now that every `create` in this plan has an id a jsonb patch can
+	// hold onto (issue #613).
+	await writeVocabularyProposals(params, vocabularyWaiting, proposals);
+
+	return { proposalsCreated: proposals.length, relationDrops: declined.relationDrops };
 }
 
 function isEmptyPatchTarget(patch: unknown): boolean {

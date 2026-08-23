@@ -48,6 +48,8 @@ function candidate(row: ProposalRow): ProposalCandidate {
 		proposal: row,
 		targetEntity: null,
 		relatedEntity: null,
+		targetPendingName: null,
+		relatedPendingName: null,
 		relationType: null,
 		relationVocab: null,
 		filterType: 'place'
@@ -134,6 +136,8 @@ describe('enrichCandidate, for a proposal that updates an entry', () => {
 				aliases: []
 			},
 			relatedEntity: null,
+			targetPendingName: null,
+			relatedPendingName: null,
 			relationType: null,
 			relationVocab: null,
 			filterType: 'character'

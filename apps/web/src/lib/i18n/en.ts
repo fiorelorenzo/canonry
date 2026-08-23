@@ -973,6 +973,7 @@ export const en: Messages = {
 			filterShown: (typeLabel) => `(${typeLabel} shown)`,
 			acceptedSuffix: () => ' accepted',
 			rejectedSuffix: () => ' rejected',
+			supersededSuffix: () => ' dropped',
 			acceptedToast: (entityName) =>
 				entityName ? `Proposal accepted: ${entityName}` : 'Proposal accepted',
 			acceptFailedToast: 'That decision did not go through.',
@@ -1023,7 +1024,10 @@ export const en: Messages = {
 				};
 				return labels[type] ?? type;
 			},
-			rejectReasonLabel: (value) => PROPOSAL_REJECT_REASON_LABELS_EN[value] ?? value
+			rejectReasonLabel: (value) => PROPOSAL_REJECT_REASON_LABELS_EN[value] ?? value,
+			waitingOnEntries: (names) => `Accept ${names} first, then this link can be accepted`,
+			supersededEndpoint: 'Dropped: an entry this link needs was rejected',
+			supersededEndpointShort: 'dropped \u00b7 entry rejected'
 		},
 
 		filterBuckets: {
@@ -1173,7 +1177,9 @@ export const en: Messages = {
 				proposalNotFound: (proposalId) => `No proposal "${proposalId}" in this job.`,
 				missingProposalOrReason: 'Missing proposal ID or reason.',
 				proposalNotRejected: 'That proposal is not rejected.',
-				missingFilterType: 'Missing filter type.'
+				missingFilterType: 'Missing filter type.',
+				relationEndpointNotAccepted:
+					'This link names an entry the import is still proposing. Accept that entry first.'
 			}
 		},
 

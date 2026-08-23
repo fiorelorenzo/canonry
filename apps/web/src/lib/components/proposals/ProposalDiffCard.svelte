@@ -53,6 +53,10 @@
 		targetType: string | null;
 		targetSlug: string | null;
 		relatedName: string | null;
+		/** Issue #613: the entries this relation waits on, by name, while they are still
+		 * this import's own pending proposals. Empty for every other kind and for a
+		 * relation whose ends are already canon. */
+		waitingOnEntries: string[];
 		relationLabel: string | null;
 		/** #196: `relationType.key`, null for anything that is not a plain `relation`
 		 * proposal - mirrors `relationLabel`'s own null case. */
@@ -187,6 +191,14 @@
 				{t.diffCard.rejected}{candidate.rejectReason
 					? ` \u00b7 ${t.diffCard.rejectReasonLabel(candidate.rejectReason)}`
 					: ''}
+			</span>
+		{:else if candidate.outcome === 'superseded' && candidate.rejectReason === 'endpoint_rejected'}
+			<!-- Issue #613: a relation whose entry the GM rejected. It is settled, and it says
+			     so, because the alternative was a row sitting pending forever against an entry
+			     that is never coming. Not the danger treatment: the GM rejected the entry, not
+			     this, and nothing here failed. -->
+			<span class="rounded-full bg-panel-2 px-2 py-0.5 font-mono text-xs text-ink-2">
+				{t.diffCard.supersededEndpoint}
 			</span>
 		{/if}
 	</header>
@@ -395,7 +407,26 @@
 		</div>
 	{/if}
 
-	{#if candidate.outcome === 'pending' && onAccept && onReject}
+	{#if candidate.waitingOnEntries.length > 0 && candidate.outcome === 'pending'}
+		<!-- Issue #613: this relation names an entry the same import is still proposing, so
+		     accepting it now would be refused by `acceptProposal`. Saying which entry, and
+		     withholding Accept rather than leaving a button that errors, is what makes the
+		     ordering readable instead of a wall a GM walks into. Reject stays available: a
+		     link the GM does not want is still a decision they can take now. -->
+		<p class="mb-3 rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-sm text-ink-2">
+			{t.diffCard.waitingOnEntries(candidate.waitingOnEntries.join(', '))}
+		</p>
+	{/if}
+
+	{#if candidate.outcome === 'pending' && candidate.waitingOnEntries.length > 0 && onReject}
+		<button
+			type="button"
+			class="min-h-11 rounded-md border border-line-2 px-3 text-sm text-ink-2 hover:bg-panel-2 sm:min-h-0 sm:py-1.5"
+			onclick={onReject}
+		>
+			{t.diffCard.reject}
+		</button>
+	{:else if candidate.outcome === 'pending' && onAccept && onReject}
 		<!-- Issue #148 (I10 = B): C6's keyboard queue (j/k/a/r/u) doesn't reach a
 		     phone, so below `sm` these are the primary way to decide - full width,
 		     44px minimum, side by side rather than the compact auto-width pair a

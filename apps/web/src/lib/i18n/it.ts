@@ -1001,6 +1001,8 @@ export const it: Messages = {
 				pluralRules('it').select(count) === 'one' ? ' accettata' : ' accettate',
 			rejectedSuffix: (count) =>
 				pluralRules('it').select(count) === 'one' ? ' rifiutata' : ' rifiutate',
+			supersededSuffix: (count) =>
+				pluralRules('it').select(count) === 'one' ? ' scartata' : ' scartate',
 			// Issue #584: "Accettato" was a participle doing a heading's work, agreeing with
 			// an entity name whose gender the catalogue cannot know, and disagreeing with the
 			// "la voce" fallback the same string chose. It agrees with "proposta" now, which
@@ -1055,7 +1057,11 @@ export const it: Messages = {
 				};
 				return labels[type] ?? type;
 			},
-			rejectReasonLabel: (value) => PROPOSAL_REJECT_REASON_LABELS_IT[value] ?? value
+			rejectReasonLabel: (value) => PROPOSAL_REJECT_REASON_LABELS_IT[value] ?? value,
+			waitingOnEntries: (names) =>
+				`Accetta prima ${names}, poi questo collegamento potrà essere accettato`,
+			supersededEndpoint: 'Scartato: una voce necessaria a questo collegamento è stata rifiutata',
+			supersededEndpointShort: 'scartata \u00b7 voce rifiutata'
 		},
 
 		filterBuckets: {
@@ -1214,7 +1220,9 @@ export const it: Messages = {
 				proposalNotFound: (proposalId) => `Nessuna proposta "${proposalId}" in questo import.`,
 				missingProposalOrReason: 'ID proposta o motivo mancante.',
 				proposalNotRejected: 'Quella proposta non è stata rifiutata.',
-				missingFilterType: 'Tipo di filtro mancante.'
+				missingFilterType: 'Tipo di filtro mancante.',
+				relationEndpointNotAccepted:
+					"Questo collegamento nomina una voce che l'import sta ancora proponendo. Accetta prima quella voce."
 			}
 		},
 
