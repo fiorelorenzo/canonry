@@ -145,9 +145,9 @@
 					data-theme={pane.theme}
 					class="mb-10 rounded-lg border border-line bg-paper p-6 text-ink"
 				>
-					<h2 class="mb-4 font-mono text-xs tracking-wide text-muted uppercase">{pane.label}</h2>
+					<h2 class="mb-4 font-mono text-label tracking-wide text-muted uppercase">{pane.label}</h2>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Button</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Button</h3>
 					<div
 						class="mb-6 flex flex-wrap items-center gap-3 rounded border border-line bg-panel p-4"
 					>
@@ -158,7 +158,7 @@
 						{/each}
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Badge</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Badge</h3>
 					<div
 						class="mb-6 flex flex-wrap items-center gap-2 rounded border border-line bg-panel p-4"
 					>
@@ -167,9 +167,9 @@
 						{/each}
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Inline link (#551)</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Inline link (#551)</h3>
 					<div class="mb-6 flex flex-col gap-2 rounded border border-line bg-panel p-4">
-						<p class="max-w-measure text-sm text-ink-2">
+						<p class="max-w-measure text-body text-ink-2">
 							The shape carries no hover-only state: this sentence has
 							<InlineLink href="https://github.com/fiorelorenzo/canonry/issues/551"
 								>an inline link</InlineLink
@@ -184,14 +184,14 @@
 								external one
 							</InlineLink> carries the same shape, the usual anchor attributes passed straight through.
 						</p>
-						<p class="text-xs text-muted">
+						<p class="text-label text-muted">
 							Not this component: a navigation row, a card surface, or a control that only looks
 							like a link - see the component's own doc comment for the three call sites #551 left
 							alone on that ground.
 						</p>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Input, Label, Textarea</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Input, Label, Textarea</h3>
 					<div class="mb-6 flex max-w-sm flex-col gap-3 rounded border border-line bg-panel p-4">
 						<div class="flex flex-col gap-1.5">
 							<Label for="gallery-name-{pane.theme}">Universe name</Label>
@@ -203,7 +203,7 @@
 						</div>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Select</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Select</h3>
 					<div class="mb-6 rounded border border-line bg-panel p-4">
 						<Select.Root
 							type="single"
@@ -221,7 +221,7 @@
 						</Select.Root>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Segmented (#286, O4 = B)</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Segmented (#286, O4 = B)</h3>
 					<div class="mb-6 rounded border border-line bg-panel p-4">
 						<Segmented
 							name="gallery-segmented-{pane.theme}"
@@ -229,10 +229,10 @@
 							options={segmentedSampleOptions}
 							ariaLabel="Entry language"
 						/>
-						<p class="mt-2 font-mono text-xs text-muted">value: {segmentedValue[pane.theme]}</p>
+						<p class="mt-2 font-mono text-label text-muted">value: {segmentedValue[pane.theme]}</p>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Combobox (#286, O4 = B)</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Combobox (#286, O4 = B)</h3>
 					<div class="mb-6 max-w-sm rounded border border-line bg-panel p-4">
 						<Combobox
 							id="gallery-combobox-{pane.theme}"
@@ -244,12 +244,12 @@
 							contentProps={{ portalProps: inline }}
 							ariaLabel="Entry"
 						/>
-						<p class="mt-2 font-mono text-xs text-muted">
+						<p class="mt-2 font-mono text-label text-muted">
 							value: {comboboxValue[pane.theme] ?? 'null'}
 						</p>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Switch (#383, R8)</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Switch (#383, R8)</h3>
 					<div
 						class="mb-6 flex flex-wrap items-center gap-6 rounded border border-line bg-panel p-4"
 					>
@@ -273,14 +273,14 @@
 						</div>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Separator</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Separator</h3>
 					<div class="mb-6 rounded border border-line bg-panel p-4">
-						<p class="text-sm text-ink-2">Above</p>
+						<p class="text-body text-ink-2">Above</p>
 						<Separator class="my-3" />
-						<p class="text-sm text-ink-2">Below</p>
+						<p class="text-body text-ink-2">Below</p>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Tooltip</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Tooltip</h3>
 					<div class="mb-6 rounded border border-line bg-panel p-4">
 						<Tooltip.Root>
 							<Tooltip.Trigger class={buttonVariants({ variant: 'secondary' })}>
@@ -290,7 +290,7 @@
 						</Tooltip.Root>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Popover</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Popover</h3>
 					<div class="mb-6 rounded border border-line bg-panel p-4">
 						<Popover.Root>
 							<Popover.Trigger class={buttonVariants({ variant: 'secondary' })}>
@@ -305,7 +305,7 @@
 						</Popover.Root>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Dropdown menu</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Dropdown menu</h3>
 					<div class="mb-6 rounded border border-line bg-panel p-4">
 						<DropdownMenu.Root>
 							<DropdownMenu.Trigger class={buttonVariants({ variant: 'secondary' })}>
@@ -322,7 +322,7 @@
 						</DropdownMenu.Root>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Dialog</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Dialog</h3>
 					<div class="mb-6 rounded border border-line bg-panel p-4">
 						<Dialog.Root>
 							<Dialog.Trigger class={buttonVariants({ variant: 'default' })}>
@@ -342,7 +342,7 @@
 						</Dialog.Root>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Sheet</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Sheet</h3>
 					<div class="mb-6 rounded border border-line bg-panel p-4">
 						<Sheet.Root>
 							<Sheet.Trigger class={buttonVariants({ variant: 'secondary' })}>
@@ -357,7 +357,7 @@
 						</Sheet.Root>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Command</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Command</h3>
 					<div
 						class="mb-6 flex flex-wrap items-start gap-4 rounded border border-line bg-panel p-4"
 					>
@@ -403,7 +403,7 @@
 					     the gallery draws `PageBand` directly rather than nesting a whole `Page`
 					     inside this one. This import is the only one in the app outside
 					     `page.svelte`, and `page-header-offset.test.ts` holds it to that. -->
-					<h3 class="mb-2 text-sm font-semibold text-ink">Page header</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Page header</h3>
 					<div class="mb-6 rounded border border-line bg-panel p-4">
 						<PageBand
 							width="working"
@@ -418,7 +418,7 @@
 						</PageBand>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Empty state, three kinds (I8)</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Empty state, three kinds (I8)</h3>
 					<div class="flex flex-col gap-3 rounded border border-line bg-panel p-4">
 						<EmptyState kind="cold" message="No entries yet.">
 							{#snippet action()}
@@ -443,10 +443,10 @@
 						</EmptyState>
 					</div>
 
-					<h3 class="mb-2 text-sm font-semibold text-ink">Key hint (T5, #432)</h3>
+					<h3 class="mb-2 text-title font-semibold text-ink">Key hint (T5, #432)</h3>
 					<div class="rounded border border-line bg-panel p-4">
 						<KeyHint pairs={keyHintSample} />
-						<p class="mt-2 font-mono text-xs text-muted">
+						<p class="mt-2 font-mono text-label text-muted">
 							Hidden below sm - there is no keyboard there (#148).
 						</p>
 					</div>
@@ -459,9 +459,9 @@
 				     CDP's `Emulation.setEmulatedMedia` at: with `prefers-reduced-motion: reduce`
 				     every box below still appears, the cascade's three rows land together
 				     rather than in sequence, and the mark appears whole rather than drawing. -->
-					<h3 class="mt-6 mb-2 text-sm font-semibold text-ink">Motion tokens (Q6, V9)</h3>
+					<h3 class="mt-6 mb-2 text-title font-semibold text-ink">Motion tokens (Q6, V9)</h3>
 					<div class="flex flex-col gap-3 rounded border border-line bg-panel p-4">
-						<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 font-mono text-xs">
+						<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 font-mono text-label">
 							{#each motionTokens as token (token.name)}
 								<dt class="text-ink-2">{token.name}</dt>
 								<dd class="m-0 text-muted">{token.note}</dd>
@@ -473,12 +473,12 @@
 							>
 							{#key motionRun[pane.theme]}
 								<span
-									class="animate-in rounded-md border border-line-2 bg-panel-2 px-2.5 py-1 text-xs text-ink duration-move ease-arrive fade-in-0 slide-in-from-bottom-2"
+									class="animate-in rounded-md border border-line-2 bg-panel-2 px-2.5 py-1 text-label text-ink duration-move ease-arrive fade-in-0 slide-in-from-bottom-2"
 								>
 									duration-move, arriving
 								</span>
 								<span
-									class="animate-in rounded-md border border-line-2 bg-panel-2 px-2.5 py-1 text-xs text-ink duration-fade ease-arrive fade-in-0"
+									class="animate-in rounded-md border border-line-2 bg-panel-2 px-2.5 py-1 text-label text-ink duration-fade ease-arrive fade-in-0"
 								>
 									duration-fade, no travel
 								</span>
@@ -489,7 +489,7 @@
 								<ul class="flex flex-col gap-1">
 									{#each cascadeDemoRows as row (row)}
 										<li
-											class="motion-demo-row rounded border border-line-2 bg-panel-2 px-2 py-0.5 text-xs text-ink-2"
+											class="motion-demo-row rounded border border-line-2 bg-panel-2 px-2 py-0.5 text-label text-ink-2"
 											style={`animation-delay: ${row * 40}ms`}
 										>
 											cascade row {row + 1}
@@ -497,7 +497,7 @@
 									{/each}
 								</ul>
 								<span
-									class="inline-flex items-center gap-1 rounded-full bg-ok-bg px-2 py-0.5 text-xs text-ok"
+									class="inline-flex items-center gap-1 rounded-full bg-ok-bg px-2 py-0.5 text-label text-ok"
 								>
 									<AcceptMark class="size-3.5" />
 									accept mark, drawing

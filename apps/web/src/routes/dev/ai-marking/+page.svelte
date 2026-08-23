@@ -123,42 +123,42 @@
 				data-theme={pane.theme}
 				class="mb-10 rounded-lg border border-line bg-paper p-6 text-ink"
 			>
-				<h2 class="mb-4 font-mono text-xs tracking-wide text-muted uppercase">{pane.label}</h2>
+				<h2 class="mb-4 font-mono text-label tracking-wide text-muted uppercase">{pane.label}</h2>
 
-				<h3 class="mb-1 text-sm font-semibold text-ink">
+				<h3 class="mb-1 text-title font-semibold text-ink">
 					C1's mark - AI wording nobody has accepted
 				</h3>
-				<p class="mb-3 text-xs text-muted">
+				<p class="mb-3 text-label text-muted">
 					The diff, and the dock's drafted proposals. Never the entry's own prose.
 				</p>
 
-				<h4 class="mb-2 text-xs font-semibold text-ink-2 uppercase">One sentence proposed</h4>
+				<h4 class="mb-2 text-label font-semibold text-ink-2 uppercase">One sentence proposed</h4>
 				<div class="mb-6 rounded border border-line bg-panel p-4">
 					<AiMarkedParagraph segments={oneSentence} />
 				</div>
 
-				<h4 class="mb-2 text-xs font-semibold text-ink-2 uppercase">
+				<h4 class="mb-2 text-label font-semibold text-ink-2 uppercase">
 					Mixed: written and proposed in one paragraph
 				</h4>
 				<div class="mb-6 rounded border border-line bg-panel p-4">
 					<AiMarkedParagraph segments={mixed} />
 				</div>
 
-				<h4 class="mb-2 text-xs font-semibold text-ink-2 uppercase">
+				<h4 class="mb-2 text-label font-semibold text-ink-2 uppercase">
 					Worst case: four sentences proposed in one paragraph
 				</h4>
 				<div class="mb-8 rounded border border-line bg-panel p-4">
 					<AiMarkedParagraph segments={worstCase} />
 				</div>
 
-				<h3 class="mb-1 text-sm font-semibold text-ink">
+				<h3 class="mb-1 text-title font-semibold text-ink">
 					V6's change bar - the GM's own canon, with something waiting
 				</h3>
-				<p class="mb-3 text-xs text-muted">
+				<p class="mb-3 text-label text-muted">
 					The entry's own read view. The prose is untouched, mentions and all - only the margin
 					gains a bar, and only beside the paragraph a pending proposal targets.
 				</p>
-				<div class="entry-prose-secrets-demo rounded border border-line bg-panel p-4 text-sm">
+				<div class="entry-prose-secrets-demo rounded border border-line bg-panel p-4 text-body">
 					<!-- Fixture markup built from this page's own trusted strings through
 				     renderMarkdown/renderChangeBar, the same pure functions the entry page renders
 				     with, never from user input. -->
