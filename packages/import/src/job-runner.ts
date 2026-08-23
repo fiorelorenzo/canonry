@@ -99,6 +99,7 @@ import {
 	importQuotaForUser,
 	importUsageForUser,
 	isRelationTypeProposalKind,
+	pendingEntityProposalsByIdentity,
 	pendingEntityProposalsForJob,
 	proposeRelationTypeVocabulary,
 	queuePositionFor,
@@ -113,6 +114,7 @@ import {
 	type CreateProposalPlanCandidate,
 	type Db,
 	type ImportJobRow,
+	type MatchCandidatePool,
 	type MatchCandidateRow,
 	type ProposalRow,
 	type RelationTypeVocabResolutionInput
@@ -391,6 +393,12 @@ export interface DocumentOutcome {
 	 * `failed`), which is the honest answer for one: nothing became of them because
 	 * nothing was decided. */
 	droppedRelations: RelationDropLedger;
+	/** issue #627: sightings in this document whose candidate pool was capped, so the merge
+	 * decision that followed saw part of the universe or part of the job rather than all of
+	 * it. Zero is the normal answer and the one every import under the cap gives; a non-zero
+	 * count is what says a fold rate measured on this run is not comparable with one measured
+	 * on a smaller universe. */
+	truncatedPools: number;
 	/** issue #177: the settling `progress` event's own `detail` (issue #169 made every
 	 * terminal status specific and legible - "stuck in a loop: source_list was called
 	 * with identical arguments 4 times in a row..." rather than a generic "this
@@ -571,6 +579,7 @@ export class ImportJobRunner {
 					relationCount: 0,
 					proposalsCreated: 0,
 					droppedRelations: newRelationDropLedger(),
+					truncatedPools: 0,
 					lostToolCallCount: 0,
 					detail: 'unchanged since the last import'
 				});
@@ -799,6 +808,7 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 
 	let proposalsCreated = 0;
 	let relationDrops = newRelationDropLedger();
+	let truncatedPools = 0;
 	const buffer = ctx.buffers.get(event.documentId);
 	if (buffer && (event.status === 'finished' || event.status === 'stopped_at_ceiling')) {
 		const materialized = await materializeDocumentProposals(
@@ -810,6 +820,7 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 		);
 		proposalsCreated = materialized.proposalsCreated;
 		relationDrops = materialized.relationDrops;
+		truncatedPools = materialized.truncatedPools;
 		if (proposalsCreated > 0 && ctx.params.userId) {
 			await spendCredits(ctx.params.db, {
 				userId: ctx.params.userId,
@@ -838,6 +849,7 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 		relationCount: event.relationCount,
 		proposalsCreated,
 		droppedRelations: relationDrops,
+		truncatedPools,
 		lostToolCallCount: ctx.partialLossByDocument.get(event.documentId) ?? 0,
 		detail: event.detail
 	});
@@ -863,6 +875,7 @@ interface ResolvedEntityCandidate {
 interface MaterializeResult {
 	proposalsCreated: number;
 	relationDrops: RelationDropLedger;
+	truncatedPools: number;
 }
 
 /**
@@ -1040,6 +1053,10 @@ function toMatchCandidate(row: MatchCandidateRow): MatchCandidate {
 		}
 	};
 }
+
+/** Neither pool is read at all when an external id already settled the sighting (SPEC.md
+ * §6.4 step 1 short-circuits step 2), and "not read" is not a truncated read. */
+const EMPTY_POOL: MatchCandidatePool = { candidates: [], truncated: false };
 
 /**
  * The text of every document this buffer's entities point at, for the source sentence half of
@@ -1259,43 +1276,50 @@ async function materializeDocumentProposals(
 	const localIdToType = new Map<string, EntityProposalPayload['type']>();
 	const resolved: ResolvedEntityCandidate[] = [];
 	const declined = newDeclineLedger();
+	// issue #627: sightings in this document whose candidate pool came back capped, so the
+	// merge decision that followed was taken against a partial view of the universe or of
+	// the job. Reported rather than acted on: SPEC.md §6.4 weights a false merge far above a
+	// false split, and a truncated pool can only cause the cheap error, but a fold rate
+	// measured over truncated pools is a different number from one measured over complete
+	// pools and the benchmark has no way to tell them apart unless the run says so.
+	let truncatedPools = 0;
 	const sourceTexts = await readSourceTextsForContext(params, buffer);
 
 	// The identity pool (issue #479), built once for the document rather than per entity:
 	// everything the universe already carries under a slug or a name this document is about
-	// to propose, plus this job's own still-pending creates, both type-blind because
-	// `entity_universe_slug_key` is unique per universe and not per type. This is the step
-	// SPEC.md §6.4's order was missing between the external id and the embeddings: #479's
-	// Cairnmouth reached the scorer with the right candidate in its pool and came back
+	// to propose, plus this job's own still-pending creates that claim one, both type-blind
+	// because `entity_universe_slug_key` is unique per universe and not per type. This is the
+	// step SPEC.md §6.4's order was missing between the external id and the embeddings:
+	// #479's Cairnmouth reached the scorer with the right candidate in its pool and came back
 	// `new` anyway, at cosine 0.5446 under a `newBelow` of 0.60, because an identical name
 	// is one line of four in the text `matchTextFor` embeds.
+	//
+	// Both halves are keyed by the identity asked about (issue #627). The pending half used
+	// to be a capped page of the job's pending creates filtered here, which on a job with
+	// more than 200 of them silently answered "no collision" for every create outside the
+	// page: #479's defect back again, on exactly the size of import this pool exists for.
 	//
 	// Aliases go into the *names* asked for but never into the identity comparison: they
 	// are here so `pruneForeignAliases` can see that an alias is somebody else's title,
 	// which is #479's third defect and would become a false merge if it counted as
 	// identity.
 	const proposedEntities = [...buffer.entities.values()];
+	const identitySlugs = proposedEntities.map((payload) => slugify(payload.name));
+	const identityNames = proposedEntities.flatMap((payload) => [payload.name, ...payload.aliases]);
 	const [existingIdentities, pendingIdentities] = await Promise.all([
-		entitiesByIdentity(
-			db,
-			params.universeId,
-			proposedEntities.map((payload) => slugify(payload.name)),
-			proposedEntities.flatMap((payload) => [payload.name, ...payload.aliases])
-		),
-		pendingEntityProposalsForJob(db, params.dbJobId, null)
+		entitiesByIdentity(db, params.universeId, identitySlugs, identityNames),
+		pendingEntityProposalsByIdentity(db, params.dbJobId, identitySlugs, identityNames)
 	]);
 	const identityCandidates: IdentityCandidate[] = [
 		...existingIdentities,
 		...pendingIdentities.map((row) => ({
 			id: row.id,
 			name: row.name,
-			// The pending create's patch wrote `slugify(payload.name)` (see the create branch
-			// below), so recomputing it here is reading back the same value rather than
-			// guessing at one.
-			slug: slugify(row.name),
+			slug: row.slug,
 			type: row.type as string
 		}))
 	];
+	const identityProposalIds = new Set(pendingIdentities.map((row) => row.id));
 	// Every name this document put on the table, the entity's own and its neighbours'.
 	// `isBareMention` subtracts these before asking whether anything is left
 	// that the source actually says: "the marsh road" in #479's Cairnmouth body is another
@@ -1310,16 +1334,21 @@ async function materializeDocumentProposals(
 			params.sourceSystem,
 			payload.sourceRef.path
 		);
-		const [candidatePool, pendingPool]: [MatchCandidateRow[], MatchCandidateRow[]] = exact
-			? [[], []]
+		const [candidatePool, pendingPool]: [MatchCandidatePool, MatchCandidatePool] = exact
+			? [EMPTY_POOL, EMPTY_POOL]
 			: await Promise.all([
 					candidateEntitiesForMatching(db, params.universeId, payload.type),
 					pendingEntityProposalsForJob(db, params.dbJobId, payload.type)
 				]);
-		// Type-blind on purpose (issue #479): an identity collision can land on a pending
-		// create of a *different* type, and that still has to fold rather than become a
-		// second proposal on the same slug.
-		const pendingProposalIds = new Set(pendingIdentities.map((p) => p.id));
+		if (candidatePool.truncated || pendingPool.truncated) truncatedPools += 1;
+		// Every candidate id in play that is a pending proposal rather than an entity, so a
+		// `match` or `identity` decision naming one folds instead of being read as an entity
+		// id. Both pools contribute: the identity half is type-blind on purpose (issue #479 -
+		// a collision can land on a pending create of a *different* type and still has to
+		// fold), and the semantic half is this type's, which the identity half no longer
+		// contains now that it is keyed by identity rather than being every pending create.
+		const pendingProposalIds = new Set(identityProposalIds);
+		for (const row of pendingPool.candidates) pendingProposalIds.add(row.id);
 
 		const decision = await resolveMatch({
 			subject: {
@@ -1347,7 +1376,7 @@ async function materializeDocumentProposals(
 							candidates: identityCandidates
 						}
 					}),
-			candidates: [...candidatePool, ...pendingPool].map(toMatchCandidate),
+			candidates: [...candidatePool.candidates, ...pendingPool.candidates].map(toMatchCandidate),
 			similarity: params.similarity,
 			thresholds: params.thresholds
 		});
@@ -1634,7 +1663,7 @@ async function materializeDocumentProposals(
 				lastImportJobId: params.dbJobId
 			});
 		}
-		return { proposalsCreated: 0, relationDrops: declined.relationDrops };
+		return { proposalsCreated: 0, relationDrops: declined.relationDrops, truncatedPools };
 	}
 
 	const { proposals } = await createProposalPlan(db, {
@@ -1667,7 +1696,11 @@ async function materializeDocumentProposals(
 	// hold onto (issue #613).
 	await writeVocabularyProposals(params, vocabularyWaiting, proposals);
 
-	return { proposalsCreated: proposals.length, relationDrops: declined.relationDrops };
+	return {
+		proposalsCreated: proposals.length,
+		relationDrops: declined.relationDrops,
+		truncatedPools
+	};
 }
 
 function isEmptyPatchTarget(patch: unknown): boolean {
