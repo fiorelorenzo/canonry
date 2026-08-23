@@ -68,6 +68,82 @@ export function isUnreadableUploadFormat(format: UploadFormat): format is Unread
 	return format in UNREADABLE;
 }
 
+/**
+ * Which extensions the file picker offers, and the only definition of that list (issue
+ * #615). Both upload inputs read it through their `+page.server.ts`, the same way they
+ * already read `PLAYBOOK_LABELS`, so the picker cannot drift from the formats this module
+ * reads. It had drifted through three issues as two hand-maintained copies in two Svelte
+ * files: #591 added the sniffing, #599 and #603 added readers, and none of them touched
+ * the literal, so a `.onepkg` ended up readable and unselectable at the same time.
+ *
+ * The value is the format an extension is offered *for*, which is what makes the list
+ * checkable in both directions rather than merely present: `upload-format.test.ts`
+ * asserts that every readable `UploadFormat` is reachable from some extension here, so a
+ * new reader that does not reach the picker fails, and that no extension is offered for a
+ * format in `UNREADABLE_UPLOAD_FORMATS`, so the reverse fails too.
+ *
+ * `.mht` is the deliberate asymmetry, and it is the reason this table maps to one format
+ * rather than to a set. OneNote's Single File Web Page and a page a browser saved share
+ * the extension and differ only in their bytes, so the extension is offered for the export
+ * issue #592 wrote a reader for, and the browser's copy keeps being refused on content by
+ * `refuseUnreadableUpload`. An `.xps` has no such twin: every `.xps` is an `xps`, refused
+ * by decision rather than for want of a reader (issue #601, its PDF twin is equivalent and
+ * already read), so offering it in the picker in order to reject it politely a step later
+ * would be worse than not offering it. `WITHHELD_UPLOAD_EXTENSIONS` carries that decision
+ * where the test can read it, instead of leaving it to a comment nobody checks.
+ *
+ * What is in it is what a guide tells a GM to hand us, checked against what
+ * `sniffUpload` and `detectSource` actually do with it: the four named sources' own
+ * exports (a zip for World Anvil and for a vault, a `.json` for Kanka, `.one`,
+ * `.onetoc2`, `.onepkg` and `.mht` for OneNote), the two document formats with their own
+ * playbook, and the text formats the "Something else" guide names by name. Nothing here
+ * is aspirational: every extension has a fixture or a corpus file behind the format it
+ * claims.
+ *
+ * It is still only a hint, and the generic guide's "there is no list of allowed
+ * extensions" stays true: nothing on the server routes by extension, `readsAsText`
+ * decides per file on its bytes, and a GM with an extensionless export can still choose
+ * it wherever the platform allows. So this list closes the gap between what a guide asks
+ * for and what a picker appears to accept, and it is not a gate.
+ *
+ * Extensions rather than MIME types, because three of these formats have no registered
+ * one: a `.one`, `.onetoc2` or `.onepkg` arrives as `application/octet-stream` from any
+ * desktop with no OneNote installed, so a type-based `accept` would filter out exactly the
+ * files this issue is about.
+ *
+ * No folder is offered, because an `<input type="file">` cannot take one. SPEC §6.6 calls
+ * an Obsidian vault "folder or zip" and an exported OneNote page tree a folder, and what
+ * this input supports is the zip of either, which is what the guides now say.
+ */
+export const OFFERED_UPLOAD_EXTENSIONS: Readonly<Record<string, UploadFormat>> = {
+	'.zip': 'zip',
+	'.md': 'other',
+	'.txt': 'other',
+	'.json': 'other',
+	'.csv': 'other',
+	'.htm': 'other',
+	'.html': 'other',
+	'.rtf': 'other',
+	'.pdf': 'pdf',
+	'.docx': 'docx',
+	'.one': 'onestore',
+	'.onetoc2': 'onestore',
+	'.onepkg': 'onepkg',
+	'.mht': 'onenote-mhtml'
+};
+
+/** Extensions kept out of the picker on purpose, with the format that decides it. Every
+ * entry has to be a format in `UNREADABLE_UPLOAD_FORMATS`: if a reader ever lands for one
+ * of these, the test here fails and the exclusion has to be argued again rather than
+ * surviving as a line nobody reads. */
+export const WITHHELD_UPLOAD_EXTENSIONS: Readonly<Record<string, UploadFormat>> = {
+	'.xps': 'xps'
+};
+
+/** The `accept` attribute both upload inputs use, built from the table above so the two
+ * screens cannot disagree with each other or with the readers. */
+export const UPLOAD_ACCEPT_ATTRIBUTE: string = Object.keys(OFFERED_UPLOAD_EXTENSIONS).join(',');
+
 /** What a sniff establishes about one file. `printedFromOneNote` is only ever true for
  * a `pdf`, and is what lets the confirm screen tell a GM that what they uploaded is a
  * printed notebook rather than a notebook - see `hasOneNotePdfProducer` for why the

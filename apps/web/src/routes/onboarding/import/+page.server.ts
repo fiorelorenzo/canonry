@@ -9,7 +9,11 @@
 import { createHash } from 'node:crypto';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { universeAccessBySlug, type UniverseAccess } from '@canonry/db';
-import { ArchiveSourceReader, DEFAULT_ARCHIVE_LIMITS } from '@canonry/import';
+import {
+	ArchiveSourceReader,
+	DEFAULT_ARCHIVE_LIMITS,
+	UPLOAD_ACCEPT_ATTRIBUTE
+} from '@canonry/import';
 import { messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import {
@@ -60,6 +64,11 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		universe: { slug: access.universe.slug, name: access.universe.name },
 		playbookLabels: PLAYBOOK_LABELS,
 		playbookIds: KNOWN_PLAYBOOK_IDS,
+		// Issue #615: the picker's own list, read from the module that decides what is
+		// readable rather than typed into the markup. Handed to the client the same way
+		// `playbookLabels` is, because `upload-format.ts` is server code: it reads bytes
+		// through `Buffer` and has no business in a browser bundle.
+		uploadAccept: UPLOAD_ACCEPT_ATTRIBUTE,
 		fakeDriverSupported: hasLiveGatewayCredentials() ? null : [...FAKE_DRIVER_SUPPORTED_PLAYBOOKS]
 	};
 };
