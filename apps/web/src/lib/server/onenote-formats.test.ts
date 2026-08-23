@@ -222,7 +222,7 @@ describe('a format we do read is routed to the playbook that fits (issue #591)',
 	}
 
 	it('a printed notebook says so, so the GM knows the hierarchy is gone', async () => {
-		expect((await detectSource(uploaded('printed.pdf'))).notice).toBe('printed-notebook');
+		expect((await detectSource(uploaded('printed.pdf'))).notices).toContain('printed-notebook');
 	});
 
 	it('a PDF nothing printed from OneNote carries no notice', async () => {
@@ -232,13 +232,13 @@ describe('a format we do read is routed to the playbook that fits (issue #591)',
 		const reader = ArchiveSourceReader.openUpload(plain, 'players-handout.pdf');
 		const detected = await detectSource(reader);
 		expect(detected.playbookId).toBe('pdf');
-		expect(detected.notice).toBeNull();
+		expect(detected.notices).toEqual([]);
 	});
 
 	it('a DOCX export of a OneNote page carries no notice either', async () => {
 		// Not an oversight: OneNote's DOCX export goes through Word and leaves no provenance
 		// to read, so the honest answer is to say nothing rather than to guess.
-		expect((await detectSource(uploaded('page.docx'))).notice).toBeNull();
+		expect((await detectSource(uploaded('page.docx'))).notices).toEqual([]);
 	});
 
 	it('a file named .pdf that is not one no longer reaches the pdf playbook', async () => {
@@ -275,6 +275,77 @@ describe('a format we do read is routed to the playbook that fits (issue #591)',
 		const detected = await detectSource(tree);
 		expect(detected.playbookId).toBe('onenote');
 		expect(detected.detail).toEqual({ kind: 'onenote', pages: 2 });
-		expect(detected.notice).toBeNull();
+		expect(detected.notices).toEqual([]);
+	});
+});
+
+/**
+ * Issue #604, and the reason it is a `fix` and not a `feature`: OneNote's whole-notebook
+ * export leaves pages out of the file it writes, and the file it writes imports cleanly,
+ * so nothing downstream can notice. Measured on the corpus (`docs/onenote-export.md`),
+ * where 22 of the 75 pages the two section-scope `.mht` files carry have not one 8-word
+ * phrase anywhere in the notebook-scope `.mht` of the same notebook.
+ *
+ * The confirm screen is therefore the last honest place to say something, and what it may
+ * say differs by format, because the evidence does:
+ *
+ * - a print records its **section** in every page footer, so a print whose first and last
+ *   footer name different sections came from a notebook-scope export, and that is a fact
+ *   about the file rather than a guess;
+ * - a Single File Web Page records **nothing** about scope. Measured, not assumed: at all
+ *   three scopes the corpus files carry one identical page-wrapper `div` style, one
+ *   `<head>`, one `Main-File` link and no section marker anywhere, so the only difference
+ *   is the page count, which cannot tell a large section from a small notebook. The notice
+ *   says we cannot tell, and the page count is not pressed into service as a threshold.
+ *
+ * Neither notice refuses the upload, which is the other half of the issue: the file is
+ * well formed and everything in it is importable, so blocking would cost the GM the pages
+ * they do still have.
+ */
+describe('a whole-notebook OneNote export is flagged, never refused (issue #604)', () => {
+	it('a print covering more than one section says so, on top of saying it is a print', async () => {
+		const detected = await detectSource(uploaded('printed-notebook-scope.pdf'));
+		expect(detected.playbookId).toBe('pdf');
+		expect(detected.notices).toEqual(['printed-notebook', 'printed-many-sections']);
+	});
+
+	it('a print of one section says only that it is a print', async () => {
+		const detected = await detectSource(uploaded('printed-section-scope.pdf'));
+		expect(detected.notices).toEqual(['printed-notebook']);
+	});
+
+	it('neither print is refused, and both still enumerate their documents', async () => {
+		for (const name of ['printed-notebook-scope.pdf', 'printed-section-scope.pdf']) {
+			const reader = uploaded(name);
+			expect(await refuseUnreadableUpload(reader)).toBeNull();
+			expect(await documentsForPlaybook('pdf', reader)).toHaveLength(1);
+		}
+	});
+
+	it('a Single File Web Page says its scope is unknown, at every scope, because it is', async () => {
+		for (const name of ['page.mht', 'section.mht', 'notebook.mht']) {
+			const detected = await detectSource(uploaded(name, 'Ashenport.mht'));
+			expect(detected.notices).toEqual(['onenote-scope-unknown']);
+		}
+	});
+
+	it('the same envelope inside a zip is flagged too, since the guide offers that shape', async () => {
+		const detected = await detectSource(zipped('notebook.mht', 'exports/Ashenport.mht'));
+		expect(detected.notices).toEqual(['onenote-scope-unknown']);
+	});
+
+	it('a real exported page tree is not flagged, because it loses nothing', async () => {
+		// The page tree is produced page by page out of OneNote's own GetHierarchy/Publish
+		// calls, so notebook scope costs it nothing and there is no scope question to raise.
+		// This is what `oneNoteEnvelopes` is for: after expansion the two shapes look alike.
+		const tree = ArchiveSourceReader.openUpload(
+			zipSync({
+				'Ashenport/Handouts/Warden Iset Nour.htm': new TextEncoder().encode('<html></html>'),
+				'Ashenport/Handouts/Warden Iset Nour_files/map.png': new Uint8Array([0x89, 0x50])
+			}),
+			'export.zip'
+		);
+		expect(tree.oneNoteEnvelopes).toBe(0);
+		expect((await detectSource(tree)).notices).toEqual([]);
 	});
 });

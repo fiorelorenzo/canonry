@@ -163,33 +163,46 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 	{
 		slug: 'onenote',
 		label: 'OneNote',
-		summary: 'Single File Web Page or a page tree, PDF and DOCX as fallbacks',
+		summary: 'One section at a time, as Single File Web Page or a page tree',
 		sections: [
 			{
 				heading: 'What to hand Canonry',
 				blocks: [
 					p(
-						'Export your notebook, a section or a page as Single File Web Page (.mht) from the ' +
-							'Windows desktop app, and hand Canonry that one file, on its own or zipped. It is ' +
+						'Export one section at a time as Single File Web Page (.mht) from the Windows ' +
+							'desktop app, and hand Canonry each file, on its own or zipped. It is ' +
 							"OneNote's own export, it needs no other tool, and it is what Canonry reads best: " +
 							'every page in it becomes its own entry rather than one long document.'
+					),
+					warn(
+						'Export the whole notebook in one go and OneNote leaves pages out of the file it ' +
+							'writes. The file is well formed, it imports without a complaint, and the pages ' +
+							'that did not make it are simply not there to import. Nothing in the file says ' +
+							'which ones they were, so Canonry cannot put them back or tell you what is ' +
+							'absent. Exporting a section at a time does not lose them, which is why that is ' +
+							'the instruction above. A section is also the unit that fits an import: it comes ' +
+							'back with an estimate you can read before you spend anything.'
 					),
 					p(
 						'A folder tree of individually exported pages, one file per page, is read the same way ' +
 							'and carries one thing the .mht does not: where each page sits in your notebook, so ' +
-							'a subpage is proposed as a subpage. OneNote has no menu item for it, and producing ' +
-							'it means running a script against the same GetHierarchy and Publish automation calls ' +
-							"OneNote's desktop app exposes, for example meichthys/onenote-html-export, a free, " +
-							'open-source tool built for exactly this. It needs the desktop app on Windows. Point ' +
-							'Canonry at the folder it produces, or a zip of it.'
+							'a subpage is proposed as a subpage. It is also produced page by page, so a whole ' +
+							'notebook exported that way keeps everything. OneNote has no menu item for it, and ' +
+							'producing it means running a script against the same GetHierarchy and Publish ' +
+							"automation calls OneNote's desktop app exposes, for example " +
+							'meichthys/onenote-html-export, a free, open-source tool built for exactly this. It ' +
+							'needs the desktop app on Windows. Point Canonry at the folder it produces, or a ' +
+							'zip of it.'
 					),
 					p(
-						'Failing both, export to PDF or DOCX and hand Canonry that. It is read through the PDF ' +
-							'or DOCX guide, the same as any other PDF or DOCX, keeping every page but losing the ' +
-							"notebook's own structure: every page becomes one long document and a subpage becomes " +
-							'just another heading. Canonry can tell that a PDF came out of OneNote\u2019s own ' +
-							'printer, so it says so on the confirmation screen rather than letting you think the ' +
-							'structure came across.'
+						'Failing both, print one section at a time to PDF, or export it to DOCX, and hand ' +
+							'Canonry that. It is read through the PDF or DOCX guide, the same as any other PDF ' +
+							"or DOCX, and it loses the notebook's own structure: every page becomes one long " +
+							'document and a subpage becomes just another heading. Whole-notebook scope drops ' +
+							'pages here as well. Canonry can tell that a PDF came out of OneNote\u2019s own ' +
+							'printer, and it can tell from the page footers when a print covers more than one ' +
+							'section, so it says both on the confirmation screen rather than letting you think ' +
+							'everything came across.'
 					),
 					p(
 						'The three remaining things the export menu offers are refused, and refused before an ' +
@@ -235,12 +248,19 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 				heading: 'Limits worth knowing',
 				blocks: [
 					warn(
-						'A .mht export carries no hierarchy at all, and Canonry does not invent one. A whole ' +
+						'A .mht export carries no hierarchy at all, and Canonry does not invent one. A ' +
 							"notebook exported that way is its sections' pages one after another with nothing " +
 							'between them: no section name, no boundary, and nothing saying which page a subpage ' +
 							'used to sit under. So every page comes across as its own entry with none proposed ' +
 							'as a subpage. If your notebook\u2019s structure carries meaning you want kept, the ' +
 							'page tree is the export that keeps it.'
+					),
+					warn(
+						'A .mht also says nothing about what it covers, so Canonry cannot tell one section ' +
+							'from a whole notebook by looking at the file, and the confirmation screen says as ' +
+							'much rather than picking one. That is why the instruction is a section at a time: ' +
+							'it is the one scope you can be sure kept everything, and you are the only one who ' +
+							'knows which you chose.'
 					),
 					warn(
 						'OneNote on a Mac cannot produce the page tree at all, and its own export only ' +

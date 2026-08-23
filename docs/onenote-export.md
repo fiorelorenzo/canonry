@@ -88,6 +88,73 @@ pages in full. So the honest advice for a whole notebook is to export it a secti
 time, and the reason to keep refusing `.xps` is that reading it would be a worse answer to
 that problem than reading the `.one` the GM already has.
 
+## The advice that follows, and why 7.9 per cent is the wrong number to quote
+
+Issue #604. The 7.9 per cent above was re-derived from the same corpus before any copy
+changed, by a different method, and it reproduces exactly: comparing the two token
+**multisets** rather than their sets or their longest common subsequence, 7,518 of the
+95,536 tokens the two section-scope `.mht` files carry have no counterpart at notebook
+scope, which is 7.9 per cent, and the `.pdf` pair gives 7,629 of 97,868, or 7.8. So the
+number is right.
+
+It is also the smallest honest way to state the loss, and worth writing down as such,
+because a token comparison credits a dropped page for every common word that also appears
+somewhere else. Two sharper measurements off the same three files:
+
+- **Whole pages, not scattered sentences.** Cut every page into 8-token phrases and ask
+  which of them survive anywhere in the notebook-scope file: **22 of the 75 pages the two
+  section exports carry have not one phrase in it**, and 2 more are partly there. The prose
+  on those pages is 18.7 per cent of the two sections. The pages that go are a run, not a
+  scatter: five consecutive history pages, and then seventeen consecutive dungeon pages.
+- **Printed pages agree.** OneNote prints the section's name into every page footer, so the
+  notebook `.pdf`'s 161 footers can be counted by section: 80 pages of `Note Storia`, 39 of
+  `Mondo`, 42 of a third section that was never exported on its own. The section-scope files
+  render those same two sections in 105 and 49 pages. That is 35 printed pages of 154 gone,
+  22.7 per cent, and it is the same loss seen through the printer rather than through a
+  tokeniser.
+
+The notebook file is not a subset of the section files either, which is what makes the
+comparison worth stating carefully: 18 of its 70 pages belong to that third section. So
+"the notebook export is the sections concatenated, minus some pages" is right only once you
+know which sections were exported separately.
+
+**None of those three numbers may reach a user, and that is guardrail 7 rather than
+modesty.** They are one notebook. What a GM can be told is the shape of the behaviour, that
+a whole-notebook export leaves pages out and that a section at a time does not, and
+`apps/web/src/lib/components/docs/importGuides.ts` now says exactly that, with the reason
+under it. `apps/web/src/lib/import/onenote-scope-advice.test.ts` is what keeps a percentage
+or a page count out of that copy, and keeps the advice in it.
+
+### What the confirm screen can key on, which is the opposite of what #604 assumed
+
+The issue expected the `.mht` to be the detectable case and asked whether the `.pdf` had an
+equivalent signal. It is the other way round, and the reason is worth keeping because it
+decides what the product may claim.
+
+**The `.pdf` carries a real signal.** Every page OneNote prints ends with a footer of the
+form `<section name> <the word for page> <n>`, so a print whose first and last page name
+different sections covers more than one section of the notebook, and that is a fact read out
+of the file. `printedNotebookCoversManySections` (`packages/import/src/pdf.ts`) reads exactly
+two pages for it, the first and the last, since the sections print as contiguous runs: 1.2
+seconds on the corpus's notebook print against 2.9 for extracting all 161 pages, on a path
+that runs while a GM waits. It is keyed on the shape and not on the word, because OneNote
+prints the word in its UI language and this corpus is an Italian install. It answers false
+whenever the footers do not parse on both pages, do not agree on that word, or do not start
+at 1.
+
+**The `.mht` carries none.** Measured on all four real files rather than assumed: one
+`<head>`, one `Main-File` link, one `File-List` link, and exactly one distinct page-wrapper
+`div` tag (`<div style='direction:ltr;border-width:100%'>`) in every file at every scope. The
+`filelist.xml` names the main file and the images and nothing else. The `onenote:` links
+carry a `section-id`, but the notebook file has one link and therefore one section id, so it
+says nothing about scope. The only thing that differs between the three scopes is how many
+page wrappers there are, and a page count cannot tell a large section from a small notebook.
+So the notice for a `.mht` says the scope is unknown, which is true, rather than guessing
+from a threshold.
+
+Neither notice refuses the upload. The file is well formed, everything in it is importable,
+and refusing would take from the GM the pages they do still have.
+
 ## The binary `.onepkg`/`.one` format should be read, and this page used to say otherwise
 
 Issue #600, and this section replaces a deferral whose reasoning turned out to be stale.

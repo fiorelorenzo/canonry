@@ -62,6 +62,14 @@ export interface SourceReader {
 	 * two `detectSource`/`documentsForPlaybook` functions the in-memory double already
 	 * stands in for. */
 	sniffEntry(path: string): Promise<UploadSniff>;
+	/** How many of the upload's files were OneNote Single File Web Page envelopes this
+	 * reader expanded into page trees (issue #604). On the interface for the same reason
+	 * `sniffEntry` is: detection needs it and cannot recover it from the entries, because
+	 * an expanded envelope and a real exported page tree are the same shape afterwards. It
+	 * decides whether the confirm screen says that the file does not record which scope
+	 * the GM exported at, which is a thing OneNote's own `.mht` genuinely does not carry.
+	 * Optional because the in-memory double has no upload behind it. */
+	readonly oneNoteEnvelopes?: number;
 }
 
 export class SourceNotFoundError extends Error {

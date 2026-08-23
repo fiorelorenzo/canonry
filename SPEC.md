@@ -388,7 +388,7 @@ agent, not of importing somebody else's file.
 | Obsidian | folder or zip upload | wikilinks **are** the starting graph: every `[[link]]` is a candidate relation. Aliases, heading and block links, embeds, Dataview inline fields (`Key:: value`) |
 | Kanka | JSON export (free tier, once a day, images included) | export only, not the API: §6.9 |
 | World Anvil | Full World Export zip (JSON + HTML) | §6.8 |
-| OneNote | notebook exported by the user | Windows exports a whole notebook to PDF, DOCX or `.onepkg`; OneNote on the web exports `.onepkg` for personal OneDrive accounts. PDF and DOCX go straight through the generic path; a `.onepkg` reader is optional and deferred (§6.10) |
+| OneNote | **one section at a time**, exported by the user | Windows exports a section to Single File Web Page (`.mht`), PDF or DOCX, and a whole notebook to the same three plus `.onepkg`; OneNote on the web exports `.onepkg` for personal OneDrive accounts. The notebook-scope export is not the one to ask for: it leaves pages out of the file it writes, in every format but `.xps`, measured in `docs/onenote-export.md` (issue #604), so the guide asks for a section and the confirm screen says what it can see about the scope of what arrived. A `.onepkg` reader is optional and deferred (§6.10) |
 | PDF | file upload | text first; a scanned page is rendered with `page_image` and **the model looks at it**. No OCR service, no per-page fee, no third party |
 | DOCX | file upload | structure kept, visual styling dropped |
 | anything else | `generic` playbook | the reason the loop exists rather than six parsers |

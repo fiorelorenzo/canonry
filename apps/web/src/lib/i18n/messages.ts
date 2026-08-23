@@ -16,11 +16,22 @@ export type DetectedDetail =
 	| { kind: 'generic'; files: number };
 
 /** Issue #591: the confirm screen's honesty line, for an upload we can read but not as
- * the thing the GM believes they exported. `printed-notebook` is a PDF whose own info
- * dictionary says OneNote printed it, which means every page is there and the notebook's
- * hierarchy is not. Travels as data for the same reason `DetectedDetail` does: the
- * sentence is written in the reader's locale, not composed on the server. */
-export type DetectedNotice = 'printed-notebook';
+ * the thing the GM believes they exported. Travels as data for the same reason
+ * `DetectedDetail` does: the sentence is written in the reader's locale, not composed on
+ * the server. A detection can produce more than one of these at once, so the confirm
+ * screen takes a list.
+ *
+ * `printed-notebook` is a PDF whose own info dictionary says OneNote printed it, which
+ * means every page is there and the notebook's hierarchy is not.
+ *
+ * The other two are issue #604, and both are about scope rather than structure, because
+ * OneNote's whole-notebook export drops pages its section-scope export keeps
+ * (`docs/onenote-export.md`). `printed-many-sections` is the case we can see: the printed
+ * footers of the first and last page name two different sections, so this print covers
+ * more than one. `onenote-scope-unknown` is the case we cannot: a Single File Web Page
+ * carries no scope at all, so the file says nothing about whether it was a section or a
+ * notebook, and the copy has to say that rather than pick one. */
+export type DetectedNotice = 'printed-notebook' | 'printed-many-sections' | 'onenote-scope-unknown';
 
 /**
  * Issue #572: the `proposal_trigger` values the plan checklist's credits line is written
@@ -1410,8 +1421,9 @@ export interface Messages {
 				/** Renders `DetectedDetail` above - the confirm screen's secondary line under
 				 * "Detected: <playbook>". */
 				detail: (detail: DetectedDetail) => string;
-				/** Renders `DetectedNotice` above - shown under the detail line when what was
-				 * uploaded is readable but not the export the GM thinks it is. */
+				/** Renders one `DetectedNotice` above - the confirm screen paints one line per
+				 * notice under the detail line, when what was uploaded is readable but not the
+				 * export the GM thinks it is. */
 				notice: (notice: DetectedNotice) => string;
 				playbookLabel: string;
 				continueButton: string;

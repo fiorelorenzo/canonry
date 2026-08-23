@@ -1223,11 +1223,32 @@ export const en: Messages = {
 				notice: (n) => {
 					switch (n) {
 						case 'printed-notebook':
+							// Issue #604 took "so every page is here" out of this sentence. It was true
+							// of the two section-scope prints in the corpus and false of the
+							// notebook-scope one, and a line that promises a complete import when the
+							// export was not is exactly what guardrail 5 forbids. What this notice is
+							// about is the structure; `printed-many-sections` speaks for the scope.
 							return (
-								'OneNote printed this PDF, so every page is here and the notebook itself is not: ' +
-								'a subpage has become just another heading, and nothing in the file says which ' +
-								'page it used to sit under. Exporting the page tree instead keeps that, and the ' +
-								'OneNote import guide says how.'
+								'OneNote printed this PDF, so what Canonry gets is one long document rather ' +
+								'than the notebook: a subpage has become just another heading, and nothing in ' +
+								'the file says which page it used to sit under. Exporting the page tree ' +
+								'instead keeps that, and the OneNote import guide says how.'
+							);
+						case 'printed-many-sections':
+							return (
+								"This file's own page footers name more than one section, so it came out of a " +
+								'whole-notebook export. That export is known to leave pages out of the file ' +
+								'OneNote writes, and nothing in the file says which ones, so this import can ' +
+								'only propose what the file carries. Exporting one section at a time does not ' +
+								'drop them, and you can upload each section into this universe.'
+							);
+						case 'onenote-scope-unknown':
+							return (
+								'A Single File Web Page does not record whether it came from one section or ' +
+								'from a whole notebook, so Canonry cannot tell which this is. It matters: a ' +
+								'whole-notebook export is known to leave pages out of the file OneNote ' +
+								'writes, and exporting one section at a time does not. If this was the whole ' +
+								'notebook, export each section on its own and upload them one after another.'
 							);
 					}
 				},
