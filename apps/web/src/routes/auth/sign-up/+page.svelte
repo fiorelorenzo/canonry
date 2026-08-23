@@ -76,7 +76,7 @@
 		{#if providerError}
 			<p role="alert" class="mt-2 text-sm text-danger">{providerError}</p>
 		{/if}
-		<div class="my-4 flex items-center gap-3 text-xs tracking-wide text-muted uppercase">
+		<div class="my-4 flex items-center gap-3 text-label tracking-wide text-muted uppercase">
 			<span class="h-px flex-1 bg-line"></span>
 			{t.orDivider}
 			<span class="h-px flex-1 bg-line"></span>

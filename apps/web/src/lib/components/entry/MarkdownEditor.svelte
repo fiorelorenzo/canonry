@@ -410,7 +410,7 @@
 			     inside `EntryProseWithSecrets` (`showViewControl={false}` below keeps
 			     that component from ever drawing its own copy) - guardrail 5 needs the
 			     sentence once in this surface, not zero and not twice again. -->
-			<p class="mb-3 text-xs text-muted">
+			<p class="mb-3 text-label text-muted">
 				{proseView === 'player'
 					? t.entry.prose.playerPreviewActive
 					: t.entry.prose.gmViewDescription}

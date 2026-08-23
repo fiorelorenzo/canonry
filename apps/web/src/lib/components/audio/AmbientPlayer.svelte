@@ -247,7 +247,7 @@
 		<p class="mt-2 text-sm text-muted">{t.noPackYet}</p>
 	{:else if !started}
 		<p class="mt-2 text-sm text-ink-2">{pack?.description}</p>
-		<p class="text-xs text-muted">
+		<p class="text-label text-muted">
 			{t.layerSummary(pack?.layerCount ?? 0, pack?.stale ?? false)}
 		</p>
 		<Button type="button" class="mt-2" onclick={start} disabled={loading}>
@@ -272,7 +272,7 @@
 		<p class="mt-2 text-sm text-ink-2">{currentDescription}</p>
 
 		{#if loadErrors.length > 0}
-			<p class="mt-1 text-xs text-danger">
+			<p class="mt-1 text-label text-danger">
 				{t.layersFailedToLoad(loadErrors.length)}
 			</p>
 		{/if}
@@ -283,7 +283,7 @@
 			chrome would replace, and the mute glyph is a two-state icon, not a label a
 			Button variant expresses. -->
 		<div class="mt-3 flex items-center gap-2">
-			<label class="flex items-center gap-2 text-xs text-ink-2" for="ambient-master-volume">
+			<label class="flex items-center gap-2 text-label text-ink-2" for="ambient-master-volume">
 				{t.master}
 				<input
 					id="ambient-master-volume"
@@ -295,7 +295,7 @@
 					oninput={(e) => setMaster(Number(e.currentTarget.value))}
 				/>
 			</label>
-			<label class="flex items-center gap-1 text-xs text-muted" for="ambient-crossfade-seconds">
+			<label class="flex items-center gap-1 text-label text-muted" for="ambient-crossfade-seconds">
 				{t.crossfade}
 				<input
 					id="ambient-crossfade-seconds"
@@ -314,7 +314,7 @@
 		<ul class="mt-3 flex flex-col gap-1.5" aria-label={t.layersAriaLabel}>
 			{#each activeLayers as layer (layer.id)}
 				{@const layerState = layerVolumes[layer.id] ?? { muted: false, volume: layer.volume }}
-				<li class="flex items-center gap-2 text-xs">
+				<li class="flex items-center gap-2 text-label">
 					<button
 						type="button"
 						class="w-4 flex-none text-center"

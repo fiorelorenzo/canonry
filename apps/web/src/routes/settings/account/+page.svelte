@@ -125,7 +125,7 @@
 		<div class="flex flex-col gap-1.5">
 			<Label for="account-email">{t.emailLabel}</Label>
 			<Input id="account-email" value={data.user.email} readonly disabled />
-			<p class="text-xs text-muted">{t.emailNote}</p>
+			<p class="text-label text-muted">{t.emailNote}</p>
 		</div>
 	</section>
 
@@ -138,7 +138,7 @@
 	<section class="mt-10 max-w-md">
 		<h2 class="text-title font-semibold text-ink">{t.profileHeading}</h2>
 		<p class="mt-2 text-sm text-ink-2">{t.profileDescription}</p>
-		<p class="mt-2 text-xs text-muted">
+		<p class="mt-2 text-label text-muted">
 			{t.profilePrivacyPrompt}
 			<InlineLink href={resolve('/privacy')}>{t.profilePrivacyLink}</InlineLink>
 		</p>
@@ -172,7 +172,7 @@
 					required
 					value={data.handle ?? ''}
 				/>
-				<p class="text-xs text-muted">{t.handleHint}</p>
+				<p class="text-label text-muted">{t.handleHint}</p>
 			</div>
 			<div>
 				<Button type="submit" disabled={handleSaving}>
@@ -192,11 +192,11 @@
 
 		{#if currentHandle}
 			<div class="mt-4 flex flex-col gap-1.5">
-				<p class="text-xs tracking-wide text-muted uppercase">{t.handleUrlLabel}</p>
+				<p class="text-label tracking-wide text-muted uppercase">{t.handleUrlLabel}</p>
 				<p class="text-sm">
 					<InlineLink href={`/u/${currentHandle}`}>/u/{currentHandle}</InlineLink>
 				</p>
-				<p class="text-xs text-muted">{t.handleChangeNote}</p>
+				<p class="text-label text-muted">{t.handleChangeNote}</p>
 			</div>
 			<form
 				method="post"

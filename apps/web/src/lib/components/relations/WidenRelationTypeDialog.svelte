@@ -85,7 +85,7 @@
 
 			<fieldset class="flex flex-col gap-2">
 				<legend class="text-sm font-medium text-ink">{t.widen.fromHeading}</legend>
-				<p class="text-xs text-muted">
+				<p class="text-label text-muted">
 					{t.widen.currentlyAdmits}: {type.allowedFrom
 						.map((et) => t.entityTypeLabel(et))
 						.join(', ')}
@@ -104,7 +104,7 @@
 
 			<fieldset class="flex flex-col gap-2">
 				<legend class="text-sm font-medium text-ink">{t.widen.toHeading}</legend>
-				<p class="text-xs text-muted">
+				<p class="text-label text-muted">
 					{t.widen.currentlyAdmits}: {type.allowedTo.map((et) => t.entityTypeLabel(et)).join(', ')}
 				</p>
 				{#if addableTo.length > 0}

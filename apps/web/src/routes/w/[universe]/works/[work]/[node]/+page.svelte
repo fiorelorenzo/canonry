@@ -57,7 +57,7 @@
      the band above it now reads the width from the same place. -->
 <Page width="working" title={data.node.title} bodyClass="flex min-w-0">
 	<article class="min-w-0 flex-1 px-6 py-8">
-		<p class="mb-3 text-xs text-muted">
+		<p class="mb-3 text-label text-muted">
 			<a class="hover:underline" href={resolve(`/w/${data.current.slug}/works/${data.work.slug}`)}
 				>{data.work.name}</a
 			>
@@ -140,7 +140,7 @@
 		</form>
 
 		<details class="mt-8 border-t border-line pt-4">
-			<summary class="cursor-pointer text-xs font-semibold tracking-wide text-muted uppercase">
+			<summary class="cursor-pointer text-label font-semibold tracking-wide text-muted uppercase">
 				{t.works.node.addChildSummary(data.node.title)}
 			</summary>
 			<form
@@ -188,7 +188,7 @@
 	</article>
 
 	<aside class="w-60 flex-none border-l border-line bg-panel-2 p-4">
-		<h2 class="text-xs font-semibold tracking-wide text-muted uppercase">
+		<h2 class="text-label font-semibold tracking-wide text-muted uppercase">
 			{t.works.node.usesHeading}
 		</h2>
 		{#if data.uses.length === 0}
@@ -228,7 +228,7 @@
 					</li>
 				{/each}
 			</ul>
-			<p class="mt-3 text-xs text-muted">
+			<p class="mt-3 text-label text-muted">
 				{t.works.node.usesHint}
 			</p>
 		{/if}

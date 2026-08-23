@@ -17,7 +17,7 @@
 
 {#if facts.length > 0}
 	<section class="mt-8">
-		<h2 class="text-xs font-semibold tracking-wide text-muted uppercase">
+		<h2 class="text-label font-semibold tracking-wide text-muted uppercase">
 			{t.players.factsHeading}
 		</h2>
 		<ul class="mt-2 space-y-1.5">

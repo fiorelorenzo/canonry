@@ -98,7 +98,7 @@
 			</div>
 		{/each}
 	</div>
-	<p class="mt-2 text-xs text-muted">{t.entry.media.gallery.count(assets.length)}</p>
+	<p class="mt-2 text-meta text-muted">{t.entry.media.gallery.count(assets.length)}</p>
 {/if}
 
 <Button

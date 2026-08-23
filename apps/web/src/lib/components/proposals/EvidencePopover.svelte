@@ -86,8 +86,8 @@
 	 * absolute at `sm` and up. */
 	let popClass = $derived(
 		forceOpen
-			? 'pop z-10 mt-2 block w-full rounded-md border border-line-2 bg-panel p-3 text-xs shadow-elevated'
-			: 'pop z-10 mt-1 w-72 rounded-md border border-line-2 bg-panel p-3 text-xs shadow-elevated max-sm:mt-2 max-sm:block max-sm:w-full sm:absolute sm:top-full sm:left-0'
+			? 'pop z-10 mt-2 block w-full rounded-md border border-line-2 bg-panel p-3 text-label shadow-elevated'
+			: 'pop z-10 mt-1 w-72 rounded-md border border-line-2 bg-panel p-3 text-label shadow-elevated max-sm:mt-2 max-sm:block max-sm:w-full sm:absolute sm:top-full sm:left-0'
 	);
 </script>
 

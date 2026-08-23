@@ -128,7 +128,7 @@
 	<DropdownMenu.Content align="start" class="w-64">
 		<DropdownMenu.Label>
 			<span class="block truncate text-sm font-semibold text-ink">{user.name}</span>
-			<span class="block truncate text-xs font-normal text-muted">{user.email}</span>
+			<span class="block truncate text-meta font-normal text-muted">{user.email}</span>
 		</DropdownMenu.Label>
 		<DropdownMenu.Separator />
 
@@ -141,7 +141,7 @@
 		<DropdownMenu.Sub>
 			<DropdownMenu.SubTrigger>
 				{t.accountMenu.language}
-				<span class="ml-auto text-xs text-muted">
+				<span class="ml-auto text-label text-muted">
 					{switchingLocale ? '…' : LOCALE_NAMES[locale]}
 				</span>
 			</DropdownMenu.SubTrigger>
@@ -171,7 +171,7 @@
 			{#snippet child({ props })}
 				<a href={resolve('/settings/appearance')} {...props}>
 					{t.accountMenu.appearance}
-					<span class="ml-auto text-xs text-muted">{themeLabel}</span>
+					<span class="ml-auto text-label text-muted">{themeLabel}</span>
 				</a>
 			{/snippet}
 		</DropdownMenu.Item>
@@ -187,7 +187,7 @@
 				<a href={resolve('/settings/billing')} {...props}>
 					{t.accountMenu.planAndCredits}
 					{#if creditsLabel}
-						<span class="ml-auto text-xs text-muted">{creditsLabel}</span>
+						<span class="ml-auto text-label text-muted">{creditsLabel}</span>
 					{/if}
 				</a>
 			{/snippet}

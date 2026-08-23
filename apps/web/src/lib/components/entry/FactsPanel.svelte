@@ -62,11 +62,11 @@
 					aria-expanded={activeFactId === fact.id}
 					onclick={() => onToggle(fact)}
 				>
-					<span class="w-4 flex-none font-mono text-xs text-muted">{i + 1}</span>
+					<span class="w-4 flex-none font-mono text-label text-muted">{i + 1}</span>
 					<span class="min-w-0 break-words text-ink-2">{stripMentionSyntax(fact.statement)}</span>
 				</button>
 				{#if activeFactId === fact.id}
-					<p class="mt-2 pl-6 text-xs text-muted italic">
+					<p class="mt-2 pl-6 text-label text-muted italic">
 						&ldquo;{stripMentionSyntax(fact.sourceExcerpt)}&rdquo;
 					</p>
 				{/if}

@@ -130,7 +130,7 @@
 						/>
 						<span class="truncate">{option.label}</span>
 						{#if option.hint}
-							<span class="ml-auto text-xs text-muted">{option.hint}</span>
+							<span class="ml-auto text-label text-muted">{option.hint}</span>
 						{/if}
 					</Command.Item>
 				{/each}

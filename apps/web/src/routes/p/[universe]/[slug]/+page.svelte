@@ -56,7 +56,7 @@
 <svelte:head><title>{data.entity.name} &middot; {data.universe.name}</title></svelte:head>
 
 <Page width="reading" title={data.entity.name}>
-	<p class="mb-3 text-xs text-muted">
+	<p class="mb-3 text-label text-muted">
 		<a class="hover:underline" href={resolve(`/p/${data.universe.slug}`)}>{data.universe.name}</a>
 		<span aria-hidden="true">/</span>
 		{data.entity.type} <span aria-hidden="true">/</span>

@@ -58,7 +58,7 @@
 						>
 							{work.name}
 						</a>
-						<span class="ml-2 text-xs tracking-wide text-muted uppercase">
+						<span class="ml-2 text-label tracking-wide text-muted uppercase">
 							{t.works.types[work.type] ?? work.type} · {t.works.statuses[work.status] ??
 								work.status}
 						</span>
@@ -82,7 +82,7 @@
 				};
 			}}
 		>
-			<h2 class="text-xs font-semibold tracking-wide text-muted uppercase">
+			<h2 class="text-label font-semibold tracking-wide text-muted uppercase">
 				{t.works.index.createHeading}
 			</h2>
 			<label class="flex flex-col gap-1 text-sm text-ink-2">

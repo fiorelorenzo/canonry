@@ -106,7 +106,7 @@
 								></span>
 								<span class="min-w-0">
 									<span class="block truncate text-sm font-medium text-ink">{universe.name}</span>
-									<span class="block text-xs text-muted">
+									<span class="block text-meta text-muted">
 										{universe.kind}
 										{#if universe.baseUniverseName}
 											&middot; {t.derivedFrom(universe.baseUniverseName)}

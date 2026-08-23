@@ -73,7 +73,7 @@
 					>
 					{summary(row)}
 				</p>
-				<span class="shrink-0 text-xs text-muted tabular-nums">{t.usageCount(row.usageCount)}</span>
+				<span class="shrink-0 text-meta text-muted tabular-nums">{t.usageCount(row.usageCount)}</span>
 			</li>
 		{/each}
 	</ul>
@@ -88,7 +88,7 @@
 						{relationTypeDisplayLabel(row, relationTypeLabel, locale)}
 					</p>
 					<p class="mt-1 max-w-measure text-sm text-ink-2">{summary(row)}</p>
-					<p class="mt-1 text-xs text-muted tabular-nums">{t.usageCount(row.usageCount)}</p>
+					<p class="mt-1 text-meta text-muted tabular-nums">{t.usageCount(row.usageCount)}</p>
 				</div>
 				{#if canManage}
 					<div class="flex shrink-0 flex-wrap gap-3 sm:pl-4">
@@ -96,7 +96,7 @@
 							type="button"
 							variant="link"
 							size="sm"
-							class="h-auto p-0 text-xs"
+							class="h-auto p-0 text-label"
 							onclick={() => onRename?.(row)}
 						>
 							{t.rename.trigger}
@@ -105,7 +105,7 @@
 							type="button"
 							variant="link"
 							size="sm"
-							class="h-auto p-0 text-xs"
+							class="h-auto p-0 text-label"
 							onclick={() => onWiden?.(row)}
 						>
 							{t.widen.trigger}
@@ -114,7 +114,7 @@
 							type="button"
 							variant="link"
 							size="sm"
-							class="h-auto p-0 text-xs"
+							class="h-auto p-0 text-label"
 							onclick={() => onTranslate?.(row)}
 						>
 							{t.translate.trigger}
@@ -123,7 +123,7 @@
 							type="button"
 							variant="link"
 							size="sm"
-							class="h-auto p-0 text-xs"
+							class="h-auto p-0 text-label"
 							onclick={() => onMerge?.()}
 						>
 							{t.merge.trigger}

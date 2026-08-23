@@ -120,7 +120,7 @@
 							{#if revision.proposalId}
 								<InlineLink
 									href={resolve(`/w/${universeSlug}/review/${revision.proposalId}`)}
-									class="mt-0.5 inline-block text-xs"
+									class="mt-0.5 inline-block text-label"
 								>
 									{t.entry.history.proposalLink}
 								</InlineLink>

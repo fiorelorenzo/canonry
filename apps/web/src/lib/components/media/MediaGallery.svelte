@@ -478,7 +478,7 @@
 			{/if}
 
 			{#if pickMode}
-				<h4 class="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">
+				<h4 class="mt-4 text-label font-semibold tracking-wide text-muted uppercase">
 					{t.entry.media.inBody.width.heading}
 				</h4>
 				<Segmented
@@ -492,7 +492,7 @@
 
 			{#if candidates.length > 0}
 				{#if pickMode}
-					<h4 class="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">
+					<h4 class="mt-4 text-label font-semibold tracking-wide text-muted uppercase">
 						{t.entry.media.inBody.generateHeading}
 					</h4>
 					<div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
@@ -525,7 +525,7 @@
 					</div>
 				{:else}
 					<div class="mt-3 rounded-md border border-line bg-panel-2 p-3">
-						<p class="text-xs text-ink-2">
+						<p class="text-label text-ink-2">
 							{t.entry.media.candidatesSummary(reusedFromCache, candidates.length > 1)}
 						</p>
 						<div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
@@ -570,7 +570,7 @@
 								{t.entry.media.regenerate.trigger}
 							</Button>
 							{#if !data.hasImageStyle}
-								{@render noStyleNotice('text-xs text-ink-2')}
+								{@render noStyleNotice('text-label text-ink-2')}
 							{/if}
 						</div>
 					</div>
@@ -578,7 +578,7 @@
 			{/if}
 
 			{#if pickMode}
-				<h4 class="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">
+				<h4 class="mt-4 text-label font-semibold tracking-wide text-muted uppercase">
 					{t.entry.media.inBody.existingHeading}
 				</h4>
 				{#if data.assets.length === 0}
@@ -658,7 +658,7 @@
 										/>
 										<Label
 											for={`gallery-gm-only-${instanceUid}-${asset.id}`}
-											class="text-xs text-ink-2"
+											class="text-label text-ink-2"
 										>
 											{t.entry.media.publish.label}
 										</Label>
@@ -690,7 +690,7 @@
 												{t.entry.media.regenerate.trigger}
 											</Button>
 											{#if !data.hasImageStyle}
-												{@render noStyleNotice('text-xs text-ink-2')}
+												{@render noStyleNotice('text-label text-ink-2')}
 											{/if}
 										{/if}
 										<Button
@@ -727,8 +727,8 @@
 						</div>
 					{/each}
 				</div>
-				<p class="mt-2 text-xs text-muted">{t.entry.media.publish.explanation}</p>
-				<p class="mt-1 text-xs text-muted">{t.entry.media.cover.explanation}</p>
+				<p class="mt-2 text-label text-muted">{t.entry.media.publish.explanation}</p>
+				<p class="mt-1 text-label text-muted">{t.entry.media.cover.explanation}</p>
 			{/if}
 
 			{#if data.canWrite}
@@ -767,7 +767,7 @@
 					</div>
 
 					{#if pickMode && data.aiEnabled}
-						<h4 class="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">
+						<h4 class="mt-4 text-label font-semibold tracking-wide text-muted uppercase">
 							{t.entry.media.inBody.generateHeading}
 						</h4>
 						{#if candidates.length === 0}
@@ -775,7 +775,7 @@
 								<p class="mt-2 text-sm text-ink-2">
 									{t.entry.media.inBody.sceneCost(scene.price)}
 								</p>
-								<p class="text-xs text-muted">
+								<p class="text-label text-muted">
 									{scene.model.provider}/{scene.model.modelId}
 								</p>
 							{:else}
@@ -791,7 +791,7 @@
 									{generating ? t.entry.media.generating : t.entry.media.inBody.generateButton}
 								</Button>
 								{#if !data.hasImageStyle}
-									{@render noStyleNotice('text-xs text-ink-2')}
+									{@render noStyleNotice('text-label text-ink-2')}
 								{/if}
 							</div>
 						{/if}
@@ -800,7 +800,7 @@
 					{#if !pickMode && styleEditorOpen}
 						<div class="mt-3 rounded-md border border-line bg-panel-2 p-3">
 							<label
-								class="block text-xs font-medium text-ink-2"
+								class="block text-label font-medium text-ink-2"
 								for={`gallery-style-override-${instanceUid}`}
 							>
 								{t.entry.media.styleOverrideLabel}

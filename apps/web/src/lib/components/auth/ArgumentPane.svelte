@@ -52,5 +52,5 @@
 		<p class="mt-2 font-mono text-label text-muted">{t.evidence}</p>
 	</div>
 
-	<p class="text-xs text-muted">{t.disclaimer}</p>
+	<p class="text-label text-muted">{t.disclaimer}</p>
 </div>

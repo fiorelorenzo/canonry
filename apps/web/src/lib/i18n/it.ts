@@ -2331,9 +2331,9 @@ export const it: Messages = {
 			browserTitle: 'Modelli, Canonry admin',
 			textHeading: 'Modelli di testo',
 			textIntro1:
-				'Il modello attivo per ciascuno scopo vive in <code class="text-xs">model_config</code>, non nel codice, e ogni flusso - le quattro modalità del Loremaster, la propagazione, la generazione a caldo, l\'indicizzazione, l\'embedding - lo legge tramite <code class="text-xs">resolveModel</code>. Una modifica qui ha effetto dalla chiamata successiva, senza deploy né riavvio. Il provider è vincolato a ciò che <code class="text-xs">createLanguageModel</code> può effettivamente costruire; un provider fuori da questo elenco non è proposto.',
+				'Il modello attivo per ciascuno scopo vive in <code class="text-label">model_config</code>, non nel codice, e ogni flusso - le quattro modalità del Loremaster, la propagazione, la generazione a caldo, l\'indicizzazione, l\'embedding - lo legge tramite <code class="text-label">resolveModel</code>. Una modifica qui ha effetto dalla chiamata successiva, senza deploy né riavvio. Il provider è vincolato a ciò che <code class="text-label">createLanguageModel</code> può effettivamente costruire; un provider fuori da questo elenco non è proposto.',
 			textIntro2:
-				'Una domanda in italiano su un canone in inglese deve trovare il blocco inglese, quindi lo scopo <strong>embedding</strong> è una scelta multilingue deliberata, non gratuita. I candidati sono stati confrontati sui benchmark di retrieval multilingue pubblicati (MIRACL, MTEB Multilingual), limitati ai provider che questa build può costruire. Consigliato: <code class="text-xs">google</code> / <code class="text-xs">gemini-embedding-001</code> (#1 nella classifica MTEB Multilingual, ~100 lingue). Lacuna che questo riquadro non può colmare: qui non esiste una credenziale di embedding attiva per confermare il recall en/it nello specifico - né MIRACL né MTEB pubblicano un punteggio isolato inglese&harr;italiano, quindi resta un benchmark ancora da fare una volta disponibile una credenziale reale, non un dato consolidato.',
+				'Una domanda in italiano su un canone in inglese deve trovare il blocco inglese, quindi lo scopo <strong>embedding</strong> è una scelta multilingue deliberata, non gratuita. I candidati sono stati confrontati sui benchmark di retrieval multilingue pubblicati (MIRACL, MTEB Multilingual), limitati ai provider che questa build può costruire. Consigliato: <code class="text-label">google</code> / <code class="text-label">gemini-embedding-001</code> (#1 nella classifica MTEB Multilingual, ~100 lingue). Lacuna che questo riquadro non può colmare: qui non esiste una credenziale di embedding attiva per confermare il recall en/it nello specifico - né MIRACL né MTEB pubblicano un punteggio isolato inglese&harr;italiano, quindi resta un benchmark ancora da fare una volta disponibile una credenziale reale, non un dato consolidato.',
 			table: {
 				purpose: 'Scopo',
 				currentlyActive: 'Attualmente attivo',
@@ -2358,7 +2358,7 @@ export const it: Messages = {
 			imageIntro1:
 				'Il modello attivo per ciascuna funzione vive qui, non nel codice, e una modifica qui ha effetto dalla prossima richiesta di "Genera immagine" - senza deploy né riavvio.',
 			imageIntro2Pre:
-				'Predefinito iniziale: <code class="text-xs">prunaai/p-image</code> per un singolo ritratto, <code class="text-xs">black-forest-labs/flux-schnell</code> per il lotto da quattro varianti. Il prezzo per immagine è la nostra contabilità dei costi, nella valuta in cui lo quota il provider, mai il prezzo in crediti che vede un GM - quello vive in',
+				'Predefinito iniziale: <code class="text-label">prunaai/p-image</code> per un singolo ritratto, <code class="text-label">black-forest-labs/flux-schnell</code> per il lotto da quattro varianti. Il prezzo per immagine è la nostra contabilità dei costi, nella valuta in cui lo quota il provider, mai il prezzo in crediti che vede un GM - quello vive in',
 			imageTable: {
 				feature: 'Funzione',
 				pricePerImage: 'Prezzo / immagine',
@@ -2409,7 +2409,7 @@ export const it: Messages = {
 			accept: {
 				heading: 'Tasso di accettazione',
 				intro: (windowDays) =>
-					`<code class="text-xs">proposal.outcome</code>, \`superseded\` e \`pending\` esclusi dal denominatore - calcolato dalla funzione <code class="text-xs">acceptRate</code> di <code class="text-xs">@canonry/eval</code>, la stessa che valuta il corpus di propagazione per le modifiche a prompt e modello. Finestra: ultimi ${windowDays} giorni.`,
+					`<code class="text-label">proposal.outcome</code>, \`superseded\` e \`pending\` esclusi dal denominatore - calcolato dalla funzione <code class="text-label">acceptRate</code> di <code class="text-label">@canonry/eval</code>, la stessa che valuta il corpus di propagazione per le modifiche a prompt e modello. Finestra: ultimi ${windowDays} giorni.`,
 				noProposalsYet:
 					"Nessuna proposta è stata ancora prodotta. Un tasso di accettazione dello 0% qui sarebbe una bugia per omissione, non una lettura onesta, quindi questo pannello non mostra nulla finché non c'è qualcosa da mostrare.",
 				acceptRateLabel: 'Tasso di accettazione (proposte decise)',
@@ -2417,7 +2417,7 @@ export const it: Messages = {
 				byLocale: {
 					heading: "Per lingua dell'interfaccia",
 					intro:
-						'<code class="text-xs">proposal.locale</code> - la lingua dell\'interfaccia in cui è stata prodotta la proposta, calcolata dalla stessa <code class="text-xs">acceptRate</code> qui sopra. Una lingua senza ancora proposte compare come "nessun dato", mai come uno 0% inventato.',
+						'<code class="text-label">proposal.locale</code> - la lingua dell\'interfaccia in cui è stata prodotta la proposta, calcolata dalla stessa <code class="text-label">acceptRate</code> qui sopra. Una lingua senza ancora proposte compare come "nessun dato", mai come uno 0% inventato.',
 					localeLabel: 'Lingua'
 				}
 			},
@@ -2436,7 +2436,7 @@ export const it: Messages = {
 			warmRadius: {
 				heading: 'Raggio di precalcolo',
 				intro: (thresholdPercent) =>
-					`Il tasso di successo a caldo - artefatti consumati sul totale generato - governa automaticamente il raggio di precalcolo: sotto il ${thresholdPercent}% si restringe dall'anello 2 all'anello 1. È la stessa lettura che <code class="text-xs">warmOnConsumption</code> usa per decidere quanto estendersi, non una stima separata.`,
+					`Il tasso di successo a caldo - artefatti consumati sul totale generato - governa automaticamente il raggio di precalcolo: sotto il ${thresholdPercent}% si restringe dall'anello 2 all'anello 1. È la stessa lettura che <code class="text-label">warmOnConsumption</code> usa per decidere quanto estendersi, non una stima separata.`,
 				consumed: 'Consumati',
 				generated: 'Generati',
 				hitRate: 'Tasso di successo',

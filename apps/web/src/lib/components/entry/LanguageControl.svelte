@@ -119,7 +119,7 @@
 		};
 	}}
 >
-	<div class="flex flex-wrap items-center gap-1.5 text-xs text-ink-2">
+	<div class="flex flex-wrap items-center gap-1.5 text-label text-ink-2">
 		<span id={labelId} class="font-mono text-label tracking-wide text-muted uppercase"
 			>{t.entry.language.label}</span
 		>
@@ -136,7 +136,7 @@
 					size="sm"
 					aria-labelledby={labelId}
 					disabled={!canWrite || submitting}
-					class="text-xs"
+					class="text-label"
 				>
 					{choiceLabel}
 				</Select.Trigger>

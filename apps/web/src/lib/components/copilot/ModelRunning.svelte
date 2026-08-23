@@ -40,7 +40,7 @@
 	});
 </script>
 
-<div class="model-running flex flex-wrap items-center gap-2 text-xs text-ink-2">
+<div class="model-running flex flex-wrap items-center gap-2 text-label text-ink-2">
 	<span class="ring" aria-hidden="true"></span>
 	<span role="status" aria-live="polite">{label}</span>
 	<span class="font-mono text-muted" aria-hidden="true">

@@ -143,7 +143,7 @@
 							{#if counts[item.id] !== undefined}
 								{#key counts[item.id]}
 									<span
-										class="animate-in rounded-full bg-panel-2 px-1.5 py-0.5 text-xs text-muted duration-fade ease-arrive fade-in-0"
+										class="animate-in rounded-full bg-panel-2 px-1.5 py-0.5 text-label text-muted duration-fade ease-arrive fade-in-0"
 										class:bg-accent-bg={active}
 									>
 										{counts[item.id]}
@@ -157,7 +157,7 @@
 
 			{#if recent.length > 0}
 				<div class="mt-5">
-					<h2 class="px-2.5 text-xs font-semibold tracking-wide text-muted uppercase">
+					<h2 class="px-2.5 text-label font-semibold tracking-wide text-muted uppercase">
 						{t.sidebar.recentHeading}
 					</h2>
 					<ul class="mt-1 flex flex-col gap-0.5">
@@ -208,7 +208,7 @@
 		<div class="border-t border-line p-3">
 			<a
 				href={resolve(`/w/${universeSlug}/settings`)}
-				class="block rounded-md border border-warn-bg bg-warn-bg px-2.5 py-1.5 text-xs text-warn hover:brightness-95"
+				class="block rounded-md border border-warn-bg bg-warn-bg px-2.5 py-1.5 text-label text-warn hover:brightness-95"
 			>
 				{shellT.sidebar.setupWarning(unsetSetupCount)}
 			</a>

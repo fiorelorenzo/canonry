@@ -54,19 +54,19 @@
 
 		<dl class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
 			<div>
-				<dt class="text-xs text-muted uppercase">{t.includedThisPeriod}</dt>
+				<dt class="text-label text-muted uppercase">{t.includedThisPeriod}</dt>
 				<dd class="text-lg font-semibold text-ink tabular-nums">
 					{t.creditsCount(data.balance.subscriptionCredits)}
 				</dd>
 			</div>
 			<div>
-				<dt class="text-xs text-muted uppercase">{t.purchased}</dt>
+				<dt class="text-label text-muted uppercase">{t.purchased}</dt>
 				<dd class="text-lg font-semibold text-ink tabular-nums">
 					{t.creditsCount(data.balance.purchasedCredits)}
 				</dd>
 			</div>
 			<div>
-				<dt class="text-xs text-muted uppercase">{t.warmBudget}</dt>
+				<dt class="text-label text-muted uppercase">{t.warmBudget}</dt>
 				<dd class="text-lg font-semibold text-ink tabular-nums">
 					{creditsFormat.format(data.balance.warmBudgetRemaining)} / {creditsFormat.format(
 						data.balance.warmBudgetCredits
@@ -94,10 +94,10 @@
 							>{t.perMonth}</span
 						>
 					</p>
-					<p class="mt-2 flex-1 text-xs text-ink-2">{plan.ceiling}</p>
+					<p class="mt-2 flex-1 text-meta text-ink-2">{plan.ceiling}</p>
 
 					{#if current}
-						<span class="mt-4 text-xs font-medium text-accent-ink">{t.currentPlanBadge}</span>
+						<span class="mt-4 text-label font-medium text-accent-ink">{t.currentPlanBadge}</span>
 					{:else if plan.id !== 'free'}
 						<form
 							method="POST"

@@ -172,7 +172,7 @@
 					<th
 						scope="col"
 						class={cn(
-							'px-2 py-2 text-xs font-semibold tracking-wide text-muted uppercase sm:px-3',
+							'px-2 py-2 text-label font-semibold tracking-wide text-muted uppercase sm:px-3',
 							column.numeric ? 'text-right' : 'text-left',
 							column.phoneWidth && `${column.phoneWidth} sm:w-auto`,
 							column.phoneHidden && 'hidden sm:table-cell'
@@ -235,7 +235,7 @@
 	</table>
 </div>
 
-<div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
+<div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-meta text-muted">
 	<!-- Issue #148: bare `j`/`k`/`↵` hints name keys a phone does not have. Every other
 	     surface with a keyboard hint (CommandPalette, ProposalQueue, InlineProposalReview)
 	     already hides its own behind the shared `KeyHint` component's `sm:flex` default -

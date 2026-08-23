@@ -38,7 +38,7 @@
 		{matches.length > 0 ? t.entry.mentionMenu.matching(query) : t.entry.mentionMenu.noExactMatch}
 	</div>
 	{#if matches.length === 0}
-		<p class="px-3 py-2 text-xs text-muted">
+		<p class="px-3 py-2 text-label text-muted">
 			{t.entry.mentionMenu.noMatchBefore(query)} <code>]]</code>
 			{t.entry.mentionMenu.noMatchAfter}
 		</p>
@@ -56,7 +56,7 @@
 					>
 						<span class="text-ink-2">{target.name}</span>
 						{#if target.aliases.length > 0}
-							<span class="text-xs text-muted"
+							<span class="text-label text-muted"
 								>{t.entry.mentionMenu.aliasLabel(target.aliases.join(', '))}</span
 							>
 						{/if}

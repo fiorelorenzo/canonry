@@ -29,7 +29,7 @@
 	let { pairs, class: className }: { pairs: KeyHintPair[]; class?: string } = $props();
 </script>
 
-<div class={cn('hidden flex-wrap items-center gap-3 text-xs text-muted sm:flex', className)}>
+<div class={cn('hidden flex-wrap items-center gap-3 text-label text-muted sm:flex', className)}>
 	{#each pairs as pair, i (i)}
 		<span class="flex items-center gap-1.5">
 			<kbd class="rounded border border-line-2 px-1 font-mono">{pair.key}</kbd>

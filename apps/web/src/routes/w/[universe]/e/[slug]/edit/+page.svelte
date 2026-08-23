@@ -59,7 +59,7 @@
 	title={t.entry.editor.heading(data.entity.name)}
 	bodyClass="flex h-full flex-col px-6 py-8"
 >
-	<p class="mb-1 shrink-0 text-xs text-muted">
+	<p class="mb-1 shrink-0 text-label text-muted">
 		<a class="hover:underline" href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}`)}
 			>{data.entity.name}</a
 		>

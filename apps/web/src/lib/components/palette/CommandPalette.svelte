@@ -294,7 +294,7 @@
 			<Command.LinkItem href={resolve(`/w/${universeSlug}/e/${hit.slug}`)} onSelect={rowSelected}>
 				<span class="min-w-0 truncate">{hit.name}</span>
 				{#if hit.matchedAlias}
-					<span class="shrink-0 text-xs text-muted">{t.akaHint(hit.matchedAlias)}</span>
+					<span class="shrink-0 text-meta text-muted">{t.akaHint(hit.matchedAlias)}</span>
 				{/if}
 				<Badge variant="secondary" class="ml-auto shrink-0 font-mono uppercase">
 					{messages(locale).universe.index.filters.typeLabel(hit.type)}

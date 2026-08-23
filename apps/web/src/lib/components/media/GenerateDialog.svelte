@@ -107,7 +107,7 @@
 			</DialogTitle>
 
 			{#if regenerateSource}
-				<p class="mt-2 text-xs text-muted">{t.entry.media.regenerate.hint}</p>
+				<p class="mt-2 text-label text-muted">{t.entry.media.regenerate.hint}</p>
 				<div class="mt-3 flex gap-3">
 					<img
 						src={regenerateSource.imageUrl}
@@ -115,7 +115,7 @@
 						class="h-20 w-20 shrink-0 rounded-md border border-line object-cover"
 					/>
 					<div class="flex-1">
-						<label class="block text-xs font-medium text-ink-2" for="regenerate-instruction">
+						<label class="block text-label font-medium text-ink-2" for="regenerate-instruction">
 							{t.entry.media.regenerate.instructionLabel}
 						</label>
 						<Textarea
@@ -127,12 +127,12 @@
 						/>
 					</div>
 				</div>
-				<p class="mt-3 text-xs text-muted">
+				<p class="mt-3 text-label text-muted">
 					{portraitModel ? t.entry.media.creditsLabel(portraitPrice) : t.entry.media.notConfigured}
 				</p>
 			{:else}
 				<div
-					class="mt-3 flex items-center gap-2 rounded-full border border-dashed border-line-2 bg-panel-2 px-3 py-1.5 text-xs text-ink-2"
+					class="mt-3 flex items-center gap-2 rounded-full border border-dashed border-line-2 bg-panel-2 px-3 py-1.5 text-label text-ink-2"
 				>
 					<span class="flex-1">
 						{t.entry.media.styleLabel(styleModifier)}
@@ -162,13 +162,13 @@
 						<input type="radio" name="feature" value="variants" bind:group={feature} class="mt-1" />
 						<span class="flex-1">
 							<span class="block text-sm text-ink">{t.entry.media.fourOptions}</span>
-							<span class="block text-xs text-muted">
+							<span class="block text-label text-muted">
 								{variantsModel ? variantsModel.modelId : t.entry.media.notConfigured}
 								{entityType === 'character' ? ` ${t.entry.media.suggestedForCharacter}` : ''}
 							</span>
 						</span>
 						<span
-							class="rounded-full bg-panel-2 px-2 py-0.5 text-xs font-medium text-ink-2 tabular-nums"
+							class="rounded-full bg-panel-2 px-2 py-0.5 text-label font-medium text-ink-2 tabular-nums"
 						>
 							{t.entry.media.creditsLabel(variantsPrice)}
 						</span>
@@ -182,19 +182,19 @@
 						<input type="radio" name="feature" value="portrait" bind:group={feature} class="mt-1" />
 						<span class="flex-1">
 							<span class="block text-sm text-ink">{t.entry.media.oneImage}</span>
-							<span class="block text-xs text-muted"
+							<span class="block text-label text-muted"
 								>{portraitModel ? portraitModel.modelId : t.entry.media.notConfigured}</span
 							>
 						</span>
 						<span
-							class="rounded-full bg-panel-2 px-2 py-0.5 text-xs font-medium text-ink-2 tabular-nums"
+							class="rounded-full bg-panel-2 px-2 py-0.5 text-label font-medium text-ink-2 tabular-nums"
 						>
 							{t.entry.media.creditsLabel(portraitPrice)}
 						</span>
 					</label>
 				</div>
 
-				<p class="mt-3 text-xs text-muted">
+				<p class="mt-3 text-label text-muted">
 					{t.entry.media.privateHint}
 				</p>
 			{/if}

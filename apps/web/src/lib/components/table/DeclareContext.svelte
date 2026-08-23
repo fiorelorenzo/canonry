@@ -110,11 +110,11 @@
 						class={`h-auto w-full items-center justify-between rounded-md px-2 py-1 text-left text-sm font-normal ${selectedPlaceId === place.id ? 'bg-accent-bg text-accent-ink hover:bg-accent-bg' : ''}`}
 					>
 						<span>{place.name}</span>
-						<span class="text-xs text-muted">{t.placeTag}</span>
+						<span class="text-label text-muted">{t.placeTag}</span>
 					</Button>
 				</li>
 			{:else}
-				<li class="px-2 py-1 text-xs text-muted">{t.noPlaceMatch(placeQuery)}</li>
+				<li class="px-2 py-1 text-label text-muted">{t.noPlaceMatch(placeQuery)}</li>
 			{/each}
 		</ul>
 	</div>

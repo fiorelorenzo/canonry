@@ -322,7 +322,7 @@
 				{/if}
 			</div>
 			{#if coverError}
-				<p class="mt-2 text-xs text-danger">{coverError}</p>
+				<p class="mt-2 text-label text-danger">{coverError}</p>
 			{/if}
 		</div>
 		<MediaGallery bind:open={coverGalleryOpen} data={coverGalleryData} {locale} />
@@ -345,7 +345,7 @@
 			bind:open={open[section.id]}
 		>
 			<summary
-				class="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-xs font-medium text-ink hover:bg-panel focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"
+				class="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-label font-medium text-ink hover:bg-panel focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"
 			>
 				<span
 					class="text-label text-muted transition-transform"

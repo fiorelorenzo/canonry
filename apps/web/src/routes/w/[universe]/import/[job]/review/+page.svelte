@@ -91,7 +91,7 @@
 
 <Page width="working" title={t.heading(data.job.playbook)}>
 	<div class="px-6 py-8">
-		<p class="mb-2 text-xs text-muted">
+		<p class="mb-2 text-label text-muted">
 			<a class="hover:underline" href={resolve(`/w/${data.universe.slug}/proposals`)}
 				>{t.breadcrumbProposals}</a
 			>

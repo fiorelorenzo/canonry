@@ -169,7 +169,7 @@
 					{title}
 				</svelte:element>
 			{/if}
-			<p class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
+			<p class="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
 				<span class="rounded-full bg-panel-2 px-1.5 py-0.5 font-mono uppercase">
 					{t.diffCard.kindLabel(candidate.kind)}
 				</span>
@@ -187,7 +187,7 @@
 		{#if candidate.outcome === 'accepted'}
 			<Badge variant="ok" class="font-mono">{t.diffCard.accepted}</Badge>
 		{:else if candidate.outcome === 'rejected'}
-			<span class="rounded-full bg-danger-bg px-2 py-0.5 font-mono text-xs text-danger">
+			<span class="rounded-full bg-danger-bg px-2 py-0.5 font-mono text-label text-danger">
 				{t.diffCard.rejected}{candidate.rejectReason
 					? ` \u00b7 ${t.diffCard.rejectReasonLabel(candidate.rejectReason)}`
 					: ''}
@@ -197,7 +197,7 @@
 			     so, because the alternative was a row sitting pending forever against an entry
 			     that is never coming. Not the danger treatment: the GM rejected the entry, not
 			     this, and nothing here failed. -->
-			<span class="rounded-full bg-panel-2 px-2 py-0.5 font-mono text-xs text-ink-2">
+			<span class="rounded-full bg-panel-2 px-2 py-0.5 font-mono text-label text-ink-2">
 				{t.diffCard.supersededEndpoint}
 			</span>
 		{/if}
@@ -206,7 +206,7 @@
 	{#if candidate.relationVocab}
 		{@const vocab = candidate.relationVocab}
 		<div class="mb-3 max-w-measure text-sm text-ink-2">
-			<h4 class="mb-1 font-mono text-xs text-muted uppercase">
+			<h4 class="mb-1 font-mono text-label text-muted uppercase">
 				{vocab.kind === 'relation_type_reuse'
 					? t.relationVocab.reuseHeading
 					: vocab.kind === 'relation_type_widen'
@@ -229,7 +229,7 @@
 				{#if vocab.kind === 'relation_type_reuse'}
 					<p class="text-ink">{t.relationVocab.reuseType(vocabLabel, vocabInverseLabel)}</p>
 					{#if vocab.proposedLabel}
-						<p class="mt-1 text-xs text-ink-2">
+						<p class="mt-1 text-label text-ink-2">
 							"{vocab.proposedLabel}" &rarr; "{vocabLabel}"
 						</p>
 					{/if}
@@ -237,7 +237,7 @@
 					<p class="font-semibold text-ink">{vocabLabel} / {vocabInverseLabel}</p>
 				{/if}
 				{#if vocab.cardinality}
-					<p class="mt-1 text-xs text-ink-2">
+					<p class="mt-1 text-label text-ink-2">
 						{t.relationVocab.cardinalityLabel(vocab.cardinality)}
 					</p>
 				{/if}
@@ -263,7 +263,7 @@
 
 		{#if vocab.relations.length > 0}
 			<div class="mb-3">
-				<h4 class="mb-1.5 font-mono text-xs text-muted uppercase">
+				<h4 class="mb-1.5 font-mono text-label text-muted uppercase">
 					{t.relationVocab.waitingCount(vocab.relations.length)}
 				</h4>
 				<ul class="space-y-1.5">
@@ -448,7 +448,7 @@
 			</button>
 		</div>
 	{:else if candidate.outcome === 'accepted' && onUndo}
-		<button type="button" class="text-xs text-muted underline hover:text-ink-2" onclick={onUndo}>
+		<button type="button" class="text-label text-muted underline hover:text-ink-2" onclick={onUndo}>
 			{t.diffCard.undo}
 		</button>
 	{/if}

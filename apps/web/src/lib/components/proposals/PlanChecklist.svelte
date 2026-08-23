@@ -68,7 +68,7 @@
 </script>
 
 <div class="rounded-lg border border-line bg-panel p-4">
-	<div class="mb-1 flex items-center justify-between text-xs text-muted">
+	<div class="mb-1 flex items-center justify-between text-label text-muted">
 		<span><b class="text-ink">{kept.length}</b>{t.keptSuffix(rows.length, candidateCap)}</span>
 		{#if pricing.kind === 'perDiff'}
 			{@const toGenerate = t.toGenerate(kept.length, fmt(pricing.diffPriceCredits))}
@@ -87,7 +87,7 @@
 	</div>
 	{#if pricing.kind === 'perDiff'}
 		{@const alreadySpent = t.alreadySpent()}
-		<div class="mb-3 text-xs text-muted">
+		<div class="mb-3 text-label text-muted">
 			{alreadySpent.prefix}<b class="text-ink">{fmt(pricing.alreadySpentCredits)}</b
 			>{alreadySpent.suffix}
 		</div>
@@ -98,10 +98,10 @@
 			<li class="flex items-center justify-between gap-3 py-2 text-sm">
 				<div class="min-w-0">
 					<p class="truncate font-medium text-ink">{row.name}</p>
-					<p class="truncate text-xs text-muted">{row.rationale}</p>
+					<p class="truncate text-label text-muted">{row.rationale}</p>
 				</div>
 				<div class="flex flex-none items-center gap-2">
-					<span class="font-mono text-xs text-muted">{fmt(row.credits)} {t.creditsUnit}</span>
+					<span class="font-mono text-meta text-muted">{fmt(row.credits)} {t.creditsUnit}</span>
 					<form
 						method="POST"
 						action="?/drop"
@@ -115,7 +115,7 @@
 							type="submit"
 							variant="secondary"
 							size="sm"
-							class="h-7 px-2 text-xs font-normal text-muted hover:text-foreground"
+							class="h-7 px-2 text-label font-normal text-muted hover:text-foreground"
 						>
 							{t.drop}
 						</Button>

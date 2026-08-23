@@ -55,7 +55,7 @@
 	<div class="flex flex-wrap items-start justify-between gap-4">
 		<div class="min-w-0">
 			{#if eyebrow}
-				<p class="mb-1 font-mono text-xs tracking-wide text-muted uppercase">{eyebrow}</p>
+				<p class="mb-1 font-mono text-label tracking-wide text-muted uppercase">{eyebrow}</p>
 			{/if}
 			<div class="flex flex-wrap items-center gap-2">
 				<h1 class="text-page-title font-semibold text-ink">{title}</h1>

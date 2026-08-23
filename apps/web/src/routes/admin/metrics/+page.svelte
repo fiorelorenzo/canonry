@@ -73,19 +73,19 @@
 						<div class="text-2xl font-semibold {rateColorClass(data.overallAcceptRate.acceptRate)}">
 							{formatPercent(data.overallAcceptRate.acceptRate)}
 						</div>
-						<div class="mt-1 text-xs text-muted">{t.metrics.accept.acceptRateLabel}</div>
+						<div class="mt-1 text-label text-muted">{t.metrics.accept.acceptRateLabel}</div>
 					</div>
 					<div class="rounded-lg border border-line bg-panel p-4">
 						<div class="text-2xl font-semibold text-ink">{data.overallAcceptRate.produced}</div>
-						<div class="mt-1 text-xs text-muted">{t.metrics.table.produced}</div>
+						<div class="mt-1 text-label text-muted">{t.metrics.table.produced}</div>
 					</div>
 					<div class="rounded-lg border border-line bg-panel p-4">
 						<div class="text-2xl font-semibold text-ink">{data.overallAcceptRate.accepted}</div>
-						<div class="mt-1 text-xs text-muted">{t.metrics.table.accepted}</div>
+						<div class="mt-1 text-label text-muted">{t.metrics.table.accepted}</div>
 					</div>
 					<div class="rounded-lg border border-line bg-panel p-4">
 						<div class="text-2xl font-semibold text-ink">{data.overallAcceptRate.rejected}</div>
-						<div class="mt-1 text-xs text-muted">{t.metrics.table.rejected}</div>
+						<div class="mt-1 text-label text-muted">{t.metrics.table.rejected}</div>
 					</div>
 				</div>
 
@@ -94,7 +94,7 @@
 						<table class="w-full border-collapse text-sm">
 							<thead>
 								<tr
-									class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
+									class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
 								>
 									<th class="px-3 py-2 font-normal">{t.metrics.accept.table.weekOf}</th>
 									<th class="px-3 py-2 font-normal">{t.metrics.accept.table.kind}</th>
@@ -111,7 +111,7 @@
 										<td class="px-3 py-2 text-ink-2 tabular-nums">{row.weekStart}</td>
 										<td class="px-3 py-2 text-ink">{row.kind}</td>
 										<td class="px-3 py-2"
-											><code class="text-xs text-ink-2">{row.modelId ?? t.unattributed}</code></td
+											><code class="text-label text-ink-2">{row.modelId ?? t.unattributed}</code></td
 										>
 										<td class="px-3 py-2 text-ink tabular-nums">{row.produced}</td>
 										<td class="px-3 py-2 text-ink tabular-nums">{row.accepted}</td>
@@ -130,7 +130,7 @@
 
 				<div class="mt-5">
 					<h3 class="text-sm font-semibold text-ink">{t.metrics.accept.byLocale.heading}</h3>
-					<p class="mt-1 text-xs text-muted">
+					<p class="mt-1 text-label text-muted">
 						<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 						{@html t.metrics.accept.byLocale.intro}
 					</p>
@@ -138,7 +138,7 @@
 						<table class="w-full border-collapse text-sm">
 							<thead>
 								<tr
-									class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
+									class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
 								>
 									<th class="px-3 py-2 font-normal">{t.metrics.accept.byLocale.localeLabel}</th>
 									<th class="px-3 py-2 font-normal">{t.metrics.table.produced}</th>
@@ -160,7 +160,7 @@
 												: rateColorClass(row.acceptRate)}"
 										>
 											{#if row.produced === 0}
-												<span class="text-xs font-normal text-muted"
+												<span class="text-label font-normal text-muted"
 													>{t.metrics.table.noDataYet}</span
 												>
 											{:else}
@@ -190,7 +190,7 @@
 				{#each data.importsByUniverse as universe (universe.universeId)}
 					<div class="mt-5">
 						<h3 class="text-sm font-semibold text-ink">{universe.universeName}</h3>
-						<p class="mt-1 text-xs text-muted">
+						<p class="mt-1 text-meta text-muted">
 							{#if universe.importsWithAccept === 0}
 								{t.metrics.timeToFirstAccept.noAcceptYet(universe.imports.length)}
 							{:else}
@@ -205,7 +205,7 @@
 							<table class="w-full border-collapse text-sm">
 								<thead>
 									<tr
-										class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
+										class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
 									>
 										<th class="px-3 py-2 font-normal"
 											>{t.metrics.timeToFirstAccept.importStarted}</th
@@ -254,7 +254,7 @@
 					<table class="w-full border-collapse text-sm">
 						<thead>
 							<tr
-								class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
+								class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
 							>
 								<th class="px-3 py-2 font-normal">{t.metrics.table.universe}</th>
 								<th class="px-3 py-2 font-normal">{t.metrics.warmRadius.consumed}</th>
@@ -278,7 +278,7 @@
 									</td>
 									<td class="px-3 py-2 text-ink tabular-nums">
 										<span
-											class="rounded-full px-2 py-0.5 text-xs font-medium"
+											class="rounded-full px-2 py-0.5 text-label font-medium"
 											class:bg-ok-bg={row.radius === 2}
 											class:text-ok={row.radius === 2}
 											class:bg-warn-bg={row.radius === 1}
@@ -310,7 +310,7 @@
 					<table class="w-full border-collapse text-sm">
 						<thead>
 							<tr
-								class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
+								class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
 							>
 								<th class="px-3 py-2 font-normal">{t.metrics.table.universe}</th>
 								<th class="px-3 py-2 font-normal">{t.metrics.entropy.createdInPrep}</th>
@@ -346,7 +346,7 @@
 					<table class="w-full border-collapse text-sm">
 						<thead>
 							<tr
-								class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
+								class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
 							>
 								<th class="px-3 py-2 font-normal">{t.metrics.auditFlags.position}</th>
 								<th class="px-3 py-2 font-normal">{t.metrics.auditFlags.produced}</th>

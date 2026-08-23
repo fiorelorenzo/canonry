@@ -284,7 +284,7 @@
 											<span class="sr-only">{t.imageStyle.selectedLabel}</span>
 										{/if}
 									</span>
-									<span class="text-xs text-ink-2">{preset.description}</span>
+									<span class="text-label text-ink-2">{preset.description}</span>
 								</span>
 							</label>
 						{/each}
@@ -316,7 +316,7 @@
 							{/if}
 						</summary>
 						<div class="border-t border-line px-3 py-3">
-							<p class="text-xs text-ink-2">{t.imageStyle.customCard.hint}</p>
+							<p class="text-label text-ink-2">{t.imageStyle.customCard.hint}</p>
 							<form
 								method="POST"
 								action="?/setImageStyle"
@@ -396,7 +396,7 @@
 											event.currentTarget.form?.requestSubmit();
 										}}
 									/>
-									<p class="text-xs text-ink-2 italic">&ldquo;{preset.exampleSentence}&rdquo;</p>
+									<p class="text-label text-ink-2 italic">&ldquo;{preset.exampleSentence}&rdquo;</p>
 									<span class="mt-2 flex items-center gap-1 text-sm font-medium text-ink">
 										{preset.name}
 										{#if currentNarrationStyleId === preset.id}
@@ -404,7 +404,7 @@
 											<span class="sr-only">{t.narration.selectedLabel}</span>
 										{/if}
 									</span>
-									<span class="mt-0.5 text-xs text-ink-2">{preset.description}</span>
+									<span class="mt-0.5 text-label text-ink-2">{preset.description}</span>
 								</label>
 							{/each}
 							<noscript>
@@ -435,7 +435,7 @@
 								{/if}
 							</summary>
 							<div class="border-t border-line px-3 py-3">
-								<p class="text-xs text-ink-2">{t.narration.customCard.hint}</p>
+								<p class="text-label text-ink-2">{t.narration.customCard.hint}</p>
 								<form
 									method="POST"
 									action="?/setNarrationStyle"
@@ -533,7 +533,7 @@
 						<!-- Round eleven P2 (#344), and guardrail 4 more than P2: the copilot's hue is
 					     the last thing that should announce that the copilot is off. This notice is
 					     the theme's own panel and line. -->
-						<p class="mt-3 rounded-md border border-line bg-panel-2 px-3 py-2 text-xs text-ink-2">
+						<p class="mt-3 rounded-md border border-line bg-panel-2 px-3 py-2 text-label text-ink-2">
 							{t.aiToggle.offNotice(data.current.name)}
 						</p>
 					{/if}
@@ -585,7 +585,7 @@
 							<p class="w-full text-sm text-danger">{form.message}</p>
 						{/if}
 					</form>
-					<p class="mt-3 text-xs text-muted">
+					<p class="mt-3 text-label text-muted">
 						{#if propagationCap === null}
 							{t.propagationCap.noLimitNotice}
 						{:else}
@@ -607,7 +607,7 @@
 							<p class="mt-1 max-w-measure text-sm text-ink-2">
 								{tRelations.cardDescription(data.current.name)}
 							</p>
-							<p class="mt-1 text-xs text-muted">
+							<p class="mt-1 text-label text-muted">
 								{tRelations.cardCountOwn(data.ownRelationTypeCount)}
 							</p>
 						</div>
@@ -658,7 +658,7 @@
 												type="submit"
 												variant="link"
 												size="sm"
-												class="h-auto p-0 text-xs text-muted hover:text-danger"
+												class="h-auto p-0 text-label text-muted hover:text-danger"
 												disabled={removingSupersede}
 											>
 												{removingSupersede ? t.precedence.removing : t.precedence.remove}
@@ -681,7 +681,7 @@
 								};
 							}}
 						>
-							<h4 class="text-xs font-semibold tracking-wide text-muted uppercase">
+							<h4 class="text-label font-semibold tracking-wide text-muted uppercase">
 								{t.precedence.declareHeading}
 							</h4>
 							<div class="flex flex-col gap-1 text-sm text-ink-2">

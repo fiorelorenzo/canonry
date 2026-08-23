@@ -118,7 +118,7 @@
 								class="mb-2 flex items-baseline justify-between gap-3 border-b border-line pb-1 text-title font-semibold text-ink"
 							>
 								<span>{group.sessionName ?? t.sessionUnknown}</span>
-								<span class="text-xs font-normal text-muted"
+								<span class="text-meta font-normal text-muted"
 									>{formatSessionDate(group.latestAt)}</span
 								>
 							</h3>
@@ -134,7 +134,7 @@
 												{@render nameLink(entry.entity, entry.label)}
 											{/if}
 										</span>
-										<span class="text-xs text-muted">
+										<span class="text-meta text-muted">
 											{t.kindLabel[entry.kind]} &middot; {formatWhen(entry.confirmedAt)}
 										</span>
 									</li>
@@ -171,7 +171,7 @@
 								<span class="flex items-center gap-2">
 									{#if entity.connected}
 										<span
-											class="rounded-full bg-accent-bg px-2 py-0.5 text-xs text-accent-ink"
+											class="rounded-full bg-accent-bg px-2 py-0.5 text-label text-accent-ink"
 											title={t.hiddenConnectedHint}
 										>
 											{t.hiddenConnectedBadge}
@@ -179,7 +179,7 @@
 									{/if}
 									<span>{entity.name}</span>
 								</span>
-								<span class="text-xs tracking-wide text-muted uppercase"
+								<span class="text-label tracking-wide text-muted uppercase"
 									>{t.entityTypeLabel(entity.type)}</span
 								>
 							</a>

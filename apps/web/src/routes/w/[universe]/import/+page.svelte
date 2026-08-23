@@ -206,7 +206,7 @@
 							>
 								<div class="min-w-0">
 									<p class="font-medium text-ink">{job.playbookLabel}</p>
-									<p class="text-xs text-muted">
+									<p class="text-label text-muted">
 										{t.job.statusWord[job.status]} &middot; {t.upload.estimate.documentCount(
 											job.documentCount
 										)} &middot; {t.existing.proposals(job.proposalsEmitted)} &middot; {formatWhen(
@@ -215,7 +215,7 @@
 									</p>
 								</div>
 								<span
-									class="flex-none rounded-md border border-line-2 px-2 py-1 text-xs text-ink-2"
+									class="flex-none rounded-md border border-line-2 px-2 py-1 text-label text-ink-2"
 								>
 									{t.existing.reviewLink}
 								</span>

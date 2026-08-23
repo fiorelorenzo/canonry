@@ -27,7 +27,7 @@
 	>
 		<a
 			href={resolve(`/w/${data.current.slug}/works`)}
-			class="mb-2 block truncate px-2 text-xs text-muted hover:text-ink"
+			class="mb-2 block truncate px-2 text-label text-muted hover:text-ink"
 		>
 			&larr; {data.current.name}
 		</a>

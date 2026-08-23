@@ -34,11 +34,11 @@
 </script>
 
 <div class="flex flex-wrap items-center gap-1.5">
-	<span class="text-xs text-muted">{t.prompt}</span>
+	<span class="text-label text-muted">{t.prompt}</span>
 	{#each CHIPS as chip (chip.value)}
 		<button
 			type="button"
-			class="rounded-md border border-line-2 px-2 py-1 text-xs text-ink-2 hover:bg-panel-2"
+			class="rounded-md border border-line-2 px-2 py-1 text-label text-ink-2 hover:bg-panel-2"
 			onclick={() => onPick(chip.value)}
 		>
 			{chip.label}
@@ -47,14 +47,14 @@
 	{#if showOther}
 		<input
 			type="text"
-			class="rounded-md border border-line-2 bg-panel px-2 py-1 text-xs text-ink"
+			class="rounded-md border border-line-2 bg-panel px-2 py-1 text-label text-ink"
 			placeholder={t.otherPlaceholder}
 			bind:value={otherText}
 			onkeydown={(e) => e.key === 'Enter' && submitOther()}
 		/>
 		<button
 			type="button"
-			class="rounded-md border border-line-2 px-2 py-1 text-xs text-ink-2 hover:bg-panel-2"
+			class="rounded-md border border-line-2 px-2 py-1 text-label text-ink-2 hover:bg-panel-2"
 			onclick={submitOther}
 		>
 			{t.save}
@@ -62,7 +62,7 @@
 	{:else}
 		<button
 			type="button"
-			class="rounded-md border border-line-2 px-2 py-1 text-xs text-ink-2 hover:bg-panel-2"
+			class="rounded-md border border-line-2 px-2 py-1 text-label text-ink-2 hover:bg-panel-2"
 			onclick={() => (showOther = true)}
 		>
 			{t.other}

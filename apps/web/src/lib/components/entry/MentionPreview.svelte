@@ -262,11 +262,11 @@
 				{data.type}
 			</span>
 			{#if data.status === 'gap'}
-				<span class="mt-1.5 block text-xs text-ink-2 italic">{t.gap}</span>
+				<span class="mt-1.5 block text-meta text-ink-2 italic">{t.gap}</span>
 			{:else if data.excerpt}
-				<span class="mt-1.5 line-clamp-4 block text-xs text-ink-2">{data.excerpt}</span>
+				<span class="mt-1.5 line-clamp-4 block text-meta text-ink-2">{data.excerpt}</span>
 			{:else}
-				<span class="mt-1.5 block text-xs text-ink-2 italic">{t.empty}</span>
+				<span class="mt-1.5 block text-meta text-ink-2 italic">{t.empty}</span>
 			{/if}
 		</span>
 	</span>

@@ -89,7 +89,7 @@
 				</div>
 
 				{#if key}
-					<div class="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs text-ink-2">
+					<div class="mt-2 flex flex-wrap items-center gap-2 font-mono text-label text-ink-2">
 						<span
 							class="rounded border border-line-2 bg-panel-2 px-2 py-1"
 							aria-label={t.keyEndingIn(key.lastFour)}
@@ -173,7 +173,7 @@
 				>
 					<input type="hidden" name="provider" value={provider} />
 					<label class="flex flex-1 flex-col gap-1">
-						<span class="text-xs text-muted">{key ? t.replaceKeyLabel : t.addKeyLabel}</span>
+						<span class="text-label text-muted">{key ? t.replaceKeyLabel : t.addKeyLabel}</span>
 						<Input
 							type="password"
 							name="apiKey"
@@ -193,9 +193,9 @@
 				</form>
 
 				{#if errorHere}
-					<p class="mt-2 text-xs text-danger">{errorHere}</p>
+					<p class="mt-2 text-label text-danger">{errorHere}</p>
 				{:else if lastFourHere}
-					<p class="mt-2 text-xs text-ok">
+					<p class="mt-2 text-label text-ok">
 						{t.savedConfirmation(lastFourHere)}
 					</p>
 				{/if}

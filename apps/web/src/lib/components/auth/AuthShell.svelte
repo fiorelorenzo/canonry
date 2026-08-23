@@ -71,7 +71,7 @@
 	</main>
 
 	<footer
-		class="flex flex-wrap items-center gap-4 border-t border-line bg-panel-2 px-6 py-3 text-xs text-ink-2"
+		class="flex flex-wrap items-center gap-4 border-t border-line bg-panel-2 px-6 py-3 text-label text-ink-2"
 	>
 		<LocaleSwitcher {locale} />
 		<span class="flex-1"></span>

@@ -57,7 +57,7 @@
 					<table class="w-full border-collapse text-sm">
 						<thead>
 							<tr
-								class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
+								class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
 							>
 								<th class="px-3 py-2 font-normal">{t.pricing.table.label}</th>
 								<th class="px-3 py-2 font-normal">{t.pricing.table.operation}</th>
@@ -75,7 +75,7 @@
 								<tr class="bg-panel align-top">
 									<td class="px-3 py-3 text-ink">{price.label}</td>
 									<td class="px-3 py-3"
-										><code class="text-xs text-ink-2">{price.operation}</code></td
+										><code class="text-label text-ink-2">{price.operation}</code></td
 									>
 									<td class="px-3 py-3">
 										<form
@@ -110,14 +110,14 @@
 												</Button>
 											</div>
 											{#if failedHere}
-												<p id="{fieldId}-error" class="text-xs text-danger">{form?.error}</p>
+												<p id="{fieldId}-error" class="text-label text-danger">{form?.error}</p>
 											{:else if savedHere}
-												<p class="text-xs text-ok">{t.pricing.saved}</p>
+												<p class="text-label text-ok">{t.pricing.saved}</p>
 											{/if}
 										</form>
 									</td>
-									<td class="max-w-xs px-3 py-3 text-xs text-ink-2">{price.notes ?? ''}</td>
-									<td class="px-3 py-3 text-xs text-ink-2">
+									<td class="max-w-xs px-3 py-3 text-label text-ink-2">{price.notes ?? ''}</td>
+									<td class="px-3 py-3 text-label text-ink-2">
 										{#if change}
 											{t.pricing.lastChangeSummary(
 												formatCredits(change.oldCredits),

@@ -252,7 +252,7 @@
 					{@const pin = current.pin}
 					<div class="flex items-start gap-2.5">
 						<span
-							class="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-accent-bg font-mono text-xs font-bold text-accent-ink"
+							class="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-accent-bg font-mono text-label font-bold text-accent-ink"
 							aria-hidden="true"
 						>
 							{initialsOf(pin.name)}
@@ -320,7 +320,7 @@
 							<p class="text-label text-muted">
 								{tNote.about}: <span class="text-ink">{pin.name}</span>
 							</p>
-							<p class="text-xs text-muted">{tNote.disclaimer}</p>
+							<p class="text-label text-muted">{tNote.disclaimer}</p>
 							<Textarea
 								bind:value={noteText}
 								rows={2}

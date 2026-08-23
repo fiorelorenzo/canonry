@@ -502,7 +502,7 @@
 			</button>
 		</div>
 
-		<p class="m-0 border-b border-line bg-panel-2 px-3 py-1.5 text-xs text-ink-2">
+		<p class="m-0 border-b border-line bg-panel-2 px-3 py-1.5 text-label text-ink-2">
 			{t.context(contextName)}
 		</p>
 
@@ -533,7 +533,7 @@
 							<button
 								type="button"
 								onclick={() => askSuggestion(suggestion)}
-								class="rounded-full border border-line-2 bg-panel-2 px-2.5 py-1 text-left text-xs text-ink-2 hover:bg-accent-bg hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+								class="rounded-full border border-line-2 bg-panel-2 px-2.5 py-1 text-left text-label text-ink-2 hover:bg-accent-bg hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
 							>
 								{suggestion}
 							</button>
@@ -580,7 +580,7 @@
 
 						{#if turn.askError}
 							<p
-								class="mt-2 rounded-md border border-danger-bg bg-danger-bg px-2.5 py-1.5 text-xs text-danger"
+								class="mt-2 rounded-md border border-danger-bg bg-danger-bg px-2.5 py-1.5 text-label text-danger"
 							>
 								{turn.askError}
 							</p>
@@ -588,7 +588,7 @@
 
 						{#if turn.generated === false}
 							<p
-								class="mt-2 rounded-md border border-warn-bg bg-warn-bg px-2.5 py-1.5 text-xs text-warn"
+								class="mt-2 rounded-md border border-warn-bg bg-warn-bg px-2.5 py-1.5 text-label text-warn"
 							>
 								{askT.noLiveModel}
 							</p>
@@ -621,7 +621,7 @@
 									<!-- issue #256, guardrail 1 and 6: an answer that also drafted
 									     something says so, and says which way round it went, wherever
 									     it was asked from. -->
-									<div class="rounded-lg border border-line bg-panel-2 px-2.5 py-1.5 text-xs">
+									<div class="rounded-lg border border-line bg-panel-2 px-2.5 py-1.5 text-label">
 										<span
 											class="rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-label text-ink-2"
 										>
@@ -641,7 +641,7 @@
 								{/each}
 								{#each turn.proposalFailures as failure, i (i)}
 									<p
-										class="m-0 rounded-md border border-danger-bg bg-danger-bg px-2.5 py-1.5 text-xs text-danger"
+										class="m-0 rounded-md border border-danger-bg bg-danger-bg px-2.5 py-1.5 text-label text-danger"
 									>
 										{askT.propose.failed(failure.message)}
 									</p>
@@ -665,13 +665,13 @@
 								<ul class="mt-1.5 mb-0 flex list-none flex-col gap-2">
 									{#each turn.sources as source, i (source.kind === 'own_canon' ? source.entityId : `${source.dataSourceId}-${i}`)}
 										<li class="min-w-0">
-											<span class="block border-l-2 border-line-2 pl-2 text-xs text-ink-2 italic"
+											<span class="block border-l-2 border-line-2 pl-2 text-label text-ink-2 italic"
 												>&ldquo;{source.statement}&rdquo;</span
 											>
 											{#if source.kind === 'own_canon'}
 												<a
 													href={resolve(`/w/${universeSlug}/e/${source.entitySlug}`)}
-													class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-xs text-ink hover:bg-accent-bg"
+													class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-label text-ink hover:bg-accent-bg"
 												>
 													<span class="truncate">{source.entityName}</span>
 													<span class="shrink-0 text-label text-muted">{askT.ownCanonLabel}</span>
@@ -681,7 +681,7 @@
 													href={source.url}
 													target="_blank"
 													rel="noreferrer"
-													class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-xs"
+													class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-label"
 												>
 													<span class="shrink-0 text-label text-ink-2">{askT.indexedBadge}</span>
 													<span class="truncate text-ink">{source.pageTitle}</span>
@@ -790,7 +790,7 @@
 			<span class="text-sm font-semibold text-ink">{t.name}</span>
 			<span class="ml-auto font-mono text-label text-muted">{formatShortcut(askShortcut)}</span>
 		</span>
-		<span class="text-xs text-ink-2">{t.launcherHint}</span>
+		<span class="text-label text-ink-2">{t.launcherHint}</span>
 	</button>
 {/if}
 

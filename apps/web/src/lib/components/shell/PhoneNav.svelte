@@ -148,7 +148,7 @@
 			<span class="min-w-0 flex-1 truncate">
 				{mode === 'universe' && current ? current.name : 'Canonry'}
 			</span>
-			<span aria-hidden="true" class="shrink-0 text-xs text-ink-2">&#9662;</span>
+			<span aria-hidden="true" class="shrink-0 text-label text-ink-2">&#9662;</span>
 		</Sheet.Trigger>
 		<Sheet.Content side="left" class="w-4/5 max-w-xs gap-0 p-0" closeLabel={t.closeNavLabel}>
 			<Sheet.Title class="sr-only">{t.openNavLabel}</Sheet.Title>
@@ -181,7 +181,7 @@
 
 	<a
 		href={resolve('/settings')}
-		class="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent-bg text-xs font-semibold text-accent-ink hover:brightness-95"
+		class="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent-bg text-label font-semibold text-accent-ink hover:brightness-95"
 		aria-label={t.accountLabel}
 	>
 		{initials}
@@ -205,7 +205,7 @@
 			<a
 				href={tab.href}
 				aria-current={active ? 'page' : undefined}
-				class="flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-xs"
+				class="flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-label"
 				class:text-accent-ink={active}
 				class:font-semibold={active}
 				class:text-ink-2={!active}
@@ -229,7 +229,7 @@
 			type="button"
 			onclick={() => (quickAskState.open = true)}
 			aria-expanded={quickAskState.open}
-			class="flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-xs"
+			class="flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-label"
 			class:text-accent-ink={quickAskState.open}
 			class:font-semibold={quickAskState.open}
 			class:text-ink-2={!quickAskState.open}
@@ -239,7 +239,7 @@
 		<button
 			type="button"
 			onclick={() => (drawerOpen = true)}
-			class="flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-xs text-ink-2"
+			class="flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-label text-ink-2"
 		>
 			<span>{t.more}</span>
 		</button>

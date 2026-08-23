@@ -72,7 +72,7 @@
 			<table class="w-full border-collapse text-sm">
 				<thead>
 					<tr
-						class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
+						class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
 					>
 						<th class="px-3 py-2 font-normal">{t.models.table.purpose}</th>
 						<th class="px-3 py-2 font-normal">{t.models.table.currentlyActive}</th>
@@ -109,7 +109,7 @@
 								{t.models.purposeLabel[row.purpose as keyof typeof t.models.purposeLabel] ??
 									row.purpose}
 							</td>
-							<td class="px-3 py-3 text-xs">
+							<td class="px-3 py-3 text-label">
 								{#if row.active}
 									<div class="font-mono text-ink">
 										{row.active.provider} / {row.active.modelId}
@@ -153,16 +153,16 @@
 											id={modelIdId}
 											name="modelId"
 											value={modelIdValue}
-											class="w-64 font-mono text-xs {errorHere ? 'border-danger' : ''}"
+											class="w-64 font-mono text-label {errorHere ? 'border-danger' : ''}"
 										/>
 									</div>
 									<Button type="submit" size="sm" disabled={saving[row.purpose]}>
 										{saving[row.purpose] ? t.saving : t.save}
 									</Button>
 									{#if errorHere}
-										<p class="w-full text-xs text-danger">{errorHere}</p>
+										<p class="w-full text-label text-danger">{errorHere}</p>
 									{:else if savedHere}
-										<p class="w-full text-xs text-ok">{t.models.saved}</p>
+										<p class="w-full text-label text-ok">{t.models.saved}</p>
 									{/if}
 								</form>
 							</td>
@@ -184,7 +184,7 @@
 			<table class="w-full border-collapse text-sm">
 				<thead>
 					<tr
-						class="border-b border-line bg-panel-2 text-left text-xs tracking-wide text-muted uppercase"
+						class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
 					>
 						<th class="px-3 py-2 font-normal">{t.models.imageTable.feature}</th>
 						<th class="px-3 py-2 font-normal">{t.models.table.provider}</th>
@@ -224,10 +224,10 @@
 						<tr class="bg-panel align-top">
 							<td class="px-3 py-3 text-ink">
 								{t.models.featureLabel[model.feature as keyof typeof t.models.featureLabel]}
-								<div class="text-xs text-muted">
+								<div class="text-label text-muted">
 									{model.active ? t.models.imageTable.active : t.models.imageTable.inactive}
 								</div>
-								<div class="text-xs text-muted">
+								<div class="text-label text-muted">
 									{t.models.imageTable.aspectRatio}:
 									<span class="font-mono"
 										>{paramsAspectRatio(model.params) ??
@@ -238,7 +238,7 @@
 									<!-- #366: a cover's shape comes from the entity type, so the row's own value is
 								     only the default for a caller with no entity. Saying so here stops the row
 								     reading as the whole answer, and the save checks every shape in this list. -->
-									<div class="text-xs text-muted">
+									<div class="text-label text-muted">
 										{t.models.imageTable.coverAspectRatios(COVER_ASPECT_RATIOS.join(', '))}
 									</div>
 								{/if}
@@ -267,7 +267,7 @@
 											id={modelIdId}
 											name="modelId"
 											value={modelIdValue}
-											class="w-64 font-mono text-xs"
+											class="w-64 font-mono text-label"
 										/>
 									</div>
 									<div class="flex flex-col gap-1">
@@ -295,9 +295,9 @@
 										{saving[model.feature] ? t.saving : t.save}
 									</Button>
 									{#if errorHere}
-										<p class="w-full text-xs text-danger">{errorHere}</p>
+										<p class="w-full text-label text-danger">{errorHere}</p>
 									{:else if savedHere}
-										<p class="w-full text-xs text-ok">{t.models.saved}</p>
+										<p class="w-full text-label text-ok">{t.models.saved}</p>
 									{/if}
 								</form>
 							</td>

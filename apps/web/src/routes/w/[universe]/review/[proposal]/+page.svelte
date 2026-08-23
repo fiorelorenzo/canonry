@@ -42,7 +42,7 @@
      struck-through body itself. -->
 <Page width="working" {title}>
 	<div class="px-4 py-6 md:px-6 md:py-8">
-		<p class="mb-2 text-xs text-muted">
+		<p class="mb-2 text-label text-muted">
 			{#if data.candidate.targetSlug}
 				<a
 					class="hover:underline"
@@ -59,7 +59,7 @@
 
 		{#if data.candidate.awaitingDiff}
 			<div class="card rounded-lg border border-line bg-panel p-4">
-				<p class="mb-2 font-mono text-xs text-ink-2 uppercase">{t.review.awaitingDiff.kicker}</p>
+				<p class="mb-2 font-mono text-label text-ink-2 uppercase">{t.review.awaitingDiff.kicker}</p>
 				<h2 class="text-title text-ink">{t.review.awaitingDiff.body(title)}</h2>
 				<p class="mt-1 max-w-measure text-body text-ink-2">{t.review.awaitingDiff.noDiffYet}</p>
 				<p class="mt-3 max-w-measure text-sm text-ink-2">

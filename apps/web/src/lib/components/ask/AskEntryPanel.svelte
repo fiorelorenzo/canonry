@@ -34,7 +34,7 @@
 	{:else if entry}
 		<div class="flex items-start justify-between gap-2">
 			<div class="min-w-0">
-				<p class="text-xs tracking-wide text-muted uppercase">{entry.type}</p>
+				<p class="text-label tracking-wide text-muted uppercase">{entry.type}</p>
 				<h2 class="mt-0.5 text-title text-ink">{entry.name}</h2>
 			</div>
 			<Button type="button" variant="ghost" size="sm" onclick={onClose}>{closeLabel}</Button>

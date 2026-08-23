@@ -34,7 +34,7 @@
 				{data.universe.name}
 			</a>
 			<span class="flex-1"></span>
-			<span class="text-xs tracking-wide text-muted uppercase">{t.players.wikiLabel}</span>
+			<span class="text-label tracking-wide text-muted uppercase">{t.players.wikiLabel}</span>
 		</div>
 	</header>
 	<!-- The gutter is `px-4 md:px-8` because that is the contract `PageBand`'s paper
