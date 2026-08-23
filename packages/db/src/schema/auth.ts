@@ -7,23 +7,70 @@
 // Prisma and better-sqlite3 in as build dependencies, and the schema is stable enough
 // that carrying two extra native builds for it is a bad trade. If a Better Auth upgrade
 // changes a column, this file is the thing to diff against the release notes.
-import { boolean, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { boolean, check, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { HANDLE_MAX_LENGTH, HANDLE_MIN_LENGTH, HANDLE_PATTERN_SOURCE, RESERVED_HANDLES } from '../handles.js';
 
-export const user = pgTable('user', {
-	id: text('id').primaryKey(),
-	name: text('name').notNull(),
-	email: text('email').notNull().unique(),
-	emailVerified: boolean('email_verified').notNull().default(false),
-	image: text('image'),
-	// SPEC.md §17: the interface language is a preference on the account rather than a cookie,
-	// so it follows the GM to the phone at the table, which is where half of table mode is
-	// used. Null means nobody has chosen yet and the request's Accept-Language decides; an
-	// explicit choice beats that header forever after. A Better Auth additional field, which
-	// is why it lives on this table rather than in a settings table of our own.
-	locale: text('locale'),
-	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
-});
+// A Postgres `array[...]` literal built from the one list in `../handles.js`, so the check
+// constraint below and the form's own validation cannot drift: adding a reserved word is a
+// migration, which is what issue #158 asks for, and it is one edit rather than two.
+const RESERVED_HANDLES_ARRAY = sql.raw(
+	`array[${RESERVED_HANDLES.map((handle) => `'${handle}'`).join(', ')}]`
+);
+
+export const user = pgTable(
+	'user',
+	{
+		id: text('id').primaryKey(),
+		name: text('name').notNull(),
+		email: text('email').notNull().unique(),
+		emailVerified: boolean('email_verified').notNull().default(false),
+		image: text('image'),
+		// SPEC.md §17: the interface language is a preference on the account rather than a cookie,
+		// so it follows the GM to the phone at the table, which is where half of table mode is
+		// used. Null means nobody has chosen yet and the request's Accept-Language decides; an
+		// explicit choice beats that header forever after. A Better Auth additional field, which
+		// is why it lives on this table rather than in a settings table of our own.
+		locale: text('locale'),
+		// Issue #158: the public profile at `/u/<handle>`. Distinct from `name`, which is and
+		// stays a display name - a person is printed by `name` and addressed by `handle`, and
+		// neither is derived from the other.
+		//
+		// Null means no handle, which means no profile: decision recorded on #158, the handle is
+		// chosen later and opt-in, never at sign-up, so an account that never wanted one is
+		// unreachable rather than published under something we made up for it. A unique index
+		// ignores nulls in Postgres, so every account can sit at null at once.
+		//
+		// **Stored as entered, unique and matched case-insensitively.** Both halves are
+		// deliberate. Case is kept because a handle is how a person writes their own name in a
+		// URL and lowering it silently is a product taking that away. Uniqueness and lookup
+		// ignore case because `Lorenzo` and `lorenzo` being two people is a phishing surface,
+		// not a feature, and because a handle gets read off a card and typed back with whatever
+		// capitals the reader guessed - a URL that resolves only with the right shift key is a
+		// broken URL. Hence `user_handle_lower_key` on `lower(handle)` rather than a plain
+		// unique constraint, and hence `publicProfileByHandle` comparing on `lower` too.
+		//
+		// The reserved word list and the format live in `../handles.js` and are enforced here as
+		// check constraints rather than only in the form that writes them, because #158's own
+		// body says the list ships with the column: a reserved handle has to be impossible for
+		// any writer, including a script and a future admin tool, not merely refused by one
+		// screen.
+		handle: text('handle'),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		uniqueIndex('user_handle_lower_key').on(sql`lower(${t.handle})`),
+		check(
+			'user_handle_format',
+			sql`${t.handle} is null or (lower(${t.handle}) ~ ${sql.raw(`'^${HANDLE_PATTERN_SOURCE}$'`)} and char_length(${t.handle}) between ${sql.raw(String(HANDLE_MIN_LENGTH))} and ${sql.raw(String(HANDLE_MAX_LENGTH))})`
+		),
+		check(
+			'user_handle_not_reserved',
+			sql`${t.handle} is null or lower(${t.handle}) <> all (${RESERVED_HANDLES_ARRAY})`
+		)
+	]
+);
 
 export const session = pgTable(
 	'session',
