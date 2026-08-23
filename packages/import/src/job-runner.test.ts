@@ -367,6 +367,14 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				relationCount: 0,
 				proposalsCreated: 0,
 				lostToolCallCount: 0,
+				droppedRelations: {
+					total: 0,
+					bothEndsProposed: 0,
+					oneEndProposed: 0,
+					noEndProposed: 0,
+					selfLoop: 0,
+					deferred: 0
+				},
 				detail: 'unchanged since the last import'
 			}
 		]);
