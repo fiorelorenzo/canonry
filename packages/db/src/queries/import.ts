@@ -32,6 +32,7 @@ import {
 	acceptProposal,
 	createProposalPlan,
 	readEntityCreatePatch,
+	reconcileRelationEndpoints,
 	recordProposalDiff,
 	ProposalAlreadyDecidedError,
 	ProposalNotFoundError,
@@ -1377,6 +1378,16 @@ export async function acceptRelationTypeProposal(
 					)
 					.returning({ id: proposal.id })
 			: [];
+
+		// Issue #613: these relations were held while the vocabulary question was open, and
+		// by the time it is answered the entries at their ends have very often been accepted
+		// already - on the OneNote notebook that was most of them. Nothing else would ever
+		// resolve those endpoints, because `resolveRelationEndpoints` fires from inside an
+		// accept and these rows did not exist when it ran.
+		await reconcileRelationEndpoints(
+			tx,
+			unblocked.map((row) => row.id)
+		);
 
 		const [updated] = await tx
 			.update(proposal)

@@ -262,6 +262,98 @@ async function resolveRelationEndpoints(
 	return new Set([...target, ...related].map((row) => row.id)).size;
 }
 
+/**
+ * The other direction, and the one that is easy to miss: a relation proposal *written
+ * after* the entry at one of its ends was already decided.
+ *
+ * `resolveRelationEndpoints` above only fires from inside an accept, so it can only reach
+ * relations that already exist. Two paths write a relation proposal later than that. A
+ * vocabulary accept (decision K1) unblocks relations that were held while the question was
+ * open, and by then their endpoints have very often been accepted already: on the OneNote
+ * notebook that was 164 of 203 relations left waiting on entries that existed, which is
+ * the same silent loss this issue is about wearing a different hat. And the onboarding
+ * live feed lets a GM accept or reject a `create` while the import is still running, so
+ * even the plan's own insert can land after its endpoint was decided.
+ *
+ * So every path that writes a relation proposal with a proposal-shaped endpoint calls this
+ * immediately afterwards, in the same transaction:
+ *
+ *  - endpoint accepted: fill in the entity id it produced, exactly as the accept would
+ *    have. The entity is read through `applied_revision_id`, which is right for both a
+ *    plain create and a create that folded onto an existing slug;
+ *  - endpoint rejected or superseded: settle this relation `superseded` on the spot,
+ *    rather than let it sit pending against an entry that is never coming;
+ *  - endpoint still pending: leave it, which is the ordinary case.
+ */
+export async function reconcileRelationEndpoints(
+	tx: Queryable,
+	relationIds: string[]
+): Promise<void> {
+	if (relationIds.length === 0) return;
+	const rows = await tx
+		.select({
+			id: proposal.id,
+			targetEntityId: proposal.targetEntityId,
+			relatedEntityId: proposal.relatedEntityId,
+			targetEntityProposalId: proposal.targetEntityProposalId,
+			relatedEntityProposalId: proposal.relatedEntityProposalId
+		})
+		.from(proposal)
+		.where(inArray(proposal.id, relationIds));
+
+	const endpointIds = new Set<string>();
+	for (const row of rows) {
+		if (!row.targetEntityId && row.targetEntityProposalId)
+			endpointIds.add(row.targetEntityProposalId);
+		if (!row.relatedEntityId && row.relatedEntityProposalId)
+			endpointIds.add(row.relatedEntityProposalId);
+	}
+	if (endpointIds.size === 0) return;
+
+	const endpoints = await tx
+		.select({
+			id: proposal.id,
+			outcome: proposal.outcome,
+			entityId: revision.entityId
+		})
+		.from(proposal)
+		.leftJoin(revision, eq(revision.id, proposal.appliedRevisionId))
+		.where(inArray(proposal.id, [...endpointIds]));
+	const stateById = new Map(endpoints.map((row) => [row.id, row]));
+
+	for (const row of rows) {
+		const target = row.targetEntityId
+			? null
+			: row.targetEntityProposalId
+				? stateById.get(row.targetEntityProposalId)
+				: null;
+		const related = row.relatedEntityId
+			? null
+			: row.relatedEntityProposalId
+				? stateById.get(row.relatedEntityProposalId)
+				: null;
+		const gone = [target, related].some(
+			(state) => state && state.outcome !== 'pending' && !state.entityId
+		);
+		if (gone) {
+			await tx
+				.update(proposal)
+				.set({
+					outcome: 'superseded',
+					decidedAt: new Date(),
+					rejectReason: RELATION_ENDPOINT_REJECTED
+				})
+				.where(eq(proposal.id, row.id));
+			continue;
+		}
+		const patch: { targetEntityId?: string; relatedEntityId?: string } = {};
+		if (target?.entityId) patch.targetEntityId = target.entityId;
+		if (related?.entityId) patch.relatedEntityId = related.entityId;
+		if (Object.keys(patch).length === 0) continue;
+		await tx.update(proposal).set(patch).where(eq(proposal.id, row.id));
+	}
+}
+
 /** The inverse, for `undoAcceptedProposal`: the entity this accept created is about to be
  * deleted, so any relation proposal that resolved onto it goes back to waiting on this
  * proposal. Scoped by the proposal id rather than by the entity id, because an ordinary
@@ -477,11 +569,24 @@ export async function createProposalPlan(
 			}
 			return [{ id: row.id, patch }];
 		});
-		if (endpointUpdates.length === 0) return { plan, proposals };
+		// Every relation candidate that arrived with an endpoint proposal id of its own,
+		// index-resolved or passed in: both need reconciling against that proposal's current
+		// state, because a GM watching the onboarding live feed can decide an entry while the
+		// import that proposed it is still running.
+		const endpointRelationIds = [
+			...endpointUpdates.map((update) => update.id),
+			...input.candidates.flatMap((candidate, index) =>
+				(candidate.targetEntityProposalId ?? candidate.relatedEntityProposalId) && proposals[index]
+					? [proposals[index]!.id]
+					: []
+			)
+		];
+		if (endpointRelationIds.length === 0) return { plan, proposals };
 
 		for (const update of endpointUpdates) {
 			await tx.update(proposal).set(update.patch).where(eq(proposal.id, update.id));
 		}
+		await reconcileRelationEndpoints(tx, [...new Set(endpointRelationIds)]);
 		const resolved = await tx
 			.select()
 			.from(proposal)

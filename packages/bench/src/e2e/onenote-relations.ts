@@ -60,11 +60,21 @@ import {
 	resolveModel
 } from '@canonry/ai';
 import { createGatewayEmbedder, embeddingDimensionsFor, type Embedder } from '@canonry/indexing';
-import { closeDb, createDb, eq, type Db } from '@canonry/db';
 import {
+	acceptAnyImportProposal,
+	and,
+	closeDb,
+	createDb,
+	eq,
+	RelationEndpointNotAcceptedError,
+	type Db
+} from '@canonry/db';
+import {
+	entity,
 	importJob,
 	proposal,
 	proposalPlan,
+	relation,
 	universe,
 	universeMember,
 	user,
@@ -80,6 +90,9 @@ interface Args {
 	corpus: string;
 	mode: 'record' | 'replay';
 	label: string;
+	/** After the run, accept every proposal the way a GM would and report what canon it
+	 * produced. Issue #613's mechanism only shows end to end here. */
+	sweep: boolean;
 	/** Documents to run, for a smoke test that costs a euro rather than the notebook's
 	 * full price. A recording and the replays that read it must agree on it, or the
 	 * replay's document ids name pages the run never enumerated. */
@@ -91,6 +104,7 @@ function parseArgs(argv: string[]): Args {
 	let mode: 'record' | 'replay' | null = null;
 	let label = 'run';
 	let limit: number | null = null;
+	let sweep = false;
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i];
 		if (arg === '--corpus') corpus = argv[++i] ?? '';
@@ -98,10 +112,11 @@ function parseArgs(argv: string[]): Args {
 		else if (arg === '--replay') mode = 'replay';
 		else if (arg === '--label') label = argv[++i] ?? 'run';
 		else if (arg === '--limit') limit = Number(argv[++i] ?? '0') || null;
+		else if (arg === '--sweep') sweep = true;
 	}
 	if (!corpus) throw new Error('--corpus <path to a .one/.onepkg/.zip export> is required');
 	if (!mode) throw new Error('one of --record or --replay is required');
-	return { corpus, mode, label, limit };
+	return { corpus, mode, label, limit, sweep };
 }
 
 // ---------------------------------------------------------------------------
@@ -288,6 +303,114 @@ async function proposalsByKind(db: Db, jobId: string): Promise<Record<string, nu
 	return counts;
 }
 
+interface SweepReport {
+	rounds: number;
+	accepted: number;
+	stillWaiting: number;
+	failures: Array<{ kind: string; error: string }>;
+	outcomes: Record<string, number>;
+	relationRowsWritten: number;
+	entityRowsWritten: number;
+}
+
+/**
+ * A GM who accepts everything, walking the queue the way the review screen orders it
+ * (plan by plan, rank within a plan), and going round again for whatever the last pass
+ * made acceptable.
+ *
+ * The second pass is the whole point of the sweep. Issue #613's mechanism only shows up
+ * end to end here: a relation refuses its accept while an endpoint is still one of this
+ * job's own pending proposals, and becomes acceptable the moment that proposal is
+ * accepted, so the queue converges rather than deadlocks. A round that accepts nothing
+ * ends it, which is what makes a real deadlock a finite run and not a hang.
+ *
+ * A refusal that is not the endpoint one is recorded and never retried: it is a defect,
+ * and retrying it would turn one defect into ten rounds of the same message.
+ */
+async function acceptEverything(
+	db: Db,
+	jobId: string,
+	universeId: string,
+	userId: string
+): Promise<SweepReport> {
+	let accepted = 0;
+	let rounds = 0;
+	const failures: SweepReport['failures'] = [];
+	const givenUp = new Set<string>();
+
+	for (;;) {
+		rounds++;
+		const rows = await db
+			.select({
+				id: proposal.id,
+				kind: proposal.kind,
+				evidence: proposal.evidence,
+				rank: proposal.rank,
+				createdAt: proposalPlan.createdAt
+			})
+			.from(proposal)
+			.innerJoin(proposalPlan, eq(proposal.planId, proposalPlan.id))
+			.where(and(eq(proposalPlan.importJobId, jobId), eq(proposal.outcome, 'pending')))
+			.orderBy(proposalPlan.createdAt, proposal.rank);
+		const pending = rows.filter((row) => !givenUp.has(row.id));
+		if (pending.length === 0) return finishSweep();
+
+		let acceptedThisRound = 0;
+		for (const row of pending) {
+			const evidence = row.evidence as { sourceRef?: { path?: unknown }; contentHash?: unknown };
+			try {
+				await acceptAnyImportProposal(db, row.kind, {
+					proposalId: row.id,
+					decidedBy: userId,
+					sourceSystem: 'onenote',
+					externalId:
+						typeof evidence?.sourceRef?.path === 'string' ? evidence.sourceRef.path : null,
+					sourceUrl: null,
+					contentHash: typeof evidence?.contentHash === 'string' ? evidence.contentHash : '',
+					importJobId: jobId
+				});
+				accepted++;
+				acceptedThisRound++;
+			} catch (error) {
+				if (error instanceof RelationEndpointNotAcceptedError) continue;
+				givenUp.add(row.id);
+				failures.push({
+					kind: row.kind,
+					error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+				});
+			}
+		}
+		if (acceptedThisRound === 0) return finishSweep();
+	}
+
+	async function finishSweep(): Promise<SweepReport> {
+		const outcomeRows = await db
+			.select({ outcome: proposal.outcome, id: proposal.id })
+			.from(proposal)
+			.innerJoin(proposalPlan, eq(proposal.planId, proposalPlan.id))
+			.where(eq(proposalPlan.importJobId, jobId));
+		const outcomes: Record<string, number> = {};
+		for (const row of outcomeRows) outcomes[row.outcome] = (outcomes[row.outcome] ?? 0) + 1;
+		const relations = await db
+			.select({ id: relation.id })
+			.from(relation)
+			.where(eq(relation.universeId, universeId));
+		const entities = await db
+			.select({ id: entity.id })
+			.from(entity)
+			.where(eq(entity.universeId, universeId));
+		return {
+			rounds,
+			accepted,
+			stillWaiting: outcomes.pending ?? 0,
+			failures,
+			outcomes,
+			relationRowsWritten: relations.length,
+			entityRowsWritten: entities.length
+		};
+	}
+}
+
 async function main(): Promise<void> {
 	const args = parseArgs(process.argv.slice(2));
 	loadEnv();
@@ -341,21 +464,20 @@ async function main(): Promise<void> {
 
 		const recorded: string[] = [];
 		let driver: ImportDriver;
+		// Only ever used to fill a cache miss. A replay normally has none, and a replay of a
+		// change that makes the merge engine do *more* work legitimately does: before issue
+		// #613 a relation was dropped before `resolveRelationType` ever ran, so the recorded
+		// run took no relation-label embedding at all and the replay of the fix asks for 41.
+		// Those are real, and topping them up (once, then cached) is more honest than
+		// pretending the two runs did the same work. Nothing about the model's own output
+		// changes: that comes from the recorded stream either way.
+		//
+		// It is a harness cost and not a product one. `apps/web`'s own wiring passes
+		// `hashingEmbedder` for this rung (`onboarding.ts`), which reaches no gateway, so a
+		// real import pays nothing for the relation labels this fix newly resolves.
 		let embedInner: Embedder | null = null;
-
-		if (args.mode === 'record') {
-			const credentials = readGatewayCredentials(process.env);
-			driver = new RecordingDriver(
-				new GatewayDriver({
-					models: new DbModelSelector({
-						resolvePurpose: async (purpose) => resolveModel(db, purpose),
-						createLanguageModel: (provider, modelId) =>
-							createLanguageModel(provider, modelId, credentials)
-					}),
-					gateway: (model) => model
-				}),
-				recorded
-			);
+		const credentials = process.env.AI_GATEWAY_API_KEY ? readGatewayCredentials(process.env) : null;
+		if (credentials) {
 			const embeddingModel = await resolveModel(db, 'embedding');
 			embedInner = createGatewayEmbedder({
 				db,
@@ -367,6 +489,21 @@ async function main(): Promise<void> {
 				universeId,
 				operation: 'import.match.embed'
 			});
+		}
+
+		if (args.mode === 'record') {
+			if (!credentials) throw new Error('--record needs AI_GATEWAY_API_KEY');
+			driver = new RecordingDriver(
+				new GatewayDriver({
+					models: new DbModelSelector({
+						resolvePurpose: async (purpose) => resolveModel(db, purpose),
+						createLanguageModel: (provider, modelId) =>
+							createLanguageModel(provider, modelId, credentials)
+					}),
+					gateway: (model) => model
+				}),
+				recorded
+			);
 		} else {
 			if (!existsSync(eventsPath)) {
 				throw new Error(`no recorded run at ${eventsPath} - run with --record first`);
@@ -443,6 +580,10 @@ async function main(): Promise<void> {
 			ledger.deferred += drop.deferred;
 		}
 
+		const sweep = args.sweep
+			? await acceptEverything(db, admitted.jobId, universeId, userId)
+			: null;
+
 		const report = {
 			mode: args.mode,
 			label: args.label,
@@ -460,6 +601,7 @@ async function main(): Promise<void> {
 				acc[d.status] = (acc[d.status] ?? 0) + 1;
 				return acc;
 			}, {}),
+			sweep,
 			universeId,
 			jobId: admitted.jobId
 		};
