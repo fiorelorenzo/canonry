@@ -2,7 +2,7 @@
 // proposal - "nothing else in the codebase may write canon from a proposal" - so every
 // path that turns a proposal's outcome into a change lives here, in one transaction each,
 // never split across a caller and this file.
-import { and, desc, eq } from 'drizzle-orm';
+import { and, eq, desc, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import { languageFromAcceptedPatch } from './entities.js';
 import { entity } from '../schema/entity.js';
@@ -102,6 +102,22 @@ export class RelationTypeNotAdmittedError extends Error {
 	}
 }
 
+/** Issue #613: a relation whose endpoint entity is still one of an import's own pending
+ * `create` proposals cannot be written, and refusing it here rather than at the FK is what
+ * makes the queue's ordering legible: the message names the proposal the GM has to accept
+ * first instead of a constraint name. */
+export class RelationEndpointNotAcceptedError extends Error {
+	constructor(
+		proposalId: string,
+		readonly waitingOnProposalIds: string[]
+	) {
+		super(
+			`proposal "${proposalId}" is a relation whose endpoint entry does not exist yet: accept ${waitingOnProposalIds.join(', ')} first`
+		);
+		this.name = 'RelationEndpointNotAcceptedError';
+	}
+}
+
 function isEmptyPatch(patch: unknown): boolean {
 	return (
 		typeof patch === 'object' &&
@@ -191,11 +207,147 @@ async function shiftPlanEstimate(
 	return updated;
 }
 
+// ---------------------------------------------------------------------------
+// Issue #613: relation proposals whose endpoint entity is another proposal.
+//
+// One import writes the whole page tree at once, so on a first import both ends of every
+// parent/subpage relation are entries the same job is only proposing. Such a relation is a
+// real, pending `relation` proposal from the start, with the endpoint named by the proposal
+// that will create the entity (`target_entity_proposal_id` /
+// `related_entity_proposal_id`, whose own comment in schema/proposal.ts carries the state
+// table). The three functions below are the whole lifecycle of that pointer, and every one
+// of them is bookkeeping on a still-pending row rather than a write to canon:
+//
+//  - `resolveRelationEndpoints` runs inside an entity accept and fills in the entity id the
+//    accept just created, which makes the relation acceptable and nothing more;
+//  - `supersedeRelationsWaitingOn` runs inside a reject and settles the relations that can
+//    now never resolve, as `superseded` rather than `rejected` (see the call site for the
+//    argument);
+//  - `unresolveRelationEndpoints` runs inside an undo and puts the pointer back, so C6's
+//    few-seconds undo leaves the queue exactly where it was instead of letting the FK
+//    cascade take the relation away with the entity.
+// ---------------------------------------------------------------------------
+
+/** Fills in `target_entity_id` / `related_entity_id` on every still-pending relation
+ * proposal that named `endpointProposalId` as the proposal behind that end. The proposal id
+ * stays where it is: it is the provenance a review screen shows and the key the undo below
+ * reads. Returns how many rows moved, for a caller that wants to say so. */
+async function resolveRelationEndpoints(
+	tx: Queryable,
+	endpointProposalId: string,
+	entityId: string
+): Promise<number> {
+	const target = await tx
+		.update(proposal)
+		.set({ targetEntityId: entityId })
+		.where(
+			and(
+				eq(proposal.targetEntityProposalId, endpointProposalId),
+				eq(proposal.outcome, 'pending'),
+				isNull(proposal.targetEntityId)
+			)
+		)
+		.returning({ id: proposal.id });
+	const related = await tx
+		.update(proposal)
+		.set({ relatedEntityId: entityId })
+		.where(
+			and(
+				eq(proposal.relatedEntityProposalId, endpointProposalId),
+				eq(proposal.outcome, 'pending'),
+				isNull(proposal.relatedEntityId)
+			)
+		)
+		.returning({ id: proposal.id });
+	return new Set([...target, ...related].map((row) => row.id)).size;
+}
+
+/** The inverse, for `undoAcceptedProposal`: the entity this accept created is about to be
+ * deleted, so any relation proposal that resolved onto it goes back to waiting on this
+ * proposal. Scoped by the proposal id rather than by the entity id, because an ordinary
+ * relation whose end was already canon has no endpoint proposal and must not be touched. */
+async function unresolveRelationEndpoints(
+	tx: Queryable,
+	endpointProposalId: string
+): Promise<void> {
+	await tx
+		.update(proposal)
+		.set({ targetEntityId: null })
+		.where(
+			and(eq(proposal.targetEntityProposalId, endpointProposalId), eq(proposal.outcome, 'pending'))
+		);
+	await tx
+		.update(proposal)
+		.set({ relatedEntityId: null })
+		.where(
+			and(eq(proposal.relatedEntityProposalId, endpointProposalId), eq(proposal.outcome, 'pending'))
+		);
+}
+
+/** Settles every still-pending relation proposal waiting on a proposal that has just been
+ * rejected: without this they would sit `pending` forever, pointing at an entry that is
+ * never going to exist, and the GM would have no way to see why they cannot be accepted.
+ *
+ * `superseded`, not `rejected`, and the distinction is load-bearing rather than tidy: the
+ * GM decided the *entry*, not the relation, and `proposal_outcome`'s own comment says that
+ * counting an undecided proposal as a rejection poisons the accept rate SPEC.md §14 makes
+ * the deciding metric. `reject_reason` still carries a machine-readable word, because a
+ * settled row with no reason is exactly the silent no-op this issue is about.
+ *
+ * Returns the ids it settled. */
+async function supersedeRelationsWaitingOn(
+	tx: Queryable,
+	endpointProposalId: string
+): Promise<string[]> {
+	const settled = await tx
+		.update(proposal)
+		.set({
+			outcome: 'superseded',
+			decidedAt: new Date(),
+			rejectReason: RELATION_ENDPOINT_REJECTED
+		})
+		.where(
+			and(
+				eq(proposal.outcome, 'pending'),
+				or(
+					eq(proposal.targetEntityProposalId, endpointProposalId),
+					eq(proposal.relatedEntityProposalId, endpointProposalId)
+				)
+			)
+		)
+		.returning({ id: proposal.id });
+	return settled.map((row) => row.id);
+}
+
+/** The `reject_reason` a relation carries when its endpoint entry was rejected. A stable
+ * word rather than a sentence, because it is read by the review screen (which localises it)
+ * and by the accept-rate query (which excludes it), not by a person. */
+export const RELATION_ENDPOINT_REJECTED = 'endpoint_rejected';
+
 export interface CreateProposalPlanCandidate {
 	kind: ProposalKind;
 	targetEntityId: string | null;
 	relationTypeId?: string | null;
 	relatedEntityId?: string | null;
+	/** Issue #613: this relation candidate's "from" end is not an entity yet, it is the
+	 * candidate at this index in this same `candidates` array (an import's own `create`
+	 * for the entry, which has no row and therefore no id until this insert runs). Resolved
+	 * to `proposal.target_entity_proposal_id` inside the same transaction, so a relation row
+	 * never exists with both an unset entity and an unset proposal at one end - a state no
+	 * reader could interpret and no accept could refuse legibly.
+	 *
+	 * An index rather than an id because that is all a caller can honestly know before the
+	 * insert, and it cannot name a row outside this plan by accident. Ignored for any kind
+	 * other than `relation`. */
+	targetEntityProposalIndex?: number | null;
+	/** The same for the "to" end. */
+	relatedEntityProposalIndex?: number | null;
+	/** Issue #613, the other half: an endpoint that is a `create` proposal an *earlier*
+	 * document in this same job already wrote (issue #160's fold), so its id is known and
+	 * no index is needed. Exactly one of this and the index above is ever set for one end.
+	 */
+	targetEntityProposalId?: string | null;
+	relatedEntityProposalId?: string | null;
 	rationale: string;
 	/** Shape is the writer's (packages/copilot's `CandidateEvidence[]` for propagation) -
 	 * this module never interprets it, only stores and returns it. */
@@ -281,6 +433,8 @@ export async function createProposalPlan(
 					targetEntityId: candidate.targetEntityId,
 					relationTypeId: candidate.relationTypeId ?? null,
 					relatedEntityId: candidate.relatedEntityId ?? null,
+					targetEntityProposalId: candidate.targetEntityProposalId ?? null,
+					relatedEntityProposalId: candidate.relatedEntityProposalId ?? null,
 					patch: {},
 					rationale: candidate.rationale,
 					evidence: candidate.evidence,
@@ -292,7 +446,53 @@ export async function createProposalPlan(
 			)
 			.returning();
 
-		return { plan, proposals };
+		// Issue #613: the second half of the insert, and it has to be a second statement
+		// because a candidate naming a sibling by index is naming a row whose id the
+		// database only just chose. Same transaction, so nothing outside it ever sees a
+		// relation candidate with an unset endpoint at both ends.
+		const endpointUpdates = input.candidates.flatMap((candidate, index) => {
+			const targetIndex = candidate.targetEntityProposalIndex;
+			const relatedIndex = candidate.relatedEntityProposalIndex;
+			if (targetIndex == null && relatedIndex == null) return [];
+			const row = proposals[index];
+			if (!row) return [];
+			const patch: { targetEntityProposalId?: string; relatedEntityProposalId?: string } = {};
+			if (targetIndex != null) {
+				const referenced = proposals[targetIndex];
+				if (!referenced) {
+					throw new Error(
+						`createProposalPlan: candidate ${index} names targetEntityProposalIndex ${targetIndex}, which is not a candidate in this plan`
+					);
+				}
+				patch.targetEntityProposalId = referenced.id;
+			}
+			if (relatedIndex != null) {
+				const referenced = proposals[relatedIndex];
+				if (!referenced) {
+					throw new Error(
+						`createProposalPlan: candidate ${index} names relatedEntityProposalIndex ${relatedIndex}, which is not a candidate in this plan`
+					);
+				}
+				patch.relatedEntityProposalId = referenced.id;
+			}
+			return [{ id: row.id, patch }];
+		});
+		if (endpointUpdates.length === 0) return { plan, proposals };
+
+		for (const update of endpointUpdates) {
+			await tx.update(proposal).set(update.patch).where(eq(proposal.id, update.id));
+		}
+		const resolved = await tx
+			.select()
+			.from(proposal)
+			.where(
+				inArray(
+					proposal.id,
+					proposals.map((row) => row.id)
+				)
+			);
+		const byId = new Map(resolved.map((row) => [row.id, row]));
+		return { plan, proposals: proposals.map((row) => byId.get(row.id) ?? row) };
 	});
 }
 
@@ -669,7 +869,24 @@ async function acceptProposalTx(db: Db, input: AcceptProposalInput): Promise<Pro
 				.returning();
 			if (!rev) throw new Error('acceptProposal: revision insert returned no row');
 			appliedRevisionId = rev.id;
+			// Issue #613: an import that proposed a page tree also proposed the relations
+			// between its pages, and those name this proposal rather than an entity, because
+			// this entity did not exist when the plan was written. This is the moment it
+			// does. Bookkeeping on rows that stay `pending`: it writes no relation and
+			// nothing reaches canon, it only makes the waiting relations acceptable, each
+			// still on its own accept with its own allowed_from/allowed_to check.
+			await resolveRelationEndpoints(tx, existing.id, createdEntity.id);
 		} else if (existing.kind === 'relation') {
+			// Issue #613: an endpoint still waiting on its own proposal is refused by name
+			// rather than by a null-check message, so a caller can turn it into "accept the
+			// two entries first" instead of a 500.
+			const waitingOn = [
+				...(existing.targetEntityId ? [] : [existing.targetEntityProposalId]),
+				...(existing.relatedEntityId ? [] : [existing.relatedEntityProposalId])
+			].filter((id): id is string => typeof id === 'string');
+			if (waitingOn.length > 0) {
+				throw new RelationEndpointNotAcceptedError(existing.id, waitingOn);
+			}
 			if (!existing.relationTypeId || !existing.targetEntityId || !existing.relatedEntityId) {
 				throw new Error(
 					`proposal "${existing.id}" is kind 'relation' but is missing relationTypeId, targetEntityId or relatedEntityId`
@@ -798,6 +1015,12 @@ async function foldCreateProposalOntoExistingSlug(
 			})
 		});
 
+		// Issue #613: this accept still produced the entry the waiting relations named, it
+		// just landed on a row that already existed rather than a new one. The relations
+		// have to resolve onto that row, or a create that lost a slug race would silently
+		// leave its whole subtree unacceptable.
+		await resolveRelationEndpoints(tx, existing.id, target.id);
+
 		const [updated] = await tx
 			.update(proposal)
 			.set({
@@ -857,6 +1080,13 @@ export async function rejectProposal(db: Db, input: RejectProposalInput): Promis
 			.where(eq(proposal.id, existing.id))
 			.returning();
 		if (!updated) throw new Error('rejectProposal: update returned no row');
+
+		// Issue #613: nothing is ever going to create the entry this proposal named, so a
+		// relation waiting on it can never resolve. Left alone it would sit `pending`
+		// forever, refusing every accept with no way for the GM to see why, which is the
+		// dangling-row failure this issue exists to avoid rather than trade for. Settled
+		// here, in the same transaction as the decision that caused it.
+		await supersedeRelationsWaitingOn(tx, existing.id);
 
 		// Issue #508: a rejected candidate is no longer one of the plan's open ones. The
 		// early return above for an already-rejected row is what keeps a double reject from
@@ -968,6 +1198,13 @@ export async function undoAcceptedProposal(
 					`accepted '${existing.kind}' proposal "${existing.id}" has no applied revision`
 				);
 			}
+			// Issue #613: the entity this accept created is about to go, and a relation
+			// proposal that resolved onto it would go with it, silently, through the
+			// endpoint FK's cascade. Put the endpoint back to waiting instead, which is
+			// exactly what it was a moment before this proposal was accepted, so C6's
+			// few-seconds undo leaves the queue where it found it. Before the delete, so
+			// the row is no longer pointing at the entity when the cascade runs.
+			await unresolveRelationEndpoints(tx, existing.id);
 			const [createdRevision] = await tx
 				.select({ entityId: revision.entityId })
 				.from(revision)

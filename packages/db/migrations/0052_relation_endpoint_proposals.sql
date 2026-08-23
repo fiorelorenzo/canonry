@@ -1,0 +1,6 @@
+ALTER TABLE "proposal" ADD COLUMN "target_entity_proposal_id" uuid;--> statement-breakpoint
+ALTER TABLE "proposal" ADD COLUMN "related_entity_proposal_id" uuid;--> statement-breakpoint
+ALTER TABLE "proposal" ADD CONSTRAINT "proposal_target_entity_proposal_id_proposal_id_fk" FOREIGN KEY ("target_entity_proposal_id") REFERENCES "public"."proposal"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "proposal" ADD CONSTRAINT "proposal_related_entity_proposal_id_proposal_id_fk" FOREIGN KEY ("related_entity_proposal_id") REFERENCES "public"."proposal"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "proposal_target_entity_proposal_idx" ON "proposal" USING btree ("target_entity_proposal_id") WHERE "proposal"."target_entity_proposal_id" is not null;--> statement-breakpoint
+CREATE INDEX "proposal_related_entity_proposal_idx" ON "proposal" USING btree ("related_entity_proposal_id") WHERE "proposal"."related_entity_proposal_id" is not null;
