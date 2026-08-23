@@ -34,7 +34,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
 	import ActivityFeed from '$lib/components/entries/ActivityFeed.svelte';
@@ -70,7 +70,8 @@
 	<title>{data.current.name}: Canonry</title>
 </svelte:head>
 
-<PageHeader
+<Page
+	width="wide"
 	title={data.current.name}
 	eyebrow={data.current.baseUniverseName ? t.derivedEyebrow : t.homebrewEyebrow}
 	description={data.current.baseUniverseName
@@ -80,9 +81,7 @@
 	{#snippet actions()}
 		<Button href={entriesHref} variant="secondary">{homeT.browseEntries}</Button>
 	{/snippet}
-</PageHeader>
 
-<PageBody width="wide">
 	<WorldPulse {pulse} locale={data.locale} t={homeT} />
 
 	<section class="mt-8">
@@ -131,4 +130,4 @@
 			/>
 		{/if}
 	</section>
-</PageBody>
+</Page>

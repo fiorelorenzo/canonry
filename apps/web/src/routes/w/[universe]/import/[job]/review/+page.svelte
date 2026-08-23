@@ -17,7 +17,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { renderOutcomeNote } from '$lib/import/outcome-note';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
@@ -89,8 +89,7 @@
 
 <svelte:head><title>{t.headTitle(data.universe.name)}</title></svelte:head>
 
-<PageHeader title={t.heading(data.job.playbook)} />
-<PageBody width="working">
+<Page width="working" title={t.heading(data.job.playbook)}>
 	<div class="px-6 py-8">
 		<p class="mb-2 text-xs text-muted">
 			<a class="hover:underline" href={resolve(`/w/${data.universe.slug}/proposals`)}
@@ -172,4 +171,4 @@
 			{/if}
 		{/if}
 	</div>
-</PageBody>
+</Page>

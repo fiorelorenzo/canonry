@@ -5,7 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import ProviderSelect from '$lib/components/admin/ProviderSelect.svelte';
 	import CurrencySelect from '$lib/components/admin/CurrencySelect.svelte';
 	import { COVER_ASPECT_RATIOS } from '$lib/components/media/cover-crop';
@@ -61,8 +61,7 @@
 	<title>{t.models.browserTitle}</title>
 </svelte:head>
 
-<PageHeader title={t.models.textHeading} />
-<PageBody width="wide">
+<Page width="wide" title={t.models.textHeading}>
 	<div class="px-8 py-10">
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 		<p class="mt-6 max-w-measure text-sm text-ink-2">{@html t.models.textIntro1}</p>
@@ -308,4 +307,4 @@
 			</table>
 		</div>
 	</div>
-</PageBody>
+</Page>

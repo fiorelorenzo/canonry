@@ -13,7 +13,7 @@
 	import { renderOutcomeNote } from '$lib/import/outcome-note';
 	import LiveProposalFeed from '$lib/components/onboarding/LiveProposalFeed.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { PageBody, PageHeader } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import type { ProposalSummary } from '$lib/components/onboarding/proposalView';
 	import type { PageProps } from './$types';
 
@@ -118,13 +118,13 @@
 	<title>{t.job.headTitle(data.universe.name)}</title>
 </svelte:head>
 
-<PageHeader
+<Page
+	width="working"
 	eyebrow={data.universe.name}
 	title={acceptedProposal && elapsedToAcceptSeconds !== null
 		? t.job.firstAcceptHeading
 		: (terminalHeading ?? t.job.headingRunning)}
-/>
-<PageBody width="working">
+>
 	<div class="flex flex-col gap-6 px-8 py-16">
 		{#if form && 'error' in form && form.error}
 			<p class="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.error}</p>
@@ -165,4 +165,4 @@
 			</Button>
 		{/if}
 	</div>
-</PageBody>
+</Page>

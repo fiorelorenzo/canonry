@@ -20,7 +20,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { messages, numberFormat } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import ProposalDiffCard from '$lib/components/proposals/ProposalDiffCard.svelte';
 	import { InlineLink } from '$lib/components/ui/link';
 	import type { PageProps } from './$types';
@@ -40,8 +40,7 @@
 <!-- Issue #468: this page had no page-level heading at all - the only text naming what
      you were looking at was the 12px breadcrumb above, or (for the no-diff case) the
      struck-through body itself. -->
-<PageHeader {title} />
-<PageBody width="working">
+<Page width="working" {title}>
 	<div class="px-4 py-6 md:px-6 md:py-8">
 		<p class="mb-2 text-xs text-muted">
 			{#if data.candidate.targetSlug}
@@ -96,4 +95,4 @@
 			/>
 		{/if}
 	</div>
-</PageBody>
+</Page>

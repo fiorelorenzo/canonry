@@ -43,7 +43,7 @@
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { DEFAULT_LOCALE, messages, type Locale } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
 	import { paletteState } from '$lib/components/palette/palette-state.svelte';
@@ -74,7 +74,7 @@
 	<title>{isNotFound ? t.notFoundHeading : t.serverErrorHeading}: Canonry</title>
 </svelte:head>
 
-<!-- Round eighteen: `PageHeader`'s band bleeds its own gutter back out (`-mx-4
+<!-- Round eighteen: `PageBand`'s paper bleeds its own gutter back out (`-mx-4
      md:-mx-8`, re-adding the same padding), which cancels exactly against the
      `px-4 md:px-8` `AppShell`'s `main` supplies. Signed out there is no shell, so
      this rendered the band 64px wider than the viewport and the error page was the
@@ -87,12 +87,11 @@
 	id={isSignedIn ? undefined : 'main'}
 	class={isSignedIn ? undefined : 'px-4 md:px-8'}
 >
-	<PageHeader
+	<Page
+		width="reading"
 		eyebrow={String(page.status)}
 		title={isNotFound ? t.notFoundHeading : t.serverErrorHeading}
-	/>
-
-	<PageBody width="reading">
+	>
 		<div class="mt-6">
 			{#if isNotFound}
 				<EmptyState kind="derived" message={t.notFoundBody}>
@@ -144,5 +143,5 @@
 				</EmptyState>
 			{/if}
 		</div>
-	</PageBody>
+	</Page>
 </svelte:element>

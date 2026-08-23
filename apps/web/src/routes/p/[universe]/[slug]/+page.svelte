@@ -22,7 +22,7 @@
 	import PublicRelationsList from '$lib/components/players/PublicRelationsList.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { messages } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -55,8 +55,7 @@
 
 <svelte:head><title>{data.entity.name} &middot; {data.universe.name}</title></svelte:head>
 
-<PageHeader title={data.entity.name} />
-<PageBody width="reading">
+<Page width="reading" title={data.entity.name}>
 	<p class="mb-3 text-xs text-muted">
 		<a class="hover:underline" href={resolve(`/p/${data.universe.slug}`)}>{data.universe.name}</a>
 		<span aria-hidden="true">/</span>
@@ -106,4 +105,4 @@
 			/>
 		</article>
 	{/if}
-</PageBody>
+</Page>

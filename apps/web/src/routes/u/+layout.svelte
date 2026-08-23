@@ -29,7 +29,7 @@
 			<a href={resolve('/')} class="font-semibold text-ink hover:text-accent">Canonry</a>
 		</div>
 	</header>
-	<!-- `px-4 md:px-8`, because that is the gutter `PageHeader`'s band bleeds against
+	<!-- `px-4 md:px-8`, because that is the gutter `PageBand`'s paper bleeds against
 	     (`-mx-4 md:-mx-8` plus the same padding re-added). Any other number here and the
 	     band overflows sideways, which is the defect round eighteen found on `/p/`. -->
 	<main id="main" class="px-4 py-10 md:px-8">

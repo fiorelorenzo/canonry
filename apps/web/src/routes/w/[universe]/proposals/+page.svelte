@@ -13,7 +13,7 @@
 	 */
 	import { dateFormat, messages } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import ProposalQueue, {
 		type ProposalGroupView
 	} from '$lib/components/proposals/ProposalQueue.svelte';
@@ -83,8 +83,7 @@
 
 <svelte:head><title>{t.title} &middot; {data.universe.name}</title></svelte:head>
 
-<PageHeader title={t.title} />
-<PageBody width="working">
+<Page width="working" title={t.title}>
 	<div class="px-6 py-8">
 		{#if groups.length === 0}
 			<EmptyState kind="settled" message={t.inbox.empty} />
@@ -97,4 +96,4 @@
 			/>
 		{/if}
 	</div>
-</PageBody>
+</Page>

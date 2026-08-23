@@ -162,11 +162,13 @@
 			     of a row above the page title; on the players page it showed the whole
 			     "open the players' wiki" button sitting over the header. Lorenzo saw both on
 			     the preview: "il contenuto delle pagine a volte finisce sopra l'header
-			     sticky". The gutter moved into `PageHeader` itself, which bleeds it back out
+			     sticky". The gutter moved into `PageBand` itself, which bleeds it back out
 			     horizontally, so the band's own paper starts at the scrollport's edge and
 			     there is nothing above it to see through. Every route inside this shell
-			     opens with that band (V1 = B, and `page-header-offset.test.ts` is what keeps
-			     it true), so no route loses its top gutter by this. -->
+			     opens with that band (V1 = B, X1 = A, and `page-header-offset.test.ts` is
+			     what keeps it true), so no route loses its top gutter by this. X1 moved the
+			     band's *content* onto the body's width and left the paper spanning the
+			     shell, so nothing above changes. -->
 			<main
 				id="main"
 				tabindex="0"

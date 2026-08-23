@@ -20,7 +20,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { dateFormat, messages } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import type { PageData } from './$types';
 
@@ -35,12 +35,11 @@
 
 <svelte:head><title>{data.profile.name}: Canonry</title></svelte:head>
 
-<PageHeader eyebrow={t.eyebrow} title={data.profile.name}>
+<Page width="reading" eyebrow={t.eyebrow} title={data.profile.name}>
 	{#snippet titleAdornment()}
 		<span class="font-mono text-meta text-muted">/u/{data.profile.handle}</span>
 	{/snippet}
-</PageHeader>
-<PageBody width="reading">
+
 	{#if data.profile.worlds.length === 0}
 		<EmptyState kind="derived" message={t.emptyMessage} explanation={t.emptyExplanation} />
 	{:else}
@@ -60,4 +59,4 @@
 			{/each}
 		</ul>
 	{/if}
-</PageBody>
+</Page>

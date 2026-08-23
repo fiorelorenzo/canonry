@@ -13,7 +13,7 @@
 	 */
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import { PageHeader } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { dateFormat, messages } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Badge } from '$lib/components/ui/badge';
@@ -49,13 +49,13 @@
 	}
 </script>
 
-<PageHeader title={data.node.title} />
-
-<!-- V1 = B (#494): `max-w-working` applied directly on this row rather than through
-     the shared `PageBody` wrapper - this row sits inside `[work]/+layout.svelte`'s own
-     tree pane already, and the "Uses" aside beside it is a fixed-width secondary panel
-     the same way the tree is, not body content the width system should cap. -->
-<div class="mx-auto flex w-full max-w-working min-w-0">
+<!-- X1 = A (#598): the width is declared once, here, and `bodyClass` carries the flex row
+     this body is. It used to apply the `max-w-working` token to its own element rather
+     than go through `PageBody`, because the "Uses" aside beside the article is a
+     fixed-width secondary panel the same way `[work]/+layout.svelte`'s tree is, not body
+     content the width system should cap. Same class set as before, one declaration fewer:
+     the band above it now reads the width from the same place. -->
+<Page width="working" title={data.node.title} bodyClass="flex min-w-0">
 	<article class="min-w-0 flex-1 px-6 py-8">
 		<p class="mb-3 text-xs text-muted">
 			<a class="hover:underline" href={resolve(`/w/${data.current.slug}/works/${data.work.slug}`)}
@@ -233,4 +233,4 @@
 			</p>
 		{/if}
 	</aside>
-</div>
+</Page>

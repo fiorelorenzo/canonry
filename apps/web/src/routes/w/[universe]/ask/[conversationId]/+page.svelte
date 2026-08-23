@@ -10,7 +10,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import AskConversationGroup from '$lib/components/ask/AskConversationGroup.svelte';
 	import AskEntryPanel from '$lib/components/ask/AskEntryPanel.svelte';
 	import { InlineLink } from '$lib/components/ui/link';
@@ -52,8 +52,7 @@
 	<title>{th.headTitle(data.current.name)}</title>
 </svelte:head>
 
-<PageHeader eyebrow={th.crumb(data.current.name)} title={th.heading} />
-<PageBody width="working">
+<Page width="working" eyebrow={th.crumb(data.current.name)} title={th.heading}>
 	<div class="flex flex-col md:flex-row">
 		<div class="min-w-0 flex-1 px-4 py-8 md:px-8">
 			<p class="mb-4">
@@ -93,4 +92,4 @@
 			/>
 		{/if}
 	</div>
-</PageBody>
+</Page>

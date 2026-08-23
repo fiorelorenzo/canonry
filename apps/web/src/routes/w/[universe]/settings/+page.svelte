@@ -48,7 +48,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import { NativeFallback } from '$lib/components/ui/native-fallback';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import SettingsShell from '$lib/components/settings/SettingsShell.svelte';
 	import UniverseSettingsRail from '$lib/components/settings/UniverseSettingsRail.svelte';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -199,8 +199,7 @@
 
 <svelte:head><title>{t.headTitle(data.current.name)}</title></svelte:head>
 
-<PageHeader title={t.heading} />
-<PageBody width="working">
+<Page width="working" title={t.heading}>
 	<SettingsShell>
 		{#snippet rail()}
 			<UniverseSettingsRail
@@ -745,4 +744,4 @@
 			</div>
 		</section>
 	</SettingsShell>
-</PageBody>
+</Page>

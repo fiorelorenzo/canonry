@@ -30,7 +30,7 @@
 	import { dateFormat, messages } from '$lib/i18n';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { Button } from '$lib/components/ui/button';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import MentionPreview from '$lib/components/entry/MentionPreview.svelte';
 	import { InlineLink } from '$lib/components/ui/link';
@@ -61,8 +61,7 @@
 	<title>{t.headTitle(data.universe.name)}</title>
 </svelte:head>
 
-<PageHeader eyebrow={data.universe.name} title={t.heading} description={t.description} />
-<PageBody width="working">
+<Page width="working" eyebrow={data.universe.name} title={t.heading} description={t.description}>
 	<div class="flex flex-col gap-8 px-8 py-16">
 		<div class="flex flex-col gap-2 rounded-lg border border-line bg-panel p-5">
 			<h2 class="text-sm font-semibold text-ink">{t.wikiLinkLabel}</h2>
@@ -190,4 +189,4 @@
 			{/if}
 		</div>
 	</div>
-</PageBody>
+</Page>

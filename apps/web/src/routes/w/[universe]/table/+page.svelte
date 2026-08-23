@@ -16,7 +16,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import AmbientPlayer from '$lib/components/audio/AmbientPlayer.svelte';
 	import ContextStrip from '$lib/components/table/ContextStrip.svelte';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import DeclareContext from '$lib/components/table/DeclareContext.svelte';
 	import PinnedCards from '$lib/components/table/PinnedCards.svelte';
 	import QuickActionDock from '$lib/components/table/QuickActionDock.svelte';
@@ -318,25 +318,24 @@
 	const deckPlaceContext = $derived(placeContext?.status === 'ready' ? placeContext.text : null);
 </script>
 
-<PageHeader title={t.title} />
+<Page width="wide" title={t.title}>
+	<ContextStrip
+		{context}
+		universeName={data.universeName}
+		{pinnedElapsedMs}
+		proposalCount={proposals.length}
+		locale={data.locale}
+		onChangeContext={() => (showDeclareForm = !showDeclareForm)}
+		onExit={exitTableMode}
+	/>
 
-<ContextStrip
-	{context}
-	universeName={data.universeName}
-	{pinnedElapsedMs}
-	proposalCount={proposals.length}
-	locale={data.locale}
-	onChangeContext={() => (showDeclareForm = !showDeclareForm)}
-	onExit={exitTableMode}
-/>
-
-<!-- V1 = B (#494): this was a second, nested `<main>` inside AppShell's own
+	<!-- V1 = B (#494): this was a second, nested `<main>` inside AppShell's own
      `<main id="main">` - a `<div>` now, since a table-mode route is still
      signed-in-with-a-universe and AppShell always supplies the one real landmark
      there. `max-w-4xl` is gone too: table mode is explicitly named as one of the
      three "wide" routes in the decision, full bleed rather than a Tailwind class
      nobody chose. -->
-<PageBody width="wide">
+
 	<div class="flex flex-col gap-5 px-4 py-5">
 		<!-- #367 (Q6): things on this page arrive rather than being there. This banner and
 		     the toast below it are a state that changed where a GM mid-session would
@@ -554,4 +553,4 @@
 			</div>
 		{/if}
 	</div>
-</PageBody>
+</Page>

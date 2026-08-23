@@ -21,7 +21,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { dateFormat, messages } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import EntryProse from '$lib/components/entry/EntryProse.svelte';
 	import EntryCover from '$lib/components/media/EntryCover.svelte';
@@ -39,8 +39,7 @@
 
 <svelte:head><title>{t.players.indexTitle} &middot; {data.universe.name}</title></svelte:head>
 
-<PageHeader title={t.players.indexTitle} description={t.players.indexSubtitle} />
-<PageBody width="reading">
+<Page width="reading" title={t.players.indexTitle} description={t.players.indexSubtitle}>
 	{#if data.sessions.length === 0}
 		<EmptyState kind="cold" message={t.players.emptyState} />
 	{:else}
@@ -108,4 +107,4 @@
 			{/each}
 		</ul>
 	{/if}
-</PageBody>
+</Page>

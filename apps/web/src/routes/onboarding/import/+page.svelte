@@ -10,7 +10,7 @@
 	import { messages } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import PlaybookSelect from '$lib/components/onboarding/PlaybookSelect.svelte';
 	import type { PageProps } from './$types';
 
@@ -33,8 +33,7 @@
 	<title>{t.headTitle(data.universe.name)}</title>
 </svelte:head>
 
-<PageHeader eyebrow={data.universe.name} title={t.heading} />
-<PageBody width="working">
+<Page width="working" eyebrow={data.universe.name} title={t.heading}>
 	<div class="flex flex-col gap-6 px-8 py-16">
 		{#if form && 'error' in form && form.error}
 			<p class="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.error}</p>
@@ -176,4 +175,4 @@
 			</div>
 		{/if}
 	</div>
-</PageBody>
+</Page>
