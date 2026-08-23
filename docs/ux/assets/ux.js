@@ -301,6 +301,16 @@ const UX_REGISTER = [
     w: 'soon', i: [286, 282, 155], dt: '2026-08-19',
     d: 'B', dn: 'Three controls, chosen by what the list is',
     dnote: 'The boundary is what the list is rather than how long it is, which removes the threshold nobody could have defended at a review: a binary or ternary state gets a segmented control, a vocabulary the product ships gets a Select, and a list drawn from the GM\'s own data gets a Combobox with search. It is more code than one control everywhere and the extra code is exactly where the pain is. Two obligations ride along: every one of the ten call sites decides explicitly whether it keeps working without JS, since a native select posts and a popover does not, and all three controls arrive with their dark pass rather than after it (G1). Closes the select half of #155 rather than opening a direction, because I9 = C already made shadcn-svelte the control layer.' },
+
+  /* Round twenty: the first open question in this register since round ten, and the
+     first one that amends a decision from a round that already shipped. Rounds eleven
+     to nineteen (P through W) were taken from prose rather than from drawn options and
+     live in DECISIONS.md only; this one is drawn, because it is a geometry and a
+     paragraph cannot show one. No `d`, so the artifact renders its recorder rather
+     than a record: nothing about it is decided. */
+  { s: 'Round twenty', id: 'X1', f: 'x1-band-and-body-alignment.html', t: 'V1\'s header band against the body width it sits over',
+    q: 'The band is flush against main\'s gutter and the body centres inside it, so a page title and the first line of its prose disagree by up to 336px. Does the band take the body\'s width, does the body go flush left, or is the band a full-width frame on purpose?',
+    w: 'soon', i: [598, 494, 158] },
 ];
 
 const KEY = (id) => `canonry.ux.${id}`;
