@@ -42,14 +42,14 @@
 >
 	<div class="flex flex-col gap-8 px-8 py-16">
 		{#if form && 'error' in form && form.error}
-			<p class="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.error}</p>
+			<p class="rounded-md bg-danger-bg px-3 py-2 text-body text-danger">{form.error}</p>
 		{/if}
 
 		{#if data.canStart}
 			<div id="import-upload" class="flex flex-col gap-3">
 				{#if stage === 'upload'}
 					{#if data.fakeDriverSupported}
-						<p class="text-sm text-muted">
+						<p class="text-body text-muted">
 							{t.upload.noLiveModelNotice}
 						</p>
 					{/if}
@@ -75,7 +75,7 @@
 								name="file"
 								accept={data.uploadAccept}
 								required
-								class="mx-auto block text-sm text-ink-2"
+								class="mx-auto block text-body text-ink-2"
 							/>
 						</div>
 						<Button type="submit" class="self-start" disabled={submitting}>
@@ -84,7 +84,7 @@
 					</form>
 				{:else if form && form.stage === 'confirm'}
 					<div class="flex flex-col gap-4 rounded-lg border border-line bg-panel p-5">
-						<p class="text-sm font-medium text-ink">
+						<p class="text-body font-medium text-ink">
 							{t.upload.confirm.uploadedSummary(form.fileName, (form.fileBytes / 1024).toFixed(1))}
 						</p>
 						<div>
@@ -94,11 +94,11 @@
 									: t.upload.confirm.notDetected(data.playbookLabels[form.playbookId])}
 							</h2>
 							{#if form.detail}
-								<p class="mt-1 text-sm text-muted">{t.upload.confirm.detail(form.detail)}</p>
+								<p class="mt-1 text-body text-muted">{t.upload.confirm.detail(form.detail)}</p>
 							{/if}
 							{#each form.notices as notice (notice)}
 								<p
-									class="mt-2 rounded-md border border-line-2 bg-panel-2 p-3 text-sm text-ink"
+									class="mt-2 rounded-md border border-line-2 bg-panel-2 p-3 text-body text-ink"
 									data-testid="import-detected-notice"
 								>
 									{t.upload.confirm.notice(notice)}
@@ -122,7 +122,7 @@
 							<input type="hidden" name="fileName" value={form.fileName} />
 							<input type="hidden" name="fileBytes" value={form.fileBytes} />
 
-							<Label for="playbookId" class="text-sm font-normal text-ink-2"
+							<Label for="playbookId" class="text-body font-normal text-ink-2"
 								>{t.upload.confirm.playbookLabel}</Label
 							>
 							<PlaybookSelect
@@ -139,11 +139,11 @@
 				{:else if form && form.stage === 'estimate'}
 					<div class="flex flex-col gap-4 rounded-lg border border-line bg-panel p-5">
 						<h2 class="text-title font-semibold text-ink">{t.upload.estimate.heading}</h2>
-						<p class="text-sm text-muted">
+						<p class="text-body text-muted">
 							{t.upload.estimate.summary(form.fileName, data.playbookLabels[form.playbookId])}
 						</p>
 
-						<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+						<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body">
 							<dt class="text-muted">{t.upload.estimate.sizeLabel}</dt>
 							<dd class="text-ink">{t.upload.estimate.documentCount(form.documentCount)}</dd>
 							<dt class="text-muted">{t.upload.estimate.timeLabel}</dt>
@@ -178,11 +178,11 @@
 				{/if}
 			</div>
 		{:else}
-			<p class="text-sm text-ink-2">{t.existing.viewerNotice}</p>
+			<p class="text-body text-ink-2">{t.existing.viewerNotice}</p>
 		{/if}
 
 		<div>
-			<h2 class="mb-3 text-sm font-semibold tracking-wide text-muted uppercase">
+			<h2 class="mb-3 text-label font-semibold tracking-wide text-muted uppercase">
 				{t.existing.jobsHeading}
 			</h2>
 

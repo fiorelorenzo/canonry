@@ -22,7 +22,7 @@
 		</h2>
 		<ul class="mt-2 space-y-1.5">
 			{#each facts as fact (fact.id)}
-				<li class="text-sm text-ink-2">{stripMentionSyntax(fact.statement)}</li>
+				<li class="text-body text-ink-2">{stripMentionSyntax(fact.statement)}</li>
 			{/each}
 		</ul>
 	</section>

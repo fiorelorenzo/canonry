@@ -64,7 +64,7 @@
 		onclick={() => (open = !open)}
 	>
 		<span class="flex min-w-0 items-center gap-2">
-			<span class="truncate text-sm font-semibold text-ink">
+			<span class="truncate text-body font-semibold text-ink">
 				{current ? current.name : t.allUniverses}
 			</span>
 			{#if current?.kind === 'derived'}
@@ -105,7 +105,7 @@
 										: 'mt-1 h-2 w-2 shrink-0 rounded-sm bg-accent'}
 								></span>
 								<span class="min-w-0">
-									<span class="block truncate text-sm font-medium text-ink">{universe.name}</span>
+									<span class="block truncate text-body font-medium text-ink">{universe.name}</span>
 									<span class="block text-meta text-muted">
 										{universe.kind}
 										{#if universe.baseUniverseName}
@@ -123,7 +123,7 @@
 						<li>
 							<a
 								href={resolve('/')}
-								class="block px-3 py-2 text-sm font-medium text-ink hover:bg-panel-2"
+								class="block px-3 py-2 text-body font-medium text-ink hover:bg-panel-2"
 								onclick={close}
 							>
 								{t.allUniverses}
@@ -132,7 +132,7 @@
 						<li>
 							<a
 								href={resolve('/onboarding')}
-								class="block px-3 py-2 text-sm font-medium text-accent hover:bg-panel-2"
+								class="block px-3 py-2 text-body font-medium text-accent hover:bg-panel-2"
 								onclick={close}
 							>
 								{t.newUniverse}

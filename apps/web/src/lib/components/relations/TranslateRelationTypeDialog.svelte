@@ -81,7 +81,7 @@
 			<input type="hidden" name="typeId" value={type.id} />
 			{#each LOCALES as loc (loc)}
 				<fieldset class="flex flex-col gap-2">
-					<legend class="text-sm font-medium text-ink">{LOCALE_NAMES[loc]}</legend>
+					<legend class="text-body font-medium text-ink">{LOCALE_NAMES[loc]}</legend>
 					<div class="flex flex-col gap-1.5">
 						<Label for="translate-label-{loc}">{t.translate.labelField}</Label>
 						<Input
@@ -101,7 +101,7 @@
 				</fieldset>
 			{/each}
 			{#if errorForThisType}
-				<p class="text-sm text-danger">{errorForThisType}</p>
+				<p class="text-body text-danger">{errorForThisType}</p>
 			{/if}
 			<DialogFooter>
 				<Button type="submit">{t.translate.submit}</Button>

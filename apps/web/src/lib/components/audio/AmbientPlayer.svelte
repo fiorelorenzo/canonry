@@ -244,9 +244,9 @@
 		the chain never re-runs when playback begins, and the body stays on the Play
 		button forever while the header above it updates. Do not reorder this. -->
 	{#if !started && !pack}
-		<p class="mt-2 text-sm text-muted">{t.noPackYet}</p>
+		<p class="mt-2 text-body text-muted">{t.noPackYet}</p>
 	{:else if !started}
-		<p class="mt-2 text-sm text-ink-2">{pack?.description}</p>
+		<p class="mt-2 text-body text-ink-2">{pack?.description}</p>
 		<p class="text-label text-muted">
 			{t.layerSummary(pack?.layerCount ?? 0, pack?.stale ?? false)}
 		</p>
@@ -255,7 +255,7 @@
 		</Button>
 	{:else}
 		{#if contextState === 'suspended'}
-			<p class="mt-2 rounded-md border border-line bg-panel-2 px-3 py-2 text-sm text-ink-2">
+			<p class="mt-2 rounded-md border border-line bg-panel-2 px-3 py-2 text-body text-ink-2">
 				{t.audioPausedByBrowser}
 				<Button
 					type="button"
@@ -269,7 +269,7 @@
 			</p>
 		{/if}
 
-		<p class="mt-2 text-sm text-ink-2">{currentDescription}</p>
+		<p class="mt-2 text-body text-ink-2">{currentDescription}</p>
 
 		{#if loadErrors.length > 0}
 			<p class="mt-1 text-label text-danger">
@@ -353,7 +353,7 @@
 	{/if}
 
 	{#if error}
-		<p class="mt-2 rounded-md border border-danger bg-danger-bg px-3 py-2 text-sm text-danger">
+		<p class="mt-2 rounded-md border border-danger bg-danger-bg px-3 py-2 text-body text-danger">
 			{error}
 		</p>
 	{/if}

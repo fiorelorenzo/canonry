@@ -21,5 +21,5 @@
 </svelte:head>
 
 <main id="main" class="mx-auto max-w-measure px-8 py-16">
-	<p class="text-sm text-ink-2">Signing out…</p>
+	<p class="text-body text-ink-2">Signing out…</p>
 </main>

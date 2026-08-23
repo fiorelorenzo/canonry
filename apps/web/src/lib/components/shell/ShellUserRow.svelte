@@ -120,14 +120,14 @@
 
 <DropdownMenu.Root bind:open={menuOpen}>
 	<DropdownMenu.Trigger
-		class="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-sm hover:bg-panel-2"
+		class="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-body hover:bg-panel-2"
 	>
 		<span class="min-w-0 flex-1 truncate font-medium text-ink">{user.name}</span>
 		<span aria-hidden="true" class="shrink-0 text-muted">{menuOpen ? '▴' : '▾'}</span>
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content align="start" class="w-64">
 		<DropdownMenu.Label>
-			<span class="block truncate text-sm font-semibold text-ink">{user.name}</span>
+			<span class="block truncate text-body font-semibold text-ink">{user.name}</span>
 			<span class="block truncate text-meta font-normal text-muted">{user.email}</span>
 		</DropdownMenu.Label>
 		<DropdownMenu.Separator />

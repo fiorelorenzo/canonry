@@ -31,7 +31,7 @@
 		>
 			&larr; {data.current.name}
 		</a>
-		<p class="mb-2 truncate px-2 text-sm font-semibold text-ink">{data.work.name}</p>
+		<p class="mb-2 truncate px-2 text-body font-semibold text-ink">{data.work.name}</p>
 		<WorkTree
 			universeSlug={data.current.slug}
 			workSlug={data.work.slug}

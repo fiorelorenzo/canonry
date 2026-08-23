@@ -59,7 +59,7 @@
 
 <ul class="flex flex-col divide-y divide-line border-y border-line">
 	{#each plans as plan (plan.id)}
-		<li class="flex items-baseline gap-3 py-2.5 text-sm">
+		<li class="flex items-baseline gap-3 py-2.5 text-body">
 			<span class="min-w-0 flex-1 truncate text-ink-2">
 				{proposalsT.inbox.from(proposalsT.provenance(plan.trigger, plan.triggerEntityName))}
 			</span>
@@ -75,7 +75,7 @@
 		</li>
 	{/each}
 	{#each importJobs as job (job.id)}
-		<li class="flex items-baseline gap-3 py-2.5 text-sm">
+		<li class="flex items-baseline gap-3 py-2.5 text-body">
 			<span class="min-w-0 flex-1 truncate text-ink-2"
 				>{proposalsT.inbox.importFrom(job.playbook)}</span
 			>

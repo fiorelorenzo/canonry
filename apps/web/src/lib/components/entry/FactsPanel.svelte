@@ -58,7 +58,7 @@
 					so the affordance is a disclosure and not decoration. -->
 				<button
 					type="button"
-					class="flex w-full items-start gap-2 rounded-md border border-transparent text-left text-sm transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px"
+					class="flex w-full items-start gap-2 rounded-md border border-transparent text-left text-body transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px"
 					aria-expanded={activeFactId === fact.id}
 					onclick={() => onToggle(fact)}
 				>

@@ -64,12 +64,12 @@
 <Page width="wide" title={t.models.textHeading}>
 	<div class="px-8 py-10">
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
-		<p class="mt-6 max-w-measure text-sm text-ink-2">{@html t.models.textIntro1}</p>
+		<p class="mt-6 max-w-measure text-body text-ink-2">{@html t.models.textIntro1}</p>
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
-		<p class="mt-2 max-w-measure text-sm text-ink-2">{@html t.models.textIntro2}</p>
+		<p class="mt-2 max-w-measure text-body text-ink-2">{@html t.models.textIntro2}</p>
 
 		<div class="mt-8 overflow-x-auto rounded-lg border border-line">
-			<table class="w-full border-collapse text-sm">
+			<table class="w-full border-collapse text-body">
 				<thead>
 					<tr
 						class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
@@ -173,15 +173,15 @@
 		</div>
 
 		<h2 class="mt-12 text-title font-semibold text-ink">{t.models.imageHeading}</h2>
-		<p class="mt-2 max-w-measure text-sm text-ink-2">{t.models.imageIntro1}</p>
-		<p class="mt-2 max-w-measure text-sm text-ink-2">
+		<p class="mt-2 max-w-measure text-body text-ink-2">{t.models.imageIntro1}</p>
+		<p class="mt-2 max-w-measure text-body text-ink-2">
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 			{@html t.models.imageIntro2Pre}
 			<InlineLink href={resolve('/admin/pricing')}>{t.pricing.title}</InlineLink>.
 		</p>
 
 		<div class="mt-8 overflow-x-auto rounded-lg border border-line">
-			<table class="w-full border-collapse text-sm">
+			<table class="w-full border-collapse text-body">
 				<thead>
 					<tr
 						class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"

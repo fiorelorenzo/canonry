@@ -47,7 +47,7 @@
 					checked={selected === option.value}
 					class="accent-[var(--color-accent)]"
 				/>
-				<span class="text-sm text-ink">{option.label}</span>
+				<span class="text-body text-ink">{option.label}</span>
 			</label>
 		{/each}
 	</fieldset>
@@ -59,6 +59,6 @@
 	</div>
 
 	{#if form?.error}
-		<p class="text-sm text-danger">{form.error}</p>
+		<p class="text-body text-danger">{form.error}</p>
 	{/if}
 </form>

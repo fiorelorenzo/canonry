@@ -45,8 +45,8 @@
 <Page width="wide" title={t.pricing.title}>
 	<div class="px-8 py-10">
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
-		<p class="mt-6 max-w-measure text-sm text-ink-2">{@html t.pricing.intro1}</p>
-		<p class="mt-2 max-w-measure text-sm text-ink-2">
+		<p class="mt-6 max-w-measure text-body text-ink-2">{@html t.pricing.intro1}</p>
+		<p class="mt-2 max-w-measure text-body text-ink-2">
 			{t.pricing.intro2}
 		</p>
 
@@ -54,7 +54,7 @@
 			<section class="mt-8">
 				<h2 class="text-title font-semibold text-ink">{t.pricing.kindLabel[group.kind]}</h2>
 				<div class="mt-3 overflow-x-auto rounded-lg border border-line">
-					<table class="w-full border-collapse text-sm">
+					<table class="w-full border-collapse text-body">
 						<thead>
 							<tr
 								class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"

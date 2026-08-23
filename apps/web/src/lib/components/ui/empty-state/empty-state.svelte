@@ -31,12 +31,12 @@
 </script>
 
 {#if kind === 'settled'}
-	<p class="py-8 text-center text-sm text-muted">{message}</p>
+	<p class="py-8 text-center text-body text-muted">{message}</p>
 {:else if kind === 'derived'}
 	<div class="rounded-lg border border-line bg-panel-2 p-6 text-center">
 		<p class="text-ink-2">{message}</p>
 		{#if explanation}
-			<p class="mt-2 text-sm text-muted">{explanation}</p>
+			<p class="mt-2 text-body text-muted">{explanation}</p>
 		{/if}
 		{#if action}
 			<div class="mt-3 flex justify-center">

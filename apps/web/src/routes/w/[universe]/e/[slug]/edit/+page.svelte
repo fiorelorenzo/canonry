@@ -66,7 +66,7 @@
 		/ {t.entry.editor.breadcrumbEdit}
 	</p>
 	{#if form?.message}
-		<p class="mb-4 shrink-0 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
+		<p class="mb-4 shrink-0 rounded-md bg-danger-bg px-3 py-2 text-body text-danger">
 			{form.message}
 		</p>
 	{/if}

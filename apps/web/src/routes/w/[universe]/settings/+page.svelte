@@ -208,7 +208,7 @@
 				items={railItems}
 			/>
 		{/snippet}
-		<p class="mt-4 max-w-measure text-sm text-ink-2">
+		<p class="mt-4 max-w-measure text-body text-ink-2">
 			{t.introBefore(data.current.name)}<InlineLink href={resolve('/settings/appearance')}
 				>{t.appearanceLink}</InlineLink
 			>{t.introAnd}<InlineLink href={resolve(`/settings/export/${data.current.slug}`)}
@@ -220,7 +220,7 @@
 			<h2 class="text-title font-semibold text-ink">{t.groups.images}</h2>
 			<div class="mt-3 border-t border-line pt-4">
 				<h3 class="text-sm font-semibold text-ink">{t.imageStyle.heading}</h3>
-				<p class="mt-1 max-w-measure text-sm text-ink-2">
+				<p class="mt-1 max-w-measure text-body text-ink-2">
 					{t.imageStyle.description(data.current.name)}
 				</p>
 
@@ -277,7 +277,7 @@
 									class="aspect-square w-full object-cover"
 								/>
 								<span class="flex flex-1 flex-col gap-0.5 px-2 py-2">
-									<span class="flex items-center gap-1 text-sm font-medium text-ink">
+									<span class="flex items-center gap-1 text-body font-medium text-ink">
 										{preset.name}
 										{#if currentImageStyleId === preset.id}
 											<AcceptMark class="size-3.5 shrink-0 text-accent" />
@@ -302,7 +302,7 @@
 						bind:open={customOpen}
 					>
 						<summary
-							class="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden"
+							class="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-body font-medium text-ink [&::-webkit-details-marker]:hidden"
 						>
 							<span
 								class="text-label text-muted transition-transform"
@@ -329,11 +329,11 @@
 									};
 								}}
 							>
-								<label class="flex flex-col gap-1 text-sm text-ink-2">
+								<label class="flex flex-col gap-1 text-body text-ink-2">
 									{t.imageStyle.nameLabel}
 									<Input name="name" value={imageStyleName} required />
 								</label>
-								<label class="flex flex-col gap-1 text-sm text-ink-2">
+								<label class="flex flex-col gap-1 text-body text-ink-2">
 									{t.imageStyle.promptModifierLabel}
 									<Textarea name="promptModifier" rows={2} value={imageStyleModifier} required />
 								</label>
@@ -345,7 +345,7 @@
 					</details>
 				</div>
 				{#if imageStyleError}
-					<p class="mt-2 text-sm text-danger">{imageStyleError}</p>
+					<p class="mt-2 text-body text-danger">{imageStyleError}</p>
 				{/if}
 			</div>
 		</section>
@@ -355,7 +355,7 @@
 			<div class="mt-3 flex flex-col gap-4">
 				<div class="border-t border-line pt-4">
 					<h3 class="text-sm font-semibold text-ink">{t.narration.heading}</h3>
-					<p class="mt-1 max-w-measure text-sm text-ink-2">
+					<p class="mt-1 max-w-measure text-body text-ink-2">
 						{t.narration.description(data.current.name)}
 					</p>
 
@@ -397,7 +397,7 @@
 										}}
 									/>
 									<p class="text-label text-ink-2 italic">&ldquo;{preset.exampleSentence}&rdquo;</p>
-									<span class="mt-2 flex items-center gap-1 text-sm font-medium text-ink">
+									<span class="mt-2 flex items-center gap-1 text-body font-medium text-ink">
 										{preset.name}
 										{#if currentNarrationStyleId === preset.id}
 											<AcceptMark class="size-3.5 shrink-0 text-accent" />
@@ -421,7 +421,7 @@
 							bind:open={customNarrationOpen}
 						>
 							<summary
-								class="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden"
+								class="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-body font-medium text-ink [&::-webkit-details-marker]:hidden"
 							>
 								<span
 									class="text-label text-muted transition-transform"
@@ -448,11 +448,11 @@
 										};
 									}}
 								>
-									<label class="flex flex-col gap-1 text-sm text-ink-2">
+									<label class="flex flex-col gap-1 text-body text-ink-2">
 										{t.narration.nameLabel}
 										<Input name="name" value={narrationStyleName} required />
 									</label>
-									<label class="flex flex-col gap-1 text-sm text-ink-2">
+									<label class="flex flex-col gap-1 text-body text-ink-2">
 										{t.narration.promptClauseLabel}
 										<Textarea
 											name="promptClause"
@@ -474,7 +474,7 @@
 						</details>
 					</fieldset>
 					{#if narrationStyleError}
-						<p class="mt-2 text-sm text-danger">{narrationStyleError}</p>
+						<p class="mt-2 text-body text-danger">{narrationStyleError}</p>
 					{/if}
 				</div>
 
@@ -484,10 +484,10 @@
 			     lives (`shell.quickAsk.disclosure`, read in the panel itself before
 			     anything is asked, is the primary disclosure). -->
 				<div class="border-t border-line pt-4">
-					<p class="max-w-measure text-sm text-ink-2">{t.loremasterConversations.text}</p>
+					<p class="max-w-measure text-body text-ink-2">{t.loremasterConversations.text}</p>
 					<InlineLink
 						href={resolve(`/w/${data.current.slug}/ask`)}
-						class="mt-2 inline-block text-sm">{t.loremasterConversations.link}</InlineLink
+						class="mt-2 inline-block text-body">{t.loremasterConversations.link}</InlineLink
 					>
 				</div>
 
@@ -495,7 +495,7 @@
 					<div class="flex items-center justify-between gap-4">
 						<div>
 							<h3 class="text-sm font-semibold text-ink">{t.aiToggle.heading}</h3>
-							<p class="mt-1 max-w-measure text-sm text-ink-2">
+							<p class="mt-1 max-w-measure text-body text-ink-2">
 								{t.aiToggle.description(data.current.name)}
 							</p>
 						</div>
@@ -541,7 +541,7 @@
 
 				<div class="border-t border-line pt-4">
 					<h3 class="text-sm font-semibold text-ink">{t.propagationCap.heading}</h3>
-					<p class="mt-1 max-w-measure text-sm text-ink-2">
+					<p class="mt-1 max-w-measure text-body text-ink-2">
 						{t.propagationCap.description(data.current.name)}
 					</p>
 					<form
@@ -556,7 +556,7 @@
 							};
 						}}
 					>
-						<label class="flex items-center gap-2 text-sm text-ink-2">
+						<label class="flex items-center gap-2 text-body text-ink-2">
 							{t.propagationCap.capLabel}
 							<input
 								type="number"
@@ -565,10 +565,10 @@
 								step="1"
 								bind:value={capInput}
 								disabled={noLimit}
-								class="h-9 w-20 rounded-md border border-line-2 bg-panel px-2 text-sm text-ink disabled:opacity-50"
+								class="h-9 w-20 rounded-md border border-line-2 bg-panel px-2 text-body text-ink disabled:opacity-50"
 							/>
 						</label>
-						<label class="flex items-center gap-2 text-sm text-ink-2">
+						<label class="flex items-center gap-2 text-body text-ink-2">
 							<input
 								type="checkbox"
 								name="noLimit"
@@ -582,7 +582,7 @@
 							{savingPropagationCap ? t.propagationCap.saving : t.propagationCap.save}
 						</Button>
 						{#if form?.message}
-							<p class="w-full text-sm text-danger">{form.message}</p>
+							<p class="w-full text-body text-danger">{form.message}</p>
 						{/if}
 					</form>
 					<p class="mt-3 text-label text-muted">
@@ -604,7 +604,7 @@
 					<div class="flex items-center justify-between gap-4">
 						<div>
 							<h3 class="text-sm font-semibold text-ink">{tRelations.cardHeading}</h3>
-							<p class="mt-1 max-w-measure text-sm text-ink-2">
+							<p class="mt-1 max-w-measure text-body text-ink-2">
 								{tRelations.cardDescription(data.current.name)}
 							</p>
 							<p class="mt-1 text-label text-muted">
@@ -623,16 +623,16 @@
 				{#if data.isDerived}
 					<div class="border-t border-line pt-4">
 						<h3 class="text-sm font-semibold text-ink">{t.precedence.heading}</h3>
-						<p class="mt-1 max-w-measure text-sm text-ink-2">
+						<p class="mt-1 max-w-measure text-body text-ink-2">
 							{t.precedence.description(data.current.name)}
 						</p>
 
 						{#if data.supersedes.length === 0}
-							<p class="mt-3 text-sm text-muted">{t.precedence.empty}</p>
+							<p class="mt-3 text-body text-muted">{t.precedence.empty}</p>
 						{:else}
 							<ul class="mt-3 flex flex-col divide-y divide-line">
 								{#each data.supersedes as row (row.id)}
-									<li class="flex items-center gap-3 py-2 text-sm">
+									<li class="flex items-center gap-3 py-2 text-body">
 										<span class="flex-1 text-ink-2 line-through decoration-line-2">
 											{row.dataSourceName} &middot; {row.sourceUrl}
 										</span>
@@ -684,7 +684,7 @@
 							<h4 class="text-label font-semibold tracking-wide text-muted uppercase">
 								{t.precedence.declareHeading}
 							</h4>
-							<div class="flex flex-col gap-1 text-sm text-ink-2">
+							<div class="flex flex-col gap-1 text-body text-ink-2">
 								<label for="supersede-entity">{t.precedence.entryLabel}</label>
 								<div data-js-only>
 									<Combobox
@@ -704,7 +704,7 @@
 									label={t.precedence.entryLabel}
 								/>
 							</div>
-							<div class="flex flex-col gap-1 text-sm text-ink-2">
+							<div class="flex flex-col gap-1 text-body text-ink-2">
 								<label for="supersede-source">{t.precedence.baseSourceLabel}</label>
 								<div data-js-only>
 									<Combobox
@@ -724,16 +724,16 @@
 									label={t.precedence.baseSourceLabel}
 								/>
 							</div>
-							<label class="flex flex-col gap-1 text-sm text-ink-2">
+							<label class="flex flex-col gap-1 text-body text-ink-2">
 								{t.precedence.sourceUrlLabel}
 								<Input name="sourceUrl" required />
 							</label>
-							<label class="flex flex-col gap-1 text-sm text-ink-2">
+							<label class="flex flex-col gap-1 text-body text-ink-2">
 								{t.precedence.noteLabel} <span class="text-muted">{t.precedence.optional}</span>
 								<Input name="note" />
 							</label>
 							{#if form?.message}
-								<p class="text-sm text-danger">{form.message}</p>
+								<p class="text-body text-danger">{form.message}</p>
 							{/if}
 							<Button type="submit" variant="secondary" class="w-fit" disabled={addingSupersede}>
 								{addingSupersede ? t.precedence.superseding : t.precedence.submit}

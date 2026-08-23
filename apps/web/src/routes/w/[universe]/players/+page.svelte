@@ -65,7 +65,7 @@
 	<div class="flex flex-col gap-8 px-8 py-16">
 		<div class="flex flex-col gap-2 rounded-lg border border-line bg-panel p-5">
 			<h2 class="text-title font-semibold text-ink">{t.wikiLinkLabel}</h2>
-			<p class="font-mono text-sm text-ink-2">{resolve(`/p/${data.universe.slug}`)}</p>
+			<p class="font-mono text-body text-ink-2">{resolve(`/p/${data.universe.slug}`)}</p>
 			<div>
 				<Button
 					href={resolve(`/p/${data.universe.slug}`)}
@@ -77,11 +77,11 @@
 					{t.openWikiLink}
 				</Button>
 			</div>
-			<p class="mt-1 text-sm text-muted">{t.invitationsNotice}</p>
+			<p class="mt-1 text-body text-muted">{t.invitationsNotice}</p>
 		</div>
 
 		<div bind:this={revealedContainer} class="relative">
-			<h2 class="mb-3 text-sm font-semibold tracking-wide text-muted uppercase">
+			<h2 class="mb-3 text-label font-semibold tracking-wide text-muted uppercase">
 				{t.revealedHeading}
 			</h2>
 
@@ -124,7 +124,7 @@
 							</h3>
 							<ul class="flex flex-col gap-2.5">
 								{#each group.items as entry (entry.id)}
-									<li class="flex flex-col gap-0.5 text-sm">
+									<li class="flex flex-col gap-0.5 text-body">
 										<span class="text-ink">
 											{#if entry.kind === 'relation'}
 												{@render nameLink(entry.from, entry.from.name)}
@@ -153,10 +153,10 @@
 		</div>
 
 		<div>
-			<h2 class="mb-1 text-sm font-semibold tracking-wide text-muted uppercase">
+			<h2 class="mb-1 text-label font-semibold tracking-wide text-muted uppercase">
 				{t.hiddenHeading}
 			</h2>
-			<p class="mb-3 text-sm text-muted">{t.hiddenDescription}</p>
+			<p class="mb-3 text-body text-muted">{t.hiddenDescription}</p>
 
 			{#if data.hidden.length === 0}
 				<EmptyState kind="settled" message={t.hiddenEmpty} />
@@ -166,7 +166,7 @@
 						<li>
 							<a
 								href={resolve(`/w/${data.universe.slug}/e/${entity.slug}`)}
-								class="flex items-center justify-between gap-3 py-2 text-sm text-ink-2 transition-colors hover:text-ink"
+								class="flex items-center justify-between gap-3 py-2 text-body text-ink-2 transition-colors hover:text-ink"
 							>
 								<span class="flex items-center gap-2">
 									{#if entity.connected}

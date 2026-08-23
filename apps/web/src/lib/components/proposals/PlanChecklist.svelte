@@ -95,7 +95,7 @@
 
 	<ul class="divide-y divide-line">
 		{#each kept as row (row.id)}
-			<li class="flex items-center justify-between gap-3 py-2 text-sm">
+			<li class="flex items-center justify-between gap-3 py-2 text-body">
 				<div class="min-w-0">
 					<p class="truncate font-medium text-ink">{row.name}</p>
 					<p class="truncate text-label text-muted">{row.rationale}</p>

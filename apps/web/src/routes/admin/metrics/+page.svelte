@@ -52,19 +52,19 @@
 
 <Page width="wide" title={t.metrics.heading}>
 	<div class="px-8 py-10">
-		<p class="mt-6 max-w-measure text-sm text-ink-2">
+		<p class="mt-6 max-w-measure text-body text-ink-2">
 			{t.metrics.intro}
 		</p>
 
 		<section class="mt-10">
 			<h2 class="text-title font-semibold text-ink">{t.metrics.accept.heading}</h2>
-			<p class="mt-1 max-w-measure text-sm text-ink-2">
+			<p class="mt-1 max-w-measure text-body text-ink-2">
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 				{@html t.metrics.accept.intro(data.acceptRateWindowDays)}
 			</p>
 
 			{#if !hasAnyProposals}
-				<p class="mt-4 rounded-lg border border-line bg-panel-2 px-4 py-3 text-sm text-muted">
+				<p class="mt-4 rounded-lg border border-line bg-panel-2 px-4 py-3 text-body text-muted">
 					{t.metrics.accept.noProposalsYet}
 				</p>
 			{:else}
@@ -91,7 +91,7 @@
 
 				{#if data.weeklyAcceptRate.length > 0}
 					<div class="mt-5 overflow-x-auto rounded-lg border border-line">
-						<table class="w-full border-collapse text-sm">
+						<table class="w-full border-collapse text-body">
 							<thead>
 								<tr
 									class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
@@ -135,7 +135,7 @@
 						{@html t.metrics.accept.byLocale.intro}
 					</p>
 					<div class="mt-2 overflow-x-auto rounded-lg border border-line">
-						<table class="w-full border-collapse text-sm">
+						<table class="w-full border-collapse text-body">
 							<thead>
 								<tr
 									class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
@@ -178,12 +178,12 @@
 
 		<section class="mt-10">
 			<h2 class="text-title font-semibold text-ink">{t.metrics.timeToFirstAccept.heading}</h2>
-			<p class="mt-1 max-w-measure text-sm text-ink-2">
+			<p class="mt-1 max-w-measure text-body text-ink-2">
 				{t.metrics.timeToFirstAccept.intro}
 			</p>
 
 			{#if !hasAnyImports}
-				<p class="mt-4 rounded-lg border border-line bg-panel-2 px-4 py-3 text-sm text-muted">
+				<p class="mt-4 rounded-lg border border-line bg-panel-2 px-4 py-3 text-body text-muted">
 					{t.metrics.timeToFirstAccept.noImportsYet}
 				</p>
 			{:else}
@@ -202,7 +202,7 @@
 							{/if}
 						</p>
 						<div class="mt-2 overflow-x-auto rounded-lg border border-line">
-							<table class="w-full border-collapse text-sm">
+							<table class="w-full border-collapse text-body">
 								<thead>
 									<tr
 										class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
@@ -240,18 +240,18 @@
 
 		<section class="mt-10">
 			<h2 class="text-title font-semibold text-ink">{t.metrics.warmRadius.heading}</h2>
-			<p class="mt-1 max-w-measure text-sm text-ink-2">
+			<p class="mt-1 max-w-measure text-body text-ink-2">
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 				{@html t.metrics.warmRadius.intro(data.warmRadiusThresholdPercent)}
 			</p>
 
 			{#if !hasAnyUniverses}
-				<p class="mt-4 rounded-lg border border-line bg-panel-2 px-4 py-3 text-sm text-muted">
+				<p class="mt-4 rounded-lg border border-line bg-panel-2 px-4 py-3 text-body text-muted">
 					{t.metrics.noUniversesYet}
 				</p>
 			{:else}
 				<div class="mt-4 overflow-x-auto rounded-lg border border-line">
-					<table class="w-full border-collapse text-sm">
+					<table class="w-full border-collapse text-body">
 						<thead>
 							<tr
 								class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
@@ -297,17 +297,17 @@
 
 		<section class="mt-10">
 			<h2 class="text-title font-semibold text-ink">{t.metrics.entropy.heading}</h2>
-			<p class="mt-1 max-w-measure text-sm text-ink-2">
+			<p class="mt-1 max-w-measure text-body text-ink-2">
 				{t.metrics.entropy.intro}
 			</p>
 
 			{#if !hasAnyUniverses}
-				<p class="mt-4 rounded-lg border border-line bg-panel-2 px-4 py-3 text-sm text-muted">
+				<p class="mt-4 rounded-lg border border-line bg-panel-2 px-4 py-3 text-body text-muted">
 					{t.metrics.noUniversesYet}
 				</p>
 			{:else}
 				<div class="mt-4 overflow-x-auto rounded-lg border border-line">
-					<table class="w-full border-collapse text-sm">
+					<table class="w-full border-collapse text-body">
 						<thead>
 							<tr
 								class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
@@ -333,17 +333,17 @@
 
 		<section class="mt-10 mb-4">
 			<h2 class="text-title font-semibold text-ink">{t.metrics.auditFlags.heading}</h2>
-			<p class="mt-1 max-w-measure text-sm text-ink-2">
+			<p class="mt-1 max-w-measure text-body text-ink-2">
 				{t.metrics.auditFlags.intro(data.auditPairCap)}
 			</p>
 
 			{#if data.auditFlagPositions.length === 0}
-				<p class="mt-4 rounded-lg border border-line bg-panel-2 px-4 py-3 text-sm text-muted">
+				<p class="mt-4 rounded-lg border border-line bg-panel-2 px-4 py-3 text-body text-muted">
 					{t.metrics.auditFlags.noFlagsYet}
 				</p>
 			{:else}
 				<div class="mt-4 overflow-x-auto rounded-lg border border-line">
-					<table class="w-full border-collapse text-sm">
+					<table class="w-full border-collapse text-body">
 						<thead>
 							<tr
 								class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"

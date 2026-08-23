@@ -84,7 +84,7 @@
 			<input type="hidden" name="typeId" value={type.id} />
 
 			<fieldset class="flex flex-col gap-2">
-				<legend class="text-sm font-medium text-ink">{t.widen.fromHeading}</legend>
+				<legend class="text-body font-medium text-ink">{t.widen.fromHeading}</legend>
 				<p class="text-label text-muted">
 					{t.widen.currentlyAdmits}: {type.allowedFrom
 						.map((et) => t.entityTypeLabel(et))
@@ -93,7 +93,7 @@
 				{#if addableFrom.length > 0}
 					<div class="flex flex-wrap gap-3">
 						{#each addableFrom as et (et)}
-							<label class="flex items-center gap-1.5 text-sm text-ink-2">
+							<label class="flex items-center gap-1.5 text-body text-ink-2">
 								<input type="checkbox" name="addFrom" value={et} class="size-4" />
 								{t.widen.addOption(t.entityTypeLabel(et))}
 							</label>
@@ -103,14 +103,14 @@
 			</fieldset>
 
 			<fieldset class="flex flex-col gap-2">
-				<legend class="text-sm font-medium text-ink">{t.widen.toHeading}</legend>
+				<legend class="text-body font-medium text-ink">{t.widen.toHeading}</legend>
 				<p class="text-label text-muted">
 					{t.widen.currentlyAdmits}: {type.allowedTo.map((et) => t.entityTypeLabel(et)).join(', ')}
 				</p>
 				{#if addableTo.length > 0}
 					<div class="flex flex-wrap gap-3">
 						{#each addableTo as et (et)}
-							<label class="flex items-center gap-1.5 text-sm text-ink-2">
+							<label class="flex items-center gap-1.5 text-body text-ink-2">
 								<input type="checkbox" name="addTo" value={et} class="size-4" />
 								{t.widen.addOption(t.entityTypeLabel(et))}
 							</label>
@@ -120,11 +120,11 @@
 			</fieldset>
 
 			{#if addableFrom.length === 0 && addableTo.length === 0}
-				<p class="text-sm text-muted">{t.widen.noChangeError}</p>
+				<p class="text-body text-muted">{t.widen.noChangeError}</p>
 			{/if}
 
 			{#if errorForThisType}
-				<p class="text-sm text-danger">{errorForThisType}</p>
+				<p class="text-body text-danger">{errorForThisType}</p>
 			{/if}
 
 			<DialogFooter>

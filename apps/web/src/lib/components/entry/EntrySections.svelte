@@ -336,7 +336,7 @@
 		aside is where the entry's structured facts live (S5), so it goes here rather than
 		in the prose. One static row, not a sixth collapsible section: there is nothing to
 		disclose, it is a single fact either way. -->
-	<p class="border-b border-line p-4 text-sm text-ink-2">{revealedInLabel}</p>
+	<p class="border-b border-line p-4 text-body text-ink-2">{revealedInLabel}</p>
 
 	{#each sections as section (section.id)}
 		<details

@@ -134,7 +134,7 @@
 					<li>
 						<a
 							{href}
-							class="flex items-center justify-between rounded-md px-2.5 py-1.5 text-sm transition-colors hover:bg-panel-2"
+							class="flex items-center justify-between rounded-md px-2.5 py-1.5 text-body transition-colors hover:bg-panel-2"
 							class:text-ink={active}
 							class:font-semibold={active}
 							class:text-ink-2={!active}
@@ -166,7 +166,7 @@
 								<a
 									href={resolve(`/w/${universeSlug}/e/${entry.slug}`)}
 									data-entry-slug={entry.slug}
-									class="block truncate rounded-md px-2.5 py-1 text-sm text-ink-2 transition-colors hover:bg-panel-2 hover:text-ink"
+									class="block truncate rounded-md px-2.5 py-1 text-body text-ink-2 transition-colors hover:bg-panel-2 hover:text-ink"
 								>
 									{entry.name}
 								</a>
@@ -183,7 +183,7 @@
 					<li>
 						<a
 							{href}
-							class="flex items-center rounded-md px-2.5 py-1.5 text-sm transition-colors hover:bg-panel-2"
+							class="flex items-center rounded-md px-2.5 py-1.5 text-body transition-colors hover:bg-panel-2"
 							class:text-ink={active}
 							class:font-semibold={active}
 							class:text-ink-2={!active}

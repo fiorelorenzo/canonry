@@ -161,7 +161,7 @@
 					>
 						<input type="radio" name="feature" value="variants" bind:group={feature} class="mt-1" />
 						<span class="flex-1">
-							<span class="block text-sm text-ink">{t.entry.media.fourOptions}</span>
+							<span class="block text-body text-ink">{t.entry.media.fourOptions}</span>
 							<span class="block text-label text-muted">
 								{variantsModel ? variantsModel.modelId : t.entry.media.notConfigured}
 								{entityType === 'character' ? ` ${t.entry.media.suggestedForCharacter}` : ''}
@@ -181,7 +181,7 @@
 					>
 						<input type="radio" name="feature" value="portrait" bind:group={feature} class="mt-1" />
 						<span class="flex-1">
-							<span class="block text-sm text-ink">{t.entry.media.oneImage}</span>
+							<span class="block text-body text-ink">{t.entry.media.oneImage}</span>
 							<span class="block text-label text-muted"
 								>{portraitModel ? portraitModel.modelId : t.entry.media.notConfigured}</span
 							>
@@ -202,7 +202,7 @@
 			<div class="mt-4 flex gap-2">
 				<button
 					type="button"
-					class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:opacity-50"
+					class="rounded-md bg-accent px-3 py-1.5 text-body font-medium text-panel hover:bg-accent-ink disabled:opacity-50"
 					disabled={busy ||
 						(regenerateSource
 							? !portraitModel || instruction.trim().length === 0
@@ -219,7 +219,7 @@
 				</button>
 				<button
 					type="button"
-					class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
+					class="rounded-md border border-line-2 px-3 py-1.5 text-body text-ink-2 hover:bg-panel-2"
 					onclick={close}
 				>
 					{t.entry.media.cancel}

@@ -122,7 +122,7 @@
 	class:mb-6={variant === 'band' && hasImageStyle}
 	{style}
 >
-	<span class="text-sm font-medium">{t.placeholderAction}</span>
+	<span class="text-body font-medium">{t.placeholderAction}</span>
 	<span class="text-label">{hasImageStyle ? t.placeholderHint : t.placeholderHintNoStyle}</span>
 </button>
 {#if !hasImageStyle}

@@ -49,7 +49,7 @@
 <!-- F3 = C's contextual sentence, in its B home (docs/ux/f3-privacy-and-keys.html: "C for
      the sentence itself... every one-liner links to B, the settings panel"). Says plainly
      what turning a key on changes and what it does not (SPEC.md §15, decision F3). -->
-<div class="mt-4 max-w-xl rounded-lg border border-line-2 bg-panel-2 p-4 text-sm text-ink-2">
+<div class="mt-4 max-w-xl rounded-lg border border-line-2 bg-panel-2 p-4 text-body text-ink-2">
 	<p class="mt-0">
 		{t.infoPara1Before}<strong class="text-ink">{t.infoPara1Bold}</strong>{t.infoPara1After}
 	</p>
@@ -63,7 +63,7 @@
 </div>
 
 {#if !data.signedIn}
-	<p class="mt-6 max-w-measure text-sm text-ink-2">
+	<p class="mt-6 max-w-measure text-body text-ink-2">
 		<InlineLink href={resolve('/auth/sign-in')}>{t.signInLink}</InlineLink>
 		{t.signInPrompt}
 	</p>

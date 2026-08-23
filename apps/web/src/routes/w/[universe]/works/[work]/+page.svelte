@@ -44,7 +44,7 @@
 				{/snippet}
 			</EmptyState>
 		{:else}
-			<p class="mt-2 max-w-measure text-sm text-ink-2">
+			<p class="mt-2 max-w-measure text-body text-ink-2">
 				{t.works.tree.pickNodeHint}
 			</p>
 		{/if}
@@ -61,11 +61,11 @@
 				};
 			}}
 		>
-			<label class="flex flex-col gap-1 text-sm text-ink-2">
+			<label class="flex flex-col gap-1 text-body text-ink-2">
 				{t.works.tree.titleLabel}
 				<Input id="work-node-title" name="title" required />
 			</label>
-			<div class="flex flex-col gap-1 text-sm text-ink-2">
+			<div class="flex flex-col gap-1 text-body text-ink-2">
 				<label for="work-node-kind">{t.works.tree.kindLabel}</label>
 				<div data-js-only>
 					<Select.Root type="single" bind:value={kind}>
@@ -85,7 +85,7 @@
 				/>
 			</div>
 			{#if form?.message}
-				<p class="text-sm text-danger">{form.message}</p>
+				<p class="text-body text-danger">{form.message}</p>
 			{/if}
 			<Button type="submit" class="mt-1 w-fit" disabled={addingNode}>
 				{addingNode ? t.works.tree.addingNode : t.works.tree.addNodeButton}

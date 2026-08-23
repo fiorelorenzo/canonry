@@ -130,7 +130,7 @@
 			<MarkdownEditor bind:value={body} targets={data.mentionTargets} locale={data.locale} />
 			<input type="hidden" name="body" value={body} />
 			{#if form?.message}
-				<p class="mt-2 text-sm text-danger">{form.message}</p>
+				<p class="mt-2 text-body text-danger">{form.message}</p>
 			{/if}
 			<div class="mt-4 flex justify-end">
 				<Button type="submit" disabled={saving}>
@@ -155,11 +155,11 @@
 					};
 				}}
 			>
-				<label class="flex flex-col gap-1 text-sm text-ink-2">
+				<label class="flex flex-col gap-1 text-body text-ink-2">
 					{t.works.node.titleLabel}
 					<Input name="title" required />
 				</label>
-				<div class="flex flex-col gap-1 text-sm text-ink-2">
+				<div class="flex flex-col gap-1 text-body text-ink-2">
 					<label for="work-child-kind">{t.works.node.kindLabel}</label>
 					<div data-js-only>
 						<Select.Root type="single" bind:value={childKind}>
@@ -201,7 +201,7 @@
 			<ul class="mt-2 flex flex-col gap-2">
 				{#each data.uses as use (use.entityId)}
 					<li
-						class="rounded-md border px-2.5 py-2 text-sm"
+						class="rounded-md border px-2.5 py-2 text-body"
 						class:border-accent={use.fresh}
 						class:bg-accent-bg={use.fresh}
 						class:border-line={!use.fresh}

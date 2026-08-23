@@ -50,7 +50,7 @@
 						type="button"
 						variant="ghost"
 						role="option"
-						class={`h-auto w-full items-center justify-between gap-2 rounded-none px-3 py-2 text-left text-sm font-normal ${i === highlightedIndex ? 'bg-panel-2' : ''}`}
+						class={`h-auto w-full items-center justify-between gap-2 rounded-none px-3 py-2 text-left text-body font-normal ${i === highlightedIndex ? 'bg-panel-2' : ''}`}
 						aria-selected={i === highlightedIndex}
 						onclick={() => onSelect(target)}
 					>

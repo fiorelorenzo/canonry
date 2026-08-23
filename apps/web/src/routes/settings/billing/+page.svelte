@@ -29,13 +29,13 @@
 </svelte:head>
 
 {#if !data.signedIn}
-	<p class="mt-6 text-sm text-ink-2">
+	<p class="mt-6 text-body text-ink-2">
 		<InlineLink href={resolve('/auth/sign-in')}>{t.signInLink}</InlineLink>
 		{t.signInPrompt}
 	</p>
 {:else}
 	{#if data.checkout === 'cancelled'}
-		<p class="mt-4 rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-sm text-ink-2">
+		<p class="mt-4 rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-body text-ink-2">
 			{t.checkoutCancelled}
 		</p>
 	{/if}
@@ -44,7 +44,7 @@
 		<h2 class="text-title font-semibold text-ink">
 			{t.currentPlan(data.plan?.name ?? data.balance.plan)}
 		</h2>
-		<p class="mt-1 text-sm text-ink-2">
+		<p class="mt-1 text-body text-ink-2">
 			{#if data.balance.periodEnd}
 				{t.renews(periodFormat.format(new Date(data.balance.periodEnd)))}
 			{:else}
@@ -90,7 +90,7 @@
 				>
 					<h3 class="text-base font-semibold text-ink">{plan.name}</h3>
 					<p class="mt-1 text-2xl font-semibold text-ink">
-						{eurFormat.format(plan.priceEurPerMonth)}<span class="text-sm font-normal text-ink-2"
+						{eurFormat.format(plan.priceEurPerMonth)}<span class="text-body font-normal text-ink-2"
 							>{t.perMonth}</span
 						>
 					</p>
@@ -123,7 +123,7 @@
 		</div>
 
 		{#if form?.error}
-			<p class="mt-3 text-sm text-danger">{form.error}</p>
+			<p class="mt-3 text-body text-danger">{form.error}</p>
 		{/if}
 	</section>
 {/if}

@@ -63,7 +63,7 @@
 
 {#if shipped}
 	<ul
-		class="mt-3 flex flex-col divide-y divide-line rounded-lg border border-line bg-panel text-sm"
+		class="mt-3 flex flex-col divide-y divide-line rounded-lg border border-line bg-panel text-body"
 	>
 		{#each types as row (row.id)}
 			<li class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-3 py-2">
@@ -87,7 +87,7 @@
 					<p class="text-title font-semibold text-ink">
 						{relationTypeDisplayLabel(row, relationTypeLabel, locale)}
 					</p>
-					<p class="mt-1 max-w-measure text-sm text-ink-2">{summary(row)}</p>
+					<p class="mt-1 max-w-measure text-body text-ink-2">{summary(row)}</p>
 					<p class="mt-1 text-meta text-muted tabular-nums">{t.usageCount(row.usageCount)}</p>
 				</div>
 				{#if canManage}

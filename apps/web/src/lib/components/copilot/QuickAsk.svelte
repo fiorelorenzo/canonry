@@ -459,7 +459,7 @@
 	     `md:w-88`, 352px, and an answer with source chips in a 352px column wrapped into a
 	     ribbon: the chips are `max-w-56`/`max-w-64` each, so two of them never sat on one
 	     line and a quoted sentence broke every three or four words. What the panel holds
-	     is prose at the same `text-sm` the Ask route renders its own answer in, and the
+	     is prose at the same `text-body` the Ask route renders its own answer in, and the
 	     reading room already has a number for how wide that reads: `--container-measure`,
 	     34rem, declared in `routes/layout.css` for exactly that purpose. So the panel is
 	     that measure plus its own `px-3` padding, 35.5rem, and the answer inside it gets
@@ -491,7 +491,7 @@
 	>
 		<div class="flex items-center gap-2 border-b border-line px-3 py-2">
 			<span aria-hidden="true" class="text-accent">✦</span>
-			<b class="text-sm text-ink">{t.name}</b>
+			<b class="text-body text-ink">{t.name}</b>
 			<button
 				type="button"
 				onclick={() => void close()}
@@ -604,7 +604,7 @@
 							     announce every incoming word as its own interruption - once
 							     `asking` clears, the settled paragraph is ordinary flow content a
 							     reader reaches in document order. -->
-							<div class="pt-2 text-sm text-ink" aria-busy={turn.asking}>
+							<div class="pt-2 text-body text-ink" aria-busy={turn.asking}>
 								<p class="m-0 leading-relaxed">
 									{turn.answer}{#if turn.asking}<span
 											aria-hidden="true"
@@ -787,7 +787,7 @@
 	>
 		<span class="flex items-center gap-2">
 			<span aria-hidden="true" class="size-1.5 rounded-full bg-accent"></span>
-			<span class="text-sm font-semibold text-ink">{t.name}</span>
+			<span class="text-body font-semibold text-ink">{t.name}</span>
 			<span class="ml-auto font-mono text-label text-muted">{formatShortcut(askShortcut)}</span>
 		</span>
 		<span class="text-label text-ink-2">{t.launcherHint}</span>

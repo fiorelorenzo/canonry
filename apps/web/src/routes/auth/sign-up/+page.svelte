@@ -74,7 +74,7 @@
 			{/each}
 		</div>
 		{#if providerError}
-			<p role="alert" class="mt-2 text-sm text-danger">{providerError}</p>
+			<p role="alert" class="mt-2 text-body text-danger">{providerError}</p>
 		{/if}
 		<div class="my-4 flex items-center gap-3 text-label tracking-wide text-muted uppercase">
 			<span class="h-px flex-1 bg-line"></span>
@@ -138,11 +138,11 @@
 		</Button>
 
 		{#if form?.error}
-			<p role="alert" class="text-sm text-danger">{form.error}</p>
+			<p role="alert" class="text-body text-danger">{form.error}</p>
 		{/if}
 	</form>
 
-	<p class="mt-4 text-center text-sm text-ink-2">
+	<p class="mt-4 text-center text-body text-ink-2">
 		{t.haveAccount}
 		<InlineLink href={resolve('/auth/sign-in')}>{t.signInLink}</InlineLink>
 	</p>

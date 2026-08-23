@@ -13,10 +13,10 @@
 	<title>{t.export.title}: Canonry</title>
 </svelte:head>
 
-<p class="mt-4 text-sm text-ink-2">
+<p class="mt-4 text-body text-ink-2">
 	{t.export.para1Before}<code class="text-ink">[[Name]]</code>{t.export.para1After}
 </p>
-<p class="mt-2 text-sm text-ink-2">
+<p class="mt-2 text-body text-ink-2">
 	{t.export.para2Before}<code class="text-ink">visibility</code>{t.export.para2After}
 </p>
 

@@ -216,7 +216,7 @@
 	/>
 
 	{#if data.params.query}
-		<p class="mt-3 text-sm text-muted">
+		<p class="mt-3 text-body text-muted">
 			{t.searchResultCount(data.params.query, data.matchedCount)}
 		</p>
 	{/if}

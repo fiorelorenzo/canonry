@@ -104,7 +104,7 @@
 		     hue, and the refresh control wears the accent because that is what interactive
 		     means here. -->
 			<div
-				class="mb-4 flex items-center justify-between gap-3 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-ink"
+				class="mb-4 flex items-center justify-between gap-3 rounded-md border border-line bg-panel-2 px-4 py-3 text-body text-ink"
 			>
 				<span>
 					{t.stillImporting(data.job.proposalsEmitted)}
@@ -120,13 +120,13 @@
 				</Button>
 			</div>
 		{:else if issueNote}
-			<p class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-muted">
+			<p class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-body text-muted">
 				{issueNote}
 			</p>
 		{/if}
 
 		{#if data.missingFromSource.length > 0}
-			<div class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-sm text-ink">
+			<div class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-body text-ink">
 				<p class="font-medium">{t.missing.heading(data.missingFromSource.length)}</p>
 				<p class="mt-1 text-muted">{t.missing.explanation}</p>
 				<ul class="mt-3 flex flex-col gap-1.5">
@@ -158,7 +158,7 @@
 			</div>
 
 			{#if switchingFilter}
-				<p class="text-sm text-muted">{t.filtering}</p>
+				<p class="text-body text-muted">{t.filtering}</p>
 			{:else}
 				{#key selectedType}
 					<ProposalQueue

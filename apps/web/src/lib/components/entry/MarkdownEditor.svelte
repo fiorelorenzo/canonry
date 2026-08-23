@@ -427,7 +427,7 @@
 				/>
 				<ImageWidthControl container={previewEl ?? null} {value} {locale} onApply={applyEdit} />
 			{:else}
-				<p class="text-sm text-muted">{t.entry.editor.view.previewEmpty}</p>
+				<p class="text-body text-muted">{t.entry.editor.view.previewEmpty}</p>
 			{/if}
 		</div>
 	{/if}

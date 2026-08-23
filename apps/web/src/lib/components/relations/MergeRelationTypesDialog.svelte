@@ -87,7 +87,7 @@
 			}}
 		>
 			<div class="flex flex-col gap-1.5">
-				<label class="text-sm font-medium text-ink" for="merge-from">{t.merge.fromLabel}</label>
+				<label class="text-body font-medium text-ink" for="merge-from">{t.merge.fromLabel}</label>
 				<Select.Root
 					type="single"
 					name="fromTypeId"
@@ -114,7 +114,7 @@
 			</div>
 
 			<div class="flex flex-col gap-1.5">
-				<label class="text-sm font-medium text-ink" for="merge-into">{t.merge.intoLabel}</label>
+				<label class="text-body font-medium text-ink" for="merge-into">{t.merge.intoLabel}</label>
 				<Select.Root type="single" name="intoTypeId" required bind:value={intoTypeId}>
 					<Select.Trigger id="merge-into" class="w-full" disabled={!fromTypeId}>
 						{#if intoType}
@@ -133,7 +133,7 @@
 			</div>
 
 			{#if fromType && intoType}
-				<p class="rounded-md border border-line bg-panel-2 px-3 py-2 text-sm text-ink-2">
+				<p class="rounded-md border border-line bg-panel-2 px-3 py-2 text-body text-ink-2">
 					{fromType.usageCount === 0
 						? t.merge.countWarningZero(
 								relationTypeDisplayLabel(fromType, relationTypeLabel, locale),
@@ -148,10 +148,10 @@
 			{/if}
 
 			{#if form?.action === 'merge' && form.error}
-				<p class="text-sm text-danger">{form.error}</p>
+				<p class="text-body text-danger">{form.error}</p>
 			{/if}
 			{#if form?.action === 'merge' && form.intoLabel && form.movedCount !== undefined}
-				<p class="text-sm text-ink-2">
+				<p class="text-body text-ink-2">
 					{t.merge.movedToast(
 						form.movedCount,
 						(form.intoKey ? relationTypeLabel(form.intoKey)?.label : undefined) ?? form.intoLabel

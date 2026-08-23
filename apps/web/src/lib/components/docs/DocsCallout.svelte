@@ -10,7 +10,7 @@
 </script>
 
 <div
-	class="my-4 rounded-md border px-4 py-3 text-sm leading-relaxed {tone === 'warn'
+	class="my-4 rounded-md border px-4 py-3 text-body leading-relaxed {tone === 'warn'
 		? 'border-warn bg-warn-bg text-ink'
 		: 'border-line-2 bg-panel-2 text-ink-2'}"
 >

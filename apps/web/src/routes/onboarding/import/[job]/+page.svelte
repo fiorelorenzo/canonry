@@ -127,23 +127,23 @@
 >
 	<div class="flex flex-col gap-6 px-8 py-16">
 		{#if form && 'error' in form && form.error}
-			<p class="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.error}</p>
+			<p class="rounded-md bg-danger-bg px-3 py-2 text-body text-danger">{form.error}</p>
 		{/if}
 
 		{#if acceptedProposal && elapsedToAcceptSeconds !== null}
 			<div class="rounded-lg border border-accent bg-accent-bg p-5">
-				<p class="text-sm text-ink">
+				<p class="text-body text-ink">
 					{t.job.firstAcceptMessage(elapsedToAcceptSeconds)}
 				</p>
 			</div>
 		{/if}
 
 		<div class="rounded-lg border border-line bg-panel p-4">
-			<p class="text-sm text-ink">
+			<p class="text-body text-ink">
 				{t.job.statusLine(job.proposalsEmitted, job.documentCount, t.job.statusWord[job.status])}
 			</p>
 			{#if renderedOutcomeNote}
-				<p class="mt-1 text-sm text-muted">{renderedOutcomeNote}</p>
+				<p class="mt-1 text-body text-muted">{renderedOutcomeNote}</p>
 			{/if}
 		</div>
 

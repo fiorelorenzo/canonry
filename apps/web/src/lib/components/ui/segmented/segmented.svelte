@@ -68,7 +68,7 @@
 	aria-label={ariaLabel}
 	data-slot="segmented"
 	class={cn(
-		'inline-flex flex-wrap items-stretch gap-px rounded-md border border-input bg-input/30 p-px text-sm',
+		'inline-flex flex-wrap items-stretch gap-px rounded-md border border-input bg-input/30 p-px text-body',
 		className
 	)}
 >

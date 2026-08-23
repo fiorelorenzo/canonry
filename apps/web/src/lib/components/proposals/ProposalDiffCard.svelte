@@ -205,7 +205,7 @@
 
 	{#if candidate.relationVocab}
 		{@const vocab = candidate.relationVocab}
-		<div class="mb-3 max-w-measure text-sm text-ink-2">
+		<div class="mb-3 max-w-measure text-body text-ink-2">
 			<h4 class="mb-1 font-mono text-label text-muted uppercase">
 				{vocab.kind === 'relation_type_reuse'
 					? t.relationVocab.reuseHeading
@@ -268,7 +268,7 @@
 				</h4>
 				<ul class="space-y-1.5">
 					{#each vocab.relations as relation, i (i)}
-						<li class="rounded-md bg-panel-2 px-3 py-2 text-sm text-ink-2">
+						<li class="rounded-md bg-panel-2 px-3 py-2 text-body text-ink-2">
 							<span class="font-semibold text-ink">{relation.fromName ?? '?'}</span>
 							<!-- T4 (round fifteen, #431): the type name is wording the model proposed, but
 							it no longer wears the copilot's hue - the card already says "not accepted"
@@ -289,7 +289,7 @@
 			</div>
 		{/if}
 	{:else if candidate.kind === 'relation'}
-		<p class="mb-3 rounded-md border border-diff-line bg-diff-bg px-3 py-2 text-sm text-ink-2">
+		<p class="mb-3 rounded-md border border-diff-line bg-diff-bg px-3 py-2 text-body text-ink-2">
 			<span class="font-semibold text-ink">{candidate.targetName}</span>
 			<!-- T4 (round fifteen, #431): as above, no copilot hue on the relation's own
 				label - the box's diff-bg treatment already says this is the proposal. -->
@@ -328,7 +328,7 @@
 		     card in light and 1.34:1 in dark, with the bar at 4.57:1 and 4.03:1 - a reader
 		     who cannot see colour at all still has the strike, the bold weight and the
 		     labels below. -->
-		<div class="mb-3 max-w-measure text-sm leading-relaxed text-ink-2">
+		<div class="mb-3 max-w-measure text-body leading-relaxed text-ink-2">
 			{#if candidate.diff.regions > 1}
 				<!-- `text-muted` is 4.13:1 on this card at 11px, so these two labels take
 				     `text-ink-2` (9.63:1 light, 9.54:1 dark) rather than adding a fresh AA
@@ -413,7 +413,7 @@
 		     withholding Accept rather than leaving a button that errors, is what makes the
 		     ordering readable instead of a wall a GM walks into. Reject stays available: a
 		     link the GM does not want is still a decision they can take now. -->
-		<p class="mb-3 rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-sm text-ink-2">
+		<p class="mb-3 rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-body text-ink-2">
 			{t.diffCard.waitingOnEntries(candidate.waitingOnEntries.join(', '))}
 		</p>
 	{/if}
@@ -421,7 +421,7 @@
 	{#if candidate.outcome === 'pending' && candidate.waitingOnEntries.length > 0 && onReject}
 		<button
 			type="button"
-			class="min-h-11 rounded-md border border-line-2 px-3 text-sm text-ink-2 hover:bg-panel-2 sm:min-h-0 sm:py-1.5"
+			class="min-h-11 rounded-md border border-line-2 px-3 text-body text-ink-2 hover:bg-panel-2 sm:min-h-0 sm:py-1.5"
 			onclick={onReject}
 		>
 			{t.diffCard.reject}
@@ -434,14 +434,14 @@
 		<div class="flex gap-2">
 			<button
 				type="button"
-				class="min-h-11 flex-1 rounded-md bg-accent px-3 text-sm font-medium text-panel hover:brightness-110 sm:min-h-0 sm:flex-none sm:py-1.5"
+				class="min-h-11 flex-1 rounded-md bg-accent px-3 text-body font-medium text-panel hover:brightness-110 sm:min-h-0 sm:flex-none sm:py-1.5"
 				onclick={onAccept}
 			>
 				{t.diffCard.accept}
 			</button>
 			<button
 				type="button"
-				class="min-h-11 flex-1 rounded-md border border-line-2 px-3 text-sm text-ink-2 hover:bg-panel-2 sm:min-h-0 sm:flex-none sm:py-1.5"
+				class="min-h-11 flex-1 rounded-md border border-line-2 px-3 text-body text-ink-2 hover:bg-panel-2 sm:min-h-0 sm:flex-none sm:py-1.5"
 				onclick={onReject}
 			>
 				{t.diffCard.reject}

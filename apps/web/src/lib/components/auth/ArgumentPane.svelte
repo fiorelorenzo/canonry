@@ -29,14 +29,14 @@
 </script>
 
 <div class="flex max-w-sm flex-col gap-4">
-	<p class="text-sm text-ink-2">{t.intro}</p>
+	<p class="text-body text-ink-2">{t.intro}</p>
 
 	<div class="rounded-md border border-line bg-panel p-4">
 		<div class="flex items-center justify-between gap-2">
 			<h3 class="font-serif text-title font-semibold text-ink">Aldric Vane</h3>
 			<Badge variant="secondary">{characterLabel}</Badge>
 		</div>
-		<p class="mt-2 text-sm text-ink-2">{t.aldricSentence}</p>
+		<p class="mt-2 text-body text-ink-2">{t.aldricSentence}</p>
 	</div>
 
 	<div class="rounded-md border border-line bg-panel p-4">
@@ -44,7 +44,7 @@
 			<h3 class="font-serif text-title font-semibold text-ink">The Valdoria Watch</h3>
 			<Badge variant="secondary">{t.waitingBadge}</Badge>
 		</div>
-		<p class="mt-2 border-l-2 border-diff-line bg-diff-bg py-0.5 pr-2 pl-3 text-sm text-ink-2">
+		<p class="mt-2 border-l-2 border-diff-line bg-diff-bg py-0.5 pr-2 pl-3 text-body text-ink-2">
 			{t.watchLeadPrefix}
 			<span class="text-ink-2 line-through decoration-diff-line decoration-2">{t.watchBefore}</span>
 			<span class="font-semibold text-ink">{t.watchAfter}</span>.

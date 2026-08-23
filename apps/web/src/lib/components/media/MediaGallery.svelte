@@ -466,13 +466,13 @@
 			</DialogTitle>
 
 			{#if !data.aiEnabled}
-				<p class="mt-3 rounded-md border border-line bg-panel-2 px-3 py-2 text-sm text-ink-2">
+				<p class="mt-3 rounded-md border border-line bg-panel-2 px-3 py-2 text-body text-ink-2">
 					{t.entry.media.aiOffBanner}
 				</p>
 			{/if}
 
 			{#if error}
-				<p class="mt-3 rounded-md border border-danger bg-danger-bg px-3 py-2 text-sm text-danger">
+				<p class="mt-3 rounded-md border border-danger bg-danger-bg px-3 py-2 text-body text-danger">
 					{error}
 				</p>
 			{/if}
@@ -582,7 +582,7 @@
 					{t.entry.media.inBody.existingHeading}
 				</h4>
 				{#if data.assets.length === 0}
-					<p class="mt-1 text-sm text-ink-2">{t.entry.media.inBody.emptyExisting}</p>
+					<p class="mt-1 text-body text-ink-2">{t.entry.media.inBody.emptyExisting}</p>
 				{:else}
 					<div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
 						{#each data.assets as asset (asset.id)}
@@ -761,7 +761,7 @@
 								{t.entry.media.generateButton}
 							</Button>
 							{#if !data.hasImageStyle}
-								{@render noStyleNotice('text-sm text-ink-2')}
+								{@render noStyleNotice('text-body text-ink-2')}
 							{/if}
 						{/if}
 					</div>
@@ -772,14 +772,14 @@
 						</h4>
 						{#if candidates.length === 0}
 							{#if scene?.model}
-								<p class="mt-2 text-sm text-ink-2">
+								<p class="mt-2 text-body text-ink-2">
 									{t.entry.media.inBody.sceneCost(scene.price)}
 								</p>
 								<p class="text-label text-muted">
 									{scene.model.provider}/{scene.model.modelId}
 								</p>
 							{:else}
-								<p class="mt-2 text-sm text-ink-2">{t.entry.media.inBody.sceneNotConfigured}</p>
+								<p class="mt-2 text-body text-ink-2">{t.entry.media.inBody.sceneNotConfigured}</p>
 							{/if}
 							<div class="mt-2 flex flex-wrap items-center gap-2">
 								<Button

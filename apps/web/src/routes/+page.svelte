@@ -46,7 +46,7 @@
 			<Button href={resolve('/auth/sign-up')}>{t.shell.door.createAccount}</Button>
 			<Button href={resolve('/auth/sign-in')} variant="secondary">{t.shell.signIn}</Button>
 		</div>
-		<p class="mt-4 text-center text-sm text-muted">{t.shell.door.exportNote}</p>
+		<p class="mt-4 text-center text-body text-muted">{t.shell.door.exportNote}</p>
 	</AuthShell>
 {:else}
 	<Page width="wide" title={t.universe.list.heading}>
@@ -64,7 +64,7 @@
 						<span class="font-semibold text-ink">{universe.name}</span>
 						<Badge variant="secondary" class="uppercase">{universe.kind}</Badge>
 					</div>
-					<p class="mt-1 text-sm text-ink-2">
+					<p class="mt-1 text-body text-ink-2">
 						{#if universe.baseUniverseName}
 							{t.universe.switcher.derivedFrom(universe.baseUniverseName)} &middot;
 						{/if}

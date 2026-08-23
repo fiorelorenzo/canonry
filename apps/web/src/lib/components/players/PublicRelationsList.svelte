@@ -32,7 +32,7 @@
 		</h2>
 		<ul class="mt-2 space-y-2">
 			{#each relations as rel (rel.key + rel.other.id)}
-				<li class="text-sm">
+				<li class="text-body">
 					<span class="text-muted">
 						{t.relationTypeLabel(rel.key)?.[rel.direction === 'from' ? 'label' : 'inverseLabel'] ??
 							rel.label}

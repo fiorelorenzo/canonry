@@ -68,7 +68,7 @@
 		type="button"
 		onclick={onNpcHere}
 		disabled={npcPending}
-		class="min-h-[44px] min-w-[78px] rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
+		class="min-h-[44px] min-w-[78px] rounded-md bg-accent px-4 py-2.5 text-body font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
 	>
 		{npcPending ? t.quickActionDock.drafting : t.actionLabels.npcHere}
 	</button>
@@ -77,7 +77,7 @@
 		onclick={onMarkRevealed}
 		disabled={!canReveal}
 		title={canReveal ? undefined : t.quickActionDock.markAsRevealedDisabledTitle}
-		class="min-h-[44px] min-w-[78px] rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-40"
+		class="min-h-[44px] min-w-[78px] rounded-md bg-accent px-4 py-2.5 text-body font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-40"
 	>
 		{t.quickActionDock.markAsRevealed}
 	</button>
@@ -89,12 +89,12 @@
 				bind:value={locationLabel}
 				placeholder={t.quickActionDock.locationPlaceholder}
 				aria-label={t.quickActionDock.nameChildLocation}
-				class="min-h-[44px] rounded-md border border-line-2 bg-panel-2 px-2 text-sm text-ink"
+				class="min-h-[44px] rounded-md border border-line-2 bg-panel-2 px-2 text-body text-ink"
 			/>
 			<button
 				type="submit"
 				disabled={locationPending}
-				class="min-h-[44px] rounded-md bg-accent px-3 text-sm font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
+				class="min-h-[44px] rounded-md bg-accent px-3 text-body font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				{locationPending ? t.quickActionDock.creating : t.quickActionDock.create}
 			</button>
@@ -104,7 +104,7 @@
 					locationFormOpen = false;
 					locationLabel = '';
 				}}
-				class="min-h-[44px] rounded-md border border-line-2 px-3 text-sm text-ink-2 hover:bg-panel-2"
+				class="min-h-[44px] rounded-md border border-line-2 px-3 text-body text-ink-2 hover:bg-panel-2"
 			>
 				{t.quickNoteForm.cancel}
 			</button>
@@ -113,7 +113,7 @@
 		<button
 			type="button"
 			onclick={() => (locationFormOpen = true)}
-			class="min-h-[44px] rounded-md border border-line-2 px-3 text-sm text-ink-2 hover:bg-panel-2"
+			class="min-h-[44px] rounded-md border border-line-2 px-3 text-body text-ink-2 hover:bg-panel-2"
 		>
 			{t.actionLabels.createChildLocation}
 		</button>
@@ -121,7 +121,7 @@
 	<button
 		type="button"
 		onclick={onSearchFocus}
-		class="min-h-[44px] rounded-md border border-line-2 px-3 text-sm text-ink-2 hover:bg-panel-2"
+		class="min-h-[44px] rounded-md border border-line-2 px-3 text-body text-ink-2 hover:bg-panel-2"
 	>
 		{tControls.search}
 	</button>

@@ -21,8 +21,8 @@
 </svelte:head>
 
 <AuthShell locale={data.locale} title={t.title} subtitle={t.subtitle}>
-	<p class="text-sm text-ink-2">{t.body}</p>
-	<p class="mt-4 text-center text-sm text-ink-2">
+	<p class="text-body text-ink-2">{t.body}</p>
+	<p class="mt-4 text-center text-body text-ink-2">
 		<InlineLink href={resolve('/')}>{t.homeLink}</InlineLink>
 	</p>
 </AuthShell>

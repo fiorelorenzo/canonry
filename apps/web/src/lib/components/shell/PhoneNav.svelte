@@ -142,7 +142,7 @@
 <header class="flex items-center gap-1.5 border-b border-line bg-panel px-2 py-1.5 md:hidden">
 	<Sheet.Root bind:open={drawerOpen}>
 		<Sheet.Trigger
-			class="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-sm font-medium text-ink hover:bg-panel-2"
+			class="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-body font-medium text-ink hover:bg-panel-2"
 		>
 			<MenuIcon class="size-5 shrink-0 text-ink-2" aria-hidden="true" />
 			<span class="min-w-0 flex-1 truncate">

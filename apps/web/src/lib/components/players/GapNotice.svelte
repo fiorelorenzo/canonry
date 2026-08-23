@@ -16,7 +16,7 @@
 	let t = $derived(messages(locale));
 </script>
 
-<p class="rounded-md border border-dashed border-line-2 px-4 py-3 text-sm text-ink-2 italic">
+<p class="rounded-md border border-dashed border-line-2 px-4 py-3 text-body text-ink-2 italic">
 	{t.players.gapNoticeBefore}
 	<b class="text-ink not-italic">{name}</b>
 	{t.players.gapNoticeAfter(type)}

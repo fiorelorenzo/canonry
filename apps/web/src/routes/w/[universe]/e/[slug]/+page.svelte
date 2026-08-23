@@ -264,7 +264,7 @@
 			</div>
 
 			<div class="mb-6">
-				<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
+				<div class="flex flex-wrap items-center gap-2 text-body text-muted">
 					<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-label text-accent-ink">
 						{data.entity.type}
 					</span>
@@ -381,7 +381,7 @@
 		<div class="border-t border-line px-4 py-3 md:hidden">
 			<Sheet.Root bind:open={detailsOpen}>
 				<Sheet.Trigger
-					class="flex min-h-11 w-full items-center justify-between rounded-md border border-line-2 px-3 text-sm font-medium text-ink-2 hover:bg-panel-2"
+					class="flex min-h-11 w-full items-center justify-between rounded-md border border-line-2 px-3 text-body font-medium text-ink-2 hover:bg-panel-2"
 				>
 					<span>{t.entry.sections.mobile.trigger}</span>
 					<span aria-hidden="true">&#9662;</span>

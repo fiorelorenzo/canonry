@@ -41,7 +41,7 @@
 						{proposalBadge(proposal, t.badge)}
 					</span>
 					<span
-						class="truncate text-sm text-ink"
+						class="truncate text-body text-ink"
 						title={proposalDisplayName(proposal, t.untitledProposal)}
 					>
 						{proposalDisplayName(proposal, t.untitledProposal)}

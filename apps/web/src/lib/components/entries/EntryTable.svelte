@@ -162,7 +162,7 @@
 <div class="mt-4 overflow-x-auto rounded-lg border border-line">
 	<table
 		bind:this={tableEl}
-		class="w-full table-fixed border-collapse text-sm sm:table-auto"
+		class="w-full table-fixed border-collapse text-body sm:table-auto"
 		aria-label={t.tableAriaLabel}
 	>
 		<thead>

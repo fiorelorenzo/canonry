@@ -45,7 +45,7 @@
 	<ul class="space-y-3">
 		{#each flags as flag (flag.id)}
 			<li class="rounded-md border border-warn bg-warn-bg p-3">
-				<p class="text-sm text-ink-2">{flag.rationale}</p>
+				<p class="text-body text-ink-2">{flag.rationale}</p>
 				<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
 					{#each flag.statements as statement (statement.entityId)}
 						<div class="rounded-md border border-line bg-panel p-2 text-label">
