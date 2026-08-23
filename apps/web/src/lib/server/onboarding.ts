@@ -59,7 +59,7 @@ import {
 	type SourceReader,
 	type UnreadableUploadFormat
 } from '@canonry/import';
-import { createGatewayEmbedder, embeddingDimensionsFor, hashingEmbedder } from '@canonry/indexing';
+import { createGatewayEmbedder, embeddingDimensionsFor, type Embedder } from '@canonry/indexing';
 import {
 	createEmbeddingModel,
 	createLanguageModel,
@@ -837,6 +837,82 @@ export async function resolveImportSimilarity(
 	return bandedSimilarity({ embed, vectorSize });
 }
 
+/**
+ * The third branch of the same seam (issue #629): which embedder `resolveRelationType`'s
+ * semantic rung runs on. Until this existed the answer was `hashingEmbedder`,
+ * unconditionally, on the reasoning written beside `startImportRun`'s own parameter: that
+ * this box has no credentials and so the deterministic stand-in is the honest choice. The
+ * premise is false on any box that does have them, because `resolveImportDriver` twenty
+ * lines up returns the real `GatewayDriver` there, so a production import ran the real
+ * model for extraction and a 256-bucket bag-of-words vectoriser for the one decision that
+ * asks whether two relation labels mean the same thing.
+ *
+ * That is not a rung that quietly fails to fire. Measured on #613's recorded notebook, the
+ * hashing stand-in crosses `SEMANTIC_REUSE_THRESHOLD` on a *collision*: "fondata da" scores
+ * a perfect 1.0 against `appointed`'s Italian label and reaches a GM as "close enough in
+ * meaning to reuse rather than duplicate", which is guardrail 3's own sentence attached to
+ * a number with no meaning behind it. A false merge is the expensive direction to be wrong
+ * in (decision L1: `key` is identity, so a merged type is one identity for two relations
+ * and nothing flags it afterwards), which is exactly why the threshold's own comment sets
+ * itself conservatively high. A stand-in that clears it by accident defeats that.
+ *
+ * So: the real embedder when there is a credential, and with no credential a rung that
+ * *cannot* fire rather than one that fires arbitrarily. `NO_SEMANTIC_RUNG` returns zero
+ * vectors, which `cosineSimilarity` scores at 0 by its own documented rule, so every label
+ * falls through to `new-proposed` and a GM gets one honest question per unfamiliar word.
+ * It says so once per job, `$lib/server/copilot.ts`'s reason: a rung that has degraded to
+ * noise looks exactly like a rung that is working.
+ */
+const NO_SEMANTIC_RUNG_WIDTH = 1;
+
+function noSemanticRungEmbedder(): Embedder {
+	let warned = false;
+	return async (texts: string[]) => {
+		if (!warned) {
+			warned = true;
+			console.warn(
+				'*** no AI_GATEWAY_API_KEY: resolveRelationType rung 2 (semantic reuse) is off in ' +
+					'this process. Every relation label that is not an exact match in some shipped ' +
+					'locale becomes its own new-type question. ***'
+			);
+		}
+		return texts.map(() => new Array<number>(NO_SEMANTIC_RUNG_WIDTH).fill(0));
+	};
+}
+
+export async function resolveRelationLabelEmbedder(
+	database: Db,
+	context: ImportSimilarityContext
+): Promise<Embedder> {
+	if (!hasLiveGatewayCredentials()) return noSemanticRungEmbedder();
+	const credentials = readGatewayCredentials(env as NodeJS.ProcessEnv);
+	let model: ResolvedModel;
+	try {
+		model = await resolveModel(database, 'embedding');
+	} catch (error) {
+		console.warn(
+			`*** resolveRelationType rung 2 is off in this process: ${
+				error instanceof Error ? error.message : String(error)
+			} Every relation label that is not an exact match becomes its own new-type question. ***`
+		);
+		return noSemanticRungEmbedder();
+	}
+	return createGatewayEmbedder({
+		db: database,
+		model: {
+			...model,
+			model: createEmbeddingModel(model.provider, model.modelId, credentials)
+		},
+		userId: context.userId,
+		universeId: context.universeId,
+		// The same row import matching bills to, and for the same reason: this is a reading
+		// operation on the import path, priced at zero (SPEC.md §15), and separating it from
+		// `index.embed` is what issue #309 established. A rung that embeds one to three words
+		// per relation is not worth a fourth price row of its own.
+		operation: 'import.match.embed'
+	});
+}
+
 /** The literal used to live here, hand-copied into `packages/bench/src/e2e/import.ts`
  * too - the exact shape issue #272 flagged for the budget constants, a private copy
  * with no way to notice a drift. `@canonry/import`'s `matching.ts` now owns both values;
@@ -1338,10 +1414,9 @@ export function startImportRun(database: Db, input: StartImportRunInput): void {
 		try {
 			const sources = await openArtefact(input.artefactPath);
 			const { driver } = resolveImportDriver(database);
-			const { similarity, thresholds } = await resolveImportSimilarity(database, {
-				userId: input.userId,
-				universeId: input.universeId
-			});
+			const similarityContext = { userId: input.userId, universeId: input.universeId };
+			const { similarity, thresholds } = await resolveImportSimilarity(database, similarityContext);
+			const embedRelationLabel = await resolveRelationLabelEmbedder(database, similarityContext);
 			const runner = new ImportJobRunner();
 			const params: RunImportJobParams = {
 				db: database,
@@ -1357,11 +1432,11 @@ export function startImportRun(database: Db, input: StartImportRunInput): void {
 				budget: { maxCredits: input.budgetCredits },
 				similarity,
 				thresholds,
-				// Issue #189/#190, decision K1: same network-free default embedder
-				// `@canonry/indexing`'s own pipeline wires in wherever a real gateway
-				// credential is not available, which is exactly this driver's situation
-				// too (`DeterministicExtractionDriver`, this file's own doc comment).
-				embedRelationLabel: hashingEmbedder,
+				// Issue #629: the real embedding model when this process has a credential, and a
+				// rung that cannot fire when it does not. `resolveRelationLabelEmbedder` above
+				// carries the account of why the old unconditional `hashingEmbedder` was worse
+				// than either.
+				embedRelationLabel,
 				timeoutMs: input.timeoutMs,
 				locale: input.locale
 			};
