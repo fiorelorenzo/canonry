@@ -5,7 +5,7 @@
 	 * addressed to the GM, never a finding addressed at the canon, so there is no Accept
 	 * here and no percentage anywhere on this panel - only `proposal.rationale` (already
 	 * guardrail-safe, `audit.ts`'s `buildFlagRationale`), the two statements quoted
-	 * verbatim, and the two actions docs/ux/c9-audit-flags.html's table allows: "Dismiss"
+	 * verbatim, and the two actions `docs/ux/c9-audit-flags.html`'s table allowed (deleted 2026-08-23, in git history at c84c8f8): "Dismiss"
 	 * and "Open both entries".
 	 */
 	import { enhance } from '$app/forms';

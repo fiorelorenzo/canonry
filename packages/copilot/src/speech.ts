@@ -109,7 +109,7 @@ export const EMPTY_PLAN_SUMMARY: Record<Locale, (editedEntityName: string) => st
 };
 
 /** `buildFlagRationale`'s exact framing (audit.ts), one bilingual pair per guardrail 7's
- * own wording (docs/ux/c9-audit-flags.html) - a question addressed to the GM, never a
+ * own wording (C9, `docs/ux/DECISIONS.md`) - a question addressed to the GM, never a
  * verdict, in either language. */
 export const AUDIT_DISAGREEMENT: Record<Locale, (a: string, b: string, topic: string) => string> = {
 	en: (a, b, topic) => `${a} and ${b} do not agree on ${topic}.`,

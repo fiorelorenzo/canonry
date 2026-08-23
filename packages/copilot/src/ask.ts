@@ -64,7 +64,7 @@ import { requireAiEnabled } from './propagate.js';
 import { entryEditPropose, entryPropose, type ProposeResult } from './ask-propose.js';
 
 /** SPEC.md §5: "five detail levels", shipped as a fixed row of buttons
- * (docs/ux/c8-ask-mode.html), never a settings dialog. */
+ * (C8, `docs/ux/DECISIONS.md`), never a settings dialog. */
 export type AskDetailLevel = '1_line' | 'short' | 'normal' | 'detailed' | 'full';
 
 /** Issue #535: a citation is a sentence with the entry it came from, never an entry with

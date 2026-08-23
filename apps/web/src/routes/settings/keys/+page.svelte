@@ -46,7 +46,7 @@
 	<title>{t.title}: Canonry</title>
 </svelte:head>
 
-<!-- F3 = C's contextual sentence, in its B home (docs/ux/f3-privacy-and-keys.html: "C for
+<!-- F3 = C's contextual sentence, in its B home (`docs/ux/DECISIONS.md`: "C for
      the sentence itself... every one-liner links to B, the settings panel"). Says plainly
      what turning a key on changes and what it does not (SPEC.md §15, decision F3). -->
 <div class="mt-4 max-w-xl rounded-lg border border-line-2 bg-panel-2 p-4 text-sm text-ink-2">

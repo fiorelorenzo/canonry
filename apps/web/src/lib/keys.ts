@@ -5,8 +5,8 @@
  * chord or scatter its own keydown handling.
  *
  * #104 ships the foundation, not the palette itself (#75 builds that). `SHORTCUTS`
- * below is the full vocabulary from docs/ux/g3-shortcuts-cross-platform.html's chosen
- * table, so every later surface wires against one source instead of inventing its own;
+ * below is the full vocabulary G3 chose (`docs/ux/DECISIONS.md`; the drawn table is in
+ * git history at `c84c8f8`), so every later surface wires against one source instead of inventing its own;
  * the shell only actively listens for `isDismissKey` today, to close the universe
  * switcher on Escape.
  */

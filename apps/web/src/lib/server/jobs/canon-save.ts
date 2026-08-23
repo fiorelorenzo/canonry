@@ -31,7 +31,7 @@
  *
  * What this file deliberately does NOT call: `generatePlanDiffs`. Decision C3
  * (`docs/ux/DECISIONS.md`) is "flat checklist, entries droppable before any diff is
- * written", and `docs/ux/c3-propagation-plan.html`'s own "Rejected outright" section names
+ * written", and `docs/ux/c3-propagation-plan.html`'s own "Rejected outright" section named (in git history at c84c8f8)
  * the alternative by hand: "generate every diff first, let the GM delete what they do not
  * want after ... burns the premium model's writes on entries nobody asked to see." The
  * plan detail route (`w/[universe]/proposals/[plan]/+page.server.ts`'s `generateDiffs`

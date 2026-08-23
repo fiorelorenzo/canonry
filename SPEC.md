@@ -894,8 +894,9 @@ Most of the list was closed on 2026-08-07. What survives, and why:
 **The interface is decided elsewhere on purpose.** This file says what the product
 guarantees, not what it looks like: that a proposal shows its evidence, not where the
 evidence sits. The thirty-eight questions that leaves open were answered on
-2026-08-13 and are recorded in `docs/ux/DECISIONS.md`, with one artifact each in
-`docs/ux/` carrying the options that were rejected and why. Eleven follow-on
+2026-08-13 and are recorded in `docs/ux/DECISIONS.md`, whose prose under each answer
+carries the options that were rejected and why; the drawn artifacts themselves are gone
+from the tree as of 2026-08-23, readable in git history at `c84c8f8`. Eleven follow-on
 questions are still open there. A decision that tightens a guarantee rather than
 dressing it moves into this file; the rest stays in that record.
 
