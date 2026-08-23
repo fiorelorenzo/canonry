@@ -23,7 +23,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { zipSync } from 'fflate';
-import { ArchiveSourceReader } from '@canonry/import';
+import { ArchiveSourceReader, InMemorySourceReader } from '@canonry/import';
 import {
 	detectSource,
 	documentsForPlaybook,
@@ -52,26 +52,18 @@ function zipped(name: string, as = name): ArchiveSourceReader {
 }
 
 describe('a format with no reader is refused before a job exists (issue #591)', () => {
-	const refused: [string, string][] = [
-		['printed.xps', 'xps'],
-		['section.one', 'onestore'],
-		['notebook.onetoc2', 'onestore'],
-		['notebook.onepkg', 'onepkg']
-	];
-
-	for (const [name, format] of refused) {
-		it(`${name} uploaded on its own is refused as ${format}`, async () => {
-			const refusal = await refuseUnreadableUpload(uploaded(name));
-			expect(refusal).toEqual({ format, path: name });
+	it('printed.xps uploaded on its own is refused as xps', async () => {
+		expect(await refuseUnreadableUpload(uploaded('printed.xps'))).toEqual({
+			format: 'xps',
+			path: 'printed.xps'
 		});
+	});
 
-		it(`${name} inside a zip is refused as ${format} too`, async () => {
-			// This is the case that used to reach confirm and be told the upload held no
-			// documents, which was not true: it held one file we cannot read.
-			const refusal = await refuseUnreadableUpload(zipped(name));
-			expect(refusal?.format).toBe(format);
-		});
-	}
+	it('printed.xps inside a zip is refused as xps too', async () => {
+		// This is the case that used to reach confirm and be told the upload held no
+		// documents, which was not true: it held one file we cannot read.
+		expect((await refuseUnreadableUpload(zipped('printed.xps')))?.format).toBe('xps');
+	});
 
 	it('a web archive OneNote did not write is refused, naming what it is', async () => {
 		// Issue #592 reads OneNote's own Single File Web Page and only that, so a page a
@@ -89,21 +81,7 @@ describe('a format with no reader is refused before a job exists (issue #591)', 
 		});
 	});
 
-	it('names the offending file when the upload was an archive holding only it', async () => {
-		const refusal = await refuseUnreadableUpload(
-			zipped('section.one', 'Ashenport/Handouts/old-notebook.one')
-		);
-		expect(refusal).toEqual({
-			format: 'onestore',
-			path: 'Ashenport/Handouts/old-notebook.one'
-		});
-	});
-
-	it('a renamed file is refused on its bytes, not let through on its name', async () => {
-		expect(await refuseUnreadableUpload(uploaded('section.one', 'session-notes.md'))).toEqual({
-			format: 'onestore',
-			path: 'session-notes.md'
-		});
+	it('an xps renamed to .pdf is refused on its bytes, not let through on its name', async () => {
 		expect(await refuseUnreadableUpload(uploaded('printed.xps', 'handouts.pdf'))).toEqual({
 			format: 'xps',
 			path: 'handouts.pdf'
@@ -112,12 +90,12 @@ describe('a format with no reader is refused before a job exists (issue #591)', 
 
 	it('a real export carrying one stray unreadable file still imports', async () => {
 		// The refusal is for an upload that is nothing but formats we cannot read. A vault
-		// with a `.one` sitting in it is a vault, and refusing the whole thing over one file
+		// with an `.xps` sitting in it is a vault, and refusing the whole thing over one file
 		// would be worse than skipping that file, which `documentsForPlaybook` does.
 		const mixed = ArchiveSourceReader.openUpload(
 			zipSync({
 				'notes/Warden Iset Nour.md': new TextEncoder().encode('# Warden Iset Nour\n'),
-				'notes/old-notebook.one': fixture('section.one')
+				'notes/handouts.xps': fixture('printed.xps')
 			}),
 			'vault.zip'
 		);
@@ -125,6 +103,72 @@ describe('a format with no reader is refused before a job exists (issue #591)', 
 
 		const documents = await documentsForPlaybook('generic', mixed);
 		expect(documents.map((d) => d.sourcePath)).toEqual(['notes/Warden Iset Nour.md']);
+	});
+});
+
+describe("OneNote's own binary formats are no longer refused (issue #603)", () => {
+	// `section.one`, `notebook.onetoc2` and `notebook.onepkg` were all in
+	// `UNREADABLE_UPLOAD_FORMATS` until `onestore.ts` existed, and each had its own line of
+	// refusal copy in both locales. What replaces the refusal is not silence: these three
+	// fixtures are a real file GUID or cabinet header followed by filler, with no revision
+	// store behind them, so they are the case of a format we do read and a file we cannot.
+	// The distinction matters to a GM, because one says "export something else" and the
+	// other says "this file is damaged", and only one of those is true here.
+	for (const name of ['section.one', 'notebook.onetoc2', 'notebook.onepkg']) {
+		it(`${name} is no longer refused for its format`, async () => {
+			// Not reached through `refuseUnreadableUpload`, because opening it is what fails
+			// now, and it fails naming the file rather than the format.
+			expect(() => uploaded(name)).toThrow(/could not be read/);
+		});
+
+		it(`${name} inside a real export is skipped rather than failing the upload`, async () => {
+			// Same principle as the stray `.xps` above, and it matters more here: a notebook
+			// exported section by section into one zip must not be lost entirely because one
+			// of its sections is truncated.
+			const mixed = ArchiveSourceReader.openUpload(
+				zipSync({
+					'notes/Warden Iset Nour.md': new TextEncoder().encode('# Warden Iset Nour\n'),
+					[`notes/${name}`]: fixture(name)
+				}),
+				'vault.zip'
+			);
+			expect(await refuseUnreadableUpload(mixed)).toBeNull();
+			const documents = await documentsForPlaybook('generic', mixed);
+			expect(documents.map((d) => d.sourcePath)).toEqual(['notes/Warden Iset Nour.md']);
+		});
+	}
+});
+
+describe('which provenance raises a scope notice, and which does not (issue #603)', () => {
+	// The trees are the same shape by the time detection sees them, deliberately: nothing
+	// downstream can tell the two readers apart except these counters, which is why the
+	// decision has to live here and be asserted here.
+	const files = {
+		'Ashenport/Handouts/The Sunken Archive.htm':
+			'<html><head><meta name="ProgId" content="OneNote.File">' +
+			'<meta name="Generator" content="Microsoft OneNote"><title>The Sunken Archive</title>' +
+			'</head><body><p>Three floors below the Council hall.</p></body></html>'
+	};
+
+	it('an expanded .mht says the scope is unknown, because the envelope does not record it', async () => {
+		const detected = await detectSource(new InMemorySourceReader({ files, oneNoteEnvelopes: 1 }));
+		expect(detected.playbookId).toBe('onenote');
+		expect(detected.notices).toEqual(['onenote-scope-unknown']);
+	});
+
+	it('an expanded .onepkg says nothing, because it is the export that drops nothing', async () => {
+		// Measured on the corpus: the `.onepkg` carries every page of both section-scope
+		// exports, in the same order and at the same `PageLevel`, where the notebook-scope
+		// `.mht` is missing 22 of those 75 pages outright. Warning about its scope would be
+		// telling a GM to go and export something worse.
+		const detected = await detectSource(new InMemorySourceReader({ files, oneStoreNotebooks: 1 }));
+		expect(detected.playbookId).toBe('onenote');
+		expect(detected.notices).toEqual([]);
+	});
+
+	it('a real exported page tree still says nothing, which is unchanged', async () => {
+		const detected = await detectSource(new InMemorySourceReader({ files }));
+		expect(detected.notices).toEqual([]);
 	});
 });
 

@@ -42,9 +42,27 @@
 							"indent": 0,
 							"list": null
 						},
-						{ "k": "p", "text": "Salt damage to the ledgers", "links": [], "indent": 0, "list": "bullet" },
-						{ "k": "p", "text": "Two shelves permanently submerged", "links": [], "indent": 1, "list": "bullet" },
-						{ "k": "p", "text": "First: bail the west aisle", "links": [], "indent": 0, "list": "number" },
+						{
+							"k": "p",
+							"text": "Salt damage to the ledgers",
+							"links": [],
+							"indent": 0,
+							"list": "bullet"
+						},
+						{
+							"k": "p",
+							"text": "Two shelves permanently submerged",
+							"links": [],
+							"indent": 1,
+							"list": "bullet"
+						},
+						{
+							"k": "p",
+							"text": "First: bail the west aisle",
+							"links": [],
+							"indent": 0,
+							"list": "number"
+						},
 						{ "k": "image", "asset": 0 }
 					],
 					"assets": [{ "name": "stacks-sketch.png", "off": 256, "len": 233, "alt": "" }]
@@ -78,7 +96,9 @@
 					"id": "",
 					"created": 1712581748,
 					"updated": 1712581748,
-					"blocks": [{ "k": "ink", "text": "ask Mother Sennah", "links": [], "indent": 0, "list": null }],
+					"blocks": [
+						{ "k": "ink", "text": "ask Mother Sennah", "links": [], "indent": 0, "list": null }
+					],
 					"assets": []
 				}
 			]

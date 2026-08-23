@@ -96,16 +96,25 @@ export class InMemorySourceReader implements SourceReader {
 	private readonly files: ReadonlyMap<string, string>;
 	private readonly binaries: ReadonlyMap<string, BinaryAsset>;
 	private readonly pages: ReadonlyMap<string, RenderedPage>;
+	readonly oneNoteEnvelopes: number;
+	readonly oneStoreNotebooks: number;
 
 	constructor(input: {
 		files: Record<string, string>;
 		binaries?: Record<string, BinaryAsset>;
 		/** Keyed as `${path}#${page}`. */
 		pages?: Record<string, RenderedPage>;
+		/** Both default to zero, which is a real exported page tree: produced page by page,
+		 * losing nothing, and needing no notice about its scope. Settable so a test can put
+		 * detection in front of the two provenances that do differ without building a zip. */
+		oneNoteEnvelopes?: number;
+		oneStoreNotebooks?: number;
 	}) {
 		this.files = new Map(Object.entries(input.files));
 		this.binaries = new Map(Object.entries(input.binaries ?? {}));
 		this.pages = new Map(Object.entries(input.pages ?? {}));
+		this.oneNoteEnvelopes = input.oneNoteEnvelopes ?? 0;
+		this.oneStoreNotebooks = input.oneStoreNotebooks ?? 0;
 	}
 
 	async list(path: string): Promise<SourceEntry[]> {

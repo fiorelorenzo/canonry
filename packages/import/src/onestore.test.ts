@@ -103,7 +103,9 @@ describe('the tree a .one section becomes', () => {
 	it('extracts the attachment bytes at the offsets the parser reported', () => {
 		const entries = tree('section-scope', 'Handouts.one', 'onestore');
 		const map = entries.get('Handouts/The Sunken Archive_files/archive-map.png');
-		const sketch = entries.get('Handouts/The Sunken Archive/Flooded Stacks_files/stacks-sketch.png');
+		const sketch = entries.get(
+			'Handouts/The Sunken Archive/Flooded Stacks_files/stacks-sketch.png'
+		);
 		expect(map?.byteLength).toBe(256);
 		expect(sketch?.byteLength).toBe(233);
 		// Real PNGs, so a wrong offset shows up as a broken signature rather than as a
@@ -218,9 +220,7 @@ describe('what a page becomes', () => {
 							id: '',
 							created: 0,
 							updated: 0,
-							blocks: [
-								{ k: 'p', text: 'x <b>y</b> & z', links: [], indent: 0, list: null }
-							],
+							blocks: [{ k: 'p', text: 'x <b>y</b> & z', links: [], indent: 0, list: null }],
 							assets: []
 						}
 					]

@@ -35,7 +35,12 @@ describe('onenote playbook (issue #45, SPEC.md §6.6, §6.10)', () => {
 		expect(playbook.tools).toContain('image_store');
 		expect(playbook.tools).toContain('relation_propose');
 		expect(playbook.tools).not.toContain('page_image'); // an exported page is never a scanned page
+		// The prompt tells the model that every OneNote export, `.mht` and binary alike,
+		// arrives as this same tree. It used to say the binary formats were out of scope and
+		// to finish `skipped` when handed one, which after issue #603 would have skipped the
+		// input this playbook is best at.
 		expect(playbook.systemPrompt).toContain('.onepkg');
+		expect(playbook.systemPrompt).not.toMatch(/out of scope|guessing at (?:its|a) binary/i);
 	});
 
 	it('proposes a subpage-of relation from the export tree, an entity per page, and an in-body link relation', async () => {
