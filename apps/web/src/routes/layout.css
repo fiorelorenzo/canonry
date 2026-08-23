@@ -137,14 +137,15 @@
 	 *
 	 * #509 shipped these five and migrated the sixty-six bracket sizes; #621 migrated
 	 * Tailwind's default scale, which #509 never touched, and which was still drawing
-	 * 651 sites across 143 files. 634 of those took a token. The default `--text-*`
+	 * 694 sites across 145 files. 675 of those took a token. The default `--text-*`
 	 * namespace is deliberately NOT cleared with `--text-*: initial`, which would make
-	 * the next default size a build error rather than a review catch: the other 17 sites
-	 * legitimately still need it, and they are three findings rather than seventeen
+	 * the next default size a build error rather than a review catch: sixteen sites
+	 * legitimately still draw off it, and they are three findings rather than sixteen
 	 * awkward cases, that a second markdown heading level, a display figure and a
 	 * wordmark are roles this scale does not name.
 	 * `routes/type-scale.test.ts` is the enforcement instead, and it carries those
-	 * sites with a reason each; #649 carries the design question.
+	 * sites with a reason each, plus the three doc comments that name a default size in
+	 * prose without drawing it; #649 carries the design question.
 	 */
 	--text-label: 0.75rem;
 	--text-label--line-height: 1rem;
