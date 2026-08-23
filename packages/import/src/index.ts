@@ -72,6 +72,24 @@ export {
 	type UnreadableUploadFormat
 } from './upload-format.js';
 
+export {
+	parseMhtml,
+	expandOneNoteMhtml,
+	splitOneNotePages,
+	isOneNoteHtml,
+	relativeLocation,
+	MhtmlParseError,
+	MhtmlTooManyPartsError,
+	MhtmlPartTooLargeError,
+	MhtmlLocationError,
+	type MhtmlLimits,
+	type MhtmlPart,
+	type ParsedMhtml,
+	type OneNotePage,
+	type ExpandedEntry,
+	type ExpandOneNoteMhtmlOptions
+} from './mhtml.js';
+
 export { InMemoryImageStore, type ImageStore, type StoredImage } from './images.js';
 
 export {

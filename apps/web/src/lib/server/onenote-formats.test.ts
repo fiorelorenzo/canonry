@@ -52,14 +52,11 @@ function zipped(name: string, as = name): ArchiveSourceReader {
 }
 
 describe('a format with no reader is refused before a job exists (issue #591)', () => {
-	const refused: [string, string, string][] = [
-		['page.mht', 'mhtml', 'Single File Web Page'],
-		['section.mht', 'mhtml', 'Single File Web Page'],
-		['notebook.mht', 'mhtml', 'Single File Web Page'],
-		['printed.xps', 'xps', 'XPS'],
-		['section.one', 'onestore', 'section file'],
-		['notebook.onetoc2', 'onestore', 'table of contents'],
-		['notebook.onepkg', 'onepkg', 'package']
+	const refused: [string, string][] = [
+		['printed.xps', 'xps'],
+		['section.one', 'onestore'],
+		['notebook.onetoc2', 'onestore'],
+		['notebook.onepkg', 'onepkg']
 	];
 
 	for (const [name, format] of refused) {
@@ -76,13 +73,29 @@ describe('a format with no reader is refused before a job exists (issue #591)', 
 		});
 	}
 
+	it('a web archive OneNote did not write is refused, naming what it is', async () => {
+		// Issue #592 reads OneNote's own Single File Web Page and only that, so a page a
+		// browser saved is still a format with no reader here.
+		const saved = ArchiveSourceReader.openUpload(
+			new TextEncoder().encode(
+				'MIME-Version: 1.0\r\nContent-Type: text/html\r\nContent-Location: file:///C:/AB/x.htm' +
+					'\r\n\r\n<html><body>saved page</body></html>\r\n'
+			),
+			'article.mht'
+		);
+		expect(await refuseUnreadableUpload(saved)).toEqual({
+			format: 'mhtml',
+			path: 'article.mht'
+		});
+	});
+
 	it('names the offending file when the upload was an archive holding only it', async () => {
 		const refusal = await refuseUnreadableUpload(
-			zipped('page.mht', 'Ashenport/Handouts/The Sunken Archive.mht')
+			zipped('section.one', 'Ashenport/Handouts/old-notebook.one')
 		);
 		expect(refusal).toEqual({
-			format: 'mhtml',
-			path: 'Ashenport/Handouts/The Sunken Archive.mht'
+			format: 'onestore',
+			path: 'Ashenport/Handouts/old-notebook.one'
 		});
 	});
 
@@ -91,9 +104,9 @@ describe('a format with no reader is refused before a job exists (issue #591)', 
 			format: 'onestore',
 			path: 'session-notes.md'
 		});
-		expect(await refuseUnreadableUpload(uploaded('page.mht', 'The Sunken Archive.htm'))).toEqual({
-			format: 'mhtml',
-			path: 'The Sunken Archive.htm'
+		expect(await refuseUnreadableUpload(uploaded('printed.xps', 'handouts.pdf'))).toEqual({
+			format: 'xps',
+			path: 'handouts.pdf'
 		});
 	});
 
@@ -113,19 +126,81 @@ describe('a format with no reader is refused before a job exists (issue #591)', 
 		const documents = await documentsForPlaybook('generic', mixed);
 		expect(documents.map((d) => d.sourcePath)).toEqual(['notes/Warden Iset Nour.md']);
 	});
+});
 
-	it('a .mht sitting beside real notes is skipped rather than costing a document', async () => {
-		// The measured defect: text, so it read as text, so it was a document, so it was a
-		// job. Skipped here instead, on its bytes.
-		const mixed = ArchiveSourceReader.openUpload(
-			zipSync({
-				'notes/session-one.md': new TextEncoder().encode('# Session one\n'),
-				'notes/Handouts.mht': fixture('section.mht')
-			}),
-			'vault.zip'
-		);
-		const documents = await documentsForPlaybook('generic', mixed);
-		expect(documents.map((d) => d.sourcePath)).toEqual(['notes/session-one.md']);
+describe("OneNote's own Single File Web Page is read as a page tree (issue #592)", () => {
+	const scopes: [string, number][] = [
+		['page.mht', 1],
+		['section.mht', 3],
+		['notebook.mht', 4]
+	];
+
+	for (const [name, pages] of scopes) {
+		it(`${name} uploaded on its own detects as onenote and enumerates ${pages} page(s)`, async () => {
+			const reader = uploaded(name, `Ashenport.mht`);
+			expect(await refuseUnreadableUpload(reader)).toBeNull();
+			const detected = await detectSource(reader);
+			expect(detected.playbookId).toBe('onenote');
+			expect(detected.confident).toBe(true);
+			expect(detected.detail).toEqual({ kind: 'onenote', pages });
+			expect(await documentsForPlaybook('onenote', reader)).toHaveLength(pages);
+		});
+
+		it(`${name} inside a zip is expanded too, because the guide says "or zipped"`, async () => {
+			const reader = zipped(name, 'exports/Ashenport.mht');
+			const detected = await detectSource(reader);
+			expect(detected.playbookId).toBe('onenote');
+			const documents = await documentsForPlaybook('onenote', reader);
+			expect(documents).toHaveLength(pages);
+			expect(documents.every((d) => d.sourcePath.startsWith('exports/Ashenport/'))).toBe(true);
+		});
+	}
+
+	it('detects a notebook with no embedded image at all, which the folder shape could not', async () => {
+		// The guide had to warn about this: detection keyed only on a sibling `<page>_files/`
+		// folder, so a notebook where no page embeds an image fell through to `generic`. Three
+		// of the four real `.mht` files have no resources, so the expansion would have landed
+		// in the same hole. `meta name=ProgId content=OneNote.File` is the second signal.
+		const reader = uploaded('notebook.mht', 'Ashenport.mht');
+		const paths = (await documentsForPlaybook('onenote', reader)).map((d) => d.sourcePath);
+		expect(paths.some((p) => p.includes('_files'))).toBe(false);
+		expect((await detectSource(reader)).playbookId).toBe('onenote');
+	});
+
+	it('each page is its own document, with its own title and nobody else\u2019s prose', async () => {
+		const reader = uploaded('notebook.mht', 'Ashenport.mht');
+		const documents = await documentsForPlaybook('onenote', reader);
+		const stacks = documents.find((d) => d.sourcePath.endsWith('Flooded Stacks.htm'));
+		expect(stacks).toBeDefined();
+		const content = (await reader.read(stacks!.sourcePath)).content;
+		expect(content).toContain('<title>Flooded Stacks</title>');
+		expect(content).toContain('permanently underwater');
+		expect(content).not.toContain('bribed the tide warden');
+	});
+
+	it('an embedded image travels across as an attachment beside its page', async () => {
+		const reader = uploaded('section.mht', 'Handouts.mht');
+		const documents = await documentsForPlaybook('onenote', reader);
+		// The attachment folder is not a document, which is the distinction onenote.md draws.
+		expect(documents.map((d) => d.sourcePath).some((p) => p.includes('_files'))).toBe(false);
+		const asset = await reader.readBinary('Handouts/The Sunken Archive_files/image001.png');
+		expect(asset.mimeType).toBe('image/png');
+	});
+
+	it('the tree it produces has no parents, because the export carries none', async () => {
+		// "Flooded Stacks" is a subpage of "The Sunken Archive" in the notebook it came from,
+		// and nothing in the bytes says so. So no page sits in a folder named after another
+		// page and onenote.md's parent/subpage rule proposes no parent, which is the honest
+		// answer rather than one derived from indentation.
+		const reader = uploaded('notebook.mht', 'Ashenport.mht');
+		const paths = (await documentsForPlaybook('onenote', reader)).map((d) => d.sourcePath);
+		const pageStems = paths.map((p) => p.replace(/\.htm$/, ''));
+		expect(paths.every((p) => p.split('/').length === 2)).toBe(true);
+		expect(
+			pageStems.some((stem) =>
+				pageStems.some((other) => other !== stem && stem.startsWith(`${other}/`))
+			)
+		).toBe(false);
 	});
 });
 

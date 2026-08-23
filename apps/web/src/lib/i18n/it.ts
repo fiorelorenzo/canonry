@@ -1309,10 +1309,9 @@ export const it: Messages = {
 				unreadableFormat: (format, path) => {
 					const cosa = {
 						mhtml:
-							'una pagina Web in file unico di OneNote, e Canonry non ha ancora un lettore per ' +
-							"questo formato. Esporta lo stesso blocco appunti o la stessa sezione in PDF o DOCX dall'app " +
-							"desktop di OneNote e carica quel file, oppure esporta l'albero delle pagine come " +
-							"spiega la guida all'import da OneNote",
+							'un archivio Web (.mht) che non ha scritto OneNote: Canonry legge la pagina Web in ' +
+							'file unico che esporta OneNote e non ha un lettore per una pagina salvata da un ' +
+							'browser. Esporta o stampa lo stesso contenuto in PDF e carica quel file',
 						xps:
 							'un documento XPS, che è lo stesso blocco appunti stampato che sarebbe un PDF e per ' +
 							'cui Canonry non ha un lettore. Stampa o esporta la stessa cosa in PDF e carica quel file',

@@ -73,7 +73,7 @@
 								id="import-file"
 								type="file"
 								name="file"
-								accept=".zip,.pdf,.docx,.md,.txt"
+								accept=".zip,.mht,.pdf,.docx,.md,.txt"
 								required
 								class="mx-auto block text-sm text-ink-2"
 							/>

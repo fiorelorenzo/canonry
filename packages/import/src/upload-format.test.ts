@@ -34,9 +34,9 @@ function sniff(name: string): { format: UploadFormat; printedFromOneNote: boolea
 
 describe('every format OneNote exports is identified from its own bytes (issue #591)', () => {
 	const cases: [string, UploadFormat][] = [
-		['page.mht', 'mhtml'],
-		['section.mht', 'mhtml'],
-		['notebook.mht', 'mhtml'],
+		['page.mht', 'onenote-mhtml'],
+		['section.mht', 'onenote-mhtml'],
+		['notebook.mht', 'onenote-mhtml'],
 		['printed.pdf', 'pdf'],
 		['printed.xps', 'xps'],
 		['page.docx', 'docx'],
@@ -72,14 +72,27 @@ describe('every format OneNote exports is identified from its own bytes (issue #
 		expect(isUnreadableUploadFormat('other')).toBe(false);
 	});
 
+	it('a MIME envelope OneNote did not write is a web archive, not a notebook', () => {
+		// Issue #592 wrote a reader for OneNote's own export and only for that, so the two
+		// metas OneNote writes are what separates the format we read from the one we refuse.
+		const saved = new TextEncoder().encode(
+			'MIME-Version: 1.0\r\nContent-Type: multipart/related; boundary="x"\r\n\r\n' +
+				'--x\r\nContent-Type: text/html\r\n\r\n<html><head><meta name=Generator ' +
+				'content="Microsoft Word 15"></head><body>saved page</body></html>\r\n--x--\r\n'
+		);
+		expect(sniffUpload(saved, { unzip: unzipSync }).format).toBe('mhtml');
+		expect(isUnreadableUploadFormat('mhtml')).toBe(true);
+		expect(isUnreadableUploadFormat('onenote-mhtml')).toBe(false);
+	});
+
 	it('renaming a file does not change what it is', () => {
-		// `sniffUpload` never sees a name, which is the whole design: the four calls above
-		// would answer identically for a `.one` renamed to `.md`. Stated here as behaviour
-		// rather than left implicit in the signature, because the routing this feeds used to
-		// be by extension and a renamed file was the way through it.
+		// `sniffUpload` never sees a name, which is the whole design: the calls above would
+		// answer identically for a `.one` renamed to `.md`. Stated here as behaviour rather
+		// than left implicit in the signature, because the routing this feeds used to be by
+		// extension and a renamed file was the way through it.
 		for (const [name, format] of [
 			['section.one', 'onestore'],
-			['page.mht', 'mhtml']
+			['page.mht', 'onenote-mhtml']
 		] as const) {
 			expect(sniffUpload(fixture(name), { unzip: unzipSync }).format).toBe(format);
 		}
@@ -140,6 +153,35 @@ describe('openUpload: a single file is one document, not an archive to unpack (i
 		// says "any PDF file, uploaded directly".
 		const reader = ArchiveSourceReader.openUpload(fixture('printed.pdf'), 'Ashenport.pdf');
 		expect((await reader.list('')).map((e) => e.path)).toEqual(['Ashenport.pdf']);
+	});
+
+	it('a OneNote .mht becomes a page tree, because it is one file and many documents', async () => {
+		// Issue #592. Treating it as one document would hand a playbook a whole notebook and
+		// break SPEC.md §6.1's "the unit of work is one document, never the whole world", so
+		// `openUpload` expands it into the tree `onenote.md` already reads. `mhtml.test.ts`
+		// covers the expansion itself; this is the seam.
+		const reader = ArchiveSourceReader.openUpload(fixture('notebook.mht'), 'Ashenport.mht');
+		const top = await reader.list('');
+		expect(top).toEqual([{ path: 'Ashenport', kind: 'directory' }]);
+		const pages = (await reader.list('Ashenport')).map((e) => e.path);
+		expect(pages).toContain('Ashenport/Warden Iset Nour.htm');
+		expect(pages).toHaveLength(4);
+		expect((await reader.read('Ashenport/Session One.htm')).content).toContain(
+			'bribed the tide warden'
+		);
+	});
+
+	it('a web archive OneNote did not write stays one entry, for the refusal to name', async () => {
+		const saved = new Uint8Array(
+			Buffer.from(
+				'MIME-Version: 1.0\r\nContent-Type: text/html\r\nContent-Location: file:///C:/AB/x.htm' +
+					'\r\n\r\n<html><body>saved page</body></html>\r\n',
+				'utf8'
+			)
+		);
+		const reader = ArchiveSourceReader.openUpload(saved, 'article.mht');
+		expect((await reader.list('')).map((e) => e.path)).toEqual(['article.mht']);
+		expect((await reader.sniffEntry('article.mht')).format).toBe('mhtml');
 	});
 
 	it('a real zip still goes through the zip reader and its limits', async () => {
