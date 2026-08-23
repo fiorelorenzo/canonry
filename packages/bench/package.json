@@ -27,7 +27,8 @@
 		"retrieval-sweep": "tsx src/retrieval-sweep.ts",
 		"matching-sweep": "tsx src/matching-sweep.ts",
 		"audit-pairs": "tsx src/audit-pairs.ts",
-		"scene-images": "tsx src/media/scene.ts"
+		"scene-images": "tsx src/media/scene.ts",
+		"audio-throttle": "tsx src/media/elevenlabs-throttle.ts"
 	},
 	"dependencies": {
 		"@canonry/ai": "workspace:*",
