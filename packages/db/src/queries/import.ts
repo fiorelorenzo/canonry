@@ -409,17 +409,46 @@ export interface MatchCandidateRow {
  * entry. */
 const BODY_LEAD_CHARS = 400;
 
+/** A capped candidate pool, and whether the cap cut it short (issue #627).
+ *
+ * `truncated` is carried rather than left for the caller to infer from `candidates.length
+ * === limit`, because for the pending pool those two are not the same question: rows are
+ * counted before the patch of each one is parsed, so a pool can come back short of the
+ * limit and still have been cut. A fold decision taken against a truncated pool is a
+ * weaker decision than one taken against a complete pool, and the caller is the only place
+ * that can say so. */
+export interface MatchCandidatePool {
+	candidates: MatchCandidateRow[];
+	truncated: boolean;
+}
+
 /** The semantic step's candidate pool (SPEC.md §6.4 step 2): existing entities in the
  * same universe and of the same type as the proposed one, narrowed no further here -
  * matching.ts's own cheap pre-filter (`preFilterCandidates`) does the rest before any
- * embedding call. */
+ * embedding call.
+ *
+ * **Ordered by slug, and the ordering is not a free choice (issue #627).** An unordered
+ * `LIMIT` returns whatever the heap happens to hold first, so which 200 of a large
+ * universe reach the scorer moved every time a row was rewritten, and two runs of the
+ * same import could fold differently for no reason a GM could see. `slug` is unique per
+ * universe, so ordering by it is total and settled by the content rather than by a random
+ * uuid, and `entity_universe_slug_key` is `(universe_id, slug)`, so the index serves the
+ * order and the read still stops at the cap: measured on a 3000-entity universe, 129
+ * buffers and 0.97ms against the unordered scan's 420 and 1.93ms. Every ordering with a
+ * claim to matching relevance that I measured (`lower(name)`, `updated_at desc`) turns
+ * that early stop into a full scan of the universe plus a top-N sort (300 buffers, 2.9ms
+ * at 3000 entities, and it grows with the universe rather than with the cap), which is
+ * the cost the cap exists to bound. So this order is reproducible and deliberately
+ * arbitrary with respect to matching: a pool ordered by name proximity to the subject
+ * would be better and is a matching change that needs the §6.4 benchmark behind it
+ * (issue #641), not a query I can pick. */
 export async function candidateEntitiesForMatching(
 	db: Db,
 	universeId: string,
 	type: EntityType,
 	limit = 200
-): Promise<MatchCandidateRow[]> {
-	return db
+): Promise<MatchCandidatePool> {
+	const rows = await db
 		.select({
 			id: entity.id,
 			name: entity.name,
@@ -429,7 +458,9 @@ export async function candidateEntitiesForMatching(
 		})
 		.from(entity)
 		.where(and(eq(entity.universeId, universeId), eq(entity.type, type)))
-		.limit(limit);
+		.orderBy(entity.slug)
+		.limit(limit + 1);
+	return { candidates: rows.slice(0, limit), truncated: rows.length > limit };
 }
 
 // ---------------------------------------------------------------------------
@@ -441,21 +472,41 @@ export async function candidateEntitiesForMatching(
 // ---------------------------------------------------------------------------
 
 /** The semantic step's *other* candidate pool (SPEC.md §6.4 step 2, extended by issue
- * #160): still-pending `create`/`draft_entity` proposals from this same import job, read
- * back out of their patch since `proposal` itself carries no `entity.type` column. A row
- * that does not parse as a create patch (should not happen - job-runner.ts always writes
- * one before the next document can see it, but a bad row should never take an otherwise
- * healthy import down) is skipped rather than thrown on.
+ * #160): still-pending `create`/`draft_entity` proposals of one type from this same import
+ * job, read back out of their patch since `proposal` itself carries no `entity.type`
+ * column. A row that does not parse as a create patch (should not happen - job-runner.ts
+ * always writes one before the next document can see it, but a bad row should never take
+ * an otherwise healthy import down) is skipped rather than thrown on.
  *
- * `type: null` means every type (issue #479). The semantic step wants one type, because a
- * pool it scores has to be comparable; the identity guard wants all of them, because the
- * slug it defends is unique per universe rather than per type. */
+ * **The type filter is in SQL, and it used to be in TypeScript after the `LIMIT` (issue
+ * #627).** That is what made the cap bite far earlier than its number suggests: it capped
+ * the job's pending creates of *every* type at 200 and then kept whichever of those
+ * happened to be the type asked for. Measured on a job shaped like the OneNote notebook,
+ * 440 pending creates over 88 documents, asking for `character` returned 34 of the 74
+ * pending characters that existed. So the pool was not a bounded view of the candidates of
+ * one type, it was an arbitrary 46% sample of them, and a real first import passes 200
+ * creates job-wide around its fortieth document.
+ *
+ * **Ordered oldest first, and that is a matching decision (issue #627).** Reproducibility
+ * needs a total order on something the content settles: `created_at` alone ties, because
+ * every candidate of one document's plan is written in one transaction and `now()` is the
+ * transaction's, and `proposal.id` is `defaultRandom()`, so ordering by it is stable
+ * within one database and different on the next run of the same import. `rank` orders
+ * inside a plan and the patch's own slug is the tiebreak across plans, both settled by
+ * what the model said rather than by what the heap did.
+ *
+ * Oldest rather than newest, because within a job a fold target is always older than the
+ * sighting that folds into it, and the proposals that collect repeat sightings are the
+ * ones a notebook introduces early and keeps naming (the party, the city the campaign sits
+ * in). Oldest-first keeps those and gives the pool one composition for the whole job, so a
+ * fold decision does not depend on which document asked. Newest-first would evict an
+ * anchor halfway through and turn one entity into a second create and then a third. */
 export async function pendingEntityProposalsForJob(
 	db: Db,
 	importJobId: string,
-	type: EntityType | null,
+	type: EntityType,
 	limit = 200
-): Promise<MatchCandidateRow[]> {
+): Promise<MatchCandidatePool> {
 	const rows = await db
 		.select({ id: proposal.id, patch: proposal.patch })
 		.from(proposal)
@@ -464,33 +515,34 @@ export async function pendingEntityProposalsForJob(
 			and(
 				eq(proposalPlan.importJobId, importJobId),
 				eq(proposal.outcome, 'pending'),
-				inArray(proposal.kind, ['create', 'draft_entity'])
+				inArray(proposal.kind, ['create', 'draft_entity']),
+				sql`${proposal.patch}->>'type' = ${type}`
 			)
 		)
-		.limit(limit);
+		.orderBy(proposal.createdAt, proposal.rank, sql`${proposal.patch}->>'slug'`)
+		.limit(limit + 1);
 
 	const candidates: MatchCandidateRow[] = [];
-	for (const row of rows) {
+	for (const row of rows.slice(0, limit)) {
 		try {
 			const patch = readEntityCreatePatch(row.patch);
-			if (type === null || patch.type === type)
-				candidates.push({
-					id: row.id,
-					name: patch.name,
-					aliases: patch.aliases,
-					type: patch.type,
-					// issue #310: the patch's own body, capped here to the same budget the
-					// committed-canon pool caps in SQL, so a pending create and a real entity give
-					// the matcher the same shape of context. Written by this same job minutes ago,
-					// so it is the proposed summary rather than prose a GM has edited.
-					bodyLead: patch.body.slice(0, BODY_LEAD_CHARS)
-				});
+			candidates.push({
+				id: row.id,
+				name: patch.name,
+				aliases: patch.aliases,
+				type: patch.type,
+				// issue #310: the patch's own body, capped here to the same budget the
+				// committed-canon pool caps in SQL, so a pending create and a real entity give
+				// the matcher the same shape of context. Written by this same job minutes ago,
+				// so it is the proposed summary rather than prose a GM has edited.
+				bodyLead: patch.body.slice(0, BODY_LEAD_CHARS)
+			});
 		} catch {
 			// patch: {} before recordProposalDiff ran, or a genuinely malformed row - either
 			// way, not a candidate, and not a reason to fail the import over.
 		}
 	}
-	return candidates;
+	return { candidates, truncated: rows.length > limit };
 }
 
 // ---------------------------------------------------------------------------
@@ -539,6 +591,63 @@ export async function entitiesByIdentity(
 		.select({ id: entity.id, name: entity.name, slug: entity.slug, type: entity.type })
 		.from(entity)
 		.where(and(eq(entity.universeId, universeId), or(...clauses)));
+}
+
+/** The same question as `entitiesByIdentity`, asked of this job's own still-pending
+ * `create`/`draft_entity` proposals (issues #479, #627): which of them already claim a slug
+ * or a case-folded name the caller is about to propose.
+ *
+ * **This replaces reading a capped page of the job's pending creates and filtering it in
+ * TypeScript.** The identity guard is exact equality on a slug or a folded name, so a pool
+ * cut short by a `LIMIT` is pure loss with no ordering that can rescue it: the one row that
+ * mattered is either in the page or the collision goes unseen, and what it costs is #479's
+ * defect back again, a second `create` on a slug `entity_universe_slug_key` will refuse.
+ * Asked as a lookup instead, the result is bounded by how many names one document proposes
+ * rather than by a cap, so it is complete, and it puts both halves of the identity pool on
+ * the same footing: the committed half was always keyed this way.
+ *
+ * The slug returned is the patch's own, not `slugify(name)` recomputed: the accept will
+ * write that string, so it is the one the constraint will see.
+ *
+ * Type-blind, and unordered on purpose: a complete answer to an equality test has nothing
+ * to order. Aliases are not matched here either, for the reason `entitiesByIdentity`
+ * gives. */
+export async function pendingEntityProposalsByIdentity(
+	db: Db,
+	importJobId: string,
+	slugs: string[],
+	names: string[]
+): Promise<EntityIdentityRow[]> {
+	const wantedSlugs = [...new Set(slugs.filter((s) => s.length > 0))];
+	const wantedNames = [
+		...new Set(names.map((n) => n.trim().toLowerCase()).filter((n) => n.length > 0))
+	];
+	if (wantedSlugs.length === 0 && wantedNames.length === 0) return [];
+	const identityClauses = [];
+	if (wantedSlugs.length > 0)
+		identityClauses.push(inArray(sql`${proposal.patch}->>'slug'`, wantedSlugs));
+	if (wantedNames.length > 0)
+		identityClauses.push(inArray(sql`lower(${proposal.patch}->>'name')`, wantedNames));
+	const rows = await db
+		.select({
+			id: proposal.id,
+			name: sql<string>`${proposal.patch}->>'name'`,
+			slug: sql<string>`${proposal.patch}->>'slug'`,
+			type: sql<EntityType>`${proposal.patch}->>'type'`
+		})
+		.from(proposal)
+		.innerJoin(proposalPlan, eq(proposalPlan.id, proposal.planId))
+		.where(
+			and(
+				eq(proposalPlan.importJobId, importJobId),
+				eq(proposal.outcome, 'pending'),
+				inArray(proposal.kind, ['create', 'draft_entity']),
+				or(...identityClauses)
+			)
+		);
+	// A patch with no name is a row `recordProposalDiff` has not reached yet, which is not
+	// an identity anybody can collide with.
+	return rows.filter((row) => row.name !== null && row.slug !== null);
 }
 
 export interface EntityUpdateTargetRow {

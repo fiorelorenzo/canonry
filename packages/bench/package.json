@@ -21,6 +21,7 @@
 		"models": "tsx src/models/run.ts",
 		"import-e2e": "tsx src/e2e/import.ts",
 		"onenote-relations": "tsx src/e2e/onenote-relations.ts",
+		"pool-determinism": "tsx src/e2e/pool-determinism.ts",
 		"loop-cost": "tsx src/loop-cost.ts",
 		"loremaster-e2e": "tsx src/e2e/loremaster.ts",
 		"seed": "tsx src/prepare.ts",
