@@ -172,7 +172,7 @@
 			</table>
 		</div>
 
-		<h2 class="mt-12 text-2xl font-semibold text-ink">{t.models.imageHeading}</h2>
+		<h2 class="mt-12 text-title font-semibold text-ink">{t.models.imageHeading}</h2>
 		<p class="mt-2 max-w-measure text-sm text-ink-2">{t.models.imageIntro1}</p>
 		<p class="mt-2 max-w-measure text-sm text-ink-2">
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->

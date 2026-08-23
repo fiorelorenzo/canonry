@@ -58,7 +58,7 @@
 				<p class="mb-1 font-mono text-xs tracking-wide text-muted uppercase">{eyebrow}</p>
 			{/if}
 			<div class="flex flex-wrap items-center gap-2">
-				<h1 class="text-2xl font-semibold text-ink">{title}</h1>
+				<h1 class="text-page-title font-semibold text-ink">{title}</h1>
 				{#if titleAdornment}
 					{@render titleAdornment()}
 				{/if}

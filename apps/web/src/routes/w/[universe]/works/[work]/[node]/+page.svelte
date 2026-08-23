@@ -115,7 +115,7 @@
 			}}
 		>
 			<!-- #147: the title stays a bare input on purpose - it reads as the scene's
-				heading (text-2xl font-semibold, no border chrome but a focus underline),
+				heading (text-page-title font-semibold, no border chrome but a focus underline),
 				and shadcn's Input would flatten that into a form field. Its meaning lives
 				in the styling a generic control can't carry. -->
 			<label class="mb-3 block">
@@ -124,7 +124,7 @@
 					name="title"
 					bind:value={title}
 					required
-					class="w-full border-0 border-b border-line-2 bg-transparent px-0 py-1 text-2xl font-semibold text-ink outline-none focus:border-accent"
+					class="w-full border-0 border-b border-line-2 bg-transparent px-0 py-1 text-page-title font-semibold text-ink outline-none focus:border-accent"
 				/>
 			</label>
 			<MarkdownEditor bind:value={body} targets={data.mentionTargets} locale={data.locale} />
