@@ -295,6 +295,23 @@ function cosineSimilarity(a: number[], b: number[]): number {
  * retrieval-sweep did for `retriever.ts`'s own threshold (`pnpm --filter @canonry/bench
  * retrieval-sweep`, `@canonry/eval`'s `thresholdSweep`) - and re-run whenever the
  * embedding model changes, for the exact reason retriever.ts's own history documents.
+ *
+ * Issue #629 measured half of it, on the real Italian notebook #613 recorded: all 126 labels
+ * that import proposed, scored against the whole locale-expanded catalogue with the gateway
+ * embedding model production actually resolves (`alibaba/qwen3-embedding-4b`, 2560d). At 0.86
+ * three labels cross, and all three are exact catalogue labels rung 1 had already matched, so
+ * this rung contributed nothing on that corpus; the highest score any genuine rung-2
+ * candidate reached is 0.8414, "situata in" against `located in`. At 0.80 eleven cross, and
+ * reading the eight new ones by hand they are about five right ("lavora per" onto `employs`)
+ * and three wrong ("occupato da" onto `owns`, "contiene parti di" onto `part of`, which is
+ * inverted rather than merely loose). At 0.70 fifty-six cross and the list contains
+ * "combatte contro" merged onto `ally of`, the opposite relation.
+ *
+ * That is the shape of the curve and not the gold set, so this number still should not move:
+ * a precision figure needs labelled pairs, which is #637. What the measurement does settle is
+ * that lowering the threshold is not the lever it looks like. Ten shipped types against the
+ * 113 distinct concepts that notebook wanted is the actual gap (#639), and no cutoff closes
+ * it, because a label can only merge onto a type that exists.
  */
 const SEMANTIC_REUSE_THRESHOLD = 0.86;
 

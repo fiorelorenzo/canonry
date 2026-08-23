@@ -67,9 +67,10 @@ export function benchMatching(input: BenchMatchingInput): BenchMatching {
 		universeId: input.universeId,
 		// Import matching's own row (issue #309), the same one the product now bills a matching
 		// embed against. This embedder serves both halves of a bench import, the matcher and the
-		// relation-label resolver, so both of them land on that row here; in production the
-		// relation-label rung runs on `hashingEmbedder` and reaches no gateway at all, so
-		// nothing outside this harness attributes a relation label to matching.
+		// relation-label resolver, so both of them land on that row here, and since issue #629
+		// the product does the same: `resolveRelationLabelEmbedder` names this operation too,
+		// because a rung that embeds one to three words per relation is not worth its own price
+		// row.
 		operation: 'import.match.embed'
 	});
 	return {
