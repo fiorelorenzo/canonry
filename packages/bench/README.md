@@ -73,6 +73,11 @@ pnpm --filter @canonry/bench models -- --purpose premium
 pnpm --filter @canonry/bench models -- --purpose multimodal
 pnpm --filter @canonry/bench models -- --purpose premium --only openai/gpt-5.4 --task diff
 
+# a prompt change usually invalidates one case of one task, and re-running the others measures
+# nothing: issue #329 changed `onenote.md`, which only these two cases read
+pnpm --filter @canonry/bench models -- --purpose cheap --task extract \
+  --only google/gemini-3.1-flash-lite --case onenote-first-subpage --case onenote-second-subpage
+
 pnpm --filter @canonry/bench import-e2e
 pnpm --filter @canonry/bench import-e2e -- --source kanka
 

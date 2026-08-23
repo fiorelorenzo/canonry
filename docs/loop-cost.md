@@ -387,12 +387,14 @@ is monotone and hard to miss: 0 hits in 18 calls at a 3,083 to 3,478-token prefi
 3,953 to 4,497, and 11 of 12 at 6,795, where the read covered 90 per cent of the call. Nothing
 here isolates a threshold, and Google publishes a minimum for implicit caching rather than
 guaranteeing anything above it. But `onenote`'s fixed block is 3,935 tokens, which sits right
-where hits start, and cutting the 1,100 tokens of provenance and scope rationale out of its
-system prompt would land it near 2,800, below anything measured to hit at all. That trim needs
-its own arm of this runner before it ships, not just a token count, which is what #329 asks
-for. `obsidian`'s 2,808 tokens are a different case and were checked separately: its length is
-the seven wikilink forms and Dataview's inline fields, both of them markup no other playbook
-sees and each row of them changing a decision, so that one is earned.
+where hits start, and cutting the provenance and scope rationale out of its system prompt
+would land it below anything measured to hit at all. That trim needs its own arm of this
+runner before it ships, not just a token count, which is what #329 asks for. **#329 ran it,
+and the trim lost: the section below is that measurement.** `obsidian`'s prompt is a different
+case and was checked separately: its length is the seven wikilink forms and Dataview's inline
+fields, both of them markup no other playbook sees and each row of them changing a decision,
+so that one is earned. (It was 2,808 tokens when this was written and is 3,380 on 2026-08-23,
+so read the number here as dated and `packages/import/playbooks/obsidian.md` as current.)
 
 **`estimate.ts`'s 2.816 credits per OneNote document is now too high, and by an amount this
 repo cannot compute.** That constant is the average of two real jobs' `spent_credits`, and
@@ -403,6 +405,95 @@ not hardcoded to either: `estimateAveragesForPlaybook` replaces a cold-start def
 historical average the first time a real job finishes, so the right way to move that number is
 to let one finish under the new arithmetic rather than to substitute a repricing of old token
 counts for the measurement the row is supposed to carry. Filed as #330.
+
+## What #329 measured: shortening `onenote`'s prompt costs money (the trim is reverted)
+
+The section above left an open question with a price on it. `onenote.md`'s system prompt is
+2,928 tokens against `docx.md`'s 1,143 for a playbook doing the same job, 639 of them two
+paragraphs of provenance and scope rationale that change no tool call (578 net of the one
+sentence in them worth keeping), and it is re-sent
+on every step of every document. Cutting them is obviously right on a token count and
+possibly wrong on the bill, because a shorter prefix earns fewer of the cache reads that
+already serve half of this loop's input. So the trim was made, measured, and reverted.
+
+Seven arms, 2026-08-23, `google/gemini-3.1-flash-lite` on `cheap` with
+`pricePerCachedInputMTok` present, `pnpm --filter @canonry/bench loop-cost -- --source onenote
+--documents all` for the five ten-document arms and `--documents extremes` for the first two.
+The prompt was swapped in place between arms and the runner is otherwise untouched, so the
+only difference between a `trimmed` row and an `untrimmed` one is 578 tokens of prefix. The
+table lists the arms in the order they ran.
+
+**What the trim did to the prompt, measured rather than estimated:** the system prompt goes
+from 11,712 characters (2,928 tokens by this repo's chars-over-four convention) to 9,399
+(2,350), so the fixed block per step goes from 3,935 to 3,357 and the provider's own count of
+step 1 goes from 3,517 to 2,917. That is 578 tokens, not the 1,100 #329 estimated from
+reading the file: worth stating, because the estimate was 90 per cent high and the whole
+argument for the trim was the size of it.
+
+| arm | prompt | docs | calls | calls cached | input from cache | input tokens per call | fresh per call | USD of input per call | credits |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| before-A | untrimmed | 2 | 20 | 11 | 45.3% | 4,204 | 2,298 | 0.000632 | 1.2867 |
+| after-A | trimmed | 2 | 17 | 6 | 32.3% | 3,685 | 2,493 | 0.000659 | 1.1546 |
+| after-1 | trimmed | 10 | 122 | 52 | 38.2% | 3,739 | 2,310 | 0.000620 | 7.5718 |
+| before-1 | untrimmed | 10 | 113 | 62 | 44.1% | 4,298 | 2,401 | 0.000657 | 7.3812 |
+| before-2 | untrimmed | 10 | 125 | 101 | **64.1%** | 4,377 | 1,569 | **0.000477** | 6.2391 |
+| after-2 | trimmed | 10 | 121 | 52 | 38.3% | 3,766 | 2,324 | 0.000624 | 7.5578 |
+| after-3 | trimmed | 10 | 124 | 70 | 50.0% | 3,788 | 1,893 | 0.000530 | 6.7208 |
+
+**Read the USD column and not the credits column.** Credits include output tokens, output
+follows step count, and step count is the price and also the part that swings by up to 1.37x
+on identical input, which is this document's own headline finding. The trim touches the input
+prefix and nothing else, so input tokens repriced at the gateway's own two rates (USD 0.25
+fresh, USD 0.03 cached per million) is the only column where a 578-token change is visible
+above the noise.
+
+**Pooled over the five ten-document arms: the trim makes a model call 5.1 per cent more
+expensive.** 367 calls trimmed against 238 untrimmed, coverage 42.3 against 54.7 per cent,
+USD 0.00059114 of input per call against 0.00056231. It sends 575 fewer input tokens per call
+and pays for 210 more of them fresh.
+
+**And the direction flips with cache warmth, which is why one arm each would have answered
+wrongly.** A first pass over the ten documents is the cold case and the trim wins it (0.000657
+untrimmed against 0.000620 and 0.000624, 5 per cent cheaper); a second consecutive pass over
+the same ten with the same prefix is the warm case and the trim loses it by more (0.000477
+against 0.000530, 11 per cent dearer). A real import job is the warm case: it is many
+documents in sequence sharing one prefix, which is exactly what the second pass of each pair
+is. So the warm pair is the production-relevant comparison and it is the worse of the two.
+
+**The mechanism, from the per-step reads rather than the aggregate.** On the untrimmed prompt
+the first cached read of a document arrives at step 2 to 6; on the trimmed prompt, never
+before step 4 and usually step 5 to 7, in all 30 trimmed document runs. The trimmed prefix
+starts at 2,917 tokens by the provider's count and has to grow through several steps of
+transcript before this provider will serve it, and every one of those steps is billed fresh.
+The arithmetic of that trade is one line: saving 578 tokens on a call that was going to miss
+saves USD 0.000145, and converting one 3,900-token call from a hit to a miss costs USD
+0.000858, about six times as much, so the trim can afford to break at most one hit in six and
+measured it breaks about one in five (68.5 per cent of calls cached against 47.4).
+
+**So the 3,478-token ceiling of #313's probes is not a hard floor.** The smallest prompt this
+sweep saw served from cache was 3,476 tokens, on the trimmed prompt. What the probes were
+seeing is not a cliff but a cost: below roughly 3,500 to 3,900 tokens a read fires late and
+rarely, and "late and rarely" is enough to eat a 578-token saving whole.
+
+**Reverted, and the provenance moved anyway.** The two paragraphs are back in
+`onenote.md` byte for byte, so its `version` stays 4 and no import fingerprint changes. What
+#329 keeps is `docs/onenote-export.md`, which is where a maintainer should look for how that
+folder tree is produced and why the binary format waits, and a comment in the playbook's own
+frontmatter, which the loader strips before the body becomes the system prompt, saying that
+these paragraphs are load-bearing for cost rather than for behaviour. `obsidian.md`'s framing
+at lines 20 to 24, about 90 tokens, was checked in the same pass and left alone: its fixed
+block is 4,379 tokens, a 90-token cut moves nothing across any threshold measured here, and it
+would cost a `version` bump and therefore a re-fingerprint of every Obsidian import.
+
+**Accuracy was checked too, and it is not what decided this.** `docs/models.md`'s 0.839 for
+`cheap` on `extract` turned out to cover seven documents, none of them a OneNote page, so a
+OneNote prompt change could not have invalidated it. `packages/bench` now carries two
+`onenote` extract cases, both subpages, whose only expected relation is the parent/subpage one
+that the folder tree implies. Three runs of each prompt: the folder-tree relation was found in
+6 of 6 trimmed runs and 5 of 6 untrimmed, and the scores (0.708 to 0.767 trimmed, 0.625 to
+0.767 untrimmed) sit inside that variance. The rule the trim could have broken did not break.
+
+Total spend for the whole measurement, both prompts and both runners: EUR 0.53.
 
 ## Re-running this
 

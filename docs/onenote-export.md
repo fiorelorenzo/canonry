@@ -1,11 +1,14 @@
 # Why the OneNote playbook reads a folder tree, and why `.onepkg` is deferred
 
-This is the provenance behind `packages/import/playbooks/onenote.md`, moved out of that
-file's body by issue #329. It used to be two paragraphs of the system prompt, which meant
-it was re-sent to the model on every step of every document at 639 tokens a step and
-changed no tool call the playbook makes. A maintainer needs it; a model cannot act on it.
-SPEC.md §6.6 and §6.10 are the shorter product-level statement of the same decisions, and
-`apps/web/src/lib/components/docs/importGuides.ts` is what a user reads.
+This is the provenance behind `packages/import/playbooks/onenote.md`, written down here by
+issue #329. That issue set out to cut it from the playbook's own body, where it is re-sent to
+the model on every step of every document at 578 tokens a step and changes no tool call, and
+the measurement said no: a prefix that short stops earning Google's implicit prompt cache, and
+the lost reads cost 5 to 11 per cent more per model call than the tokens saved. So the two
+paragraphs are still in the prompt, this page is the maintainer's copy of them, and
+`docs/loop-cost.md` carries the numbers. SPEC.md §6.6 and §6.10 are the shorter product-level
+statement of the same decisions, and `apps/web/src/lib/components/docs/importGuides.ts` is
+what a user reads.
 
 ## OneNote has no clean export, so the playbook picks the shape that keeps the hierarchy
 
@@ -58,6 +61,7 @@ which the `docx` and `pdf` playbooks read directly, losing the hierarchy and kee
 everything else; or use OneNote's own web or desktop export to reach one of those two
 formats.
 
-The playbook itself does not attempt to open a `.onepkg`/`.one` file, and says so in one
-sentence near the top plus step 6 of its own steps: say so in `job_finish`'s summary and
-finish `skipped` rather than guessing at a binary layout.
+The playbook itself does not attempt to open a `.onepkg`/`.one` file, and says so twice: in
+the scope paragraph near the top, and in step 6 of its own steps, which is the one that
+changes a tool call. Say so in `job_finish`'s summary and finish `skipped` rather than
+guessing at a binary layout.
