@@ -446,9 +446,35 @@ current issue that you split it out, with a link.
   `players`, `web`, `billing`, `deploy`, `docs`. Add one only when the surface
   really is new.
 - Milestone: `v0` (the engine), `v1` (the sellable product), `v2` (distribution).
-- **Every issue hangs off an epic.** Epics are titled `[Epic] Name` and carry the
-  `epic` label. If none of the thirteen fits, create a new one and parent the issue
-  to it. An issue with no parent is a defect in the board.
+- **Every issue hangs off an epic, with no exceptions, and this is checkable rather
+  than aspirational.** Epics are titled `[Epic] Name` and carry the `epic` label; an
+  epic itself has no parent. If none of the existing ones fits, create a new epic and
+  parent the issue to it. An issue with no parent is a defect in the board, and it is
+  a defect that accumulates in exactly one way: an agent files a real finding
+  mid-wave, sets its labels and its four fields, and forgets the one step that is a
+  separate GraphQL mutation. On 2026-08-22 an audit of all 392 issues across this repo
+  and `canonry-landing` found 22 of them orphaned, every one a mid-wave split-out.
+  **So parent it in the same turn you create it**, and when a subagent files something
+  on your behalf, parenting it is yours rather than theirs.
+
+  Which epic, when it is not obvious: an item about a **surface** goes to the round
+  epic it was found in, because that is where a reader looks for what the round cost;
+  an item about the **engine** goes to its durable subject epic, because a round is
+  over and `[Epic] Media` is not. A closed epic still accepts children, so a defect
+  found today whose home is round seventeen goes there rather than to the newest round.
+
+  The audit, which is worth running at the end of any wave that filed issues:
+
+  ```bash
+  gh api graphql -f query='query($c:String){repository(owner:"fiorelorenzo",name:"canonry"){
+    issues(first:100,after:$c,states:[OPEN,CLOSED]){pageInfo{hasNextPage endCursor}
+    nodes{number parent{number} labels(first:20){nodes{name}}}}}}' \
+    --jq '.data.repository.issues.nodes[] | select(.parent==null)
+          | select([.labels.nodes[].name] | index("epic") | not) | .number'
+  ```
+
+  It pages 100 at a time, so re-run it with `-f c=<endCursor>` until `hasNextPage` is
+  false. Empty output on every page is the passing state.
 
 ```bash
 # Read the schema, never guess an option value
