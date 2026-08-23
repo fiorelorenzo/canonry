@@ -144,8 +144,12 @@ describe('estimateAveragesFor cold start for onenote (issue #261)', () => {
 			avgCreditsPerDocument: averages.avgCreditsPerDocument,
 			avgSecondsPerDocument: averages.avgSecondsPerDocument
 		});
-		// 4 on today's constant, against 9 before #330 and the 1 that produced the failure.
-		expect(estimate.estimatedCredits).toBeGreaterThan(3);
+		// 3 on today's constant, against 4 while obsidian carried onenote's number, 9 before
+		// #330 and the 1 that produced the failure. #606 measured obsidian at 0.8676 credits a
+		// document off a real 35-document import, so three notes quote 3; the guard that
+		// matters is that it is nowhere near the old sub-credit guess.
+		expect(estimate.estimatedCredits).toBe(3);
+		expect(estimate.estimatedCredits).toBeGreaterThan(1);
 	});
 });
 

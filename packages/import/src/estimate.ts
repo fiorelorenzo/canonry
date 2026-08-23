@@ -19,131 +19,147 @@ import { importJob } from '@canonry/db/schema';
 import { estimateImportJob, type ImportEstimate } from './job-runner.js';
 
 /**
- * Issue #330 replaced the number this table is calibrated on. The history is worth keeping,
+ * Issue #606 measured the six rows this table used to infer. The history is worth keeping,
  * because the shape of the mistake repeats: onenote's row was first a flat guess (0.25
  * credits/document), then briefly a corpus-density formula, then a flat constant again once
  * a second real job showed cost tracks the loop's own step budget and its full-transcript
  * resend on every step, not corpus bytes or link count (#261/#271/#272). That constant was
- * 2.816, the average of two real jobs' `spent_credits / document_count` (2.7496 and 2.8826).
- * Then #313 gave `computeCost` a cached-input rate, and those two jobs had been billing
- * roughly half of every input token at the full input rate, so the number they produced
- * stopped meaning what it said. `docs/loop-cost.md` bounded the honest figure at 1.15 to
- * 1.77 by repricing their recorded token counts and deliberately did not hardcode either
- * end, because a repricing of an old job is not a measurement of a new one.
+ * 2.816, the average of two real jobs billed before #313 priced cached input, so it stopped
+ * meaning what it said. #330 replaced it with **1.1492**, the document-weighted pool of two
+ * real `.mht` imports of a real 70-page OneNote notebook (93 documents, 106.8722 credits,
+ * read off `import_job`). `docs/loop-cost.md` holds that account in full, and onenote stays
+ * the only row here measured against somebody's real world.
  *
- * So this is a measurement of new ones. Three real `.mht` imports of a real 70-page OneNote
- * notebook through the product's own upload path (#590's corpus, #599's reader), on
- * `google/gemini-3.1-flash-lite` with `pricePerCachedInputMTok` present, read off
- * `import_job` rather than off a report:
+ * The other six were then that number times their own playbook's `stepBudget` over onenote's
+ * 60, which moved all seven whenever one moved and left two of them below a document this
+ * repo had already measured. #606 measured them instead: real imports through the product's
+ * own upload path (`upload` -> `confirm` -> `start` on `/onboarding/import`, so detection,
+ * enumeration, the estimate, admission and `startImportRun` all ran the way a GM's click runs
+ * them), one fresh empty universe per job, `google/gemini-3.1-flash-lite` on `cheap` with
+ * `pricePerCachedInputMTok` present, the same model #330 used. Every figure read off
+ * `import_job` rather than off a runner's report:
  *
- *   scope     docs  spent_credits  per document  input tokens  seconds
- *   page         1         0.5261        0.5261        33,193      9.3
- *   section     23        31.0004        1.3478     3,064,433    479.2
- *   notebook    70        75.8718        1.0839     6,295,130    952.9
+ *   playbook      jobs  docs  credits  per document  was (inferred)
+ *   obsidian         1    35   30.3658        0.8676          1.1492
+ *   world-anvil      1    32   23.8399        0.7450          0.9577
+ *   kanka            1     7    6.7393        0.9628          0.9577
+ *   docx             4     4    3.0197        0.7549          0.7661
+ *   pdf              2     2    1.9397        0.9699          0.7661
+ *   generic          3    12    9.6364        0.8030          0.7661
  *
- * The row is **1.1492**, the document-weighted pool of the two multi-page runs: 106.8722
- * credits over 93 documents. Two reasons for that scope rather than another. A one-page
- * import is the flattering case and it is not the case that matters, and this run proves the
- * cost of using it rather than arguing about it: the notebook job ran while the page job was
- * the only history, so the estimate screen quoted 37 credits for work that then billed
- * 75.8718. And pooling by document is the same arithmetic `estimateAveragesForPlaybook`
- * below performs on real rows, so the cold start and the path that replaces it agree on what
- * an average means. The notebook alone would have said 1.0839 and the page alone 0.5261.
+ * **The input is our own corpus and not a GM's export, which is the one thing these six do
+ * not share with onenote's row.** `packages/bench`'s `corpus` renders one sample world
+ * (`corpus/valdoria-reach.ts`) into every format, so these are six readings of one world
+ * rather than six worlds, and a real export with ten times the entries and a decade of
+ * cross-references may well cost more per document. A measured figure from our own fixtures
+ * is far better evidence than a figure scaled off a different playbook, which is what it
+ * replaces, but it is not the same thing and this comment does not pretend it is.
+ * `docs/loop-cost.md` names the archive behind every row.
  *
- * Two cross-checks, because one number from one afternoon deserves them. Repricing these
- * same two jobs' recorded tokens the way `computeCost` did before #313 (every input token
- * fresh) gives 2.3063 credits/document, so 2.816 was 22% above what this corpus would have
- * shown even under the old arithmetic, and the drop to 1.1492 is 50% pricing and the rest
- * corpus. And 1.1492 lands at the bottom edge of #313's 1.15 to 1.77 band rather than
- * outside it.
+ * **Scaling linearly in `stepBudget` is not supported, which is the second thing #606 asked.**
+ * Group the seven measured rows by the budget they share: 60 gives onenote 1.1492 and obsidian
+ * 0.8676, 50 gives world-anvil 0.7450 and kanka 0.9628, 40 gives docx 0.7549, pdf 0.9699 and
+ * generic 0.8030. Two playbooks sharing a step budget differ by up to 1.29x while the class
+ * means differ by 1.20x, so the variable the old formula divided by explains less than the
+ * variation it was meant to remove. On one corpus it explains nothing: drop onenote, whose
+ * world is a different one, and the three class means are 0.8676, 0.8539 and 0.8426, flat to
+ * within 3 per cent across step budgets 60, 50 and 40. The mechanism is visible in the jobs.
+ * A step budget is a ceiling, and one job of the twelve reached one at all (obsidian, on 2 of
+ * its 35 documents), so for the other 90 documents the budget bound nothing. What a document
+ * costs is what it finds, and how much it will find is not something the ceiling knows. So
+ * there is no formula here any more: every row is its own measurement.
  *
- * `avgSecondsPerDocument` stays 20. The measured figures are 13.6 (notebook) and 20.8
- * (section), pooling to 15.4, so 20 sits inside the measured range; and this box ran the
- * job 20 documents wide with other agents on it, which is the reason `docs/loop-cost.md`
- * keeps wall clock out of its tables at all. Moving a latency constant on a reading that
- * measures the box is not an improvement.
+ * **No measured row carries a margin, and the one unmeasured case takes the highest measured
+ * row.** That is the first thing #606 asked. Three reasons a measured row gets none. A
+ * per-document average is what a consent screen is for, and padding it overstates what the GM
+ * will actually be charged, which is its own harm under SPEC.md §15's "no opaque credits".
+ * What protects a job from a low estimate is `IMPORT_BUDGET_HEADROOM_MULTIPLIER`, now measured
+ * working twice: #330's notebook was quoted 37, budgeted 222 and spent 75.8718, and #606's
+ * obsidian job was quoted 41, budgeted 246 and spent 30.3658. And the row a playbook really
+ * needs is a real job in that playbook, which `estimateAveragesForPlaybook` installs the first
+ * time one finishes. `UNMEASURED_PLAYBOOK_ESTIMATE` below is the opposite case, a playbook id
+ * with no measurement at all: it used to fall back to the cheapest inferred row and now takes
+ * the dearest measured one, because for a playbook nobody has ever run there is no evidence it
+ * is cheaper than the dearest thing we have run, and #272's rule is that guessing high costs a
+ * scarier estimate screen while guessing low costs a job that cannot finish.
  *
- * The other six rows are still inferred, not measured - no real `import_job` row exists for
- * any of them on this deployment - from the same finding: if cost tracks steps taken rather
- * than content, and a document tends to run close to its playbook's own `stepBudget`
- * (`playbooks/*.md` frontmatter) when it has cross-document work to do, then a playbook's
- * per-document cost should scale with its `stepBudget` relative to onenote's 60, calibrated
- * by onenote's own per-step rate (1.1492 / 60 ≈ 0.01915 credits/step, 20 / 60 ≈ 0.333
- * seconds/step). `obsidian` shares onenote's exact `stepBudget: 60` and the same mandatory
- * cross-document behaviour (`SPEC.md` §6.6: "every `[[link]]` is a candidate relation", the
- * same shape as onenote's "follow every in-body link"), so it lands on exactly onenote's
- * number rather than a scaled-down one - this is the "off by roughly the factor onenote's
- * was" #272 named for the obsidian row specifically. `world-anvil` (`stepBudget: 50`) also
- * mandatorily follows inter-article links (`world-anvil.md`: "an inter-article link is a
- * candidate relation"). `kanka` (`stepBudget: 50`) follows a link only when a relation's
- * target is not in the same file - real cross-document work, just conditional rather than
- * guaranteed. `docx`, `pdf` and `generic` (`stepBudget: 40`) read one document with no
- * mandated cross-document following at all, so they get the smallest inferred number.
+ * **`avgSecondsPerDocument` is raised where the measurement is above the number it replaces,
+ * and never lowered.** These twelve jobs ran 20 documents wide on a box with other agents on
+ * it, which is why `docs/loop-cost.md` keeps wall clock out of its tables, so a reading here
+ * is an upper bound rather than a figure. An upper bound is evidence for raising a timeout
+ * constant and not for lowering one, and raising one is nearly free: a slow job spends nothing
+ * extra by being slow, and `IMPORT_TIMEOUT_HEADROOM_MULTIPLIER` triples it anyway. So
+ * obsidian (23.3 measured), pdf (25.3), kanka (17.6) and generic (15.5) take their readings
+ * rounded up, and onenote, world-anvil and docx keep the number they had, rounded up to whole
+ * seconds.
  *
- * **Moving onenote moved all seven, and two of the six are now tighter than a document this
- * repo has actually measured.** That is stated rather than papered over, because #272's
- * directive here is that guessing high costs a scarier estimate screen and guessing low
- * costs a job that cannot finish. Repricing `docs/loop-cost.md`'s own sweep at the cached
- * rate puts `campaign-brief.docx` at roughly 1.0 to 1.4 credits against `docx`'s new 0.7661,
- * and `kanka/characters.json` at roughly 2.8 to 3.8 against `kanka`'s new 0.9577. No margin
- * was added to hide that, for three reasons. The row a playbook needs is a real job in that
- * playbook, which `estimateAveragesForPlaybook` installs the first time one finishes. What
- * protects a job from a low estimate is not the estimate, it is
- * `IMPORT_BUDGET_HEADROOM_MULTIPLIER`, and the notebook run above is the evidence: quoted
- * 37, budgeted 222, spent 75.8718, finished. And a per-document average over a whole job is
- * not the cost of that job's most expensive document, which is what those two figures are.
- * What a low estimate does cost is a consent screen that understates, so the honest fix is
- * measuring the other six the way this one was measured, not widening a guess.
+ * **How much precision is worth buying here, honestly.** `estimateAveragesForPlaybook`
+ * replaces a cold-start row with the average of up to twenty real finished jobs, and it fires:
+ * #330 watched it three times, and #606 watched a five-document generic upload get quoted 5
+ * credits off the previous generic job's real 0.9944 rather than off the cold-start row. So
+ * for a playbook whose jobs finish, a wrong constant misprices exactly one job per deployment,
+ * and that is the frame this table should be read in. It does not deserve another decimal
+ * place, and it does deserve not being a guess. The exception is worth knowing because #606
+ * hit it: that query filters `status = 'finished'`, and #606's obsidian job settled
+ * `stopped_at_ceiling` (2 of its 35 documents reached their step ceiling, the other 33
+ * finished), so it installs no history at all. A playbook whose jobs keep stopping at a
+ * ceiling keeps quoting off the constant here however many jobs it has run, which is the one
+ * case where this row decides more than one job. Issue #610 carries that.
  */
-const ONENOTE_STEP_BUDGET = 60;
-const ONENOTE_CREDITS_PER_DOCUMENT = 1.1492;
-const ONENOTE_SECONDS_PER_DOCUMENT = 20;
-const ONENOTE_CREDITS_PER_STEP = ONENOTE_CREDITS_PER_DOCUMENT / ONENOTE_STEP_BUDGET;
-const ONENOTE_SECONDS_PER_STEP = ONENOTE_SECONDS_PER_DOCUMENT / ONENOTE_STEP_BUDGET;
 
-function inferredFromStepBudget(stepBudget: number): {
-	avgCreditsPerDocument: number;
-	avgSecondsPerDocument: number;
-} {
-	return {
-		avgCreditsPerDocument: ONENOTE_CREDITS_PER_STEP * stepBudget,
-		avgSecondsPerDocument: ONENOTE_SECONDS_PER_STEP * stepBudget
-	};
-}
+/** The row a playbook id with no measured row of its own gets: the highest measured figures in
+ * the table below, for the reason in the doc comment. Reached only through
+ * `estimateAveragesForPlaybook`'s `??`, since `apps/web` validates an id against
+ * `KNOWN_PLAYBOOK_IDS` before it gets here, so this is the defensive case rather than a
+ * playbook we ship. */
+export const UNMEASURED_PLAYBOOK_ESTIMATE = {
+	avgCreditsPerDocument: 1.1492,
+	avgSecondsPerDocument: 26
+};
 
 export const PLAYBOOK_COLD_START_ESTIMATE: Record<
 	string,
 	{ avgCreditsPerDocument: number; avgSecondsPerDocument: number }
 > = {
-	// MEASURED: two real 23- and 70-document `.mht` jobs, #330's own account above.
-	onenote: {
-		avgCreditsPerDocument: ONENOTE_CREDITS_PER_DOCUMENT,
-		avgSecondsPerDocument: ONENOTE_SECONDS_PER_DOCUMENT
-	},
-	// INFERRED: stepBudget 60, identical mandatory link-following shape to onenote.
-	obsidian: inferredFromStepBudget(60),
-	// INFERRED: stepBudget 50, mandatory inter-article link-following.
-	'world-anvil': inferredFromStepBudget(50),
-	// INFERRED: stepBudget 50, conditional cross-document following.
-	kanka: inferredFromStepBudget(50),
-	// INFERRED: stepBudget 40, single document, no mandated cross-document reads.
-	docx: inferredFromStepBudget(40),
-	pdf: inferredFromStepBudget(40),
-	generic: inferredFromStepBudget(40)
+	// #330: two real `.mht` jobs of a real 70-page notebook, 93 documents for 106.8722 credits.
+	// Seconds measured at 15.4 and left at 20, #330's own call.
+	onenote: { avgCreditsPerDocument: 1.1492, avgSecondsPerDocument: 20 },
+	// #606, corpus `obsidian/v1.zip`: 35 documents for 30.3658, settled `stopped_at_ceiling`
+	// because 2 documents reached their step ceiling. Every document still ran, and a document
+	// that spends its whole step budget is the dearest a document can be, not a truncated one.
+	obsidian: { avgCreditsPerDocument: 0.8676, avgSecondsPerDocument: 24 },
+	// #606, corpus `world-anvil/v1.zip`: 32 documents for 23.8399.
+	'world-anvil': { avgCreditsPerDocument: 0.745, avgSecondsPerDocument: 17 },
+	// #606, corpus `kanka/v1.zip`: 7 documents for 6.7393.
+	kanka: { avgCreditsPerDocument: 0.9628, avgSecondsPerDocument: 18 },
+	// #606, four single-file uploads of the corpus's own `.docx` (both files of v1 and of v2,
+	// one document each): 4 documents for 3.0197. Single-file is the only shape a `docx` job
+	// has, because a zip holding several `.docx` detects as `generic` (`detectSource` sniffs a
+	// sole entry and nothing else), so four jobs is what four documents costs here.
+	docx: { avgCreditsPerDocument: 0.7549, avgSecondsPerDocument: 14 },
+	// #606, two single-file uploads of the corpus's own `players-handout.pdf` (v1 and v2):
+	// 2 documents for 1.9397. The row the old formula put furthest out, at 0.7661.
+	pdf: { avgCreditsPerDocument: 0.9699, avgSecondsPerDocument: 26 },
+	// #606, `generic/v1.zip` and `generic/v2.zip` (5 documents each) plus the zip of two
+	// `.docx` that detection routes here (2 documents): 12 documents for 9.6364.
+	generic: { avgCreditsPerDocument: 0.803, avgSecondsPerDocument: 16 }
 };
 
 /**
  * `job-runner.ts`'s `EstimateImportJobInput` doc comment: "historical average, supplied
  * by the caller... never invented here." A cold start (nobody has run this playbook on
  * this deployment yet) falls back to `PLAYBOOK_COLD_START_ESTIMATE` above; once real
- * `import_job` rows exist for a playbook, they replace the cold-start default entirely; a
- * measured row is always better evidence than an inferred one.
+ * finished `import_job` rows exist for a playbook, they replace the cold-start default
+ * entirely, because a job in this deployment's own worlds is better evidence than a job in
+ * ours. `status = 'finished'` is doing more than it looks like here: a job that settled
+ * `stopped_at_ceiling` spent real credits on real documents and is still not history, so a
+ * playbook whose jobs keep stopping at a ceiling never leaves its cold-start row (#610).
  */
 export async function estimateAveragesForPlaybook(
 	database: Db,
 	playbookId: string
 ): Promise<{ avgCreditsPerDocument: number; avgSecondsPerDocument: number }> {
-	const coldStart = PLAYBOOK_COLD_START_ESTIMATE[playbookId] ?? inferredFromStepBudget(40);
+	const coldStart = PLAYBOOK_COLD_START_ESTIMATE[playbookId] ?? UNMEASURED_PLAYBOOK_ESTIMATE;
 
 	const rows = await database
 		.select({
