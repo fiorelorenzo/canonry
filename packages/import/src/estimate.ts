@@ -19,46 +19,87 @@ import { importJob } from '@canonry/db/schema';
 import { estimateImportJob, type ImportEstimate } from './job-runner.js';
 
 /**
- * Issue #261/#271/#272's full account: onenote's row was first a flat guess (0.25
- * credits/document), then briefly a corpus-density formula, then a flat constant again
- * once a second real job showed cost tracks the loop's own step budget and its
- * full-transcript resend on every step, not corpus bytes or link count - a 3-page and a
- * 14-page onenote corpus cost within 6% of each other per document (2.7496 vs 2.8826
- * credits, 121,911 vs 129,188 input tokens). That is the only source-independent,
- * source-measured number this deployment has: two real onenote documents, averaging
- * 2.816 credits and one clean wall-clock reading of 20 seconds.
+ * Issue #330 replaced the number this table is calibrated on. The history is worth keeping,
+ * because the shape of the mistake repeats: onenote's row was first a flat guess (0.25
+ * credits/document), then briefly a corpus-density formula, then a flat constant again once
+ * a second real job showed cost tracks the loop's own step budget and its full-transcript
+ * resend on every step, not corpus bytes or link count (#261/#271/#272). That constant was
+ * 2.816, the average of two real jobs' `spent_credits / document_count` (2.7496 and 2.8826).
+ * Then #313 gave `computeCost` a cached-input rate, and those two jobs had been billing
+ * roughly half of every input token at the full input rate, so the number they produced
+ * stopped meaning what it said. `docs/loop-cost.md` bounded the honest figure at 1.15 to
+ * 1.77 by repricing their recorded token counts and deliberately did not hardcode either
+ * end, because a repricing of an old job is not a measurement of a new one.
  *
- * The other six rows are inferred, not measured - no real `import_job` row exists yet for
- * any of them on this deployment - from the same finding: if cost tracks steps taken
- * rather than content, and a document tends to run close to its playbook's own
- * `stepBudget` (`playbooks/*.md` frontmatter) when it has cross-document work to do, then
- * a playbook's per-document cost should scale with its `stepBudget` relative to onenote's
- * 60, calibrated by onenote's one real per-step rate (2.816 / 60 ≈ 0.0469 credits/step,
- * 20 / 60 ≈ 0.333 seconds/step). `obsidian` shares onenote's exact `stepBudget: 60` and
- * the same mandatory cross-document behaviour (`SPEC.md` §6.6: "every `[[link]]` is a
- * candidate relation", the same shape as onenote's "follow every in-body link"), so it
- * lands on exactly onenote's number rather than a scaled-down one - this is the "off by
- * roughly the factor onenote's was" #272 named for the obsidian row specifically.
- * `world-anvil` (`stepBudget: 50`) also mandatorily follows inter-article links
- * (`world-anvil.md`: "an inter-article link is a candidate relation"). `kanka`
- * (`stepBudget: 50`) follows a link only when a relation's target is not in the same
- * file - real cross-document work, just conditional rather than guaranteed. `docx`, `pdf`
- * and `generic` (`stepBudget: 40`) read one document with no mandated cross-document
- * following at all, so they get the smallest inferred number, though still meaningfully
- * above their old guesses: even a self-contained document takes several steps (propose
- * entity, propose entity, propose relation, checkpoint, `job_finish`), each one resending
- * the transcript so far, and #271 has not measured a lower bound on that yet either.
+ * So this is a measurement of new ones. Three real `.mht` imports of a real 70-page OneNote
+ * notebook through the product's own upload path (#590's corpus, #599's reader), on
+ * `google/gemini-3.1-flash-lite` with `pricePerCachedInputMTok` present, read off
+ * `import_job` rather than off a report:
  *
- * This is deliberately generous rather than tight: per this file's own directive (#272),
- * the cost of guessing high is a scarier number on an estimate screen, the cost of
- * guessing low is a job that cannot finish, and only onenote's two rows carry a "measured"
- * label because only onenote has two real jobs behind it. Every other row here should be
- * replaced by `estimateAveragesFor`'s own historical-average path (below) the first time
- * this deployment finishes a real job in that playbook - these are cold-start defaults,
- * not a permanent table.
+ *   scope     docs  spent_credits  per document  input tokens  seconds
+ *   page         1         0.5261        0.5261        33,193      9.3
+ *   section     23        31.0004        1.3478     3,064,433    479.2
+ *   notebook    70        75.8718        1.0839     6,295,130    952.9
+ *
+ * The row is **1.1492**, the document-weighted pool of the two multi-page runs: 106.8722
+ * credits over 93 documents. Two reasons for that scope rather than another. A one-page
+ * import is the flattering case and it is not the case that matters, and this run proves the
+ * cost of using it rather than arguing about it: the notebook job ran while the page job was
+ * the only history, so the estimate screen quoted 37 credits for work that then billed
+ * 75.8718. And pooling by document is the same arithmetic `estimateAveragesForPlaybook`
+ * below performs on real rows, so the cold start and the path that replaces it agree on what
+ * an average means. The notebook alone would have said 1.0839 and the page alone 0.5261.
+ *
+ * Two cross-checks, because one number from one afternoon deserves them. Repricing these
+ * same two jobs' recorded tokens the way `computeCost` did before #313 (every input token
+ * fresh) gives 2.3063 credits/document, so 2.816 was 22% above what this corpus would have
+ * shown even under the old arithmetic, and the drop to 1.1492 is 50% pricing and the rest
+ * corpus. And 1.1492 lands at the bottom edge of #313's 1.15 to 1.77 band rather than
+ * outside it.
+ *
+ * `avgSecondsPerDocument` stays 20. The measured figures are 13.6 (notebook) and 20.8
+ * (section), pooling to 15.4, so 20 sits inside the measured range; and this box ran the
+ * job 20 documents wide with other agents on it, which is the reason `docs/loop-cost.md`
+ * keeps wall clock out of its tables at all. Moving a latency constant on a reading that
+ * measures the box is not an improvement.
+ *
+ * The other six rows are still inferred, not measured - no real `import_job` row exists for
+ * any of them on this deployment - from the same finding: if cost tracks steps taken rather
+ * than content, and a document tends to run close to its playbook's own `stepBudget`
+ * (`playbooks/*.md` frontmatter) when it has cross-document work to do, then a playbook's
+ * per-document cost should scale with its `stepBudget` relative to onenote's 60, calibrated
+ * by onenote's own per-step rate (1.1492 / 60 ≈ 0.01915 credits/step, 20 / 60 ≈ 0.333
+ * seconds/step). `obsidian` shares onenote's exact `stepBudget: 60` and the same mandatory
+ * cross-document behaviour (`SPEC.md` §6.6: "every `[[link]]` is a candidate relation", the
+ * same shape as onenote's "follow every in-body link"), so it lands on exactly onenote's
+ * number rather than a scaled-down one - this is the "off by roughly the factor onenote's
+ * was" #272 named for the obsidian row specifically. `world-anvil` (`stepBudget: 50`) also
+ * mandatorily follows inter-article links (`world-anvil.md`: "an inter-article link is a
+ * candidate relation"). `kanka` (`stepBudget: 50`) follows a link only when a relation's
+ * target is not in the same file - real cross-document work, just conditional rather than
+ * guaranteed. `docx`, `pdf` and `generic` (`stepBudget: 40`) read one document with no
+ * mandated cross-document following at all, so they get the smallest inferred number.
+ *
+ * **Moving onenote moved all seven, and two of the six are now tighter than a document this
+ * repo has actually measured.** That is stated rather than papered over, because #272's
+ * directive here is that guessing high costs a scarier estimate screen and guessing low
+ * costs a job that cannot finish. Repricing `docs/loop-cost.md`'s own sweep at the cached
+ * rate puts `campaign-brief.docx` at roughly 1.0 to 1.4 credits against `docx`'s new 0.7661,
+ * and `kanka/characters.json` at roughly 2.8 to 3.8 against `kanka`'s new 0.9577. No margin
+ * was added to hide that, for three reasons. The row a playbook needs is a real job in that
+ * playbook, which `estimateAveragesForPlaybook` installs the first time one finishes. What
+ * protects a job from a low estimate is not the estimate, it is
+ * `IMPORT_BUDGET_HEADROOM_MULTIPLIER`, and the notebook run above is the evidence: quoted
+ * 37, budgeted 222, spent 75.8718, finished. And a per-document average over a whole job is
+ * not the cost of that job's most expensive document, which is what those two figures are.
+ * What a low estimate does cost is a consent screen that understates, so the honest fix is
+ * measuring the other six the way this one was measured, not widening a guess.
  */
-const ONENOTE_CREDITS_PER_STEP = 2.816 / 60;
-const ONENOTE_SECONDS_PER_STEP = 20 / 60;
+const ONENOTE_STEP_BUDGET = 60;
+const ONENOTE_CREDITS_PER_DOCUMENT = 1.1492;
+const ONENOTE_SECONDS_PER_DOCUMENT = 20;
+const ONENOTE_CREDITS_PER_STEP = ONENOTE_CREDITS_PER_DOCUMENT / ONENOTE_STEP_BUDGET;
+const ONENOTE_SECONDS_PER_STEP = ONENOTE_SECONDS_PER_DOCUMENT / ONENOTE_STEP_BUDGET;
 
 function inferredFromStepBudget(stepBudget: number): {
 	avgCreditsPerDocument: number;
@@ -74,8 +115,11 @@ export const PLAYBOOK_COLD_START_ESTIMATE: Record<
 	string,
 	{ avgCreditsPerDocument: number; avgSecondsPerDocument: number }
 > = {
-	// MEASURED: two real jobs, #261/#272's own account above.
-	onenote: { avgCreditsPerDocument: 2.816, avgSecondsPerDocument: 20 },
+	// MEASURED: two real 23- and 70-document `.mht` jobs, #330's own account above.
+	onenote: {
+		avgCreditsPerDocument: ONENOTE_CREDITS_PER_DOCUMENT,
+		avgSecondsPerDocument: ONENOTE_SECONDS_PER_DOCUMENT
+	},
 	// INFERRED: stepBudget 60, identical mandatory link-following shape to onenote.
 	obsidian: inferredFromStepBudget(60),
 	// INFERRED: stepBudget 50, mandatory inter-article link-following.
