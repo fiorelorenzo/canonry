@@ -1,9 +1,11 @@
-# The sample world, used by every UX artifact
+# The sample world, used by every hand-drawn UX artifact
 
-Every mock in `docs/ux/` shows the same world with the same names and the same
-numbers. A decision is easier to take when the only thing changing between two
-options is the option itself, and a set of artifacts that invents fresh fiction on
-each page makes the reader do work that has nothing to do with the decision.
+Every mock in the 59 HTML artifacts hand-drawn under `docs/ux/` through round eighteen
+(deleted 2026-08-23, readable in git history at `c84c8f8`) showed the same world with
+the same names and the same numbers. A decision was easier to take when the only thing
+changing between two options was the option itself, and a set of artifacts that invented
+fresh fiction on each page would have made the reader do work that had nothing to do
+with the decision.
 
 Nothing here is a product requirement. It is fixture data.
 

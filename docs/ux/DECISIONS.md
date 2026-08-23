@@ -1,4 +1,4 @@
-This table is the answer set for all nineteen rounds, one row per decision: `ID` links to the prose section that explains it where one exists, `Round` and `Question` are stated in the product's own words, and `Answer` is the letter and short name the register already uses. `Rule it creates` is filled only where a decision produced something a component can violate; it is empty everywhere else. The prose below the table, starting at the heading, is the reasoning behind every answer and is unchanged: it is what stops a settled question being reopened.
+This table is the answer set for all twenty rounds, one row per decision: `ID` links to the prose section that explains it where one exists, `Round` and `Question` are stated in the product's own words, and `Answer` is the letter and short name each decision took. `Rule it creates` is filled only where a decision produced something a component can violate; it is empty everywhere else. The prose below the table, starting at the heading, is the reasoning behind every answer, and it now also carries what the register in `docs/ux/assets/ux.js` held in each entry's `dnote`, absorbed here because that file and the 59 drawn artifacts under `docs/ux/` are gone as of 2026-08-23, readable forever in git history at `c84c8f8`. Nothing else about the prose changed: it is still what stops a settled question being reopened.
 
 | ID | Round | Question | Answer | Rule it creates |
 | --- | --- | --- | --- | --- |
@@ -150,9 +150,11 @@ This table is the answer set for all nineteen rounds, one row per decision: `ID`
 # Canonry UX decisions
 
 The record of what was decided, when, and what each answer costs the issues that
-depend on it. `docs/ux/index.html` is the audit and the register, one artifact per
-question with the options drawn; this file is the answer set in prose, so it can be
-read in a diff and quoted in an issue.
+depend on it. Through round eighteen, `docs/ux/index.html` was the audit and the
+register, one artifact per question with the options drawn; that page and the 59
+artifacts it indexed are gone as of 2026-08-23, and the surface inventory and review
+rubric it also carried now live in `docs/ux/SURFACES.md` and `docs/ux/RUBRIC.md`. This
+file is the answer set in prose, so it can be read in a diff and quoted in an issue.
 
 ## Decisions that changed the spec
 
@@ -170,16 +172,16 @@ questions those answers opened, were both taken on 2026-08-13; round three's 2 o
 round four's 10 and round five's 1, both on 2026-08-15; round six's 1 and round seven's 1 on
 2026-08-16; round eight's 1 and round nine's 1, both on 2026-08-19. Rounds one to three answered
 questions asked before there was code. Round four came out of the shipped UI and is recorded
-further down in this file, with its audit in [`product-pass.html`](product-pass.html). Rounds
+further down in this file, with its audit in `product-pass.html`, gone from the tree as of 2026-08-23 and readable in git history at `c84c8f8`. Rounds
 five to nine have no separate audit artifact: each is one question forced by something the
 shipped product already did, not a page of drawn options, and all five are recorded at the
 bottom of this file. Round ten, at the very bottom, is four questions with drawn options and no
 answers yet.
 
-To change a decision: edit this file and the `UX_REGISTER` entry in
-`docs/ux/assets/ux.js`, and say so on the issues it blocks. The artifact keeps its
-options and its rejected section either way, because the reasoning behind a rejected
-option is what stops it being reopened in six months.
+To change a decision: edit this file's row and its prose section, and say so on the
+issues it blocks. There is no `UX_REGISTER` to keep in step with it any more and no
+artifact to hold a rejected option's own section; that reasoning lives in the prose
+below, which is what stops a rejected option being reopened in six months.
 
 ## Round one
 
@@ -209,7 +211,7 @@ option is what stops it being reopened in six months.
 | C2  | Proposal routing  | **A, an inbox**, with a quiet arrival signal and never a modal                                                                                                                                                                                     |
 | C3  | The plan          | **A, flat checklist** ordered by relevance, entries droppable before any diff is written                                                                                                                                                           |
 | C4  | Diff layout       | **C, in place**, and the toggle is repealed by round twelve's Q1: every changed part shows at once with its context. Amended round eleven: the diff has its own colour, distinct from C1's marking, see P3                                         |
-| C5  | Evidence          | **B, popover on the changed text**, forced open where nothing but weak evidence backs the candidate. Amended (#270): weak means embedding similarity, or the GM's own request for a proposal made from Ask, and the popover names which of the two |
+| C5  | Evidence          | **B, popover on the changed text**, forced open where nothing but weak evidence backs the candidate. Amended (#270): weak means embedding similarity, or the GM's own request for a proposal made from Ask, and the popover names which of the two, because a header that read only "embedding similarity" over a quote of the GM's own request would be its own small lie |
 | C6  | Accept and reject | **B, keyboard queue**, `j k a r u`, buttons always visible                                                                                                                                                                                         |
 | C7  | Reject reasons    | **A, chips with a free text escape**                                                                                                                                                                                                               |
 | C8  | Ask mode          | **B, command palette.** Amended: the palette launches the flow, an answer can move into a dedicated page, a source click goes to that entry                                                                                                        |
@@ -407,7 +409,7 @@ document icon, which is the moment a mark stops being decoration:
 The first three rounds answered questions asked before there was any code. Round four is
 the other direction: I signed into the deployed preview as a new user, could not create a
 universe, and audited every route to find out why. That audit is
-[`docs/ux/product-pass.html`](product-pass.html), which is not a decision artifact but a
+`docs/ux/product-pass.html`, deleted 2026-08-23 and readable in git history at `c84c8f8`, which was not a decision artifact but a
 pass over the shipped UI, one section per surface, each with what ships today drawn
 faithfully, its flaws with file and line, two or three options as working mock UI and a
 recommendation.
@@ -421,13 +423,13 @@ do not, and the eighteen are every screen a new account meets before it has a un
 | Id  | Question                                                                                | Chosen                                                                                                                                                                                             |
 | --- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | I1  | What the app serves at `/` to somebody signed out, now that the landing lives elsewhere | **B, a door page**: the spec's own sentence, sign in and create an account, and the links a visitor is owed                                                                                        |
-| I2  | Sign in and sign up                                                                     | **C for sign-in, B for sign-up**: one layout, the title page, with an optional right pane carrying the argument where somebody is deciding                                                         |
+| I2  | Sign in and sign up                                                                     | **C for sign-in, B for sign-up**: one layout, the title page, with an optional right pane carrying the argument where somebody is deciding. The pane is drawn static, with no accept control of its own: the door stays quiet, and the argument belongs to the screen where a decision is actually being made                                                         |
 | I3  | The home page, signed in                                                                | **B, the shell reaches outside a universe**, with C's redirect as the zero-universe behaviour                                                                                                      |
 | I4  | Creating a universe                                                                     | **B, one creation surface**: `/onboarding` absorbs `/u/new` and offers three starts                                                                                                                |
-| I5  | Where the language switch lives                                                         | **B, a row in the account menu**, endonyms, with the settings page behind it                                                                                                                       |
+| I5  | Where the language switch lives                                                         | **B, a row in the account menu**, endonyms, with the settings page behind it. Not flags: an entry's own canon language is a separate per-entry claim, so a flag in the chrome would read as "translate this page", which guardrail 1 forbids. If the top bar ever wants the control, it carries the endonym as text                                                     |
 | I6  | The account, and five settings pages with no home                                       | **B, an account menu in the shell plus one two-pane settings page**, with a real Account pane                                                                                                      |
 | I7  | The universe home, and the entry browser that was never built                           | **C, one page two modes**: the browser, with a collapsible overview strip above it. **Superseded by O1 on 2026-08-19**: two surfaces, a home at `/w/<slug>` and the browser at `/w/<slug>/entries` |
-| I8  | Nine empty states, nine hand-written sentences                                          | **A, one component, three variants**: cold start, settled, derived absence                                                                                                                         |
+| I8  | Nine empty states, nine hand-written sentences                                          | **A, one component, three variants**: cold start carries a primary action, a settled state stays a plain sentence that never grows a button inviting work, and a derived absence explains what it is waiting on                                                                                                                         |
 | I9  | Who owns the controls                                                                   | **C, shadcn-svelte as the control layer**, with components of our own only where it has no answer                                                                                                  |
 | I10 | The phone                                                                               | **B, one responsive shell**, E4's bottom tabs generalised past table mode                                                                                                                          |
 
@@ -951,9 +953,10 @@ Round eleven has no artifacts, and that is the one thing to say about it before 
 answers. Every earlier round drew two or three options per question and then picked one.
 Here Lorenzo used the deployed preview, listed nine things he disliked, and said what he
 wanted instead. Drawing options to justify answers already given would be theatre, so this
-round is prose only and the register in `docs/ux/assets/ux.js` keeps no rows for it: every
-row there is keyed to an artifact, and inventing artifact-less rows would make the register
-lie about how these were decided. What the register does get is O2's amendment, because a
+round is prose only and the register in `docs/ux/assets/ux.js` (deleted 2026-08-23, in
+git history at `c84c8f8`) kept no rows for it: every row there was keyed to an artifact,
+and inventing artifact-less rows would have made the register lie about how these were
+decided. What the register did get was O2's amendment, because a
 reversal has to be visible where the original is.
 
 Two of the nine reverse a recorded decision, four are defects against one, and three were
@@ -1230,7 +1233,7 @@ carries the only change that may need a migration, so it owns that slot.
 
 Twelve more from the same preview, the same evening as round twelve. Same shape and the
 same reason: these came out of using the thing, so there are no artifacts and the register
-in `docs/ux/assets/ux.js` keeps no rows. What is different is how many of them are defects
+in `docs/ux/assets/ux.js` (deleted 2026-08-23, in git history at `c84c8f8`) kept no rows. What is different is how many of them are defects
 rather than taste. Four are a page or a control doing something nobody chose (a modal in
 the top-left corner, two navigation items pointing at a 404, a search that reads names and
 not prose, a control that O4 already ruled on), one reverses a decision taken three days
@@ -2405,7 +2408,7 @@ untouched, because an import proposing a duplicate is prompt and matching work t
 
 One question, and it is the first one in this set that amends a decision from a round that
 already shipped rather than answering something new. It was drawn rather than argued, in
-`docs/ux/x1-band-and-body-alignment.html`, because it is a geometry and a paragraph cannot
+`docs/ux/x1-band-and-body-alignment.html`, deleted 2026-08-23 and readable in git history at `c84c8f8`, because it is a geometry and a paragraph cannot
 show one.
 
 | Id  | Question                                                                              | Chosen                                                                                                                             |

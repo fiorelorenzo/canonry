@@ -135,7 +135,7 @@ candidates for a round eighteen, not decisions.
 ## What this set deliberately does not do
 
 It does not choose. Four of the twelve above touch a decision on record (C5, C6, D3, G11), and
-changing one of those means editing `DECISIONS.md` and the register in `docs/ux/assets/ux.js`
-together and saying so on the issues it blocks, which is the same rule as always. It also does not
+changing one of those means editing `DECISIONS.md` and saying so on the issues it blocks,
+which is the same rule as always. It also does not
 collect screenshots of other people's products into this repository: the URL is the evidence, and a
 page that has changed since it was read is a page worth reading again.

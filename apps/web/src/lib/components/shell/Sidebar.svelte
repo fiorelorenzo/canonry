@@ -218,7 +218,7 @@
 	<!-- Shared footer (issue #141, I3 = B). #150 (F2's quota meter) is the sibling
 	     above ShellUserRow; #143/#144 (I6 = B, I5 = B) turned ShellUserRow itself into
 	     the real account menu - Docs and Privacy now live as rows inside that menu
-	     (docs/ux/product-pass.html#i6's own mock draws them there), which is also why
+	     (`docs/ux/DECISIONS.md`, I6; product-pass.html's own mock, in git history at c84c8f8), which is also why
 	     there is no longer a standalone Privacy link in this div: one menu, not a menu
 	     plus a leftover link saying the same thing twice. #349 adds `universeSlug` to
 	     the props ShellUserRow reads: universe mode's own kept-answers link now lives

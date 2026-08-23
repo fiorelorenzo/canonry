@@ -331,10 +331,13 @@ than stalling a wave on a field.
 
 `SPEC.md` says a proposal shows its evidence and never where the evidence sits, and it
 is quiet about the interface on purpose. That used to mean drawing the open questions as
-59 hand-built HTML artifacts under `docs/ux/`, one per surface; that set is closed and
-frozen as the record of rounds one to eighteen, and `docs/ux/index.html` still carries the
-surface inventory and the review rubric the guardrails turn into. A new UX question is not
-built by hand here any more: it is drawn in Claude Design.
+59 hand-built HTML artifacts under `docs/ux/`, one per surface. That set answered every
+question through round eighteen, and once it had, it was deleted rather than kept frozen
+(#633): the drawn options are readable forever in git history at `c84c8f8`, and
+`docs/ux/SURFACES.md` and `docs/ux/RUBRIC.md` now carry the surface inventory and the
+review rubric the guardrails turn into, the two pieces of `index.html` that were still
+live rather than historical. A new UX question is not built by hand here any more: it is
+drawn in Claude Design.
 
 **Two kinds of Claude Design project, and only two.** A disposable one per surface, named
 `canonry · <surface>`, regenerated from the repo with "Start from code" whenever it goes
@@ -352,9 +355,9 @@ of truth, and it never holds anything client-confidential.
 **The answer still lives here, not on a canvas.** `docs/ux/DECISIONS.md` opens with a table,
 one row per decision (`ID`, `Round`, `Question`, `Answer`, `Rule it creates`), and that table
 is where a decision lives now. Moving one means editing that row and saying so on the issues
-it blocks. `docs/ux/assets/ux.js`'s register is closed as of 2026-08-23 and takes no more
-rows; it stays only because the 59 frozen artifacts still render their head, breadcrumb and
-prev/next from it.
+it blocks. `docs/ux/assets/ux.js`'s register, which used to drive the 59 artifacts' head,
+breadcrumb and prev/next, was deleted with them on 2026-08-23 (#633); nothing in the tree
+depends on it any more.
 
 **An implementation starts from the export's map, never from its CSS.** Claude Design's
 "Project archive" export is a zip: the canvas, a `github.md` screen map naming the repo files

@@ -31,7 +31,7 @@ export interface FilterBucket {
 }
 
 /** SPEC.md §4.2's own order ("character, place, faction, item, event, session"), relations
- * last - matches the D4 mock's own chip order (docs/ux/d4-import-review.html). */
+ * last - matches the D4 mock's own chip order (docs/ux/DECISIONS.md; the drawn mock is in git history at c84c8f8). */
 const BUCKET_ORDER = ['character', 'place', 'faction', 'item', 'event', 'session', 'relation'];
 
 /** "All" first, then one chip per type actually present in this job - a type nobody

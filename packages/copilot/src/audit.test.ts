@@ -1,6 +1,6 @@
 /**
  * Integration tests for audit (issue #55, SPEC.md §5.2) against the real database with a
- * fake model - the fixture's own contradiction from docs/ux/c9-audit-flags.html (Aldric
+ * fake model - the fixture's own contradiction from C9's artifact (Aldric
  * Vane against Cairnmouth, "who led the watch through the second freeze") drives the main
  * case, so this exercises the exact scenario the UX artifact and the acceptance criteria
  * both name.
@@ -452,7 +452,7 @@ describe('runAudit (issue #55, SPEC.md §5.2)', () => {
 });
 
 describe('buildFlagRationale and isGuardrailSafeTopic (guardrail 7)', () => {
-	it('builds the exact framing docs/ux/c9-audit-flags.html locks in', () => {
+	it('builds the exact framing C9 (docs/ux/DECISIONS.md; drawn artifact in git history at c84c8f8) locks in', () => {
 		expect(
 			buildFlagRationale(
 				'Aldric Vane',
