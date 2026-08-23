@@ -73,7 +73,9 @@
 					>
 					{summary(row)}
 				</p>
-				<span class="shrink-0 text-meta text-muted tabular-nums">{t.usageCount(row.usageCount)}</span>
+				<span class="shrink-0 text-meta text-muted tabular-nums"
+					>{t.usageCount(row.usageCount)}</span
+				>
 			</li>
 		{/each}
 	</ul>

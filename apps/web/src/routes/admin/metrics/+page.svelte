@@ -111,7 +111,8 @@
 										<td class="px-3 py-2 text-ink-2 tabular-nums">{row.weekStart}</td>
 										<td class="px-3 py-2 text-ink">{row.kind}</td>
 										<td class="px-3 py-2"
-											><code class="text-label text-ink-2">{row.modelId ?? t.unattributed}</code></td
+											><code class="text-label text-ink-2">{row.modelId ?? t.unattributed}</code
+											></td
 										>
 										<td class="px-3 py-2 text-ink tabular-nums">{row.produced}</td>
 										<td class="px-3 py-2 text-ink tabular-nums">{row.accepted}</td>

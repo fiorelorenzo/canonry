@@ -472,7 +472,9 @@
 			{/if}
 
 			{#if error}
-				<p class="mt-3 rounded-md border border-danger bg-danger-bg px-3 py-2 text-body text-danger">
+				<p
+					class="mt-3 rounded-md border border-danger bg-danger-bg px-3 py-2 text-body text-danger"
+				>
 					{error}
 				</p>
 			{/if}

@@ -533,7 +533,9 @@
 						<!-- Round eleven P2 (#344), and guardrail 4 more than P2: the copilot's hue is
 					     the last thing that should announce that the copilot is off. This notice is
 					     the theme's own panel and line. -->
-						<p class="mt-3 rounded-md border border-line bg-panel-2 px-3 py-2 text-label text-ink-2">
+						<p
+							class="mt-3 rounded-md border border-line bg-panel-2 px-3 py-2 text-label text-ink-2"
+						>
 							{t.aiToggle.offNotice(data.current.name)}
 						</p>
 					{/if}
