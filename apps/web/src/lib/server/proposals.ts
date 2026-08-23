@@ -791,6 +791,11 @@ export interface DiffCandidate {
 	 * full-body removal in that state, so a caller that means to show a real diff has to
 	 * check this first rather than trust `diff.rows.length`. */
 	awaitingDiff: boolean;
+	/** Issue #628: always null from here - `ProposalDiffCard`'s own `notAdmitted` is
+	 * populated client-side, after a failed accept, never by this read. Typed as the
+	 * literal `null` rather than imported from the component so this server-only file
+	 * never has to import a `.svelte` module's type just to say "not yet". */
+	notAdmitted: null;
 }
 
 /** Turns one resolved candidate into everything `ProposalDiffCard` needs to render,
@@ -872,7 +877,8 @@ export function enrichCandidate(candidate: ProposalCandidate): DiffCandidate {
 		evidenceViews: views,
 		evidenceCaveat: caveat,
 		relationVocab,
-		awaitingDiff
+		awaitingDiff,
+		notAdmitted: null
 	};
 }
 

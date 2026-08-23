@@ -126,7 +126,6 @@ export { completeEntry, type CompleteEntryInput, type CompleteEntryResult } from
 
 export {
 	resolveRelationType,
-	isInverseMatch,
 	normalizeRelationLabel,
 	type RelationTypeResolution,
 	type ResolveRelationTypeDeps,

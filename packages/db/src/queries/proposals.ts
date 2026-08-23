@@ -92,9 +92,30 @@ export class EntitySlugCollisionUnresolvedError extends Error {
  * then trusted - a real error, never a silent drop. #189's resolver is what turns "this
  * pair is not admitted" into a `widen-proposed` a GM can accept instead of a proposal
  * failing here; this is the backstop for anything that reaches accept without having gone
- * through it. */
+ * through it.
+ *
+ * Issue #628: the refusal stays, and it now carries what a GM would need to act on it. The
+ * check is right and the timing is not negotiable - the endpoints' types are only final
+ * once the GM has accepted them, so this is the first moment the real pair is knowable -
+ * but "cannot be accepted" with nothing else in it left the GM with a failed click and no
+ * route. `addFrom`/`addTo` name exactly the widening that would admit this pair, and
+ * `shipped` says whether that widening is possible at all: a `universe_id`-null row only
+ * ever changes through a migration (`resolveAdmissionGap`'s own comment), so a gap on a
+ * shipped type needs a universe-scoped fork rather than a widen. */
 export class RelationTypeNotAdmittedError extends Error {
-	constructor(proposalId: string, typeLabel: string, fromType: EntityType, toType: EntityType) {
+	constructor(
+		proposalId: string,
+		readonly relationTypeId: string,
+		readonly typeLabel: string,
+		readonly fromType: EntityType,
+		readonly toType: EntityType,
+		/** The entity type missing from `allowed_from`, absent when that end is admitted
+		 * and only the other one is not. */
+		readonly addFrom: EntityType | null,
+		readonly addTo: EntityType | null,
+		/** True for a shipped catalogue row (`universe_id` null), which cannot be widened. */
+		readonly shipped: boolean
+	) {
 		super(
 			`proposal "${proposalId}" cannot be accepted: relation type "${typeLabel}" does not admit ${fromType} -> ${toType}`
 		);
@@ -1000,6 +1021,7 @@ async function acceptProposalTx(db: Db, input: AcceptProposalInput): Promise<Pro
 			const [type] = await tx
 				.select({
 					label: relationType.label,
+					universeId: relationType.universeId,
 					allowedFrom: relationType.allowedFrom,
 					allowedTo: relationType.allowedTo
 				})
@@ -1028,12 +1050,23 @@ async function acceptProposalTx(db: Db, input: AcceptProposalInput): Promise<Pro
 			// a universe's own types, enforced here where the row is actually written rather
 			// than only checked earlier and trusted - a pair the type does not admit never
 			// reaches the table, whatever proposed it.
-			if (!type.allowedFrom.includes(fromEntity.type) || !type.allowedTo.includes(toEntity.type)) {
+			//
+			// Issue #628: which end is short, and whether the type can be widened at all,
+			// travel with the refusal. This is the only place both the type's arrays and the
+			// endpoints' real types are in hand, so computing it anywhere else would mean
+			// reading all four again.
+			const fromAdmitted = type.allowedFrom.includes(fromEntity.type);
+			const toAdmitted = type.allowedTo.includes(toEntity.type);
+			if (!fromAdmitted || !toAdmitted) {
 				throw new RelationTypeNotAdmittedError(
 					existing.id,
+					existing.relationTypeId,
 					type.label,
 					fromEntity.type,
-					toEntity.type
+					toEntity.type,
+					fromAdmitted ? null : fromEntity.type,
+					toAdmitted ? null : toEntity.type,
+					type.universeId === null
 				);
 			}
 			await tx.insert(relation).values({

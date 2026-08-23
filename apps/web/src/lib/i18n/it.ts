@@ -1061,7 +1061,14 @@ export const it: Messages = {
 			waitingOnEntries: (names) =>
 				`Accetta prima ${names}, poi questo collegamento potrà essere accettato`,
 			supersededEndpoint: 'Scartato: una voce necessaria a questo collegamento è stata rifiutata',
-			supersededEndpointShort: 'scartata \u00b7 voce rifiutata'
+			supersededEndpointShort: 'scartata \u00b7 voce rifiutata',
+			notAdmittedNotice: (typeLabel, fromLabel, toLabel) =>
+				`Questo collegamento richiede che "${typeLabel}" ammetta ${fromLabel} verso ${toLabel}.`,
+			notAdmittedWidenButton: 'Consentilo e accetta',
+			notAdmittedShipped: (typeLabel) =>
+				`"${typeLabel}" fa parte del catalogo di Canonry e cambia solo con una nuova versione.`,
+			notAdmittedShippedLink:
+				'Aggiungi una tua versione di questo tipo nelle impostazioni dei tipi di relazione.'
 		},
 
 		filterBuckets: {
@@ -1222,7 +1229,10 @@ export const it: Messages = {
 				proposalNotRejected: 'Quella proposta non è stata rifiutata.',
 				missingFilterType: 'Tipo di filtro mancante.',
 				relationEndpointNotAccepted:
-					"Questo collegamento nomina una voce che l'import sta ancora proponendo. Accetta prima quella voce."
+					"Questo collegamento nomina una voce che l'import sta ancora proponendo. Accetta prima quella voce.",
+				notAdmitted: (typeLabel, fromLabel, toLabel) =>
+					`"${typeLabel}" non ammette ${fromLabel} verso ${toLabel}.`,
+				relationTypeNotOwned: 'Solo un tipo creato da questo universo può essere ampliato.'
 			}
 		},
 
