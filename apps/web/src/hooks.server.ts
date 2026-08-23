@@ -38,6 +38,7 @@ import { auth } from '$lib/server/auth';
 import { startCanonSaveJobWorker } from '$lib/server/jobs';
 import { db } from '$lib/server/db';
 import { LOCALE_COOKIE } from '$lib/i18n';
+import { isPublicReaderPath } from '$lib/publicSurface';
 import { parseThemePreference, THEME_COOKIE, themeAttribute } from '$lib/theme';
 import { negotiateLocale, type Locale } from '@canonry/lang';
 import { eq } from '@canonry/db';
@@ -75,12 +76,14 @@ export interface LocaleRequestEvent {
  * Issue #127's exception lives here, not in the caller: the players' wiki is public,
  * shows no switcher of its own, and must never let a signed-in GM's own preference (or a
  * cookie set elsewhere on this origin) leak into a link they hand to their players - its
- * chrome follows the visitor's own browser, full stop.
+ * chrome follows the visitor's own browser, full stop. Issue #158 puts `/u/<handle>` under
+ * the same rule for the same reason: a profile is a link handed to strangers, so the
+ * language it is read in is the reader's and not the account's the page is about.
  */
 export async function resolveLocale(event: LocaleRequestEvent): Promise<Locale> {
 	const acceptLanguage = event.request.headers.get('accept-language');
 
-	if (event.url.pathname === '/p' || event.url.pathname.startsWith('/p/')) {
+	if (isPublicReaderPath(event.url.pathname)) {
 		return negotiateLocale({ acceptLanguage });
 	}
 

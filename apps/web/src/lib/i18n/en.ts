@@ -340,7 +340,42 @@ export const en: Messages = {
 			deleteWrongPassword: 'That password is not correct.',
 			deleteSendFailed: 'The confirmation mail could not be sent. Nothing was deleted; try again.',
 			deleteRequested:
-				'Check the inbox: the link in that mail is what actually deletes the account, and it expires in 24 hours.'
+				'Check the inbox: the link in that mail is what actually deletes the account, and it expires in 24 hours.',
+			profileHeading: 'Public profile',
+			profileDescription:
+				'A handle gives this account a page at /u/ that anybody can read, signed in or not. It shows the name above, the handle itself, and the worlds you have published, and nothing else: not your email, not a world you have written but never published, and nothing from a world beyond what its players can already read.',
+			profileNone:
+				'You have no handle, so there is no page and nothing about you is public. Nothing asks you for one anywhere else.',
+			handleLabel: 'Handle',
+			handleHint:
+				'Two to thirty characters: letters, digits, and single hyphens between them. Capitals are kept as you type them, but two handles cannot differ only by a capital.',
+			handleSave: 'Save handle',
+			handleSaving: 'Saving\u2026',
+			handleSaved: 'Saved.',
+			handleUrlLabel: 'Your profile',
+			handleChangeNote:
+				'Change it and the page moves: the old address stops answering, and nothing redirects.',
+			handleRemove: 'Remove handle',
+			handleRemoving: 'Removing\u2026',
+			handleRemoved: 'Handle removed. The page is gone and the address is free again.',
+			handleError: (reason) => {
+				switch (reason) {
+					case 'empty':
+						return 'Enter a handle.';
+					case 'too-short':
+						return 'A handle is at least two characters.';
+					case 'too-long':
+						return 'A handle is at most thirty characters.';
+					case 'format':
+						return 'Letters, digits and single hyphens between them, nothing else.';
+					case 'reserved':
+						return 'That word is one the product itself uses. Pick another.';
+					case 'taken':
+						return 'Somebody already has that handle.';
+				}
+			},
+			profilePrivacyPrompt: 'The privacy page says the same at length:',
+			profilePrivacyLink: 'what a profile makes public'
 		}
 	},
 
@@ -469,6 +504,22 @@ export const en: Messages = {
 		media: {
 			heading: 'Images'
 		}
+	},
+
+	profile: {
+		eyebrow: 'Profile',
+		worldsHeading: 'Published worlds',
+		worldMeta: (readableEntries, lastPublished) => {
+			const n = numberFormat('en', { maximumFractionDigits: 0, useGrouping: 'always' }).format(
+				readableEntries
+			);
+			const form = pluralRules('en').select(Math.round(readableEntries));
+			const entries = form === 'one' ? `${n} entry to read` : `${n} entries to read`;
+			return `${entries}, last published ${lastPublished}`;
+		},
+		emptyMessage: 'Nothing to read here yet.',
+		emptyExplanation:
+			'A world reaches this page when the person who writes it reveals its entries at the table, which in Canonry is the only way anything becomes public.'
 	},
 
 	mentionPreview: {

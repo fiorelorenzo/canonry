@@ -1,0 +1,4 @@
+ALTER TABLE "user" ADD COLUMN "handle" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "user_handle_lower_key" ON "user" USING btree (lower("handle"));--> statement-breakpoint
+ALTER TABLE "user" ADD CONSTRAINT "user_handle_format" CHECK ("user"."handle" is null or (lower("user"."handle") ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and char_length("user"."handle") between 2 and 30));--> statement-breakpoint
+ALTER TABLE "user" ADD CONSTRAINT "user_handle_not_reserved" CHECK ("user"."handle" is null or lower("user"."handle") <> all (array['new', 'settings', 'me', 'admin', 'api', 'login', 'signup', 'signin', 'logout', 'about', 'help', 'support', 'privacy', 'terms', 'pricing', 'docs', 'blog', 'u', 'w', 'dev', 'static', 'assets']));

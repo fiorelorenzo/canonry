@@ -151,6 +151,25 @@ export {
 } from './queries/access.js';
 export { accountDeletionImpact, type AccountDeletionImpact } from './queries/account.js';
 export {
+	HANDLE_MAX_LENGTH,
+	HANDLE_MIN_LENGTH,
+	HANDLE_PATTERN_SOURCE,
+	RESERVED_HANDLES,
+	validateHandle,
+	type HandleRejection,
+	type HandleValidation
+} from './handles.js';
+export {
+	clearUserHandle,
+	handleForUser,
+	publicProfileByHandle,
+	setUserHandle,
+	type PublicProfile,
+	type PublishedWorld,
+	type SetHandleFailure,
+	type SetHandleResult
+} from './queries/profiles.js';
+export {
 	latestRevisionIds,
 	findByFingerprint,
 	latestArtifact,

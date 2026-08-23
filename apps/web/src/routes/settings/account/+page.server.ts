@@ -32,7 +32,13 @@
  */
 import { fail } from '@sveltejs/kit';
 import { APIError } from 'better-auth/api';
-import { accountDeletionImpact, type AccountDeletionImpact } from '@canonry/db';
+import {
+	accountDeletionImpact,
+	clearUserHandle,
+	handleForUser,
+	setUserHandle,
+	type AccountDeletionImpact
+} from '@canonry/db';
 import { auth } from '$lib/server/auth';
 import { forwardAuthCookies } from '$lib/server/auth-forms';
 import { db } from '$lib/server/db';
@@ -51,8 +57,15 @@ const NOTHING_TO_DESTROY: AccountDeletionImpact = {
 };
 
 export const load: PageServerLoad = async ({ locals }) => {
-	if (!locals.user) return { deletionImpact: NOTHING_TO_DESTROY };
-	return { deletionImpact: await accountDeletionImpact(db(), locals.user.id) };
+	if (!locals.user) return { deletionImpact: NOTHING_TO_DESTROY, handle: null };
+	// Two reads rather than one: `accountDeletionImpact` is five counts across five tables and
+	// `handleForUser` is a single-column primary-key lookup, so running them together costs
+	// the slower of the two rather than their sum.
+	const [deletionImpact, handle] = await Promise.all([
+		accountDeletionImpact(db(), locals.user.id),
+		handleForUser(db(), locals.user.id)
+	]);
+	return { deletionImpact, handle };
 };
 
 export const actions: Actions = {
@@ -138,5 +151,33 @@ export const actions: Actions = {
 			return fail(503, { deleteError: t.deleteSendFailed });
 		}
 		return { deleteRequested: true };
+	},
+	/**
+	 * Issue #158: taking, changing or giving up the handle behind `/u/<handle>`. A form
+	 * action rather than a client call for the same reason `saveName` became one in #262, and
+	 * it goes through `setUserHandle` (`@canonry/db`) rather than Better Auth's `updateUser`,
+	 * because the reserved list, the format and the case-insensitive uniqueness all live with
+	 * the column and there is no version of them Better Auth could enforce.
+	 *
+	 * `setUserHandle` answers rather than throws, so every refusal - reserved word, bad
+	 * shape, somebody already has it - arrives here as a `reason` and leaves as one sentence
+	 * from the catalogue. `handleError` is a total function over that union, so a seventh
+	 * reason added to the query layer fails to compile here instead of rendering nothing.
+	 */
+	saveHandle: async ({ request, locals }) => {
+		if (!locals.user) return fail(401);
+		const t = messages(locals.locale).settings.account;
+		const formData = await request.formData();
+		const handle = formData.get('handle');
+		if (typeof handle !== 'string') return fail(400, { handleError: t.handleError('empty') });
+
+		const result = await setUserHandle(db(), locals.user.id, handle);
+		if (!result.ok) return fail(400, { handleError: t.handleError(result.reason) });
+		return { handleSaved: result.handle };
+	},
+	removeHandle: async ({ locals }) => {
+		if (!locals.user) return fail(401);
+		await clearUserHandle(db(), locals.user.id);
+		return { handleRemoved: true };
 	}
 };
