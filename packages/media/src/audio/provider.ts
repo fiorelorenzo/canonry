@@ -27,6 +27,7 @@
  * rather than deriving a figure from a rate and a duration, which would be a second,
  * driftable model of ElevenLabs' own pricing living in this codebase.
  */
+import { setTimeout as sleep } from 'node:timers/promises';
 import { chargeFor, computeCost, type ModelCallAgent, type ModelParams } from '@canonry/ai';
 import { previewCharge, recordAndCharge, type Db } from '@canonry/db';
 import { ProviderLimiter } from '../concurrency.js';
@@ -118,6 +119,62 @@ function isQuotaExceededResponseBody(bodyText: string): boolean {
 		return false;
 	}
 }
+
+/**
+ * Thrown once `generateSound` below has retried a 429 as far as its bound allows and
+ * ElevenLabs is still refusing (issue #337). Distinct from ElevenLabsRequestError, which
+ * is a request ElevenLabs rejected on its merits, and from ElevenLabsQuotaExceededError,
+ * which is the account's monthly cap and is never retried: this one says the account was
+ * busy, not wrong, and the same call would probably work later.
+ *
+ * Measured live on 2026-08-23 (see `docs/models.md`'s sound-generation section for the
+ * captured response): the refusal is a 429 whose body reads
+ * `{"detail":{"type":"rate_limit_error","code":"concurrent_limit_exceeded", ...
+ * "status":"too_many_concurrent_requests", ...}}`, and it carries **no `Retry-After`
+ * header and no reset time anywhere in the response**, which is the whole reason the
+ * backoff below is a number this codebase chose rather than one ElevenLabs sent.
+ */
+export class ElevenLabsThrottledError extends Error {
+	constructor(
+		public readonly attempts: number,
+		public readonly waitedMs: number
+	) {
+		super(
+			`ElevenLabs throttled sound generation (429) after ${attempts} attempt` +
+				`${attempts === 1 ? '' : 's'} and ${waitedMs}ms of backoff`
+		);
+		this.name = 'ElevenLabsThrottledError';
+	}
+}
+
+/**
+ * How many times one sound generation may be attempted before it gives up as throttled,
+ * and the first backoff it waits (issue #337). The schedule is
+ * `base * 2^(attempt-1)` with half-and-half jitter, so 4 attempts spend between 2.6 and
+ * 7.9 seconds waiting: 750/1500/3000ms nominal, each spread over half to one and a half
+ * of itself.
+ *
+ * Both numbers are chosen here rather than read off the response, which is the one real
+ * difference from replicate.ts's `THROTTLE_BUDGET_MS`. Replicate answers a 429 with
+ * `Retry-After` and a `retry_after` body field, so #334's bound only had to decide how
+ * many of Replicate's own numbers to honour. The live probe of #337 found ElevenLabs
+ * sends neither, and no reset time in any other form, so there is nothing to honour and a
+ * number copied from Replicate would be a guess wearing a measurement's clothes.
+ *
+ * What the probe did measure is the shape of the wait. The refusal is a **concurrency**
+ * limit, four simultaneous generations on this account, and it comes back in about 240ms
+ * having cost nothing, while a 5-second generation holds its slot for about 2.8 seconds.
+ * So the thing being waited for is one in-flight generation finishing, and the schedule
+ * above covers roughly two of them before giving up. The jitter is there because the
+ * probe watched eight requests get refused in the same 30 milliseconds: a fixed schedule
+ * would send everything that collided once back into the same collision.
+ *
+ * An attempt cap rather than a waited-time budget, because with the delays chosen here
+ * rather than sent by the provider, the cap already bounds the wait, and a second
+ * constant that can never be the binding one is a constant that goes stale unnoticed.
+ */
+export const ELEVENLABS_THROTTLE_MAX_ATTEMPTS = 4;
+export const ELEVENLABS_THROTTLE_BASE_DELAY_MS = 750;
 
 /** Thrown when a successful (2xx) sound-generation response is missing the
  * `character-cost` header, or carries one that does not parse as a number (issue #116).
@@ -289,6 +346,97 @@ export interface ElevenLabsAudioProviderDeps {
 	 * through `computeCost` against a real (non-zero) rate rather than merely matching the
 	 * account's current, coincidentally-zero one. */
 	modelParams?: ModelParams;
+	/** Test-only override for ELEVENLABS_THROTTLE_BASE_DELAY_MS (issue #337), same seam
+	 * shape again. The real 750ms first backoff is right for a GM and wrong for a test
+	 * suite: a test that drives the retry to its bound would spend seconds sleeping to
+	 * prove something about attempt counts. */
+	throttleBaseDelayMs?: number;
+}
+
+/**
+ * One sound generation, retrying a 429 in place (issue #337) rather than handing the
+ * first one straight back to the caller as a failed layer.
+ *
+ * This runs inside `chargeAndRecordLayer`'s callback, which is #334's shape and is the
+ * whole point: a generation that gets through on its second or third try is still exactly
+ * one `model_call` row and one charge. A row per attempt would make the metrics lie about
+ * how many layers were actually generated, and retrying one level up (a fresh
+ * `provider.generate` per attempt) would do exactly that. There is no poll loop here to
+ * hang the retry off, unlike Replicate's submit-then-poll prediction: this endpoint is a
+ * single synchronous request-response, so the loop is the whole call.
+ *
+ * It also runs inside the caller's `ProviderLimiter` slot, for the same reason: a request
+ * that has been refused and not yet retried is still one of this process's in-flight
+ * ElevenLabs calls. Releasing the slot to sleep would let a fourth caller straight into
+ * the collision this one is backing off from.
+ *
+ * The order of the three refusals matters and is the evidence talking. The account's own
+ * monthly cap is checked first and never retried, whatever status it arrives with:
+ * retrying into a spent quota is asking a plan limit to change its mind, four times, and
+ * ElevenLabs has answered that condition with a 401 in practice and documents a 402, so
+ * a status-first branch would eventually retry it by accident. Then a 429, which is the
+ * measured throttle and the only retryable case. Then everything else, straight out.
+ */
+async function generateSound(params: {
+	baseUrl: string;
+	token: string;
+	prompt: string;
+	loop: boolean;
+	throttleBaseDelayMs: number;
+}): Promise<{ output: GeneratedAudio; providerCredits: number }> {
+	let waitedMs = 0;
+	for (let attempt = 1; attempt <= ELEVENLABS_THROTTLE_MAX_ATTEMPTS; attempt++) {
+		const response = await fetch(elevenLabsSoundGenerationUrl(params.baseUrl), {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', 'xi-api-key': params.token },
+			body: JSON.stringify({
+				text: params.prompt,
+				model_id: ELEVENLABS_MODEL_ID,
+				prompt_influence: 0.8,
+				loop: params.loop,
+				duration_seconds: AUDIO_DURATION_SECONDS
+			})
+		});
+
+		if (!response.ok) {
+			// Body may echo the request text back; never let it reach the logger, only the
+			// status code and a truncated length do (mirrors replicate.ts) - except for the
+			// one shape worth telling apart from a generic rejection: the account's own
+			// monthly cap, which is a plan limit rather than ElevenLabs being down (#116).
+			const bodyText = await response.text();
+			if (isQuotaExceededResponseBody(bodyText)) throw new ElevenLabsQuotaExceededError();
+			if (response.status !== 429) {
+				throw new ElevenLabsRequestError(response.status, `${bodyText.length} byte body`);
+			}
+			if (attempt === ELEVENLABS_THROTTLE_MAX_ATTEMPTS) {
+				throw new ElevenLabsThrottledError(attempt, waitedMs);
+			}
+			const delayMs = Math.round(
+				params.throttleBaseDelayMs * 2 ** (attempt - 1) * (0.5 + Math.random())
+			);
+			await sleep(delayMs);
+			waitedMs += delayMs;
+			continue;
+		}
+
+		// The real bill for this call (issue #116), read off the response rather than
+		// derived from duration_seconds and a rate - see this file's own header comment for
+		// why. Missing or unparseable fails loudly rather than silently recording a real
+		// spend as free.
+		const characterCostHeader = response.headers.get('character-cost');
+		const providerCredits = characterCostHeader === null ? NaN : Number(characterCostHeader);
+		if (!Number.isFinite(providerCredits)) {
+			throw new ElevenLabsMissingCostHeaderError(characterCostHeader);
+		}
+		// ElevenLabs' sound-generation endpoint returns mp3 by default (audio/mpeg) - never
+		// assume wav; ../storage.ts's EXTENSION_BY_MIME keys off this exact string.
+		const mimeType = response.headers.get('content-type') ?? 'audio/mpeg';
+		const bytes = new Uint8Array(await response.arrayBuffer());
+		return { output: { bytes, mimeType }, providerCredits };
+	}
+	// Unreachable - the loop always returns or throws before falling off the end, but TS
+	// cannot see that from a `for` loop alone (same shape as replicate.ts's own).
+	throw new ElevenLabsThrottledError(ELEVENLABS_THROTTLE_MAX_ATTEMPTS, waitedMs);
 }
 
 /**
@@ -303,6 +451,11 @@ export interface ElevenLabsAudioProviderDeps {
  * for the exact request/response: a real `eleven_text_to_sound_v2` call returns
  * decodable `audio/mpeg` for a given prompt within ElevenLabs' own 0.5-30s duration
  * window.
+ *
+ * A 429 is retried in place inside that one charged call (issue #337, see `generateSound`
+ * above), because the measured refusal is a concurrency collision that clears in about
+ * three seconds and the alternative is a GM watching a layer fail for a reason that has
+ * nothing to do with their prompt.
  */
 export class ElevenLabsAudioProvider implements AudioProvider {
 	constructor(private readonly deps: ElevenLabsAudioProviderDeps) {}
@@ -319,47 +472,15 @@ export class ElevenLabsAudioProvider implements AudioProvider {
 			modelId: ELEVENLABS_MODEL_ID,
 			modelParams,
 			fn: () =>
-				this.deps.limiter.run('elevenlabs', async () => {
-					const baseUrl = this.deps.baseUrl ?? ELEVENLABS_API_BASE_URL;
-					const response = await fetch(elevenLabsSoundGenerationUrl(baseUrl), {
-						method: 'POST',
-						headers: {
-							'content-type': 'application/json',
-							'xi-api-key': this.deps.elevenLabsApiToken
-						},
-						body: JSON.stringify({
-							text: input.prompt,
-							model_id: ELEVENLABS_MODEL_ID,
-							prompt_influence: 0.8,
-							loop: input.loop,
-							duration_seconds: AUDIO_DURATION_SECONDS
-						})
-					});
-					if (!response.ok) {
-						// Body may echo the request text back; never let it reach the logger, only
-						// the status code and a truncated length do (mirrors replicate.ts) - except
-						// for the one shape worth telling apart from a generic rejection: the
-						// account's own monthly cap, which is a plan limit rather than ElevenLabs
-						// being down (issue #116).
-						const bodyText = await response.text();
-						if (isQuotaExceededResponseBody(bodyText)) throw new ElevenLabsQuotaExceededError();
-						throw new ElevenLabsRequestError(response.status, `${bodyText.length} byte body`);
-					}
-					// The real bill for this call (issue #116), read off the response rather
-					// than derived from duration_seconds and a rate - see this file's own header
-					// comment for why. Missing or unparseable fails loudly rather than silently
-					// recording a real spend as free.
-					const characterCostHeader = response.headers.get('character-cost');
-					const providerCredits = characterCostHeader === null ? NaN : Number(characterCostHeader);
-					if (!Number.isFinite(providerCredits)) {
-						throw new ElevenLabsMissingCostHeaderError(characterCostHeader);
-					}
-					// ElevenLabs' sound-generation endpoint returns mp3 by default (audio/mpeg) -
-					// never assume wav; ../storage.ts's EXTENSION_BY_MIME keys off this exact string.
-					const mimeType = response.headers.get('content-type') ?? 'audio/mpeg';
-					const bytes = new Uint8Array(await response.arrayBuffer());
-					return { output: { bytes, mimeType }, providerCredits };
-				})
+				this.deps.limiter.run('elevenlabs', () =>
+					generateSound({
+						baseUrl: this.deps.baseUrl ?? ELEVENLABS_API_BASE_URL,
+						token: this.deps.elevenLabsApiToken,
+						prompt: input.prompt,
+						loop: input.loop,
+						throttleBaseDelayMs: this.deps.throttleBaseDelayMs ?? ELEVENLABS_THROTTLE_BASE_DELAY_MS
+					})
+				)
 		});
 	}
 }

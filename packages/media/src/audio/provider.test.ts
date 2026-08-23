@@ -19,6 +19,8 @@ import {
 	ElevenLabsMissingCostHeaderError,
 	ElevenLabsQuotaExceededError,
 	ElevenLabsRequestError,
+	ElevenLabsThrottledError,
+	ELEVENLABS_THROTTLE_MAX_ATTEMPTS,
 	FakeAudioProvider,
 	tinyWavBytes
 } from './provider.js';
@@ -30,7 +32,10 @@ const TEST_USER_IDS = [
 	'test-user-audio-provider-2',
 	'test-user-audio-provider-3',
 	'test-user-audio-provider-4',
-	'test-user-audio-provider-5'
+	'test-user-audio-provider-5',
+	'test-user-audio-provider-6',
+	'test-user-audio-provider-7',
+	'test-user-audio-provider-8'
 ];
 
 function readWavHeader(bytes: Uint8Array) {
@@ -175,7 +180,9 @@ describe('ElevenLabsAudioProvider (#68, against a local HTTP stub)', () => {
 		await new Promise<void>((resolve) => server.close(() => resolve()));
 	});
 
-	function providerFor(overrides: { modelParams?: ModelParams } = {}): ElevenLabsAudioProvider {
+	function providerFor(
+		overrides: { modelParams?: ModelParams; throttleBaseDelayMs?: number } = {}
+	): ElevenLabsAudioProvider {
 		return new ElevenLabsAudioProvider({
 			db,
 			baseUrl,
@@ -336,6 +343,128 @@ describe('ElevenLabsAudioProvider (#68, against a local HTTP stub)', () => {
 				operation: TEST_OPERATION
 			})
 		).rejects.toBeInstanceOf(ElevenLabsQuotaExceededError);
+
+		const rows = await db.select().from(modelCall).where(eq(modelCall.userId, userId));
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.credits).toBe(0);
+	});
+
+	// #337: the live probe of 2026-08-23 caught ElevenLabs refusing a sound generation
+	// with a 429 whose body is
+	// {"detail":{"type":"rate_limit_error","code":"concurrent_limit_exceeded",...,"status":"too_many_concurrent_requests",...}}
+	// and with no Retry-After header and no reset time anywhere in the response. These
+	// three are the contract that came out of it: a throttle that clears is still one
+	// model_call row and one charge; a throttle that never clears gives up at the bound
+	// and is recorded but not charged; and the account's own monthly cap is never retried
+	// even when it arrives with the same 429 status the throttle does.
+	const THROTTLE_BODY = JSON.stringify({
+		detail: {
+			type: 'rate_limit_error',
+			code: 'concurrent_limit_exceeded',
+			message:
+				'Too many concurrent requests. Your current subscription is associated with a ' +
+				'maximum of 4 concurrent requests (running in parallel).',
+			status: 'too_many_concurrent_requests',
+			request_id: '332f31193d4ee91902a0cd173439968d',
+			docs_url:
+				'https://elevenlabs.io/docs/eleven-api/resources/errors#rate-limiting-and-concurrency'
+		}
+	});
+
+	it('retries a concurrency 429 and charges exactly once when it clears (#337)', async () => {
+		let attempts = 0;
+		respond = (_req, res) => {
+			attempts += 1;
+			if (attempts === 1) {
+				res.statusCode = 429;
+				res.setHeader('content-type', 'application/json');
+				// Deliberately no Retry-After: that is what the real 429 does.
+				res.end(THROTTLE_BODY);
+				return;
+			}
+			res.setHeader('content-type', 'audio/mpeg');
+			res.setHeader('character-cost', '27');
+			res.end(Buffer.from('fake-mp3-bytes'));
+		};
+		const userId = TEST_USER_IDS[5]!;
+
+		const audio = await providerFor({ throttleBaseDelayMs: 1 }).generate({
+			prompt: 'gentle rain falling on leaves',
+			loop: true,
+			userId,
+			universeId: null,
+			operation: TEST_OPERATION
+		});
+
+		expect(Buffer.from(audio.bytes).toString()).toBe('fake-mp3-bytes');
+		expect(attempts).toBe(2); // one refused, then one that got through
+
+		const rows = await db.select().from(modelCall).where(eq(modelCall.userId, userId));
+		expect(rows).toHaveLength(1); // one row for the layer, not one per attempt
+		expect(rows[0]?.credits).toBeCloseTo(3, 6); // one charge, the seeded audio.layer price
+		expect(rows[0]?.providerCredits).toBe(27); // and one provider bill, not two
+	});
+
+	it('gives up at the bound with ElevenLabsThrottledError, recorded but never charged (#337)', async () => {
+		let attempts = 0;
+		respond = (_req, res) => {
+			attempts += 1;
+			res.statusCode = 429;
+			res.setHeader('content-type', 'application/json');
+			res.end(THROTTLE_BODY);
+		};
+		const userId = TEST_USER_IDS[6]!;
+
+		await expect(
+			providerFor({ throttleBaseDelayMs: 1 }).generate({
+				prompt: 'a sound nobody has a free slot for',
+				loop: true,
+				userId,
+				universeId: null,
+				operation: TEST_OPERATION
+			})
+		).rejects.toBeInstanceOf(ElevenLabsThrottledError);
+
+		expect(attempts).toBe(ELEVENLABS_THROTTLE_MAX_ATTEMPTS);
+
+		const rows = await db.select().from(modelCall).where(eq(modelCall.userId, userId));
+		// Still one row, so an account that is repeatedly throttled shows up in model_call
+		// rather than vanishing, and still no charge for a layer that never arrived.
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.credits).toBe(0);
+		expect(rows[0]?.providerCredits).toBeNull();
+	});
+
+	it('never retries a quota-exceeded body, even when it arrives as a 429 (#337)', async () => {
+		let attempts = 0;
+		respond = (_req, res) => {
+			attempts += 1;
+			res.statusCode = 429;
+			res.setHeader('content-type', 'application/json');
+			res.end(
+				JSON.stringify({
+					detail: {
+						status: 'quota_exceeded',
+						message: 'This request exceeds your quota of 10000. You have 0 credits remaining.'
+					}
+				})
+			);
+		};
+		const userId = TEST_USER_IDS[7]!;
+
+		await expect(
+			providerFor({ throttleBaseDelayMs: 1 }).generate({
+				prompt: 'one sound too many this month, refused as a 429',
+				loop: false,
+				userId,
+				universeId: null,
+				operation: TEST_OPERATION
+			})
+		).rejects.toBeInstanceOf(ElevenLabsQuotaExceededError);
+
+		// The point of the test: a spent monthly cap is a hard stop, so exactly one request
+		// went out. Retrying it would be asking a plan limit to change its mind four times.
+		expect(attempts).toBe(1);
 
 		const rows = await db.select().from(modelCall).where(eq(modelCall.userId, userId));
 		expect(rows).toHaveLength(1);

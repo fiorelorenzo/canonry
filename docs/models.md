@@ -19,6 +19,11 @@ the two model names SPEC.md §9 happens to mention, and left `scene` with no row
 `scene` section near the bottom is that measurement, run on 2026-08-19 against Replicate's
 own list prices of that day.
 
+One section near the bottom measures a provider's behaviour rather than a model's quality,
+because a retry written against a guessed response shape is a guess with a test suite: the
+shape of a throttled ElevenLabs sound generation, captured live on 2026-08-23 for #337 the
+same way #334 captured Replicate's, which the `scene` section records in passing.
+
 ## The answer
 
 | purpose | was | is | why in one line |
@@ -422,6 +427,112 @@ so a character's cover lost 14 per cent of its width at the sides and `COVER_POS
 3:4 and 1:1, are a composition question rather than a cropping one and want the judged sweep
 that issue describes: at 3:4 a place's 21/9 band keeps 32 per cent of the height, so that
 trade needs a number behind it. That sweep is still owed.
+
+## What a throttled ElevenLabs sound generation looks like (issue #337)
+
+`generateImage` retries a Replicate 429 because #334 captured a real one and read
+`Retry-After` off it. The audio side had no such capture, so `ElevenLabsAudioProvider`
+retried nothing and #337 sat blocked on evidence rather than on code. This is that
+evidence, measured on **2026-08-23** against the real `api.elevenlabs.io`, on the same
+`payg` account the product runs on.
+
+**The limit is concurrency, not requests per minute, and knowing that first is what made
+the probe cheap.** Replicate's 429 came from six prediction creations a minute; ElevenLabs
+publishes a per-plan table of simultaneous requests instead
+(https://elevenlabs.io/docs/overview/models#concurrency-and-priority), so a paced burst of
+the shape that provoked Replicate would have run all day without provoking this one. Two
+things in that documentation turned out not to hold here. This account's tier, `payg`, is
+not in the table at all: it lists Free, Starter, Creator, Pro, Scale, Business and
+Enterprise. And the documented way to read the real number instead of inferring it, the
+`current-concurrent-requests` and `maximum-concurrent-requests` response headers, does not
+exist on this endpoint: a successful sound generation's
+`access-control-expose-headers` names `character-cost` and nothing else. So the wave was
+sized at 12 simultaneous requests, which clears every plan in the table except the two
+15-slot ones, and the real limit came back in the refusal itself.
+
+**What was requested.** The product's own call, byte for byte, from
+`packages/bench/src/media/elevenlabs-throttle.ts`: twelve of these at once, nothing paced.
+
+```
+POST https://api.elevenlabs.io/v1/sound-generation?output_format=mp3_44100_128
+content-type: application/json
+xi-api-key: <REDACTED ELEVENLABS_API_KEY>
+
+{"text":"gentle rain falling on leaves","model_id":"eleven_text_to_sound_v2",
+ "prompt_influence":0.8,"loop":true,"duration_seconds":5}
+```
+
+**What came back.** Four served, eight refused. The refusals arrived in 238-264ms; the
+four that were served took 2784-2810ms. This is `request-1`, verbatim, headers and body:
+
+```
+HTTP/1.1 429
+access-control-allow-headers: *
+access-control-allow-methods: POST, PATCH, OPTIONS, DELETE, GET, PUT
+access-control-allow-origin: *
+access-control-max-age: 600
+alt-svc: h3=":443"; ma=2592000
+content-encoding: gzip
+content-type: application/json
+date: Sun, 23 Aug 2026 07:03:10 GMT
+server: uvicorn
+strict-transport-security: max-age=1800;
+transfer-encoding: chunked
+vary: Accept-Language, Accept-Encoding
+via: 1.1 google
+x-region: us-central1
+x-trace-id: 332f31193d4ee91902a0cd173439968d
+
+{"detail":{"type":"rate_limit_error","code":"concurrent_limit_exceeded","message":"Too many
+concurrent requests. Your current subscription is associated with a maximum of 4 concurrent
+requests (running in parallel). This is done such that a single user does not overwhelm our
+systems and affect other users negatively. Please upgrade your subscription or contact sales
+if you want to increase this limit.","status":"too_many_concurrent_requests","request_id":
+"332f31193d4ee91902a0cd173439968d","docs_url":"https://elevenlabs.io/docs/eleven-api/resources/errors#rate-limiting-and-concurrency"}}
+```
+
+All eight refusals were identical apart from `x-trace-id`/`request_id`, which are the same
+value as each other in every one of them. The successful responses carry
+`content-type: audio/mpeg` and `character-cost: 27`, which is the same 27 credits for an
+explicit five-second duration that #233 measured.
+
+**The limit is 4, and the product's own semaphore is 3.** `DEFAULT_PROVIDER_CONCURRENCY`
+in `packages/media/src/concurrency.ts` has held ElevenLabs at 3 since #70, on the strength
+of SPEC.md §8.1's fixture rather than of a measurement, and `generateAmbientPack` renders a
+pack's layers one after another. So a single web process cannot throttle itself: it can
+hold at most three of the four slots. A 429 in production means something else was using
+the account at the same time, and the candidates are the preview and prod stacks sharing
+one ElevenLabs account, a bench run, and the ElevenLabs dashboard. That is exactly the case
+a retry is for, and it is also why the retry is short.
+
+**Three things this response does not carry, and the retry is written around their
+absence.** There is no `Retry-After` header. There is no `retry_after` field, or any other
+reset time, in the body. And there is no `current-concurrent-requests` or
+`maximum-concurrent-requests` header on the 429 either, so even the position in the queue
+is not disclosed. Everything that is knowable about when to try again is knowable only from
+the timings above: a refusal costs 240ms and nothing else, and the thing being waited for
+is one of the four in-flight generations finishing, which takes about 2.8 seconds.
+`ELEVENLABS_THROTTLE_MAX_ATTEMPTS` and `ELEVENLABS_THROTTLE_BASE_DELAY_MS` in
+`packages/media/src/audio/provider.ts` are 4 attempts and a jittered 750/1500/3000ms
+backoff off the back of that: roughly two generations' worth of draining, and jittered
+because eight requests were refused inside the same 30 milliseconds and a fixed schedule
+would send all of them back into the same collision. They are chosen numbers, unlike
+Replicate's, and the comment on them says so.
+
+**What it cost.** 13 requests over two runs: one on its own first, to find out whether the
+concurrency headers existed, then the wave of 12. Five of the 13 produced audio at 27
+credits each, so **135 ElevenLabs credits** out of the 10,000 the account gets each month,
+and the eight refusals cost nothing at all, carrying no `character-cost` header. In euros
+it cost nothing: `AUDIO_MODEL_PARAMS.pricePerProviderCredit` is a measured 0 on this plan,
+for the reasons that constant's own comment gives.
+
+```bash
+ELEVENLABS_API_KEY=... pnpm --filter @canonry/bench audio-throttle
+```
+
+The runner fires one wave and stops, whatever it finds. There is nothing to learn from a
+second one: this endpoint discloses no reset semantics to characterise, and a bigger wave
+would only buy a more expensive copy of the same body.
 
 ## Re-running this
 

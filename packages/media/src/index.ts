@@ -111,6 +111,7 @@ export {
 	MissingElevenLabsEnvError,
 	ElevenLabsRequestError,
 	ElevenLabsQuotaExceededError,
+	ElevenLabsThrottledError,
 	ElevenLabsMissingCostHeaderError,
 	readElevenLabsApiToken,
 	tinyWavBytes,
