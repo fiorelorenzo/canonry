@@ -451,7 +451,7 @@
 		     a failed `?/accept` (`ProposalQueue`'s own enhance handler), in the same
 		     visual family as the waitingOnEntries notice above: something still has to be
 		     resolved before this link can be accepted, not a red error. -->
-		<p class="mb-3 rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-sm text-ink-2">
+		<p class="mb-3 rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-body text-ink-2">
 			{t.diffCard.notAdmittedNotice(
 				notAdmitted.typeLabel,
 				t.diffCard.entityTypeLabel(notAdmitted.fromType),
@@ -494,7 +494,7 @@
 				     is what makes clicking this button that consent. -->
 				<button
 					type="button"
-					class="min-h-11 flex-1 rounded-md border border-accent px-3 text-sm font-medium text-accent hover:bg-accent-bg sm:min-h-0 sm:flex-none sm:py-1.5"
+					class="min-h-11 flex-1 rounded-md border border-accent px-3 text-body font-medium text-accent hover:bg-accent-bg sm:min-h-0 sm:flex-none sm:py-1.5"
 					onclick={onWidenAndAccept}
 				>
 					{t.diffCard.notAdmittedWidenButton}
