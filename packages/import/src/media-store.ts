@@ -25,7 +25,13 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Db } from '@canonry/db';
 import { mediaAsset } from '@canonry/db/schema';
-import type { ImageStore } from './images.js';
+import {
+	describeRefusedFormat,
+	sniffSupportedMimeType,
+	UnsupportedImageFormatError,
+	type ImageStore,
+	type SupportedImportImageMimeType
+} from './images.js';
 
 export class ImageTooLargeError extends Error {
 	constructor(sourcePath: string, byteLength: number, maxBytes: number) {
@@ -71,7 +77,7 @@ export const DEFAULT_MEDIA_STORE_LIMITS: MediaStoreLimits = {
 };
 
 interface SniffedImage {
-	format: 'png' | 'jpeg' | 'gif' | 'bmp';
+	format: 'png' | 'jpeg';
 	width: number;
 	height: number;
 }
@@ -120,83 +126,18 @@ function sniffJpeg(bytes: Uint8Array): SniffedImage | undefined {
 	return undefined;
 }
 
-/** GIF: a 6-byte signature (`GIF87a`/`GIF89a`), then a 2-byte little-endian width and
- * 2-byte little-endian height, always at a fixed offset. */
-function sniffGif(bytes: Uint8Array): SniffedImage | undefined {
-	const isGif87 =
-		bytes[0] === 0x47 &&
-		bytes[1] === 0x49 &&
-		bytes[2] === 0x46 &&
-		bytes[3] === 0x38 &&
-		bytes[4] === 0x37 &&
-		bytes[5] === 0x61;
-	const isGif89 =
-		bytes[0] === 0x47 &&
-		bytes[1] === 0x49 &&
-		bytes[2] === 0x46 &&
-		bytes[3] === 0x38 &&
-		bytes[4] === 0x39 &&
-		bytes[5] === 0x61;
-	if (bytes.length < 10 || !(isGif87 || isGif89)) return undefined;
-	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-	return { format: 'gif', width: view.getUint16(6, true), height: view.getUint16(8, true) };
-}
+/** The format contract lives on the seam in `images.ts`, not here, so that `tools.ts` can
+ * recognise a refusal and the in-memory double can refuse exactly what this store does
+ * without either of them importing a Postgres-backed implementation (#623). The
+ * magic-byte table this module used to keep for the same purpose went with it: once
+ * `sniffSupportedMimeType` has named the format, a PNG or JPEG whose own header sniffer
+ * still fails is corrupt by definition, so `store` reads that off the sniffed type
+ * instead of matching the signature a second time. */
 
-/** BMP: a 2-byte `BM` signature, then the DIB header's width/height at a fixed offset
- * (bytes 18-25, signed little-endian 32-bit each). A negative height means a top-down
- * bitmap - the pixel count is the same either way. */
-function sniffBmp(bytes: Uint8Array): SniffedImage | undefined {
-	if (bytes.length < 26 || bytes[0] !== 0x42 || bytes[1] !== 0x4d) return undefined;
-	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-	return {
-		format: 'bmp',
-		width: Math.abs(view.getInt32(18, true)),
-		height: Math.abs(view.getInt32(22, true))
-	};
-}
-
-/** Detects the real format from magic bytes (never trusting the caller-supplied
- * `mimeType`, which `ArchiveSourceReader.readBinary` only ever guesses from a file
- * extension) and reads its declared pixel dimensions straight from the header, without
- * decoding a single pixel. WEBP and SVG are deliberately not sniffed here: WEBP's
- * lossy/lossless bitstreams need real bit-level parsing this module does not implement
- * (a real gap - such an image only gets the byte-size guard below, not the pixel-count
- * one); SVG is vector, so "decoded pixel count" does not apply to it at all. */
-function sniffImageDimensions(bytes: Uint8Array): SniffedImage | undefined {
-	return sniffPng(bytes) ?? sniffJpeg(bytes) ?? sniffGif(bytes) ?? sniffBmp(bytes);
-}
-
-const KNOWN_MAGIC_BYTES: Record<string, readonly number[]> = {
-	png: [0x89, 0x50, 0x4e, 0x47],
-	jpeg: [0xff, 0xd8],
-	gif: [0x47, 0x49, 0x46],
-	bmp: [0x42, 0x4d]
-};
-
-/** True when `bytes` starts with a known raster format's magic bytes but that format's
- * own sniffer above still failed to read it - i.e. the file is truncated or corrupt,
- * not merely a format this module does not sniff (WEBP/SVG). Storing a corrupt image
- * nobody can ever decode is a silent failure worth refusing loudly instead. */
-function looksLikeCorruptKnownFormat(bytes: Uint8Array): string | undefined {
-	for (const [format, magic] of Object.entries(KNOWN_MAGIC_BYTES)) {
-		if (magic.every((byte, index) => bytes[index] === byte)) return format;
-	}
-	return undefined;
-}
-
-const EXTENSION_BY_FORMAT: Record<string, string> = {
-	png: 'png',
-	jpeg: 'jpg',
-	gif: 'gif',
-	bmp: 'bmp'
-};
-const EXTENSION_BY_MIME_TYPE: Record<string, string> = {
+const EXTENSION_BY_MIME_TYPE: Record<SupportedImportImageMimeType, string> = {
 	'image/png': 'png',
 	'image/jpeg': 'jpg',
-	'image/gif': 'gif',
-	'image/bmp': 'bmp',
-	'image/webp': 'webp',
-	'image/svg+xml': 'svg'
+	'image/webp': 'webp'
 };
 
 export interface MediaAssetImageStoreOptions {
@@ -233,7 +174,19 @@ export class MediaAssetImageStore implements ImageStore {
 			throw new ImageTooLargeError(input.sourcePath, bytes.byteLength, this.limits.maxBytes);
 		}
 
-		const sniffed = sniffImageDimensions(bytes);
+		// The format decision comes before every other guard, and it reads the bytes rather
+		// than `input.mimeType`, which is only `ArchiveSourceReader.readBinary`'s guess from
+		// a file extension. A refused file is refused before anything is written, so nothing
+		// lands on disk and no row is inserted.
+		const mimeType = sniffSupportedMimeType(bytes);
+		if (!mimeType) {
+			throw new UnsupportedImageFormatError(
+				input.sourcePath,
+				describeRefusedFormat(bytes) ?? input.mimeType
+			);
+		}
+
+		const sniffed = sniffPng(bytes) ?? sniffJpeg(bytes);
 		if (sniffed) {
 			const pixels = sniffed.width * sniffed.height;
 			if (pixels > this.limits.maxDecodedPixels) {
@@ -244,15 +197,15 @@ export class MediaAssetImageStore implements ImageStore {
 					this.limits.maxDecodedPixels
 				);
 			}
-		} else {
-			const corruptFormat = looksLikeCorruptKnownFormat(bytes);
-			if (corruptFormat) throw new ImageDecodeError(input.sourcePath, corruptFormat);
+		} else if (mimeType !== 'image/webp') {
+			// WEBP legitimately has no dimensions here (this module does not parse its
+			// bitstream), so it is the one supported format whose missing header is not a
+			// defect. A PNG or JPEG that got this far matched its own signature, so a
+			// sniffer that still could not read it means the file is truncated or corrupt.
+			throw new ImageDecodeError(input.sourcePath, mimeType === 'image/png' ? 'png' : 'jpeg');
 		}
 
-		const extension =
-			(sniffed && EXTENSION_BY_FORMAT[sniffed.format]) ??
-			EXTENSION_BY_MIME_TYPE[input.mimeType] ??
-			'bin';
+		const extension = EXTENSION_BY_MIME_TYPE[mimeType];
 		// A random filename, never anything derived from `sourcePath` (the path inside the
 		// job's own export) - two documents in the same job can carry an image at the same
 		// relative path without colliding on disk.
@@ -268,7 +221,10 @@ export class MediaAssetImageStore implements ImageStore {
 				entityId: null,
 				kind: 'image',
 				path: relativePath,
-				mimeType: input.mimeType,
+				// The sniffed type, not the export's guess: a PNG named `.jpg` used to be stored
+				// under a mime_type its own bytes contradict, which is the same mismatch the
+				// upload route refuses outright (#623).
+				mimeType,
 				bytes: bytes.byteLength,
 				generated: false
 				// gmOnly, prompt, provider, modelId, similarityKey and credits are all left at

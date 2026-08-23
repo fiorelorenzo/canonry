@@ -1475,6 +1475,9 @@ export interface Messages {
 			offenderWithOthers: (base: string, othersCount: number) => string;
 			lossy: (path: string, count: number) => string;
 			lossyWithOthers: (base: string, othersCount: number) => string;
+			/** issue #623: one sentence, not two, because `count` reads as "and N others"
+			 * inside it rather than needing a `WithOthers` companion the way `lossy` does. */
+			skippedImages: (path: string, format: string, count: number) => string;
 		};
 		start: {
 			headTitle: string;

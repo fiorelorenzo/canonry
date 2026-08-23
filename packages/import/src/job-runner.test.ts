@@ -367,6 +367,8 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 				relationCount: 0,
 				proposalsCreated: 0,
 				lostToolCallCount: 0,
+				// A skipped document never ran a step, so it never reached an image (#623).
+				skippedImages: [],
 				droppedRelations: {
 					total: 0,
 					bothEndsProposed: 0,
@@ -2389,6 +2391,106 @@ One document.
 			expect(run2.finalStatus).toBe('failed');
 			expect((await sourceRefFor('notes/b.md'))?.missingInSource).toBe(false);
 			expect(await missingEntitySourceRefsForJob(db, admission2.jobId)).toEqual([]);
+		});
+	});
+
+	// issue #623: the whole chain in one test, because the two halves are only worth
+	// anything together. `media-store.ts` refusing a format the product cannot serve is
+	// half; the GM being told which pictures the export held and this import did not keep
+	// is the other, and a refusal that reaches only the model's own tool result is a
+	// silent loss (guardrail 7). The three images travel in one document on purpose: a
+	// skipped image must not cost the GM the text around it.
+	it('skips a GIF and an SVG out of an export, stores the PNG beside them, and says so in the job outcome the GM reads (issue #623)', async () => {
+		await priceFixture();
+		const { userId, universeId } = await userAndUniverse();
+		const playbook = await loadBuiltinPlaybook('generic');
+		const runner = new ImportJobRunner();
+
+		const fixtureRoot = fileURLToPath(new URL('../test/fixtures/media/', import.meta.url));
+		const [gif, svg, png] = await Promise.all([
+			readFile(`${fixtureRoot}sigil.gif`),
+			readFile(`${fixtureRoot}sigil.svg`),
+			readFile(`${fixtureRoot}small.png`)
+		]);
+
+		const sources = new InMemorySourceReader({
+			files: { 'notes/aldric.md': 'Aldric Voss commands the harbour watch.' },
+			// The mime types an export's own file extensions would produce, which is all
+			// `ArchiveSourceReader.readBinary` ever knows.
+			binaries: {
+				'images/sigil.gif': { mimeType: 'image/gif', base64: gif.toString('base64') },
+				'images/sigil.svg': { mimeType: 'image/svg+xml', base64: svg.toString('base64') },
+				'images/portrait.png': { mimeType: 'image/png', base64: png.toString('base64') }
+			}
+		});
+		const images = new InMemoryImageStore();
+
+		const admission = await admitAndCreateImportJob(db, {
+			universeId,
+			createdBy: userId,
+			sourceType: 'obsidian',
+			playbook: playbook.id,
+			playbookVersion: playbook.version,
+			artefactPath: 's3://fixtures/sigils.zip',
+			artefactBytes: 100,
+			artefactSha256: 'x'.repeat(64),
+			documentCount: 1,
+			budgetCredits: 1000,
+			estimate: { documentCount: 1, estimatedMinutes: 1, estimatedCredits: 10 },
+			concurrencyLimit: 5
+		});
+		expect(admission.admitted).toBe(true);
+
+		const model = scriptedModel([
+			toolCallStep([{ id: 'r1', name: 'source_read', input: { path: 'notes/aldric.md' } }]),
+			toolCallStep([
+				{ id: 'r2', name: 'image_store', input: { path: 'images/sigil.gif' } },
+				{ id: 'r3', name: 'image_store', input: { path: 'images/sigil.svg' } },
+				{ id: 'r4', name: 'image_store', input: { path: 'images/portrait.png' } }
+			]),
+			entityStep('r5', 'e1', 'Aldric Voss', 'doc-1'),
+			finishStep('r6')
+		]);
+
+		const run = await runner.run({
+			db,
+			dbJobId: admission.jobId,
+			universeId,
+			sourceSystem: 'obsidian',
+			userId,
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes/aldric.md' }],
+			sources,
+			images,
+			budget: { maxCredits: 1000 },
+			similarity: () => 0,
+			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
+			timeoutMs: 30_000,
+			driver: new GatewayDriver({ gateway: IDENTITY_GATEWAY, models: fixedModelSelector(model) })
+		});
+
+		// Two refusals did not stop the document, and the entity it proposed still landed.
+		expect(run.finalStatus).toBe('finished');
+		expect(run.proposalsEmitted).toBe(1);
+
+		// Only the PNG is in the library, and under its sniffed type.
+		expect(images.all().map((stored) => stored.mimeType)).toEqual(['image/png']);
+
+		expect(run.documents[0]?.skippedImages).toEqual([
+			{ path: 'images/sigil.gif', format: 'image/gif' },
+			{ path: 'images/sigil.svg', format: 'image/svg+xml' }
+		]);
+
+		// And the part that makes it a report rather than a log: it is on the job row the
+		// review screen reads, naming the first one and counting the rest.
+		const jobRow = await getImportJob(db, admission.jobId);
+		expect(parseOutcomeNote(jobRow.outcomeNote)).toEqual({
+			v: 1,
+			kind: 'finished',
+			documents: 1,
+			proposals: 1,
+			skippedImages: { path: 'images/sigil.gif', format: 'image/gif', count: 2 }
 		});
 	});
 });

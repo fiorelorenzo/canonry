@@ -68,11 +68,27 @@ export function renderOutcomeNote(locale: Locale, raw: string): string | null {
 		}
 	}
 
-	if (!parsed.lossy) return base;
-	const lossyLine = t.lossy(parsed.lossy.path, parsed.lossy.count);
-	const lossyText =
-		parsed.lossy.othersCount > 0
-			? t.lossyWithOthers(lossyLine, parsed.lossy.othersCount)
-			: lossyLine;
-	return `${base}; ${lossyText}`;
+	// Both suffixes are appended, and in this order, because they answer different
+	// questions: `lossy` is "the run dropped some of its own work", `skippedImages` is
+	// "the export held a picture we do not store" (#623). A job can do both.
+	const suffixes: string[] = [];
+	if (parsed.lossy) {
+		const lossyLine = t.lossy(parsed.lossy.path, parsed.lossy.count);
+		suffixes.push(
+			parsed.lossy.othersCount > 0
+				? t.lossyWithOthers(lossyLine, parsed.lossy.othersCount)
+				: lossyLine
+		);
+	}
+	if (parsed.skippedImages) {
+		suffixes.push(
+			t.skippedImages(
+				parsed.skippedImages.path,
+				parsed.skippedImages.format,
+				parsed.skippedImages.count
+			)
+		);
+	}
+	if (suffixes.length === 0) return base;
+	return [base, ...suffixes].join('; ');
 }

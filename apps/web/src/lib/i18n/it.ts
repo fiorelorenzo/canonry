@@ -1257,7 +1257,11 @@ export const it: Messages = {
 			lossy: (path, count) =>
 				`${path} ha perso ${count} ${count === 1 ? 'chiamata a uno strumento' : 'chiamate a strumenti'} lungo il percorso, probabilmente troncate dal limite di output di un passo`,
 			lossyWithOthers: (base, othersCount) =>
-				`${base} (e altri ${othersCount} ${othersCount === 1 ? 'documento che ne ha perse alcune' : 'documenti che ne hanno perse alcune'})`
+				`${base} (e altri ${othersCount} ${othersCount === 1 ? 'documento che ne ha perse alcune' : 'documenti che ne hanno perse alcune'})`,
+			skippedImages: (path, format, count) =>
+				count === 1
+					? `1 immagine non è stata salvata perché Canonry non conserva quel formato: ${path} (${format})`
+					: `${count} immagini non sono state salvate perché Canonry non conserva quei formati: ${path} (${format}) e ${count - 1} ${count - 1 === 1 ? 'altra' : 'altre'}`
 		},
 
 		start: {

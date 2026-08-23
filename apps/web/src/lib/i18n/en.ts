@@ -1212,7 +1212,11 @@ export const en: Messages = {
 			lossy: (path, count) =>
 				`${path} lost ${count} tool call${count === 1 ? '' : 's'} along the way, most likely truncated by a step's output limit`,
 			lossyWithOthers: (base, othersCount) =>
-				`${base} (and ${othersCount} other document${othersCount === 1 ? '' : 's'} that lost some too)`
+				`${base} (and ${othersCount} other document${othersCount === 1 ? '' : 's'} that lost some too)`,
+			skippedImages: (path, format, count) =>
+				count === 1
+					? `1 image was not stored because Canonry does not keep that format: ${path} (${format})`
+					: `${count} images were not stored because Canonry does not keep those formats: ${path} (${format}) and ${count - 1} other${count - 1 === 1 ? '' : 's'}`
 		},
 
 		start: {
