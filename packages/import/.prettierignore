@@ -6,3 +6,11 @@ migrations/
 # Generated from playbooks/*.md by scripts/generate-playbooks.mjs on every build, check and
 # test, so it is never reviewed or formatted by hand.
 src/playbooks.generated.ts
+
+# Cargo's build output for the wasm reader. The committed artefact is
+# `src/onestore-wasm.generated.ts` instead, and `onestore/build.sh` says why.
+onestore/target/
+
+# 2,688 lines of base64 written by `onestore/build.sh`. Prettier would rewrap it, and the
+# CI guard that regenerates the file and diffs it could then never pass.
+src/onestore-wasm.generated.ts

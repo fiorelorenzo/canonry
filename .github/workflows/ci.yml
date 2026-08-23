@@ -239,6 +239,51 @@ jobs:
         if: always()
         run: docker rm -f canonry-web-ci || true
 
+  # The committed wasm reader still matches its source (issue #603).
+  #
+  # `packages/import/src/onestore-wasm.generated.ts` is the OneNote [MS-ONESTORE] parser
+  # built for wasm32-unknown-unknown, brotli-compressed and base64-encoded, and it is
+  # committed for the same reason `src/playbooks.generated.ts` is: the Docker image builds
+  # apps/web directly and its runtime stage carries only Vite's output, into which a
+  # source-exported workspace package is inlined, so a loose `.wasm` file would reach
+  # neither the image nor a `pnpm dev`. Committed codegen goes stale, so this regenerates
+  # it and fails on a diff, exactly as the `test` job does for the playbooks.
+  #
+  # This is the only job that needs a Rust toolchain, and that is the whole point: Rust is
+  # a verification dependency here and never a build dependency, so `pnpm build`, the
+  # Docker image and a fresh clone all work without it. Independent of `test` so it never
+  # blocks the main pipeline, and deliberately **not** a required status check: a required
+  # check that installs a second toolchain is a slow gate on every unrelated PR.
+  #
+  # Reproducibility is what makes the diff meaningful. `rust-toolchain.toml` pins the
+  # compiler, `Cargo.lock` pins the tree, and `build.sh` passes `--remap-path-prefix` for
+  # the registry and crate paths rustc would otherwise bake into panic messages. Two clean
+  # builds agree byte for byte; without the remap they would differ by the building user's
+  # home directory.
+  wasm:
+    name: Committed wasm reader matches its source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # No toolchain action: `rust-toolchain.toml` in the crate directory is what selects
+      # the compiler and the target, and rustup honours it on the first cargo invocation.
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/import/onestore/target
+          key: onestore-${{ runner.os }}-${{ hashFiles('packages/import/onestore/Cargo.lock', 'packages/import/onestore/rust-toolchain.toml') }}
+
+      - name: Rebuild the artefact
+        run: packages/import/onestore/build.sh
+
+      - name: It is identical to the committed one
+        run: git diff --exit-code -- packages/import/src/onestore-wasm.generated.ts
+
   # No node toolchain needed here: scripts/deploy/*.sh and the top-level scripts/*.sh
   # are plain bash with no pnpm package of their own, so `pnpm lint` never reaches
   # them and this is the only place that does. Independent of the `test` job on

@@ -91,6 +91,17 @@ export {
 } from './mhtml.js';
 
 export {
+	expandOneStore,
+	parseOneStore,
+	OneStoreParseError,
+	OneStoreTooLargeError,
+	type OneStoreKind,
+	type OneStoreLimits,
+	type ExpandOneStoreOptions,
+	type ParsedOneStore
+} from './onestore.js';
+
+export {
 	printedNotebookCoversManySections,
 	parseOneNotePrintedFooter,
 	type OneNotePrintedFooter

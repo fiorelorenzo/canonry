@@ -420,8 +420,14 @@ function plainText(fragment: string): string {
 /** A page title turned into one path segment. Everything a filesystem or a path check
  * would object to goes, because this string becomes an entry path a `source_read` resolves
  * and an `entity_source_ref.path` a re-import matches on. Length is capped so a page whose
- * title is a paragraph does not produce a path nothing can handle. */
-function titleToSegment(title: string): string {
+ * title is a paragraph does not produce a path nothing can handle.
+ *
+ * Exported because `onestore.ts` builds the same tree from the binary format (issue #603)
+ * and the two have to agree character for character: a page that arrives as
+ * `Foo Bar.htm` from one reader and `Foo  Bar.htm` from the other would be two different
+ * `entity_source_ref.path` values for one page, which SPEC.md §6.4's re-import matching
+ * resolves by creating a duplicate. */
+export function titleToSegment(title: string): string {
 	const cleaned = title
 		.replace(/[\0-\x1f\x7f]/g, '')
 		.replace(/[/\\:*?"<>|]/g, ' ')

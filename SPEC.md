@@ -92,28 +92,28 @@ Postgres 16 is the source of truth for structure; Qdrant holds vectors only
 
 ### 4.1 Universe — the container of canon
 
-| Column | Notes |
-| --- | --- |
-| `kind` | `homebrew` \| `derived` |
-| `base_universe_id` | when `derived`, the official pre-indexed universe underneath |
-| `image_style_id` | the style shared by every image generated in this universe (§9) |
+| Column               | Notes                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `kind`               | `homebrew` \| `derived`                                                                                                         |
+| `base_universe_id`   | when `derived`, the official pre-indexed universe underneath                                                                    |
+| `image_style_id`     | the style shared by every image generated in this universe (§9)                                                                 |
 | `narration_style_id` | the voice the Loremaster uses for this world, a shipped preset or the universe's own custom row (§9's `image_style_id` pattern) |
 
 A `derived` universe reads from two layers: its own canon, and the official
 universe's indexed corpus, **read-only**. Precedence is explicit and visible in the
-UI: **the user's canon always wins**, and an entry may declare that it *supersedes*
+UI: **the user's canon always wins**, and an entry may declare that it _supersedes_
 a specific source page, which then disappears from retrieval for that universe.
 Without this, anyone who diverges from the Forgotten Realms gets the Loremaster
 quoting the published canon back at them.
 
 ### 4.2 Canon — entities, relations, facts
 
-| Table | Role |
-| --- | --- |
-| `entity` | a typed entry: character, place, faction, item, event, session. `aliases[]` is mandatory, not decoration: it is what makes mention detection work (`02`) |
-| `relation_type` | catalogue: label, **inverse label**, cardinality, allowed types at each end |
-| `relation` | **one** row between two entities. The opposite entry renders the inverse label from `relation_type`. One row, never two, so the two sides cannot drift apart |
-| `fact` | an atomic statement extracted from an entry, carrying the **span** of the source text |
+| Table               | Role                                                                                                                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entity`            | a typed entry: character, place, faction, item, event, session. `aliases[]` is mandatory, not decoration: it is what makes mention detection work (`02`)                                |
+| `relation_type`     | catalogue: label, **inverse label**, cardinality, allowed types at each end                                                                                                             |
+| `relation`          | **one** row between two entities. The opposite entry renders the inverse label from `relation_type`. One row, never two, so the two sides cannot drift apart                            |
+| `fact`              | an atomic statement extracted from an entry, carrying the **span** of the source text                                                                                                   |
 | `entity_source_ref` | where an entity came from: source system, external id, source url, and the content hash of what we last imported. This is what makes a second import update instead of duplicate (§6.4) |
 
 Typed, automatically reflected relations are missing from World Anvil, Kanka and
@@ -141,11 +141,11 @@ The link runs both ways:
 
 ### 4.4 Proposals, revisions, revelations
 
-| Table | Role |
-| --- | --- |
-| `proposal` | the unapplied diff: trigger, target entity, kind (`create` \| `update` \| `relation` \| `draft_entity`), patch, rationale, evidence, model, cost, outcome, reject reason |
-| `revision` | per-entry history with `author_kind` = `human` \| `ai_accepted` |
-| `revelation` | what the players have discovered, and in which session |
+| Table        | Role                                                                                                                                                                     |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `proposal`   | the unapplied diff: trigger, target entity, kind (`create` \| `update` \| `relation` \| `draft_entity`), patch, rationale, evidence, model, cost, outcome, reject reason |
+| `revision`   | per-entry history with `author_kind` = `human` \| `ai_accepted`                                                                                                          |
+| `revelation` | what the players have discovered, and in which session                                                                                                                   |
 
 `proposal`, with its outcome and reject reason, **is** the instrumentation of the
 accept rate — the metric that decides whether this product works (§14). It is a
@@ -179,12 +179,12 @@ decides whether a later run is an update or a no-op (§6.2, §6.4).
 One agent, four modes, one output shape — a `proposal`, so everything lands in the
 same accept flow and the same instrumentation.
 
-| Mode | Trigger | Behaviour |
-| --- | --- | --- |
-| **Ask** | any time | RAG over the universe. Retrieval and prompting are lifted from ai-game's loremaster, with the two retrieval numbers re-derived here rather than inherited (§11.4: top-k 12, threshold 0.35 against the current embedding model): a `query_lore` tool taking 1–5 questions in parallel, sources listed rather than cited inline, follow-up questions, SSE streaming, five detail levels |
-| **Complete** | an entry is thin | proposes the missing fields with evidence |
-| **Propagate** | an entry was saved | plan → per-entry diff → accept |
-| **Audit** | background, over the sub-graph just touched | flags what does not add up |
+| Mode          | Trigger                                     | Behaviour                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Ask**       | any time                                    | RAG over the universe. Retrieval and prompting are lifted from ai-game's loremaster, with the two retrieval numbers re-derived here rather than inherited (§11.4: top-k 12, threshold 0.35 against the current embedding model): a `query_lore` tool taking 1–5 questions in parallel, sources listed rather than cited inline, follow-up questions, SSE streaming, five detail levels |
+| **Complete**  | an entry is thin                            | proposes the missing fields with evidence                                                                                                                                                                                                                                                                                                                                              |
+| **Propagate** | an entry was saved                          | plan → per-entry diff → accept                                                                                                                                                                                                                                                                                                                                                         |
+| **Audit**     | background, over the sub-graph just touched | flags what does not add up                                                                                                                                                                                                                                                                                                                                                             |
 
 ### 5.1 Propagation, in detail
 
@@ -247,13 +247,13 @@ to test it. Decision of 2026-08-07: **start with the loop, keep the seam** (§11
 A model is flexible where flexibility is worth paying for, and unreliable where
 reliability is the whole point. The line is drawn like this:
 
-| Stage | Who does it | Why |
-| --- | --- | --- |
-| Unpack the export, walk it, render PDF pages, extract embedded images | deterministic code | it is file handling, and file handling has a right answer |
-| Read a document, find the entities, decide what relates to what, look at a scanned page | **the model**, following the playbook | every source is different and half of them are informal |
-| Validate each proposal against a schema | deterministic code | a model that emits nonsense must fail loudly, not persist it |
-| Match against what already exists, merge, resolve conflicts | **deterministic engine** (§6.4) | this is where damage would happen, so no model decides it |
-| Write to canon | nothing, until a human accepts | guardrail 1 |
+| Stage                                                                                   | Who does it                           | Why                                                          |
+| --------------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------ |
+| Unpack the export, walk it, render PDF pages, extract embedded images                   | deterministic code                    | it is file handling, and file handling has a right answer    |
+| Read a document, find the entities, decide what relates to what, look at a scanned page | **the model**, following the playbook | every source is different and half of them are informal      |
+| Validate each proposal against a schema                                                 | deterministic code                    | a model that emits nonsense must fail loudly, not persist it |
+| Match against what already exists, merge, resolve conflicts                             | **deterministic engine** (§6.4)       | this is where damage would happen, so no model decides it    |
+| Write to canon                                                                          | nothing, until a human accepts        | guardrail 1                                                  |
 
 The consequence worth stating: **the model proposes, the merge engine decides.** The
 idempotency guarantee of §6.4 survives even though the model is non-deterministic,
@@ -286,14 +286,14 @@ Shipped playbooks: `obsidian`, `kanka`, `world-anvil`, `onenote`, `pdf`, `docx`,
 The model reaches the system only through these tools, every call checked against
 the job's universe:
 
-| Tool | Purpose |
-| --- | --- |
-| `source_list` / `source_read` | walk and read the uploaded export, unpacked read-only |
-| `page_image` | render one page of a PDF to an image and hand it to a multimodal model, so a scanned page is simply **looked at**. Local and deterministic: no OCR provider, no per-page fee, no third party |
-| `image_store` | store an image found in the export, returns an asset id to attach. Images are **stored**, not referenced: a source that disappears must not take the pictures with it |
-| `entity_propose` / `relation_propose` | emit a candidate, schema-validated, **required** to carry a source reference and the evidence span |
-| `checkpoint` | record progress so a resumed run does not start over |
-| `job_finish` | close the run with counts |
+| Tool                                  | Purpose                                                                                                                                                                                      |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `source_list` / `source_read`         | walk and read the uploaded export, unpacked read-only                                                                                                                                        |
+| `page_image`                          | render one page of a PDF to an image and hand it to a multimodal model, so a scanned page is simply **looked at**. Local and deterministic: no OCR provider, no per-page fee, no third party |
+| `image_store`                         | store an image found in the export, returns an asset id to attach. Images are **stored**, not referenced: a source that disappears must not take the pictures with it                        |
+| `entity_propose` / `relation_propose` | emit a candidate, schema-validated, **required** to carry a source reference and the evidence span                                                                                           |
+| `checkpoint`                          | record progress so a resumed run does not start over                                                                                                                                         |
+| `job_finish`                          | close the run with counts                                                                                                                                                                    |
 
 There is deliberately **no tool that writes an entity**, no raw SQL, no arbitrary
 HTTP fetch, no shell. The blast radius of a confused or manipulated model is a batch
@@ -331,13 +331,13 @@ the embedding model, exactly as §11.4 does for retrieval.
 
 **Merge policy, per field.** The rule that protects the GM's work:
 
-| Situation | What happens |
-| --- | --- |
-| Field unchanged since the last import | update silently — nothing of the user's is at stake |
+| Situation                                                                     | What happens                                                                    |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Field unchanged since the last import                                         | update silently — nothing of the user's is at stake                             |
 | Field edited by the user after the last import, and changed at the source too | **conflict: raise a proposal** with both versions side by side. Never overwrite |
-| Field edited by the user, unchanged at the source | leave it alone |
-| New entity or new field at the source | proposal, as with any other extraction |
-| Entity disappeared from the source | never delete. Mark it `missing_in_source` and let the GM decide |
+| Field edited by the user, unchanged at the source                             | leave it alone                                                                  |
+| New entity or new field at the source                                         | proposal, as with any other extraction                                          |
+| Entity disappeared from the source                                            | never delete. Mark it `missing_in_source` and let the GM decide                 |
 
 This is guardrail 1 applied to import: the second import writes only what cannot
 destroy anything, and everything else becomes a proposal to accept.
@@ -351,7 +351,6 @@ plan or walk it entity by entity.
 
 **The acceptance test is blunt**: importing the same export twice produces zero
 changes on the second run. It goes in CI, with a fixture export per source.
-
 
 ### 6.5 Untrusted content, and what follows from it
 
@@ -383,15 +382,15 @@ agent, not of importing somebody else's file.
 
 ### 6.6 Sources
 
-| Source | Playbook input | Notes |
-| --- | --- | --- |
-| Obsidian | folder or zip upload | wikilinks **are** the starting graph: every `[[link]]` is a candidate relation. Aliases, heading and block links, embeds, Dataview inline fields (`Key:: value`) |
-| Kanka | JSON export (free tier, once a day, images included) | export only, not the API: §6.9 |
-| World Anvil | Full World Export zip (JSON + HTML) | §6.8 |
-| OneNote | **one section at a time**, exported by the user | Windows exports a section to Single File Web Page (`.mht`), PDF or DOCX, and a whole notebook to the same three plus `.onepkg`; OneNote on the web exports `.onepkg` for personal OneDrive accounts. The notebook-scope export is not the one to ask for: it leaves pages out of the file it writes, in every format but `.xps`, measured in `docs/onenote-export.md` (issue #604), so the guide asks for a section and the confirm screen says what it can see about the scope of what arrived. A `.onepkg` reader is optional and deferred (§6.10) |
-| PDF | file upload | text first; a scanned page is rendered with `page_image` and **the model looks at it**. No OCR service, no per-page fee, no third party |
-| DOCX | file upload | structure kept, visual styling dropped |
-| anything else | `generic` playbook | the reason the loop exists rather than six parsers |
+| Source        | Playbook input                                                               | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Obsidian      | folder or zip upload                                                         | wikilinks **are** the starting graph: every `[[link]]` is a candidate relation. Aliases, heading and block links, embeds, Dataview inline fields (`Key:: value`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Kanka         | JSON export (free tier, once a day, images included)                         | export only, not the API: §6.9                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| World Anvil   | Full World Export zip (JSON + HTML)                                          | §6.8                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| OneNote       | **the notebook or a section, in OneNote's own format**, exported by the user | `File > Export` in the classic desktop app writes a section as `.one` and a notebook as `.onepkg`, and those are the only exports that carry the notebook's hierarchy: a `PageLevel` per page, which becomes a real parent folder in the tree the playbook reads (§6.10). The same app also writes Single File Web Page (`.mht`), PDF and DOCX, all of which keep the prose and lose the hierarchy, and OneNote on the web writes `.onepkg` for personal OneDrive accounts. **Which app the GM has decides what they can produce**: the newer OneNote bundled with Windows, and OneNote on a Mac, have no `File > Export` and print to PDF only. At notebook scope `.mht`, PDF and DOCX leave pages out of the file they write, measured in `docs/onenote-export.md` (issue #604), so for those the guide asks for a section at a time and the confirm screen says what it can see about scope; `.onepkg` does not behave that way and is asked for whole |
+| PDF           | file upload                                                                  | text first; a scanned page is rendered with `page_image` and **the model looks at it**. No OCR service, no per-page fee, no third party                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| DOCX          | file upload                                                                  | structure kept, visual styling dropped                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| anything else | `generic` playbook                                                           | the reason the loop exists rather than six parsers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 **There is not a single API integration in this list**, and that is the point.
 Every source is a file the user exported and owns, which removes at a stroke: an
@@ -424,11 +423,11 @@ independent: **where the code lives** (public or private repo), **where the mode
 runs** (our call or the user's machine), and **whose account pays**. Only the last
 carries risk, and it is settled:
 
-| Model | When | What it means |
-| --- | --- | --- |
-| **Metered API keys** behind the gateway | now | a commercial arrangement with no ambiguity, and the euro budget of §15: per-job ceiling, cheap model for bulk, estimate before the run |
-| A **consumer subscription** | development and preview only | legitimate exactly there, because the person working is the subscriber. It is never the production credential: serving many users through one plan is the kind of arrangement that ends with an account closed mid-week, and a private repo would hide that rather than solve it |
-| **The user's own agent**, through Spole's local daemon | when Spole ships it | the import runs on the GM's machine with the GM's own subscription. No credentials of ours, no contractual question, no throughput ceiling, and a selling point rather than a fallback: *your notes never leave your laptop* |
+| Model                                                  | When                         | What it means                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Metered API keys** behind the gateway                | now                          | a commercial arrangement with no ambiguity, and the euro budget of §15: per-job ceiling, cheap model for bulk, estimate before the run                                                                                                                                           |
+| A **consumer subscription**                            | development and preview only | legitimate exactly there, because the person working is the subscriber. It is never the production credential: serving many users through one plan is the kind of arrangement that ends with an account closed mid-week, and a private repo would hide that rather than solve it |
+| **The user's own agent**, through Spole's local daemon | when Spole ships it          | the import runs on the GM's machine with the GM's own subscription. No credentials of ours, no contractual question, no throughput ceiling, and a selling point rather than a fallback: _your notes never leave your laptop_                                                     |
 
 Either way the throughput controls stay, because metered APIs have rate limits too:
 
@@ -484,7 +483,7 @@ Decision of 2026-08-07: export only. It keeps the ingestion story uniform — ev
 source is a file the user owns — and it removes a dependency on somebody else's
 goodwill from the critical path.
 
-### 6.10 What was dropped, and the deferred OneNote reader
+### 6.10 What was dropped, and the OneNote reader that was deferred and then built
 
 **Google Docs**, cut on 2026-08-07. The picker with the non-sensitive `drive.file`
 scope would have worked without OAuth verification, but the surface earns its place
@@ -492,23 +491,46 @@ only for GMs who keep their world in Docs, and those users export to DOCX or PDF
 which we read anyway.
 
 **The OneNote Graph connector**, cut the same day for a better reason: it turned
-out to be unnecessary. OneNote exports on its own — a whole notebook to PDF, DOCX
-or `.onepkg` from the Windows app, and `.onepkg` from OneNote on the web for
-personal OneDrive accounts. PDF and DOCX are already first-class inputs here, so
-the connector bought nothing and cost an Entra ID registration, a consent screen,
-delegated tokens and hand-written backoff.
+out to be unnecessary. OneNote exports on its own, and every format it writes is a
+first-class input here, so the connector bought nothing and cost an Entra ID
+registration, a consent screen, delegated tokens and hand-written backoff.
 
-Two limits worth knowing before promising anything: **OneNote on Mac exports only
-the current page** as PDF, so a Mac-only user has a poor time and should be told so
-plainly; and web export covers personal OneDrive only, not work, school or
-SharePoint accounts.
+**The `.onepkg` / `.one` reader was deferred on 2026-08-07 and built on 2026-08-23**
+(issue #603, spike #600). The deferral rested on two claims about the Rust
+`onenote_parser`, and the corpus (`docs/corpus-onenote.md`) showed both to be false:
+it reads the desktop format ([MS-ONESTORE] §2.3) as well as the OneDrive one (§2.8),
+and it needs no sidecar process, because it builds for `wasm32-unknown-unknown` and
+runs in-process with no imports at all. What was left was a decision about
+ownership, and it was taken on what the format recovers that nothing else does:
+**the hierarchy**. A `.mht` of one notebook gives 70 pages, flat, with no section
+boundary; the `.onepkg` of the same notebook gives 88 pages across three named,
+ordered sections with a `PageLevel` on each, which is 21 top-level pages and 67
+subpages. That is exactly the parent/subpage relation `onenote.md` reads out of a
+folder tree, and until this existed that tree never had a parent in it. The prose
+comes across at parity, under half a per cent of the `.mht`'s tokens unaccounted
+for.
 
-A **`.onepkg` / `.one` reader is deferred, not refused.** The format is documented
-([MS-ONESTORE]) and there is a working open-source parser, the Rust
-`onenote_parser` with its `one2html` front end, which reads files packaged the way
-OneDrive produces them but not legacy OneNote 2016 desktop files. Shipping it means
-a Rust sidecar inside the runner and a partial-coverage caveat, so it waits until
-someone actually asks.
+It also changes what a whole-notebook export costs. §6.6's table and issue #604
+record that at notebook scope `.mht`, PDF and DOCX leave pages out. **`.onepkg` does
+not**: it carried every page of both separately-exported sections of the corpus
+notebook, in the same order and at the same level. So it is the one export this
+product can ask for whole, and the scope advice is per format rather than universal.
+
+Two limits are the GM's, not ours, and the guide says both. `File > Export` exists
+only in the classic desktop app (Microsoft 365, still called OneNote 2016): the
+newer OneNote bundled with Windows exports PDF and nothing else, and OneNote on a
+Mac exports only the page being viewed. OneNote on the web can package a notebook as
+`.onepkg`, for personal Microsoft or OneDrive accounts and not for work, school or
+SharePoint ones.
+
+The cost accepted with it is ownership: roughly 8,000 lines of third-party
+binary-format parsing, MPL-2.0, whose upstream README offers bugfixes and
+compatibility rather than features. MPL's copyleft is file-level and nothing of
+theirs is edited here, so §3.3 permits this Larger Work under AGPL-3.0; the licence
+direction still runs one way, and nothing here may flow into an MIT repository.
+`docs/onenote-export.md` carries the measurements and
+`packages/import/onestore/build.sh` the reason the wasm artefact is committed rather
+than built in CI.
 
 ## 7. Pre-indexed universes
 
@@ -520,7 +542,7 @@ batch embedding, upsert into a per-universe Qdrant collection. Incremental and
 idempotent on the page timestamp.
 
 **The legal constraint is part of the feature.** Fandom text is CC BY-SA 3.0, so
-commercial reuse is permitted *with attribution and share-alike*, while Fandom's
+commercial reuse is permitted _with attribution and share-alike_, while Fandom's
 terms restrict automated access except for licensed text, and the underlying
 settings remain their publishers' IP. The defensible position, and the one this
 spec adopts:
@@ -540,11 +562,11 @@ status, mirroring ai-game's table.
 The rule that governs this whole surface: **nothing the GM sees at the table waits
 on an LLM.** Three lanes with declared budgets:
 
-| Lane | What | Budget | How |
-| --- | --- | --- | --- |
-| Instant | the place's NPCs, relations, quick actions | < 100 ms | graph queries, no model |
-| Fast | semantic search, "who is this?", cached sounds | 200–500 ms | Qdrant, plus the similarity cache at 0.94 |
-| Slow | a new sound, a portrait, a drafted entry | 3–10 s | always background, always optional |
+| Lane    | What                                           | Budget     | How                                       |
+| ------- | ---------------------------------------------- | ---------- | ----------------------------------------- |
+| Instant | the place's NPCs, relations, quick actions     | < 100 ms   | graph queries, no model                   |
+| Fast    | semantic search, "who is this?", cached sounds | 200–500 ms | Qdrant, plus the similarity cache at 0.94 |
+| Slow    | a new sound, a portrait, a drafted entry       | 3–10 s     | always background, always optional        |
 
 The GM declares context ("they have entered Valdoria"), which sets
 `session_context`, and the system anticipates: it pins the main characters of that
@@ -557,16 +579,16 @@ soundscape.
 Pre-computation is a first-class subsystem, not an optimisation. Five triggers,
 deliberately priced differently:
 
-| # | Trigger | Produces | Why there |
-| --- | --- | --- | --- |
-| 1 | **On write**, ~60 s debounce | cheap text only: two-line brief, context pack | the GM just thought about this place, so use is likely and cost is negligible |
-| 2 | **On prep** (opens the work, plans a session) | the expensive material: 3 NPC drafts per expected place, ambient pack, portraits for already-pinned NPCs | it is declared, it is asynchronous by nature, and it is the only moment the GM accepts waiting |
-| 3 | **On opening table mode** | ring 1 around current context, if not already fresh | safety net for the improvised session |
-| 4 | **On consumption** (rolling) | entering Valdoria warms the next ring: adjacent places, present factions, linked NPCs | you only pay where the party is actually going |
-| 5 | **Nightly**, only universes active in the last N days | recomposes what went stale, within the remaining budget | catches drift without surprises on the bill |
+| #   | Trigger                                               | Produces                                                                                                 | Why there                                                                                      |
+| --- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 1   | **On write**, ~60 s debounce                          | cheap text only: two-line brief, context pack                                                            | the GM just thought about this place, so use is likely and cost is negligible                  |
+| 2   | **On prep** (opens the work, plans a session)         | the expensive material: 3 NPC drafts per expected place, ambient pack, portraits for already-pinned NPCs | it is declared, it is asynchronous by nature, and it is the only moment the GM accepts waiting |
+| 3   | **On opening table mode**                             | ring 1 around current context, if not already fresh                                                      | safety net for the improvised session                                                          |
+| 4   | **On consumption** (rolling)                          | entering Valdoria warms the next ring: adjacent places, present factions, linked NPCs                    | you only pay where the party is actually going                                                 |
+| 5   | **Nightly**, only universes active in the last N days | recomposes what went stale, within the remaining budget                                                  | catches drift without surprises on the bill                                                    |
 
 **Never pre-computed:** propagation diffs and Loremaster answers. The criterion is
-sharp — pre-compute what depends on *context*, never what depends on *input*.
+sharp — pre-compute what depends on _context_, never what depends on _input_.
 
 **Lazy invalidation.** The fingerprint marks an artifact stale; stale does not mean
 regenerate now. It regenerates at the next trigger, otherwise an hour of editing a
@@ -633,23 +655,23 @@ have to change to add it later.
 
 pnpm monorepo, Node 22.
 
-| Package | Contents |
-| --- | --- |
-| `apps/web` | SvelteKit 2, Svelte 5 (runes), Tailwind 4, shadcn-svelte, `adapter-node` |
-| `packages/db` | Postgres 16 schema and migrations |
-| `packages/vector` | Qdrant client — **copied nearly verbatim** from ai-game |
-| `packages/indexing` | wiki crawl → chunk → extract → embed → upsert |
-| `packages/ai` | gateway, DB-driven model resolution, usage accounting |
-| `packages/import` | the bounded loop, playbook loading, the tool surface, and the **driver seam** of §11.2 |
+| Package             | Contents                                                                               |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| `apps/web`          | SvelteKit 2, Svelte 5 (runes), Tailwind 4, shadcn-svelte, `adapter-node`               |
+| `packages/db`       | Postgres 16 schema and migrations                                                      |
+| `packages/vector`   | Qdrant client — **copied nearly verbatim** from ai-game                                |
+| `packages/indexing` | wiki crawl → chunk → extract → embed → upsert                                          |
+| `packages/ai`       | gateway, DB-driven model resolution, usage accounting                                  |
+| `packages/import`   | the bounded loop, playbook loading, the tool surface, and the **driver seam** of §11.2 |
 
 ### 11.1 What is reused from ai-game, and what is replaced
 
 Two substitutions, both surgical:
 
-| ai-game | here | why |
-| --- | --- | --- |
+| ai-game                           | here                                             | why                                                                                                                                                  |
+| --------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Supabase (auth, DB, storage, RLS) | Postgres + Better Auth + filesystem behind Caddy | Supabase is the most entangled and least portable part of ai-game; carrying it over would import RLS and storage triggers this product does not need |
-| Weaviate/Qdrant mix | Qdrant only | one vector store, self-hosted |
+| Weaviate/Qdrant mix               | Qdrant only                                      | one vector store, self-hosted                                                                                                                        |
 
 Reused close to verbatim: the vector store abstraction, the indexing pipeline
 (chunker, extractors, collection naming), the loremaster retrieval and prompts, the
@@ -687,10 +709,10 @@ cancel(jobId)
 
 Two implementations, one now and one later:
 
-| Driver | When | What it is |
-| --- | --- | --- |
-| `GatewayDriver` | **v0** | the AI SDK loop against Vercel AI Gateway, model chosen per job from the database (§6.7). No extra process, no container to harden |
-| `SpoleDriver` | when Spole ships | delegates to `@spole/host` server-side, or through Spole's local daemon to **the user's own agent on their own machine**, which is the whole reason to wait for it |
+| Driver          | When             | What it is                                                                                                                                                         |
+| --------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GatewayDriver` | **v0**           | the AI SDK loop against Vercel AI Gateway, model chosen per job from the database (§6.7). No extra process, no container to harden                                 |
+| `SpoleDriver`   | when Spole ships | delegates to `@spole/host` server-side, or through Spole's local daemon to **the user's own agent on their own machine**, which is the whole reason to wait for it |
 
 What makes this credible rather than aspirational: **nothing outside
 `packages/import` knows which driver is in use**, no model or protocol type leaks
@@ -700,13 +722,13 @@ drivers. Swapping is a dependency change plus a deletion.
 The sibling idea **Spole** (`ideas/spole/`) counts the ACP integrations in this
 house — 1219 lines in loombox, 170 in pitchbox, 88 in mastro — and names
 `worldbuilding-copilot` as a consumer of `@spole/host`. That remains true; what
-changed on 2026-08-07 is only the *order*: Canonry ships the loop first, because a
+changed on 2026-08-07 is only the _order_: Canonry ships the loop first, because a
 `ready` product cannot block on an `exploring` one, and adopts Spole when it exists
 rather than hand-rolling a fourth ACP client in the meantime.
 
 Licensing runs in the compatible direction: Spole is Apache-2.0 and can be consumed
-by a copyleft Canonry. The reverse would not work, so code flowing *from* Canonry
-*into* Spole has to be contributed under Spole's licence.
+by a copyleft Canonry. The reverse would not work, so code flowing _from_ Canonry
+_into_ Spole has to be contributed under Spole's licence.
 
 **What is borrowed from pitchbox even without an agent process**: the playbook
 format (frontmatter, `## Inputs`, `## Tools`, `## Steps`, JSON examples in fences),
@@ -863,11 +885,11 @@ priced must fail loudly rather than silently charge nothing.
 
 Most of the list was closed on 2026-08-07. What survives, and why:
 
-| # | Decision | State |
-| --- | --- | --- |
-| 1 | **Which wikis get indexed first** | open, deliberately: each needs its own licence review before indexing, and the order depends on which settings the first users actually play in |
-| 2 | **Zero Data Retention and disallow-prompt-training on Vercel AI Gateway** | open, and for the first time an actual switch rather than a wait on procurement: with the provider decided (below), Vercel AI Gateway offers **Zero Data Retention** — team-wide from the dashboard (Pro/Enterprise, $0.10 per 1,000 successful requests, no code change) or per request (`zeroDataRetention: true`, free) — and a separate, free **disallow prompt training** control (`disallowPromptTraining: true`; ZDR includes it automatically). Neither is turned on as of this writing, and turning either on is Lorenzo's call, not a default this repo assumes. Two consequences to weigh first: ZDR filters the routing set to ZDR-compliant providers only, so a model whose provider has not signed Vercel's ZDR terms silently narrows out of what is reachable, not just what is retained; and under ZDR a user's own BYOK key (#90) is skipped by default and the call falls back to system credentials unless that key is separately marked ZDR-compliant in the dashboard — a marking this repo cannot make on the user's behalf, since Vercel has no visibility into what the user's own provider agreement actually covers |
-| 3 | **Matching thresholds** (§6.4) | open until the benchmark exists, which is the point: they are measured, not chosen |
+| #   | Decision                                                                  | State                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Which wikis get indexed first**                                         | open, deliberately: each needs its own licence review before indexing, and the order depends on which settings the first users actually play in                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 2   | **Zero Data Retention and disallow-prompt-training on Vercel AI Gateway** | open, and for the first time an actual switch rather than a wait on procurement: with the provider decided (below), Vercel AI Gateway offers **Zero Data Retention** — team-wide from the dashboard (Pro/Enterprise, $0.10 per 1,000 successful requests, no code change) or per request (`zeroDataRetention: true`, free) — and a separate, free **disallow prompt training** control (`disallowPromptTraining: true`; ZDR includes it automatically). Neither is turned on as of this writing, and turning either on is Lorenzo's call, not a default this repo assumes. Two consequences to weigh first: ZDR filters the routing set to ZDR-compliant providers only, so a model whose provider has not signed Vercel's ZDR terms silently narrows out of what is reachable, not just what is retained; and under ZDR a user's own BYOK key (#90) is skipped by default and the call falls back to system credentials unless that key is separately marked ZDR-compliant in the dashboard — a marking this repo cannot make on the user's behalf, since Vercel has no visibility into what the user's own provider agreement actually covers |
+| 3   | **Matching thresholds** (§6.4)                                            | open until the benchmark exists, which is the point: they are measured, not chosen                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 **The interface is decided elsewhere on purpose.** This file says what the product
 guarantees, not what it looks like: that a proposal shows its evidence, not where the
@@ -914,7 +936,7 @@ hobby, not an edge case, and being answered in English about their own Italian n
 experience every other tool delivers today.
 
 **Three: canon keeps its own language, per entry.** This is the part that has to be right, and
-it is the opposite of the rule above. When the copilot drafts text that will land *inside* an
+it is the opposite of the rule above. When the copilot drafts text that will land _inside_ an
 entry, it writes in that entry's language, not the user's. An Italian interface must not
 start writing Italian paragraphs into an English entry: that is vandalism with good
 intentions, and no accept button makes it acceptable. So `entity.language` is detected at

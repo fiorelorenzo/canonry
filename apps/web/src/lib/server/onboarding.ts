@@ -464,6 +464,17 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 			// section from a small notebook. So the notice says we cannot tell, rather than
 			// guessing from a page count. `oneNoteEnvelopes` is what keeps it off a real
 			// exported page tree, which is produced page by page and loses nothing.
+			//
+			// Issue #603: and it is what keeps it off a `.onepkg` too, which is why that
+			// reader counts itself in `oneStoreNotebooks` instead. The distinction is
+			// measured rather than assumed. At notebook scope the `.mht` is missing 7.9 per
+			// cent of the two section exports' tokens and 22 of their 75 pages entirely,
+			// while the `.onepkg` of the same notebook carries every page of both sections,
+			// in the same order, with the same `PageLevel`, and 0.00 and 0.28 per cent of
+			// tokens unaccounted for, where that 0.28 is one page the GM edited between the
+			// two exports and its own timestamps say so. So a `.onepkg` is the one
+			// whole-notebook export that drops nothing, and warning about its scope would be
+			// telling a GM to go and do something worse.
 			const fromEnvelope = (reader.oneNoteEnvelopes ?? 0) > 0;
 			return {
 				playbookId: 'onenote',

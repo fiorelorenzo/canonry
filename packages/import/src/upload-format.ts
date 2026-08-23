@@ -31,7 +31,11 @@
  * `UNREADABLE_UPLOAD_FORMATS` is the set with no reader behind it, and it is the whole
  * point: a job for one of those must be refused before it is created, because SPEC §15's
  * "no opaque credits" and guardrail 5 both mean a run that cannot succeed may not charge.
- * `mhtml` is in that set today and issue #592 takes it out by writing the reader.
+ * It has shrunk twice: issue #592 took `mhtml` out for OneNote's own envelopes by writing
+ * `mhtml.ts`, and issue #603 took `onestore` and `onepkg` out by writing `onestore.ts`.
+ * What is left is a `.mht` no OneNote wrote and an `.xps`, and the `.xps` is refused by
+ * decision rather than for want of a reader: its `.pdf` twin is equivalent and already
+ * read, measured in `docs/onenote-export.md` (issue #601).
  */
 
 /** Formats this module can tell apart. `zip` is an archive to unpack; `other` is one
@@ -46,21 +50,18 @@
 export type UploadFormat =
 	'zip' | 'pdf' | 'docx' | 'other' | 'onenote-mhtml' | 'mhtml' | 'xps' | 'onestore' | 'onepkg';
 
-/** The formats no reader in this codebase can turn into documents. Ordered as the
- * refusal copy lists them, and narrow on purpose: a format is only in here once it has
- * been confirmed unreadable against a real file, never on the strength of its
- * extension. */
-export const UNREADABLE_UPLOAD_FORMATS = ['mhtml', 'xps', 'onestore', 'onepkg'] as const;
+/** The formats with no reader behind them. Ordered as the refusal copy lists them, and
+ * narrow on purpose: a format is only in here once it has been confirmed unreadable
+ * against a real file, never on the strength of its extension. */
+export const UNREADABLE_UPLOAD_FORMATS = ['mhtml', 'xps'] as const;
 
 export type UnreadableUploadFormat = (typeof UNREADABLE_UPLOAD_FORMATS)[number];
 
-/** A fixed table rather than a `Set`: the four members are known at authoring time and
- * this is only ever a membership question. */
+/** A fixed table rather than a `Set`: both members are known at authoring time and this
+ * is only ever a membership question. */
 const UNREADABLE: Record<UnreadableUploadFormat, true> = {
 	mhtml: true,
-	xps: true,
-	onestore: true,
-	onepkg: true
+	xps: true
 };
 
 export function isUnreadableUploadFormat(format: UploadFormat): format is UnreadableUploadFormat {

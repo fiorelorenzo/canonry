@@ -197,10 +197,89 @@ ownership: 8,000 lines of third-party binary-format parsing, on an upstream whos
 says it takes bugfixes and compatibility rather than features, plus MPL's file-level
 copyleft on anything of theirs we edit.
 
-Until that reader exists the playbook does not attempt to open a `.onepkg`/`.one` file, and
-says so twice: in the scope paragraph near the top, and in step 6 of its own steps, which is
-the one that changes a tool call. Say so in `job_finish`'s summary and finish `skipped`
-rather than guessing at a binary layout. The fallbacks stay what they were: `File > Export`
-a section to Word or PDF, or the Single File Web Page export the `.mht` reader takes, all
-three of which lose the hierarchy and keep the rest. SPEC.md §6.10 still records the old
-deferral and needs updating with this decision.
+## What the reader turned out to be, once it was built
+
+Issue #603 built it. Everything above this line held up: the four corpus files parse with
+no failure, the section names and page counts come out as #600 measured them, and the
+`PageLevel` distribution is exact, 88 pages over three ordered sections, 21 at the top and
+67 as subpages. `packages/import/src/onestore.ts` turns that into the same folder tree
+`expandOneNoteMhtml` produces, so no new playbook and no new `stepBudget`, and the trees
+are indistinguishable downstream except by which counter the reader incremented.
+
+Four things came out of building it that measuring it had not shown.
+
+**`.onepkg` is the whole-notebook export that does not drop pages, and that reverses the
+advice for one format.** #604's finding stands for `.mht` and `.pdf`, and does not
+generalise to the package. Comparing the two section-scope `.one` files against the same
+two sections inside the `.onepkg`: every page present, 23 of 23 and 52 of 52, no title
+missing, page order and `PageLevel` identical, and 0.00 and 0.28 per cent of tokens with no
+counterpart. That 0.28 is one page, `Stati, Nazioni e Organizzazioni`, and its own
+timestamps settle it: `2024-04-08` inside the package against `2026-08-21` in the section
+file, so the GM edited it between the two exports. This is the case §6.10 was careful to
+rule out for the `.xps` and that is genuinely present here. So the guide asks for a
+`.onepkg` whole and keeps "a section at a time" for the formats that need it.
+
+**Text parity is 0.39 to 0.47 per cent, and the gap is entirely export chrome.** Measured
+per section against the `.mht` of the same scope, on token multisets. Before accounting for
+anything it reads 0.86 to 0.91 per cent, and all of the difference is OneNote's HTML
+exporter adding what the binary format does not carry as content: a date paragraph and a
+time paragraph under every page title, one "Creato con OneNote" line per page, and the page
+title printed into the body as well as into `<title>`. What is left after removing those is
+dominated by the `.mht` splitting elided articles (`l'`, `dell'`) across span boundaries
+that this reader keeps whole, which is the same word-boundary effect the `.xps` section
+above records in the other direction. So the reader is at parity or slightly ahead, and
+#600's 0.5 per cent was right.
+
+**The corpus has no embedded image and no content table**, which is worth writing down
+because the reader reports zero of both and that looks like a bug until checked. The single
+`image/png` part in `Note Storia.mht` is a **note-tag icon**: `<img ... width=16 height=16
+alt=Contatto>`, OneNote's glyph for its own Contact tag, which [MS-ONE] models as a
+`NoteTag` on a paragraph rather than as an image. And the 48 `<table>` elements in that same
+file are the exporter's layout scaffolding, `cols=3` with cells of `width:1px;height:1px;
+font-size:1pt` holding `&nbsp;`, not tables the GM made. One consequence belongs to the
+`.mht` reader rather than to this one: it passes that icon through as an `<img>` into a
+`_files` folder, so `onenote.md`'s attachment rule invites `image_store` to file a 16x16 UI
+glyph as a campaign asset. Filed separately.
+
+**A `page-id` in an `onenote:` link is not a page's own link target id, except inside a
+package.** The corpus's three internal links resolve by id in the `.onepkg` and by title in
+the bare `.one`, because the id only becomes resolvable once the `.onetoc2` is present. Both
+lookups are therefore load-bearing, and title is the one that always works, which is what
+`expandOneNoteMhtml` already relied on.
+
+## What the live run cost, and the one thing it showed that no fixture could
+
+The `.onepkg` through the real upload path, on the shared dev stack, against the real
+gateway. It is the comparison #599 set up for the same notebook as `.mht`.
+
+|                     | `.mht`, notebook scope (#599) | `.onepkg` (this issue) |
+| ------------------- | ----------------------------- | ---------------------- |
+| documents           | 70                            | **88**                 |
+| proposals persisted | 281                           | **381**                |
+| credits             | 75.87                         | **81.85** (EUR 0.82)   |
+| wall clock          |                               | 22.7 minutes           |
+| tokens in / out     |                               | 7,083,902 / 92,034     |
+
+So 25.7 per cent more documents and 35.6 per cent more proposals for 7.9 per cent more
+money. The confirm screen said 88 pages and raised **no** scope notice, which is the
+`oneStoreNotebooks` decision doing its job. Of the 381 proposals, 15 came from pages at
+`notebook/section/page.htm` and 66 from `notebook/section/parent/subpage.htm`, so the
+hierarchy is not a claim about the reader, it is visible in the paths the model was handed.
+
+**And the parent/subpage relations do not survive the first import, which is worth stating
+plainly because it is the headline claim's one real limit.** The model called
+`relation_propose` 230 times, 228 of them accepted by the tool, from 68 of the 88 documents,
+and 67 is exactly the subpage count: it read the parent folders and did what step 3 of the
+playbook asks. Every one of those was then dropped, and by a boundary that predates this
+issue and is documented at the top of `job-runner.ts`: `proposal.kind = 'relation'` needs
+two rows that already exist, and on a first import into a universe that has never seen this
+notebook both endpoints are brand new. It is not specific to this reader, and it is why
+#599's 281 proposals were also entity-only, so the table above compares like with like.
+What the hierarchy buys on run one is the 18 pages the `.mht` drops and better-grounded
+summaries; the relations become proposable on the next import, once one side has been
+accepted. Lifting that is a schema change and belongs to its own issue rather than to this
+one.
+
+What is left of the old deferral is the cost, unchanged: 8,000 lines of third-party
+binary-format parsing on an upstream that takes bugfixes rather than features, and MPL's
+file-level copyleft on anything of theirs we edit, which is nothing.

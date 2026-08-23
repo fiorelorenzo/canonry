@@ -609,21 +609,26 @@ and leave the entity to the note that actually describes it.
 `,
 	"onenote": `---
 id: onenote
-version: 4
+version: 5
 name: OneNote page export
 description: Imports one page from a folder tree of exported OneNote pages, trusting the folder hierarchy for parent/subpage relations.
 modelPurpose: cheap
 stepBudget: 60
-# The two paragraphs below the opening block explain what this playbook targets and why the
-# binary .onepkg/.one format is deferred. They change no tool call, and they are re-sent to
-# the model on every step of every document, so issue #329 cut them to one sentence and
+# The three paragraphs below the opening block explain what this playbook targets and how
+# every OneNote export reaches it. They change no tool call, and they are re-sent to the
+# model on every step of every document, so issue #329 cut them to one sentence and
 # measured what that saved: 578 tokens off a 2,928-token system prompt, and 5 to 11 per cent
 # MORE money per model call, because the shorter prefix stops earning Google's implicit
 # prompt cache. The trim was reverted on that measurement (docs/loop-cost.md, "What #329
 # measured"); these paragraphs are load-bearing for cost even though they are not
 # load-bearing for behaviour, which is not an argument for adding more of them.
-# Provenance a maintainer might come here for (how the folder tree is produced, why the
-# binary format waits): docs/onenote-export.md, plus SPEC.md §6.6 and §6.10.
+# Issue #603 replaced the third of them. It used to say the binary .one/.onepkg format was
+# deferred and that the model should finish \`skipped\` if handed one; \`onestore.ts\` now
+# expands both into this same tree, so a page from one is indistinguishable here except
+# that its parent folders are real. The instruction had to go with the deferral: left in
+# place it would have told the model to skip the very input this playbook is now best at.
+# Provenance a maintainer might come here for (how the tree is produced, what each export
+# format is worth): docs/onenote-export.md, plus SPEC.md §6.6 and §6.10.
 # Frontmatter comments are stripped before the body becomes the system prompt, so this
 # block is free at run time. A maintainer reads it; the model never sees it.
 ---
@@ -661,17 +666,14 @@ web or Mac equivalent), so it is not for every user - but for the user who wants
 their notebook's structure back rather than one flattened document, it is the
 honest path, not an invented one.
 
-**The binary \`.onepkg\`/\`.one\` format is out of scope, deliberately (SPEC.md §6.10).**
-It is a documented format ([MS-ONESTORE]) with a working open-source reader (the Rust
-\`onenote_parser\`), but shipping it means a Rust sidecar in the runner for a
-partial-coverage reader (OneDrive-produced packages only, not legacy 2016 desktop
-files) - deferred until someone asks, not refused. A user who only has a \`.onepkg\` and
-no way to produce a page tree has two honest fallbacks already covered: \`File > Export\`
-a section or the whole notebook to Word or PDF, which the \`docx\`/\`pdf\` playbooks read
-directly (losing hierarchy, keeping everything else), or use OneNote's own web/desktop
-export to reach one of those two formats. This playbook does not attempt to open a
-\`.onepkg\`/\`.one\` file itself; if you are ever handed one, say so in \`job_finish\`'s
-summary and finish \`skipped\` rather than guessing at its binary layout.
+**Every OneNote export this product reads arrives here as that same folder tree**, so you
+never have to know which one the GM chose. A Single File Web Page (\`.mht\`) is expanded into
+one \`.htm\` per page before you see it, and so are OneNote's own binary formats, a \`.one\`
+section and the \`.onepkg\` package of a whole notebook (SPEC.md §6.6, §6.10). The one
+difference that reaches you is the hierarchy: a \`.mht\` carries none, so its tree is flat and
+step 3 finds no parent, while a \`.one\` or \`.onepkg\` records a level per page, so its tree
+has real parent folders and step 3 is the reason this playbook exists. Both are the same
+kind of input and the same rules apply. You will never be handed a binary file itself.
 
 ## Language
 
@@ -825,9 +827,7 @@ its own children.
 
 6. **Finish the page.** Call \`job_finish\` with an outcome of
    \`completed\`, or \`skipped\` if the page turned out to be empty (no canvas text, a
-   stub) or if what you were actually handed is a \`.onepkg\`/\`.one\` file rather than an
-   exported page - say so in the summary rather than guessing at its binary layout.
-   \`job_finish\` does not take entity or relation counts: the loop already knows
+   stub). \`job_finish\` does not take entity or relation counts: the loop already knows
    exactly what you proposed.
 
    You have a limited number of steps for this document. If you are close to running

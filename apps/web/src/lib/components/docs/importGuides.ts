@@ -163,53 +163,71 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 	{
 		slug: 'onenote',
 		label: 'OneNote',
-		summary: 'One section at a time, as Single File Web Page or a page tree',
+		summary: 'The notebook or a section in OneNote\u2019s own format, from the desktop app',
 		sections: [
 			{
 				heading: 'What to hand Canonry',
 				blocks: [
 					p(
-						'Export one section at a time as Single File Web Page (.mht) from the Windows ' +
-							'desktop app, and hand Canonry each file, on its own or zipped. It is ' +
-							"OneNote's own export, it needs no other tool, and it is what Canonry reads best: " +
-							'every page in it becomes its own entry rather than one long document.'
+						'Use File > Export in the OneNote desktop app: pick Section and save it as OneNote ' +
+							'Section (.one), or pick Notebook and save it as OneNote Package (.onepkg). Hand ' +
+							'Canonry the file, on its own or zipped. This is the format OneNote itself reads ' +
+							'back, and it is the only export that records where each page sits in your ' +
+							'notebook, so a subpage is proposed as a subpage rather than as one more page.'
 					),
 					warn(
-						'Export the whole notebook in one go and OneNote leaves pages out of the file it ' +
-							'writes. The file is well formed, it imports without a complaint, and the pages ' +
-							'that did not make it are simply not there to import. Nothing in the file says ' +
-							'which ones they were, so Canonry cannot put them back or tell you what is ' +
-							'absent. Exporting a section at a time does not lose them, which is why that is ' +
+						'Which OneNote you have decides whether that menu exists. File > Export is in the ' +
+							'desktop app, the one sold with Microsoft 365 and known as OneNote 2016, and that ' +
+							'is where .one and .onepkg come from. The newer OneNote app that ships with ' +
+							'Windows, the one that replaced OneNote for Windows 10, exports to PDF and nothing ' +
+							'else. If that is the OneNote you have, none of the options in this paragraph are ' +
+							'in your menus and the section-at-a-time route below is the one to take. OneNote ' +
+							'on the web can also export a notebook as .onepkg, but only for a personal ' +
+							'Microsoft or OneDrive account, not a work, school or SharePoint one.'
+					),
+					p(
+						'Failing that, export one section at a time as Single File Web Page (.mht) from the ' +
+							"desktop app, and hand Canonry each file, on its own or zipped. It is OneNote's " +
+							'own export, it needs no other tool, and every page in it becomes its own entry ' +
+							'rather than one long document. What it does not carry is the hierarchy.'
+					),
+					warn(
+						'Export a whole notebook in one go as .mht, PDF or DOCX and OneNote leaves pages out ' +
+							'of the file it writes. The file is well formed, it imports without a complaint, ' +
+							'and the pages that did not make it are simply not there to import. Nothing in the ' +
+							'file says which ones they were, so Canonry cannot put them back or tell you what ' +
+							'is absent. Exporting a section at a time does not lose them, which is why that is ' +
 							'the instruction above. A section is also the unit that fits an import: it comes ' +
-							'back with an estimate you can read before you spend anything.'
+							'back with an estimate you can read before you spend anything. The .onepkg export ' +
+							'is the exception and does not behave that way, which is why it is the first thing ' +
+							'on this page.'
 					),
 					p(
-						'A folder tree of individually exported pages, one file per page, is read the same way ' +
-							'and carries one thing the .mht does not: where each page sits in your notebook, so ' +
-							'a subpage is proposed as a subpage. It is also produced page by page, so a whole ' +
-							'notebook exported that way keeps everything. OneNote has no menu item for it, and ' +
-							'producing it means running a script against the same GetHierarchy and Publish ' +
-							"automation calls OneNote's desktop app exposes, for example " +
-							'meichthys/onenote-html-export, a free, open-source tool built for exactly this. It ' +
-							'needs the desktop app on Windows. Point Canonry at the folder it produces, or a ' +
-							'zip of it.'
+						'A folder tree of individually exported pages, one file per page, carries the same ' +
+							'hierarchy .one and .onepkg do and is read the same way. It exists because it used ' +
+							'to be the only way to get that, and OneNote has no menu item for it: producing it ' +
+							'means running a script against the GetHierarchy and Publish automation calls the ' +
+							'desktop app exposes, for example meichthys/onenote-html-export, a free, ' +
+							'open-source tool built for exactly this. Point Canonry at the folder it produces, ' +
+							'or a zip of it. If File > Export is available to you, it is less work for the ' +
+							'same result.'
 					),
 					p(
-						'Failing both, print one section at a time to PDF, or export it to DOCX, and hand ' +
-							'Canonry that. It is read through the PDF or DOCX guide, the same as any other PDF ' +
-							"or DOCX, and it loses the notebook's own structure: every page becomes one long " +
-							'document and a subpage becomes just another heading. Whole-notebook scope drops ' +
-							'pages here as well. Canonry can tell that a PDF came out of OneNote\u2019s own ' +
-							'printer, and it can tell from the page footers when a print covers more than one ' +
-							'section, so it says both on the confirmation screen rather than letting you think ' +
-							'everything came across.'
+						'Failing all of those, print one section at a time to PDF, or export it to DOCX, and ' +
+							'hand Canonry that. It is read through the PDF or DOCX guide, the same as any other ' +
+							"PDF or DOCX, and it loses the notebook's own structure: every page becomes one " +
+							'long document and a subpage becomes just another heading. Whole-notebook scope ' +
+							'drops pages here as well. Canonry can tell that a PDF came out of OneNote\u2019s ' +
+							'own printer, and it can tell from the page footers when a print covers more than ' +
+							'one section, so it says both on the confirmation screen rather than letting you ' +
+							'think everything came across.'
 					),
 					p(
-						'The three remaining things the export menu offers are refused, and refused before an ' +
-							'import starts rather than partway through it, so nothing is spent on them: XPS ' +
-							'(.xps) and OneNote\u2019s own binary files (.one, .onetoc2, and the .onepkg package ' +
-							'OneNote on the web produces). Canonry reads what a file is from its bytes, not from ' +
-							'its name, so renaming one does not get it through.'
+						'One thing the export menu offers is refused, and refused before an import starts ' +
+							'rather than partway through it, so nothing is spent on it: XPS (.xps). It is the ' +
+							'same printed notebook a PDF would be, and the PDF is already read. Canonry reads ' +
+							'what a file is from its bytes, not from its name, so renaming one does not get it ' +
+							'through.'
 					)
 				]
 			},
@@ -252,28 +270,29 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 							"notebook exported that way is its sections' pages one after another with nothing " +
 							'between them: no section name, no boundary, and nothing saying which page a subpage ' +
 							'used to sit under. So every page comes across as its own entry with none proposed ' +
-							'as a subpage. If your notebook\u2019s structure carries meaning you want kept, the ' +
-							'page tree is the export that keeps it.'
+							'as a subpage. If your notebook\u2019s structure carries meaning you want kept, .one ' +
+							'or .onepkg is the export that keeps it.'
 					),
 					warn(
 						'A .mht also says nothing about what it covers, so Canonry cannot tell one section ' +
 							'from a whole notebook by looking at the file, and the confirmation screen says as ' +
 							'much rather than picking one. That is why the instruction is a section at a time: ' +
 							'it is the one scope you can be sure kept everything, and you are the only one who ' +
-							'knows which you chose.'
+							'knows which you chose. A .one or .onepkg names its own sections, so that question ' +
+							'does not arise for them.'
 					),
 					warn(
-						'OneNote on a Mac cannot produce the page tree at all, and its own export only ' +
-							'covers the page you are currently viewing, not the whole notebook. If your world ' +
-							'lives in OneNote on a Mac, exporting page by page to PDF is the only option that ' +
-							'app gives you.'
+						'The newer OneNote app that ships with Windows has no File > Export at all: PDF is ' +
+							'its only export, and it is a print, so it carries no hierarchy. The classic ' +
+							'desktop app can be installed alongside it and opens the same notebooks, which is ' +
+							'the shortest route to a .one or a .onepkg if the app you have cannot make one.'
 					),
 					warn(
-						'The .onepkg, .one and .onetoc2 formats are not readable. They are documented, and a ' +
-							'reader for them is deferred rather than refused, so export as Single File Web Page, ' +
-							'PDF or DOCX from the Windows desktop app instead. OneNote on the web also only ' +
-							'covers a personal Microsoft or OneDrive account; a work, school or SharePoint ' +
-							'account is not covered by that path.'
+						'OneNote on a Mac has no File > Export either, and its own export only covers the ' +
+							'page you are currently viewing, not the whole notebook. If your world lives in ' +
+							'OneNote on a Mac, exporting page by page to PDF is the only option that app gives ' +
+							'you, and syncing the notebook and exporting it from a Windows machine or from ' +
+							'OneNote on the web is the way to get anything better.'
 					)
 				]
 			}

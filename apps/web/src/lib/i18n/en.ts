@@ -1342,15 +1342,7 @@ export const en: Messages = {
 							'Export or print the same content to PDF and upload that',
 						xps:
 							'an XPS document, which is the same printed notebook a PDF would be and which ' +
-							'Canonry has no reader for. Print or export the same thing to PDF and upload that',
-						onestore:
-							"one of OneNote's own binary section files, and Canonry has no reader for the " +
-							'format. Export the notebook or section to PDF or DOCX from the OneNote desktop app ' +
-							'and upload that instead',
-						onepkg:
-							'a OneNote package, a Microsoft cabinet holding the notebook in that same binary ' +
-							'format, and Canonry has no reader for it. Export to PDF or DOCX from the OneNote ' +
-							'desktop app instead, or export the page tree the OneNote import guide describes'
+							'Canonry has no reader for. Print or export the same thing to PDF and upload that'
 					}[format];
 					return `Canonry cannot read "${path}": it is ${what}. Nothing was started and no credits were spent.`;
 				},
