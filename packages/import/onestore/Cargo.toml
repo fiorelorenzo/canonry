@@ -1,0 +1,33 @@
+[package]
+name = "canonry-onestore"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Reads a OneNote .one section or .onepkg notebook into the structural JSON packages/import turns into a page tree."
+license = "AGPL-3.0-only"
+publish = false
+
+[lib]
+# A bare cdylib with a C ABI, deliberately not wasm-bindgen: the whole surface is four
+# functions over one length-prefixed buffer, and wasm-bindgen would add a JS glue file to
+# generate, commit and keep in step for no gain. `build.sh` has the rest of the reasoning.
+crate-type = ["cdylib"]
+
+[dependencies]
+# `default-features = false` drops `native-fs`, which is what makes this build for
+# wasm32-unknown-unknown at all: the default feature pulls in positional file reads. The
+# `onepkg` feature is the cabinet plus LZX decoder, and it builds for wasm unchanged.
+onenote_parser = { version = "2.0.0", default-features = false, features = ["onepkg"] }
+# Must match the version onenote_parser takes, since TypedPath crosses the API boundary.
+typed-path = "0.12.3"
+serde_json = "1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+# A trap in third-party parsing of an untrusted file must not be recoverable inside the
+# module: `loadOneStore` instantiates one module per file, so the blast radius is that one
+# parse. Unwinding would cost size and buy nothing across a C ABI.
+panic = "abort"
+strip = true

@@ -1,0 +1,9 @@
+# Pinned so that the committed `src/onestore-wasm.generated.ts` and a rebuild of it agree
+# byte for byte, which is the whole basis of the CI guard in `.github/workflows/ci.yml`.
+# A different compiler produces a different artefact from identical sources, and the guard
+# would then fail on a clean checkout. Bumping this means rerunning `build.sh` and
+# committing the artefact in the same change.
+[toolchain]
+channel = "1.96.0"
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"
