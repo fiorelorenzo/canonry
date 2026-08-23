@@ -127,6 +127,11 @@
 	let pendingCount = $derived(items.filter((c) => c.outcome === 'pending').length);
 	let acceptedCount = $derived(items.filter((c) => c.outcome === 'accepted').length);
 	let rejectedCount = $derived(items.filter((c) => c.outcome === 'rejected').length);
+	// Issue #613: a candidate settled without anybody deciding it, which for an import
+	// means a relation whose entry was rejected. It is neither pending nor accepted nor
+	// rejected, so before this the header's three numbers simply did not add up to the rows
+	// on screen, and the two missing ones were exactly the ones this issue made reachable.
+	let supersededCount = $derived(items.filter((c) => c.outcome === 'superseded').length);
 	let itemsByGroup = $derived(
 		groups.map((group) => ({
 			group,
@@ -354,6 +359,9 @@
 		<span>
 			<b class="text-ok">{acceptedCount}</b>{t.acceptedSuffix(acceptedCount)} &middot;
 			<b class="text-danger">{rejectedCount}</b>{t.rejectedSuffix(rejectedCount)}
+			{#if supersededCount > 0}
+				&middot; <b>{supersededCount}</b>{t.supersededSuffix(supersededCount)}
+			{/if}
 		</span>
 	</div>
 

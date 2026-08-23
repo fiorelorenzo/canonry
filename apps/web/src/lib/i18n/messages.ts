@@ -1210,6 +1210,10 @@ export interface Messages {
 			 * "proposals", which this queue fixes, so an Italian suffix may agree with it. */
 			acceptedSuffix: (count: number) => string;
 			rejectedSuffix: (count: number) => string;
+			/** Issue #613: candidates settled without a decision, which for an import means a
+			 * relation whose entry was rejected. Shown only when there are any, because on
+			 * every other queue there never are, and a permanent " 0 dropped" is noise. */
+			supersededSuffix: (count: number) => string;
 			/** Issue #584: noun first, name after, in both locales - "Proposal accepted:
 			 * <name>", and the same sentence without the colon when there is no name. The
 			 * name governs nothing, because no catalogue can know its gender. */
@@ -1261,6 +1265,10 @@ export interface Messages {
 			 * "rejected": the GM decided the entry, not the relation, and the badge has to
 			 * say which of the two happened. */
 			supersededEndpoint: string;
+			/** The same fact for `SettledProposalRow`, which is one line next to a truncating
+			 * title: the sentence above overflows it at 390px and pushes the relation's own
+			 * name off the row, so the summary gets a summary's length. */
+			supersededEndpointShort: string;
 		};
 		filterBuckets: {
 			all: string;

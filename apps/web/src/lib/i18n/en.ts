@@ -973,6 +973,7 @@ export const en: Messages = {
 			filterShown: (typeLabel) => `(${typeLabel} shown)`,
 			acceptedSuffix: () => ' accepted',
 			rejectedSuffix: () => ' rejected',
+			supersededSuffix: () => ' dropped',
 			acceptedToast: (entityName) =>
 				entityName ? `Proposal accepted: ${entityName}` : 'Proposal accepted',
 			acceptFailedToast: 'That decision did not go through.',
@@ -1025,7 +1026,8 @@ export const en: Messages = {
 			},
 			rejectReasonLabel: (value) => PROPOSAL_REJECT_REASON_LABELS_EN[value] ?? value,
 			waitingOnEntries: (names) => `Accept ${names} first, then this link can be accepted`,
-			supersededEndpoint: 'Dropped: an entry this link needs was rejected'
+			supersededEndpoint: 'Dropped: an entry this link needs was rejected',
+			supersededEndpointShort: 'dropped \u00b7 entry rejected'
 		},
 
 		filterBuckets: {

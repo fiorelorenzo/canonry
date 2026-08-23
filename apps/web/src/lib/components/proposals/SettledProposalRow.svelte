@@ -69,6 +69,16 @@
 					{t.undo}
 				</button>
 			{/if}
+		{:else if candidate.outcome === 'superseded' && candidate.rejectReason === 'endpoint_rejected'}
+			<!-- Issue #613: a relation the GM never decided, settled because the entry it
+			     needed was rejected. The `{:else}` below used to catch it and say "rejected",
+			     which is wrong twice: it credits the GM with a decision they did not take, and
+			     it is the one distinction `proposal_outcome`'s own comment says must stay
+			     visible, since counting an undecided proposal as a rejection is what poisons
+			     the accept rate. No danger treatment either, for the same reason. -->
+			<span class="rounded-full bg-panel-2 px-2 py-0.5 font-mono text-label text-ink-2">
+				{t.supersededEndpointShort}
+			</span>
 		{:else}
 			<span class="rounded-full bg-danger-bg px-2 py-0.5 font-mono text-label text-danger">
 				{t.rejected}{candidate.rejectReason
