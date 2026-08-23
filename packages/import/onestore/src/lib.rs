@@ -178,15 +178,106 @@ fn push_file(
     Some(assets.len() - 1)
 }
 
-fn rich_text_block(text: &onenote_parser::contents::RichText, indent: u8, list: Option<&str>) -> Value {
+/// OneNote's own sentinel for a hyperlink's destination, stored inline in the paragraph's
+/// text as a run styled hidden. `RichText::text` hands back the raw string, markers and
+/// all, and `RichText::hyperlinks` reports offsets into that same raw string, so a reader
+/// that used the text as it came would show a GM `\u{fddf}HYPERLINK "https://..."` as if
+/// it were prose.
+const HYPERLINK_MARKER: &str = "\u{fddf}HYPERLINK \"";
+
+fn utf16_len(text: &str) -> u32 {
+    u32::try_from(text.encode_utf16().count()).unwrap_or(u32::MAX)
+}
+
+/// The paragraph's visible text, plus what it takes to move a raw offset onto it.
+///
+/// Offsets are UTF-16 code units on both sides, which is what `onenote_parser` reports and
+/// also exactly what a JavaScript string index means, so the reader slices the text it is
+/// handed with no conversion. The rebase happens here rather than in TypeScript to keep
+/// the marker constant in one place: that the format hides a URL inside the prose is this
+/// crate's business, and the JSON boundary is cleaner for not carrying it across.
+struct Cleaned {
+    text: String,
+    /// `(raw offset by which this much has been removed, cumulative units removed)`.
+    shifts: Vec<(u32, u32)>,
+}
+
+impl Cleaned {
+    fn rebase(&self, raw: u32) -> u32 {
+        let removed = self
+            .shifts
+            .iter()
+            .rev()
+            .find(|(at, _)| raw >= *at)
+            .map(|(_, removed)| *removed)
+            .unwrap_or(0);
+        raw.saturating_sub(removed)
+    }
+}
+
+/// Byte spans to remove: every well-formed marker run, plus any leftover sentinel on its
+/// own. Both go through one list so the visible string and the offset rebase can never
+/// disagree about how much was dropped.
+fn marker_cuts(text: &str) -> Vec<(usize, usize)> {
+    let mut cuts: Vec<(usize, usize)> = Vec::new();
+    let mut from = 0;
+    while let Some(relative) = text[from..].find(HYPERLINK_MARKER) {
+        let start = from + relative;
+        let target_start = start + HYPERLINK_MARKER.len();
+        let Some(relative_end) = text[target_start..].find('"') else {
+            break;
+        };
+        let end = target_start + relative_end + 1;
+        cuts.push((start, end));
+        from = end;
+    }
+    for (offset, character) in text.char_indices() {
+        if character == '\u{fddf}' && !cuts.iter().any(|(s, e)| offset >= *s && offset < *e) {
+            cuts.push((offset, offset + character.len_utf8()));
+        }
+    }
+    cuts.sort_by_key(|(start, _)| *start);
+    cuts
+}
+
+fn clean(text: &str) -> Cleaned {
+    let cuts = marker_cuts(text);
+    if cuts.is_empty() {
+        return Cleaned { text: text.to_string(), shifts: Vec::new() };
+    }
+    let mut out = String::with_capacity(text.len());
+    let mut shifts = Vec::new();
+    let mut removed = 0u32;
+    let mut cursor = 0usize;
+    for (start, end) in &cuts {
+        out.push_str(&text[cursor..*start]);
+        removed += utf16_len(&text[*start..*end]);
+        shifts.push((utf16_len(&text[..*end]), removed));
+        cursor = *end;
+    }
+    out.push_str(&text[cursor..]);
+    Cleaned { text: out, shifts }
+}
+
+fn rich_text_block(
+    text: &onenote_parser::contents::RichText,
+    indent: u8,
+    list: Option<&str>,
+) -> Value {
+    let cleaned = clean(text.text());
+    // The parser has already resolved which runs each link covers, so its offsets are the
+    // ones to trust; only the marker removal has to be applied on top of them.
     let links: Vec<Value> = text
         .hyperlinks()
         .iter()
-        .map(|link| json!({ "target": link.target(), "start": link.start(), "end": link.end() }))
+        .filter_map(|link| {
+            let (start, end) = (cleaned.rebase(link.start()), cleaned.rebase(link.end()));
+            (start < end).then(|| json!({ "target": link.target(), "start": start, "end": end }))
+        })
         .collect();
     json!({
         "k": "p",
-        "text": text.text(),
+        "text": cleaned.text,
         "links": links,
         "indent": indent,
         "list": list,
