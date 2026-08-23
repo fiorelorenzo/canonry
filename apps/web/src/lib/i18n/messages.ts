@@ -1269,6 +1269,22 @@ export interface Messages {
 			 * title: the sentence above overflows it at 390px and pushes the relation's own
 			 * name off the row, so the summary gets a summary's length. */
 			supersededEndpointShort: string;
+			/** Issue #628: #191's admission check runs against the real endpoint types at
+			 * accept time, which is the first moment they are known - propose time can only
+			 * ever guess. Rendered in the same visual family as `waitingOnEntries` above:
+			 * something still has to be resolved before this link can be accepted. */
+			notAdmittedNotice: (typeLabel: string, fromLabel: string, toLabel: string) => string;
+			/** The consent button: naming both effects (widen the type, then accept the
+			 * link) in one label is what makes clicking it explicit consent to both
+			 * (guardrail 1), rather than a silent widen. */
+			notAdmittedWidenButton: string;
+			/** Shown instead of the widen button for a shipped catalogue type (`universe_id`
+			 * null), which `widenRelationType` refuses structurally - only a migration
+			 * changes a shipped row. */
+			notAdmittedShipped: (typeLabel: string) => string;
+			/** The whole sentence sits inside this link, to the universe's own relation
+			 * type settings, where the GM can add their own version of the type instead. */
+			notAdmittedShippedLink: string;
 		};
 		filterBuckets: {
 			all: string;
@@ -1448,6 +1464,16 @@ export interface Messages {
 				 * only proposed. Reachable even though the card withholds Accept for that
 				 * case, because a queue open in a second tab can post one anyway. */
 				relationEndpointNotAccepted: string;
+				/** Issue #628: the accept-time residue of #191's check - the real endpoint
+				 * pair genuinely is not admitted. Built from the same parts the card's own
+				 * notice uses (`proposals.diffCard.entityTypeLabel`), so the toast and the
+				 * card agree on what they are describing. */
+				notAdmitted: (typeLabel: string, fromLabel: string, toLabel: string) => string;
+				/** `widenAndAccept`'s own `RelationTypeNotOwnedError` - a widen posted
+				 * against a type that is the shipped catalogue or another universe's own,
+				 * which the card never offers a button for on a shipped type, so this is
+				 * only reachable through a stale page or a hand-built request. */
+				relationTypeNotOwned: string;
 			};
 		};
 		/** issue #263: `import_job.outcome_note` renders as a stable machine-readable

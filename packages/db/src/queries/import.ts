@@ -681,6 +681,63 @@ export async function entityUpdateTargetsByIds(
 	return new Map(rows.map((row) => [row.id, row]));
 }
 
+export interface RelationEndpointTypes {
+	/** Keyed by `entity.id`. */
+	entities: Map<string, EntityType>;
+	/** Keyed by `proposal.id`, carrying the type the create's own patch declares - which
+	 * is what that proposal will write if it is accepted. */
+	proposals: Map<string, EntityType>;
+}
+
+/** The entity type sitting at each end of a relation the import is about to propose
+ * (issue #628).
+ *
+ * This exists because the type a *document* declared for a name and the type of the thing
+ * the endpoint actually resolved onto are two different facts, and #191's allowed-type
+ * check is about the second one. `job-runner.ts` used to size a relation type from the
+ * first: a document calling "Martello di Korr" a faction sized `esercito della` as
+ * faction -> faction, while the endpoint had resolved onto an earlier document's `create`
+ * proposal declaring it a place, so the accept met place -> faction and #191 refused it.
+ * Both ends are readable before the type is ever sized, so it is sized from them.
+ *
+ * Two id spaces because a relation endpoint is one of two things (`RelationEndpoint` in
+ * job-runner.ts): an entity that already exists, or one of this job's own still-pending
+ * `create` proposals. A third kind, a create in the document being materialised right
+ * now, has no id yet and needs no query - its declared type is the payload in hand.
+ *
+ * An id with no row is absent rather than defaulted: the caller falls back to the
+ * document's own declaration, which is the only other thing it knows. */
+export async function relationEndpointTypesByIds(
+	db: Db,
+	entityIds: string[],
+	proposalIds: string[]
+): Promise<RelationEndpointTypes> {
+	const wantedEntities = [...new Set(entityIds)];
+	const wantedProposals = [...new Set(proposalIds)];
+	const [entityRows, proposalRows] = await Promise.all([
+		wantedEntities.length === 0
+			? []
+			: db
+					.select({ id: entity.id, type: entity.type })
+					.from(entity)
+					.where(inArray(entity.id, wantedEntities)),
+		wantedProposals.length === 0
+			? []
+			: db
+					.select({ id: proposal.id, type: sql<string>`${proposal.patch} ->> 'type'` })
+					.from(proposal)
+					.where(inArray(proposal.id, wantedProposals))
+	]);
+	return {
+		entities: new Map(entityRows.map((row) => [row.id, row.type])),
+		proposals: new Map(
+			proposalRows
+				.filter((row): row is { id: string; type: string } => row.type !== null)
+				.map((row) => [row.id, row.type as EntityType])
+		)
+	};
+}
+
 export interface FoldEntitySightingInput {
 	proposalId: string;
 	/** This sighting's own name plus its declared aliases - unioned into the pending

@@ -7,6 +7,7 @@
 	import { resolve } from '$app/paths';
 	import { messages, type Locale } from '$lib/i18n';
 	import { Badge } from '$lib/components/ui/badge';
+	import { InlineLink } from '$lib/components/ui/link';
 	import EvidencePopover from './EvidencePopover.svelte';
 	import RejectChips from './RejectChips.svelte';
 	import type { EvidenceCaveat, EvidenceView } from './evidence';
@@ -43,6 +44,20 @@
 		relations: DiffCandidateWaitingRelationView[];
 	}
 
+	/** Issue #628: `RelationTypeNotAdmittedError`'s own fields, minus `proposalId` (this
+	 * card already has the candidate's own `id`). Null until an accept has actually
+	 * failed this way - the server load always sets it null, `ProposalQueue` is the one
+	 * place that ever populates it, from a failed `?/accept` submit. */
+	export interface DiffCandidateNotAdmittedView {
+		relationTypeId: string;
+		typeLabel: string;
+		fromType: string;
+		toType: string;
+		addFrom: string | null;
+		addTo: string | null;
+		shipped: boolean;
+	}
+
 	export interface DiffCandidateView {
 		id: string;
 		kind: string;
@@ -67,6 +82,10 @@
 		evidenceViews: EvidenceView[];
 		evidenceCaveat: EvidenceCaveat | null;
 		relationVocab: DiffCandidateRelationVocabView | null;
+		/** Issue #628: optional so nothing else that structurally satisfies this interface
+		 * has to be touched - see this file's own doc comment on
+		 * `DiffCandidateNotAdmittedView`. */
+		notAdmitted?: DiffCandidateNotAdmittedView | null;
 	}
 
 	let {
@@ -78,7 +97,8 @@
 		onAccept,
 		onReject,
 		onRejectReason,
-		onUndo
+		onUndo,
+		onWidenAndAccept
 	}: {
 		candidate: DiffCandidateView;
 		universeSlug: string;
@@ -103,6 +123,11 @@
 		onReject?: () => void;
 		onRejectReason?: (reason: string) => void;
 		onUndo?: () => void;
+		/** Issue #628: the button that names both effects - widen the type, then accept
+		 * the relation. Only `ProposalQueue` ever wires this: the read-only settled page
+		 * above has no accept to fail in the first place, so it never has a candidate
+		 * carrying `notAdmitted`. */
+		onWidenAndAccept?: () => void;
 	} = $props();
 
 	let t = $derived(messages(locale).proposals);
@@ -418,6 +443,29 @@
 		</p>
 	{/if}
 
+	{#if candidate.notAdmitted && candidate.outcome === 'pending'}
+		{@const notAdmitted = candidate.notAdmitted}
+		<!-- Issue #628: #191's admission check runs against the real endpoint types at
+		     accept time, the first moment they are known - propose time (packages/copilot,
+		     packages/import) only ever guesses. This is that check's refusal, reached from
+		     a failed `?/accept` (`ProposalQueue`'s own enhance handler), in the same
+		     visual family as the waitingOnEntries notice above: something still has to be
+		     resolved before this link can be accepted, not a red error. -->
+		<p class="mb-3 rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-sm text-ink-2">
+			{t.diffCard.notAdmittedNotice(
+				notAdmitted.typeLabel,
+				t.diffCard.entityTypeLabel(notAdmitted.fromType),
+				t.diffCard.entityTypeLabel(notAdmitted.toType)
+			)}
+			{#if notAdmitted.shipped}
+				{t.diffCard.notAdmittedShipped(notAdmitted.typeLabel)}
+				<InlineLink href={resolve(`/w/${universeSlug}/settings/relations`)}>
+					{t.diffCard.notAdmittedShippedLink}
+				</InlineLink>
+			{/if}
+		</p>
+	{/if}
+
 	{#if candidate.outcome === 'pending' && candidate.waitingOnEntries.length > 0 && onReject}
 		<button
 			type="button"
@@ -439,6 +487,19 @@
 			>
 				{t.diffCard.accept}
 			</button>
+			{#if candidate.notAdmitted && !candidate.notAdmitted.shipped && onWidenAndAccept}
+				<!-- Issue #628: the label names both effects it takes - widening the type is
+				     content, and guardrail 1 says the GM has to consent to it explicitly, which
+				     naming it here (rather than widening silently inside a plain "Accept" retry)
+				     is what makes clicking this button that consent. -->
+				<button
+					type="button"
+					class="min-h-11 flex-1 rounded-md border border-accent px-3 text-sm font-medium text-accent hover:bg-accent-bg sm:min-h-0 sm:flex-none sm:py-1.5"
+					onclick={onWidenAndAccept}
+				>
+					{t.diffCard.notAdmittedWidenButton}
+				</button>
+			{/if}
 			<button
 				type="button"
 				class="min-h-11 flex-1 rounded-md border border-line-2 px-3 text-body text-ink-2 hover:bg-panel-2 sm:min-h-0 sm:flex-none sm:py-1.5"

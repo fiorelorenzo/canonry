@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { DiffCandidateView } from './ProposalDiffCard.svelte';
+	import type { DiffCandidateNotAdmittedView, DiffCandidateView } from './ProposalDiffCard.svelte';
 
 	/** The server's `DiffCandidate` carries two fields `ProposalDiffCard` itself never
 	 * reads - `planId` (`AwaitingDiffCard`'s own "open the plan" link) and
@@ -165,6 +165,8 @@
 	let reasonValue = $state('');
 	let undoForm: HTMLFormElement;
 	let undoProposalId = $state('');
+	let widenAndAcceptForm: HTMLFormElement;
+	let widenAndAcceptProposalId = $state('');
 
 	function showToast(text: string, undoId: string | null): void {
 		clearTimeout(toastTimer);
@@ -208,6 +210,22 @@
 			acceptProposalId = target.id;
 		});
 		acceptForm.requestSubmit();
+	}
+
+	/** Issue #628: the button that names both effects - widen the type, then accept the
+	 * relation - which is the GM's consent to both, in that order. Same shape as `accept`
+	 * above, and it posts nothing but the proposal id on purpose: the server re-reads which
+	 * widening this link needs off its own admission check, so the pair the arrays grow by
+	 * can never be something a request named. `item.notAdmitted` is read here only to know
+	 * the button applies at all. */
+	function widenAndAccept(id: string | null): void {
+		const target = id ? items.find((c) => c.id === id) : undefined;
+		if (!isActionable(target) || !target.notAdmitted) return;
+		currentId = target.id;
+		flushSync(() => {
+			widenAndAcceptProposalId = target.id;
+		});
+		widenAndAcceptForm.requestSubmit();
 	}
 
 	function reject(id: string | null): void {
@@ -277,12 +295,53 @@
 				showToast(t.acceptedToast(item?.targetName ?? null), id);
 				currentId = nextPendingAfter(id);
 			} else if (result.type === 'failure') {
-				showToast(t.acceptFailedToast, null);
+				// Issue #628: the real endpoint pair genuinely is not admitted - a route
+				// forward on the card (the widen-and-accept button, or the shipped
+				// explanation) beats a generic red toast with nowhere to go next.
+				const notAdmitted = result.data?.notAdmitted as
+					(DiffCandidateNotAdmittedView & { proposalId: string }) | undefined;
+				const item = notAdmitted ? items.find((c) => c.id === notAdmitted.proposalId) : undefined;
+				if (notAdmitted && item) {
+					item.notAdmitted = {
+						relationTypeId: notAdmitted.relationTypeId,
+						typeLabel: notAdmitted.typeLabel,
+						fromType: notAdmitted.fromType,
+						toType: notAdmitted.toType,
+						addFrom: notAdmitted.addFrom,
+						addTo: notAdmitted.addTo,
+						shipped: notAdmitted.shipped
+					};
+					currentId = item.id;
+				} else {
+					showToast(t.acceptFailedToast, null);
+				}
 			}
 		};
 	}}
 >
 	<input type="hidden" name="proposalId" value={acceptProposalId} />
+</form>
+
+<form
+	bind:this={widenAndAcceptForm}
+	method="POST"
+	action="?/widenAndAccept"
+	class="hidden"
+	use:enhance={() => {
+		return async ({ result }) => {
+			if (result.type === 'success' && result.data) {
+				const id = result.data.id as string;
+				const item = items.find((c) => c.id === id);
+				if (item) item.outcome = 'accepted';
+				showToast(t.acceptedToast(item?.targetName ?? null), id);
+				currentId = nextPendingAfter(id);
+			} else if (result.type === 'failure') {
+				showToast(t.acceptFailedToast, null);
+			}
+		};
+	}}
+>
+	<input type="hidden" name="proposalId" value={widenAndAcceptProposalId} />
 </form>
 
 <form
@@ -450,6 +509,7 @@
 										onAccept={() => accept(item.id)}
 										onReject={() => reject(item.id)}
 										onRejectReason={pickReason}
+										onWidenAndAccept={() => widenAndAccept(item.id)}
 									/>
 								{/if}
 							</div>

@@ -1027,7 +1027,13 @@ export const en: Messages = {
 			rejectReasonLabel: (value) => PROPOSAL_REJECT_REASON_LABELS_EN[value] ?? value,
 			waitingOnEntries: (names) => `Accept ${names} first, then this link can be accepted`,
 			supersededEndpoint: 'Dropped: an entry this link needs was rejected',
-			supersededEndpointShort: 'dropped \u00b7 entry rejected'
+			supersededEndpointShort: 'dropped \u00b7 entry rejected',
+			notAdmittedNotice: (typeLabel, fromLabel, toLabel) =>
+				`This link needs "${typeLabel}" to allow ${fromLabel} to ${toLabel}.`,
+			notAdmittedWidenButton: 'Allow it and accept',
+			notAdmittedShipped: (typeLabel) =>
+				`"${typeLabel}" comes with Canonry and only changes in a release.`,
+			notAdmittedShippedLink: 'Add your own version of this type in the relation type settings.'
 		},
 
 		filterBuckets: {
@@ -1179,7 +1185,10 @@ export const en: Messages = {
 				proposalNotRejected: 'That proposal is not rejected.',
 				missingFilterType: 'Missing filter type.',
 				relationEndpointNotAccepted:
-					'This link names an entry the import is still proposing. Accept that entry first.'
+					'This link names an entry the import is still proposing. Accept that entry first.',
+				notAdmitted: (typeLabel, fromLabel, toLabel) =>
+					`"${typeLabel}" does not allow ${fromLabel} to ${toLabel}.`,
+				relationTypeNotOwned: 'Only a type this universe created can be widened.'
 			}
 		},
 
