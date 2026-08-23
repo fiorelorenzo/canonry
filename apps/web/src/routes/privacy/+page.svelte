@@ -9,7 +9,14 @@
 	 *
 	 * Issue #121's sweep localizes only the DocPage chrome (`docs.privacy`): this is a
 	 * legal/product document, and machine-rewriting the long-form prose body below
-	 * risks changing what it actually promises, so the body stays English. */
+	 * risks changing what it actually promises, so the body stays English.
+	 *
+	 * Issue #158 adds "What a public profile makes public", which is guardrail 5 rather
+	 * than guardrail 6: a profile puts a person's name next to a page a stranger reads,
+	 * so what it shows has to be written down in this document's own words. The
+	 * localized short version of the same statement sits beside the control that takes a
+	 * handle (`settings.account.profileDescription`), which is F3 = C's pattern and the
+	 * reason one of the two is translated and the other is not. */
 	import DocPage from '$lib/components/docs/DocPage.svelte';
 	import { messages } from '$lib/i18n';
 	import type { PageData } from './$types';
@@ -27,7 +34,9 @@
 		Canonry uses AI in a few places: answering questions about your canon, drafting updates when
 		something changes, generating images, generating ambient sound, and reading your files during an
 		import. This page says plainly which company sees your campaign's content for each of those,
-		what we do not promise yet, and what never happens to it.
+		what we do not promise yet, and what never happens to it. It also answers the other privacy
+		question this product raises, which has nothing to do with a model: what the product itself
+		shows to people who are not you.
 	</p>
 
 	<h2>Text</h2>
@@ -75,6 +84,30 @@
 		connection at all. The key we hold for it can only send mail on that domain; it cannot read your account,
 		your inbox, or anyone else's mail. If a send fails, we log that it failed and tell you, rather than
 		showing a message that went nowhere.
+	</p>
+
+	<h2>What a public profile makes public</h2>
+	<p>
+		You can take a handle, and a handle gives you a page at <code>/u/&lt;handle&gt;</code> that anybody
+		on the internet can read without an account. That page shows three things and no others: the display
+		name on your account, the handle itself, and the worlds you have published, each linking to its own
+		players' wiki. It never shows your email address. It never shows a world you have written but not
+		published, not its name and not its address. For a world it does list, it shows two counts that are
+		already on that world's own public page, how many entries a reader can open and when the most recent
+		one became readable, and nothing else about it.
+	</p>
+	<p>
+		Nothing asks you for a handle. Signing up does not, and no screen nudges you towards one: until
+		you go to your account settings and choose one, the page does not exist and there is nothing at
+		that address for anybody to find. Removing the handle again takes the page down with it and
+		frees the address. Changing it moves the page, and nothing redirects, so a handle you have
+		already shared stops working the moment you change it.
+	</p>
+	<p>
+		A world reaches that page the same way it reaches the players' wiki, and there is no second
+		path: entries become public when they are revealed at the table, one at a time, by you. There is
+		no publish button for a whole world and there is not going to be one, because a page a stranger
+		can read is exactly the page nothing unreviewed may ever appear on.
 	</p>
 
 	<h2>Reading stays on when writing is switched off</h2>

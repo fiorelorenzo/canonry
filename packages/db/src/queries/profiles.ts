@@ -27,7 +27,8 @@ function loweredHandle() {
 
 export type SetHandleFailure = HandleRejection | 'taken';
 
-export type SetHandleResult = { ok: true; handle: string } | { ok: false; reason: SetHandleFailure };
+export type SetHandleResult =
+	{ ok: true; handle: string } | { ok: false; reason: SetHandleFailure };
 
 function isUniqueViolation(err: unknown): boolean {
 	const cause = err instanceof Error ? err.cause : err;

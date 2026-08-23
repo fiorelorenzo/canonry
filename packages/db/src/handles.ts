@@ -74,8 +74,7 @@ const HANDLE_PATTERN = new RegExp(`^${HANDLE_PATTERN_SOURCE}$`);
 export type HandleRejection = 'empty' | 'too-short' | 'too-long' | 'format' | 'reserved';
 
 export type HandleValidation =
-	| { ok: true; handle: string }
-	| { ok: false; reason: HandleRejection };
+	{ ok: true; handle: string } | { ok: false; reason: HandleRejection };
 
 /**
  * Trims, then judges. Returns the handle **as the person typed it**, case included, which is

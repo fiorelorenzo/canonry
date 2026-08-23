@@ -15,15 +15,18 @@
 	 * - Signed in, `current` present: universe mode, A2's original sidebar.
 	 * - Signed in, `current` absent: account mode, this issue's new one.
 	 *
-	 * The public players' wiki (`routes/p/**`, decision E7) is a fourth case that is
-	 * not a mode of this component at all - it keeps its own light chrome regardless
-	 * of sign-in state (a GM previewing a share link while signed in still sees the
+	 * The public reader surfaces - the players' wiki (`routes/p/**`, decision E7) and,
+	 * since issue #158, a profile (`routes/u/**`) - are a fourth case that is not a
+	 * mode of this component at all. They keep their own light chrome regardless of
+	 * sign-in state (a GM previewing a share link while signed in still sees the
 	 * public chrome, not their own account's), so this passes through unconditionally
-	 * on that subtree.
+	 * on those subtrees. `isPublicReaderPath` is shared with `hooks.server.ts`, which
+	 * makes the same distinction about language for the same reason.
 	 */
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import type { Locale } from '$lib/i18n';
+	import { isPublicReaderPath } from '$lib/publicSurface';
 	import CommandPalette from '../palette/CommandPalette.svelte';
 	import QuickAsk from '../copilot/QuickAsk.svelte';
 	import PhoneNav from './PhoneNav.svelte';
@@ -54,9 +57,7 @@
 	}
 
 	const data = $derived(page.data as ShellPageData);
-	const isPublicWiki = $derived(
-		page.route.id === '/p' || (page.route.id?.startsWith('/p/') ?? false)
-	);
+	const isPublicReader = $derived(isPublicReaderPath(page.route.id ?? ''));
 
 	// Issue #148 (I10 = B): `/w/[universe]/table` already carries its own phone-shaped
 	// top strip (`ContextStrip`) and, below 640px, `TableDeck` (#529, round eighteen) in
@@ -87,7 +88,7 @@
 	const dockReserve = $derived(shellLayoutState.phoneNavHeight + shellLayoutState.dockHeight);
 </script>
 
-{#if isPublicWiki || !data.user}
+{#if isPublicReader || !data.user}
 	{@render children()}
 {:else}
 	<div class="flex h-screen bg-paper">

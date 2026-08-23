@@ -341,7 +341,43 @@ export const it: Messages = {
 			deleteSendFailed:
 				'La mail di conferma non \u00e8 stata inviata. Nulla \u00e8 stato eliminato; riprova.',
 			deleteRequested:
-				"Controlla la posta in arrivo: il link in quella mail \u00e8 ci\u00f2 che elimina davvero l'account, e scade tra 24 ore."
+				"Controlla la posta in arrivo: il link in quella mail \u00e8 ci\u00f2 che elimina davvero l'account, e scade tra 24 ore.",
+			profileHeading: 'Profilo pubblico',
+			profileDescription:
+				'Un handle apre per questo account una pagina su /u/ che chiunque pu\u00f2 leggere, con o senza account. Mostra il nome qui sopra, l\u2019handle stesso e i mondi che hai pubblicato, e nulla di pi\u00f9: non la tua email, non un mondo che hai scritto senza pubblicarlo, e di un mondo niente oltre a ci\u00f2 che i suoi giocatori possono gi\u00e0 leggere.',
+			profileNone:
+				'Non hai un handle, quindi la pagina non esiste e di te non \u00e8 pubblico nulla. Nessun\u2019altra schermata te ne chiede uno.',
+			handleLabel: 'Handle',
+			handleHint:
+				'Da due a trenta caratteri: lettere, cifre e trattini singoli in mezzo. Le maiuscole restano come le scrivi, ma due handle non possono distinguersi solo per una maiuscola.',
+			handleSave: 'Salva handle',
+			handleSaving: 'Salvataggio\u2026',
+			handleSaved: 'Salvato.',
+			handleUrlLabel: 'Il tuo profilo',
+			handleChangeNote:
+				'Se lo cambi la pagina si sposta: il vecchio indirizzo non risponde pi\u00f9, e non c\u2019\u00e8 nessun reindirizzamento.',
+			handleRemove: 'Rimuovi handle',
+			handleRemoving: 'Rimozione\u2026',
+			handleRemoved:
+				'Handle rimosso. La pagina non c\u2019\u00e8 pi\u00f9 e l\u2019indirizzo torna libero.',
+			handleError: (reason) => {
+				switch (reason) {
+					case 'empty':
+						return 'Scrivi un handle.';
+					case 'too-short':
+						return 'Un handle ha almeno due caratteri.';
+					case 'too-long':
+						return 'Un handle ha al massimo trenta caratteri.';
+					case 'format':
+						return 'Solo lettere, cifre e trattini singoli in mezzo.';
+					case 'reserved':
+						return 'Questa parola serve al prodotto stesso. Scegline un\u2019altra.';
+					case 'taken':
+						return 'Questo handle \u00e8 gi\u00e0 di qualcun altro.';
+				}
+			},
+			profilePrivacyPrompt: 'La pagina sulla privacy lo dice per esteso:',
+			profilePrivacyLink: 'cosa rende pubblico un profilo'
 		}
 	},
 
@@ -470,6 +506,22 @@ export const it: Messages = {
 		media: {
 			heading: 'Immagini'
 		}
+	},
+
+	profile: {
+		eyebrow: 'Profilo',
+		worldsHeading: 'Mondi pubblicati',
+		worldMeta: (readableEntries, lastPublished) => {
+			const n = numberFormat('it', { maximumFractionDigits: 0, useGrouping: 'always' }).format(
+				readableEntries
+			);
+			const form = pluralRules('it').select(Math.round(readableEntries));
+			const voci = form === 'one' ? `${n} voce da leggere` : `${n} voci da leggere`;
+			return `${voci}, ultima pubblicazione il ${lastPublished}`;
+		},
+		emptyMessage: 'Qui non c\u2019\u00e8 ancora niente da leggere.',
+		emptyExplanation:
+			'Un mondo arriva su questa pagina quando chi lo scrive rivela le sue voci al tavolo, che in Canonry \u00e8 l\u2019unico modo in cui qualcosa diventa pubblico.'
 	},
 
 	mentionPreview: {

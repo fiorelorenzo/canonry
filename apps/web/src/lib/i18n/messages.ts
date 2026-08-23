@@ -30,6 +30,17 @@ export type PlanSpentTrigger = 'audit' | 'complete' | 'ask';
 export type PlanChargedElsewhereTrigger = 'table' | 'import';
 
 /**
+ * Issue #158: every way a handle can be refused, which is what `settings.account.handleError`
+ * is written for. Declared here rather than imported from `@canonry/db`'s `SetHandleFailure`
+ * for the same reason as the two triggers above: this file describes copy and nothing else.
+ * The two unions meet at `/settings/account`'s form action, where a `SetHandleResult`'s
+ * `reason` is passed straight into this function, so one of them growing a member the other
+ * has not is a typecheck failure there rather than a missing sentence at runtime.
+ */
+export type HandleRejectionReason =
+	'empty' | 'too-short' | 'too-long' | 'format' | 'reserved' | 'taken';
+
+/**
  * The one shape `en.ts` and `it.ts` both have to satisfy, written down explicitly rather
  * than inferred from either of them. That is what makes a missing key a typecheck
  * failure: `export const it: Messages = {...}` is checked against *this* interface, so
@@ -449,6 +460,36 @@ export interface Messages {
 			deleteWrongPassword: string;
 			deleteSendFailed: string;
 			deleteRequested: string;
+			/** Issue #158: the Public profile section of this pane, which is where a handle is
+			 * taken, changed and given up. The handle is opt-in and chosen here rather than at
+			 * sign-up (decision recorded on #158), so this section is the entire path to a
+			 * profile existing at all.
+			 *
+			 * `profileDescription` is guardrail 5's short version, in the reader's own language,
+			 * beside the control that acts: F3 = C's pattern, where `/privacy` carries the same
+			 * statement in full. Being localised here and English there is deliberate - the
+			 * privacy page's body is a product document #121 keeps monolingual, and the sentence
+			 * a person reads before they publish their name is not. */
+			profileHeading: string;
+			profileDescription: string;
+			/** What is true before a handle exists, which is the state every account starts in
+			 * and most stay in: no page, nothing reachable. */
+			profileNone: string;
+			handleLabel: string;
+			handleHint: string;
+			handleSave: string;
+			handleSaving: string;
+			handleSaved: string;
+			handleUrlLabel: string;
+			/** The cost of changing one, stated where the change is made: nothing redirects, so
+			 * a handle already shared stops resolving. */
+			handleChangeNote: string;
+			handleRemove: string;
+			handleRemoving: string;
+			handleRemoved: string;
+			handleError: (reason: HandleRejectionReason) => string;
+			profilePrivacyPrompt: string;
+			profilePrivacyLink: string;
 		};
 	};
 
@@ -609,6 +650,32 @@ export interface Messages {
 		media: {
 			heading: string;
 		};
+	};
+
+	/**
+	 * Issue #158: the public profile at `/u/<handle>`, which is a stranger's page the way
+	 * `/p/<slug>` is - no account, no chrome that implies one, and its language negotiated
+	 * from the visitor's own browser rather than from the account behind it (`resolveLocale`,
+	 * hooks.server.ts, same exception `/p/` already carries).
+	 *
+	 * Five keys, because a profile shows the display name, the handle and the published
+	 * worlds and nothing else: the name and the world names are canon, never touched by this
+	 * catalogue, and the handle is a URL segment rather than prose. What is left is the label
+	 * on the surface, the heading over the list, one meta line per world, and the two
+	 * sentences a profile with nothing published needs - which at launch is most of them, and
+	 * is the state this page has to be good at rather than tolerate.
+	 */
+	profile: {
+		eyebrow: string;
+		worldsHeading: string;
+		/** How much of a world a stranger can read, and when it last grew. Both numbers are
+		 * already public on that world's own diary page; neither is derived from anything a
+		 * GM has not published. */
+		worldMeta: (readableEntries: number, lastPublished: string) => string;
+		emptyMessage: string;
+		/** Why it is empty, which is the useful half: a world reaches this page when its
+		 * owner reveals entries at the table, and there is no other way. */
+		emptyExplanation: string;
 	};
 
 	/** Issue #364: the card a mention opens on hover or on focus. Two strings, and they are

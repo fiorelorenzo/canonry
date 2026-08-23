@@ -124,7 +124,8 @@ describe('public profile: leak test (#158)', () => {
 				}
 			])
 			.returning({ id: universe.id });
-		if (!published || !unpublished || !otherWorld) throw new Error('fixture universe insert failed');
+		if (!published || !unpublished || !otherWorld)
+			throw new Error('fixture universe insert failed');
 
 		const body = [
 			'A merchant bank that lends at knife point.',

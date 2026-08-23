@@ -39,6 +39,17 @@
 
 	let nameSaving = $state(false);
 	let passwordSaving = $state(false);
+	let handleSaving = $state(false);
+	let handleRemoving = $state(false);
+
+	// The handle after whichever action just ran, so the profile link appears the moment one
+	// is taken and disappears the moment it is given up, without a second round trip. `form`
+	// is null on a fresh load and on a failed submit, which is when `data.handle` is the
+	// truth; `handleRemoved` has to be checked before `handleSaved`, because both are absent
+	// from the other's result and only one of them can be present at a time.
+	const currentHandle = $derived(
+		form?.handleRemoved ? null : (form?.handleSaved ?? data.handle ?? null)
+	);
 
 	let signingOutEverywhere = $state(false);
 	let signOutEverywhereError = $state<string | null>(null);
@@ -116,6 +127,96 @@
 			<Input id="account-email" value={data.user.email} readonly disabled />
 			<p class="text-xs text-muted">{t.emailNote}</p>
 		</div>
+	</section>
+
+	<!-- Issue #158: the whole path to a profile existing. The handle is opt-in and chosen
+	     here rather than at sign-up (recorded on that issue), so nothing anywhere else asks
+	     for one, and an account that never comes to this section has no public page at all.
+	     `profileDescription` is guardrail 5's short version beside the control that acts, in
+	     the reader's own language, with `/privacy` carrying the same statement in full - F3 =
+	     C's pattern, the same one the import and generate surfaces use. -->
+	<section class="mt-10 max-w-md">
+		<h2 class="text-sm font-semibold text-ink">{t.profileHeading}</h2>
+		<p class="mt-2 text-sm text-ink-2">{t.profileDescription}</p>
+		<p class="mt-2 text-xs text-muted">
+			{t.profilePrivacyPrompt}
+			<InlineLink href={resolve('/privacy')}>{t.profilePrivacyLink}</InlineLink>
+		</p>
+
+		<form
+			method="post"
+			action="?/saveHandle"
+			class="mt-4 flex flex-col gap-3"
+			use:enhance={() => {
+				handleSaving = true;
+				return async ({ update }) => {
+					await update({ reset: false });
+					handleSaving = false;
+				};
+			}}
+		>
+			<div class="flex flex-col gap-1.5">
+				<Label for="account-handle">{t.handleLabel}</Label>
+				<!-- No `minlength` or `pattern` here on purpose: the rule lives in `@canonry/db`'s
+				     `handles.ts`, next to the check constraint that enforces it, and a *value*
+				     import from that barrel would pull drizzle and postgres.js into the client
+				     bundle - the trap `@canonry/lang`'s own doc comment records from the afternoon
+				     the relation catalogue spent in `packages/copilot`. The hint below states the
+				     rule in words and the action answers with the exact reason, which is the same
+				     division every other control in this pane already uses. -->
+				<Input
+					id="account-handle"
+					name="handle"
+					autocomplete="off"
+					spellcheck="false"
+					required
+					value={data.handle ?? ''}
+				/>
+				<p class="text-xs text-muted">{t.handleHint}</p>
+			</div>
+			<div>
+				<Button type="submit" disabled={handleSaving}>
+					{handleSaving ? t.handleSaving : t.handleSave}
+				</Button>
+			</div>
+			{#if form?.handleSaved}
+				<p class="text-sm text-ink-2">{t.handleSaved}</p>
+			{/if}
+			{#if form?.handleRemoved}
+				<p class="text-sm text-ink-2">{t.handleRemoved}</p>
+			{/if}
+			{#if form?.handleError}
+				<p role="alert" class="text-sm text-danger">{form.handleError}</p>
+			{/if}
+		</form>
+
+		{#if currentHandle}
+			<div class="mt-4 flex flex-col gap-1.5">
+				<p class="text-xs tracking-wide text-muted uppercase">{t.handleUrlLabel}</p>
+				<p class="text-sm">
+					<InlineLink href={`/u/${currentHandle}`}>/u/{currentHandle}</InlineLink>
+				</p>
+				<p class="text-xs text-muted">{t.handleChangeNote}</p>
+			</div>
+			<form
+				method="post"
+				action="?/removeHandle"
+				class="mt-3"
+				use:enhance={() => {
+					handleRemoving = true;
+					return async ({ update }) => {
+						await update({ reset: false });
+						handleRemoving = false;
+					};
+				}}
+			>
+				<Button type="submit" variant="secondary" disabled={handleRemoving}>
+					{handleRemoving ? t.handleRemoving : t.handleRemove}
+				</Button>
+			</form>
+		{:else}
+			<p class="mt-4 text-sm text-muted">{t.profileNone}</p>
+		{/if}
 	</section>
 
 	<section class="mt-10 max-w-md">

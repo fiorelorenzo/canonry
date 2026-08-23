@@ -36,7 +36,14 @@ function handle(prefix: string): string {
 
 describe('validateHandle', () => {
 	it('accepts what a handle is', () => {
-		for (const good of ['lorenzo', 'ab', 'a1', 'valdoria-reach', 'gm-of-the-ashen-ledger', '404s']) {
+		for (const good of [
+			'lorenzo',
+			'ab',
+			'a1',
+			'valdoria-reach',
+			'gm-of-the-ashen-ledger',
+			'404s'
+		]) {
 			expect(validateHandle(good)).toEqual({ ok: true, handle: good });
 		}
 	});

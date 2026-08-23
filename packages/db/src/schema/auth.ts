@@ -9,7 +9,12 @@
 // changes a column, this file is the thing to diff against the release notes.
 import { sql } from 'drizzle-orm';
 import { boolean, check, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
-import { HANDLE_MAX_LENGTH, HANDLE_MIN_LENGTH, HANDLE_PATTERN_SOURCE, RESERVED_HANDLES } from '../handles.js';
+import {
+	HANDLE_MAX_LENGTH,
+	HANDLE_MIN_LENGTH,
+	HANDLE_PATTERN_SOURCE,
+	RESERVED_HANDLES
+} from '../handles.js';
 
 // A Postgres `array[...]` literal built from the one list in `../handles.js`, so the check
 // constraint below and the form's own validation cannot drift: adding a reserved word is a
