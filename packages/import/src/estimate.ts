@@ -197,12 +197,23 @@ export const PLAYBOOK_COLD_START_ESTIMATE: Record<
  * each document's *status* and not its *cost*, so there is no way to average over only
  * the documents that completed and leave the truncated ones out; the truncated ones are
  * pooled in, which is safe here only because a document truncated by a step ceiling is
- * the dearest kind. And a document skipped as unchanged (issue #36) is checkpointed
- * `finished` exactly like one that ran, so a partial re-import still pools documents that
- * cost nothing. `spentCredits > 0` per row catches the whole-job case (a re-import of an
- * unchanged export), not the partial one. Recording per-document credits, or marking a
- * skipped document as skipped in the checkpoint, is what would close that; both live in
- * `job-runner.ts` rather than here.
+ * the dearest kind. Per-document credits are what would close that, and they would also
+ * make this whole function exact rather than careful; `credit_transaction`'s
+ * `import-document:<job>:<doc>` rows look like the answer and are not, since they are
+ * written only with a `userId` and only when the document proposed something.
+ *
+ * **A skipped document is no longer one of those cases** (issue #620). It used to be
+ * checkpointed `finished` exactly like one that ran, so a partial re-import (a GM changes
+ * three pages of forty and imports again) divided its real spend by all forty and read
+ * low, which is the direction this file says not to err in. `spentCredits > 0` per row
+ * caught only the whole-job version of that, where nothing changed and the job spent
+ * nothing. `job-runner.ts` now writes `skipped_unchanged` instead, which this function
+ * subtracts from a `finished` job's `document_count` and simply does not count for a
+ * ceiling-stopped one. Two honest limits on that. A row written before #620 still says
+ * `finished`, so history already on a deployment keeps the old bias until it ages out of
+ * the twenty-row window. And the subtraction is per document and not per credit: a job
+ * that skipped thirty-seven documents and ran three is now divided by three, which is
+ * right, but a document that ran and proposed nothing still counts as a document.
  */
 export const HISTORY_EVIDENCE_STATUSES = ['finished', 'stopped_at_ceiling'] as const;
 
@@ -259,24 +270,33 @@ const TERMINAL_DOCUMENT_STATUSES: Record<string, true> = {
 	failed: true
 };
 
-/** Counts the checkpoint entries that name a terminal document status. `checkpoint` is a
- * `jsonb` column whose shape this module does not own, so every level is narrowed rather
- * than asserted: a column the runner never wrote, or wrote in a shape this function does
- * not recognise, has to come back as zero documents and exclude the job, never as a
- * confident small number that would read as an expensive document. */
-function checkpointedDocumentsRan(checkpoint: unknown): number {
+/** Counts checkpoint entries by whether they name a terminal document status and whether
+ * they name a skipped one. `checkpoint` is a `jsonb` column whose shape this module does
+ * not own, so every level is narrowed rather than asserted: a column the runner never
+ * wrote, or wrote in a shape this function does not recognise, has to come back as zero
+ * documents and exclude the job, never as a confident small number that would read as an
+ * expensive document. */
+function checkpointedDocuments(checkpoint: unknown): { ran: number; skipped: number } {
+	const none = { ran: 0, skipped: 0 };
 	if (typeof checkpoint !== 'object' || checkpoint === null || !('documents' in checkpoint)) {
-		return 0;
+		return none;
 	}
 	const documents = checkpoint.documents;
-	if (typeof documents !== 'object' || documents === null) return 0;
+	if (typeof documents !== 'object' || documents === null) return none;
 	let ran = 0;
+	let skipped = 0;
 	for (const entry of Object.values(documents)) {
 		if (typeof entry !== 'object' || entry === null || !('status' in entry)) continue;
 		const status = entry.status;
-		if (typeof status === 'string' && TERMINAL_DOCUMENT_STATUSES[status]) ran += 1;
+		if (typeof status !== 'string') continue;
+		if (TERMINAL_DOCUMENT_STATUSES[status]) ran += 1;
+		// `skipped_unchanged` is terminal for the runner and not evidence here: a document
+		// skipped because it was unchanged since the last import (issue #36) never reached a
+		// driver and so cost nothing (issue #620). Its deliberate absence from the table
+		// above is what makes a ceiling-stopped partial re-import right for free.
+		else if (status === 'skipped_unchanged') skipped += 1;
 	}
-	return ran;
+	return { ran, skipped };
 }
 
 /**
@@ -330,13 +350,17 @@ export async function estimateAveragesForPlaybook(
 	let timedDocs = 0;
 	let totalSeconds = 0;
 	for (const row of rows) {
-		// A `finished` job ran every document it enumerated: that is what the status means,
-		// so `document_count` is the denominator and a checkpoint this function failed to
-		// parse cannot silently shrink it. Only a ceiling-stopped job needs the checkpoint.
+		const checkpointed = checkpointedDocuments(row.checkpoint);
+		// A `finished` job ran every document it enumerated except the ones it skipped as
+		// unchanged, so `document_count` is the denominator minus those (issue #620). A
+		// checkpoint this function failed to parse still cannot silently shrink it: an
+		// unreadable column subtracts nothing, which is the same denominator #610 used. A
+		// ceiling-stopped job counts its terminal entries instead, and `skipped_unchanged`
+		// is not one of them, so the same subtraction happens there by omission.
 		const ran =
 			row.status === 'finished'
-				? row.documentCount
-				: Math.min(checkpointedDocumentsRan(row.checkpoint), row.documentCount);
+				? Math.max(row.documentCount - checkpointed.skipped, 0)
+				: Math.min(checkpointed.ran, row.documentCount);
 		if (ran <= 0) {
 			noDocumentsRan += 1;
 			continue;
