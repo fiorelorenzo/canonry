@@ -105,16 +105,18 @@ describe('estimateAveragesFor cold start for onenote (issue #261)', () => {
 		await closeDb(db);
 	});
 
-	it('is calibrated from the two real jobs #261 measured, not the old flat 0.25-credit guess', async () => {
+	it('is calibrated from the real jobs #330 measured, not the old flat 0.25-credit guess', async () => {
 		// No onenote import_job row exists in a freshly migrated test database, so this
 		// exercises the cold-start branch (estimateAveragesFor's own "nobody has ever run
 		// this playbook on this deployment yet" case), same as a brand-new deployment.
 		const averages = await estimateAveragesFor(db, 'onenote');
-		// The real jobs behind #261 spent 2.8826 and 2.7496 credits on their first
-		// document - the cold-start average must sit in that neighbourhood, not near the
-		// old 0.25 guess that produced a "4 credits" estimate for fourteen documents.
-		expect(averages.avgCreditsPerDocument).toBeGreaterThan(2.5);
-		expect(averages.avgCreditsPerDocument).toBeLessThan(3.1);
+		// #330 re-derived this off two real `.mht` jobs of a real notebook, 93 documents for
+		// 106.8722 credits, so the row is 1.1492 rather than #261's 2.816: that constant was
+		// measured before #313 priced cached input, and half of every input token it billed
+		// as fresh had been served from Gemini's cache. The band still has to exclude the old
+		// 0.25 guess that produced a "4 credits" estimate for fourteen documents.
+		expect(averages.avgCreditsPerDocument).toBeGreaterThan(1);
+		expect(averages.avgCreditsPerDocument).toBeLessThan(1.3);
 		expect(averages.avgSecondsPerDocument).toBe(20);
 	});
 
@@ -125,7 +127,10 @@ describe('estimateAveragesFor cold start for onenote (issue #261)', () => {
 			avgCreditsPerDocument: averages.avgCreditsPerDocument,
 			avgSecondsPerDocument: averages.avgSecondsPerDocument
 		});
-		expect(estimate.estimatedCredits).toBeGreaterThan(30);
+		// 17 on today's constant, against 40 before #330 and the 4 that killed the real job.
+		// The bound is "more than a credit a document" rather than the literal, which
+		// `packages/import/src/estimate.test.ts` already pins.
+		expect(estimate.estimatedCredits).toBeGreaterThan(14);
 	});
 
 	it('issue #272: obsidian is no longer stuck at its old 1-credit-for-three-documents guess', async () => {
@@ -139,7 +144,8 @@ describe('estimateAveragesFor cold start for onenote (issue #261)', () => {
 			avgCreditsPerDocument: averages.avgCreditsPerDocument,
 			avgSecondsPerDocument: averages.avgSecondsPerDocument
 		});
-		expect(estimate.estimatedCredits).toBeGreaterThan(5);
+		// 4 on today's constant, against 9 before #330 and the 1 that produced the failure.
+		expect(estimate.estimatedCredits).toBeGreaterThan(3);
 	});
 });
 

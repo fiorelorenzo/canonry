@@ -404,7 +404,9 @@ band above puts the honest figure between roughly 1.15 and 1.77 credits. It is d
 not hardcoded to either: `estimateAveragesForPlaybook` replaces a cold-start default with a
 historical average the first time a real job finishes, so the right way to move that number is
 to let one finish under the new arithmetic rather than to substitute a repricing of old token
-counts for the measurement the row is supposed to carry. Filed as #330.
+counts for the measurement the row is supposed to carry. Filed as #330. **#330 ran three of
+them against a real notebook and the row is 1.1492 now, at the very bottom edge of that band:
+the "What #330 measured" section below is that measurement.**
 
 ## What #329 measured: shortening `onenote`'s prompt costs money (the trim is reverted)
 
@@ -494,6 +496,129 @@ that the folder tree implies. Three runs of each prompt: the folder-tree relatio
 0.767 untrimmed) sit inside that variance. The rule the trim could have broken did not break.
 
 Total spend for the whole measurement, both prompts and both runners: EUR 0.53.
+
+## What #330 measured: what a real OneNote notebook actually costs per document
+
+The section above left the calibration constant wrong on purpose, because the only honest way
+to move it was a real import finishing under #313's arithmetic and there was no real notebook
+on this box to import. #590's corpus is one (`docs/corpus-onenote.md`, sha256
+`9b9a488a...`, somebody else's private campaign, nothing from it quoted here) and #599's
+reader reads its own `.mht` export, so this is that measurement.
+
+Three imports, 2026-08-23, driven through the product's own upload path (`POST` to
+`/onboarding/import`'s `upload`, `confirm` and `start` actions, so detection, enumeration, the
+estimate, admission and `startImportRun` all ran the way a GM's click runs them), one fresh
+universe each, `google/gemini-3.1-flash-lite` on `cheap` with `pricePerCachedInputMTok`
+present. Every figure below is read off `import_job`, not off a runner's report:
+
+```sql
+SELECT document_count, spent_credits, input_tokens, output_tokens, proposals_emitted,
+       round(spent_credits / document_count, 4) AS credits_per_doc,
+       round(extract(epoch FROM (finished_at - started_at))::numeric, 1) AS seconds
+FROM import_job WHERE status = 'finished' AND playbook = 'onenote' ORDER BY created_at;
+```
+
+| scope          | docs | spent_credits | per document | input tokens | output tokens | proposals | seconds |
+| -------------- | ---- | ------------- | ------------ | ------------ | ------------- | --------- | ------- |
+| one page       | 1    | 0.5261        | 0.5261       | 33,193       | 588           | 3         | 9.3     |
+| one section    | 23   | 31.0004       | **1.3478**   | 3,064,433    | 30,133        | 159       | 479.2   |
+| whole notebook | 70   | 75.8718       | **1.0839**   | 6,295,130    | 63,887        | 281       | 952.9   |
+
+**The row is 1.1492**, the document-weighted pool of the two multi-page runs: 106.8722 credits
+over 93 documents. Which scope the average comes from is a real choice and not a rounding
+detail, so here is what each one would have said and why this one won.
+
+The one-page run says 0.5261, less than half the multi-page figure, and it is the flattering
+case rather than the case that matters. This run also priced that choice rather than arguing
+it: the notebook job started while the page job was the only history in the table, so
+`estimateAveragesForPlaybook` handed the estimate screen 0.5261 and the GM was quoted **37
+credits for work that then billed 75.8718**. It finished, because
+`IMPORT_BUDGET_HEADROOM_MULTIPLIER` had budgeted 222, which is the clearest evidence yet that
+the six-times headroom is doing the job #261 gave it. But a consent screen that understates by
+half is the failure a cold-start default is there to avoid.
+
+The notebook alone says 1.0839 and the section alone 1.3478, a 1.24x spread on the same
+notebook read at two scopes, which is this document's own headline finding showing up again:
+step count is the price, and step count varies. Pooling the two by document rather than
+picking one averages that over 93 documents instead of 23 or 70, and it is the same arithmetic
+`estimateAveragesForPlaybook` performs on real rows, so the cold start and the path that
+replaces it now agree on what "average" means. #599 ran the same three files independently a
+few hours earlier and reported 0.7228, 1.2195 and 1.1346 per document; pooling its two
+multi-page runs the same way gives 1.1556, within 0.6 per cent of 1.1492 from a different
+session, which is the closest thing to a repeat this corpus can offer.
+
+**Reconciling with 2.816, because a 2.5x correction deserves an account of where it went.**
+Repricing these same two jobs' recorded tokens the way `computeCost` did before #313 (every
+input token fresh, `(input x 0.25 + output x 1.50) / 1.1567`, the USD rates on the `cheap` row
+and the pinned FX rate) gives 214.4827 credits over the same 93 documents, so **2.3063 credits
+per document under the old arithmetic**. Two thirds of the correction is therefore the pricing
+fix (50.2 per cent off, from 2.3063 to 1.1492) and the remaining third is that #261's two jobs
+simply took more steps per document than this corpus does: 2.816 was already 22 per cent above
+what this notebook would have shown even before #313.
+
+**And the cached share is recoverable from the rows that exist, which is the answer to whether
+`model_call` needs a `cached_input_tokens` column.** `computeCost` is invertible when the
+`model_config` params that produced a row are known: with fresh and cached input the only two
+input buckets Google bills, `cached = (input x 0.25 + output x 1.50 - cost_eur x 1.1567 x 1e6)
+/ 0.22`. Run over these three jobs' own `model_call` rows:
+
+| scope          | model calls | calls that read cache | input served from cache |
+| -------------- | ----------- | --------------------- | ----------------------- |
+| one page       | 8           | 4                     | 42.4%                   |
+| one section    | 322         | 223                   | 67.2%                   |
+| whole notebook | 729         | 444                   | 57.2%                   |
+
+Which is the same incidental, provider-decided pattern #313 measured, at the same magnitude,
+now on 1,059 real production calls instead of a probe. The figure is not lost today, so the
+column buys robustness rather than information: the inversion needs the exact price row that
+priced the call, `model_config` is switchable from `/admin/models` without a deploy and
+deactivates rows rather than deleting them, and a second cache bucket (Anthropic's cache
+writes, which the `cheap` row would have if it moved back to `claude-haiku-4.5`) makes one
+equation carry two unknowns and stop being invertible at all. So it is a decision about
+whether historical cache accounting should survive a price change, not about whether
+`cost_eur` is right. That is Lorenzo's call, recorded on #330.
+
+**`avgSecondsPerDocument` stays 20.** Measured here at 13.6 (notebook) and 20.8 (section),
+pooling to 15.4, so the shipped constant sits inside the measured range. It is not moved for
+the reason this document keeps wall clock out of its own tables: these ran 20 documents wide
+on a box with other agents on it, so the reading measures the box as much as the loop.
+
+**What moving one constant moved.** `ONENOTE_CREDITS_PER_STEP` calibrates the six inferred
+rows, so all seven change together, by the same 0.408 factor.
+
+| playbook    | stepBudget | before | after      | measured?               |
+| ----------- | ---------- | ------ | ---------- | ----------------------- |
+| onenote     | 60         | 2.8160 | **1.1492** | yes, the two jobs above |
+| obsidian    | 60         | 2.8160 | 1.1492     | no                      |
+| world-anvil | 50         | 2.3467 | 0.9577     | no                      |
+| kanka       | 50         | 2.3467 | 0.9577     | no                      |
+| docx        | 40         | 1.8773 | 0.7661     | no                      |
+| pdf         | 40         | 1.8773 | 0.7661     | no                      |
+| generic     | 40         | 1.8773 | 0.7661     | no                      |
+
+**Two of the six are now tighter than a document this repo has measured, and no margin was
+added to hide it.** Repricing the sweep at the top of this document puts `campaign-brief.docx`
+at roughly 1.0 to 1.4 credits against `docx`'s new 0.7661, and `kanka/characters.json` at
+roughly 2.8 to 3.8 against `kanka`'s new 0.9577. Three reasons that is the right answer
+anyway. A per-document average over a whole job is not the cost of that job's most expensive
+document, which is what those two figures are. What protects a job from a low estimate is the
+budget headroom, not the estimate, and the notebook run above is the demonstration. And the
+row a playbook actually needs is a real job in that playbook, which
+`estimateAveragesForPlaybook` installs the first time one finishes. What a low estimate does
+cost is a consent screen that understates, so the fix is measuring the other six the way this
+one was measured, not widening a guess.
+
+**The historical-average path fires, which is worth knowing before anyone buys more precision
+here.** All three runs confirmed it from the estimate screen's own number: the first was quoted
+3 credits for one document, which is `ceil(2.816)` and therefore the cold-start default; the
+notebook was quoted 37, which is `ceil(70 x 0.5261)` and therefore the page job's real average;
+the section was quoted 25, which is `ceil(23 x 1.07603)` and therefore the two prior jobs
+pooled by document. So `PLAYBOOK_COLD_START_ESTIMATE.onenote` decides exactly one job on any
+deployment, the very first OneNote import, and every one after it is priced off real rows.
+
+Total spend for this measurement: **107.3983 credits, EUR 1.07** at the 100-credits-per-euro
+rate in `packages/ai/src/usage.ts`, over the three jobs above. No run was repeated for a
+nicer number.
 
 ## Re-running this
 
