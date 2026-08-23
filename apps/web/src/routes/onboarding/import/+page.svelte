@@ -17,6 +17,12 @@
 	let { data, form }: PageProps = $props();
 
 	let t = $derived(messages(data.locale).import.upload);
+	// Issue #386 gave the identical input on `/w/[universe]/import` an accessible name and
+	// said in `messages.ts` that this one was left without because the shared namespace was
+	// out of that issue's scope. It is still an axe critical on this screen, and this issue
+	// is already editing this input, so it reads the same one string rather than growing a
+	// second key that says the same thing in two places.
+	let fileInputLabel = $derived(messages(data.locale).import.existing.fileInputLabel);
 	const stage = $derived(form?.stage ?? 'upload');
 	// Only one of the three stage forms below is ever rendered at once, so one flag
 	// covers all three.
@@ -59,7 +65,9 @@
 			>
 				<input type="hidden" name="universe" value={data.universe.slug} />
 				<div class="rounded-lg border border-dashed border-line-2 bg-panel-2 p-8 text-center">
+					<Label class="sr-only" for="import-file">{fileInputLabel}</Label>
 					<input
+						id="import-file"
 						type="file"
 						name="file"
 						accept={data.uploadAccept}
