@@ -304,8 +304,28 @@ let CI run the package.
 **The board's own API is a shared quota.** Projects v2 fields are GraphQL-only, and GraphQL is
 5000 points an hour **per account**, not per repo. Setting four fields on thirteen issues plus
 `gh pr create` (also GraphQL) exhausted it in one wave and every later call failed with "API
-rate limit already exceeded" while REST still had its full 5000. `gh api repos/<owner>/<repo>/pulls`
-opens a PR over REST when that happens, and `gh api rate_limit` says which budget is gone.
+rate limit already exceeded" while REST still had its full 5000. `gh api rate_limit` says which
+budget is gone, and it is worth checking before a long board pass rather than after.
+
+**Far more of `gh` is GraphQL than the name suggests, and each one has a REST twin.** A wave on
+2026-08-23 hit the wall four times and re-derived the workaround each time, so here is the whole
+set. `gh pr create`, `gh pr merge`, `gh pr edit`, `gh issue create`, `gh issue comment` and every
+`gh project` subcommand are GraphQL. The equivalents that keep working:
+
+```bash
+gh api repos/$OWNER/$REPO/pulls -f head=BRANCH -f base=main -f title='...' -F body=@body.md
+gh api --method PUT repos/$OWNER/$REPO/pulls/N/merge -f merge_method=squash
+gh api --method PATCH repos/$OWNER/$REPO/pulls/N -f body="$(cat body.md)"
+gh api --method POST repos/$OWNER/$REPO/issues --input issue.json      # milestone is a NUMBER
+gh api --method POST repos/$OWNER/$REPO/issues/N/comments --input comment.json
+gh api --method PATCH repos/$OWNER/$REPO/issues/N -f state=closed -f state_reason=completed
+```
+
+Two traps in there. `--input` wants a JSON file, and `milestone` in it is the milestone's **number**,
+not its title, which `gh api repos/$OWNER/$REPO/milestones` gives you. And the board fields have no
+REST twin at all: `updateProjectV2ItemFieldValue` is GraphQL only, so a `Status` flip genuinely has
+to wait for the reset. Do the merges over REST meanwhile and catch the board up afterwards, rather
+than stalling a wave on a field.
 
 ## The UX decisions live in `docs/ux/`
 
