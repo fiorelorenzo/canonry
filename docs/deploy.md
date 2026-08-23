@@ -29,7 +29,11 @@ older).
 
 Two independent stacks live on prodbox, `prod` and `preview`, each its own
 directory under `/opt/apps/canonry/<stack>`, its own Postgres, its own Qdrant, its
-own secrets, never sharing a compose project.
+own secrets file, never sharing a compose project. The one thing the two secrets
+files hold in common on purpose is the provider credentials: `AI_GATEWAY_API_KEY`,
+`REPLICATE_API_TOKEN` and `ELEVENLABS_API_KEY` are the same value in both, one
+account per provider, decided on issue #609 and written up in
+`docker/deploy/secrets.env.example`.
 
 `release.sh` refuses to deploy a commit that is an ancestor of whatever is
 already live for that stack (issue #228). `preview` hangs off `workflow_run`,
