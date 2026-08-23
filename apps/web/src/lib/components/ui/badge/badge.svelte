@@ -1,5 +1,6 @@
 <script lang="ts" module>
-	import { type VariantProps, tv } from 'tailwind-variants';
+	import { type VariantProps } from 'tailwind-variants';
+	import { tv } from '$lib/utils/cn';
 
 	/* #147: default/secondary/destructive started this set. #155 adds two more meanings
 	 * that already existed in the app as hand-written pills - `ok` (the live proposal

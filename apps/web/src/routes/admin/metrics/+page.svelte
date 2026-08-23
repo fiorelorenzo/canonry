@@ -129,7 +129,7 @@
 				{/if}
 
 				<div class="mt-5">
-					<h3 class="text-sm font-semibold text-ink">{t.metrics.accept.byLocale.heading}</h3>
+					<h3 class="text-body font-semibold text-ink">{t.metrics.accept.byLocale.heading}</h3>
 					<p class="mt-1 text-label text-muted">
 						<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 						{@html t.metrics.accept.byLocale.intro}
@@ -189,7 +189,7 @@
 			{:else}
 				{#each data.importsByUniverse as universe (universe.universeId)}
 					<div class="mt-5">
-						<h3 class="text-sm font-semibold text-ink">{universe.universeName}</h3>
+						<h3 class="text-body font-semibold text-ink">{universe.universeName}</h3>
 						<p class="mt-1 text-meta text-muted">
 							{#if universe.importsWithAccept === 0}
 								{t.metrics.timeToFirstAccept.noAcceptYet(universe.imports.length)}

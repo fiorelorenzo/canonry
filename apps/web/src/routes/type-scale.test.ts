@@ -25,14 +25,10 @@
  * utility to resolve, and the three groups they fall into are all the same finding,
  * that the scale has five roles and these sites want a sixth:
  *
- * - **A heading level below `--text-title`.** Markdown prose gets two heading levels
- *   under the page title (`h2` 20px, `h3` 18px) and the scale names one, 18px. Putting
- *   both on it collapses two levels into one, on A1's reading surface, so the reading
- *   room keeps the ladder it has. The same thing happens on the three surfaces that
- *   draw a section heading and a card heading inside it: the section heading takes
- *   `--text-title` (it was already 18px, so nothing moved) and the card heading under
- *   it has nowhere to go. #509 predicted exactly this one, in its own words, "the
- *   settings page's h2/h3 hierarchy would collapse if both landed on --text-title".
+ * - **A second heading level in markdown prose.** `EntryProse`, `EntryProseWithSecrets`
+ *   and `DocPage` all draw `[&_h2]:text-xl [&_h3]:text-lg`, 20px over 18px over a 16px
+ *   body, and `--text-title` is 18px. Putting both on it collapses two levels into one,
+ *   on A1's reading surface, so the reading room keeps the ladder it has.
  * - **A display figure.** An accept rate, a credit balance, a price. It is not a
  *   label, a meta line, a body, a card title or a page title.
  * - **A wordmark.** A lockup is drawn to itself, not to a text role.
@@ -40,10 +36,26 @@
  * All three are design questions in V3's own terms, "a size outside the five role
  * tokens is a design question, not a CSS one", so they belong in a decision row rather
  * than in a codemod. #649 carries them.
+ *
+ * One group that looked like a fourth and was not, because looking is what settled it.
+ * `/w/[universe]/settings`, `/admin/metrics` and `/settings/billing` each draw a section
+ * heading with card headings inside it, so when the section heading took `--text-title`
+ * the card heading under it had nowhere to go, which is the collapse #509 predicted in
+ * its own words: "the settings page's h2/h3 hierarchy would collapse if both landed on
+ * --text-title". Leaving those nine on `text-sm`/`text-base` was the first answer and it
+ * was wrong, and only a screenshot said so: once the body around them became 16px, a
+ * 14px card heading was visibly SMALLER than the paragraph it headed, where on main the
+ * two had been the same 14px and told apart by weight. So they take `--text-body` with
+ * their `font-semibold` intact, a run-in heading at body size under an 18px section
+ * heading, which is the shape `AskAnswerRow.svelte` already ships (`text-body
+ * font-medium` on an `h2`). Three tokens, no sixth, and the ladder reads 18 / 16-bold /
+ * 16 instead of 18 / 14-bold / 16.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { badgeVariants } from '$lib/components/ui/badge/badge.svelte';
+import { TYPE_SCALE, cn } from '$lib/utils/cn';
 
 /** Tailwind's whole default `text-*` size namespace, including the sizes this app has
  * never used, so adopting `text-3xl` tomorrow is a failure rather than a gap. */
@@ -118,29 +130,6 @@ const ALLOWED: { file: string; util: string; count: number; reason: string }[] =
 		reason: 'the docs draw the same prose ladder as EntryProse'
 	},
 
-	// A heading level below --text-title: the three surfaces that draw a section heading
-	// with card headings inside it. The section heading took --text-title and was already
-	// 18px, so nothing on these pages moved; the card heading under it is the level the
-	// scale does not name, and #509 named this exact collapse before it happened.
-	{
-		file: 'routes/w/[universe]/settings/+page.svelte',
-		util: 'text-sm',
-		count: 6,
-		reason: 'a card heading inside a --text-title group heading (images, loremaster, canon)'
-	},
-	{
-		file: 'routes/admin/metrics/+page.svelte',
-		util: 'text-sm',
-		count: 2,
-		reason: 'a subsection heading inside a --text-title section heading'
-	},
-	{
-		file: 'routes/settings/billing/+page.svelte',
-		util: 'text-base',
-		count: 1,
-		reason: "a plan card's name inside the --text-title plans heading"
-	},
-
 	// A display figure. Not one of the five roles, and reading it as --text-title would
 	// make the name lie about what the element is.
 	{
@@ -176,14 +165,28 @@ const ALLOWED: { file: string; util: string; count: number; reason: string }[] =
 		reason: 'the Canonry wordmark in the rail, a lockup rather than a label'
 	},
 
-	// Not markup at all: a doc comment describing the card grid #575 deleted, whose
-	// problem was three columns of 14px type. Rewriting the class name inside it would
-	// make the record of what was measured say something that was never measured.
+	// Named in prose, never drawn. `found()` reads raw source rather than stripping
+	// comments, for the reason its own doc comment gives, so a doc comment that names a
+	// default utility lands here. Each of these three is a record of a measurement, and
+	// rewriting the class name inside it would make the record say something that was
+	// never measured.
+	{
+		file: 'lib/utils/cn.ts',
+		util: 'text-xs',
+		count: 1,
+		reason: 'prose: why tailwind-merge kept text-xs but silently dropped text-label'
+	},
+	{
+		file: 'lib/utils/cn.ts',
+		util: 'text-sm',
+		count: 1,
+		reason: 'prose: the same paragraph, on what a second font size in one list conflicts with'
+	},
 	{
 		file: 'routes/onboarding/+page.svelte',
 		util: 'text-sm',
 		count: 1,
-		reason: 'prose in a doc comment recording the deleted sm:grid-cols-3 card grid'
+		reason: 'prose: the deleted sm:grid-cols-3 card grid, whose problem was 14px in three columns'
 	}
 ];
 
@@ -206,7 +209,24 @@ function sources(dir = '', out: string[] = []): string[] {
 const SELF = 'routes/type-scale.test.ts';
 const ALL = sources().filter((f) => f !== SELF);
 
-/** `file\tutil` -> count, over the whole app. */
+/**
+ * `file\tutil` -> count, over the raw source of the whole app.
+ *
+ * Raw on purpose, and this was the second attempt. `page-header-offset.test.ts` strips
+ * comments before matching, so that a doc comment naming a class is not mistaken for a
+ * component drawing it, and copying that here was wrong: regex comment-stripping is not
+ * safe on this codebase. Several doc comments contain the route glob `/p/**`, whose
+ * `/*` opens a block comment that then closes at the next real terminator and swallows
+ * the markup in between, which is how `EntryProseWithSecrets`'s whole prose class list
+ * disappeared from this guard. Measured across `apps/web/src`, stripping block comments
+ * loses a real `class=` attribute in 6 files, and stripping line comments first to
+ * defuse those globs loses one in 11.
+ *
+ * So nothing is stripped and the few files that name a default utility in prose are
+ * listed in `ALLOWED` like anything else. That trades three allowlist entries for the
+ * property that actually matters: this guard can over-report, and it can never silently
+ * miss a component that draws off the default scale.
+ */
 function found(): Map<string, number> {
 	const out = new Map<string, number>();
 	for (const file of ALL) {
@@ -266,5 +286,46 @@ describe('the type scale is spelled in role tokens, or listed with a reason (V3 
 			/\btext-page-title\b/.test(readFileSync(`${SRC}${f}`, 'utf-8'))
 		);
 		expect(consumers).toContain(band);
+	});
+});
+
+/**
+ * The other half of "the scale is applied", and the half that had been quietly false
+ * since #509. Spelling `text-label` on an element is not enough: `cn` and
+ * `tailwind-variants` both run the class list through tailwind-merge, whose `text-*`
+ * heuristic reads an unrecognised suffix as a COLOUR, so a role token and a colour on
+ * one element are treated as one conflict and the token is deleted. `EntryTable`'s
+ * `<th>` and every `Badge` in the app rendered at their inherited size for exactly that
+ * reason, measured at 16px against a token that says 12px, and it hid behind the fact
+ * that `text-xs` (a suffix tailwind-merge does know) used to survive the same merge.
+ *
+ * So these assert the wiring rather than the spelling: the list `cn.ts` declares is the
+ * list `@theme` defines, and a token really does survive a merge beside a colour.
+ */
+describe('the scale survives tailwind-merge (#621)', () => {
+	it('cn.ts declares exactly the --text-* tokens layout.css defines', () => {
+		const theme = readFileSync(`${SRC}routes/layout.css`, 'utf-8');
+		const declared = [...theme.matchAll(/^\s*--text-([\w-]+):/gm)]
+			.map((m) => m[1])
+			.filter((name) => !name.endsWith('--line-height'));
+		expect([...TYPE_SCALE].sort()).toEqual([...new Set(declared)].sort());
+	});
+
+	it('keeps a role token next to a text colour, and lets two tokens conflict', () => {
+		expect(cn('text-label font-semibold text-muted uppercase').split(' ')).toContain('text-label');
+		expect(cn('text-meta', 'text-accent-ink').split(' ')).toContain('text-meta');
+		// Two sizes on one element is a real conflict, and the later one has to win
+		// rather than both surviving for CSS order to decide.
+		expect(cn('text-sm', 'text-body')).toBe('text-body');
+		expect(cn('text-title', 'text-body')).toBe('text-body');
+		// A colour is still just a colour.
+		expect(cn('text-ink', 'text-muted')).toBe('text-muted');
+	});
+
+	it('Badge keeps its --text-label through tailwind-variants', () => {
+		// tailwind-variants holds its own tailwind-merge instance, so this is a separate
+		// wiring from `cn` and was separately broken.
+		expect(badgeVariants({ variant: 'secondary' }).split(' ')).toContain('text-label');
+		expect(badgeVariants({ variant: 'default' }).split(' ')).toContain('text-label');
 	});
 });

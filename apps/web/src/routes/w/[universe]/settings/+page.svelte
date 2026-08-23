@@ -219,7 +219,7 @@
 		<section id="group-images" class="mt-8">
 			<h2 class="text-title font-semibold text-ink">{t.groups.images}</h2>
 			<div class="mt-3 border-t border-line pt-4">
-				<h3 class="text-sm font-semibold text-ink">{t.imageStyle.heading}</h3>
+				<h3 class="text-body font-semibold text-ink">{t.imageStyle.heading}</h3>
 				<p class="mt-1 max-w-measure text-body text-ink-2">
 					{t.imageStyle.description(data.current.name)}
 				</p>
@@ -354,7 +354,7 @@
 			<h2 class="text-title font-semibold text-ink">{t.groups.loremaster}</h2>
 			<div class="mt-3 flex flex-col gap-4">
 				<div class="border-t border-line pt-4">
-					<h3 class="text-sm font-semibold text-ink">{t.narration.heading}</h3>
+					<h3 class="text-body font-semibold text-ink">{t.narration.heading}</h3>
 					<p class="mt-1 max-w-measure text-body text-ink-2">
 						{t.narration.description(data.current.name)}
 					</p>
@@ -494,7 +494,7 @@
 				<div class="border-t border-line pt-4">
 					<div class="flex items-center justify-between gap-4">
 						<div>
-							<h3 class="text-sm font-semibold text-ink">{t.aiToggle.heading}</h3>
+							<h3 class="text-body font-semibold text-ink">{t.aiToggle.heading}</h3>
 							<p class="mt-1 max-w-measure text-body text-ink-2">
 								{t.aiToggle.description(data.current.name)}
 							</p>
@@ -540,7 +540,7 @@
 				</div>
 
 				<div class="border-t border-line pt-4">
-					<h3 class="text-sm font-semibold text-ink">{t.propagationCap.heading}</h3>
+					<h3 class="text-body font-semibold text-ink">{t.propagationCap.heading}</h3>
 					<p class="mt-1 max-w-measure text-body text-ink-2">
 						{t.propagationCap.description(data.current.name)}
 					</p>
@@ -603,7 +603,7 @@
 				<div class="border-t border-line pt-4">
 					<div class="flex items-center justify-between gap-4">
 						<div>
-							<h3 class="text-sm font-semibold text-ink">{tRelations.cardHeading}</h3>
+							<h3 class="text-body font-semibold text-ink">{tRelations.cardHeading}</h3>
 							<p class="mt-1 max-w-measure text-body text-ink-2">
 								{tRelations.cardDescription(data.current.name)}
 							</p>
@@ -622,7 +622,7 @@
 
 				{#if data.isDerived}
 					<div class="border-t border-line pt-4">
-						<h3 class="text-sm font-semibold text-ink">{t.precedence.heading}</h3>
+						<h3 class="text-body font-semibold text-ink">{t.precedence.heading}</h3>
 						<p class="mt-1 max-w-measure text-body text-ink-2">
 							{t.precedence.description(data.current.name)}
 						</p>
