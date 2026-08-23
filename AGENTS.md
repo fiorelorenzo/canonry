@@ -318,8 +318,12 @@ built by hand here any more: it is drawn in Claude Design.
 
 **Two kinds of Claude Design project, and only two.** A disposable one per surface, named
 `canonry · <surface>`, regenerated from the repo with "Start from code" whenever it goes
-stale rather than hand-maintained. And one durable project, `canonry design system`, which
-is where the tokens, the fonts and the component guidance the design agent reads live.
+stale rather than hand-maintained. And one durable project, **`Canonry Design System`**
+(`https://claude.ai/design/p/c00e5984-8a90-4ece-82cb-8bc387b46aa1`, built 2026-08-23 from
+this repo's `main`), which is where the tokens, the fonts and the component guidance the
+design agent reads live. Attach it to every surface project; its own readme records what it
+was built from and what it deliberately did not recreate (table mode, Works, Import,
+Settings, Ask and the admin surfaces), so check that list before trusting it on a surface.
 Neither is version-controlled: a project's menu is exactly Rename, Duplicate project,
 Delete project, no history and no restore, it is Beta, and it sits behind one personal
 `claude.ai` account that omp cannot read. A canvas is a drawing tool. It is never the source
