@@ -19,6 +19,11 @@ const DECIDED_ON = '2026-08-13';
 const decidedOn = (d) => d.dt || DECIDED_ON;
 
 const UX_REGISTER = [
+  /* Closed as of 2026-08-23. This register never carried rounds eleven to eighteen
+     (`P1` through `W3`) and stops at `X1`; every decision from here on lives only in
+     the answer table at the top of `docs/ux/DECISIONS.md`, not here. It stays, not as
+     a duplicate, because all 59 artifacts under docs/ux/ render their head, breadcrumb
+     and prev/next from this exact list, and none of it is rewritten below this line. */
   { s: 'Foundations', id: 'A1', f: 'a1-visual-language.html', t: 'Visual language and density',
     q: 'Which skin does a wiki that runs at a table wear?', w: 'now', i: [104, 3],
     d: 'B', dn: 'Reading room',
