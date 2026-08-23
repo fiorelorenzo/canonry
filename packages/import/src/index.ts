@@ -66,7 +66,10 @@ export {
 	sniffUpload,
 	hasOneNotePdfProducer,
 	isUnreadableUploadFormat,
+	OFFERED_UPLOAD_EXTENSIONS,
 	UNREADABLE_UPLOAD_FORMATS,
+	UPLOAD_ACCEPT_ATTRIBUTE,
+	WITHHELD_UPLOAD_EXTENSIONS,
 	type UploadFormat,
 	type UploadSniff,
 	type UnreadableUploadFormat

@@ -20,7 +20,11 @@
 import { createHash } from 'node:crypto';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { importJobsForUniverse, universeAccessBySlug, type UniverseAccess } from '@canonry/db';
-import { ArchiveSourceReader, DEFAULT_ARCHIVE_LIMITS } from '@canonry/import';
+import {
+	ArchiveSourceReader,
+	DEFAULT_ARCHIVE_LIMITS,
+	UPLOAD_ACCEPT_ATTRIBUTE
+} from '@canonry/import';
 import { messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import {
@@ -77,6 +81,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		canStart: access.role !== 'viewer',
 		playbookLabels: PLAYBOOK_LABELS,
 		playbookIds: KNOWN_PLAYBOOK_IDS,
+		// Issue #615: the same one definition the onboarding screen reads, for the same
+		// reason. Two copies of this list in two Svelte files is what let the picker refuse
+		// a `.onepkg` the product had a reader for.
+		uploadAccept: UPLOAD_ACCEPT_ATTRIBUTE,
 		fakeDriverSupported: hasLiveGatewayCredentials() ? null : [...FAKE_DRIVER_SUPPORTED_PLAYBOOKS],
 		jobs: jobs.map((job) => ({
 			id: job.id,

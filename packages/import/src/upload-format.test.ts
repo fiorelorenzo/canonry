@@ -16,8 +16,11 @@ import { unzipSync, zipSync } from 'fflate';
 import {
 	hasOneNotePdfProducer,
 	isUnreadableUploadFormat,
+	OFFERED_UPLOAD_EXTENSIONS,
 	sniffUpload,
 	UNREADABLE_UPLOAD_FORMATS,
+	UPLOAD_ACCEPT_ATTRIBUTE,
+	WITHHELD_UPLOAD_EXTENSIONS,
 	type UploadFormat
 } from './upload-format.js';
 import { ArchiveSourceReader, DEFAULT_ARCHIVE_LIMITS } from './archive.js';
@@ -111,6 +114,129 @@ describe('every format OneNote exports is identified from its own bytes (issue #
 		// a GM met and this is the line that says they no longer do.
 		expect(isUnreadableUploadFormat('onestore')).toBe(false);
 		expect(isUnreadableUploadFormat('onepkg')).toBe(false);
+	});
+});
+
+/**
+ * Issue #615: the file picker offered `.zip,.mht,.pdf,.docx,.md,.txt` for three issues
+ * after the readers behind it changed, so a `.onepkg` was readable and unselectable at
+ * once and a Kanka `.json` never was selectable at all. These assertions are what makes
+ * that state fail rather than ship: the list and the readers are checked against each
+ * other in both directions, so a reader added without touching the picker fails here, and
+ * so does an extension offered for a format nothing reads.
+ */
+describe('the picker offers what this module reads, and only that (issue #615)', () => {
+	// Every member of `UploadFormat` has to appear here or this object does not typecheck,
+	// which is what keeps the two assertions below exhaustive instead of a snapshot of the
+	// union as it stood the day they were written.
+	const ALL_FORMATS: Record<UploadFormat, true> = {
+		zip: true,
+		pdf: true,
+		docx: true,
+		other: true,
+		'onenote-mhtml': true,
+		mhtml: true,
+		xps: true,
+		onestore: true,
+		onepkg: true
+	};
+	const readable = (Object.keys(ALL_FORMATS) as UploadFormat[]).filter(
+		(format) => !isUnreadableUploadFormat(format)
+	);
+
+	it('offers at least one extension for every format there is a reader for', () => {
+		const offered = new Set(Object.values(OFFERED_UPLOAD_EXTENSIONS));
+		expect(readable.filter((format) => !offered.has(format))).toEqual([]);
+	});
+
+	it('offers no extension for a format with no reader behind it', () => {
+		const offeredForNothing = Object.entries(OFFERED_UPLOAD_EXTENSIONS).filter(([, format]) =>
+			isUnreadableUploadFormat(format)
+		);
+		expect(offeredForNothing).toEqual([]);
+	});
+
+	it('withholds .xps by decision, and withholds nothing that has a reader', () => {
+		// Issue #601 refused the format rather than deferring a reader for it, so this is the
+		// decision itself and not an omission: a `.xps` is the same printed notebook its PDF
+		// twin is, and that twin is already read. If a reader ever lands, `xps` leaves
+		// `UNREADABLE_UPLOAD_FORMATS` and this fails, which is the point.
+		expect(WITHHELD_UPLOAD_EXTENSIONS['.xps']).toBe('xps');
+		for (const [extension, format] of Object.entries(WITHHELD_UPLOAD_EXTENSIONS)) {
+			expect(isUnreadableUploadFormat(format)).toBe(true);
+			expect(OFFERED_UPLOAD_EXTENSIONS[extension]).toBeUndefined();
+		}
+	});
+
+	it('keeps .mht in, because its refusal happens on content and not on the name', () => {
+		// The asymmetry with `.xps` above, and the reason the table maps an extension to one
+		// format rather than to a set. OneNote's own Single File Web Page and a page a browser
+		// saved cannot be told apart by extension, so the extension is offered for the one
+		// there is a reader for and the other keeps meeting `refuseUnreadableUpload`.
+		expect(OFFERED_UPLOAD_EXTENSIONS['.mht']).toBe('onenote-mhtml');
+		expect(isUnreadableUploadFormat('mhtml')).toBe(true);
+	});
+
+	it('every extension it offers sniffs as the format it is offered for', () => {
+		// The table is grounded in the same fixtures the sniffing itself is checked against,
+		// so it cannot claim a mapping the bytes disagree with.
+		for (const name of [
+			'notebook.mht',
+			'printed.pdf',
+			'page.docx',
+			'section.one',
+			'notebook.onetoc2',
+			'notebook.onepkg'
+		]) {
+			const extension = name.slice(name.lastIndexOf('.'));
+			expect(sniff(name).format).toBe(OFFERED_UPLOAD_EXTENSIONS[extension]);
+		}
+		expect(sniff('printed.xps').format).toBe(WITHHELD_UPLOAD_EXTENSIONS['.xps']);
+	});
+
+	it('offers .json and .zip for what a Kanka export actually is (SPEC \u00a76.3, \u00a76.9)', () => {
+		// The extension this list never had, against the fixture the Kanka playbook's own
+		// tests read: a campaign export is a JSON file, which sniffs as `other` because it is
+		// one document rather than an archive, and the zip a GM makes of it is an archive.
+		const kanka = fileURLToPath(new URL('../test/fixtures/kanka/', import.meta.url));
+		const json = new Uint8Array(readFileSync(`${kanka}export/characters.json`));
+		expect(sniffUpload(json, { unzip: unzipSync }).format).toBe(OFFERED_UPLOAD_EXTENSIONS['.json']);
+		const zip = new Uint8Array(readFileSync(`${kanka}campaign-export.zip`));
+		expect(sniffUpload(zip, { unzip: unzipSync }).format).toBe(OFFERED_UPLOAD_EXTENSIONS['.zip']);
+	});
+
+	it('offers the text formats the "Something else" guide names, all of them one document', () => {
+		// Every extension this table maps to `other` is one document rather than an archive,
+		// and none of them is a format with its own reader hiding behind a text-looking name.
+		// The guide names plain text, Markdown, HTML, RTF, CSV and JSON, so the picker offers
+		// exactly those and the server still decides per file on the bytes.
+		const payloads: Record<string, string> = {
+			'.md': '# Warden Iset Nour\n',
+			'.txt': 'Warden Iset Nour, third of her line.\n',
+			'.json': '[{"entity_type":"character","name":"Iset Nour"}]',
+			'.csv': 'name,role\nIset Nour,Warden\n',
+			'.htm': '<html><body><h1>Ashenport</h1></body></html>',
+			'.html': '<html><body><h1>Ashenport</h1></body></html>',
+			'.rtf': '{\\rtf1\\ansi Warden Iset Nour\\par}'
+		};
+		for (const [extension, text] of Object.entries(payloads)) {
+			expect(OFFERED_UPLOAD_EXTENSIONS[extension]).toBe('other');
+			expect(sniffUpload(new TextEncoder().encode(text), { unzip: unzipSync }).format).toBe(
+				'other'
+			);
+		}
+		// And nothing else in the table claims `other`, so the two lists above are the same
+		// list and a new text extension cannot be added here without a payload behind it.
+		const claimingOther = Object.entries(OFFERED_UPLOAD_EXTENSIONS)
+			.filter(([, format]) => format === 'other')
+			.map(([extension]) => extension);
+		expect(claimingOther.sort()).toEqual(Object.keys(payloads).sort());
+	});
+
+	it('is the one definition the two upload inputs read', () => {
+		expect(UPLOAD_ACCEPT_ATTRIBUTE).toBe(Object.keys(OFFERED_UPLOAD_EXTENSIONS).join(','));
+		expect(UPLOAD_ACCEPT_ATTRIBUTE).toContain('.onepkg');
+		expect(UPLOAD_ACCEPT_ATTRIBUTE).not.toContain('.xps');
 	});
 });
 

@@ -62,7 +62,7 @@
 					<input
 						type="file"
 						name="file"
-						accept=".zip,.mht,.pdf,.docx,.md,.txt"
+						accept={data.uploadAccept}
 						required
 						class="mx-auto block text-sm text-ink-2"
 					/>

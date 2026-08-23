@@ -42,16 +42,16 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 	{
 		slug: 'obsidian',
 		label: 'Obsidian',
-		summary: 'Vault folder or zip, wikilinks read as relations',
+		summary: 'A zip of your vault, wikilinks read as relations',
 		sections: [
 			{
 				heading: 'What to hand Canonry',
 				blocks: [
 					p(
-						'Your vault folder itself, or a zip of it. Obsidian already stores everything as ' +
-							'plain files, so there is no export step: point Canonry at the folder that contains ' +
-							'a .obsidian folder, or zip that folder first if you would rather upload a single ' +
-							'file.'
+						'A zip of your vault folder. Obsidian already stores everything as plain files, so ' +
+							'there is no export step: zip the folder that contains the .obsidian folder and ' +
+							'upload that. The upload box takes one file rather than a folder, which is why the ' +
+							'zip is the way in, and the .obsidian folder inside it is what Canonry looks for.'
 					)
 				]
 			},
@@ -208,9 +208,9 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 							'to be the only way to get that, and OneNote has no menu item for it: producing it ' +
 							'means running a script against the GetHierarchy and Publish automation calls the ' +
 							'desktop app exposes, for example meichthys/onenote-html-export, a free, ' +
-							'open-source tool built for exactly this. Point Canonry at the folder it produces, ' +
-							'or a zip of it. If File > Export is available to you, it is less work for the ' +
-							'same result.'
+							'open-source tool built for exactly this. Zip the folder it produces and upload ' +
+							'that, since the upload box takes one file rather than a folder. If File > Export ' +
+							'is available to you, it is less work for the same result.'
 					),
 					p(
 						'Failing all of those, print one section at a time to PDF, or export it to DOCX, and ' +
@@ -354,10 +354,17 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 				heading: 'What to hand Canonry',
 				blocks: [
 					p(
-						'Whatever your tool can export: a single file, or a folder of mixed files nested ' +
-							'as deep as it likes. If Canonry does not recognise the shape of what you upload ' +
-							'as one of the sources above, it runs the generic playbook automatically rather ' +
-							'than stopping.'
+						'Whatever your tool can export: one file, or a zip of a folder of mixed files ' +
+							'nested as deep as it likes. If Canonry does not recognise the shape of what you ' +
+							'upload as one of the sources above, it runs the generic playbook automatically ' +
+							'rather than stopping.'
+					),
+					p(
+						'The upload box suggests the extensions the guides ask for, and that is a hint ' +
+							'rather than a rule: Canonry reads what a file is from its bytes, so a file with ' +
+							'an unusual extension or none at all is still read as text if that is what it ' +
+							'holds. If your file manager will not let you choose it, switch the dialog to all ' +
+							'files, or zip it.'
 					)
 				]
 			},
