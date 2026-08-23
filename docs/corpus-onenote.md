@@ -84,10 +84,26 @@ to export.
 - **Internal links survive** as `onenote:#<page title>&section-id={...}&page-id={...}`, three
   of them in the `Note Storia` section and one in the notebook file, so a link between two
   pages of the same export is recoverable and a link out of it is not.
-- **The `.mht` export is not lossier than the `.docx` one on images.** All three `.docx` files
-  carry zero `word/media/` parts; the `Note Storia` `.mht` carries one `image/png` part. So on
-  this notebook the envelope preserved an image the DOCX export dropped, and nothing here
-  shows the envelope dropping one.
+- **This notebook has no embedded pictures at all, and the one that looked like one is a note
+  tag** (issue #614, correcting what this bullet said until then). All three `.docx` files
+  carry zero `word/media/` parts, and across the four `.mht` files there is exactly one
+  `<img>` tag and exactly one `image/png` part, both in `Note Storia.mht`: 364 bytes,
+  genuinely 16x16 in its own IHDR, declared `width=16 height=16 alt=Contatto`. That is
+  OneNote's own UI glyph for a tagged line, which [MS-ONE] models as a `NoteTag`, and it is
+  why `onestore.ts` reports no images off the same notebook and is right to. So the earlier
+  reading, that the envelope preserved an image the DOCX export dropped, was wrong: neither
+  export carries a picture because the notebook has none. What the number does bound is the
+  cost of the bug, since one glyph per tagged line is what a heavily tagged notebook would
+  have offered `image_store`.
+- **The exporter's layout tables are the page, not scaffolding** (issue #614). `Note
+  Storia.mht` has 48 `<table>` elements, `Note Campagna DM` 39 and `Mondo` 3, every one of
+  them a three-column OneNote canvas table whose first column is a `width:1px` spacer cell
+  holding `&nbsp;`. Tempting to read as noise and wrong: the page's entire prose lives in the
+  other cells of those same tables, 1,032,742 of `Note Storia`'s 1,146,649 raw characters.
+  `stripHtmlPresentationNoise` leaves them alone, correctly. What it also leaves is 852
+  genuinely empty cells across the corpus, which after the strip cost 0.3% to 2.1% of a page
+  (about 22,000 characters over the four files). Real but small, and tracked separately rather
+  than folded into the glyph fix.
 - **What today's upload path does with each of the six.** Measured through the real HTTP
   upload path, before and after #591, in that PR's own body and in the issue comment on #591.
   What the `.mht` reader produces at each of the three scopes, and what it cost live, is in
