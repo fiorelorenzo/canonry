@@ -35,6 +35,15 @@
  *   The title in that fragment is what `onenote.md`'s link rule can use, so it is rewritten
  *   to the target page's own entry path when that page is in the same export and left alone
  *   when it is not.
+ * - **The one `<img>` in the whole corpus is a note-tag glyph, not a picture** (issue #614).
+ *   Across the four files there is exactly one `<img>` tag and exactly one `image/png` part,
+ *   both in `Note Storia.mht`, and it is `width=16 height=16 alt=Contatto`: OneNote's own UI
+ *   icon for a tagged line, which [MS-ONE] models as a `NoteTag` rather than as an image,
+ *   which is why `onestore.ts` reports no images off the same notebook and is right to. So a
+ *   16x16 `<img>` is dropped from the page here rather than being passed on, because
+ *   `onenote.md`'s attachment rule would otherwise invite `image_store` to file an interface
+ *   glyph as a campaign asset, once per tagged line. `dropInterfaceGlyphImages` is the rule
+ *   and its own comment carries the threshold argument.
  *
  * ## Why the output is a folder tree rather than a new playbook
  *
@@ -437,6 +446,65 @@ export function titleToSegment(title: string): string {
 	return cleaned.length > 120 ? cleaned.slice(0, 120).trim() : cleaned;
 }
 
+/**
+ * The edge, in pixels, at or below which an `<img>` in a OneNote export is interface rather
+ * than content (issue #614).
+ *
+ * Why 16 and not more. OneNote's note-tag glyphs are exported at exactly 16x16, which is
+ * what the corpus's one `<img>` is, so 16 catches every one of them and is the smallest
+ * number that does. Above that the rule starts guessing: a 32x32 sigil or a 48x48 token
+ * portrait is a plausible thing for a GM to paste onto a page, and 64x64 would drop a
+ * genuine map thumbnail. What 16 does wrongly drop is a real picture the GM scaled down to
+ * 16 pixels or less on the canvas, which is not a picture anybody can look at, so the trade
+ * is one nobody notices in exchange for a media library that is not mostly icons.
+ *
+ * Why the size and not the `alt` text. The corpus says `alt=Contatto` because the notebook
+ * is Italian; an English one says `Contact`, and OneNote ships that vocabulary in every
+ * language it ships in. An allowlist of tag names would therefore be a list that is wrong
+ * for most users and has to grow, while the geometry is the same in every language.
+ */
+const MAX_INTERFACE_GLYPH_PX = 16;
+
+const IMG_TAG = /<img\b[^>]*>/gi;
+/** The trailing lookahead is what keeps `width=1in` out: a value with a unit is not a pixel
+ * count, so it reads as unknown and the image is kept rather than dropped on a `1`. */
+const IMG_WIDTH = /\bwidth\s*=\s*(?:"(\d+)"|'(\d+)'|(\d+))(?![\w.%])/i;
+const IMG_HEIGHT = /\bheight\s*=\s*(?:"(\d+)"|'(\d+)'|(\d+))(?![\w.%])/i;
+
+function declaredPixels(tag: string, attribute: RegExp): number | undefined {
+	const match = attribute.exec(tag);
+	if (match === null) return undefined;
+	return Number(match[1] ?? match[2] ?? match[3]);
+}
+
+/**
+ * Every interface glyph out of a page's HTML, and nothing else touched. An `<img>` counts as
+ * one when it declares both a width and a height and both are at or below
+ * `MAX_INTERFACE_GLYPH_PX`; an image that declares neither, or only one, is unknown rather
+ * than small, and unknown is kept, because the guarantee this rule owes is that no real
+ * picture is lost rather than that every glyph is caught.
+ *
+ * Deleting the tag rather than filtering the resource list is deliberate, and does both
+ * halves of the job in one move: the page no longer shows a playbook an `<img>` to call
+ * `image_store` on, and the part it pointed at stops being referenced, so
+ * `expandOneNoteMhtml`'s existing "a resource nothing references is dropped" rule takes the
+ * bytes out of the tree without a second rule to keep in step with this one. Filtering the
+ * resource instead would have left an `<img>` in the page pointing at a file that is not
+ * there, which is a worse answer than either.
+ */
+export function dropInterfaceGlyphImages(html: string): string {
+	return html.replace(IMG_TAG, (tag) => {
+		const width = declaredPixels(tag, IMG_WIDTH);
+		const height = declaredPixels(tag, IMG_HEIGHT);
+		const glyph =
+			width !== undefined &&
+			height !== undefined &&
+			width <= MAX_INTERFACE_GLYPH_PX &&
+			height <= MAX_INTERFACE_GLYPH_PX;
+		return glyph ? '' : tag;
+	});
+}
+
 export interface ExpandedEntry {
 	path: string;
 	bytes: Uint8Array;
@@ -453,7 +521,7 @@ export interface ExpandOneNoteMhtmlOptions {
  * One `.mht` into the folder tree `onenote.md` reads: `<notebook>/<page>.htm` per page,
  * plus `<notebook>/<page>_files/<resource>` for each resource that page's HTML references.
  *
- * Four decisions worth stating, because each of them is a place a reader could have been
+ * Five decisions worth stating, because each of them is a place a reader could have been
  * cleverer and wronger:
  *
  * - **The tree is flat.** See this module's header: the export carries no hierarchy, so
@@ -469,6 +537,9 @@ export interface ExpandOneNoteMhtmlOptions {
  * - **A resource nothing references is dropped**, which in practice is `filelist.xml`: it
  *   is OneNote's own manifest of the parts we have already parsed, and enumerating it would
  *   cost a document to propose nothing.
+ * - **A note-tag glyph is not a resource at all** (issue #614). It is dropped from the page
+ *   before this loop runs, so the two rules above never see it and it never reaches
+ *   `onenote.md`'s attachment rule. `dropInterfaceGlyphImages` carries the argument.
  */
 export function expandOneNoteMhtml(
 	data: Uint8Array,
@@ -515,7 +586,7 @@ export function expandOneNoteMhtml(
 
 	for (const page of named) {
 		const attachmentFolder = `${root}/${page.name}_files`;
-		let pageHtml = page.html;
+		let pageHtml = dropInterfaceGlyphImages(page.html);
 
 		for (const resource of resources) {
 			const basename = resource.path.split('/').pop() ?? '';
