@@ -247,6 +247,39 @@ the bare `.one`, because the id only becomes resolvable once the `.onetoc2` is p
 lookups are therefore load-bearing, and title is the one that always works, which is what
 `expandOneNoteMhtml` already relied on.
 
+## What the live run cost, and the one thing it showed that no fixture could
+
+The `.onepkg` through the real upload path, on the shared dev stack, against the real
+gateway. It is the comparison #599 set up for the same notebook as `.mht`.
+
+|                     | `.mht`, notebook scope (#599) | `.onepkg` (this issue) |
+| ------------------- | ----------------------------- | ---------------------- |
+| documents           | 70                            | **88**                 |
+| proposals persisted | 281                           | **381**                |
+| credits             | 75.87                         | **81.85** (EUR 0.82)   |
+| wall clock          |                               | 22.7 minutes           |
+| tokens in / out     |                               | 7,083,902 / 92,034     |
+
+So 25.7 per cent more documents and 35.6 per cent more proposals for 7.9 per cent more
+money. The confirm screen said 88 pages and raised **no** scope notice, which is the
+`oneStoreNotebooks` decision doing its job. Of the 381 proposals, 15 came from pages at
+`notebook/section/page.htm` and 66 from `notebook/section/parent/subpage.htm`, so the
+hierarchy is not a claim about the reader, it is visible in the paths the model was handed.
+
+**And the parent/subpage relations do not survive the first import, which is worth stating
+plainly because it is the headline claim's one real limit.** The model called
+`relation_propose` 230 times, 228 of them accepted by the tool, from 68 of the 88 documents,
+and 67 is exactly the subpage count: it read the parent folders and did what step 3 of the
+playbook asks. Every one of those was then dropped, and by a boundary that predates this
+issue and is documented at the top of `job-runner.ts`: `proposal.kind = 'relation'` needs
+two rows that already exist, and on a first import into a universe that has never seen this
+notebook both endpoints are brand new. It is not specific to this reader, and it is why
+#599's 281 proposals were also entity-only, so the table above compares like with like.
+What the hierarchy buys on run one is the 18 pages the `.mht` drops and better-grounded
+summaries; the relations become proposable on the next import, once one side has been
+accepted. Lifting that is a schema change and belongs to its own issue rather than to this
+one.
+
 What is left of the old deferral is the cost, unchanged: 8,000 lines of third-party
 binary-format parsing on an upstream that takes bugfixes rather than features, and MPL's
 file-level copyleft on anything of theirs we edit, which is nothing.
