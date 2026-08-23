@@ -553,7 +553,7 @@
 						     answer, sources) rather than five stacked paragraphs at three sizes
 						     of the same grey. -->
 						<div class="flex items-start justify-between gap-2">
-							<h2 class="m-0 text-base font-semibold text-ink">{turn.question}</h2>
+							<h2 class="m-0 text-title font-semibold text-ink">{turn.question}</h2>
 							{#if turn.answer.length > 0 && !turn.asking}
 								<!-- #437, T10: the card goes; one icon button per turn opens it on
 								     the Ask page, with a tooltip naming it (Q4) since no control

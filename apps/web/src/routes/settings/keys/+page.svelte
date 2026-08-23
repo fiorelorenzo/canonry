@@ -80,7 +80,7 @@
 				: undefined}
 			<section class="rounded-lg border border-line bg-panel p-4">
 				<div class="flex flex-wrap items-center justify-between gap-2">
-					<h2 class="text-base font-semibold text-ink">{providerLabel(provider)}</h2>
+					<h2 class="text-title font-semibold text-ink">{providerLabel(provider)}</h2>
 					{#if key}
 						<Badge variant={key.active ? 'default' : 'secondary'}>
 							{key.active ? t.activeBadge : t.offBadge}

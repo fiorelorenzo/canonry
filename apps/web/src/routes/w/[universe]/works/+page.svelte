@@ -54,7 +54,7 @@
 					<li class="py-3">
 						<a
 							href={resolve(`/w/${data.current.slug}/works/${work.slug}`)}
-							class="text-base font-medium text-ink hover:text-accent"
+							class="text-title font-medium text-ink hover:text-accent"
 						>
 							{work.name}
 						</a>

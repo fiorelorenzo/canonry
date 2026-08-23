@@ -84,7 +84,7 @@
 					{t.confirm.uploadedSummary(form.fileName, (form.fileBytes / 1024).toFixed(1))}
 				</p>
 				<div>
-					<h2 class="text-sm font-semibold text-ink">
+					<h2 class="text-title font-semibold text-ink">
 						{form.confident
 							? t.confirm.detected(data.playbookLabels[form.playbookId])
 							: t.confirm.notDetected(data.playbookLabels[form.playbookId])}
@@ -135,7 +135,7 @@
 			</div>
 		{:else if form && form.stage === 'estimate'}
 			<div class="flex flex-col gap-4 rounded-lg border border-line bg-panel p-5">
-				<h2 class="text-sm font-semibold text-ink">{t.estimate.heading}</h2>
+				<h2 class="text-title font-semibold text-ink">{t.estimate.heading}</h2>
 				<p class="text-sm text-muted">
 					{t.estimate.summary(form.fileName, data.playbookLabels[form.playbookId])}
 				</p>

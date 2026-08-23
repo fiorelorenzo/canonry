@@ -217,7 +217,7 @@
 		</p>
 
 		<section id="group-images" class="mt-8">
-			<h2 class="text-lg font-semibold text-ink">{t.groups.images}</h2>
+			<h2 class="text-title font-semibold text-ink">{t.groups.images}</h2>
 			<div class="mt-3 border-t border-line pt-4">
 				<h3 class="text-sm font-semibold text-ink">{t.imageStyle.heading}</h3>
 				<p class="mt-1 max-w-measure text-sm text-ink-2">
@@ -351,7 +351,7 @@
 		</section>
 
 		<section id="group-loremaster" class="mt-8">
-			<h2 class="text-lg font-semibold text-ink">{t.groups.loremaster}</h2>
+			<h2 class="text-title font-semibold text-ink">{t.groups.loremaster}</h2>
 			<div class="mt-3 flex flex-col gap-4">
 				<div class="border-t border-line pt-4">
 					<h3 class="text-sm font-semibold text-ink">{t.narration.heading}</h3>
@@ -598,7 +598,7 @@
 		</section>
 
 		<section id="group-canon" class="mt-8">
-			<h2 class="text-lg font-semibold text-ink">{t.groups.canon}</h2>
+			<h2 class="text-title font-semibold text-ink">{t.groups.canon}</h2>
 			<div class="mt-3 flex flex-col gap-4">
 				<div class="border-t border-line pt-4">
 					<div class="flex items-center justify-between gap-4">

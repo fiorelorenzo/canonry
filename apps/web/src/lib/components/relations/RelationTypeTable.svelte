@@ -84,7 +84,7 @@
 				class="flex flex-col gap-3 rounded-lg border border-line bg-panel p-4 sm:flex-row sm:items-start sm:justify-between"
 			>
 				<div class="min-w-0">
-					<p class="text-base font-semibold text-ink">
+					<p class="text-title font-semibold text-ink">
 						{relationTypeDisplayLabel(row, relationTypeLabel, locale)}
 					</p>
 					<p class="mt-1 max-w-measure text-sm text-ink-2">{summary(row)}</p>

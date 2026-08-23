@@ -57,7 +57,7 @@
 		</p>
 
 		<section class="mt-10">
-			<h2 class="text-lg font-semibold text-ink">{t.metrics.accept.heading}</h2>
+			<h2 class="text-title font-semibold text-ink">{t.metrics.accept.heading}</h2>
 			<p class="mt-1 max-w-measure text-sm text-ink-2">
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 				{@html t.metrics.accept.intro(data.acceptRateWindowDays)}
@@ -177,7 +177,7 @@
 		</section>
 
 		<section class="mt-10">
-			<h2 class="text-lg font-semibold text-ink">{t.metrics.timeToFirstAccept.heading}</h2>
+			<h2 class="text-title font-semibold text-ink">{t.metrics.timeToFirstAccept.heading}</h2>
 			<p class="mt-1 max-w-measure text-sm text-ink-2">
 				{t.metrics.timeToFirstAccept.intro}
 			</p>
@@ -239,7 +239,7 @@
 		</section>
 
 		<section class="mt-10">
-			<h2 class="text-lg font-semibold text-ink">{t.metrics.warmRadius.heading}</h2>
+			<h2 class="text-title font-semibold text-ink">{t.metrics.warmRadius.heading}</h2>
 			<p class="mt-1 max-w-measure text-sm text-ink-2">
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 				{@html t.metrics.warmRadius.intro(data.warmRadiusThresholdPercent)}
@@ -296,7 +296,7 @@
 		</section>
 
 		<section class="mt-10">
-			<h2 class="text-lg font-semibold text-ink">{t.metrics.entropy.heading}</h2>
+			<h2 class="text-title font-semibold text-ink">{t.metrics.entropy.heading}</h2>
 			<p class="mt-1 max-w-measure text-sm text-ink-2">
 				{t.metrics.entropy.intro}
 			</p>
@@ -332,7 +332,7 @@
 		</section>
 
 		<section class="mt-10 mb-4">
-			<h2 class="text-lg font-semibold text-ink">{t.metrics.auditFlags.heading}</h2>
+			<h2 class="text-title font-semibold text-ink">{t.metrics.auditFlags.heading}</h2>
 			<p class="mt-1 max-w-measure text-sm text-ink-2">
 				{t.metrics.auditFlags.intro(data.auditPairCap)}
 			</p>

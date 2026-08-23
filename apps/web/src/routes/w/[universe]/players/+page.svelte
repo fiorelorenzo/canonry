@@ -64,7 +64,7 @@
 <Page width="working" eyebrow={data.universe.name} title={t.heading} description={t.description}>
 	<div class="flex flex-col gap-8 px-8 py-16">
 		<div class="flex flex-col gap-2 rounded-lg border border-line bg-panel p-5">
-			<h2 class="text-sm font-semibold text-ink">{t.wikiLinkLabel}</h2>
+			<h2 class="text-title font-semibold text-ink">{t.wikiLinkLabel}</h2>
 			<p class="font-mono text-sm text-ink-2">{resolve(`/p/${data.universe.slug}`)}</p>
 			<div>
 				<Button
@@ -115,7 +115,7 @@
 						<section aria-labelledby="session-{group.key || 'untracked'}">
 							<h3
 								id="session-{group.key || 'untracked'}"
-								class="mb-2 flex items-baseline justify-between gap-3 border-b border-line pb-1 text-sm font-semibold text-ink"
+								class="mb-2 flex items-baseline justify-between gap-3 border-b border-line pb-1 text-title font-semibold text-ink"
 							>
 								<span>{group.sessionName ?? t.sessionUnknown}</span>
 								<span class="text-xs font-normal text-muted"

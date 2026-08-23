@@ -225,7 +225,7 @@
 
 <div class="rounded-lg border border-line bg-panel p-3" data-testid="ambient-player">
 	<div class="flex items-center justify-between gap-2">
-		<h3 class="text-sm font-semibold text-ink">{t.heading}</h3>
+		<h3 class="text-title font-semibold text-ink">{t.heading}</h3>
 		{#if started}
 			<Button
 				type="button"

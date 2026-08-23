@@ -41,7 +41,7 @@
 	{/if}
 
 	<section class="mt-6 rounded-lg border border-line bg-panel p-4">
-		<h2 class="text-base font-semibold text-ink">
+		<h2 class="text-title font-semibold text-ink">
 			{t.currentPlan(data.plan?.name ?? data.balance.plan)}
 		</h2>
 		<p class="mt-1 text-sm text-ink-2">
@@ -77,7 +77,7 @@
 	</section>
 
 	<section class="mt-8">
-		<h2 class="text-lg font-semibold text-ink">{t.plansHeading}</h2>
+		<h2 class="text-title font-semibold text-ink">{t.plansHeading}</h2>
 		<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
 			{#each data.plans as plan (plan.id)}
 				{@const current = plan.id === data.balance.plan}

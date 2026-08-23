@@ -100,7 +100,7 @@
 		class="max-w-md rounded-lg border border-line bg-panel p-0 text-ink"
 	>
 		<div class="p-5">
-			<DialogTitle class="text-base font-semibold text-ink">
+			<DialogTitle class="text-title font-semibold text-ink">
 				{regenerateSource
 					? t.entry.media.regenerate.dialogTitle(entityName)
 					: t.entry.media.dialogTitle(entityName)}

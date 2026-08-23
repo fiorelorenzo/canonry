@@ -52,7 +52,7 @@
 
 		{#each groups as group (group.kind)}
 			<section class="mt-8">
-				<h2 class="text-lg font-semibold text-ink">{t.pricing.kindLabel[group.kind]}</h2>
+				<h2 class="text-title font-semibold text-ink">{t.pricing.kindLabel[group.kind]}</h2>
 				<div class="mt-3 overflow-x-auto rounded-lg border border-line">
 					<table class="w-full border-collapse text-sm">
 						<thead>

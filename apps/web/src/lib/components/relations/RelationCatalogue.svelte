@@ -58,7 +58,7 @@
 
 <div class="flex flex-col gap-8">
 	<section>
-		<h2 class="text-sm font-semibold text-ink">{t.ownHeading}</h2>
+		<h2 class="text-title font-semibold text-ink">{t.ownHeading}</h2>
 		<p class="mt-1 max-w-measure text-sm text-ink-2">{t.ownDescription}</p>
 
 		{#if own.length === 0}
@@ -82,7 +82,7 @@
 	</section>
 
 	<section>
-		<h2 class="text-sm font-semibold text-ink">{t.shippedHeading}</h2>
+		<h2 class="text-title font-semibold text-ink">{t.shippedHeading}</h2>
 		<p class="mt-1 max-w-measure text-sm text-ink-2">{t.shippedDescription}</p>
 		<RelationTypeTable types={shipped} {t} {relationTypeLabel} {locale} shipped={true} />
 	</section>

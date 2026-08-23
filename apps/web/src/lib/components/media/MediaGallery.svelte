@@ -459,7 +459,7 @@
 		class="flex max-h-[85vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-y-auto rounded-lg border border-line bg-panel p-0 text-ink sm:max-w-3xl"
 	>
 		<div class="p-5">
-			<DialogTitle class="text-base font-semibold text-ink">
+			<DialogTitle class="text-title font-semibold text-ink">
 				{pickMode
 					? t.entry.media.inBody.dialogTitle
 					: t.entry.media.gallery.dialogTitle(data.entityName)}

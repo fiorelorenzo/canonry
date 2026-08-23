@@ -136,7 +136,7 @@
 	     the reader's own language, with `/privacy` carrying the same statement in full - F3 =
 	     C's pattern, the same one the import and generate surfaces use. -->
 	<section class="mt-10 max-w-md">
-		<h2 class="text-sm font-semibold text-ink">{t.profileHeading}</h2>
+		<h2 class="text-title font-semibold text-ink">{t.profileHeading}</h2>
 		<p class="mt-2 text-sm text-ink-2">{t.profileDescription}</p>
 		<p class="mt-2 text-xs text-muted">
 			{t.profilePrivacyPrompt}
@@ -220,7 +220,7 @@
 	</section>
 
 	<section class="mt-10 max-w-md">
-		<h2 class="text-sm font-semibold text-ink">{t.passwordHeading}</h2>
+		<h2 class="text-title font-semibold text-ink">{t.passwordHeading}</h2>
 		<form
 			method="post"
 			action="?/changePassword"
@@ -268,7 +268,7 @@
 	</section>
 
 	<section class="mt-10 max-w-md">
-		<h2 class="text-sm font-semibold text-ink">{t.sessionsHeading}</h2>
+		<h2 class="text-title font-semibold text-ink">{t.sessionsHeading}</h2>
 		<p class="mt-1 text-sm text-ink-2">{t.sessionsDescription}</p>
 		<div class="mt-3">
 			<Button variant="secondary" onclick={signOutEverywhere} disabled={signingOutEverywhere}>
@@ -281,7 +281,7 @@
 	</section>
 
 	<section class="mt-10 max-w-md">
-		<h2 class="text-sm font-semibold text-danger">{t.deleteHeading}</h2>
+		<h2 class="text-title font-semibold text-danger">{t.deleteHeading}</h2>
 		<p class="mt-1 text-sm text-ink-2">{t.deleteIntro}</p>
 		<p class="mt-2 text-sm text-ink-2">{t.deleteImpact(data.deletionImpact)}</p>
 		<p class="mt-3 text-sm text-ink-2">

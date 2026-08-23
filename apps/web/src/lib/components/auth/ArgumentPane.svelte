@@ -33,7 +33,7 @@
 
 	<div class="rounded-md border border-line bg-panel p-4">
 		<div class="flex items-center justify-between gap-2">
-			<h3 class="font-serif text-sm font-semibold text-ink">Aldric Vane</h3>
+			<h3 class="font-serif text-title font-semibold text-ink">Aldric Vane</h3>
 			<Badge variant="secondary">{characterLabel}</Badge>
 		</div>
 		<p class="mt-2 text-sm text-ink-2">{t.aldricSentence}</p>
@@ -41,7 +41,7 @@
 
 	<div class="rounded-md border border-line bg-panel p-4">
 		<div class="flex items-center justify-between gap-2">
-			<h3 class="font-serif text-sm font-semibold text-ink">The Valdoria Watch</h3>
+			<h3 class="font-serif text-title font-semibold text-ink">The Valdoria Watch</h3>
 			<Badge variant="secondary">{t.waitingBadge}</Badge>
 		</div>
 		<p class="mt-2 border-l-2 border-diff-line bg-diff-bg py-0.5 pr-2 pl-3 text-sm text-ink-2">
