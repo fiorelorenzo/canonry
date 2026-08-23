@@ -67,7 +67,23 @@ import { relationTypesForUniverse, type RelationTypeRow } from '@canonry/db';
 import type { EntityType, RelationCardinality } from '@canonry/db/schema';
 import { relationTypeMatchCandidates } from '@canonry/lang';
 
-export type RelationTypeResolution =
+export type RelationTypeResolution = {
+	/** True when the proposed label matched the chosen type's *inverse* label, so the
+	 * relation reads in the opposite direction to the type's own (issue #628). The caller
+	 * writing the row MUST swap which entity plays `from_entity_id` and which plays
+	 * `to_entity_id` when this is set: everything else in the resolution (the admission
+	 * check that produced it, a `widen-proposed`'s `addFrom`/`addTo`, a `new-proposed`'s
+	 * `from`/`to`) is already expressed in the type's own canonical direction.
+	 *
+	 * This used to be the caller's own job to re-derive with an exported `isInverseMatch`,
+	 * and no caller ever did it, which is #628's three `member of` refusals: the notebook
+	 * said "X Astartes 5 ha come membro Myra", rung 1b matched the shipped `member of`'s
+	 * Italian inverse label and checked admission on the swapped pair (character ->
+	 * faction, admitted), and then `job-runner.ts` wrote the ends as the model gave them,
+	 * so the accept met faction -> character and #191 refused it. A fact the resolver
+	 * already knows is returned rather than left for a caller to reconstruct. */
+	reversed: boolean;
+} & (
 	| { kind: 'existing'; type: RelationTypeRow }
 	| { kind: 'reuse-proposed'; type: RelationTypeRow; proposedLabel: string; why: string }
 	| {
@@ -85,7 +101,8 @@ export type RelationTypeResolution =
 			from: EntityType;
 			to: EntityType;
 			why: string;
-	  };
+	  }
+);
 
 /** Injected exactly like `@canonry/indexing`'s own embedding seam (the same idiom
  * `packages/copilot/src/ask.ts`'s `QueryEmbedder` already uses), typed locally so this
@@ -109,12 +126,13 @@ export interface ResolveRelationTypeInput {
 	 * (`employs`/`employed by` vs `employer of`/`employee of`) still converge on one row. */
 	inverseLabel: string;
 	cardinality: RelationCardinality;
-	/** The entity type on the "from" side exactly as the caller means to write it - i.e.
-	 * whatever will become `relation.from_entity_id`'s type if this proceeds. Rung 1's
-	 * inverse-label match and rung 3's allowed-type check both reason about the type's
-	 * own canonical (label) direction internally, but this function never changes which
-	 * side is "from" and which is "to": see `isInverseMatch` below for why that stays the
-	 * caller's decision. */
+	/** The entity type on the "from" side exactly as the caller gathered it - i.e. the type
+	 * of the entity that will become `relation.from_entity_id`, read off that entity (or
+	 * off the pending proposal that will create it) rather than off whatever the model
+	 * declared elsewhere in the document (issue #628). Rung 1's inverse-label match and
+	 * rung 3's allowed-type check both reason about the type's own canonical (label)
+	 * direction internally; when the match was against an inverse label the resolution
+	 * comes back `reversed`, which tells the caller to swap the two ends before writing. */
 	fromType: EntityType;
 	toType: EntityType;
 }
@@ -153,21 +171,15 @@ function stemWord(word: string): string {
 }
 
 /** Whether `label` (after normalising) reads as `type`'s *inverse* rather than its
- * forward label - exported so a caller building the actual `relation` row from a
- * resolution (#190) can decide whether to swap which entity plays `from_entity_id` and
- * which plays `to_entity_id`. `resolveRelationType` picks *which type*, and reasons about
- * both directions internally for the allowed-type check (rung 3), but it never decides
- * which of the caller's two entities is "from" - that stays the caller's own field
- * (`ResolveRelationTypeInput.fromType`/`toType` is a fixed, caller-owned direction, not a
- * suggestion this function is free to flip), so a caller that gets back
- * `{ kind: 'existing' | 'reuse-proposed' | 'widen-proposed' }` and wants a *correct*
- * relation row has to make exactly this check before writing one: rung 1's own use of it
- * below is not special.
+ * forward label. Private, like its forward counterpart below: what a caller building the
+ * actual `relation` row needs is the *answer* for the type that was chosen, and that now
+ * travels on the resolution as `reversed` (issue #628). This was exported so a caller
+ * could re-derive it, which is precisely the reconstruction no caller performed.
  *
  * Checks every shipped locale's inverse label for `type`, not just the one stored on the
  * row (#197) - `relationTypeMatchCandidates` is the one place that expansion happens,
  * shared with the forward check below and with rung 2's embedding set. */
-export function isInverseMatch(type: RelationTypeRow, label: string): boolean {
+function isInverseMatch(type: RelationTypeRow, label: string): boolean {
 	const normalizedLabel = normalizeRelationLabel(label);
 	return relationTypeMatchCandidates(type).some(
 		(candidate) =>
@@ -176,10 +188,7 @@ export function isInverseMatch(type: RelationTypeRow, label: string): boolean {
 	);
 }
 
-/** `isInverseMatch`'s forward-direction counterpart, not exported: rung 1a below is the
- * only caller that needs "does `label` read as this type's forward label, in any shipped
- * locale" as a single check - unlike the inverse case, nothing outside this file needs to
- * ask it (see `isInverseMatch`'s own doc comment for why that one stays exported). */
+/** `isInverseMatch`'s forward-direction counterpart. Rung 1a below is the only caller. */
 function isForwardMatch(type: RelationTypeRow, label: string): boolean {
 	const normalizedLabel = normalizeRelationLabel(label);
 	return relationTypeMatchCandidates(type).some(
@@ -354,14 +363,16 @@ export async function resolveRelationType(
 				candidate,
 				input.fromType,
 				input.toType,
-				`"${input.label}" is the existing type "${candidate.label}".`
+				`"${input.label}" is the existing type "${candidate.label}".`,
+				false
 			);
 		}
 	}
 
 	// Rung 1b: normalised exact match against a type's inverse label - reuses the type
-	// with the ends reversed rather than creating a second one (see `isInverseMatch`'s
-	// own comment for what "reversed" obliges the caller to do).
+	// with the ends reversed rather than creating a second one. `reversed: true` is what
+	// obliges the caller to swap the ends when it writes the row (issue #628); the
+	// admission check below already runs on the swapped pair.
 	for (const candidate of ordered) {
 		if (isInverseMatch(candidate, input.label)) {
 			return resolveAgainstAdmission(
@@ -370,7 +381,8 @@ export async function resolveRelationType(
 				input.fromType,
 				`"${input.label}" is the existing type "${candidate.label}"'s inverse label ` +
 					`("${candidate.inverseLabel}"), so this reuses it with the relation's ends ` +
-					`reversed rather than creating a second type.`
+					`reversed rather than creating a second type.`,
+				true
 			);
 		}
 	}
@@ -383,9 +395,15 @@ export async function resolveRelationType(
 			`"${input.label}" reads as the same relation as the existing type "${best.type.label}" ` +
 			`- close enough in meaning to reuse rather than duplicate.`;
 		if (admission.admitted) {
-			return { kind: 'reuse-proposed', type: best.type, proposedLabel: input.label, why };
+			return {
+				kind: 'reuse-proposed',
+				type: best.type,
+				proposedLabel: input.label,
+				why,
+				reversed: false
+			};
 		}
-		return resolveAdmissionGap(best.type, input.fromType, input.toType, admission, why);
+		return resolveAdmissionGap(best.type, input.fromType, input.toType, admission, why, false);
 	}
 
 	// Nothing matched closely enough at either rung: a genuinely new relation.
@@ -396,22 +414,25 @@ export async function resolveRelationType(
 		cardinality: input.cardinality,
 		from: input.fromType,
 		to: input.toType,
-		why: `No existing relation type in this universe or the shipped catalogue reads as "${input.label}", so this proposes it as a new type.`
+		why: `No existing relation type in this universe or the shipped catalogue reads as "${input.label}", so this proposes it as a new type.`,
+		reversed: false
 	};
 }
 
 /** Shared by both rung-1 matches: `fromType`/`toType` are already in `type`'s own
  * canonical direction (the inverse-match call site above passes them swapped), so this
- * only has to run the admission check and shape the result. */
+ * only has to run the admission check and shape the result. `reversed` is carried through
+ * untouched rather than re-derived, since only the call site knows which rung it is. */
 function resolveAgainstAdmission(
 	type: RelationTypeRow,
 	fromType: EntityType,
 	toType: EntityType,
-	matchedWhy: string
+	matchedWhy: string,
+	reversed: boolean
 ): RelationTypeResolution {
 	const admission = checkAdmission(type, fromType, toType);
-	if (admission.admitted) return { kind: 'existing', type };
-	return resolveAdmissionGap(type, fromType, toType, admission, matchedWhy);
+	if (admission.admitted) return { kind: 'existing', type, reversed };
+	return resolveAdmissionGap(type, fromType, toType, admission, matchedWhy, reversed);
 }
 
 /** Both rung-1 and rung-2 land here once a type is chosen but does not admit the pair.
@@ -431,7 +452,8 @@ function resolveAdmissionGap(
 	fromType: EntityType,
 	toType: EntityType,
 	admission: AdmissionCheck,
-	matchedWhy: string
+	matchedWhy: string,
+	reversed: boolean
 ): RelationTypeResolution {
 	const gap = `${matchedWhy} It does not currently admit ${fromType} -> ${toType}.`;
 	if (type.universeId !== null) {
@@ -440,7 +462,8 @@ function resolveAdmissionGap(
 			type,
 			...(admission.addFrom === undefined ? {} : { addFrom: admission.addFrom }),
 			...(admission.addTo === undefined ? {} : { addTo: admission.addTo }),
-			why: gap
+			why: gap,
+			reversed
 		};
 	}
 	return {
@@ -450,6 +473,7 @@ function resolveAdmissionGap(
 		cardinality: type.cardinality,
 		from: fromType,
 		to: toType,
-		why: `${gap} The shipped catalogue only changes through a migration, so this proposes a universe-scoped "${type.label}" that admits it instead.`
+		why: `${gap} The shipped catalogue only changes through a migration, so this proposes a universe-scoped "${type.label}" that admits it instead.`,
+		reversed
 	};
 }

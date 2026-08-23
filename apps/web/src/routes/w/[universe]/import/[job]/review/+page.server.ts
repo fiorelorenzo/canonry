@@ -22,9 +22,15 @@
  * reject action below, same as everywhere else this queue renders.
  */
 import { error, fail } from '@sveltejs/kit';
-import { missingEntitySourceRefsForJob, universeAccessBySlug } from '@canonry/db';
+import {
+	missingEntitySourceRefsForJob,
+	universeAccessBySlug,
+	widenRelationType,
+	RelationTypeNotAdmittedError,
+	RelationTypeNotOwnedError
+} from '@canonry/db';
 import { acceptAnyImportProposal, type AcceptImportProposalInput } from '@canonry/import';
-import { messages } from '$lib/i18n';
+import { messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import {
 	importJobDetailFor,
@@ -75,6 +81,36 @@ function importAcceptFields(
 		contentHash: evidence?.contentHash ?? '',
 		importJobId: job.id
 	};
+}
+
+/** Issue #628: `RelationTypeNotAdmittedError`'s refusal, turned into the `fail()` both
+ * `accept` (the ordinary path) and `widenAndAccept` (reachable again if the type
+ * changed underneath the widen - two tabs, or a second refusal in between) return.
+ * #191's admission check is correct as written: the endpoints' real types are only
+ * final once the GM has accepted them, so accept time is the first moment the pair is
+ * knowable, and propose time can only ever guess. What was wrong before #628 was
+ * ending at a failed click with nothing else - this carries exactly what
+ * `widenRelationType` needs, so the card can offer the GM's consent to widen instead
+ * of a dead end. */
+function notAdmittedFailure(locale: Locale, proposalId: string, err: RelationTypeNotAdmittedError) {
+	const msgs = messages(locale);
+	return fail(409, {
+		error: msgs.import.review.errors.notAdmitted(
+			err.typeLabel,
+			msgs.proposals.diffCard.entityTypeLabel(err.fromType),
+			msgs.proposals.diffCard.entityTypeLabel(err.toType)
+		),
+		notAdmitted: {
+			proposalId,
+			relationTypeId: err.relationTypeId,
+			typeLabel: err.typeLabel,
+			fromType: err.fromType,
+			toType: err.toType,
+			addFrom: err.addFrom,
+			addTo: err.addTo,
+			shipped: err.shipped
+		}
+	});
 }
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -140,10 +176,85 @@ export const actions: Actions = {
 			if (err instanceof RelationEndpointNotAcceptedError) {
 				return fail(409, { error: t.relationEndpointNotAccepted });
 			}
+			// Issue #628: #191's admission check is correct, and stopping here used to be
+			// the whole answer - the endpoints' real types are only final once the GM has
+			// accepted them, so this is the first moment the pair is knowable, and there is
+			// nowhere earlier the check could have run instead. What was missing was a
+			// route forward: `notAdmittedFailure` carries what `widenRelationType` needs so
+			// the card can offer the GM's own consent to widen, in place of a dead end.
+			if (err instanceof RelationTypeNotAdmittedError) {
+				return notAdmittedFailure(locals.locale, proposalId, err);
+			}
 			if (err instanceof ProposalNotFoundError || err instanceof ProposalAlreadyDecidedError) {
 				return fail(409, { error: err.message });
 			}
 			throw err;
+		}
+	},
+
+	/** Issue #628: the GM's consent to two effects at once, in this order - widen the
+	 * relation type by exactly what this link needs, then accept the link - which is why
+	 * the button that posts this names both.
+	 *
+	 * Which widening that is comes from the admission check itself, not from the request.
+	 * The action re-attempts the plain accept first and reads `addFrom`/`addTo` off the
+	 * refusal it gets back, so the arrays can only ever grow by the pair the GM was shown.
+	 * Taking them from the form instead would let a hand-built post widen a type by
+	 * something nobody reviewed, which is guardrail 1 with extra steps: the consent is to
+	 * a specific widening, so the specific widening cannot be the caller's to name. The
+	 * first attempt costs one rolled-back transaction and buys that.
+	 *
+	 * A shipped type is refused rather than widened, the same as anywhere else - the card
+	 * never offers the button for one, and a stale page that posts anyway gets the reason
+	 * rather than a 500. */
+	widenAndAccept: async ({ request, params, locals }) => {
+		const { conn, access, detail, userId } = await loadJob(locals, params.universe, params.job);
+		const t = messages(locals.locale).import.review.errors;
+		const data = await request.formData();
+		const proposalId = data.get('proposalId');
+		if (typeof proposalId !== 'string') return fail(400, { error: t.missingProposalId });
+		const candidate = detail.candidates.find((c) => c.proposal.id === proposalId);
+		if (!candidate) return fail(404, { error: t.proposalNotFound(proposalId) });
+		const acceptInput = {
+			proposalId,
+			decidedBy: userId,
+			...importAcceptFields(candidate.proposal, detail.job)
+		};
+		try {
+			return { id: (await acceptAnyImportProposal(conn, candidate.proposal.kind, acceptInput)).id };
+		} catch (err) {
+			if (!(err instanceof RelationTypeNotAdmittedError)) {
+				if (err instanceof RelationEndpointNotAcceptedError) {
+					return fail(409, { error: t.relationEndpointNotAccepted });
+				}
+				if (err instanceof ProposalNotFoundError || err instanceof ProposalAlreadyDecidedError) {
+					return fail(409, { error: err.message });
+				}
+				throw err;
+			}
+			if (err.shipped) return notAdmittedFailure(locals.locale, proposalId, err);
+			try {
+				await widenRelationType(conn, access.universe.id, err.relationTypeId, {
+					...(err.addFrom ? { addFrom: [err.addFrom] } : {}),
+					...(err.addTo ? { addTo: [err.addTo] } : {})
+				});
+				const accepted = await acceptAnyImportProposal(conn, candidate.proposal.kind, acceptInput);
+				return { id: accepted.id };
+			} catch (widenErr) {
+				if (widenErr instanceof RelationTypeNotOwnedError) {
+					return fail(409, { error: t.relationTypeNotOwned });
+				}
+				if (widenErr instanceof RelationTypeNotAdmittedError) {
+					return notAdmittedFailure(locals.locale, proposalId, widenErr);
+				}
+				if (
+					widenErr instanceof ProposalNotFoundError ||
+					widenErr instanceof ProposalAlreadyDecidedError
+				) {
+					return fail(409, { error: widenErr.message });
+				}
+				throw widenErr;
+			}
 		}
 	},
 

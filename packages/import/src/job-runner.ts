@@ -93,6 +93,7 @@ import {
 	findEntityBySourceRef,
 	entitiesByIdentity,
 	entityUpdateTargetsByIds,
+	relationEndpointTypesByIds,
 	foldEntitySightingIntoPendingProposal,
 	getBalance,
 	getImportJob,
@@ -115,6 +116,7 @@ import {
 	type ImportJobRow,
 	type MatchCandidateRow,
 	type ProposalRow,
+	type RelationEndpointTypes,
 	type RelationTypeVocabResolutionInput
 } from '@canonry/db';
 import {
@@ -918,6 +920,30 @@ function sameEndpoint(a: RelationEndpoint, b: RelationEndpoint): boolean {
 	return false;
 }
 
+/** The entity type that will actually sit at one end of the relation, which is what #191's
+ * allowed-type check reasons about at accept time and therefore what a relation type has
+ * to be sized against (issue #628).
+ *
+ * Three endpoint shapes, three sources. An `entity` end has a real row, so its own `type`
+ * decides. A `proposal` end is one of this job's earlier documents' pending `create`s, so
+ * the type that create declares decides - not what *this* document called the same name,
+ * which is the disagreement #628 is about. A `candidate` end is a create in the document
+ * being materialised right now, whose declared type is the payload in hand.
+ *
+ * `declared` is the fallback for an id the batch found no row for, and it is the only
+ * other thing this function knows: the document's own declaration. That is the pre-#628
+ * behaviour, kept for the case where the row genuinely cannot be read rather than made
+ * into a silent default for the common path. */
+function endpointType(
+	endpoint: RelationEndpoint,
+	declared: EntityProposalPayload['type'],
+	types: RelationEndpointTypes
+): EntityProposalPayload['type'] {
+	if (endpoint.kind === 'entity') return types.entities.get(endpoint.entityId) ?? declared;
+	if (endpoint.kind === 'proposal') return types.proposals.get(endpoint.proposalId) ?? declared;
+	return declared;
+}
+
 /** The `CreateProposalPlanCandidate` fields one end contributes. An `entity` end
  * contributes none of them: its id is already on `targetEntityId`/`relatedEntityId`, and a
  * present-but-undefined key is not the same as an absent one under
@@ -1520,17 +1546,36 @@ async function materializeDocumentProposals(
 	// Decision K1's own queue, drained after the plan exists rather than inside this loop:
 	// see `vocabularyWaiting`'s type above for why the two cannot happen in one pass.
 	const vocabularyWaiting: VocabularyWaitingRelation[] = [];
+	// Issue #628: every end's real type, read off the thing that end resolved onto, in one
+	// batched pair of reads before the loop. The loop used to size the relation type from
+	// `localIdToType`, this document's own declaration for the local id, which is a
+	// different fact whenever the end folded onto an entity or onto an earlier document's
+	// create - and #191 checks the accept against the first fact, not the second.
+	const endpointEntityIds: string[] = [];
+	const endpointProposalIds: string[] = [];
+	for (const relationPayload of buffer.relations) {
+		for (const localId of [relationPayload.fromLocalId, relationPayload.toLocalId]) {
+			const endpoint = endpointFor(localId, localIdToEntityId, localIdToCandidate);
+			if (endpoint?.kind === 'entity') endpointEntityIds.push(endpoint.entityId);
+			else if (endpoint?.kind === 'proposal') endpointProposalIds.push(endpoint.proposalId);
+		}
+	}
+	const endpointTypes = await relationEndpointTypesByIds(
+		db,
+		endpointEntityIds,
+		endpointProposalIds
+	);
 	for (const relationPayload of buffer.relations) {
 		const from = endpointFor(relationPayload.fromLocalId, localIdToEntityId, localIdToCandidate);
 		const to = endpointFor(relationPayload.toLocalId, localIdToEntityId, localIdToCandidate);
-		const fromType = localIdToType.get(relationPayload.fromLocalId);
-		const toType = localIdToType.get(relationPayload.toLocalId);
+		const declaredFrom = localIdToType.get(relationPayload.fromLocalId);
+		const declaredTo = localIdToType.get(relationPayload.toLocalId);
 		// The one loss issue #613 does not recover, and the only one left: an endpoint the
 		// engine declined outright (a bare mention, issue #479) or a local id the model named
 		// in a relation without ever proposing an entity for it. There is no proposal to wait
 		// for, so no accept order reaches this relation and a later import is the only way
 		// back - which is why issue #573 still counts it as a reason to re-read the document.
-		if (!from || !to || !fromType || !toType) {
+		if (!from || !to || !declaredFrom || !declaredTo) {
 			declined.relationDrops.total += 1;
 			declined.relationDrops.noEndProposed += 1;
 			continue;
@@ -1546,6 +1591,8 @@ async function materializeDocumentProposals(
 			continue;
 		}
 
+		const fromType = endpointType(from, declaredFrom, endpointTypes);
+		const toType = endpointType(to, declaredTo, endpointTypes);
 		const resolution = await resolveRelationType(
 			{ db, embed: params.embedRelationLabel },
 			{
@@ -1557,6 +1604,15 @@ async function materializeDocumentProposals(
 				toType
 			}
 		);
+
+		// Issue #628: the label matched the chosen type's *inverse*, so the row belongs in
+		// the type's own direction - the resolver already ran its admission check that way.
+		// "X Astartes 5 ha come membro Myra" is the shipped `member of` read backwards, and
+		// writing it as the model phrased it is what made the accept meet faction ->
+		// character on a type that admits character -> faction. Both the relation candidate
+		// and the vocabulary patch below use these rather than the payload's own order.
+		const fromEnd = resolution.reversed ? to : from;
+		const toEnd = resolution.reversed ? from : to;
 
 		const rationale = IMPORT_RATIONALE_RELATION[locale](relationPayload.sourceRef.path);
 		const evidence = {
@@ -1571,15 +1627,17 @@ async function materializeDocumentProposals(
 			// pending `relation` proposal either way, shown with its own evidence and
 			// accepted on its own; the only difference is that an unresolved end refuses the
 			// accept until the entry at that end is accepted first.
-			if (from.kind !== 'entity' || to.kind !== 'entity') declined.relationDrops.deferred += 1;
+			if (fromEnd.kind !== 'entity' || toEnd.kind !== 'entity') {
+				declined.relationDrops.deferred += 1;
+			}
 			relationCandidates.push({
 				candidate: {
 					kind: 'relation',
-					targetEntityId: from.kind === 'entity' ? from.entityId : null,
+					targetEntityId: fromEnd.kind === 'entity' ? fromEnd.entityId : null,
 					relationTypeId: resolution.type.id,
-					relatedEntityId: to.kind === 'entity' ? to.entityId : null,
-					...endpointRefs('target', from),
-					...endpointRefs('related', to),
+					relatedEntityId: toEnd.kind === 'entity' ? toEnd.entityId : null,
+					...endpointRefs('target', fromEnd),
+					...endpointRefs('related', toEnd),
 					rationale,
 					evidence,
 					rank: resolved.length + relationCandidates.length
@@ -1601,8 +1659,8 @@ async function materializeDocumentProposals(
 		// into an array that no longer exists. Queued here, written once the ids are real.
 		vocabularyWaiting.push({
 			resolution: toVocabResolutionInput(resolution),
-			from,
-			to,
+			from: fromEnd,
+			to: toEnd,
 			rationale,
 			evidence
 		});

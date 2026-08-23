@@ -19,7 +19,6 @@ import { closeDb } from '@canonry/db';
 import { hashingEmbedder } from '@canonry/indexing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-	isInverseMatch,
 	normalizeRelationLabel,
 	resolveRelationType,
 	type Embedder,
@@ -169,8 +168,10 @@ describe('resolveRelationType', () => {
 		if (resolution.kind !== 'existing') throw new Error('unreachable');
 		expect(resolution.type.label).toBe('commands');
 		expect(resolution.type.universeId).toBeNull();
-		expect(isInverseMatch(resolution.type, 'Commanded By')).toBe(true);
-		expect(isInverseMatch(resolution.type, 'commands')).toBe(false);
+		// Issue #628: the caller has to swap the ends to write a correct row, and the
+		// resolution is what tells it so. This used to be re-derived by the caller with an
+		// exported `isInverseMatch`, which no caller ever called.
+		expect(resolution.reversed).toBe(true);
 	});
 
 	it("a universe's own override of a shipped label wins on an exact tie", async () => {

@@ -296,6 +296,8 @@ export {
 	pendingEntityProposalsForJob,
 	entitiesByIdentity,
 	entityUpdateTargetsByIds,
+	relationEndpointTypesByIds,
+	type RelationEndpointTypes,
 	foldEntitySightingIntoPendingProposal,
 	recordEntitySourceRef,
 	syncMissingEntitySourceRefs,
