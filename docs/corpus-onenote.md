@@ -67,18 +67,31 @@ to export.
   because that export goes through Word, so the same cannot be said of a DOCX. Neither of
   those is a guess.
 - **Structure of the `.mht` export.** One `<div style='direction:ltr;border-width:100%'>`
-  wrapper per page, and the page's title is the 20pt `Calibri Light` paragraph inside it,
-  followed by a date paragraph and a time paragraph. The page-scope file has one wrapper,
-  the two section-scope files 23 and 52, the notebook-scope file 70. The notebook file is
-  the two sections' pages concatenated **with nothing between them**: no section name, no
-  boundary, no nesting attribute, and the wrapper `div`'s style is byte-identical on every
-  page. The varying `margin-left` values inside a page follow where the GM put a note
-  container on the page canvas, not the page's place in the notebook. So the `.mht` export
-  carries pages and loses the hierarchy, which is the opposite of the folder-tree export
-  the `onenote` playbook was written against.
+  wrapper per page, always at the top of `<body>` and never nested, and the page's title is
+  the **first `<p>` inside that wrapper**, followed by a date paragraph and a time paragraph.
+  Not the 20pt `Calibri Light` paragraph, which is what it looks like at first and which
+  finds only 63 of the notebook export's 70 pages: 7 of them carry their title in some other
+  size. The page-scope file has one wrapper, the two section-scope files 23 and 52, the
+  notebook-scope file 70. The notebook file is the two sections' pages concatenated **with
+  nothing between them**: no section name, no boundary, no nesting attribute, and the wrapper
+  `div`'s style is byte-identical on every page. The varying `margin-left` values inside a
+  page follow where the GM put a note container on the page canvas, not the page's place in
+  the notebook. So the `.mht` export carries pages and loses the hierarchy, which is the
+  opposite of the folder-tree export the `onenote` playbook was written against.
+- **Two page titles repeat inside one section.** `Mondo` has two pages called "X Continente
+  Orientale" and two called "X Lunga Terra", so the reader's duplicate-title suffix is not a
+  defensive flourish. One page of the notebook export has an empty title paragraph.
+- **Internal links survive** as `onenote:#<page title>&section-id={...}&page-id={...}`, three
+  of them in the `Note Storia` section and one in the notebook file, so a link between two
+  pages of the same export is recoverable and a link out of it is not.
+- **The `.mht` export is not lossier than the `.docx` one on images.** All three `.docx` files
+  carry zero `word/media/` parts; the `Note Storia` `.mht` carries one `image/png` part. So on
+  this notebook the envelope preserved an image the DOCX export dropped, and nothing here
+  shows the envelope dropping one.
 - **What today's upload path does with each of the six.** Measured through the real HTTP
-  upload path, before and after #591, in that PR's own body and in the issue comment on
-  #591.
+  upload path, before and after #591, in that PR's own body and in the issue comment on #591.
+  What the `.mht` reader produces at each of the three scopes, and what it cost live, is in
+  #592's PR body and in `docs/models.md`.
 
 ## Handling rules
 

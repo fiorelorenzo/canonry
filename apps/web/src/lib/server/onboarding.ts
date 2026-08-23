@@ -38,6 +38,7 @@ import {
 	ImportJobRunner,
 	ImportQuotaExceededError,
 	InMemoryImageStore,
+	isOneNoteHtml,
 	isUnreadableUploadFormat,
 	loadBuiltinPlaybook,
 	MATCH_THRESHOLDS,
@@ -365,6 +366,25 @@ async function looksLikeKankaExport(reader: SourceReader, jsonPaths: string[]): 
 	return false;
 }
 
+/** Whether the export's HTML pages are OneNote's own (issue #592). Reads at most the
+ * first few, in path order, because a real notebook's pages all carry the same head and
+ * one look answers it: an export of two thousand pages must not pay two thousand reads to
+ * be recognised. `isOneNoteHtml` checks the `ProgId` and `Generator` metas together, so a
+ * page Word exported does not match. A read that throws is not evidence either way. */
+async function firstHtmlDeclaresOneNote(
+	reader: SourceReader,
+	htmlPaths: readonly string[]
+): Promise<boolean> {
+	for (const path of [...htmlPaths].sort().slice(0, 3)) {
+		try {
+			if (isOneNoteHtml((await reader.read(path)).content)) return true;
+		} catch {
+			// A page this reader cannot turn into text says nothing about the export's shape.
+		}
+	}
+	return false;
+}
+
 /** Given the uploaded archive's own contents, guesses which playbook applies. Never the
  * final word - D1's whole point is that the GM confirms or overrides this in a dropdown
  * before anything runs. */
@@ -414,7 +434,16 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 			const match = /^(.*)_files\//.exec(p);
 			return match !== null && htmlStems.has(match[1] ?? '');
 		});
-		if (hasAttachmentFolder) {
+		// Issue #592: and the page's own bytes are the other signal, which closes a
+		// limitation the OneNote import guide had to warn about. A notebook where no page
+		// embeds an image has no attachment folder to key on, so the folder shape alone
+		// missed it and a real export fell through to `generic`; three of the four `.mht`
+		// files in the corpus have no resources at all, so the expansion this issue added
+		// would have landed in the same hole. `meta name=ProgId content=OneNote.File` is
+		// what OneNote writes into every page it exports, in the page tree and in the
+		// envelope alike, and nothing else in this product's sources writes it.
+		const declaresOneNote = await firstHtmlDeclaresOneNote(reader, htmlPaths);
+		if (hasAttachmentFolder || declaresOneNote) {
 			return {
 				playbookId: 'onenote',
 				confident: true,

@@ -57,6 +57,7 @@ import { SourceNotFoundError } from './sources.js';
 import { extractPdfText, renderPdfPage, type PdfTextExtraction } from './pdf.js';
 import { extractDocxText, type DocxTextExtraction } from './docx.js';
 import { sniffUpload, type UploadSniff } from './upload-format.js';
+import { expandOneNoteMhtml } from './mhtml.js';
 import {
 	DEFAULT_MEDIA_STORE_LIMITS,
 	ImageDimensionsTooLargeError,
@@ -373,6 +374,17 @@ export class ArchiveSourceReader implements SourceReader {
 	 * charge of where it lands in the reader's namespace. A name that survives none of
 	 * that falls back to `upload`, because refusing an upload over its file name would be
 	 * a worse failure than reading it under a dull one.
+	 *
+	 * **OneNote's Single File Web Page is the third case** (issue #592). It is one file and
+	 * many documents: an envelope of quoted-printable HTML holding one to seventy pages, so
+	 * treating it as one document would hand a playbook a whole notebook at once and break
+	 * SPEC.md §6.1's "the unit of work is one document, never the whole world". So it is
+	 * expanded here, into exactly the `<notebook>/<page>.htm` plus `<page>_files/` tree
+	 * `onenote.md` already describes, and every caller downstream sees a folder tree it
+	 * already knows how to walk. `mhtml.ts` has the whole account, including why that tree
+	 * is flat. The MHTML caps come from this reader's own limits rather than a fourth set of
+	 * numbers: a part count is an entry count, a part's decoded size is an entry's
+	 * uncompressed size, and the total is the total.
 	 */
 	static openUpload(
 		data: Uint8Array,
@@ -384,12 +396,27 @@ export class ArchiveSourceReader implements SourceReader {
 				`upload is ${data.byteLength} bytes, over the ${limits.maxArchiveBytes} byte limit`
 			);
 		}
-		if (sniffUpload(data, { unzip: unzipSync }).format === 'zip') {
-			return ArchiveSourceReader.open(data, limits);
-		}
+		const { format } = sniffUpload(data, { unzip: unzipSync });
+		if (format === 'zip') return ArchiveSourceReader.open(data, limits);
 
 		const reader = new ArchiveSourceReader(limits, createHash('sha256').update(data).digest('hex'));
 		const leaf = fileName.replace(/\\/g, '/').split('/').pop() ?? '';
+
+		if (format === 'onenote-mhtml') {
+			for (const entry of expandOneNoteMhtml(data, {
+				notebookName: leaf === '' ? 'notebook' : leaf,
+				limits: {
+					maxParts: limits.maxEntries,
+					maxPartBytes: limits.maxEntryUncompressedBytes,
+					maxTotalBytes: limits.maxTotalUncompressedBytes
+				}
+			})) {
+				const path = normalizeEntryPath(entry.path);
+				reader.entries.set(path, { path, content: entry.bytes });
+			}
+			return reader;
+		}
+
 		let path: string;
 		try {
 			path = normalizeEntryPath(leaf);
@@ -469,7 +496,42 @@ export class ArchiveSourceReader implements SourceReader {
 			const path = normalizeEntryPath(rawName);
 			reader.entries.set(path, { path, content });
 		}
+		reader.expandOneNoteEnvelopes();
 		return reader;
+	}
+
+	/**
+	 * Replaces every entry that is a OneNote Single File Web Page with the page tree it
+	 * holds (issue #592). `openUpload` does this for a `.mht` uploaded on its own; this does
+	 * it for one inside a zip, which is the shape the OneNote import guide actually tells a
+	 * GM to produce ("on its own or zipped"), and without it that instruction would be a lie
+	 * for this format: the envelope is text, so a `generic` run would accept it as one
+	 * document and spend credits reading a MIME header.
+	 *
+	 * The expansion lands under the entry's own directory and a folder named after it, so
+	 * `sections/Mondo.mht` becomes `sections/Mondo/<page>.htm` and two sections exported
+	 * separately into one zip stay apart. Every copy counts against the same caps, since
+	 * they are derived from this reader's own limits.
+	 */
+	private expandOneNoteEnvelopes(): void {
+		for (const entry of [...this.entries.values()]) {
+			if (sniffUpload(entry.content, { unzip: unzipSync }).format !== 'onenote-mhtml') continue;
+			const slash = entry.path.lastIndexOf('/');
+			const directory = slash === -1 ? '' : `${entry.path.slice(0, slash)}/`;
+			const expanded = expandOneNoteMhtml(entry.content, {
+				notebookName: entry.path.slice(slash + 1),
+				limits: {
+					maxParts: this.limits.maxEntries,
+					maxPartBytes: this.limits.maxEntryUncompressedBytes,
+					maxTotalBytes: this.limits.maxTotalUncompressedBytes
+				}
+			});
+			this.entries.delete(entry.path);
+			for (const page of expanded) {
+				const path = normalizeEntryPath(`${directory}${page.path}`);
+				this.entries.set(path, { path, content: page.bytes });
+			}
+		}
 	}
 
 	async list(path: string): Promise<SourceEntry[]> {

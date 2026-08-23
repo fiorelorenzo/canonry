@@ -36,9 +36,15 @@
 
 /** Formats this module can tell apart. `zip` is an archive to unpack; `other` is one
  * document whose bytes match none of the signatures above (Markdown, plain text, a
- * JSON export, an HTML page). */
+ * JSON export, an HTML page).
+ *
+ * `onenote-mhtml` and `mhtml` are the same envelope and a different thing: issue #592
+ * wrote a reader for OneNote's own Single File Web Page, and only for that, so the
+ * distinction is the `ProgId: OneNote.File` meta the product writes into the page HTML.
+ * A `.mht` saved by a browser is still an envelope nothing here can turn into a
+ * notebook. */
 export type UploadFormat =
-	'zip' | 'pdf' | 'docx' | 'other' | 'mhtml' | 'xps' | 'onestore' | 'onepkg';
+	'zip' | 'pdf' | 'docx' | 'other' | 'onenote-mhtml' | 'mhtml' | 'xps' | 'onestore' | 'onepkg';
 
 /** The formats no reader in this codebase can turn into documents. Ordered as the
  * refusal copy lists them, and narrow on purpose: a format is only in here once it has
@@ -92,18 +98,31 @@ export const ONESTORE_TOC_GUID = Buffer.from([
 	0xa1, 0x2f, 0xff, 0x43, 0xd9, 0xef, 0x76, 0x4c, 0x9e, 0xe2, 0x10, 0xea, 0x57, 0x22, 0x76, 0x5f
 ]);
 
-/** A MIME envelope, which is what OneNote's "Single File Web Page" writes. Both headers
- * are required rather than just `MIME-Version:`, because that one line on its own also
- * opens a saved email and this is a routing decision: the page-scope export in the
- * corpus is a single `text/html` part with `Content-Transfer-Encoding:
- * quoted-printable`, and the section-scope one is `multipart/related`, so the pair is
- * what both shapes share. Leading blank lines are tolerated; anything past the header
- * block is not read here at all. */
-function looksLikeMimeEnvelope(prefix: Buffer): boolean {
+/** A MIME envelope, and whether OneNote wrote it. Both headers are required rather than
+ * just `MIME-Version:`, because that one line on its own also opens a saved email and this
+ * is a routing decision: the page-scope export in the corpus is a single `text/html` part
+ * with `Content-Transfer-Encoding: quoted-printable`, and the section-scope one is
+ * `multipart/related`, so the pair is what both shapes share. Leading blank lines are
+ * tolerated.
+ *
+ * The OneNote half looks past the header block for the two metas OneNote writes into every
+ * page it exports, `ProgId content=OneNote.File` and `Generator content="Microsoft OneNote
+ * 15"`, which together are the only thing distinguishing the export issue #592 wrote a
+ * reader for from a page a browser saved. Both are needed: `Generator` alone also appears on
+ * Word's HTML export. It searches the raw prefix rather than a decoded document on purpose:
+ * quoted-printable leaves `OneNote.File` untouched (there is no `=` in it) and encodes the
+ * attribute's own `=` as `=3D`, so the literal survives, and the two metas sit about 400
+ * bytes in for a single-part export and about 700 for a multipart one, well inside the
+ * prefix this function is given. An export whose head somehow sits past that prefix falls
+ * back to plain `mhtml` and is refused, which is the safe direction. */
+function sniffMimeEnvelope(prefix: Buffer): UploadFormat | null {
 	const text = prefix.toString('latin1');
 	const headerBlock = text.slice(0, Math.max(0, text.search(/\r?\n\r?\n/)) || text.length);
-	if (!/^\s*MIME-Version:/i.test(headerBlock)) return false;
-	return /^Content-Type:/im.test(headerBlock);
+	if (!/^\s*MIME-Version:/i.test(headerBlock)) return null;
+	if (!/^Content-Type:/im.test(headerBlock)) return null;
+	const oneNote =
+		/content\s*=\s*(?:3D)?"?OneNote\.File/i.test(text) && /Microsoft OneNote/i.test(text);
+	return oneNote ? 'onenote-mhtml' : 'mhtml';
 }
 
 /**
@@ -233,8 +252,7 @@ export function sniffUpload(bytes: Uint8Array, options: SniffUploadOptions = {})
 		const opc = unzip ? opcFormat(zipEntryNames(bytes, unzip)) : null;
 		return { format: opc ?? 'zip', printedFromOneNote: false };
 	}
-	if (looksLikeMimeEnvelope(prefix)) {
-		return { format: 'mhtml', printedFromOneNote: false };
-	}
+	const envelope = sniffMimeEnvelope(prefix);
+	if (envelope !== null) return { format: envelope, printedFromOneNote: false };
 	return { format: 'other', printedFromOneNote: false };
 }

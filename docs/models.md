@@ -170,6 +170,47 @@ count against precision. And the one run that missed the relation is the same ru
 finished in 8 steps rather than 12: on this loop the failure mode is stopping early, not
 reading the tree wrongly.
 
+### The 0.839 carries over to OneNote's `.mht` export, and why that is not a new measurement
+
+Issue #592 taught `packages/import` to read OneNote's own Single File Web Page export, and the
+obvious next question is what the extract column says about that shape, since the number above
+was measured against the folder tree. The answer is that it is the same number, and the reason
+is worth writing down rather than re-sweeping for.
+
+`ArchiveSourceReader.openUpload` does not hand a `.mht` to the model. It expands the envelope
+into the folder tree the `onenote` playbook already reads, one `.htm` per page plus a sibling
+`<page>_files/` folder per embedded resource, and the loop runs on that. So the input the model
+sees is a page of OneNote HTML either way, and `packages/import/src/mhtml-fidelity.test.ts`
+pins it: two fixtures describe the same three pages with byte-identical prose, one as the
+folder tree the third-party tool produces and one as OneNote's own envelope, and every
+paragraph of the first is asserted present, word for word, in what `source_read` returns for
+the second. Re-running `--task extract` against a `.mht`-rendered corpus would measure the
+same reading task twice and report the difference as noise.
+
+**What does change is the parent/subpage rule, and it changes by having nothing to read.** The
+`.mht` export carries no hierarchy at all: a whole notebook is its sections' pages concatenated
+with no section name, no boundary and no nesting attribute, measured across all four real files
+in `docs/corpus-onenote.md`. So a `.mht` produces a flat tree, no page is proposed as a
+subpage, and the two `onenote` cases above, which are both subpages and exist precisely to
+score that rule, have no `.mht` equivalent. The folder tree stays strictly better for a
+notebook whose structure means something, and that is a property of the export format rather
+than of any model.
+
+A live comparison of the three formats a GM can get for one page, on the corpus's own
+`Storia e Natura del Mondo` through `gemini-3.1-flash-lite`, 2026-08-23, one document each:
+
+| format | playbook | credits | proposals | what it found |
+| --- | --- | --- | --- | --- |
+| `.mht` | `onenote` | 0.7228 | 4 | the place, the character, the faction he belongs to, and the treatise |
+| `.pdf` | `pdf` | 0.4245 | 3 | the place, the character, the treatise |
+| `.docx` | `docx` | 0.3046 | 2 | the place, the character |
+
+`.mht` costs the most and returns the most, and it is the only one of the three that picked up
+the faction. That is not a clean per-format comparison, because each row runs a different
+playbook with a different prompt and a different step budget; it is the comparison a GM
+actually experiences, which is what they get for uploading that file. The `.mht` bodies are
+also the longest of the three, which is the same ranking read a second way.
+
 ## `multimodal`: google/gemini-3.1-flash-lite
 
 No row existed. The corpus's PDF carries three pages with no text layer at all, verified

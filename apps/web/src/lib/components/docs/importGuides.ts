@@ -163,36 +163,40 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 	{
 		slug: 'onenote',
 		label: 'OneNote',
-		summary: 'Page tree preferred, PDF or DOCX as the fallback that works',
+		summary: 'Single File Web Page or a page tree, PDF and DOCX as fallbacks',
 		sections: [
 			{
 				heading: 'What to hand Canonry',
 				blocks: [
 					p(
-						'The real path is a folder tree of individually exported pages, one file per page, ' +
-							"keeping every page's place in your notebook's own hierarchy. OneNote has no menu " +
-							'item for this itself: producing it means running a script against the same ' +
-							"GetHierarchy and Publish automation calls OneNote's desktop app exposes, for " +
-							'example meichthys/onenote-html-export, a free, open-source tool built for exactly ' +
-							'this. It needs the desktop app on Windows; there is no web or Mac equivalent for ' +
-							'producing the tree. Point Canonry at the folder it produces, or a zip of it.'
+						'Export your notebook, a section or a page as Single File Web Page (.mht) from the ' +
+							'Windows desktop app, and hand Canonry that one file, on its own or zipped. It is ' +
+							"OneNote's own export, it needs no other tool, and it is what Canonry reads best: " +
+							'every page in it becomes its own entry rather than one long document.'
 					),
 					p(
-						'If you cannot produce that tree, export the whole notebook or a section to PDF or ' +
-							'DOCX from the Windows desktop app and hand Canonry that file, on its own or zipped. ' +
-							'It is read through the PDF or DOCX guide, the same as any other PDF or DOCX, keeping ' +
-							"every page but losing the notebook's own hierarchy: a subpage becomes just another " +
-							'heading once the export flattens it. Canonry can tell that a PDF came out of ' +
-							"OneNote's own printer, so it says so on the confirmation screen rather than letting " +
-							'you think the hierarchy came across.'
+						'A folder tree of individually exported pages, one file per page, is read the same way ' +
+							'and carries one thing the .mht does not: where each page sits in your notebook, so ' +
+							'a subpage is proposed as a subpage. OneNote has no menu item for it, and producing ' +
+							'it means running a script against the same GetHierarchy and Publish automation calls ' +
+							"OneNote's desktop app exposes, for example meichthys/onenote-html-export, a free, " +
+							'open-source tool built for exactly this. It needs the desktop app on Windows. Point ' +
+							'Canonry at the folder it produces, or a zip of it.'
 					),
 					p(
-						'The other four things the export menu offers are refused, and refused before an ' +
-							'import starts rather than partway through it, so nothing is spent on them: ' +
-							'Single File Web Page (.mht), XPS (.xps), and OneNote\u2019s own binary files ' +
-							'(.one, .onetoc2, and the .onepkg package OneNote on the web produces). Canonry ' +
-							'reads what a file is from its bytes, not from its name, so renaming one does not ' +
-							'get it through.'
+						'Failing both, export to PDF or DOCX and hand Canonry that. It is read through the PDF ' +
+							'or DOCX guide, the same as any other PDF or DOCX, keeping every page but losing the ' +
+							"notebook's own structure: every page becomes one long document and a subpage becomes " +
+							'just another heading. Canonry can tell that a PDF came out of OneNote\u2019s own ' +
+							'printer, so it says so on the confirmation screen rather than letting you think the ' +
+							'structure came across.'
+					),
+					p(
+						'The three remaining things the export menu offers are refused, and refused before an ' +
+							'import starts rather than partway through it, so nothing is spent on them: XPS ' +
+							'(.xps) and OneNote\u2019s own binary files (.one, .onetoc2, and the .onepkg package ' +
+							'OneNote on the web produces). Canonry reads what a file is from its bytes, not from ' +
+							'its name, so renaming one does not get it through.'
 					)
 				]
 			},
@@ -200,14 +204,13 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 				heading: 'What it recognises',
 				blocks: [
 					p(
-						'Canonry looks for a tree of HTML pages where at least one page has its own sibling ' +
-							'folder of embedded attachments, named after the page with _files appended - the ' +
-							'shape only an exported OneNote page tree produces, and nothing else mimics. Find ' +
-							'that and it shows you how many pages it counted before asking you to confirm the ' +
-							'OneNote playbook; say no and it falls back to a short list of other playbooks. A ' +
-							'notebook where no page embeds an image has no such folder for Canonry to key on, ' +
-							'so detection will not recognise it as OneNote - bring in at least one page with ' +
-							'an embedded image if you can, or use the PDF or DOCX fallback above.'
+						'Two things, either of which is enough. A page OneNote exported says so in its own ' +
+							'head, and Canonry reads that, so a .mht or a page tree is recognised whatever else ' +
+							'is in it. And a tree of HTML pages where at least one page has its own sibling ' +
+							'folder of embedded attachments, named after the page with _files appended, is the ' +
+							'shape only an exported page tree produces. Either way Canonry shows you how many ' +
+							'pages it counted before asking you to confirm the OneNote playbook; say no and it ' +
+							'falls back to a short list of other playbooks.'
 					)
 				]
 			},
@@ -215,19 +218,30 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 				heading: 'What it reads',
 				blocks: [
 					p(
-						'Only the page tree carries the hierarchy, and that is the reason that path exists: a ' +
-							'page sitting in a folder named after another page is proposed as a subpage of it, ' +
-							'with the folder tree itself standing as the evidence, since OneNote\u2019s own ' +
-							'export produced it rather than anything written in the page itself. Every link to ' +
-							'another page in the tree becomes a candidate relation the same way, and every ' +
-							"embedded image travels across as an attachment on the page's own entity. A page's " +
-							'title becomes its entity name.'
+						"Every page becomes its own entry, with the page's own title as its name and only that " +
+							'page\u2019s prose as its content. Every link to another page in the same export ' +
+							'becomes a candidate relation, and every embedded image travels across as an ' +
+							"attachment on the page's own entity."
+					),
+					p(
+						'The page tree carries one thing more: a page sitting in a folder named after another ' +
+							'page is proposed as a subpage of it, with the folder tree itself standing as the ' +
+							'evidence, since OneNote\u2019s own export produced it rather than anything written ' +
+							'in the page.'
 					)
 				]
 			},
 			{
 				heading: 'Limits worth knowing',
 				blocks: [
+					warn(
+						'A .mht export carries no hierarchy at all, and Canonry does not invent one. A whole ' +
+							"notebook exported that way is its sections' pages one after another with nothing " +
+							'between them: no section name, no boundary, and nothing saying which page a subpage ' +
+							'used to sit under. So every page comes across as its own entry with none proposed ' +
+							'as a subpage. If your notebook\u2019s structure carries meaning you want kept, the ' +
+							'page tree is the export that keeps it.'
+					),
 					warn(
 						'OneNote on a Mac cannot produce the page tree at all, and its own export only ' +
 							'covers the page you are currently viewing, not the whole notebook. If your world ' +
@@ -236,17 +250,10 @@ export const IMPORT_GUIDES: readonly ImportGuide[] = [
 					),
 					warn(
 						'The .onepkg, .one and .onetoc2 formats are not readable. They are documented, and a ' +
-							'reader for them is deferred rather than refused, so for now export to PDF or DOCX ' +
-							'from the Windows desktop app instead. OneNote on the web also only covers a ' +
-							'personal Microsoft or OneDrive account; a work, school or SharePoint account is ' +
-							'not covered by that path.'
-					),
-					warn(
-						'Single File Web Page (.mht) is the one worth knowing about, because it looks like it ' +
-							'should work: it is HTML written by OneNote itself, and close to the shape the page ' +
-							'tree has. It is not readable yet either, and the reason it is not quietly handed to ' +
-							'the generic text playbook meanwhile is that doing so spends credits reading the ' +
-							'MIME envelope rather than the notebook.'
+							'reader for them is deferred rather than refused, so export as Single File Web Page, ' +
+							'PDF or DOCX from the Windows desktop app instead. OneNote on the web also only ' +
+							'covers a personal Microsoft or OneDrive account; a work, school or SharePoint ' +
+							'account is not covered by that path.'
 					)
 				]
 			}

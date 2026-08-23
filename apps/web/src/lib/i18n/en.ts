@@ -1265,9 +1265,9 @@ export const en: Messages = {
 				unreadableFormat: (format, path) => {
 					const what = {
 						mhtml:
-							'a OneNote Single File Web Page, and Canonry has no reader for one yet. Export the ' +
-							'same notebook or section to PDF or DOCX from the OneNote desktop app and upload ' +
-							'that, or export the page tree the OneNote import guide describes',
+							'a Web Archive (.mht), and not one OneNote wrote: Canonry reads OneNote\u2019s own ' +
+							'Single File Web Page export and has no reader for a page saved by a browser. ' +
+							'Export or print the same content to PDF and upload that',
 						xps:
 							'an XPS document, which is the same printed notebook a PDF would be and which ' +
 							'Canonry has no reader for. Print or export the same thing to PDF and upload that',
