@@ -63,7 +63,7 @@
 	class="flex flex-col gap-2.5 rounded-lg border border-line-2 bg-panel-2 p-3"
 	aria-label={t.formLabel}
 >
-	<p class="text-xs text-muted">
+	<p class="text-label text-muted">
 		{t.disclaimer}
 	</p>
 	<div class="flex flex-col gap-1">

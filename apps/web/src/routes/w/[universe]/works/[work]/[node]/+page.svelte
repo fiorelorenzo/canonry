@@ -57,7 +57,7 @@
      the band above it now reads the width from the same place. -->
 <Page width="working" title={data.node.title} bodyClass="flex min-w-0">
 	<article class="min-w-0 flex-1 px-6 py-8">
-		<p class="mb-3 text-xs text-muted">
+		<p class="mb-3 text-label text-muted">
 			<a class="hover:underline" href={resolve(`/w/${data.current.slug}/works/${data.work.slug}`)}
 				>{data.work.name}</a
 			>
@@ -115,7 +115,7 @@
 			}}
 		>
 			<!-- #147: the title stays a bare input on purpose - it reads as the scene's
-				heading (text-2xl font-semibold, no border chrome but a focus underline),
+				heading (text-page-title font-semibold, no border chrome but a focus underline),
 				and shadcn's Input would flatten that into a form field. Its meaning lives
 				in the styling a generic control can't carry. -->
 			<label class="mb-3 block">
@@ -124,13 +124,13 @@
 					name="title"
 					bind:value={title}
 					required
-					class="w-full border-0 border-b border-line-2 bg-transparent px-0 py-1 text-2xl font-semibold text-ink outline-none focus:border-accent"
+					class="w-full border-0 border-b border-line-2 bg-transparent px-0 py-1 text-page-title font-semibold text-ink outline-none focus:border-accent"
 				/>
 			</label>
 			<MarkdownEditor bind:value={body} targets={data.mentionTargets} locale={data.locale} />
 			<input type="hidden" name="body" value={body} />
 			{#if form?.message}
-				<p class="mt-2 text-sm text-danger">{form.message}</p>
+				<p class="mt-2 text-body text-danger">{form.message}</p>
 			{/if}
 			<div class="mt-4 flex justify-end">
 				<Button type="submit" disabled={saving}>
@@ -140,7 +140,7 @@
 		</form>
 
 		<details class="mt-8 border-t border-line pt-4">
-			<summary class="cursor-pointer text-xs font-semibold tracking-wide text-muted uppercase">
+			<summary class="cursor-pointer text-label font-semibold tracking-wide text-muted uppercase">
 				{t.works.node.addChildSummary(data.node.title)}
 			</summary>
 			<form
@@ -155,11 +155,11 @@
 					};
 				}}
 			>
-				<label class="flex flex-col gap-1 text-sm text-ink-2">
+				<label class="flex flex-col gap-1 text-body text-ink-2">
 					{t.works.node.titleLabel}
 					<Input name="title" required />
 				</label>
-				<div class="flex flex-col gap-1 text-sm text-ink-2">
+				<div class="flex flex-col gap-1 text-body text-ink-2">
 					<label for="work-child-kind">{t.works.node.kindLabel}</label>
 					<div data-js-only>
 						<Select.Root type="single" bind:value={childKind}>
@@ -188,7 +188,7 @@
 	</article>
 
 	<aside class="w-60 flex-none border-l border-line bg-panel-2 p-4">
-		<h2 class="text-xs font-semibold tracking-wide text-muted uppercase">
+		<h2 class="text-label font-semibold tracking-wide text-muted uppercase">
 			{t.works.node.usesHeading}
 		</h2>
 		{#if data.uses.length === 0}
@@ -201,7 +201,7 @@
 			<ul class="mt-2 flex flex-col gap-2">
 				{#each data.uses as use (use.entityId)}
 					<li
-						class="rounded-md border px-2.5 py-2 text-sm"
+						class="rounded-md border px-2.5 py-2 text-body"
 						class:border-accent={use.fresh}
 						class:bg-accent-bg={use.fresh}
 						class:border-line={!use.fresh}
@@ -228,7 +228,7 @@
 					</li>
 				{/each}
 			</ul>
-			<p class="mt-3 text-xs text-muted">
+			<p class="mt-3 text-label text-muted">
 				{t.works.node.usesHint}
 			</p>
 		{/if}

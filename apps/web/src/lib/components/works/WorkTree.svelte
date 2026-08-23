@@ -39,7 +39,7 @@
 		<a
 			href={resolve(`/w/${universeSlug}/works/${workSlug}/${node.id}`)}
 			style="padding-left: {node.depth * 12 + 8}px"
-			class="flex items-center gap-1.5 rounded-md py-1 pr-2 text-sm"
+			class="flex items-center gap-1.5 rounded-md py-1 pr-2 text-body"
 			class:bg-panel={active}
 			class:font-semibold={active}
 			class:text-ink={active}

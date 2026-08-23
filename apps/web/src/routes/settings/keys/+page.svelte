@@ -49,7 +49,7 @@
 <!-- F3 = C's contextual sentence, in its B home (`docs/ux/DECISIONS.md`: "C for
      the sentence itself... every one-liner links to B, the settings panel"). Says plainly
      what turning a key on changes and what it does not (SPEC.md §15, decision F3). -->
-<div class="mt-4 max-w-xl rounded-lg border border-line-2 bg-panel-2 p-4 text-sm text-ink-2">
+<div class="mt-4 max-w-xl rounded-lg border border-line-2 bg-panel-2 p-4 text-body text-ink-2">
 	<p class="mt-0">
 		{t.infoPara1Before}<strong class="text-ink">{t.infoPara1Bold}</strong>{t.infoPara1After}
 	</p>
@@ -63,7 +63,7 @@
 </div>
 
 {#if !data.signedIn}
-	<p class="mt-6 max-w-measure text-sm text-ink-2">
+	<p class="mt-6 max-w-measure text-body text-ink-2">
 		<InlineLink href={resolve('/auth/sign-in')}>{t.signInLink}</InlineLink>
 		{t.signInPrompt}
 	</p>
@@ -80,7 +80,7 @@
 				: undefined}
 			<section class="rounded-lg border border-line bg-panel p-4">
 				<div class="flex flex-wrap items-center justify-between gap-2">
-					<h2 class="text-base font-semibold text-ink">{providerLabel(provider)}</h2>
+					<h2 class="text-title font-semibold text-ink">{providerLabel(provider)}</h2>
 					{#if key}
 						<Badge variant={key.active ? 'default' : 'secondary'}>
 							{key.active ? t.activeBadge : t.offBadge}
@@ -89,7 +89,7 @@
 				</div>
 
 				{#if key}
-					<div class="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs text-ink-2">
+					<div class="mt-2 flex flex-wrap items-center gap-2 font-mono text-label text-ink-2">
 						<span
 							class="rounded border border-line-2 bg-panel-2 px-2 py-1"
 							aria-label={t.keyEndingIn(key.lastFour)}
@@ -173,7 +173,7 @@
 				>
 					<input type="hidden" name="provider" value={provider} />
 					<label class="flex flex-1 flex-col gap-1">
-						<span class="text-xs text-muted">{key ? t.replaceKeyLabel : t.addKeyLabel}</span>
+						<span class="text-label text-muted">{key ? t.replaceKeyLabel : t.addKeyLabel}</span>
 						<Input
 							type="password"
 							name="apiKey"
@@ -193,9 +193,9 @@
 				</form>
 
 				{#if errorHere}
-					<p class="mt-2 text-xs text-danger">{errorHere}</p>
+					<p class="mt-2 text-label text-danger">{errorHere}</p>
 				{:else if lastFourHere}
-					<p class="mt-2 text-xs text-ok">
+					<p class="mt-2 text-label text-ok">
 						{t.savedConfirmation(lastFourHere)}
 					</p>
 				{/if}

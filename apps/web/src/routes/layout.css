@@ -130,7 +130,22 @@
 	 *   proposal card, a settings pane's own heading, a world-home section heading.
 	 *   One step up from the 14-16px these currently use.
 	 * - --text-page-title (26px/32px): the h1 in the page header (owned by #494).
-	 *   One step up from the 24px (text-2xl) PageHeader.svelte draws today.
+	 *   One step up from the 24px (text-2xl) it replaced. After X1 = A (#598) there is
+	 *   exactly one place a page title is rendered, `ui/page/page-band.svelte`, so this
+	 *   token has exactly one consumer plus the inline input on a work node that edits
+	 *   the very string the band above it draws.
+	 *
+	 * #509 shipped these five and migrated the sixty-six bracket sizes; #621 migrated
+	 * Tailwind's default scale, which #509 never touched, and which was still drawing
+	 * 694 sites across 145 files. 675 of those took a token. The default `--text-*`
+	 * namespace is deliberately NOT cleared with `--text-*: initial`, which would make
+	 * the next default size a build error rather than a review catch: sixteen sites
+	 * legitimately still draw off it, and they are three findings rather than sixteen
+	 * awkward cases, that a second markdown heading level, a display figure and a
+	 * wordmark are roles this scale does not name.
+	 * `routes/type-scale.test.ts` is the enforcement instead, and it carries those
+	 * sites with a reason each, plus the three doc comments that name a default size in
+	 * prose without drawing it; #649 carries the design question.
 	 */
 	--text-label: 0.75rem;
 	--text-label--line-height: 1rem;

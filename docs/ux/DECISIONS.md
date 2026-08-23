@@ -2139,6 +2139,43 @@ The tokens are named by role, not by size, because that is the only thing that s
 arbitrary value: a label, a meta line, a body, a card title, a page title. Anything that needs a
 size that is not one of those is a design question, not a CSS one.
 
+#509 shipped the five tokens and migrated the sixty-six bracket values, which is the part it
+verified. It never touched Tailwind's default scale, so a year later the tokens existed and 694
+sites across 145 files still drew type off `text-xs` through `text-2xl`, and `--text-page-title`,
+the one token #509's own table said it was replacing a component with, had zero uses. #621
+finished it: 675 of those sites onto a role token, and the band's `h1` onto the page-title token
+at last, which after X1 = A (#598) is the one place in the app a page title is rendered.
+
+Sixteen sites kept their default utility, and they are three findings rather than sixteen awkward
+cases: markdown prose needs a second heading level under the page title and the scale names one,
+a display figure is not a text role, and a wordmark is drawn to its lockup. All three are design
+questions in this decision's own terms, `routes/type-scale.test.ts` carries them in an allowlist
+with a reason each, and #649 carries the question. That test is also why the default `--text-*`
+namespace stays declared: clearing it would make the next default size a build error, which is
+the only version of this that needs no test, and it cannot be cleared while sixteen sites still
+need those utilities to resolve.
+
+The other thing #621 found is worth more than the migration, because it means #509 had been
+partly inert for a year without anybody being able to see it. `tailwind-merge` reads a `text-*`
+suffix it does not recognise as a colour, so `text-label` and `text-muted` on one element are one
+conflict and the token loses. Every `text-label` that reached the DOM through `cn` or through
+`tailwind-variants` was being deleted: the entries table's own `<th>` measured 16px against a
+token that says 12px, and so did every `Badge` in the app. It hid because those elements used to
+ask for `text-xs`, which `tailwind-merge` does know is a font size, so the pixels were right for
+the wrong reason. A token layer needs its merge function told what the tokens are, or the layer
+is decoration.
+
+A fourth group looked like it belonged on that list and did not, and the thing that settled it was
+a screenshot rather than an argument. Three chrome surfaces draw a section heading with card
+headings inside it, so when the section heading took `--text-title` the card heading under it had
+nowhere to go, which is exactly the collapse #509 predicted. Leaving those nine on `text-sm` was
+the first answer and it was wrong: once the body around them was 16px, a 14px card heading was
+visibly smaller than the paragraph it headed, where on `main` the two had been the same 14px and
+told apart by weight. They take `--text-body` with their `font-semibold` intact, which is the
+run-in heading `AskAnswerRow.svelte` already shipped, and the ladder reads 18 / 16-bold / 16. A
+role token is not a size, and a heading is allowed to be body-sized; what it is not allowed to be
+is smaller than its own paragraph.
+
 ### V6, and a mark that says the opposite of what is true
 
 `entryMarking.ts` marks the sentences of an entry that a pending proposal would change, with C1's

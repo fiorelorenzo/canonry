@@ -30,16 +30,16 @@
 
 <aside class="w-full flex-none border-t border-line bg-panel p-6 md:w-80 md:border-t-0 md:border-l">
 	{#if loading}
-		<p class="text-sm text-muted">{loadingLabel}</p>
+		<p class="text-body text-muted">{loadingLabel}</p>
 	{:else if entry}
 		<div class="flex items-start justify-between gap-2">
 			<div class="min-w-0">
-				<p class="text-xs tracking-wide text-muted uppercase">{entry.type}</p>
-				<h2 class="mt-0.5 text-lg text-ink">{entry.name}</h2>
+				<p class="text-label tracking-wide text-muted uppercase">{entry.type}</p>
+				<h2 class="mt-0.5 text-title text-ink">{entry.name}</h2>
 			</div>
 			<Button type="button" variant="ghost" size="sm" onclick={onClose}>{closeLabel}</Button>
 		</div>
-		<p class="mt-4 text-sm leading-relaxed whitespace-pre-wrap text-ink-2">
+		<p class="mt-4 text-body leading-relaxed whitespace-pre-wrap text-ink-2">
 			{entry.body}
 		</p>
 	{/if}

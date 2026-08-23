@@ -62,7 +62,7 @@
 			await update();
 		};
 	}}
-	class="flex items-center gap-2 text-xs"
+	class="flex items-center gap-2 text-label"
 >
 	<span id={labelId} class="sr-only">{label}</span>
 	<div data-js-only>
@@ -74,7 +74,7 @@
 				formEl?.requestSubmit();
 			}}
 		>
-			<Select.Trigger size="sm" aria-labelledby={labelId} class="text-xs font-medium uppercase">
+			<Select.Trigger size="sm" aria-labelledby={labelId} class="text-label font-medium uppercase">
 				{valueLabel}
 			</Select.Trigger>
 			<Select.Content>

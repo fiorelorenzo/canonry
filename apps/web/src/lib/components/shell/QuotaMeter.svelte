@@ -55,15 +55,15 @@
 </script>
 
 {#snippet popoverFooter()}
-	<p class="text-xs text-muted-foreground">{renewalText}</p>
-	<InlineLink href={resolve('/settings/billing')} class="text-xs">
+	<p class="text-meta text-muted-foreground">{renewalText}</p>
+	<InlineLink href={resolve('/settings/billing')} class="text-label">
 		{accountMenuT.planAndCredits}
 	</InlineLink>
 {/snippet}
 
 <div class="flex flex-col gap-2">
 	<div class="flex flex-col gap-1">
-		<div class="flex items-baseline justify-between gap-2 text-xs text-muted">
+		<div class="flex items-baseline justify-between gap-2 text-meta text-muted">
 			<Popover.Root>
 				<Popover.Trigger
 					class="inline-flex items-center gap-1 rounded-sm hover:text-ink focus-visible:text-ink focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
@@ -98,7 +98,7 @@
 	</div>
 
 	<div class="flex flex-col gap-1">
-		<div class="flex items-baseline justify-between gap-2 text-xs text-muted">
+		<div class="flex items-baseline justify-between gap-2 text-meta text-muted">
 			<Popover.Root>
 				<Popover.Trigger
 					class="inline-flex items-center gap-1 rounded-sm hover:text-ink focus-visible:text-ink focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"

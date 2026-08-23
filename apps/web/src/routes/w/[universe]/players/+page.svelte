@@ -64,8 +64,8 @@
 <Page width="working" eyebrow={data.universe.name} title={t.heading} description={t.description}>
 	<div class="flex flex-col gap-8 px-8 py-16">
 		<div class="flex flex-col gap-2 rounded-lg border border-line bg-panel p-5">
-			<h2 class="text-sm font-semibold text-ink">{t.wikiLinkLabel}</h2>
-			<p class="font-mono text-sm text-ink-2">{resolve(`/p/${data.universe.slug}`)}</p>
+			<h2 class="text-title font-semibold text-ink">{t.wikiLinkLabel}</h2>
+			<p class="font-mono text-body text-ink-2">{resolve(`/p/${data.universe.slug}`)}</p>
 			<div>
 				<Button
 					href={resolve(`/p/${data.universe.slug}`)}
@@ -77,11 +77,11 @@
 					{t.openWikiLink}
 				</Button>
 			</div>
-			<p class="mt-1 text-sm text-muted">{t.invitationsNotice}</p>
+			<p class="mt-1 text-body text-muted">{t.invitationsNotice}</p>
 		</div>
 
 		<div bind:this={revealedContainer} class="relative">
-			<h2 class="mb-3 text-sm font-semibold tracking-wide text-muted uppercase">
+			<h2 class="mb-3 text-label font-semibold tracking-wide text-muted uppercase">
 				{t.revealedHeading}
 			</h2>
 
@@ -115,16 +115,16 @@
 						<section aria-labelledby="session-{group.key || 'untracked'}">
 							<h3
 								id="session-{group.key || 'untracked'}"
-								class="mb-2 flex items-baseline justify-between gap-3 border-b border-line pb-1 text-sm font-semibold text-ink"
+								class="mb-2 flex items-baseline justify-between gap-3 border-b border-line pb-1 text-title font-semibold text-ink"
 							>
 								<span>{group.sessionName ?? t.sessionUnknown}</span>
-								<span class="text-xs font-normal text-muted"
+								<span class="text-meta font-normal text-muted"
 									>{formatSessionDate(group.latestAt)}</span
 								>
 							</h3>
 							<ul class="flex flex-col gap-2.5">
 								{#each group.items as entry (entry.id)}
-									<li class="flex flex-col gap-0.5 text-sm">
+									<li class="flex flex-col gap-0.5 text-body">
 										<span class="text-ink">
 											{#if entry.kind === 'relation'}
 												{@render nameLink(entry.from, entry.from.name)}
@@ -134,7 +134,7 @@
 												{@render nameLink(entry.entity, entry.label)}
 											{/if}
 										</span>
-										<span class="text-xs text-muted">
+										<span class="text-meta text-muted">
 											{t.kindLabel[entry.kind]} &middot; {formatWhen(entry.confirmedAt)}
 										</span>
 									</li>
@@ -153,10 +153,10 @@
 		</div>
 
 		<div>
-			<h2 class="mb-1 text-sm font-semibold tracking-wide text-muted uppercase">
+			<h2 class="mb-1 text-label font-semibold tracking-wide text-muted uppercase">
 				{t.hiddenHeading}
 			</h2>
-			<p class="mb-3 text-sm text-muted">{t.hiddenDescription}</p>
+			<p class="mb-3 text-body text-muted">{t.hiddenDescription}</p>
 
 			{#if data.hidden.length === 0}
 				<EmptyState kind="settled" message={t.hiddenEmpty} />
@@ -166,12 +166,12 @@
 						<li>
 							<a
 								href={resolve(`/w/${data.universe.slug}/e/${entity.slug}`)}
-								class="flex items-center justify-between gap-3 py-2 text-sm text-ink-2 transition-colors hover:text-ink"
+								class="flex items-center justify-between gap-3 py-2 text-body text-ink-2 transition-colors hover:text-ink"
 							>
 								<span class="flex items-center gap-2">
 									{#if entity.connected}
 										<span
-											class="rounded-full bg-accent-bg px-2 py-0.5 text-xs text-accent-ink"
+											class="rounded-full bg-accent-bg px-2 py-0.5 text-label text-accent-ink"
 											title={t.hiddenConnectedHint}
 										>
 											{t.hiddenConnectedBadge}
@@ -179,7 +179,7 @@
 									{/if}
 									<span>{entity.name}</span>
 								</span>
-								<span class="text-xs tracking-wide text-muted uppercase"
+								<span class="text-label tracking-wide text-muted uppercase"
 									>{t.entityTypeLabel(entity.type)}</span
 								>
 							</a>

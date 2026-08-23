@@ -54,16 +54,16 @@
 					<li class="py-3">
 						<a
 							href={resolve(`/w/${data.current.slug}/works/${work.slug}`)}
-							class="text-base font-medium text-ink hover:text-accent"
+							class="text-title font-medium text-ink hover:text-accent"
 						>
 							{work.name}
 						</a>
-						<span class="ml-2 text-xs tracking-wide text-muted uppercase">
+						<span class="ml-2 text-label tracking-wide text-muted uppercase">
 							{t.works.types[work.type] ?? work.type} · {t.works.statuses[work.status] ??
 								work.status}
 						</span>
 						{#if work.summary}
-							<p class="mt-1 max-w-measure text-sm text-ink-2">{work.summary}</p>
+							<p class="mt-1 max-w-measure text-body text-ink-2">{work.summary}</p>
 						{/if}
 					</li>
 				{/each}
@@ -82,14 +82,14 @@
 				};
 			}}
 		>
-			<h2 class="text-xs font-semibold tracking-wide text-muted uppercase">
+			<h2 class="text-label font-semibold tracking-wide text-muted uppercase">
 				{t.works.index.createHeading}
 			</h2>
-			<label class="flex flex-col gap-1 text-sm text-ink-2">
+			<label class="flex flex-col gap-1 text-body text-ink-2">
 				{t.works.index.nameLabel}
 				<Input id="work-create-name" name="name" required />
 			</label>
-			<div class="flex flex-col gap-1 text-sm text-ink-2">
+			<div class="flex flex-col gap-1 text-body text-ink-2">
 				<span id="work-create-type-label">{t.works.index.typeLabel}</span>
 				<Segmented
 					name="type"
@@ -99,12 +99,12 @@
 					class="w-fit"
 				/>
 			</div>
-			<label class="flex flex-col gap-1 text-sm text-ink-2">
+			<label class="flex flex-col gap-1 text-body text-ink-2">
 				{t.works.index.summaryLabel} <span class="text-muted">{t.works.index.summaryOptional}</span>
 				<Textarea name="summary" rows={2} />
 			</label>
 			{#if form?.message}
-				<p class="text-sm text-danger">{form.message}</p>
+				<p class="text-body text-danger">{form.message}</p>
 			{/if}
 			<Button type="submit" class="mt-1 w-fit" disabled={creating}>
 				{creating ? t.works.index.creating : t.works.index.createButton}

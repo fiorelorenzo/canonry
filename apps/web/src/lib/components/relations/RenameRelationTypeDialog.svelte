@@ -78,7 +78,7 @@
 				<Input id="rename-inverse-label" name="inverseLabel" required value={type.inverseLabel} />
 			</div>
 			{#if errorForThisType}
-				<p class="text-sm text-danger">{errorForThisType}</p>
+				<p class="text-body text-danger">{errorForThisType}</p>
 			{/if}
 			<DialogFooter>
 				<Button type="submit">{t.rename.submit}</Button>

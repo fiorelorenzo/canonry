@@ -85,7 +85,7 @@
 	<WorldPulse {pulse} locale={data.locale} t={homeT} />
 
 	<section class="mt-8">
-		<h2 class="mb-3 text-sm font-semibold text-ink">{homeT.continueHeading}</h2>
+		<h2 class="mb-3 text-title font-semibold text-ink">{homeT.continueHeading}</h2>
 		{#if data.continueEntries.length === 0}
 			<EmptyState kind="cold" message={t.emptyColdMessage}>
 				{#snippet action()}
@@ -101,7 +101,7 @@
 	</section>
 
 	<section class="mt-8">
-		<h2 class="mb-3 text-sm font-semibold text-ink">{homeT.waitingHeading}</h2>
+		<h2 class="mb-3 text-title font-semibold text-ink">{homeT.waitingHeading}</h2>
 		{#if waitingRows === 0}
 			<EmptyState kind="settled" message={homeT.waitingEmpty} />
 		{:else}
@@ -117,7 +117,7 @@
 	</section>
 
 	<section class="mt-8">
-		<h2 class="mb-3 text-sm font-semibold text-ink">{homeT.activityHeading}</h2>
+		<h2 class="mb-3 text-title font-semibold text-ink">{homeT.activityHeading}</h2>
 		{#if data.activity.length === 0}
 			<EmptyState kind="settled" message={homeT.activityEmpty} />
 		{:else}

@@ -48,13 +48,13 @@
 
 <AuthShell locale={data.locale} title={t.title} subtitle={t.subtitle}>
 	{#if form?.success}
-		<p class="text-sm text-ink-2">{t.success}</p>
-		<p class="mt-4 text-center text-sm text-ink-2">
+		<p class="text-body text-ink-2">{t.success}</p>
+		<p class="mt-4 text-center text-body text-ink-2">
 			<InlineLink href={resolve('/auth/sign-in')}>{t.signInLink}</InlineLink>
 		</p>
 	{:else if linkInvalid}
-		<p class="text-sm text-danger">{t.invalidToken}</p>
-		<p class="mt-4 text-center text-sm text-ink-2">
+		<p class="text-body text-danger">{t.invalidToken}</p>
+		<p class="mt-4 text-center text-body text-ink-2">
 			<InlineLink href={resolve('/auth/forgot-password')}>{t.requestNewLink}</InlineLink>
 		</p>
 	{:else}
@@ -101,7 +101,7 @@
 			</Button>
 
 			{#if form?.error}
-				<p role="alert" class="text-sm text-danger">{form.error}</p>
+				<p role="alert" class="text-body text-danger">{form.error}</p>
 			{/if}
 		</form>
 	{/if}

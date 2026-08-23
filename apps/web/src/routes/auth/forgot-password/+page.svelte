@@ -29,7 +29,7 @@
 
 <AuthShell locale={data.locale} title={t.title} subtitle={t.subtitle}>
 	{#if form?.success}
-		<p class="text-sm text-ink-2">{t.success}</p>
+		<p class="text-body text-ink-2">{t.success}</p>
 	{:else}
 		<form
 			method="POST"
@@ -53,12 +53,12 @@
 			</Button>
 
 			{#if form?.error}
-				<p role="alert" class="text-sm text-danger">{form.error}</p>
+				<p role="alert" class="text-body text-danger">{form.error}</p>
 			{/if}
 		</form>
 	{/if}
 
-	<p class="mt-4 text-center text-sm text-ink-2">
+	<p class="mt-4 text-center text-body text-ink-2">
 		<InlineLink href={resolve('/auth/sign-in')}>{t.backToSignIn}</InlineLink>
 	</p>
 </AuthShell>

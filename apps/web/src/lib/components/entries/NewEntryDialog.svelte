@@ -73,7 +73,7 @@
 				</Select.Root>
 			</div>
 			{#if error}
-				<p class="text-sm text-danger">{error}</p>
+				<p class="text-body text-danger">{error}</p>
 			{/if}
 			<DialogFooter>
 				<Button type="submit">{t.newEntryDialog.submit}</Button>

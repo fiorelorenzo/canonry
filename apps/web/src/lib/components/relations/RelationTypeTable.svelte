@@ -63,7 +63,7 @@
 
 {#if shipped}
 	<ul
-		class="mt-3 flex flex-col divide-y divide-line rounded-lg border border-line bg-panel text-sm"
+		class="mt-3 flex flex-col divide-y divide-line rounded-lg border border-line bg-panel text-body"
 	>
 		{#each types as row (row.id)}
 			<li class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-3 py-2">
@@ -73,7 +73,9 @@
 					>
 					{summary(row)}
 				</p>
-				<span class="shrink-0 text-xs text-muted tabular-nums">{t.usageCount(row.usageCount)}</span>
+				<span class="shrink-0 text-meta text-muted tabular-nums"
+					>{t.usageCount(row.usageCount)}</span
+				>
 			</li>
 		{/each}
 	</ul>
@@ -84,11 +86,11 @@
 				class="flex flex-col gap-3 rounded-lg border border-line bg-panel p-4 sm:flex-row sm:items-start sm:justify-between"
 			>
 				<div class="min-w-0">
-					<p class="text-base font-semibold text-ink">
+					<p class="text-title font-semibold text-ink">
 						{relationTypeDisplayLabel(row, relationTypeLabel, locale)}
 					</p>
-					<p class="mt-1 max-w-measure text-sm text-ink-2">{summary(row)}</p>
-					<p class="mt-1 text-xs text-muted tabular-nums">{t.usageCount(row.usageCount)}</p>
+					<p class="mt-1 max-w-measure text-body text-ink-2">{summary(row)}</p>
+					<p class="mt-1 text-meta text-muted tabular-nums">{t.usageCount(row.usageCount)}</p>
 				</div>
 				{#if canManage}
 					<div class="flex shrink-0 flex-wrap gap-3 sm:pl-4">
@@ -96,7 +98,7 @@
 							type="button"
 							variant="link"
 							size="sm"
-							class="h-auto p-0 text-xs"
+							class="h-auto p-0 text-label"
 							onclick={() => onRename?.(row)}
 						>
 							{t.rename.trigger}
@@ -105,7 +107,7 @@
 							type="button"
 							variant="link"
 							size="sm"
-							class="h-auto p-0 text-xs"
+							class="h-auto p-0 text-label"
 							onclick={() => onWiden?.(row)}
 						>
 							{t.widen.trigger}
@@ -114,7 +116,7 @@
 							type="button"
 							variant="link"
 							size="sm"
-							class="h-auto p-0 text-xs"
+							class="h-auto p-0 text-label"
 							onclick={() => onTranslate?.(row)}
 						>
 							{t.translate.trigger}
@@ -123,7 +125,7 @@
 							type="button"
 							variant="link"
 							size="sm"
-							class="h-auto p-0 text-xs"
+							class="h-auto p-0 text-label"
 							onclick={() => onMerge?.()}
 						>
 							{t.merge.trigger}

@@ -109,7 +109,7 @@
 				</h4>
 				<ul class="space-y-2 border-l border-line pl-3">
 					{#each group.revisions as revision (revision.id)}
-						<li class="text-sm">
+						<li class="text-body">
 							<div class="flex flex-wrap items-center gap-2">
 								<span class="text-ink-2">{formatTime(revision.createdAt)}</span>
 								{#if revision.authorKind === 'human' && revision.authorName}
@@ -120,7 +120,7 @@
 							{#if revision.proposalId}
 								<InlineLink
 									href={resolve(`/w/${universeSlug}/review/${revision.proposalId}`)}
-									class="mt-0.5 inline-block text-xs"
+									class="mt-0.5 inline-block text-label"
 								>
 									{t.entry.history.proposalLink}
 								</InlineLink>

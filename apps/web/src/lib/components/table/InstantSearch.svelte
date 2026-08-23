@@ -80,7 +80,7 @@
 	/>
 
 	{#if query.trim().length > 0}
-		<div class="flex items-center gap-2 text-xs text-muted">
+		<div class="flex items-center gap-2 text-label text-muted">
 			{#if loading}
 				<span>{t.searching}</span>
 			{:else if lane}
@@ -91,33 +91,33 @@
 		</div>
 
 		{#if !loading && hits.length === 0}
-			<p class="text-sm text-muted">
+			<p class="text-body text-muted">
 				{fastLaneNote ?? t.noMatch(query)}
 			</p>
 		{:else}
 			<ul class="flex flex-col gap-1.5">
 				{#each hits as hit ('id' in hit ? hit.id : hit.url)}
 					{#if 'id' in hit}
-						<li class="rounded-md border border-line bg-panel p-2.5 text-sm">
+						<li class="rounded-md border border-line bg-panel p-2.5 text-body">
 							<a
 								href={resolve(`/w/${universeSlug}/e/${hit.slug}`)}
 								class="font-semibold text-ink hover:underline"
 							>
 								{hit.name}
 							</a>
-							<span class="ml-1.5 text-xs text-muted">{hit.type}</span>
+							<span class="ml-1.5 text-meta text-muted">{hit.type}</span>
 							{#if hit.matchedAlias}
-								<span class="ml-1.5 text-xs text-muted">{t.aka(hit.matchedAlias)}</span>
+								<span class="ml-1.5 text-meta text-muted">{t.aka(hit.matchedAlias)}</span>
 							{/if}
 							{#if hit.excerpt}
-								<p class="mt-1 text-xs text-ink-2">{hit.excerpt}</p>
+								<p class="mt-1 text-meta text-ink-2">{hit.excerpt}</p>
 							{/if}
 						</li>
 					{:else}
-						<li class="rounded-md border border-line bg-panel p-2.5 text-sm">
+						<li class="rounded-md border border-line bg-panel p-2.5 text-body">
 							<span class="font-semibold text-ink">{hit.title}</span>
-							<span class="ml-1.5 text-xs text-muted">{hit.breadcrumb}</span>
-							<p class="mt-1 text-xs text-ink-2">{hit.excerpt}</p>
+							<span class="ml-1.5 text-meta text-muted">{hit.breadcrumb}</span>
+							<p class="mt-1 text-meta text-ink-2">{hit.excerpt}</p>
 						</li>
 					{/if}
 				{/each}

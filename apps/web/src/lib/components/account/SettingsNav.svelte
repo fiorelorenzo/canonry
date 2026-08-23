@@ -30,7 +30,7 @@
 		{@const active = page.url.pathname === item.href}
 		<a
 			href={item.href}
-			class="rounded-md px-3 py-1.5 text-sm hover:bg-panel-2"
+			class="rounded-md px-3 py-1.5 text-body hover:bg-panel-2"
 			class:bg-panel-2={active}
 			class:font-semibold={active}
 			class:text-ink={active}

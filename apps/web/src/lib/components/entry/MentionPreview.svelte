@@ -254,7 +254,7 @@
 			</span>
 		{/if}
 		<span class="min-w-0 flex-1">
-			<span class="block text-sm font-semibold text-ink">{data.name}</span>
+			<span class="block text-title font-semibold text-ink">{data.name}</span>
 			<!-- `text-ink-2` and not `text-muted`: at 10px the muted ink is 4.13:1 on `bg-panel`,
 			     which axe fails and a phone in daylight fails harder. The mono uppercase is what
 			     makes this read as a label, not the lighter colour. -->
@@ -262,11 +262,11 @@
 				{data.type}
 			</span>
 			{#if data.status === 'gap'}
-				<span class="mt-1.5 block text-xs text-ink-2 italic">{t.gap}</span>
+				<span class="mt-1.5 block text-meta text-ink-2 italic">{t.gap}</span>
 			{:else if data.excerpt}
-				<span class="mt-1.5 line-clamp-4 block text-xs text-ink-2">{data.excerpt}</span>
+				<span class="mt-1.5 line-clamp-4 block text-meta text-ink-2">{data.excerpt}</span>
 			{:else}
-				<span class="mt-1.5 block text-xs text-ink-2 italic">{t.empty}</span>
+				<span class="mt-1.5 block text-meta text-ink-2 italic">{t.empty}</span>
 			{/if}
 		</span>
 	</span>

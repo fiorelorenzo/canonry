@@ -25,11 +25,11 @@
 	title={t.plan.heading(t.provenance(data.plan.trigger, data.triggerEntityName))}
 >
 	<div class="px-4 py-6 md:px-6 md:py-8">
-		<p class="mb-2 text-xs text-muted">
+		<p class="mb-2 text-label text-muted">
 			<a class="hover:underline" href={resolve(`/w/${data.universe.slug}/proposals`)}>{t.title}</a>
 			/ <span class="text-ink-2">{t.plan.crumbCurrent}</span>
 		</p>
-		<p class="mb-6 text-sm text-muted">{data.plan.summary}</p>
+		<p class="mb-6 text-body text-muted">{data.plan.summary}</p>
 
 		{#if data.plan.status !== 'spent'}
 			<PlanChecklist

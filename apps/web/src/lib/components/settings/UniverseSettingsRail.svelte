@@ -43,7 +43,7 @@
 	{#each items as item (item.id)}
 		<a
 			href={item.href}
-			class="flex items-center justify-between gap-2 rounded-md px-3 py-1.5 text-sm hover:bg-panel-2"
+			class="flex items-center justify-between gap-2 rounded-md px-3 py-1.5 text-body hover:bg-panel-2"
 			class:font-semibold={item.id === active}
 			class:text-ink={item.id === active}
 			class:text-ink-2={item.id !== active}

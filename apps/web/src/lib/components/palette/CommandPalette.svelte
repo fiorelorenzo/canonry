@@ -294,7 +294,7 @@
 			<Command.LinkItem href={resolve(`/w/${universeSlug}/e/${hit.slug}`)} onSelect={rowSelected}>
 				<span class="min-w-0 truncate">{hit.name}</span>
 				{#if hit.matchedAlias}
-					<span class="shrink-0 text-xs text-muted">{t.akaHint(hit.matchedAlias)}</span>
+					<span class="shrink-0 text-meta text-muted">{t.akaHint(hit.matchedAlias)}</span>
 				{/if}
 				<Badge variant="secondary" class="ml-auto shrink-0 font-mono uppercase">
 					{messages(locale).universe.index.filters.typeLabel(hit.type)}
@@ -335,7 +335,7 @@
 					{#if searching}
 						<Command.Loading>{t.loadingMessage}</Command.Loading>
 					{:else if entityHits.length === 0}
-						<p class="px-2 py-3 text-sm text-muted">{t.noEntryMatches(trimmedQuery)}</p>
+						<p class="px-2 py-3 text-body text-muted">{t.noEntryMatches(trimmedQuery)}</p>
 					{:else}
 						{#each entityHits as hit (hit.id)}
 							{@render entryRow(hit)}
@@ -350,7 +350,7 @@
 		{#if mode === 'account'}
 			<Command.Group heading={t.universesHeading}>
 				{#if filteredUniverses.length === 0}
-					<p class="px-2 py-3 text-sm text-muted">{t.noUniverseMatches(trimmedQuery)}</p>
+					<p class="px-2 py-3 text-body text-muted">{t.noUniverseMatches(trimmedQuery)}</p>
 				{:else}
 					{#each filteredUniverses as universe (universe.id)}
 						<Command.LinkItem href={resolve(`/w/${universe.slug}`)} onSelect={rowSelected}>

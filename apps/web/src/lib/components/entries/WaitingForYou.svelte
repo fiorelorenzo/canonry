@@ -59,32 +59,32 @@
 
 <ul class="flex flex-col divide-y divide-line border-y border-line">
 	{#each plans as plan (plan.id)}
-		<li class="flex items-baseline gap-3 py-2.5 text-sm">
+		<li class="flex items-baseline gap-3 py-2.5 text-body">
 			<span class="min-w-0 flex-1 truncate text-ink-2">
 				{proposalsT.inbox.from(proposalsT.provenance(plan.trigger, plan.triggerEntityName))}
 			</span>
-			<span class="shrink-0 font-mono text-xs text-muted tabular-nums">
+			<span class="shrink-0 font-mono text-meta text-muted tabular-nums">
 				{proposalsT.inbox.pendingLabel(plan.pending)}
 			</span>
 			<InlineLink
 				href={resolve(`/w/${universeSlug}/proposals/${plan.id}`)}
-				class="shrink-0 text-xs font-medium"
+				class="shrink-0 text-label font-medium"
 			>
 				{t.reviewLink} &rarr;
 			</InlineLink>
 		</li>
 	{/each}
 	{#each importJobs as job (job.id)}
-		<li class="flex items-baseline gap-3 py-2.5 text-sm">
+		<li class="flex items-baseline gap-3 py-2.5 text-body">
 			<span class="min-w-0 flex-1 truncate text-ink-2"
 				>{proposalsT.inbox.importFrom(job.playbook)}</span
 			>
-			<span class="shrink-0 font-mono text-xs text-muted tabular-nums">
+			<span class="shrink-0 font-mono text-meta text-muted tabular-nums">
 				{proposalsT.inbox.pendingLabel(job.pending)}
 			</span>
 			<InlineLink
 				href={resolve(`/w/${universeSlug}/import/${job.id}/review`)}
-				class="shrink-0 text-xs font-medium"
+				class="shrink-0 text-label font-medium"
 			>
 				{t.reviewLink} &rarr;
 			</InlineLink>
@@ -100,7 +100,7 @@
 {#if totalPending > shownPending}
 	<InlineLink
 		href={resolve(`/w/${universeSlug}/proposals`)}
-		class="mt-2 inline-block text-xs font-medium"
+		class="mt-2 inline-block text-label font-medium"
 	>
 		{t.reviewAll(totalPending)}
 	</InlineLink>

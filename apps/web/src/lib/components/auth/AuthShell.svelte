@@ -55,7 +55,7 @@
 				<Mark size={44} />
 				<span class="font-serif text-2xl font-semibold text-ink">Canonry</span>
 			</a>
-			<p class="max-w-sm text-center text-sm text-ink-2">{subtitle}</p>
+			<p class="max-w-sm text-center text-body text-ink-2">{subtitle}</p>
 			<div class="w-[21rem] max-w-full">
 				{@render children()}
 			</div>
@@ -71,7 +71,7 @@
 	</main>
 
 	<footer
-		class="flex flex-wrap items-center gap-4 border-t border-line bg-panel-2 px-6 py-3 text-xs text-ink-2"
+		class="flex flex-wrap items-center gap-4 border-t border-line bg-panel-2 px-6 py-3 text-label text-ink-2"
 	>
 		<LocaleSwitcher {locale} />
 		<span class="flex-1"></span>

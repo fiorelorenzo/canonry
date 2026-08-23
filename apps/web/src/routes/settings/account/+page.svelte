@@ -81,7 +81,7 @@
 </svelte:head>
 
 {#if !data.user}
-	<p class="mt-6 text-sm text-ink-2">
+	<p class="mt-6 text-body text-ink-2">
 		<InlineLink href={resolve('/auth/sign-in')}>{t.signInLink}</InlineLink>
 		{t.signInPrompt}
 	</p>
@@ -115,17 +115,17 @@
 				</Button>
 			</div>
 			{#if form?.nameSaved}
-				<p class="text-sm text-ink-2">{t.nameSaved}</p>
+				<p class="text-body text-ink-2">{t.nameSaved}</p>
 			{/if}
 			{#if form?.nameError}
-				<p role="alert" class="text-sm text-danger">{form.nameError}</p>
+				<p role="alert" class="text-body text-danger">{form.nameError}</p>
 			{/if}
 		</form>
 
 		<div class="flex flex-col gap-1.5">
 			<Label for="account-email">{t.emailLabel}</Label>
 			<Input id="account-email" value={data.user.email} readonly disabled />
-			<p class="text-xs text-muted">{t.emailNote}</p>
+			<p class="text-label text-muted">{t.emailNote}</p>
 		</div>
 	</section>
 
@@ -136,9 +136,9 @@
 	     the reader's own language, with `/privacy` carrying the same statement in full - F3 =
 	     C's pattern, the same one the import and generate surfaces use. -->
 	<section class="mt-10 max-w-md">
-		<h2 class="text-sm font-semibold text-ink">{t.profileHeading}</h2>
-		<p class="mt-2 text-sm text-ink-2">{t.profileDescription}</p>
-		<p class="mt-2 text-xs text-muted">
+		<h2 class="text-title font-semibold text-ink">{t.profileHeading}</h2>
+		<p class="mt-2 text-body text-ink-2">{t.profileDescription}</p>
+		<p class="mt-2 text-label text-muted">
 			{t.profilePrivacyPrompt}
 			<InlineLink href={resolve('/privacy')}>{t.profilePrivacyLink}</InlineLink>
 		</p>
@@ -172,7 +172,7 @@
 					required
 					value={data.handle ?? ''}
 				/>
-				<p class="text-xs text-muted">{t.handleHint}</p>
+				<p class="text-label text-muted">{t.handleHint}</p>
 			</div>
 			<div>
 				<Button type="submit" disabled={handleSaving}>
@@ -180,23 +180,23 @@
 				</Button>
 			</div>
 			{#if form?.handleSaved}
-				<p class="text-sm text-ink-2">{t.handleSaved}</p>
+				<p class="text-body text-ink-2">{t.handleSaved}</p>
 			{/if}
 			{#if form?.handleRemoved}
-				<p class="text-sm text-ink-2">{t.handleRemoved}</p>
+				<p class="text-body text-ink-2">{t.handleRemoved}</p>
 			{/if}
 			{#if form?.handleError}
-				<p role="alert" class="text-sm text-danger">{form.handleError}</p>
+				<p role="alert" class="text-body text-danger">{form.handleError}</p>
 			{/if}
 		</form>
 
 		{#if currentHandle}
 			<div class="mt-4 flex flex-col gap-1.5">
-				<p class="text-xs tracking-wide text-muted uppercase">{t.handleUrlLabel}</p>
-				<p class="text-sm">
+				<p class="text-label tracking-wide text-muted uppercase">{t.handleUrlLabel}</p>
+				<p class="text-body">
 					<InlineLink href={`/u/${currentHandle}`}>/u/{currentHandle}</InlineLink>
 				</p>
-				<p class="text-xs text-muted">{t.handleChangeNote}</p>
+				<p class="text-label text-muted">{t.handleChangeNote}</p>
 			</div>
 			<form
 				method="post"
@@ -215,12 +215,12 @@
 				</Button>
 			</form>
 		{:else}
-			<p class="mt-4 text-sm text-muted">{t.profileNone}</p>
+			<p class="mt-4 text-body text-muted">{t.profileNone}</p>
 		{/if}
 	</section>
 
 	<section class="mt-10 max-w-md">
-		<h2 class="text-sm font-semibold text-ink">{t.passwordHeading}</h2>
+		<h2 class="text-title font-semibold text-ink">{t.passwordHeading}</h2>
 		<form
 			method="post"
 			action="?/changePassword"
@@ -259,38 +259,38 @@
 				</Button>
 			</div>
 			{#if form?.passwordSaved}
-				<p class="text-sm text-ink-2">{t.passwordSaved}</p>
+				<p class="text-body text-ink-2">{t.passwordSaved}</p>
 			{/if}
 			{#if form?.passwordError}
-				<p role="alert" class="text-sm text-danger">{form.passwordError}</p>
+				<p role="alert" class="text-body text-danger">{form.passwordError}</p>
 			{/if}
 		</form>
 	</section>
 
 	<section class="mt-10 max-w-md">
-		<h2 class="text-sm font-semibold text-ink">{t.sessionsHeading}</h2>
-		<p class="mt-1 text-sm text-ink-2">{t.sessionsDescription}</p>
+		<h2 class="text-title font-semibold text-ink">{t.sessionsHeading}</h2>
+		<p class="mt-1 text-body text-ink-2">{t.sessionsDescription}</p>
 		<div class="mt-3">
 			<Button variant="secondary" onclick={signOutEverywhere} disabled={signingOutEverywhere}>
 				{signingOutEverywhere ? t.signOutEverywhereInProgress : t.signOutEverywhereButton}
 			</Button>
 		</div>
 		{#if signOutEverywhereError}
-			<p role="alert" class="mt-2 text-sm text-danger">{signOutEverywhereError}</p>
+			<p role="alert" class="mt-2 text-body text-danger">{signOutEverywhereError}</p>
 		{/if}
 	</section>
 
 	<section class="mt-10 max-w-md">
-		<h2 class="text-sm font-semibold text-danger">{t.deleteHeading}</h2>
-		<p class="mt-1 text-sm text-ink-2">{t.deleteIntro}</p>
-		<p class="mt-2 text-sm text-ink-2">{t.deleteImpact(data.deletionImpact)}</p>
-		<p class="mt-3 text-sm text-ink-2">
+		<h2 class="text-title font-semibold text-danger">{t.deleteHeading}</h2>
+		<p class="mt-1 text-body text-ink-2">{t.deleteIntro}</p>
+		<p class="mt-2 text-body text-ink-2">{t.deleteImpact(data.deletionImpact)}</p>
+		<p class="mt-3 text-body text-ink-2">
 			{t.deleteExportPrompt}
 			<InlineLink href={resolve('/settings/export')}>{t.deleteExportLink}</InlineLink>
 		</p>
 
 		{#if form?.deleteRequested}
-			<p class="mt-4 text-sm text-ink-2">{t.deleteRequested}</p>
+			<p class="mt-4 text-body text-ink-2">{t.deleteRequested}</p>
 		{:else}
 			<form
 				method="POST"
@@ -318,7 +318,7 @@
 					{deleteSending ? t.deleteSending : t.deleteButton}
 				</Button>
 				{#if form?.deleteError}
-					<p role="alert" class="text-sm text-danger">{form.deleteError}</p>
+					<p role="alert" class="text-body text-danger">{form.deleteError}</p>
 				{/if}
 			</form>
 		{/if}

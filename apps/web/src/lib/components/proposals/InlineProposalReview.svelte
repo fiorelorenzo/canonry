@@ -185,7 +185,7 @@
 	aria-busy={busy}
 	class="mb-6 border-t border-line pt-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
 >
-	<div class="mb-2 flex flex-wrap items-baseline justify-between gap-2 text-xs text-muted">
+	<div class="mb-2 flex flex-wrap items-baseline justify-between gap-2 text-label text-muted">
 		<span>
 			{pendingCount > 0 ? t.inline.heading(pendingCount) : t.inline.headingSettled}
 			{#if items.length > 1}
@@ -233,7 +233,7 @@
 	{/if}
 
 	{#if current?.outcome === 'accepted'}
-		<p class="mt-2 mb-0 text-xs text-ok">{t.inline.acceptedNote}</p>
+		<p class="mt-2 mb-0 text-label text-ok">{t.inline.acceptedNote}</p>
 	{/if}
 
 	{#if rejectChipsFor}
@@ -243,7 +243,7 @@
 	{/if}
 
 	{#if failure}
-		<p class="mt-2 mb-0 rounded-md bg-danger-bg px-2 py-1 text-xs text-danger">
+		<p class="mt-2 mb-0 rounded-md bg-danger-bg px-2 py-1 text-label text-danger">
 			{t.inline.failed(failure)}
 		</p>
 	{/if}

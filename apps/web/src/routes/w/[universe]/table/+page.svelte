@@ -351,7 +351,7 @@
 		     arrival at a time for as long as the session runs. -->
 		{#if sessionEndedBanner}
 			<div
-				class="animate-in rounded-md border border-line-2 bg-panel-2 p-3 text-sm text-ink-2 duration-move ease-arrive fade-in-0 slide-in-from-top-1"
+				class="animate-in rounded-md border border-line-2 bg-panel-2 p-3 text-body text-ink-2 duration-move ease-arrive fade-in-0 slide-in-from-top-1"
 			>
 				{sessionEndedBanner}
 			</div>
@@ -359,7 +359,7 @@
 
 		{#if toast}
 			<div
-				class="animate-in rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-sm text-ink-2 duration-move ease-arrive fade-in-0 slide-in-from-top-1"
+				class="animate-in rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-body text-ink-2 duration-move ease-arrive fade-in-0 slide-in-from-top-1"
 				role="status"
 			>
 				{toast}
@@ -488,12 +488,12 @@
 								{t.home.arrivals.heading}
 							</h2>
 							{#if arrivals.length === 0}
-								<p class="text-sm text-muted">{t.home.arrivals.empty}</p>
+								<p class="text-body text-muted">{t.home.arrivals.empty}</p>
 							{:else}
 								<ul class="flex flex-col" aria-live="polite">
 									{#each arrivals as arrival (arrival.id)}
 										<li
-											class="animate-in border-b border-line py-2 text-sm text-ink-2 duration-fade ease-arrive fade-in-0 last:border-b-0"
+											class="animate-in border-b border-line py-2 text-body text-ink-2 duration-fade ease-arrive fade-in-0 last:border-b-0"
 										>
 											{arrival.text}
 										</li>

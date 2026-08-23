@@ -25,13 +25,13 @@
 	<title>{t.language.title}: Canonry</title>
 </svelte:head>
 
-<p class="mt-4 max-w-xl text-sm text-ink-2">
+<p class="mt-4 max-w-xl text-body text-ink-2">
 	{t.language.learnMorePrompt}
 	<InlineLink href={resolve('/docs/languages')}>{tDocs.title}</InlineLink>
 </p>
 
 {#if !data.signedIn}
-	<p class="mt-6 text-sm text-ink-2">
+	<p class="mt-6 text-body text-ink-2">
 		<InlineLink href={resolve('/auth/sign-in')}>{t.language.signInLink}</InlineLink>
 		{t.language.signInPrompt}
 	</p>
@@ -60,7 +60,7 @@
 						checked={selected === loc}
 						class="accent-[var(--color-accent)]"
 					/>
-					<span class="text-sm text-ink">{LOCALE_NAMES[loc]}</span>
+					<span class="text-body text-ink">{LOCALE_NAMES[loc]}</span>
 				</label>
 			{/each}
 		</fieldset>
@@ -70,10 +70,10 @@
 		</div>
 
 		{#if saved && !form?.error}
-			<p class="text-sm text-ink-2">{t.language.saved}</p>
+			<p class="text-body text-ink-2">{t.language.saved}</p>
 		{/if}
 		{#if form?.error}
-			<p class="text-sm text-danger">{form.error}</p>
+			<p class="text-body text-danger">{form.error}</p>
 		{/if}
 	</form>
 {/if}

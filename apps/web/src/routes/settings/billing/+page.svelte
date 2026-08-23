@@ -29,22 +29,22 @@
 </svelte:head>
 
 {#if !data.signedIn}
-	<p class="mt-6 text-sm text-ink-2">
+	<p class="mt-6 text-body text-ink-2">
 		<InlineLink href={resolve('/auth/sign-in')}>{t.signInLink}</InlineLink>
 		{t.signInPrompt}
 	</p>
 {:else}
 	{#if data.checkout === 'cancelled'}
-		<p class="mt-4 rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-sm text-ink-2">
+		<p class="mt-4 rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-body text-ink-2">
 			{t.checkoutCancelled}
 		</p>
 	{/if}
 
 	<section class="mt-6 rounded-lg border border-line bg-panel p-4">
-		<h2 class="text-base font-semibold text-ink">
+		<h2 class="text-title font-semibold text-ink">
 			{t.currentPlan(data.plan?.name ?? data.balance.plan)}
 		</h2>
-		<p class="mt-1 text-sm text-ink-2">
+		<p class="mt-1 text-body text-ink-2">
 			{#if data.balance.periodEnd}
 				{t.renews(periodFormat.format(new Date(data.balance.periodEnd)))}
 			{:else}
@@ -54,19 +54,19 @@
 
 		<dl class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
 			<div>
-				<dt class="text-xs text-muted uppercase">{t.includedThisPeriod}</dt>
+				<dt class="text-label text-muted uppercase">{t.includedThisPeriod}</dt>
 				<dd class="text-lg font-semibold text-ink tabular-nums">
 					{t.creditsCount(data.balance.subscriptionCredits)}
 				</dd>
 			</div>
 			<div>
-				<dt class="text-xs text-muted uppercase">{t.purchased}</dt>
+				<dt class="text-label text-muted uppercase">{t.purchased}</dt>
 				<dd class="text-lg font-semibold text-ink tabular-nums">
 					{t.creditsCount(data.balance.purchasedCredits)}
 				</dd>
 			</div>
 			<div>
-				<dt class="text-xs text-muted uppercase">{t.warmBudget}</dt>
+				<dt class="text-label text-muted uppercase">{t.warmBudget}</dt>
 				<dd class="text-lg font-semibold text-ink tabular-nums">
 					{creditsFormat.format(data.balance.warmBudgetRemaining)} / {creditsFormat.format(
 						data.balance.warmBudgetCredits
@@ -77,7 +77,7 @@
 	</section>
 
 	<section class="mt-8">
-		<h2 class="text-lg font-semibold text-ink">{t.plansHeading}</h2>
+		<h2 class="text-title font-semibold text-ink">{t.plansHeading}</h2>
 		<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
 			{#each data.plans as plan (plan.id)}
 				{@const current = plan.id === data.balance.plan}
@@ -88,16 +88,16 @@
 					class:bg-accent-bg={current}
 					class:bg-panel={!current}
 				>
-					<h3 class="text-base font-semibold text-ink">{plan.name}</h3>
+					<h3 class="text-body font-semibold text-ink">{plan.name}</h3>
 					<p class="mt-1 text-2xl font-semibold text-ink">
-						{eurFormat.format(plan.priceEurPerMonth)}<span class="text-sm font-normal text-ink-2"
+						{eurFormat.format(plan.priceEurPerMonth)}<span class="text-body font-normal text-ink-2"
 							>{t.perMonth}</span
 						>
 					</p>
-					<p class="mt-2 flex-1 text-xs text-ink-2">{plan.ceiling}</p>
+					<p class="mt-2 flex-1 text-meta text-ink-2">{plan.ceiling}</p>
 
 					{#if current}
-						<span class="mt-4 text-xs font-medium text-accent-ink">{t.currentPlanBadge}</span>
+						<span class="mt-4 text-label font-medium text-accent-ink">{t.currentPlanBadge}</span>
 					{:else if plan.id !== 'free'}
 						<form
 							method="POST"
@@ -123,7 +123,7 @@
 		</div>
 
 		{#if form?.error}
-			<p class="mt-3 text-sm text-danger">{form.error}</p>
+			<p class="mt-3 text-body text-danger">{form.error}</p>
 		{/if}
 	</section>
 {/if}

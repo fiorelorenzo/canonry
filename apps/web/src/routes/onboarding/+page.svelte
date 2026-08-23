@@ -38,7 +38,7 @@
 <Page width="working" title={t.heading} description={t.description}>
 	<div class="flex flex-col gap-6">
 		{#if form?.error}
-			<p class="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.error}</p>
+			<p class="rounded-md bg-danger-bg px-3 py-2 text-body text-danger">{form.error}</p>
 		{/if}
 
 		<form

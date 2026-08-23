@@ -184,7 +184,7 @@
 			options={viewOptions}
 			ariaLabel={t.prose.viewAriaLabel}
 		/>
-		<p class="mt-2 text-xs text-muted">
+		<p class="mt-2 text-label text-muted">
 			{playerPreview ? t.prose.playerPreviewActive : t.prose.gmViewDescription}
 		</p>
 	</div>

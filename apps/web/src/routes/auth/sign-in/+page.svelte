@@ -73,9 +73,9 @@
 			{/each}
 		</div>
 		{#if providerError}
-			<p role="alert" class="mt-2 text-sm text-danger">{providerError}</p>
+			<p role="alert" class="mt-2 text-body text-danger">{providerError}</p>
 		{/if}
-		<div class="my-4 flex items-center gap-3 text-xs tracking-wide text-muted uppercase">
+		<div class="my-4 flex items-center gap-3 text-label tracking-wide text-muted uppercase">
 			<span class="h-px flex-1 bg-line"></span>
 			{t.orDivider}
 			<span class="h-px flex-1 bg-line"></span>
@@ -118,7 +118,7 @@
 				autocomplete="current-password"
 				required
 			/>
-			<InlineLink href={resolve('/auth/forgot-password')} class="text-sm">
+			<InlineLink href={resolve('/auth/forgot-password')} class="text-body">
 				{t.forgotPasswordLink}
 			</InlineLink>
 		</div>
@@ -128,11 +128,11 @@
 		</Button>
 
 		{#if form?.error}
-			<p role="alert" class="text-sm text-danger">{form.error}</p>
+			<p role="alert" class="text-body text-danger">{form.error}</p>
 		{/if}
 	</form>
 
-	<p class="mt-4 text-center text-sm text-ink-2">
+	<p class="mt-4 text-center text-body text-ink-2">
 		{t.noAccount}
 		<InlineLink href={resolve('/auth/sign-up')}>{t.signUpLink}</InlineLink>
 	</p>

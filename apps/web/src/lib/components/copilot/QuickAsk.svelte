@@ -459,7 +459,7 @@
 	     `md:w-88`, 352px, and an answer with source chips in a 352px column wrapped into a
 	     ribbon: the chips are `max-w-56`/`max-w-64` each, so two of them never sat on one
 	     line and a quoted sentence broke every three or four words. What the panel holds
-	     is prose at the same `text-sm` the Ask route renders its own answer in, and the
+	     is prose at the same `text-body` the Ask route renders its own answer in, and the
 	     reading room already has a number for how wide that reads: `--container-measure`,
 	     34rem, declared in `routes/layout.css` for exactly that purpose. So the panel is
 	     that measure plus its own `px-3` padding, 35.5rem, and the answer inside it gets
@@ -491,7 +491,7 @@
 	>
 		<div class="flex items-center gap-2 border-b border-line px-3 py-2">
 			<span aria-hidden="true" class="text-accent">✦</span>
-			<b class="text-sm text-ink">{t.name}</b>
+			<b class="text-body text-ink">{t.name}</b>
 			<button
 				type="button"
 				onclick={() => void close()}
@@ -502,7 +502,7 @@
 			</button>
 		</div>
 
-		<p class="m-0 border-b border-line bg-panel-2 px-3 py-1.5 text-xs text-ink-2">
+		<p class="m-0 border-b border-line bg-panel-2 px-3 py-1.5 text-label text-ink-2">
 			{t.context(contextName)}
 		</p>
 
@@ -533,7 +533,7 @@
 							<button
 								type="button"
 								onclick={() => askSuggestion(suggestion)}
-								class="rounded-full border border-line-2 bg-panel-2 px-2.5 py-1 text-left text-xs text-ink-2 hover:bg-accent-bg hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+								class="rounded-full border border-line-2 bg-panel-2 px-2.5 py-1 text-left text-label text-ink-2 hover:bg-accent-bg hover:text-accent-ink focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
 							>
 								{suggestion}
 							</button>
@@ -553,7 +553,7 @@
 						     answer, sources) rather than five stacked paragraphs at three sizes
 						     of the same grey. -->
 						<div class="flex items-start justify-between gap-2">
-							<h2 class="m-0 text-base font-semibold text-ink">{turn.question}</h2>
+							<h2 class="m-0 text-title font-semibold text-ink">{turn.question}</h2>
 							{#if turn.answer.length > 0 && !turn.asking}
 								<!-- #437, T10: the card goes; one icon button per turn opens it on
 								     the Ask page, with a tooltip naming it (Q4) since no control
@@ -580,7 +580,7 @@
 
 						{#if turn.askError}
 							<p
-								class="mt-2 rounded-md border border-danger-bg bg-danger-bg px-2.5 py-1.5 text-xs text-danger"
+								class="mt-2 rounded-md border border-danger-bg bg-danger-bg px-2.5 py-1.5 text-label text-danger"
 							>
 								{turn.askError}
 							</p>
@@ -588,7 +588,7 @@
 
 						{#if turn.generated === false}
 							<p
-								class="mt-2 rounded-md border border-warn-bg bg-warn-bg px-2.5 py-1.5 text-xs text-warn"
+								class="mt-2 rounded-md border border-warn-bg bg-warn-bg px-2.5 py-1.5 text-label text-warn"
 							>
 								{askT.noLiveModel}
 							</p>
@@ -604,7 +604,7 @@
 							     announce every incoming word as its own interruption - once
 							     `asking` clears, the settled paragraph is ordinary flow content a
 							     reader reaches in document order. -->
-							<div class="pt-2 text-sm text-ink" aria-busy={turn.asking}>
+							<div class="pt-2 text-body text-ink" aria-busy={turn.asking}>
 								<p class="m-0 leading-relaxed">
 									{turn.answer}{#if turn.asking}<span
 											aria-hidden="true"
@@ -621,7 +621,7 @@
 									<!-- issue #256, guardrail 1 and 6: an answer that also drafted
 									     something says so, and says which way round it went, wherever
 									     it was asked from. -->
-									<div class="rounded-lg border border-line bg-panel-2 px-2.5 py-1.5 text-xs">
+									<div class="rounded-lg border border-line bg-panel-2 px-2.5 py-1.5 text-label">
 										<span
 											class="rounded-full border border-line-2 bg-panel px-1.5 py-0.5 text-label text-ink-2"
 										>
@@ -641,7 +641,7 @@
 								{/each}
 								{#each turn.proposalFailures as failure, i (i)}
 									<p
-										class="m-0 rounded-md border border-danger-bg bg-danger-bg px-2.5 py-1.5 text-xs text-danger"
+										class="m-0 rounded-md border border-danger-bg bg-danger-bg px-2.5 py-1.5 text-label text-danger"
 									>
 										{askT.propose.failed(failure.message)}
 									</p>
@@ -665,13 +665,13 @@
 								<ul class="mt-1.5 mb-0 flex list-none flex-col gap-2">
 									{#each turn.sources as source, i (source.kind === 'own_canon' ? source.entityId : `${source.dataSourceId}-${i}`)}
 										<li class="min-w-0">
-											<span class="block border-l-2 border-line-2 pl-2 text-xs text-ink-2 italic"
+											<span class="block border-l-2 border-line-2 pl-2 text-label text-ink-2 italic"
 												>&ldquo;{source.statement}&rdquo;</span
 											>
 											{#if source.kind === 'own_canon'}
 												<a
 													href={resolve(`/w/${universeSlug}/e/${source.entitySlug}`)}
-													class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-xs text-ink hover:bg-accent-bg"
+													class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-label text-ink hover:bg-accent-bg"
 												>
 													<span class="truncate">{source.entityName}</span>
 													<span class="shrink-0 text-label text-muted">{askT.ownCanonLabel}</span>
@@ -681,7 +681,7 @@
 													href={source.url}
 													target="_blank"
 													rel="noreferrer"
-													class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-xs"
+													class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-label"
 												>
 													<span class="shrink-0 text-label text-ink-2">{askT.indexedBadge}</span>
 													<span class="truncate text-ink">{source.pageTitle}</span>
@@ -787,10 +787,10 @@
 	>
 		<span class="flex items-center gap-2">
 			<span aria-hidden="true" class="size-1.5 rounded-full bg-accent"></span>
-			<span class="text-sm font-semibold text-ink">{t.name}</span>
+			<span class="text-body font-semibold text-ink">{t.name}</span>
 			<span class="ml-auto font-mono text-label text-muted">{formatShortcut(askShortcut)}</span>
 		</span>
-		<span class="text-xs text-ink-2">{t.launcherHint}</span>
+		<span class="text-label text-ink-2">{t.launcherHint}</span>
 	</button>
 {/if}
 

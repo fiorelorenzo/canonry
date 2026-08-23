@@ -58,15 +58,15 @@
 					so the affordance is a disclosure and not decoration. -->
 				<button
 					type="button"
-					class="flex w-full items-start gap-2 rounded-md border border-transparent text-left text-sm transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px"
+					class="flex w-full items-start gap-2 rounded-md border border-transparent text-left text-body transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px"
 					aria-expanded={activeFactId === fact.id}
 					onclick={() => onToggle(fact)}
 				>
-					<span class="w-4 flex-none font-mono text-xs text-muted">{i + 1}</span>
+					<span class="w-4 flex-none font-mono text-label text-muted">{i + 1}</span>
 					<span class="min-w-0 break-words text-ink-2">{stripMentionSyntax(fact.statement)}</span>
 				</button>
 				{#if activeFactId === fact.id}
-					<p class="mt-2 pl-6 text-xs text-muted italic">
+					<p class="mt-2 pl-6 text-label text-muted italic">
 						&ldquo;{stripMentionSyntax(fact.sourceExcerpt)}&rdquo;
 					</p>
 				{/if}

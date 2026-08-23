@@ -27,12 +27,12 @@
 
 {#if relations.length > 0}
 	<section class="mt-8">
-		<h2 class="text-xs font-semibold tracking-wide text-muted uppercase">
+		<h2 class="text-label font-semibold tracking-wide text-muted uppercase">
 			{t.players.relationsHeading}
 		</h2>
 		<ul class="mt-2 space-y-2">
 			{#each relations as rel (rel.key + rel.other.id)}
-				<li class="text-sm">
+				<li class="text-body">
 					<span class="text-muted">
 						{t.relationTypeLabel(rel.key)?.[rel.direction === 'from' ? 'label' : 'inverseLabel'] ??
 							rel.label}
@@ -41,7 +41,7 @@
 						{rel.other.name}
 					</InlineLink>
 					{#if rel.other.status === 'gap'}
-						<span class="ml-1 text-xs text-muted">({t.players.notDiscovered})</span>
+						<span class="ml-1 text-label text-muted">({t.players.notDiscovered})</span>
 					{/if}
 				</li>
 			{/each}

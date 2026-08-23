@@ -26,7 +26,7 @@
 
 <div class="min-h-screen bg-paper text-ink">
 	<header class="border-b border-line bg-panel">
-		<div class="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3 text-sm md:px-8">
+		<div class="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3 text-body md:px-8">
 			<a
 				href={resolve(`/p/${data.universe.slug}`)}
 				class="font-semibold text-ink hover:text-accent"
@@ -34,7 +34,7 @@
 				{data.universe.name}
 			</a>
 			<span class="flex-1"></span>
-			<span class="text-xs tracking-wide text-muted uppercase">{t.players.wikiLabel}</span>
+			<span class="text-label tracking-wide text-muted uppercase">{t.players.wikiLabel}</span>
 		</div>
 	</header>
 	<!-- The gutter is `px-4 md:px-8` because that is the contract `PageBand`'s paper

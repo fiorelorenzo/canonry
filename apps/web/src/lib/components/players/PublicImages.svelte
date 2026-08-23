@@ -28,7 +28,7 @@
 
 {#if photos.length > 0}
 	<section class="mt-8">
-		<h2 class="text-xs font-semibold tracking-wide text-muted uppercase">
+		<h2 class="text-label font-semibold tracking-wide text-muted uppercase">
 			{t.players.media.heading}
 		</h2>
 		<div class="mt-2 grid grid-cols-2 gap-2">

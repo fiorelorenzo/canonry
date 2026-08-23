@@ -322,7 +322,7 @@
 				{/if}
 			</div>
 			{#if coverError}
-				<p class="mt-2 text-xs text-danger">{coverError}</p>
+				<p class="mt-2 text-label text-danger">{coverError}</p>
 			{/if}
 		</div>
 		<MediaGallery bind:open={coverGalleryOpen} data={coverGalleryData} {locale} />
@@ -336,7 +336,7 @@
 		aside is where the entry's structured facts live (S5), so it goes here rather than
 		in the prose. One static row, not a sixth collapsible section: there is nothing to
 		disclose, it is a single fact either way. -->
-	<p class="border-b border-line p-4 text-sm text-ink-2">{revealedInLabel}</p>
+	<p class="border-b border-line p-4 text-body text-ink-2">{revealedInLabel}</p>
 
 	{#each sections as section (section.id)}
 		<details
@@ -345,7 +345,7 @@
 			bind:open={open[section.id]}
 		>
 			<summary
-				class="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-xs font-medium text-ink hover:bg-panel focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"
+				class="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-label font-medium text-ink hover:bg-panel focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"
 			>
 				<span
 					class="text-label text-muted transition-transform"

@@ -42,7 +42,7 @@
      struck-through body itself. -->
 <Page width="working" {title}>
 	<div class="px-4 py-6 md:px-6 md:py-8">
-		<p class="mb-2 text-xs text-muted">
+		<p class="mb-2 text-label text-muted">
 			{#if data.candidate.targetSlug}
 				<a
 					class="hover:underline"
@@ -59,19 +59,19 @@
 
 		{#if data.candidate.awaitingDiff}
 			<div class="card rounded-lg border border-line bg-panel p-4">
-				<p class="mb-2 font-mono text-xs text-ink-2 uppercase">{t.review.awaitingDiff.kicker}</p>
+				<p class="mb-2 font-mono text-label text-ink-2 uppercase">{t.review.awaitingDiff.kicker}</p>
 				<h2 class="text-title text-ink">{t.review.awaitingDiff.body(title)}</h2>
 				<p class="mt-1 max-w-measure text-body text-ink-2">{t.review.awaitingDiff.noDiffYet}</p>
-				<p class="mt-3 max-w-measure text-sm text-ink-2">
+				<p class="mt-3 max-w-measure text-body text-ink-2">
 					<span class="font-medium text-ink">{t.review.awaitingDiff.reasonLabel}</span>
 					{data.candidate.rationale}
 				</p>
-				<p class="mt-3 text-sm text-ink-2">
+				<p class="mt-3 text-body text-ink-2">
 					{costLabel.prefix}<b class="text-ink"
 						>{creditsFormat.format(data.diffPriceCredits ?? 0)}</b
 					>{costLabel.suffix}
 				</p>
-				<p class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+				<p class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-body">
 					{#if data.candidate.planId}
 						<InlineLink
 							href={resolve(`/w/${data.universe.slug}/proposals/${data.candidate.planId}`)}

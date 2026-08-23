@@ -2271,9 +2271,9 @@ export const en: Messages = {
 			browserTitle: 'Models, Canonry admin',
 			textHeading: 'Text models',
 			textIntro1:
-				'The active model per purpose lives in <code class="text-xs">model_config</code>, not in code, and every flow - the Loremaster\'s four modes, propagation, warm generation, indexing, embedding - reads it through <code class="text-xs">resolveModel</code>. A change here takes effect on the very next call, no deploy, no restart. Provider is constrained to what <code class="text-xs">createLanguageModel</code> can actually build; a provider outside that list is not offered.',
+				'The active model per purpose lives in <code class="text-label">model_config</code>, not in code, and every flow - the Loremaster\'s four modes, propagation, warm generation, indexing, embedding - reads it through <code class="text-label">resolveModel</code>. A change here takes effect on the very next call, no deploy, no restart. Provider is constrained to what <code class="text-label">createLanguageModel</code> can actually build; a provider outside that list is not offered.',
 			textIntro2:
-				'An Italian question against an English canon has to find the English chunk, so the <strong>embedding</strong> purpose is a deliberate multilingual choice, not a free one. Candidates were compared on published multilingual retrieval benchmarks (MIRACL, MTEB Multilingual) restricted to providers this build can construct. Recommended: <code class="text-xs">google</code> / <code class="text-xs">gemini-embedding-001</code> (#1 on the MTEB Multilingual leaderboard, ~100 languages). Gap this box cannot close: no live embedding credential exists here to confirm en/it recall specifically - neither MIRACL nor MTEB publish an isolated English&harr;Italian score, so that is a live benchmark still owed once a real credential exists, not a settled number.',
+				'An Italian question against an English canon has to find the English chunk, so the <strong>embedding</strong> purpose is a deliberate multilingual choice, not a free one. Candidates were compared on published multilingual retrieval benchmarks (MIRACL, MTEB Multilingual) restricted to providers this build can construct. Recommended: <code class="text-label">google</code> / <code class="text-label">gemini-embedding-001</code> (#1 on the MTEB Multilingual leaderboard, ~100 languages). Gap this box cannot close: no live embedding credential exists here to confirm en/it recall specifically - neither MIRACL nor MTEB publish an isolated English&harr;Italian score, so that is a live benchmark still owed once a real credential exists, not a settled number.',
 			table: {
 				purpose: 'Purpose',
 				currentlyActive: 'Currently active',
@@ -2297,7 +2297,7 @@ export const en: Messages = {
 			imageIntro1:
 				'The active model per feature lives here, not in code, and a change here takes effect on the very next "Generate image" request - no deploy, no restart.',
 			imageIntro2Pre:
-				'Seeded default: <code class="text-xs">prunaai/p-image</code> for a single portrait, <code class="text-xs">black-forest-labs/flux-schnell</code> for the four-variant batch. Price per image is our own cost bookkeeping, in whichever currency the provider quotes it, never the credit price a GM sees - that lives in',
+				'Seeded default: <code class="text-label">prunaai/p-image</code> for a single portrait, <code class="text-label">black-forest-labs/flux-schnell</code> for the four-variant batch. Price per image is our own cost bookkeeping, in whichever currency the provider quotes it, never the credit price a GM sees - that lives in',
 			imageTable: {
 				feature: 'Feature',
 				pricePerImage: 'Price / image',
@@ -2347,7 +2347,7 @@ export const en: Messages = {
 			accept: {
 				heading: 'Accept rate',
 				intro: (windowDays) =>
-					`<code class="text-xs">proposal.outcome</code>, \`superseded\` and \`pending\` excluded from the denominator - computed by <code class="text-xs">@canonry/eval</code>'s <code class="text-xs">acceptRate</code>, the same function the propagation corpus scores prompt and model changes against. Window: last ${windowDays} days.`,
+					`<code class="text-label">proposal.outcome</code>, \`superseded\` and \`pending\` excluded from the denominator - computed by <code class="text-label">@canonry/eval</code>'s <code class="text-label">acceptRate</code>, the same function the propagation corpus scores prompt and model changes against. Window: last ${windowDays} days.`,
 				noProposalsYet:
 					'No proposals have been produced yet. A 0% accept rate here would be a lie by omission, not an honest reading, so this panel shows nothing until there is something to show.',
 				acceptRateLabel: 'Accept rate (decided proposals)',
@@ -2355,7 +2355,7 @@ export const en: Messages = {
 				byLocale: {
 					heading: 'By interface locale',
 					intro:
-						'<code class="text-xs">proposal.locale</code> - the interface language the proposal\'s speech was produced in, computed by the same <code class="text-xs">acceptRate</code> above. A locale with no proposals yet reads as "no data", never a fabricated 0%.',
+						'<code class="text-label">proposal.locale</code> - the interface language the proposal\'s speech was produced in, computed by the same <code class="text-label">acceptRate</code> above. A locale with no proposals yet reads as "no data", never a fabricated 0%.',
 					localeLabel: 'Locale'
 				}
 			},
@@ -2379,7 +2379,7 @@ export const en: Messages = {
 			warmRadius: {
 				heading: 'Warm radius',
 				intro: (thresholdPercent) =>
-					`Warm hit rate - consumed artifacts over generated ones - governs the warm radius automatically: below ${thresholdPercent}% it shrinks from ring 2 to ring 1. This is the same read <code class="text-xs">warmOnConsumption</code> uses to decide how far to reach, not a separate estimate.`,
+					`Warm hit rate - consumed artifacts over generated ones - governs the warm radius automatically: below ${thresholdPercent}% it shrinks from ring 2 to ring 1. This is the same read <code class="text-label">warmOnConsumption</code> uses to decide how far to reach, not a separate estimate.`,
 				consumed: 'Consumed',
 				generated: 'Generated',
 				hitRate: 'Hit rate',

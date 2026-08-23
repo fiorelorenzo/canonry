@@ -42,7 +42,7 @@
 	     resolve() result, plus a query string, which the rule cannot see through. -->
 	<a
 		href={`${base}${browseQuery(params, { type: null, page: 1 })}`}
-		class="rounded-full border px-3 py-1 font-mono text-xs tabular-nums"
+		class="rounded-full border px-3 py-1 font-mono text-label tabular-nums"
 		class:border-ink={params.type === null}
 		class:bg-ink={params.type === null}
 		class:text-panel={params.type === null}
@@ -56,7 +56,7 @@
 	{#each BROWSABLE_TYPES as type (type)}
 		<a
 			href={`${base}${browseQuery(params, { type, page: 1 })}`}
-			class="rounded-full border px-3 py-1 font-mono text-xs tabular-nums"
+			class="rounded-full border px-3 py-1 font-mono text-label tabular-nums"
 			class:border-ink={params.type === type}
 			class:bg-ink={params.type === type}
 			class:text-panel={params.type === type}

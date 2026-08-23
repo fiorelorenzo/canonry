@@ -36,12 +36,12 @@
 			<li class="flex items-center justify-between gap-3 py-2.5">
 				<div class="flex min-w-0 items-center gap-2">
 					<span
-						class="rounded-full border border-line-2 px-2 py-0.5 text-xs tracking-wide text-muted uppercase"
+						class="rounded-full border border-line-2 px-2 py-0.5 text-label tracking-wide text-muted uppercase"
 					>
 						{proposalBadge(proposal, t.badge)}
 					</span>
 					<span
-						class="truncate text-sm text-ink"
+						class="truncate text-body text-ink"
 						title={proposalDisplayName(proposal, t.untitledProposal)}
 					>
 						{proposalDisplayName(proposal, t.untitledProposal)}
@@ -71,7 +71,7 @@
 						{t.accepted}
 					</Badge>
 				{:else}
-					<span class="shrink-0 text-xs text-muted">{t.outcome[proposal.outcome]}</span>
+					<span class="shrink-0 text-meta text-muted">{t.outcome[proposal.outcome]}</span>
 				{/if}
 			</li>
 		{/each}

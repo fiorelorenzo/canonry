@@ -168,14 +168,14 @@
 
 			{#if form?.message}
 				<p
-					class="mt-4 rounded-md border border-danger-bg bg-danger-bg px-3 py-2 text-sm text-danger"
+					class="mt-4 rounded-md border border-danger-bg bg-danger-bg px-3 py-2 text-body text-danger"
 				>
 					{form.message}
 				</p>
 			{/if}
 
 			{#if data.query}
-				<p class="mt-4 text-sm text-muted">
+				<p class="mt-4 text-body text-muted">
 					{th.searchResultCount(data.query, data.matchedCount)}
 				</p>
 			{/if}

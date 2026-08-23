@@ -239,7 +239,7 @@
 		     it stays pure navigation; the type is metadata and the badge already says
 		     it with more visual weight (accent pill vs. plain text) right beside the
 		     name it describes. -->
-			<p class="mb-3 text-xs text-muted">
+			<p class="mb-3 text-label text-muted">
 				<a class="hover:underline" href={resolve(`/w/${data.universe.slug}`)}
 					>{data.universe.name}</a
 				>
@@ -264,8 +264,8 @@
 			</div>
 
 			<div class="mb-6">
-				<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
-					<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-xs text-accent-ink">
+				<div class="flex flex-wrap items-center gap-2 text-body text-muted">
+					<span class="rounded-full bg-accent-bg px-2 py-0.5 font-mono text-label text-accent-ink">
 						{data.entity.type}
 					</span>
 					{#if data.entity.aliases.length > 0}
@@ -287,7 +287,7 @@
 			     (see `EntryProseWithSecrets.svelte`'s `showViewControl` doc comment for
 			     the rule): fixing #452's duplicate, this used to also print from that
 			     component's own `{:else}` branch when `showViewControl` was `false`. -->
-				<p class="mt-3 border-b border-line pb-3 text-xs text-muted">
+				<p class="mt-3 border-b border-line pb-3 text-label text-muted">
 					{view === 'player' ? t.entry.prose.playerPreviewActive : t.entry.prose.gmViewDescription}
 				</p>
 			</div>
@@ -308,7 +308,7 @@
 						<!-- T1 (#428): same rule, extended from the wait to its outcome - the empty
 					     or failure sentence lands where the draft would have, not beside the
 					     button that no longer has room for it. -->
-						<div class="rounded-lg border border-line bg-panel-2 p-3 text-xs text-muted">
+						<div class="rounded-lg border border-line bg-panel-2 p-3 text-label text-muted">
 							{completeMessage}
 						</div>
 					{/if}
@@ -326,7 +326,7 @@
 						<!-- C3: a candidate with no drafted text yet is a decision about spending, and
 					     that decision belongs on the plan's checklist. Accepting an empty diff in
 					     place would be accepting something nobody could read. -->
-						<p class="mb-0 text-xs text-muted">
+						<p class="mb-0 text-label text-muted">
 							{t.proposals.inline.awaitingDiff(data.proposals.awaitingDiff.count)}
 							<InlineLink
 								href={data.proposals.awaitingDiff.planId
@@ -381,7 +381,7 @@
 		<div class="border-t border-line px-4 py-3 md:hidden">
 			<Sheet.Root bind:open={detailsOpen}>
 				<Sheet.Trigger
-					class="flex min-h-11 w-full items-center justify-between rounded-md border border-line-2 px-3 text-sm font-medium text-ink-2 hover:bg-panel-2"
+					class="flex min-h-11 w-full items-center justify-between rounded-md border border-line-2 px-3 text-body font-medium text-ink-2 hover:bg-panel-2"
 				>
 					<span>{t.entry.sections.mobile.trigger}</span>
 					<span aria-hidden="true">&#9662;</span>

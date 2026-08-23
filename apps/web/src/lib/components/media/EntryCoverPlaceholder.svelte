@@ -122,8 +122,8 @@
 	class:mb-6={variant === 'band' && hasImageStyle}
 	{style}
 >
-	<span class="text-sm font-medium">{t.placeholderAction}</span>
-	<span class="text-xs">{hasImageStyle ? t.placeholderHint : t.placeholderHintNoStyle}</span>
+	<span class="text-body font-medium">{t.placeholderAction}</span>
+	<span class="text-label">{hasImageStyle ? t.placeholderHint : t.placeholderHintNoStyle}</span>
 </button>
 {#if !hasImageStyle}
 	<!-- Issue #473: this world has no image style, so every generate control in the
@@ -136,7 +136,7 @@
 	     resolve() plus a same-page fragment the rule cannot see through. -->
 	<InlineLink
 		href={`${resolve(`/w/${universeSlug}/settings`)}#setup-image-style`}
-		class="-mt-1 block text-center text-xs font-medium {variant === 'band' ? 'mb-6' : ''}"
+		class="-mt-1 block text-center text-label font-medium {variant === 'band' ? 'mb-6' : ''}"
 	>
 		{t.placeholderNoStyleLink}
 	</InlineLink>

@@ -72,11 +72,11 @@
 					{/if}
 				</div>
 				<div class="flex min-w-0 flex-col gap-1.5 border-t border-line p-3">
-					<span class="truncate text-sm font-semibold text-ink">{entry.name}</span>
+					<span class="truncate text-title font-semibold text-ink">{entry.name}</span>
 					<Badge variant="secondary" class="self-start font-mono uppercase">
 						{t.filters.typeLabel(entry.type)}
 					</Badge>
-					<p class="line-clamp-2 min-h-9 text-xs text-muted">{entry.excerpt}</p>
+					<p class="line-clamp-2 min-h-9 text-meta text-muted">{entry.excerpt}</p>
 					<span class="text-label text-muted">
 						{t.changedAt(relativeTime(entry.updatedAt, t.relativeTime))}
 					</span>

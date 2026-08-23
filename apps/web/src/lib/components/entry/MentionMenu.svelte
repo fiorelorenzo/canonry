@@ -38,7 +38,7 @@
 		{matches.length > 0 ? t.entry.mentionMenu.matching(query) : t.entry.mentionMenu.noExactMatch}
 	</div>
 	{#if matches.length === 0}
-		<p class="px-3 py-2 text-xs text-muted">
+		<p class="px-3 py-2 text-label text-muted">
 			{t.entry.mentionMenu.noMatchBefore(query)} <code>]]</code>
 			{t.entry.mentionMenu.noMatchAfter}
 		</p>
@@ -50,13 +50,13 @@
 						type="button"
 						variant="ghost"
 						role="option"
-						class={`h-auto w-full items-center justify-between gap-2 rounded-none px-3 py-2 text-left text-sm font-normal ${i === highlightedIndex ? 'bg-panel-2' : ''}`}
+						class={`h-auto w-full items-center justify-between gap-2 rounded-none px-3 py-2 text-left text-body font-normal ${i === highlightedIndex ? 'bg-panel-2' : ''}`}
 						aria-selected={i === highlightedIndex}
 						onclick={() => onSelect(target)}
 					>
 						<span class="text-ink-2">{target.name}</span>
 						{#if target.aliases.length > 0}
-							<span class="text-xs text-muted"
+							<span class="text-label text-muted"
 								>{t.entry.mentionMenu.aliasLabel(target.aliases.join(', '))}</span
 							>
 						{/if}

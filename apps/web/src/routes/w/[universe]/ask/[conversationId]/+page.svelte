@@ -63,7 +63,7 @@
 
 			{#if form?.message}
 				<p
-					class="mb-4 rounded-md border border-danger-bg bg-danger-bg px-3 py-2 text-sm text-danger"
+					class="mb-4 rounded-md border border-danger-bg bg-danger-bg px-3 py-2 text-body text-danger"
 				>
 					{form.message}
 				</p>

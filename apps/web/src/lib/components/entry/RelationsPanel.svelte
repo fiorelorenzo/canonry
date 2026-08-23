@@ -29,7 +29,7 @@
 {:else}
 	<ul class="space-y-2.5">
 		{#each relations as relation (relation.key + relation.other.id)}
-			<li class="text-sm">
+			<li class="text-body">
 				<span class="text-muted">
 					{t.relationTypeLabel(relation.key)?.[
 						relation.direction === 'from' ? 'label' : 'inverseLabel'

@@ -252,7 +252,7 @@
 					{@const pin = current.pin}
 					<div class="flex items-start gap-2.5">
 						<span
-							class="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-accent-bg font-mono text-xs font-bold text-accent-ink"
+							class="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-accent-bg font-mono text-label font-bold text-accent-ink"
 							aria-hidden="true"
 						>
 							{initialsOf(pin.name)}
@@ -286,7 +286,7 @@
 							type="button"
 							onclick={() => (noteOpen ? cancelNote() : openNote())}
 							aria-expanded={noteOpen}
-							class="min-h-[44px] rounded-md border border-line-2 px-3 text-sm text-ink-2 hover:bg-panel-2"
+							class="min-h-[44px] rounded-md border border-line-2 px-3 text-body text-ink-2 hover:bg-panel-2"
 						>
 							{tNote.note}
 						</button>
@@ -295,7 +295,7 @@
 							onclick={() => markRevealed(pin.entityId)}
 							disabled={!canReveal || revealPending === pin.entityId || revealed.has(pin.entityId)}
 							title={canReveal ? undefined : tDock.markAsRevealedDisabledTitle}
-							class="min-h-[44px] rounded-md bg-accent px-4 text-sm font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-40"
+							class="min-h-[44px] rounded-md bg-accent px-4 text-body font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-40"
 						>
 							{revealed.has(pin.entityId)
 								? t.revealed
@@ -305,7 +305,7 @@
 						</button>
 						<a
 							href={resolve(`/w/${universeSlug}/e/${pin.slug}`)}
-							class="inline-flex min-h-[44px] items-center rounded-md border border-line-2 px-3 text-sm text-ink-2 hover:bg-panel-2"
+							class="inline-flex min-h-[44px] items-center rounded-md border border-line-2 px-3 text-body text-ink-2 hover:bg-panel-2"
 						>
 							{t.openEntry}
 						</a>
@@ -320,7 +320,7 @@
 							<p class="text-label text-muted">
 								{tNote.about}: <span class="text-ink">{pin.name}</span>
 							</p>
-							<p class="text-xs text-muted">{tNote.disclaimer}</p>
+							<p class="text-label text-muted">{tNote.disclaimer}</p>
 							<Textarea
 								bind:value={noteText}
 								rows={2}
@@ -331,14 +331,14 @@
 								<button
 									type="button"
 									onclick={cancelNote}
-									class="rounded-md border border-line-2 px-3 py-1.5 text-sm text-ink-2 hover:bg-panel-2"
+									class="rounded-md border border-line-2 px-3 py-1.5 text-body text-ink-2 hover:bg-panel-2"
 								>
 									{tNote.cancel}
 								</button>
 								<button
 									type="submit"
 									disabled={!noteText.trim() || notePending}
-									class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
+									class="rounded-md bg-accent px-3 py-1.5 text-body font-medium text-panel hover:bg-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
 								>
 									{notePending ? tNote.savingAsProposal : tNote.saveAsProposal}
 								</button>
@@ -355,7 +355,7 @@
 			type="button"
 			onclick={() => goTo(0)}
 			aria-current={index === 0 ? 'true' : undefined}
-			class="max-w-[9rem] flex-none truncate rounded-md border border-line-2 px-3 py-2 text-sm"
+			class="max-w-[9rem] flex-none truncate rounded-md border border-line-2 px-3 py-2 text-body"
 			class:text-accent-ink={index === 0}
 			class:font-semibold={index === 0}
 			class:text-ink-2={index !== 0}
@@ -367,7 +367,7 @@
 				type="button"
 				onclick={() => goTo(i + 1)}
 				aria-current={index === i + 1 ? 'true' : undefined}
-				class="max-w-[9rem] flex-none truncate rounded-md border border-line-2 px-3 py-2 text-sm"
+				class="max-w-[9rem] flex-none truncate rounded-md border border-line-2 px-3 py-2 text-body"
 				class:text-accent-ink={index === i + 1}
 				class:font-semibold={index === i + 1}
 				class:text-ink-2={index !== i + 1}

@@ -26,7 +26,7 @@
 </script>
 
 {#if pins.length === 0}
-	<p class="text-sm text-muted">
+	<p class="text-body text-muted">
 		{t.empty}
 	</p>
 {:else}

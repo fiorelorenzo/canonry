@@ -204,7 +204,7 @@
 
 	<a
 		href={resolve(`/w/${data.current.slug}`)}
-		class="mb-2 inline-block text-xs font-medium text-muted hover:text-ink"
+		class="mb-2 inline-block text-label font-medium text-muted hover:text-ink"
 	>
 		&larr; {entriesT.backToHome(data.current.name)}
 	</a>
@@ -216,7 +216,7 @@
 	/>
 
 	{#if data.params.query}
-		<p class="mt-3 text-sm text-muted">
+		<p class="mt-3 text-body text-muted">
 			{t.searchResultCount(data.params.query, data.matchedCount)}
 		</p>
 	{/if}
