@@ -84,15 +84,21 @@ export const ELEVENLABS_MEASURED_CONCURRENCY_CEILING = 4;
  * and `ElevenLabsThrottledError`'s retry becomes load-bearing for ordinary operation
  * rather than for the exceptional case it was written for.
  *
- * The ceiling belongs to an account, and two stacks share it. `preview` and `prod` on
- * prodbox carry the same `ELEVENLABS_API_KEY` value, and ElevenLabs counts concurrency per
- * subscription rather than per key, so 4 is the total for both stacks together plus any
- * bench run. At 3 the fourth slot is the other stack's floor, which is exactly one
- * in-flight generation, and `generateAmbientPack` renders a pack's layers one after
- * another, so one slot is all a quiet stack ever needs. Whether the two stacks should share
- * an account at all is a spend question and is on #594 for Lorenzo; 4 becomes safe the day
- * they stop sharing, and that day needs no code change, only
- * `MEDIA_CONCURRENCY_ELEVENLABS=4` in that stack's secrets.
+ * The ceiling belongs to an account, and two stacks share it on purpose (issue #609).
+ * `preview` and `prod` on prodbox carry the same `ELEVENLABS_API_KEY` value, and #609
+ * settled that this stays: no second subscription for `preview`, so 4 is the total for
+ * both stacks together plus any bench run. At 3 the fourth slot is the other stack's
+ * floor, which is exactly one in-flight generation, and `generateAmbientPack` renders a
+ * pack's layers one after another, so one slot is all a quiet stack ever needs.
+ *
+ * The option #609 left open is two API keys on the same account, and it would not change
+ * this number. ElevenLabs counts concurrency per subscription and not per key, which is
+ * what #337's refusal says in as many words ("your current subscription is associated with
+ * a maximum of 4 concurrent requests"), so a second key buys attribution, which stack
+ * spent what, and not isolation: the ceiling of 4 stays shared and this limit stays under
+ * it on both stacks. A second subscription is the thing that would make 4 safe, and it
+ * needs no code change either, only `MEDIA_CONCURRENCY_ELEVENLABS=4` in that stack's
+ * secrets.
  *
  * And the 4 is an observation about a `payg` account today rather than a published number
  * (see the constant above), so a limit equal to it would break silently on a plan change
