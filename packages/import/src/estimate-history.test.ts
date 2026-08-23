@@ -30,7 +30,12 @@ import {
 	ImportJobRunner,
 	type RunImportJobParams
 } from './job-runner.js';
-import { GatewayDriver, type GatewayWrapper, type ImportModel, type ModelSelector } from './gateway-driver.js';
+import {
+	GatewayDriver,
+	type GatewayWrapper,
+	type ImportModel,
+	type ModelSelector
+} from './gateway-driver.js';
 import { loadPlaybook } from './playbook.js';
 import { InMemorySourceReader } from './sources.js';
 import { InMemoryImageStore } from './images.js';
@@ -616,7 +621,8 @@ One document.
 
 		const jobRow = await getImportJob(db, admission.jobId);
 		expect(jobRow.status).toBe('stopped_at_ceiling');
-		expect(jobRow.spentCredits).toBeGreaterThan(0);
+		// Four steps at 2 credits each: two for doc-a, two for doc-b before its ceiling.
+		expect(jobRow.spentCredits).toBeCloseTo(8, 10);
 
 		// What the estimate screen used to say for the next two-document upload of this
 		// playbook: the cold-start row, because the job above installed no history.
@@ -634,11 +640,13 @@ One document.
 		});
 
 		// Both documents ran, so the whole job is the measurement and its own two documents
-		// are the denominator.
+		// are the denominator. The two literals are what `docs/loop-cost.md`'s #610 section
+		// reports, pinned here rather than left to a reader's arithmetic: the second job used
+		// to be quoted 3 for work the first had just billed 8.
 		expect(averages.basis.source).toBe('history');
 		expect(averages.basis.documentsPooled).toBe(2);
-		expect(averages.avgCreditsPerDocument).toBeCloseTo(jobRow.spentCredits / 2, 10);
-		expect(after.estimatedCredits).toBe(Math.ceil(jobRow.spentCredits));
-		expect(after.estimatedCredits).toBeGreaterThan(before.estimatedCredits);
+		expect(averages.avgCreditsPerDocument).toBeCloseTo(4, 10);
+		expect(before.estimatedCredits).toBe(3);
+		expect(after.estimatedCredits).toBe(8);
 	});
 });

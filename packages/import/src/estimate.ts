@@ -210,11 +210,7 @@ export const HISTORY_EVIDENCE_STATUSES = ['finished', 'stopped_at_ceiling'] as c
  * complaint is that nothing anywhere said a playbook's history was empty because its jobs
  * kept stopping. */
 export type PlaybookHistoryExclusion =
-	| 'not_settled'
-	| 'cancelled'
-	| 'failed'
-	| 'no_documents_ran'
-	| 'no_spend';
+	'not_settled' | 'cancelled' | 'failed' | 'no_documents_ran' | 'no_spend';
 
 export interface PlaybookEstimateBasis {
 	/** `'history'` when the two figures came from real rows, `'cold_start'` when they came
@@ -235,9 +231,7 @@ export interface PlaybookAverages {
 	basis: PlaybookEstimateBasis;
 }
 
-export type EstimateBasisSink = (
-	entry: PlaybookEstimateBasis & { playbookId: string }
-) => void;
+export type EstimateBasisSink = (entry: PlaybookEstimateBasis & { playbookId: string }) => void;
 
 /** One line, on the `channel` convention `logging.ts` uses, emitted only when a playbook
  * has run jobs and still has nothing to quote off. Not a metric and not a throw: the
@@ -378,7 +372,9 @@ export async function estimateAveragesForPlaybook(
 		// figure down, and this file's rule is that wall clock is raised on evidence and
 		// never lowered on it.
 		avgSecondsPerDocument:
-			timedDocs > 0 && totalSeconds > 0 ? totalSeconds / timedDocs : coldStart.avgSecondsPerDocument,
+			timedDocs > 0 && totalSeconds > 0
+				? totalSeconds / timedDocs
+				: coldStart.avgSecondsPerDocument,
 		basis: { source: 'history', jobsPooled, documentsPooled: totalDocs, ignored: [] }
 	};
 }
