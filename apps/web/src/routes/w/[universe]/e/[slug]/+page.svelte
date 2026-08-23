@@ -26,7 +26,7 @@
 	import { resolve } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
 	import { messages } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import EntryProseWithSecrets from '$lib/components/players/EntryProseWithSecrets.svelte';
 	import EntrySections, {
 		DEFAULT_SECTIONS_OPEN,
@@ -160,7 +160,7 @@
 
 <svelte:head><title>{data.entity.name} &middot; {data.universe.name}</title></svelte:head>
 
-<PageHeader title={data.entity.name}>
+<Page width="working" title={data.entity.name}>
 	{#snippet titleAdornment()}
 		<AuditFlagBadge
 			count={data.audit.flags.length}
@@ -216,9 +216,8 @@
 			</div>
 		</Tooltip.Provider>
 	{/snippet}
-</PageHeader>
 
-<!-- V1 = B's three widths apply to a page's own body, and this body is two columns: the
+	<!-- V1 = B's three widths apply to a page's own body, and this body is two columns: the
      article and the aside (S5). `reading` caps the *pair* at 44rem, which leaves the
      article 448px once the 256px aside is subtracted - narrower than
      `--container-measure`'s own 34rem, so the prose stopped reaching its own measure and
@@ -226,7 +225,7 @@
      `working` gives the pair 62rem, so the article clears the measure and the prose
      narrows on its own element, which is where the reading width was always meant to be
      enforced (`page-body.svelte`'s own doc comment says so). -->
-<PageBody width="working">
+
 	<!-- Q2 (round twelve): `md:min-h-full` gives this row a floor equal to `main`'s own
 	resolved height (definite, since `main` is `flex-1` inside the shell's `h-screen`
 	flex column - see AppShell.svelte), so the row is never shorter than the viewport
@@ -422,4 +421,4 @@
 			</Sheet.Root>
 		</div>
 	</div>
-</PageBody>
+</Page>

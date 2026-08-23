@@ -17,7 +17,7 @@
 	 */
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { messages } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
@@ -40,8 +40,7 @@
 
 <svelte:head><title>{t.works.index.title}: {data.current.name}</title></svelte:head>
 
-<PageHeader title={t.works.index.title} description={t.works.index.description} />
-<PageBody width="working">
+<Page width="working" title={t.works.index.title} description={t.works.index.description}>
 	<div class="px-8 py-10">
 		{#if data.works.length === 0}
 			<EmptyState kind="cold" message={t.works.index.empty}>
@@ -112,4 +111,4 @@
 			</Button>
 		</form>
 	</div>
-</PageBody>
+</Page>

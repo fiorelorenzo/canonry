@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * Issue #531, W3 = B (DECISIONS.md "Round eighteen"): the record. Search lives in
-	 * `PageHeader`'s own `filters` row, the same slot and the same debounced-`goto`-over-
+	 * `Page`'s own `filters` row, the same slot and the same debounced-`goto`-over-
 	 * a-real-`<form method="GET">` shape `entries/+page.svelte` built for U12 - a lone
 	 * text field with no submit button still submits on Enter with no JS at all, and
 	 * with JS the field debounces into a replacing, focus-keeping navigation instead.
@@ -22,7 +22,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import * as InputGroup from '$lib/components/ui/input-group';
 	import * as Tooltip from '$lib/components/ui/tooltip';
@@ -111,7 +111,7 @@
 	<title>{th.headTitle(data.current.name)}</title>
 </svelte:head>
 
-<PageHeader eyebrow={th.crumb(data.current.name)} title={th.heading}>
+<Page width="working" eyebrow={th.crumb(data.current.name)} title={th.heading}>
 	{#snippet filters()}
 		<form method="GET" class="flex items-center gap-2" onsubmit={onSearchSubmit}>
 			<InputGroup.Root class="w-full sm:w-80">
@@ -155,9 +155,7 @@
 			</InputGroup.Root>
 		</form>
 	{/snippet}
-</PageHeader>
 
-<PageBody width="working">
 	<div class="flex flex-col md:flex-row">
 		<div class="min-w-0 flex-1 px-4 py-8 md:px-8">
 			<!-- Guardrail 5's disclosure, read once here, as a single standing line rather than
@@ -216,4 +214,4 @@
 			/>
 		{/if}
 	</div>
-</PageBody>
+</Page>

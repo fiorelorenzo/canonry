@@ -8,7 +8,7 @@
 	 * route including this one, and the sidebar it renders alongside makes a
 	 * hand-rolled "back to X" link redundant. #147 dropped both from here rather
 	 * than leave a second landmark and a link nothing needs any more, and the
-	 * title/eyebrow block now renders through `PageHeader` from the control layer
+	 * title/eyebrow block now renders through `Page`'s band from the control layer
 	 * instead of its own markup.
 	 *
 	 * The body selectors below mirror `EntryProse.svelte`'s hand-rolled prose rules
@@ -27,7 +27,7 @@
 	 */
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 
 	let {
 		title,
@@ -45,13 +45,11 @@
 	id={page.data.user ? undefined : 'main'}
 	class={page.data.user ? undefined : 'px-4 md:px-8'}
 >
-	<PageHeader {eyebrow} {title} />
-
-	<PageBody width="reading">
+	<Page width="reading" {eyebrow} {title}>
 		<div
 			class="docs-prose mt-6 text-ink-2 [&_a]:text-accent-ink [&_a]:underline [&_a]:decoration-line-2 [&_a]:underline-offset-2 [&_a]:hover:bg-accent-bg [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-ink [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-ink [&_li]:mb-1 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-4 [&_p]:leading-relaxed [&_strong]:font-semibold [&_strong]:text-ink [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-6"
 		>
 			{@render children()}
 		</div>
-	</PageBody>
+	</Page>
 </svelte:element>

@@ -12,7 +12,7 @@
 	 * scripting off.
 	 */
 	import { enhance } from '$app/forms';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { messages } from '$lib/i18n';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
@@ -32,10 +32,10 @@
 	const kindLabel = $derived(kindOptions.find((option) => option.value === kind)?.label ?? kind);
 </script>
 
-<PageHeader
+<Page
+	width="working"
 	title={data.tree.length === 0 ? t.works.tree.emptyHeading(data.work.name) : data.work.name}
-/>
-<PageBody width="working">
+>
 	<div class="px-8 py-10">
 		{#if data.tree.length === 0}
 			<EmptyState kind="cold" message={t.works.tree.emptyHint}>
@@ -92,4 +92,4 @@
 			</Button>
 		</form>
 	</div>
-</PageBody>
+</Page>

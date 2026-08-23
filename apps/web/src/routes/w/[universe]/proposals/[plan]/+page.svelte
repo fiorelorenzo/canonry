@@ -2,7 +2,7 @@
 	/** #51: the plan page - C3's checklist, then C4/C5/C6's queue once diffs exist. */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import PlanChecklist from '$lib/components/proposals/PlanChecklist.svelte';
 	import ProposalQueue from '$lib/components/proposals/ProposalQueue.svelte';
 	import type { PageProps } from './$types';
@@ -20,8 +20,10 @@
 
 <svelte:head><title>{t.plan.crumbCurrent} &middot; {data.universe.name}</title></svelte:head>
 
-<PageHeader title={t.plan.heading(t.provenance(data.plan.trigger, data.triggerEntityName))} />
-<PageBody width="working">
+<Page
+	width="working"
+	title={t.plan.heading(t.provenance(data.plan.trigger, data.triggerEntityName))}
+>
 	<div class="px-4 py-6 md:px-6 md:py-8">
 		<p class="mb-2 text-xs text-muted">
 			<a class="hover:underline" href={resolve(`/w/${data.universe.slug}/proposals`)}>{t.title}</a>
@@ -53,4 +55,4 @@
 			/>
 		{/if}
 	</div>
-</PageBody>
+</Page>

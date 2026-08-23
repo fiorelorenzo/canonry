@@ -8,7 +8,7 @@
 	 * renders (`active="canon"` marks the row this leaf belongs to). A page reached
 	 * from Settings that does not look like Settings is a page you have to find twice.
 	 *
-	 * `PageHeader`'s `eyebrow` reads the settings heading rather than the universe name
+	 * The band's `eyebrow` reads the settings heading rather than the universe name
 	 * this leaf used to carry: the universe is already named in the rail's own
 	 * surroundings (the shell sits under the universe's own nav), and "Impostazioni" is
 	 * what tells a GM which page they landed on twice removed from a search result or a
@@ -16,7 +16,7 @@
 	 */
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import SettingsShell from '$lib/components/settings/SettingsShell.svelte';
 	import UniverseSettingsRail from '$lib/components/settings/UniverseSettingsRail.svelte';
 	import RelationCatalogue from '$lib/components/relations/RelationCatalogue.svelte';
@@ -57,12 +57,12 @@
 
 <svelte:head><title>{t.headTitle(data.universeName)}</title></svelte:head>
 
-<PageHeader
+<Page
+	width="working"
 	eyebrow={settingsT.heading}
 	title={t.title}
 	description={t.description(data.universeName)}
-/>
-<PageBody width="working">
+>
 	<SettingsShell>
 		{#snippet rail()}
 			<UniverseSettingsRail
@@ -84,4 +84,4 @@
 			/>
 		</div>
 	</SettingsShell>
-</PageBody>
+</Page>

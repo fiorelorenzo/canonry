@@ -37,7 +37,7 @@
 			<span class="text-xs tracking-wide text-muted uppercase">{t.players.wikiLabel}</span>
 		</div>
 	</header>
-	<!-- The gutter is `px-4 md:px-8` because that is the contract `PageHeader`'s band
+	<!-- The gutter is `px-4 md:px-8` because that is the contract `PageBand`'s paper
 	     bleeds against (`-mx-4 md:-mx-8`, plus the same padding re-added). This shell had
 	     `px-6`, so at `md` the band bled 32px into a 24px gutter and the public wiki
 	     scrolled 8px sideways at every desktop width - the one horizontal overflow left in

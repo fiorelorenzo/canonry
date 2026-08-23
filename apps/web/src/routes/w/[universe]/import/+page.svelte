@@ -11,7 +11,7 @@
 	import { dateFormat, messages } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import PlaybookSelect from '$lib/components/onboarding/PlaybookSelect.svelte';
 	import type { PageProps } from './$types';
@@ -34,12 +34,12 @@
 	<title>{t.upload.headTitle(data.universe.name)}</title>
 </svelte:head>
 
-<PageHeader
+<Page
+	width="working"
 	eyebrow={data.universe.name}
 	title={t.upload.heading}
 	description={t.upload.description}
-/>
-<PageBody width="working">
+>
 	<div class="flex flex-col gap-8 px-8 py-16">
 		{#if form && 'error' in form && form.error}
 			<p class="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{form.error}</p>
@@ -226,4 +226,4 @@
 			{/if}
 		</div>
 	</div>
-</PageBody>
+</Page>

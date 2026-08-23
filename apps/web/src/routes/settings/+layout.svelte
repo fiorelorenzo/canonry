@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
 	import { messages, type Locale } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import SettingsNav from '$lib/components/account/SettingsNav.svelte';
 	import SettingsShell from '$lib/components/settings/SettingsShell.svelte';
 
@@ -31,7 +31,7 @@
 	 * It carries no class of its own, so it changes no offset: the band below is still
 	 * the first thing rendered and still lands where every other route's does.
 	 *
-	 * Round seventeen (V1 = B, #494): every route opens with one `PageHeader` band
+	 * Round seventeen (V1 = B, #494): every route opens with one `Page` band
 	 * whose h1 must land at the same pixel offset everywhere - which only holds if
 	 * nothing *positions* the band. A leaf nested inside `SettingsShell`'s rail+content
 	 * flex row cannot supply that band itself: rendered inside the row, its h1 would sit
@@ -60,13 +60,12 @@
 	id={page.data.user ? undefined : 'main'}
 	class={page.data.user ? undefined : 'px-4 md:px-8'}
 >
-	<PageHeader title={header.title} description={header.description} />
-	<PageBody width="working">
+	<Page width="working" title={header.title} description={header.description}>
 		<SettingsShell>
 			{#snippet rail()}
 				<SettingsNav />
 			{/snippet}
 			{@render children()}
 		</SettingsShell>
-	</PageBody>
+	</Page>
 </svelte:element>

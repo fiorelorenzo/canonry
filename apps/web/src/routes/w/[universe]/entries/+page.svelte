@@ -13,7 +13,7 @@
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Button } from '$lib/components/ui/button';
 	import * as InputGroup from '$lib/components/ui/input-group';
@@ -129,7 +129,7 @@
 	<title>{entriesT.headTitle(data.current.name)}</title>
 </svelte:head>
 
-<PageHeader title={entriesT.title}>
+<Page width="wide" title={entriesT.title}>
 	{#snippet actions()}
 		<Button onclick={() => (newEntryOpen = true)}>{t.newEntryAction}</Button>
 	{/snippet}
@@ -201,9 +201,7 @@
 			</InputGroup.Root>
 		</form>
 	{/snippet}
-</PageHeader>
 
-<PageBody width="wide">
 	<a
 		href={resolve(`/w/${data.current.slug}`)}
 		class="mb-2 inline-block text-xs font-medium text-muted hover:text-ink"
@@ -249,4 +247,4 @@
 			relativeTimeT={t.relativeTime}
 		/>
 	{/if}
-</PageBody>
+</Page>

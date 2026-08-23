@@ -27,7 +27,7 @@
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { messages } from '$lib/i18n';
 	import type { PageData } from './$types';
 
@@ -49,13 +49,11 @@
 		<p class="mt-4 text-center text-sm text-muted">{t.shell.door.exportNote}</p>
 	</AuthShell>
 {:else}
-	<PageHeader title={t.universe.list.heading}>
+	<Page width="wide" title={t.universe.list.heading}>
 		{#snippet actions()}
 			<Button href={resolve('/onboarding')}>{t.universe.list.newUniverse}</Button>
 		{/snippet}
-	</PageHeader>
 
-	<PageBody width="wide">
 		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each data.universes as universe (universe.id)}
 				<a
@@ -75,5 +73,5 @@
 				</a>
 			{/each}
 		</div>
-	</PageBody>
+	</Page>
 {/if}

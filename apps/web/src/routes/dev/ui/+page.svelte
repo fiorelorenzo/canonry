@@ -23,7 +23,8 @@
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { Separator } from '$lib/components/ui/separator';
 	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
+	import PageBand from '$lib/components/ui/page/page-band.svelte';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { KeyHint, type KeyHintPair } from '$lib/components/ui/key-hint';
 	import { AcceptMark } from '$lib/components/ui/accept-mark';
@@ -126,11 +127,11 @@
 		this={page.data.user ? 'div' : 'main'}
 		class={page.data.user ? undefined : 'px-4 md:px-8'}
 	>
-		<PageHeader
+		<Page
+			width="working"
 			eyebrow="Internal component gallery, not a product page"
 			title="shadcn-svelte control layer"
-		/>
-		<PageBody width="working">
+		>
 			<p class="mb-8 max-w-measure text-ink-2">
 				Decision I9 = C: shadcn-svelte owns every control shape in the pass, restyled onto this
 				app's own tokens rather than its own (<a
@@ -398,9 +399,14 @@
 						</div>
 					</div>
 
+					<!-- X1 = A (#598): the band is `Page`'s own now and takes the body's width, so
+					     the gallery draws `PageBand` directly rather than nesting a whole `Page`
+					     inside this one. This import is the only one in the app outside
+					     `page.svelte`, and `page-header-offset.test.ts` holds it to that. -->
 					<h3 class="mb-2 text-sm font-semibold text-ink">Page header</h3>
 					<div class="mb-6 rounded border border-line bg-panel p-4">
-						<PageHeader
+						<PageBand
+							width="working"
 							eyebrow="Universe"
 							title="Valdoria Reach"
 							description="214 entries, last touched an hour ago."
@@ -409,7 +415,7 @@
 								<Button variant="secondary">Settings</Button>
 								<Button>New entry</Button>
 							{/snippet}
-						</PageHeader>
+						</PageBand>
 					</div>
 
 					<h3 class="mb-2 text-sm font-semibold text-ink">Empty state, three kinds (I8)</h3>
@@ -501,7 +507,7 @@
 					</div>
 				</section>
 			{/each}
-		</PageBody>
+		</Page>
 	</svelte:element>
 </Tooltip.Provider>
 

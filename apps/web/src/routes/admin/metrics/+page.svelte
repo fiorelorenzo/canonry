@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { dateFormat, LOCALE_NAMES, messages, numberFormat } from '$lib/i18n';
-	import { PageBody, PageHeader } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -50,8 +50,7 @@
 	<title>{t.metrics.browserTitle}</title>
 </svelte:head>
 
-<PageHeader title={t.metrics.heading} />
-<PageBody width="wide">
+<Page width="wide" title={t.metrics.heading}>
 	<div class="px-8 py-10">
 		<p class="mt-6 max-w-measure text-sm text-ink-2">
 			{t.metrics.intro}
@@ -373,4 +372,4 @@
 			{/if}
 		</section>
 	</div>
-</PageBody>
+</Page>

@@ -10,7 +10,7 @@
 	 * text rather than faking a proposal row into a real entry.
 	 */
 	import { page } from '$app/state';
-	import { PageHeader, PageBody } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import AiMarkedParagraph from '$lib/components/ai/AiMarkedParagraph.svelte';
 	import type { ParagraphSegment } from '$lib/components/ai/aiMarking';
 	import { renderMarkdown, type MentionTarget } from '$lib/markdown';
@@ -96,11 +96,11 @@
 	this={page.data.user ? 'div' : 'main'}
 	class={page.data.user ? undefined : 'px-4 md:px-8'}
 >
-	<PageHeader
+	<Page
+		width="working"
 		eyebrow="Internal component gallery, not a product page"
 		title="AI marking and the change bar"
-	/>
-	<PageBody width="working">
+	>
 		<p class="mb-2 max-w-measure text-ink-2">
 			Two signals, never the same claim. <strong class="text-ink">C1's mark</strong> - a dashed underline
 			plus a numbered margin marker, in the one hue reserved for the copilot - says "this wording is the
@@ -167,7 +167,7 @@
 				</div>
 			</section>
 		{/each}
-	</PageBody>
+	</Page>
 </svelte:element>
 
 <style>

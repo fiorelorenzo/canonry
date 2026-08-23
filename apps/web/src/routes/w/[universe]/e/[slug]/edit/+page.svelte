@@ -26,7 +26,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { messages } from '$lib/i18n';
-	import { PageHeader } from '$lib/components/ui/page-header';
+	import { Page } from '$lib/components/ui/page';
 	import { Button } from '$lib/components/ui/button';
 	import MarkdownEditor from '$lib/components/entry/MarkdownEditor.svelte';
 	import LanguageControl from '$lib/components/entry/LanguageControl.svelte';
@@ -48,14 +48,17 @@
 	></svelte:head
 >
 
-<PageHeader title={t.entry.editor.heading(data.entity.name)} />
-
-<!-- V1 = B (#494): `flex h-full` plus the `max-w-working` token applied directly here
-     rather than through the shared `PageBody` wrapper - `PageBody`'s own div has no
-     defined height, and `MarkdownEditor`'s `fill` below needs an unbroken `h-full`
-     chain from `main` down to itself to occupy the remaining viewport height. Still
-     exactly one of the three named widths, just not routed through the component. -->
-<div class="mx-auto flex h-full w-full max-w-working flex-col px-6 py-8">
+<!-- X1 = A (#598): the width is declared once, here, and `bodyClass` carries what this
+     route's body needs beyond it. `MarkdownEditor`'s `fill` needs an unbroken `h-full`
+     chain from `main` down to itself, and an auto-height wrapper anywhere in that chain
+     breaks it, which is why this route used to apply the `max-w-working` token to its own
+     element instead of going through `PageBody`. It no longer spells a width at all, so
+     the band it sits under cannot disagree with it. -->
+<Page
+	width="working"
+	title={t.entry.editor.heading(data.entity.name)}
+	bodyClass="flex h-full flex-col px-6 py-8"
+>
 	<p class="mb-1 shrink-0 text-xs text-muted">
 		<a class="hover:underline" href={resolve(`/w/${data.universe.slug}/e/${data.entity.slug}`)}
 			>{data.entity.name}</a
@@ -119,4 +122,4 @@
 			locale={data.locale}
 		/>
 	</div>
-</div>
+</Page>
