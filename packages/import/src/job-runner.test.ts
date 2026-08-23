@@ -375,6 +375,7 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 					selfLoop: 0,
 					deferred: 0
 				},
+				truncatedPools: 0,
 				detail: 'unchanged since the last import'
 			}
 		]);

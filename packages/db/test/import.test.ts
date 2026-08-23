@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	acceptImportProposal,
@@ -16,6 +16,7 @@ import {
 	foldEntitySightingIntoPendingProposal,
 	getProposal,
 	missingEntitySourceRefsForJob,
+	pendingEntityProposalsByIdentity,
 	pendingEntityProposalsForJob,
 	recordProposalDiff,
 	type Db,
@@ -541,9 +542,10 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 					body: ''
 				}
 			]);
-			const candidates = await candidateEntitiesForMatching(db, u.id, 'character');
+			const { candidates, truncated } = await candidateEntitiesForMatching(db, u.id, 'character');
 			expect(candidates.some((c) => c.name === 'Aldric Voss')).toBe(true);
 			expect(candidates.some((c) => c.name === 'Thornwick College')).toBe(false);
+			expect(truncated).toBe(false);
 		});
 
 		it('carries the type and a capped head of the body, for the matcher to embed (issue #310)', async () => {
@@ -557,7 +559,7 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 				body
 			});
 
-			const candidates = await candidateEntitiesForMatching(db, u.id, 'character');
+			const { candidates } = await candidateEntitiesForMatching(db, u.id, 'character');
 			const aldric = candidates.find((candidate) => candidate.name === 'Aldric Vane');
 			if (!aldric) throw new Error('fixture setup failed');
 
@@ -566,6 +568,58 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 			// over the wire to use the first sentence of each.
 			expect(aldric.bodyLead).toBe(body.slice(0, 400));
 			expect(aldric.bodyLead.length).toBeLessThan(body.length);
+		});
+
+		// Issue #627. The pool used to take an unordered LIMIT, so which entities reached the
+		// scorer was whatever the heap happened to hold first: insertion order until something
+		// rewrote a row, and then a different set. These twelve are inserted in an order that
+		// is not their slug order, so an unordered read cannot pass.
+		it('pages a pool larger than the limit in slug order rather than in insertion order', async () => {
+			const { universe: u } = await jobFixture();
+			const prefix = unique('pool');
+			const inserted = [7, 2, 11, 0, 5, 9, 1, 6, 3, 10, 4, 8];
+			await db.insert(entity).values(
+				inserted.map((n) => ({
+					universeId: u.id,
+					type: 'character' as const,
+					name: `Pool ${String(n).padStart(2, '0')}`,
+					slug: `${prefix}-${String(n).padStart(2, '0')}`,
+					body: ''
+				}))
+			);
+
+			const first = await candidateEntitiesForMatching(db, u.id, 'character', 5);
+			expect(first.candidates).toHaveLength(5);
+			expect(first.truncated).toBe(true);
+			expect(first.candidates.map((c) => c.name)).toEqual([
+				'Pool 00',
+				'Pool 01',
+				'Pool 02',
+				'Pool 03',
+				'Pool 04'
+			]);
+
+			// And it stays that page across a rewrite of the rows in it, which is what moves a
+			// tuple in the heap and used to move the page with it.
+			await db
+				.update(entity)
+				.set({ body: 'the GM edited this' })
+				.where(inArray(entity.slug, [`${prefix}-00`, `${prefix}-01`, `${prefix}-02`]));
+			const second = await candidateEntitiesForMatching(db, u.id, 'character', 5);
+			expect(second.candidates.map((c) => c.id)).toEqual(first.candidates.map((c) => c.id));
+		});
+
+		it('reports a pool that fits under the limit as complete', async () => {
+			const { universe: u } = await jobFixture();
+			await db.insert(entity).values({
+				universeId: u.id,
+				type: 'character',
+				name: 'Solitary',
+				slug: unique('solitary'),
+				body: ''
+			});
+			const pool = await candidateEntitiesForMatching(db, u.id, 'character', 200);
+			expect(pool.truncated).toBe(false);
 		});
 	});
 
@@ -581,7 +635,7 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 			});
 
 			// The pool the semantic step gets, asked for the type a bad extraction proposed.
-			expect(await candidateEntitiesForMatching(db, u.id, 'faction')).toEqual([]);
+			expect((await candidateEntitiesForMatching(db, u.id, 'faction')).candidates).toEqual([]);
 			// The identity lookup, which is the one that has to see it: `entity_universe_slug_key`
 			// is UNIQUE on (universe_id, slug) and takes no notice of the type.
 			const found = await entitiesByIdentity(db, u.id, ['cairnmouth'], []);
@@ -687,7 +741,7 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 			await pendingCreateCandidate(job.id, u.id, 'place', 'Port Verity');
 			await pendingCreateCandidate(otherJob.id, u.id, 'character', 'Mira Sable');
 
-			const candidates = await pendingEntityProposalsForJob(db, job.id, 'character');
+			const { candidates } = await pendingEntityProposalsForJob(db, job.id, 'character');
 			// `type` and `bodyLead` are issue #310: the matcher embeds them as context, and they come
 			// off the patch rather than off the caller's filter argument so a row reports what it
 			// actually says.
@@ -708,8 +762,82 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 
 			await acceptProposal(db, { proposalId: character.id });
 
-			const candidates = await pendingEntityProposalsForJob(db, job.id, 'character');
+			const { candidates } = await pendingEntityProposalsForJob(db, job.id, 'character');
 			expect(candidates).toEqual([]);
+		});
+
+		// Issue #627. The type filter used to run in TypeScript, after the SQL LIMIT, so the cap
+		// applied to the job's pending creates of every type and then whatever was left of the
+		// requested one came back. Six characters exist here and the cap is four, so a pool that
+		// filters after the limit can only return two of them.
+		it('applies the limit to the requested type, not to the job (issue #627)', async () => {
+			const { universe: u, job } = await jobFixture();
+			for (let i = 0; i < 6; i += 1) {
+				await pendingCreateCandidate(job.id, u.id, 'character', `Character ${i}`);
+				await pendingCreateCandidate(job.id, u.id, 'place', `Place ${i}`);
+			}
+
+			const pool = await pendingEntityProposalsForJob(db, job.id, 'character', 4);
+			expect(pool.candidates).toHaveLength(4);
+			expect(pool.candidates.every((c) => c.type === 'character')).toBe(true);
+			expect(pool.truncated).toBe(true);
+
+			const whole = await pendingEntityProposalsForJob(db, job.id, 'character', 200);
+			expect(whole.candidates).toHaveLength(6);
+			expect(whole.truncated).toBe(false);
+		});
+
+		// Issue #627. Within one plan the order is `rank`, which decision C3 already makes the
+		// ordering that survives a cap, and never the order the rows were written in. These are
+		// written in reverse rank on purpose, so an unordered read cannot pass.
+		it('pages a pool larger than the limit by created_at then rank, not by heap order', async () => {
+			const { universe: u, job } = await jobFixture();
+			const { proposals } = await createProposalPlan(db, {
+				universeId: u.id,
+				trigger: 'import',
+				importJobId: job.id,
+				summary: 'one document',
+				candidateCap: 10,
+				estimatedCredits: 0,
+				candidates: Array.from({ length: 6 }, (_, i) => ({
+					kind: 'create' as const,
+					targetEntityId: null,
+					rationale: 'r',
+					evidence: [],
+					rank: 5 - i
+				}))
+			});
+			for (const [i, created] of proposals.entries()) {
+				await recordProposalDiff(db, {
+					proposalId: created.id,
+					patch: {
+						type: 'character',
+						name: `Rank ${5 - i}`,
+						slug: unique(`rank-${5 - i}`),
+						aliases: [],
+						body: 'x'
+					},
+					provider: 'test',
+					modelId: 'test',
+					credits: 0
+				});
+			}
+
+			const pool = await pendingEntityProposalsForJob(db, job.id, 'character', 3);
+			expect(pool.candidates.map((c) => c.name)).toEqual(['Rank 0', 'Rank 1', 'Rank 2']);
+
+			// A fold rewrites the proposal's patch, which relocates the row. Measured on a
+			// notebook-shaped job, 20 folds moved 19 of a 200 row page: the pool a fold decision
+			// was scored against changed because of the previous fold.
+			await foldEntitySightingIntoPendingProposal(db, {
+				proposalId: pool.candidates[0]!.id,
+				names: ['A Second Sighting'],
+				documentId: 'doc-2',
+				sourceRef: { documentId: 'doc-2', path: 'notes/second.md' },
+				contentHash: 'hash-doc-2'
+			});
+			const after = await pendingEntityProposalsForJob(db, job.id, 'character', 3);
+			expect(after.candidates.map((c) => c.id)).toEqual(pool.candidates.map((c) => c.id));
 		});
 
 		it("folds a repeat sighting's new names into the pending proposal's alias list", async () => {
@@ -792,6 +920,103 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 			const row = await getProposal(db, character.id);
 			const evidence = row?.evidence as { foldedSources?: unknown[] };
 			expect(evidence.foldedSources).toHaveLength(1);
+		});
+	});
+
+	describe('pendingEntityProposalsByIdentity (issues #479, #627)', () => {
+		async function pendingCreate(
+			jobId: string,
+			universeId: string,
+			type: 'character' | 'place',
+			name: string,
+			slug: string
+		) {
+			const { proposals } = await createProposalPlan(db, {
+				universeId,
+				trigger: 'import',
+				importJobId: jobId,
+				summary: 'x',
+				candidateCap: 10,
+				estimatedCredits: 0,
+				candidates: [
+					{ kind: 'create', targetEntityId: null, rationale: 'r', evidence: [], rank: 0 }
+				]
+			});
+			const created = proposals[0]!;
+			await recordProposalDiff(db, {
+				proposalId: created.id,
+				patch: { type, name, slug, aliases: [], body: 'x' },
+				provider: 'test',
+				modelId: 'test',
+				credits: 0
+			});
+			return created;
+		}
+
+		it('finds the collision however deep in the job it sits, with no cap to fall outside of', async () => {
+			const { universe: u, job } = await jobFixture();
+			for (let i = 0; i < 8; i += 1) {
+				await pendingCreate(job.id, u.id, 'character', `Filler ${i}`, unique(`filler-${i}`));
+			}
+			// Written last, so a query that read a page of the job's creates and filtered it in
+			// TypeScript would have to be paging deep enough to reach it.
+			const cairnmouth = await pendingCreate(job.id, u.id, 'place', 'Cairnmouth', 'cairnmouth');
+
+			const found = await pendingEntityProposalsByIdentity(db, job.id, ['cairnmouth'], []);
+			expect(found).toEqual([
+				{ id: cairnmouth.id, name: 'Cairnmouth', slug: 'cairnmouth', type: 'place' }
+			]);
+		});
+
+		it('is type-blind, because entity_universe_slug_key is (issue #479)', async () => {
+			const { universe: u, job } = await jobFixture();
+			const place = await pendingCreate(job.id, u.id, 'place', 'Saltmere', 'saltmere');
+			// A later document proposes the same name as a faction. The slug is the same string,
+			// and the constraint takes no notice of the type.
+			const found = await pendingEntityProposalsByIdentity(db, job.id, ['saltmere'], []);
+			expect(found.map((row) => [row.id, row.type])).toEqual([[place.id, 'place']]);
+		});
+
+		it('matches a case-folded name as well as a slug, and returns the patch\u2019s own slug', async () => {
+			const { universe: u, job } = await jobFixture();
+			// A hand-written slug that `slugify(name)` would not produce, which is the case the
+			// name half of the lookup exists for.
+			const row = await pendingCreate(job.id, u.id, 'place', 'Cairnmouth', 'cairnmouth-the-town');
+			expect(await pendingEntityProposalsByIdentity(db, job.id, ['cairnmouth'], [])).toEqual([]);
+			const byName = await pendingEntityProposalsByIdentity(db, job.id, [], ['CAIRNMOUTH']);
+			expect(byName).toEqual([
+				{ id: row.id, name: 'Cairnmouth', slug: 'cairnmouth-the-town', type: 'place' }
+			]);
+		});
+
+		it("ignores another job's creates, an already decided one, and a patch with no name yet", async () => {
+			const { universe: u, job } = await jobFixture();
+			const { job: otherJob } = await jobFixture();
+			await pendingCreate(otherJob.id, u.id, 'place', 'Cairnmouth', 'cairnmouth');
+			const accepted = await pendingCreate(job.id, u.id, 'place', 'Saltmere', 'saltmere');
+			await acceptProposal(db, { proposalId: accepted.id });
+			// `patch: {}` until recordProposalDiff runs, which is a real window during a job.
+			await createProposalPlan(db, {
+				universeId: u.id,
+				trigger: 'import',
+				importJobId: job.id,
+				summary: 'x',
+				candidateCap: 10,
+				estimatedCredits: 0,
+				candidates: [
+					{ kind: 'create', targetEntityId: null, rationale: 'r', evidence: [], rank: 0 }
+				]
+			});
+
+			expect(
+				await pendingEntityProposalsByIdentity(db, job.id, ['cairnmouth', 'saltmere'], [])
+			).toEqual([]);
+		});
+
+		it('asks nothing when there is nothing to ask about', async () => {
+			const { job } = await jobFixture();
+			expect(await pendingEntityProposalsByIdentity(db, job.id, [], [])).toEqual([]);
+			expect(await pendingEntityProposalsByIdentity(db, job.id, [''], ['  '])).toEqual([]);
 		});
 	});
 
