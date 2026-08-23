@@ -177,6 +177,10 @@ export interface RunCandidateOptions {
 	purpose: BenchPurpose;
 	candidate: Candidate;
 	tasks: BenchTask[];
+	/** Case ids to run, empty for all of them. A prompt change usually invalidates one case
+	 * of one task (issue #329 changed `onenote.md`, which only the two OneNote cases of
+	 * `extract` read), and paying for the other seven measures nothing. */
+	cases?: string[];
 	onCase?: (taskId: string, outcome: CaseOutcome) => void;
 }
 
@@ -186,7 +190,11 @@ export async function runCandidate(options: RunCandidateOptions): Promise<Candid
 
 	const results: TaskResult[] = [];
 	for (const task of tasks) {
-		const ids = await task.caseIds();
+		const all = await task.caseIds();
+		const ids =
+			options.cases === undefined || options.cases.length === 0
+				? all
+				: all.filter((id) => options.cases!.includes(id));
 		const cases: CaseOutcome[] = [];
 		for (const caseId of ids) {
 			const started = Date.now();

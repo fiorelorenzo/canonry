@@ -40,12 +40,25 @@ import type { BenchTask, CaseOutcome, TaskContext } from '../runner.js';
  * interesting model question for a PDF is the scanned page, which is the `page` task under
  * the `multimodal` purpose.
  *
- * `onenote` is absent for a worse reason, and it is a finding rather than a choice: a
- * OneNote export is a tree of `.htm` files, `KNOWN_PLAYBOOK_IDS` has no `onenote` entry,
- * and `documentsForPlaybook('generic', ...)` enumerates only `.md` and `.txt`. So a
- * OneNote export routed through the generic path yields zero documents and imports
- * nothing at all. The corpus renders one anyway (`.data/corpus/onenote`), and
- * `src/e2e/import.ts` reports the empty run rather than hiding it.
+ * The two `onenote` cases were added by issue #329, and the reason they were missing is
+ * worth keeping: `KNOWN_PLAYBOOK_IDS` used to carry no `onenote` entry, so an uploaded
+ * export fell through `detectSource` to `generic`, `documentsForPlaybook('generic', ...)`
+ * enumerated only `.md` and `.txt`, and a well-formed export imported nothing at all.
+ * Issue #162 fixed that, and this comment kept saying otherwise for long enough that
+ * `docs/models.md`'s 0.839 for `extract` was quoted as covering `onenote` when no case
+ * here read a OneNote page.
+ *
+ * Both are subpages, because the parent/subpage relation is the one signal no other
+ * playbook can see (`onenote.md`: a sibling `X.htm` beside a folder `X` means this page is
+ * a subpage of `X`) and it is the part of that prompt a trim must not break. Each of them
+ * expects exactly one relation, so this task's `relationRecall` for these two cases *is*
+ * the folder-tree rule, scored on its own.
+ *
+ * One artefact to read them with: the playbook requires proposing a minimal entity for the
+ * parent page, and the corpus gold for a subpage names only the subpage's own entity, so a
+ * perfect run scores 1.0 recall, 0.5 precision and 1.0 relation recall, which is 0.825 and
+ * not 1.0. That ceiling is the same on both sides of any comparison, so it does not
+ * distort a before and after, and it is stated here rather than read as a defect.
  */
 const CASES: Array<{ id: string; source: string; pick: (m: CorpusManifest) => string }> = [
 	{
@@ -84,6 +97,16 @@ const CASES: Array<{ id: string; source: string; pick: (m: CorpusManifest) => st
 		id: 'generic-housekeeping',
 		source: 'generic',
 		pick: (m) => firstOrThrow(m, (d) => d.expectEntities.length === 0)
+	},
+	{
+		id: 'onenote-first-subpage',
+		source: 'onenote',
+		pick: (m) => nthSubpage(m, 0)
+	},
+	{
+		id: 'onenote-second-subpage',
+		source: 'onenote',
+		pick: (m) => nthSubpage(m, 1)
 	}
 ];
 
@@ -98,6 +121,22 @@ function firstOrThrow(
 	const found = manifest.documents.find(predicate);
 	if (!found) throw new Error(`${manifest.source} v1 has no document matching the extract case`);
 	return found.sourcePath;
+}
+
+/** The nth document, by path, whose gold carries a `subpage of` relation: the folder-tree
+ * rule of `onenote.md` and nothing else. Two of them, so one prompt change can be seen to
+ * hold or break on more than a single page. */
+function nthSubpage(manifest: CorpusManifest, index: number): string {
+	const subpages = manifest.documents
+		.filter((d) => d.expectRelations.some((r) => r.includes('|subpage of|')))
+		.sort((a, b) => a.sourcePath.localeCompare(b.sourcePath));
+	const picked = subpages[index];
+	if (!picked) {
+		throw new Error(
+			`${manifest.source} v1 has ${subpages.length} documents expecting a subpage-of relation, so index ${index} does not exist`
+		);
+	}
+	return picked.sourcePath;
 }
 
 function mostEntities(
