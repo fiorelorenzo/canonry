@@ -1,9 +1,10 @@
 /**
  * Pure-function tests for `estimate.ts` (issue #272) - no database. The DB-backed path
- * (`estimateAveragesForPlaybook`'s historical-average branch) is exercised against a real
- * Postgres in `apps/web/src/lib/server/onboarding.test.ts`, which re-exports this same
- * function under the name callers there already use; duplicating that setup here would
- * test the same code twice for no more confidence.
+ * (`estimateAveragesForPlaybook`'s historical-average branch) is `estimate-history.test.ts`
+ * next door, against a real Postgres. That claim used to read "exercised in
+ * `apps/web/src/lib/server/onboarding.test.ts`", and it was true only in the thinnest
+ * sense: those three tests reach the cold-start branch and assert the constants, so the
+ * status filter #610 turned out to be wrong about had no test anywhere.
  */
 import { describe, expect, it } from 'vitest';
 import {

@@ -14,7 +14,7 @@
  * app. Nothing in the actual derivation needs SvelteKit, so it moved here; `onboarding.ts`
  * now re-exports it rather than keeping a second copy.
  */
-import { and, desc, eq, type Db } from '@canonry/db';
+import { and, count, desc, eq, inArray, type Db } from '@canonry/db';
 import { importJob } from '@canonry/db/schema';
 import { estimateImportJob, type ImportEstimate } from './job-runner.js';
 
@@ -94,17 +94,21 @@ import { estimateImportJob, type ImportEstimate } from './job-runner.js';
  * seconds.
  *
  * **How much precision is worth buying here, honestly.** `estimateAveragesForPlaybook`
- * replaces a cold-start row with the average of up to twenty real finished jobs, and it fires:
+ * replaces a cold-start row with the average of up to twenty real jobs, and it fires:
  * #330 watched it three times, and #606 watched a five-document generic upload get quoted 5
  * credits off the previous generic job's real 0.9944 rather than off the cold-start row. So
- * for a playbook whose jobs finish, a wrong constant misprices exactly one job per deployment,
- * and that is the frame this table should be read in. It does not deserve another decimal
- * place, and it does deserve not being a guess. The exception is worth knowing because #606
- * hit it: that query filters `status = 'finished'`, and #606's obsidian job settled
- * `stopped_at_ceiling` (2 of its 35 documents reached their step ceiling, the other 33
- * finished), so it installs no history at all. A playbook whose jobs keep stopping at a
- * ceiling keeps quoting off the constant here however many jobs it has run, which is the one
- * case where this row decides more than one job. Issue #610 carries that.
+ * for a playbook whose jobs settle usefully, a wrong constant misprices exactly one job per
+ * deployment, and that is the frame this table should be read in. It does not deserve another
+ * decimal place, and it does deserve not being a guess.
+ *
+ * That frame did not hold for a playbook whose jobs keep hitting a ceiling, which is what
+ * #610 fixed. The query used to filter `status = 'finished'`, and #606's own obsidian job
+ * settled `stopped_at_ceiling` because 2 of its 35 documents reached their step ceiling, so
+ * 30.3658 credits of real evidence installed no history at all and the next obsidian import
+ * on that deployment would have been quoted off this row again, and the one after that, for
+ * as long as its jobs kept running out of steps. The jobs that filter excluded were also the
+ * dearest ones, so what history a deployment did learn was biased cheap. `HISTORY_EVIDENCE`
+ * below is the status-by-status answer that replaced it.
  */
 
 /** The row a playbook id with no measured row of its own gets: the highest measured figures in
@@ -146,49 +150,275 @@ export const PLAYBOOK_COLD_START_ESTIMATE: Record<
 };
 
 /**
+ * Issue #610, and the whole of it: which `import_job` rows say anything about what a
+ * document costs. Asked one status at a time rather than looked for a flag to widen,
+ * because the answers are not symmetric and two different stops share one status.
+ *
+ *   status              evidence  why
+ *   queued              no        nothing ran; `spent_credits` is 0 by construction.
+ *   running             no        mid-flight. The spend so far is a prefix of the job's
+ *                                real spend and `finished_at` is null, so pooling it is
+ *                                the one shape of this arithmetic guaranteed to read low.
+ *   finished            yes       every document reached a terminal outcome and none was
+ *                                cut short. The case the query has always taken.
+ *   stopped_at_ceiling  yes       over the documents that actually ran, not over
+ *                                `document_count`. See below: it is two stops, not one.
+ *   cancelled           no        a GM's click or this job's own wall-clock timeout
+ *                                aborted it mid-step. The ratio would be a number about
+ *                                when somebody clicked.
+ *   failed              no        a model call failed and the document stopped where the
+ *                                error was. The credits are real, but an error arrives
+ *                                early far more often than late (a bad credential, a
+ *                                schema the model cannot fill), so the ratio reads low
+ *                                for a reason that has nothing to do with cost.
+ *
+ * **`stopped_at_ceiling` is two stops wearing one status, and they are opposite cases.**
+ * A *per-document step ceiling* (`gateway-driver.ts` exhausting `playbook.stepBudget`)
+ * leaves every document of the job run: the numerator is honest, the denominator is
+ * honest, and the documents that hit the ceiling spent the most steps a document is
+ * allowed, so they are the dearest documents the job had rather than truncated cheap
+ * ones. Pooling that job can only push the average up. A *job-wide credit ceiling*
+ * (`startJob`'s outer loop returning once `budget.exceeded()`) is the opposite: the
+ * documents it never started cost nothing and are still counted in `document_count`, so
+ * dividing by `document_count` would produce a number about our own budget rather than
+ * about a document.
+ *
+ * **Counting documents rather than jobs is what makes both cases usable**, which is the
+ * other half of #610. Issue #27 checkpoints one entry per document that reaches a
+ * terminal outcome, so the checkpoint's own entries are exactly the documents a job's
+ * spend is attributable to, and their absence is exactly how `job-runner.ts` tells the
+ * two ceilings apart in the first place ("detecting that silence... is what tells the two
+ * apart from a clean finish"). Dividing by them rather than by `document_count` needs no
+ * new column and no `outcome_note` JSON in a `where`, and it is never the optimistic
+ * choice: the count it uses is at most `document_count`, so every figure this function
+ * returns is at or above the figure a naive widening of the filter would have returned.
+ *
+ * **What the checkpoint does not record, stated rather than worked around.** It carries
+ * each document's *status* and not its *cost*, so there is no way to average over only
+ * the documents that completed and leave the truncated ones out; the truncated ones are
+ * pooled in, which is safe here only because a document truncated by a step ceiling is
+ * the dearest kind. And a document skipped as unchanged (issue #36) is checkpointed
+ * `finished` exactly like one that ran, so a partial re-import still pools documents that
+ * cost nothing. `spentCredits > 0` per row catches the whole-job case (a re-import of an
+ * unchanged export), not the partial one. Recording per-document credits, or marking a
+ * skipped document as skipped in the checkpoint, is what would close that; both live in
+ * `job-runner.ts` rather than here.
+ */
+export const HISTORY_EVIDENCE_STATUSES = ['finished', 'stopped_at_ceiling'] as const;
+
+/** Why a job of this playbook was passed over. Reported, never silent: #610's real
+ * complaint is that nothing anywhere said a playbook's history was empty because its jobs
+ * kept stopping. */
+export type PlaybookHistoryExclusion =
+	'not_settled' | 'cancelled' | 'failed' | 'no_documents_ran' | 'no_spend';
+
+export interface PlaybookEstimateBasis {
+	/** `'history'` when the two figures came from real rows, `'cold_start'` when they came
+	 * from `PLAYBOOK_COLD_START_ESTIMATE` above. */
+	source: 'history' | 'cold_start';
+	/** Jobs pooled, and the documents those jobs actually ran. Both 0 on a cold start. */
+	jobsPooled: number;
+	documentsPooled: number;
+	/** Filled in only on a cold start that is not a first import, so a reader knows the
+	 * history is empty because jobs were passed over and knows which reason to go and look
+	 * at. Empty on the history path and on a genuine first import. */
+	ignored: readonly { reason: PlaybookHistoryExclusion; jobs: number }[];
+}
+
+export interface PlaybookAverages {
+	avgCreditsPerDocument: number;
+	avgSecondsPerDocument: number;
+	basis: PlaybookEstimateBasis;
+}
+
+export type EstimateBasisSink = (entry: PlaybookEstimateBasis & { playbookId: string }) => void;
+
+/** One line, on the `channel` convention `logging.ts` uses, emitted only when a playbook
+ * has run jobs and still has nothing to quote off. Not a metric and not a throw: the
+ * estimate is still correct, it is just still a constant, and that is the fact that used
+ * to be invisible. */
+function warnHistoryEmpty(entry: PlaybookEstimateBasis & { playbookId: string }): void {
+	console.warn(
+		JSON.stringify({
+			channel: 'import_estimate',
+			event: 'history_empty_but_jobs_ran',
+			playbookId: entry.playbookId,
+			ignored: entry.ignored
+		})
+	);
+}
+
+/** The document statuses `job-runner.ts` checkpoints. Its `CheckpointShape` is private to
+ * that module and #613 owns it, so this reads the column narrowly rather than importing a
+ * shape across a boundary; `estimate-history.test.ts` drives the real runner to a real
+ * ceiling and reads the checkpoint it really wrote, so the two cannot drift silently. */
+const TERMINAL_DOCUMENT_STATUSES: Record<string, true> = {
+	finished: true,
+	stopped_at_ceiling: true,
+	cancelled: true,
+	failed: true
+};
+
+/** Counts the checkpoint entries that name a terminal document status. `checkpoint` is a
+ * `jsonb` column whose shape this module does not own, so every level is narrowed rather
+ * than asserted: a column the runner never wrote, or wrote in a shape this function does
+ * not recognise, has to come back as zero documents and exclude the job, never as a
+ * confident small number that would read as an expensive document. */
+function checkpointedDocumentsRan(checkpoint: unknown): number {
+	if (typeof checkpoint !== 'object' || checkpoint === null || !('documents' in checkpoint)) {
+		return 0;
+	}
+	const documents = checkpoint.documents;
+	if (typeof documents !== 'object' || documents === null) return 0;
+	let ran = 0;
+	for (const entry of Object.values(documents)) {
+		if (typeof entry !== 'object' || entry === null || !('status' in entry)) continue;
+		const status = entry.status;
+		if (typeof status === 'string' && TERMINAL_DOCUMENT_STATUSES[status]) ran += 1;
+	}
+	return ran;
+}
+
+/**
  * `job-runner.ts`'s `EstimateImportJobInput` doc comment: "historical average, supplied
  * by the caller... never invented here." A cold start (nobody has run this playbook on
  * this deployment yet) falls back to `PLAYBOOK_COLD_START_ESTIMATE` above; once real
- * finished `import_job` rows exist for a playbook, they replace the cold-start default
+ * settled `import_job` rows exist for a playbook, they replace the cold-start default
  * entirely, because a job in this deployment's own worlds is better evidence than a job in
- * ours. `status = 'finished'` is doing more than it looks like here: a job that settled
- * `stopped_at_ceiling` spent real credits on real documents and is still not history, so a
- * playbook whose jobs keep stopping at a ceiling never leaves its cold-start row (#610).
+ * ours.
+ *
+ * Which rows count and why is `HISTORY_EVIDENCE_STATUSES`' doc comment above. The window
+ * is deliberately the last twenty *evidence-eligible* rows rather than the last twenty
+ * rows: a burst of cancellations must not push a real measurement out of the window, which
+ * is the regression a plain "read every terminal status" query would have introduced. The
+ * second query, which counts what was passed over, only runs when the first found nothing
+ * usable, so the common path is still one round trip.
  */
 export async function estimateAveragesForPlaybook(
 	database: Db,
-	playbookId: string
-): Promise<{ avgCreditsPerDocument: number; avgSecondsPerDocument: number }> {
+	playbookId: string,
+	options: { sink?: EstimateBasisSink } = {}
+): Promise<PlaybookAverages> {
 	const coldStart = PLAYBOOK_COLD_START_ESTIMATE[playbookId] ?? UNMEASURED_PLAYBOOK_ESTIMATE;
 
 	const rows = await database
 		.select({
+			status: importJob.status,
 			documentCount: importJob.documentCount,
 			spentCredits: importJob.spentCredits,
+			checkpoint: importJob.checkpoint,
 			startedAt: importJob.startedAt,
 			finishedAt: importJob.finishedAt
 		})
 		.from(importJob)
-		.where(and(eq(importJob.playbook, playbookId), eq(importJob.status, 'finished')))
+		.where(
+			and(
+				eq(importJob.playbook, playbookId),
+				inArray(importJob.status, [...HISTORY_EVIDENCE_STATUSES])
+			)
+		)
 		.orderBy(desc(importJob.createdAt))
 		.limit(20);
 
-	const withDocs = rows.filter((r) => r.documentCount > 0);
-	if (withDocs.length === 0) return coldStart;
+	// The two reasons a row inside the window can still be passed over. Counted rather
+	// than dropped, because #610's complaint is about silence and not about arithmetic.
+	let noDocumentsRan = 0;
+	let noSpend = 0;
+	let jobsPooled = 0;
+	let totalDocs = 0;
+	let totalCredits = 0;
+	let timedDocs = 0;
+	let totalSeconds = 0;
+	for (const row of rows) {
+		// A `finished` job ran every document it enumerated: that is what the status means,
+		// so `document_count` is the denominator and a checkpoint this function failed to
+		// parse cannot silently shrink it. Only a ceiling-stopped job needs the checkpoint.
+		const ran =
+			row.status === 'finished'
+				? row.documentCount
+				: Math.min(checkpointedDocumentsRan(row.checkpoint), row.documentCount);
+		if (ran <= 0) {
+			noDocumentsRan += 1;
+			continue;
+		}
+		// A job that spent nothing over real documents is not evidence that a document is
+		// cheap: it is a re-import whose documents were all unchanged (issue #36 skips them
+		// before the driver sees them), or a ceiling that refused the very first step. Both
+		// used to be pooled, and both drag the average toward zero.
+		if (row.spentCredits <= 0) {
+			noSpend += 1;
+			continue;
+		}
+		jobsPooled += 1;
+		totalDocs += ran;
+		totalCredits += row.spentCredits;
+		if (row.startedAt && row.finishedAt) {
+			timedDocs += ran;
+			totalSeconds += (row.finishedAt.getTime() - row.startedAt.getTime()) / 1000;
+		}
+	}
 
-	const totalDocs = withDocs.reduce((sum, r) => sum + r.documentCount, 0);
-	const totalCredits = withDocs.reduce((sum, r) => sum + r.spentCredits, 0);
-	const totalSeconds = withDocs.reduce((sum, r) => {
-		if (!r.startedAt || !r.finishedAt) return sum;
-		return sum + (r.finishedAt.getTime() - r.startedAt.getTime()) / 1000;
-	}, 0);
+	if (jobsPooled === 0) {
+		return {
+			...coldStart,
+			basis: await coldStartBasis(database, playbookId, { noDocumentsRan, noSpend }, options)
+		};
+	}
 
 	return {
-		avgCreditsPerDocument:
-			totalCredits > 0 ? totalCredits / totalDocs : coldStart.avgCreditsPerDocument,
+		avgCreditsPerDocument: totalCredits / totalDocs,
+		// A row with no wall clock recorded contributes no seconds, so it must not
+		// contribute documents to this denominator either - it used to, which pulled the
+		// figure down, and this file's rule is that wall clock is raised on evidence and
+		// never lowered on it.
 		avgSecondsPerDocument:
-			totalSeconds > 0 ? totalSeconds / totalDocs : coldStart.avgSecondsPerDocument
+			timedDocs > 0 && totalSeconds > 0
+				? totalSeconds / timedDocs
+				: coldStart.avgSecondsPerDocument,
+		basis: { source: 'history', jobsPooled, documentsPooled: totalDocs, ignored: [] }
 	};
+}
+
+/** The diagnosis for the case #610 is really about: this playbook is quoting off a
+ * constant, and it is not because nobody has run it. Counts the statuses the pooling
+ * window never saw (`cancelled`, `failed`, and anything not settled) and merges them with
+ * the rows the window saw and passed over, then says so once. */
+async function coldStartBasis(
+	database: Db,
+	playbookId: string,
+	inWindow: { noDocumentsRan: number; noSpend: number },
+	options: { sink?: EstimateBasisSink }
+): Promise<PlaybookEstimateBasis> {
+	const byStatus = await database
+		.select({ status: importJob.status, jobs: count() })
+		.from(importJob)
+		.where(eq(importJob.playbook, playbookId))
+		.groupBy(importJob.status);
+
+	const merged = new Map<PlaybookHistoryExclusion, number>();
+	if (inWindow.noDocumentsRan > 0) merged.set('no_documents_ran', inWindow.noDocumentsRan);
+	if (inWindow.noSpend > 0) merged.set('no_spend', inWindow.noSpend);
+	for (const row of byStatus) {
+		const reason: PlaybookHistoryExclusion | null =
+			row.status === 'cancelled'
+				? 'cancelled'
+				: row.status === 'failed'
+					? 'failed'
+					: row.status === 'queued' || row.status === 'running'
+						? 'not_settled'
+						: null;
+		if (!reason) continue;
+		merged.set(reason, (merged.get(reason) ?? 0) + row.jobs);
+	}
+
+	const basis: PlaybookEstimateBasis = {
+		source: 'cold_start',
+		jobsPooled: 0,
+		documentsPooled: 0,
+		ignored: [...merged].map(([reason, jobs]) => ({ reason, jobs }))
+	};
+	if (basis.ignored.length > 0) (options.sink ?? warnHistoryEmpty)({ ...basis, playbookId });
+	return basis;
 }
 
 /**

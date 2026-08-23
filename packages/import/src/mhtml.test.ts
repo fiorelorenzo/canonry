@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
+	dropInterfaceGlyphImages,
 	expandOneNoteMhtml,
 	isOneNoteHtml,
 	MhtmlLocationError,
@@ -68,11 +69,15 @@ describe('the MIME envelope, in both shapes OneNote writes (issue #592)', () => 
 		expect(parsed.main.contentType).toBe('text/html');
 		expect(parsed.resources.map((r) => `${r.path} ${r.contentType}`).sort()).toEqual([
 			'Handouts_file/filelist.xml text/xml',
-			'Handouts_file/image001.png image/png'
+			'Handouts_file/image001.png image/png',
+			'Handouts_file/image002.png image/png'
 		]);
-		// base64 decoded to real bytes, not to the base64 text.
-		const png = parsed.resources.find((r) => r.contentType === 'image/png')!;
-		expect([...png.bytes.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+		// base64 decoded to real bytes, not to the base64 text. The parse keeps both images:
+		// deciding that one of them is an interface glyph is the expansion's job, not the
+		// envelope's, because the envelope has no idea how the HTML uses a part.
+		for (const png of parsed.resources.filter((r) => r.contentType === 'image/png')) {
+			expect([...png.bytes.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+		}
 	});
 
 	it('recognises OneNote as the author and does not credit it for a browser save', () => {
@@ -162,6 +167,57 @@ describe('expansion into the folder tree onenote.md already reads (issue #592)',
 		expect(page).not.toContain('Handouts_file/image001.png');
 		// The page that does not reference it does not get a copy.
 		expect(tree.has('Handouts/Flooded Stacks_files/image001.png')).toBe(false);
+	});
+
+	it('a note-tag glyph reaches neither the page nor the attachment folder (issue #614)', () => {
+		// "Flooded Stacks" carries the 16x16 `alt=Contact` glyph OneNote renders a tagged line
+		// with, and "The Sunken Archive" carries a 480x320 picture. Both are `image/png` parts
+		// of the same envelope and the same size of file, so nothing but the declared geometry
+		// tells them apart, which is the whole point of the rule.
+		const tree = expand('section.mht', 'Handouts.mht');
+		expect(tree.has('Handouts/Flooded Stacks_files/image002.png')).toBe(false);
+		expect([...tree.keys()].some((p) => p.endsWith('image002.png'))).toBe(false);
+
+		const tagged = tree.get('Handouts/Flooded Stacks.htm')!;
+		expect(tagged).not.toContain('image002.png');
+		expect(tagged).not.toContain('<img');
+		// The paragraph the glyph sat at the head of is still there, word for word: the tag
+		// went, the tagged line did not.
+		expect(tagged).toContain('Watched over by');
+
+		// And the real picture still crosses as an attachment, which is the half of this that
+		// must not regress.
+		expect(tree.has('Handouts/The Sunken Archive_files/image001.png')).toBe(true);
+		expect(tree.get('Handouts/The Sunken Archive.htm')!).toContain(
+			'src="The Sunken Archive_files/image001.png"'
+		);
+	});
+
+	it('an image is dropped on its declared size rather than on its alt text (issue #614)', () => {
+		// `alt` is localised: this fixture says `Contact` and the corpus notebook says
+		// `Contatto`, so a rule keyed on the vocabulary would be a list that is wrong in every
+		// other language OneNote ships. These are the cases that rule has to get right.
+		const drop = [
+			'<img width=16 height=16 src="x.png">',
+			"<img alt='Cosa da fare' width=8 height=8 src='y.png'>",
+			'<img width="16" height="16" src="z.png" alt="Importante">'
+		];
+		for (const tag of drop) {
+			expect(dropInterfaceGlyphImages(`<p>a${tag}b</p>`)).toBe('<p>ab</p>');
+		}
+		// A real picture, a picture that declares nothing, one that declares only a width, and
+		// one whose dimension carries a unit rather than a pixel count are all kept: unknown
+		// is not small, and no real picture may be lost to this rule.
+		const keep = [
+			'<img width=480 height=320 src="map.png">',
+			'<img src="portrait.png" alt="Contact">',
+			'<img width=16 src="banner.png">',
+			'<img width=1in height=1in src="inches.png">',
+			'<img width=17 height=16 src="just-over.png">'
+		];
+		for (const tag of keep) {
+			expect(dropInterfaceGlyphImages(`<p>a${tag}b</p>`)).toBe(`<p>a${tag}b</p>`);
+		}
 	});
 
 	it('filelist.xml is dropped rather than enumerated as a document', () => {
