@@ -59,7 +59,12 @@ import {
 	readGatewayCredentials,
 	resolveModel
 } from '@canonry/ai';
-import { createGatewayEmbedder, embeddingDimensionsFor, type Embedder } from '@canonry/indexing';
+import {
+	createGatewayEmbedder,
+	embeddingDimensionsFor,
+	hashingEmbedder,
+	type Embedder
+} from '@canonry/indexing';
 import {
 	acceptAnyImportProposal,
 	and,
@@ -93,6 +98,11 @@ interface Args {
 	/** After the run, accept every proposal the way a GM would and report what canon it
 	 * produced. Issue #613's mechanism only shows end to end here. */
 	sweep: boolean;
+	/** Which embedder `resolveRelationType`'s semantic rung runs on (issue #629). `gateway`
+	 * is the real multilingual model the rung was designed for; `hashing` is
+	 * `hashingEmbedder`, which is what `apps/web`'s composition root passed until #629, so a
+	 * replay can measure the production path rather than describing it. */
+	relationEmbedder: 'gateway' | 'hashing';
 	/** Documents to run, for a smoke test that costs a euro rather than the notebook's
 	 * full price. A recording and the replays that read it must agree on it, or the
 	 * replay's document ids name pages the run never enumerated. */
@@ -105,6 +115,7 @@ function parseArgs(argv: string[]): Args {
 	let label = 'run';
 	let limit: number | null = null;
 	let sweep = false;
+	let relationEmbedder: 'gateway' | 'hashing' = 'gateway';
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i];
 		if (arg === '--corpus') corpus = argv[++i] ?? '';
@@ -113,10 +124,17 @@ function parseArgs(argv: string[]): Args {
 		else if (arg === '--label') label = argv[++i] ?? 'run';
 		else if (arg === '--limit') limit = Number(argv[++i] ?? '0') || null;
 		else if (arg === '--sweep') sweep = true;
+		else if (arg === '--relation-embedder') {
+			const value = argv[++i] ?? '';
+			if (value !== 'gateway' && value !== 'hashing') {
+				throw new Error('--relation-embedder takes gateway or hashing');
+			}
+			relationEmbedder = value;
+		}
 	}
 	if (!corpus) throw new Error('--corpus <path to a .one/.onepkg/.zip export> is required');
 	if (!mode) throw new Error('one of --record or --replay is required');
-	return { corpus, mode, label, limit, sweep };
+	return { corpus, mode, label, limit, sweep, relationEmbedder };
 }
 
 // ---------------------------------------------------------------------------
@@ -521,6 +539,24 @@ async function main(): Promise<void> {
 			vectorSize: embeddingDimensionsFor(embeddingModel.provider, embeddingModel.modelId)
 		});
 
+		// Issue #629: the two candidates for `resolveRelationType`'s semantic rung, side by
+		// side on one recorded stream. `hashingEmbedder` is what `apps/web`'s composition root
+		// handed this parameter until #629, so `--relation-embedder hashing` is what a real
+		// import used to resolve labels with, and the difference between the two labels is
+		// what the wiring fix is actually worth on a real notebook.
+		const chosenRelationEmbedder =
+			args.relationEmbedder === 'hashing' ? hashingEmbedder : cachedEmbedder(embedInner, embedPath);
+		// And how much work it is, because "turn the rung on" is a cost as well as a decision:
+		// `bestSemanticMatch` embeds the proposed label plus every shipped locale's label and
+		// inverse label, once per relation, so the texts figure is what a real import would pay
+		// the gateway for and the reason #629 files the per-job memoisation as a follow-up.
+		const rungCost = { calls: 0, texts: 0 };
+		const embedRelationLabel: Embedder = async (texts) => {
+			rungCost.calls += 1;
+			rungCost.texts += texts.length;
+			return chosenRelationEmbedder(texts);
+		};
+
 		const started = Date.now();
 		const runner = new ImportJobRunner();
 		const result = await runner.run({
@@ -537,7 +573,7 @@ async function main(): Promise<void> {
 			images: new InMemoryImageStore(),
 			similarity: banded.similarity,
 			thresholds: banded.thresholds,
-			embedRelationLabel: cachedEmbedder(embedInner, embedPath),
+			embedRelationLabel,
 			timeoutMs: 60 * 60 * 1000
 		});
 		const seconds = (Date.now() - started) / 1000;
@@ -588,6 +624,8 @@ async function main(): Promise<void> {
 			mode: args.mode,
 			label: args.label,
 			corpus: path.basename(args.corpus),
+			relationEmbedder: args.relationEmbedder,
+			relationLabelEmbedding: rungCost,
 			documents: documents.length,
 			status: jobRow?.status ?? result.finalStatus,
 			outcomeNote: jobRow?.outcomeNote ?? null,
