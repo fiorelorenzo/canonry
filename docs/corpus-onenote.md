@@ -100,10 +100,18 @@ to export.
   them a three-column OneNote canvas table whose first column is a `width:1px` spacer cell
   holding `&nbsp;`. Tempting to read as noise and wrong: the page's entire prose lives in the
   other cells of those same tables, 1,032,742 of `Note Storia`'s 1,146,649 raw characters.
-  `stripHtmlPresentationNoise` leaves them alone, correctly. What it also leaves is 852
-  genuinely empty cells across the corpus, which after the strip cost 0.3% to 2.1% of a page
-  (about 22,000 characters over the four files). Real but small, and tracked separately rather
-  than folded into the glyph fix.
+  `stripHtmlPresentationNoise` leaves them alone, correctly. What it also left, until issue
+  #616, was 852 genuinely empty cells across the corpus. Two things came out of measuring
+  those. All 90 tables carry a `rowspan`, so a column is not a cell index and a rule that
+  assumed it was measured a 0.00% saving on this corpus. And an empty cell is not always
+  noise: the rule that shipped drops one only when its whole column is empty, plus a row
+  that nothing spans into or out of, which leaves a blank cell in a column that says
+  something elsewhere exactly where it was. Measured over the four files after the
+  attribute strip, with a `.mht` expanded into its 146 pages first: 1,833,276 characters to
+  1,802,872, and 557,889 `o200k_base` tokens to 544,543, so 13,346 tokens, 0.54% of `Mondo`,
+  1.93% of `Note Campagna DM` and 3.98% of `Note Storia`. 852 empty cells become 104, all
+  of them blank cells in columns that carry text in another row, and the plain text of all
+  146 pages is identical before and after.
 - **What today's upload path does with each of the six.** Measured through the real HTTP
   upload path, before and after #591, in that PR's own body and in the issue comment on #591.
   What the `.mht` reader produces at each of the three scopes, and what it cost live, is in

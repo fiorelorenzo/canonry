@@ -311,6 +311,92 @@ describe('stripHtmlPresentationNoise (issue #261): OneNote export noise, determi
 	});
 });
 
+describe('stripHtmlPresentationNoise (issue #616): OneNote canvas-table cells that hold no text', () => {
+	/** The shape 45 of the corpus's 90 canvas tables have, verbatim apart from the prose:
+	 * four columns of which the first and the last are `width:1px` spacers, a 1px
+	 * measurement row above and below the content row, and a `rowspan=2` on the last
+	 * column's cell in the middle row. */
+	const CANVAS_TABLE =
+		'<table border=0 cellpadding=0 cellspacing=0 cols=3 valign=top>\n' +
+		' <tr>\n' +
+		'  <td valign=top><p>&nbsp;</p></td>\n' +
+		'  <td valign=top><p></p></td>\n' +
+		'  <td valign=top><p></p></td>\n' +
+		'  <td valign=top><p></p></td>\n' +
+		' </tr>\n' +
+		' <tr>\n' +
+		'  <td valign=top><p>&nbsp;</p></td>\n' +
+		'  <td valign=top><p>Harmony keeps the shrine at Millbrook.</p></td>\n' +
+		'  <td valign=top><p></p></td>\n' +
+		'  <td rowspan=2 valign=top><p>&nbsp;</p></td>\n' +
+		' </tr>\n' +
+		' <tr>\n' +
+		'  <td valign=top><p>&nbsp;</p></td>\n' +
+		'  <td valign=top><p></p></td>\n' +
+		'  <td valign=top><p></p></td>\n' +
+		' </tr>\n' +
+		'</table>\n';
+
+	it('leaves one cell holding the prose, byte for byte, and drops the rest', () => {
+		const stripped = stripHtmlPresentationNoise(CANVAS_TABLE);
+		expect(stripped).toContain('<p>Harmony keeps the shrine at Millbrook.</p>');
+		expect(stripped.match(/<td\b/g)).toHaveLength(1);
+		expect(stripped).not.toMatch(/&nbsp;/);
+		expect(stripped).toContain('<table border=0 cellpadding=0 cellspacing=0 cols=3 valign=top>');
+	});
+
+	it('reaches the row a dropped spacer column was holding open, which needs a second pass', () => {
+		// The last row is all empty, but on the first pass the `rowspan=2` above reaches
+		// into it, so it can only go once that spacer column has gone.
+		expect(stripHtmlPresentationNoise(CANVAS_TABLE).match(/<tr\b/g)).toHaveLength(1);
+	});
+
+	it('keeps a blank cell whose column says something in another row, so nothing shifts', () => {
+		const data =
+			'<table>' +
+			'<tr><td>Name</td><td>Age</td><td>Role</td></tr>' +
+			'<tr><td>Harmony</td><td></td><td>Cleric</td></tr>' +
+			'</table>';
+		expect(stripHtmlPresentationNoise(data)).toBe(data);
+	});
+
+	it('drops a column that is blank in every row, since no reading depends on it', () => {
+		const stripped = stripHtmlPresentationNoise(
+			'<table>' +
+				'<tr><td>&nbsp;</td><td>Name</td></tr>' +
+				'<tr><td>&nbsp;</td><td>Harmony</td></tr>' +
+				'</table>'
+		);
+		expect(stripped).toBe('<table><tr><td>Name</td></tr><tr><td>Harmony</td></tr></table>');
+	});
+
+	it('keeps a cell whose only content is the <img> or <a href> a playbook rule reads', () => {
+		const withImage =
+			'<table><tr><td><img src="page_files/map.png"></td><td>Millbrook</td></tr>' +
+			'<tr><td><a href="../Millbrook.htm">M</a></td><td>Harmony</td></tr></table>';
+		expect(stripHtmlPresentationNoise(withImage)).toBe(withImage);
+	});
+
+	it('leaves a table holding a nested table entirely alone', () => {
+		const nested =
+			'<table><tr><td>&nbsp;</td><td>' +
+			'<table><tr><td>&nbsp;</td><td>Inner</td></tr></table>' +
+			'</td></tr><tr><td>&nbsp;</td><td>Outer</td></tr></table>';
+		expect(stripHtmlPresentationNoise(nested)).toBe(nested);
+	});
+
+	it('never drops a <th>, because a blank header still names its column', () => {
+		const headed = '<table><tr><th></th><th>Age</th></tr><tr><td></td><td>31</td></tr></table>';
+		expect(stripHtmlPresentationNoise(headed)).toBe(headed);
+	});
+
+	it('is a no-op on the HTML the other playbooks read, which carries no table at all', () => {
+		const worldAnvil =
+			'<html><body><h1>Baron Corvain</h1><p>A <a href="duskwood-vale.html">vale</a>.</p></body></html>';
+		expect(stripHtmlPresentationNoise(worldAnvil)).toBe(worldAnvil);
+	});
+});
+
 describe('ArchiveSourceReader.read scopes the strip to .htm/.html entries only (issue #261)', () => {
 	it('strips a .htm entry, leaving its links and title intact', async () => {
 		const data = buildZip({

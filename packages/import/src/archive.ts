@@ -327,11 +327,200 @@ function decodeEntryText(rawContent: Uint8Array, maxBytes?: number): SourceReadR
  * reads (a 3-page and a 14-page corpus cost within 6% of each other per document) - so
  * this cut is real and worth keeping on its own merits, it just does not move the
  * credit estimate the way a bytes-in-context model would have predicted -
- * `onboarding.ts`'s `COLD_START_ESTIMATE.onenote` comment has the full account. */
+ * `onboarding.ts`'s `COLD_START_ESTIMATE.onenote` comment has the full account.
+ *
+ * The third transformation is `dropEmptyTableCells` (issue #616), which is about the one
+ * kind of markup an exporter writes to hold a shape rather than to say anything. Its own
+ * comment carries the rule and the measurement; what belongs here is why it is safe to
+ * put on the shared path: it removes no text, no `<a href>` and no `<img src>`, and it
+ * declines to touch a table whose geometry it cannot index. */
 export function stripHtmlPresentationNoise(html: string): string {
-	return html
+	const stripped = html
 		.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
 		.replace(/\s(?:style|class|lang)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+	return dropEmptyTableCells(stripped);
+}
+
+/** A cell whose content a rule or a reader could mean something by. `<img src>` and
+ * `<a href>` are the two `onenote.md` and `world-anvil.md` actually read, so a cell
+ * holding one is content even with no text at all; every other tag is dropped before the
+ * text test, and the whitespace entities OneNote writes are decoded, because
+ * `<p>&nbsp;</p>` is the shape 852 of the corpus's 1,032 cells have. */
+function tableCellIsEmpty(inner: string): boolean {
+	if (/<(?:img|a|input|iframe|object|embed|svg|video|audio)\b/i.test(inner)) return false;
+	return (
+		inner
+			.replace(/<!--[\s\S]*?-->/g, '')
+			.replace(/<[^>]*>/g, '')
+			.replace(/&nbsp;|&#160;|&#xa0;/gi, ' ')
+			.trim() === ''
+	);
+}
+
+/** Innermost `<td>`/`<th>` only: the content group cannot contain another cell's opening
+ * or closing tag, so a cell holding a nested table is never matched and never judged. */
+const TABLE_CELL = /<(t[dh])\b([^>]*)>((?:(?!<t[dh]\b|<\/t[dh]\s*>)[\s\S])*?)<\/\1\s*>/gi;
+const TABLE_ROW = /<tr\b[^>]*>[\s\S]*?<\/tr\s*>/gi;
+const TABLE = /<table\b[^>]*>[\s\S]*?<\/table\s*>/gi;
+
+interface TableCell {
+	/** Offset of the whole `<td>...</td>` within its row, so a rewrite can splice rather
+	 * than `String.replace` on text that may repeat verbatim elsewhere in the table. */
+	start: number;
+	end: number;
+	rows: number;
+	columns: number;
+	empty: boolean;
+}
+
+/** One row of the grid: the cells that begin in it, and what occupies each of its columns
+ * once every earlier row's `rowspan` has been accounted for. `origin` is the cell that
+ * begins at that column, `covered` the one that reaches into it from above. */
+interface TableGridRow {
+	match: RegExpExecArray;
+	cells: TableCell[];
+	origin: Map<number, TableCell>;
+	covered: Map<number, TableCell>;
+}
+
+function spanAttribute(attributes: string, name: 'rowspan' | 'colspan'): number {
+	const raw = new RegExp(`\\b${name}\\s*=\\s*"?'?(\\d+)`, 'i').exec(attributes)?.[1];
+	const value = raw === undefined ? 1 : Number.parseInt(raw, 10);
+	return Number.isFinite(value) && value >= 1 ? Math.min(value, 1000) : 1;
+}
+
+/** One pass of the collapse below. Returns the table unchanged when it finds nothing to
+ * drop, which is what lets the caller iterate to a fixed point. */
+function collapseEmptyTableSlots(table: string): string {
+	const grid: TableGridRow[] = [...table.matchAll(TABLE_ROW)].map((match) => ({
+		match,
+		cells: [...match[0].matchAll(TABLE_CELL)].map((cell): TableCell => ({
+			start: cell.index,
+			end: cell.index + cell[0].length,
+			rows: spanAttribute(cell[2] ?? '', 'rowspan'),
+			columns: spanAttribute(cell[2] ?? '', 'colspan'),
+			// A `<th>` is never empty for this purpose: a blank header still names its
+			// column, so a column carrying one is never a column nothing depends on.
+			empty: (cell[1] ?? '').toLowerCase() === 'td' && tableCellIsEmpty(cell[3] ?? '')
+		})),
+		origin: new Map<number, TableCell>(),
+		covered: new Map<number, TableCell>()
+	}));
+	if (grid.length === 0) return table;
+
+	// The HTML table model, honestly: walk the rows placing each cell at the first column
+	// its row has not already been given by an earlier row's `rowspan`.
+	const occupiedAt = (row: TableGridRow, column: number): boolean =>
+		row.origin.has(column) || row.covered.has(column);
+	let width = 0;
+	for (const [rowIndex, row] of grid.entries()) {
+		let column = 0;
+		for (const cell of row.cells) {
+			while (occupiedAt(row, column)) column += 1;
+			for (let r = rowIndex; r < Math.min(grid.length, rowIndex + cell.rows); r++) {
+				const target = grid[r];
+				if (target === undefined) continue;
+				for (let c = column; c < column + cell.columns; c++) {
+					if (r === rowIndex) target.origin.set(c, cell);
+					else target.covered.set(c, cell);
+				}
+			}
+			column += cell.columns;
+			width = Math.max(width, column);
+		}
+	}
+
+	/** A column no slot in which carries anything: the OneNote canvas table's `width:1px`
+	 * spacer, and never a blank cell in a column that says something in another row. */
+	const columnIsEmpty = Array.from({ length: width }, (_, column) =>
+		grid.every((row) => {
+			const cell = row.origin.get(column) ?? row.covered.get(column);
+			return cell === undefined || cell.empty;
+		})
+	);
+
+	let out = '';
+	let cursor = 0;
+	for (const row of grid) {
+		// A row every slot of which is an empty cell that begins in this row and ends in
+		// it: removing it moves nothing, because nothing above spans into it and nothing in
+		// it spans below. A row an earlier `rowspan` reaches into stays until the pass that
+		// removed that cell has run.
+		const rowIsEmpty =
+			row.cells.length > 0 &&
+			row.covered.size === 0 &&
+			row.cells.every((cell) => cell.empty && cell.rows === 1);
+		if (rowIsEmpty) {
+			out += table.slice(cursor, row.match.index);
+			cursor = row.match.index + row.match[0].length;
+			continue;
+		}
+
+		let kept = '';
+		let innerCursor = 0;
+		let column = 0;
+		for (const cell of row.cells) {
+			while (row.origin.get(column) !== cell) column += 1;
+			const droppable = Array.from(
+				{ length: cell.columns },
+				(_, offset) => columnIsEmpty[column + offset] === true
+			).every(Boolean);
+			if (cell.empty && droppable) {
+				kept += row.match[0].slice(innerCursor, cell.start);
+				innerCursor = cell.end;
+			}
+			column += cell.columns;
+		}
+		if (innerCursor === 0) continue;
+		out += table.slice(cursor, row.match.index) + kept + row.match[0].slice(innerCursor);
+		cursor = row.match.index + row.match[0].length;
+	}
+	return cursor === 0 ? table : out + table.slice(cursor);
+}
+
+/** Drops the cells an HTML exporter writes to hold a table's shape and nothing else, and
+ * the rows left holding only those. Two rules, and the narrowness is the point:
+ *
+ * - an empty cell goes only when **every** slot in its column is empty across the whole
+ *   table. That is the OneNote canvas table's `width:1px` spacer column (issue #614
+ *   measured one per row, 90 tables over the corpus), and it is never a blank cell in a
+ *   column that says something in another row.
+ * - a row goes only when every slot in it is an empty cell that both begins and ends
+ *   there, so nothing above spans into it and nothing in it spans below.
+ *
+ * Both rules are computed over the real HTML table grid rather than over each row's cell
+ * count, because the corpus made that necessary: all 90 of its canvas tables carry a
+ * `rowspan`, so the cell at index 2 of one row and index 2 of the next are routinely
+ * different columns. Getting that wrong is how the first version of this measured a 0%
+ * saving. Removing a spacer column can turn the row below it into one nothing spans into,
+ * so the caller runs this to a fixed point.
+ *
+ * The column rule is what keeps the function safe on a data table. Dropping every empty
+ * cell instead saves marginally more and buys it by shifting the cells after it one
+ * column left, so a World Anvil stat block with one blank value would read its
+ * neighbour's value. A table that is mostly empty by design keeps every column that
+ * carries text anywhere and loses the ones that carry text nowhere: the geometry changes,
+ * the reading does not, and no playbook rule reads table geometry (`docx.md`'s flattened
+ * rows are the DOCX path, which never comes through here).
+ *
+ * A table holding a nested `<table>` is left entirely alone, because the cell regex above
+ * deliberately declines to match a cell that contains another one and a half-read grid is
+ * worse than none. */
+function dropEmptyTableCells(html: string): string {
+	if (!/<t[dh]\b/i.test(html)) return html;
+	return html.replace(TABLE, (table) => {
+		if (/<table\b/i.test(table.slice(table.indexOf('>') + 1))) return table;
+		let current = table;
+		// Three passes is one more than the deepest cascade the corpus produces (a spacer
+		// column, then the row its `rowspan` was holding open), and a bound rather than a
+		// `while` keeps a pathological table from costing unbounded work.
+		for (let pass = 0; pass < 3; pass++) {
+			const next = collapseEmptyTableSlots(current);
+			if (next === current) break;
+			current = next;
+		}
+		return current;
+	});
 }
 
 /**
