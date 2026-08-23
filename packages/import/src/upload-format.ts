@@ -1,0 +1,240 @@
+/**
+ * What an uploaded file actually is, decided from its own bytes (issue #591, SPEC.md
+ * §6.1, §6.5, §6.6). Routing an upload by its extension is the defect this module
+ * closes: a renamed file slips into a playbook that then burns tokens on it, and a
+ * format nobody wrote a reader for reaches the estimate screen with a Start button
+ * under it.
+ *
+ * §6.1's envelope table puts "unpack the export, walk it" on the deterministic side of
+ * the line, and deciding which of six things OneNote handed a GM is the same kind of
+ * work: a rule with a right answer, not a judgement. §6.5's posture applies too - these
+ * are somebody else's bytes, so every check below reads a bounded prefix (or searches
+ * for a rare needle and only then looks at its context) and never parses anything it
+ * does not have to.
+ *
+ * The six formats OneNote can produce, and what identifies each of them. Every signature
+ * here was read off the 19-file corpus `docs/corpus-onenote.md` documents, not from a
+ * specification, and the corresponding fixture in `onenote-fixtures.ts` reproduces it:
+ *
+ * | format | signature |
+ * | --- | --- |
+ * | `pdf` | `%PDF-` |
+ * | `mhtml` | a `MIME-Version:` header plus a `Content-Type:` header in the same block |
+ * | `docx` | a zip whose payload includes `word/document.xml` |
+ * | `xps` | a zip whose payload includes `FixedDocSeq.fdseq` |
+ * | `onepkg` | `MSCF`, a Microsoft cabinet, which is what a `.onepkg` is |
+ * | `onestore` | an [MS-ONESTORE] file GUID: a `.one` section or a `.onetoc2` table of contents |
+ *
+ * Anything else that parses as a zip is `zip`, an export to unpack and walk. Anything
+ * else at all is `other`, one document handed to whichever playbook detection picks.
+ *
+ * `UNREADABLE_UPLOAD_FORMATS` is the set with no reader behind it, and it is the whole
+ * point: a job for one of those must be refused before it is created, because SPEC §15's
+ * "no opaque credits" and guardrail 5 both mean a run that cannot succeed may not charge.
+ * `mhtml` is in that set today and issue #592 takes it out by writing the reader.
+ */
+
+/** Formats this module can tell apart. `zip` is an archive to unpack; `other` is one
+ * document whose bytes match none of the signatures above (Markdown, plain text, a
+ * JSON export, an HTML page). */
+export type UploadFormat =
+	'zip' | 'pdf' | 'docx' | 'other' | 'mhtml' | 'xps' | 'onestore' | 'onepkg';
+
+/** The formats no reader in this codebase can turn into documents. Ordered as the
+ * refusal copy lists them, and narrow on purpose: a format is only in here once it has
+ * been confirmed unreadable against a real file, never on the strength of its
+ * extension. */
+export const UNREADABLE_UPLOAD_FORMATS = ['mhtml', 'xps', 'onestore', 'onepkg'] as const;
+
+export type UnreadableUploadFormat = (typeof UNREADABLE_UPLOAD_FORMATS)[number];
+
+/** A fixed table rather than a `Set`: the four members are known at authoring time and
+ * this is only ever a membership question. */
+const UNREADABLE: Record<UnreadableUploadFormat, true> = {
+	mhtml: true,
+	xps: true,
+	onestore: true,
+	onepkg: true
+};
+
+export function isUnreadableUploadFormat(format: UploadFormat): format is UnreadableUploadFormat {
+	return format in UNREADABLE;
+}
+
+/** What a sniff establishes about one file. `printedFromOneNote` is only ever true for
+ * a `pdf`, and is what lets the confirm screen tell a GM that what they uploaded is a
+ * printed notebook rather than a notebook - see `hasOneNotePdfProducer` for why the
+ * same cannot be said of a `docx`. */
+export interface UploadSniff {
+	format: UploadFormat;
+	printedFromOneNote: boolean;
+}
+
+/** How many leading bytes any signature below needs. The MIME header block of the four
+ * real `.mht` files is under 200 bytes; this leaves room for a longer preamble without
+ * ever decoding a whole upload to find out what it is. */
+const SNIFF_PREFIX_BYTES = 4096;
+
+const PDF_MAGIC = Buffer.from('%PDF-', 'latin1');
+const ZIP_LOCAL_HEADER = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+const ZIP_EMPTY_HEADER = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+const ZIP_SPANNED_HEADER = Buffer.from([0x50, 0x4b, 0x07, 0x08]);
+export const CABINET_MAGIC = Buffer.from('MSCF', 'latin1');
+
+/** [MS-ONESTORE] §2.3.1 `guidFileType`, little-endian on disk. The section GUID is what
+ * all three `.one` files in the corpus start with; the table-of-contents GUID is the
+ * other half of the same export and is here so a `.onetoc2` is recognised rather than
+ * falling through to `other` and being handed to a model as text. */
+export const ONESTORE_SECTION_GUID = Buffer.from([
+	0xe4, 0x52, 0x5c, 0x7b, 0x8c, 0xd8, 0xa7, 0x4d, 0xae, 0xb1, 0x53, 0x78, 0xd0, 0x29, 0x96, 0xd3
+]);
+export const ONESTORE_TOC_GUID = Buffer.from([
+	0xa1, 0x2f, 0xff, 0x43, 0xd9, 0xef, 0x76, 0x4c, 0x9e, 0xe2, 0x10, 0xea, 0x57, 0x22, 0x76, 0x5f
+]);
+
+/** A MIME envelope, which is what OneNote's "Single File Web Page" writes. Both headers
+ * are required rather than just `MIME-Version:`, because that one line on its own also
+ * opens a saved email and this is a routing decision: the page-scope export in the
+ * corpus is a single `text/html` part with `Content-Transfer-Encoding:
+ * quoted-printable`, and the section-scope one is `multipart/related`, so the pair is
+ * what both shapes share. Leading blank lines are tolerated; anything past the header
+ * block is not read here at all. */
+function looksLikeMimeEnvelope(prefix: Buffer): boolean {
+	const text = prefix.toString('latin1');
+	const headerBlock = text.slice(0, Math.max(0, text.search(/\r?\n\r?\n/)) || text.length);
+	if (!/^\s*MIME-Version:/i.test(headerBlock)) return false;
+	return /^Content-Type:/im.test(headerBlock);
+}
+
+/**
+ * Whether a PDF's own info dictionary says OneNote printed it. Measured rather than
+ * assumed: all three `.pdf` files in the corpus carry `/Producer` and `/Creator` set to
+ * "Microsoft OneNote per Microsoft 365", written as UTF-16BE with a byte order mark and
+ * left uncompressed, and the dictionary sits wherever the writer put it (6KB into the
+ * 173KB page export, 1.3MB into the 2.28MB notebook one), so there is no prefix to
+ * bound this to.
+ *
+ * So it searches for the rare needle first - the string "OneNote", in both encodings the
+ * corpus uses - and only then looks backwards a short way for the `/Producer` or
+ * `/Creator` token that makes it provenance rather than page content. `Buffer.indexOf`
+ * is a memchr scan, so this costs one pass over bytes that are already in memory and
+ * allocates nothing.
+ *
+ * It degrades by saying no. A PDF whose metadata lives inside a compressed object stream
+ * is not recognised, and then the confirm screen simply does not show the
+ * printed-notebook note. That is the safe direction: the note is a warning about what
+ * was lost, and a missing warning is a worse import, while a wrong one would be a lie.
+ *
+ * There is deliberately no `docx` equivalent. OneNote's DOCX export goes through Word,
+ * so `docProps/app.xml` says `Microsoft Office Word` and every trace of OneNote is gone
+ * (checked against all three `.docx` files in the corpus). A OneNote DOCX is not
+ * distinguishable from any other DOCX, and inventing a heuristic for it would produce
+ * exactly the wrong-warning case above.
+ */
+export function hasOneNotePdfProducer(bytes: Uint8Array): boolean {
+	const buffer = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	const needles = [Buffer.from('OneNote', 'latin1'), Buffer.from('OneNote', 'utf16le').swap16()];
+	// How far back the `/Producer (` or `/Creator (` token can sit from the vendor name.
+	// The corpus's own distance is 34 bytes; this allows a much longer prefix without
+	// letting a mention of OneNote in the page text find an unrelated token.
+	const CONTEXT_BYTES = 200;
+	for (const needle of needles) {
+		let at = buffer.indexOf(needle);
+		while (at !== -1) {
+			const context = buffer
+				.subarray(Math.max(0, at - CONTEXT_BYTES), at)
+				.toString('latin1')
+				.replace(/\0/g, '');
+			if (/\/(Producer|Creator)/.test(context)) return true;
+			at = buffer.indexOf(needle, at + 1);
+		}
+	}
+	return false;
+}
+
+function startsWith(prefix: Buffer, magic: Buffer): boolean {
+	return prefix.length >= magic.length && prefix.subarray(0, magic.length).equals(magic);
+}
+
+/** Reads a zip's entry names without inflating a single byte, so an OPC document can be
+ * told apart from an export to unpack before anything is decompressed. `unzipSync`'s
+ * filter callback sees every entry from the central directory and returning `false`
+ * everywhere means nothing is ever handed to the inflater - the same trick
+ * `ArchiveSourceReader.open` uses to enforce its caps from the central directory alone.
+ * A zip this cannot walk is still a zip: it is `ArchiveSourceReader.open`'s job to
+ * refuse it with the reason, not this function's to guess. */
+function zipEntryNames(bytes: Uint8Array, unzip: UnzipFn): string[] {
+	const names: string[] = [];
+	try {
+		unzip(bytes, {
+			filter(file) {
+				names.push(file.name);
+				return false;
+			}
+		});
+	} catch {
+		return names;
+	}
+	return names;
+}
+
+/** The one part of `fflate` this module needs, narrowed to what it calls so that the
+ * import stays a type-only concern for every consumer that never sniffs a zip. */
+type UnzipFn = (
+	data: Uint8Array,
+	options: { filter(file: { name: string }): boolean }
+) => Record<string, Uint8Array>;
+
+/** OPC payload paths that identify a package. Neither is a guess: `word/document.xml` is
+ * in all three corpus `.docx` files, `FixedDocSeq.fdseq` in all three `.xps` files, and
+ * no file in the corpus carries both. */
+function opcFormat(names: readonly string[]): UploadFormat | null {
+	const lower = names.map((n) => n.toLowerCase().replace(/\\/g, '/'));
+	if (!lower.includes('[content_types].xml')) return null;
+	if (lower.includes('word/document.xml')) return 'docx';
+	if (lower.includes('fixeddocseq.fdseq')) return 'xps';
+	return null;
+}
+
+export interface SniffUploadOptions {
+	/** Injected rather than imported so this module stays free of `fflate` for every
+	 * caller that only sniffs a non-zip. `ArchiveSourceReader` passes its own
+	 * `unzipSync`. */
+	unzip?: UnzipFn;
+}
+
+/**
+ * What this file is. Reads at most `SNIFF_PREFIX_BYTES` for every signature except the
+ * two that cannot be bounded: a zip's central directory sits at the end of the file, and
+ * a PDF's info dictionary sits wherever its writer put it.
+ */
+export function sniffUpload(bytes: Uint8Array, options: SniffUploadOptions = {}): UploadSniff {
+	const prefix = Buffer.from(
+		bytes.buffer,
+		bytes.byteOffset,
+		Math.min(bytes.byteLength, SNIFF_PREFIX_BYTES)
+	);
+
+	if (startsWith(prefix, PDF_MAGIC)) {
+		return { format: 'pdf', printedFromOneNote: hasOneNotePdfProducer(bytes) };
+	}
+	if (startsWith(prefix, CABINET_MAGIC)) {
+		return { format: 'onepkg', printedFromOneNote: false };
+	}
+	if (startsWith(prefix, ONESTORE_SECTION_GUID) || startsWith(prefix, ONESTORE_TOC_GUID)) {
+		return { format: 'onestore', printedFromOneNote: false };
+	}
+	if (
+		startsWith(prefix, ZIP_LOCAL_HEADER) ||
+		startsWith(prefix, ZIP_EMPTY_HEADER) ||
+		startsWith(prefix, ZIP_SPANNED_HEADER)
+	) {
+		const { unzip } = options;
+		const opc = unzip ? opcFormat(zipEntryNames(bytes, unzip)) : null;
+		return { format: opc ?? 'zip', printedFromOneNote: false };
+	}
+	if (looksLikeMimeEnvelope(prefix)) {
+		return { format: 'mhtml', printedFromOneNote: false };
+	}
+	return { format: 'other', printedFromOneNote: false };
+}

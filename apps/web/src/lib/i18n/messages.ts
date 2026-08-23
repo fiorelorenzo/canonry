@@ -1,4 +1,4 @@
-import type { OutcomeNoteOffenderReason } from '@canonry/import';
+import type { OutcomeNoteOffenderReason, UnreadableUploadFormat } from '@canonry/import';
 
 /** `detectSource`'s (`$lib/server/onboarding.ts`) per-request detection detail, issue
  * #263: composed server-side but never stored, so it travels as data rather than as an
@@ -14,6 +14,13 @@ export type DetectedDetail =
 	| { kind: 'pdf' }
 	| { kind: 'docx' }
 	| { kind: 'generic'; files: number };
+
+/** Issue #591: the confirm screen's honesty line, for an upload we can read but not as
+ * the thing the GM believes they exported. `printed-notebook` is a PDF whose own info
+ * dictionary says OneNote printed it, which means every page is there and the notebook's
+ * hierarchy is not. Travels as data for the same reason `DetectedDetail` does: the
+ * sentence is written in the reader's locale, not composed on the server. */
+export type DetectedNotice = 'printed-notebook';
 
 /**
  * Issue #572: the `proposal_trigger` values the plan checklist's credits line is written
@@ -1403,6 +1410,9 @@ export interface Messages {
 				/** Renders `DetectedDetail` above - the confirm screen's secondary line under
 				 * "Detected: <playbook>". */
 				detail: (detail: DetectedDetail) => string;
+				/** Renders `DetectedNotice` above - shown under the detail line when what was
+				 * uploaded is readable but not the export the GM thinks it is. */
+				notice: (notice: DetectedNotice) => string;
 				playbookLabel: string;
 				continueButton: string;
 				checking: string;
@@ -1427,6 +1437,13 @@ export interface Messages {
 				lostUpload: string;
 				needsLiveModel: (playbookLabel: string) => string;
 				noDocumentsFound: string;
+				/** Issue #591: an upload whose bytes are a format no reader in this codebase
+				 * can turn into documents. Refused in the upload action, before a job exists
+				 * and therefore before a credit can be spent, and it names the format and
+				 * what to export instead rather than saying the upload was empty. `path` is
+				 * the offending file: the upload's own name when the upload was the file, the
+				 * entry's path when it was inside an archive. */
+				unreadableFormat: (format: UnreadableUploadFormat, path: string) => string;
 				refused: {
 					jobsQuota: string;
 					documentsQuota: string;

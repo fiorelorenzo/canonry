@@ -62,6 +62,16 @@ export {
 	type BinaryAsset
 } from './sources.js';
 
+export {
+	sniffUpload,
+	hasOneNotePdfProducer,
+	isUnreadableUploadFormat,
+	UNREADABLE_UPLOAD_FORMATS,
+	type UploadFormat,
+	type UploadSniff,
+	type UnreadableUploadFormat
+} from './upload-format.js';
+
 export { InMemoryImageStore, type ImageStore, type StoredImage } from './images.js';
 
 export {

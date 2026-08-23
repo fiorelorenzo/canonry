@@ -1,0 +1,32 @@
+# OneNote export formats, one fixture per format
+
+Issue #591, epic #590. These are the six things OneNote can hand a GM, plus the
+table-of-contents file that travels with a `.one`, in the smallest form that still
+carries the signature `upload-format.ts` keys on and the structure a reader has to walk.
+
+They are **derived from a real notebook and contain none of it.** The corpus they were
+measured against is a third party's private campaign, documented in
+`docs/corpus-onenote.md` and deliberately not committed anywhere in this repository. What
+is reproduced here is structure: OneNote's own MIME envelope, its `ProgId` and `Generator`
+metas, its quoted-printable encoding and soft line breaks, its per-page wrapper `div`, its
+20pt `Calibri Light` title paragraph followed by a date and a time paragraph, its
+`File-List` link and sibling resource part. The words inside are the Ashenport Campaign,
+the same invented world as `test/fixtures/onenote/export/`, so the folder-tree fixture and
+these describe the same three pages in two export shapes and can be compared directly.
+
+| file               | what it stands for                        | how it was made                                                                                                                                                                                                                                                                                                |
+| ------------------ | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `page.mht`         | one page, Single File Web Page            | single-part MIME, `Content-Transfer-Encoding: quoted-printable`. One page wrapper. Carries one soft line break mid-word and one `=C3=A9` so a decoder is actually exercised                                                                                                                                    |
+| `section.mht`      | one section, Single File Web Page         | `multipart/related` with the boundary and the untranslated browser-support preamble OneNote writes, then three parts: the HTML, a 16x16 PNG, and the `filelist.xml` that lists them. Three page wrappers, one of them a subpage in the notebook it came from, which is the point: nothing in the bytes says so |
+| `notebook.mht`     | a whole notebook, Single File Web Page    | single-part again, four page wrappers from two different sections, concatenated with **no section boundary between them**, which is what OneNote actually writes                                                                                                                                               |
+| `printed.pdf`      | a notebook printed to PDF                 | hand-assembled PDF 1.7, one page, real `xref`, with `/Producer` and `/Creator` set to "Microsoft OneNote for Microsoft 365" as UTF-16BE with a byte order mark and left uncompressed, exactly as OneNote's own printer writes them. This is what `hasOneNotePdfProducer` reads                                 |
+| `printed.xps`      | a notebook printed to XPS                 | real OPC zip: `[Content_Types].xml`, `_rels/.rels`, `FixedDocSeq.fdseq`, one `Documents/1/Pages/1.fpage` with two `Glyphs` elements. `FixedDocSeq.fdseq` is the payload path that tells an XPS apart from any other OPC package                                                                                |
+| `page.docx`        | a page exported to DOCX                   | real OPC zip with `word/document.xml`. Its `docProps/app.xml` says `Microsoft Office Word`, which is what the real files say too: OneNote's DOCX export goes through Word and no trace of OneNote survives it                                                                                                  |
+| `section.one`      | a section, OneNote's own binary           | the 16-byte [MS-ONESTORE] section `guidFileType` followed by 512 deterministic filler bytes. There is no reader for this format, so detection reads the header and nothing else does anything with the rest                                                                                                    |
+| `notebook.onetoc2` | the notebook's table of contents          | the [MS-ONESTORE] table-of-contents `guidFileType` plus filler, same reasoning                                                                                                                                                                                                                                 |
+| `notebook.onepkg`  | a notebook packaged by OneNote on the web | a 64-byte `MSCF` cabinet header with an empty folder and file table. A `.onepkg` is a Microsoft cabinet, and that is all detection needs to know                                                                                                                                                               |
+
+The five binary files were generated once and committed rather than built by a script the
+tests run, the same way `test/fixtures/pdf` and `test/fixtures/docx` already are. Every
+byte in each of them is described above, so a reviewer can check any of it without
+regenerating anything.

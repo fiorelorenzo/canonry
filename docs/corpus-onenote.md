@@ -1,0 +1,88 @@
+# The OneNote corpus, where it is and why it is not here
+
+Epic #590, issue #591.
+
+A friend of mine exported his real campaign notebook from OneNote in **every format
+OneNote offers, at every scope it offers them**: the whole notebook, two sections, and one
+page. 19 files, 22MB, Italian prose written by a GM who has never seen Canonry. Until this
+arrived, every OneNote fixture in this repository was written by us, so "OneNote import
+works" was a claim about our own fixtures rather than a measurement.
+
+## Where it is
+
+On the devbox, at `/home/dev/corpora/onenote-luca/export.zip`, mode 0700.
+
+```
+sha256  9b9a488a079a0cea77892ab3f6e4478ebef295324d1bc8a83676632d8d783bf1
+bytes   22 MB, 19 files
+```
+
+Unpacked next to it under `extracted/` when a measurement needs the individual files.
+Anyone re-running a number in this document or in a PR under #590 works from that archive
+and checks the digest first, because a measurement against a different corpus is a
+different measurement.
+
+## Why it is not committed
+
+It is somebody else's private campaign, this repository is public, and its licence is
+AGPL-3.0, so committing it would publish his world under a licence he never agreed to and
+put it in the history of every clone forever. He handed it over as a test case, not as
+content.
+
+So nothing from it lands here: not the files, not a sample of the prose, not a paragraph
+quoted in an issue, a PR body or a commit message. What the repository carries instead is
+`packages/import/test/fixtures/onenote-formats/`, one fixture per format, structurally
+faithful and written on an invented world. That directory's own README says how each one
+was made and which signature it reproduces.
+
+## What is in it
+
+| file | bytes | scope |
+| --- | --- | --- |
+| `Note Campagna DM - Nuova Luce.onepkg` | 3,229,556 | whole notebook |
+| `Note Campagna DM - Nuova Luce.mht` | 2,107,071 | whole notebook |
+| `Note Campagna DM - Nuova Luce.pdf` | 2,280,818 | whole notebook |
+| `Note Campagna DM - Nuova Luce.xps` | 4,220,966 | whole notebook |
+| `Mondo.{one,mht,pdf,xps,docx}` | 6.8M / 502K / 793K / 1.5M / 126K | one section |
+| `Note Storia.{one,mht,pdf,xps,docx}` | 17.3M / 1.2M / 1.4M / 2.4M / 254K | one section |
+| `Storia e Natura del Mondo.{one,mht,pdf,xps,docx}` | 83K / 3.3K / 173K / 505K / 14K | one page |
+
+Note what is missing: there is no `.onepkg` at section or page scope and no `.docx` at
+notebook scope, because OneNote does not offer those combinations. So the six extensions
+are not six independent choices, they are six choices constrained by what the GM is trying
+to export.
+
+## What was measured off it, and where each number lives
+
+- **Signatures.** `.mht` is `MIME-Version: 1.0`; `.pdf` is `%PDF-1.7`; `.docx` and `.xps`
+  are both `PK\x03\x04` and are told apart by their payload path (`word/document.xml`
+  against `FixedDocSeq.fdseq`); `.onepkg` is `MSCF`, a Microsoft cabinet; all three `.one`
+  files open with the [MS-ONESTORE] section GUID
+  `{7B5C52E4-D88C-4DA7-AEB1-5378D02996D3}`. `packages/import/src/upload-format.ts` is
+  where those turned into code.
+- **Provenance.** All three `.pdf` files carry `/Producer` and `/Creator` set to
+  "Microsoft OneNote per Microsoft 365", UTF-16BE with a byte order mark, uncompressed, so
+  a printed notebook is content-detectable and the GM can be told what they uploaded. All
+  three `.docx` files say `Microsoft Office Word` and carry no OneNote trace at all,
+  because that export goes through Word, so the same cannot be said of a DOCX. Neither of
+  those is a guess.
+- **Structure of the `.mht` export.** One `<div style='direction:ltr;border-width:100%'>`
+  wrapper per page, and the page's title is the 20pt `Calibri Light` paragraph inside it,
+  followed by a date paragraph and a time paragraph. The page-scope file has one wrapper,
+  the two section-scope files 23 and 52, the notebook-scope file 70. The notebook file is
+  the two sections' pages concatenated **with nothing between them**: no section name, no
+  boundary, no nesting attribute, and the wrapper `div`'s style is byte-identical on every
+  page. The varying `margin-left` values inside a page follow where the GM put a note
+  container on the page canvas, not the page's place in the notebook. So the `.mht` export
+  carries pages and loses the hierarchy, which is the opposite of the folder-tree export
+  the `onenote` playbook was written against.
+- **What today's upload path does with each of the six.** Measured through the real HTTP
+  upload path, before and after #591, in that PR's own body and in the issue comment on
+  #591.
+
+## Handling rules
+
+Read it, measure against it, derive a fixture from it. Do not commit it, do not paste his
+prose anywhere, and do not send it to a model except as part of a measurement that needs a
+real file. Every gateway run against it costs real money and is recorded with what it
+cost.

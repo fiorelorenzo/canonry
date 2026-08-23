@@ -18,6 +18,8 @@
  * holds here - a document from a different job's export is simply not reachable through
  * this interface, there is no path that reaches it.
  */
+import { unzipSync } from 'fflate';
+import { sniffUpload, type UploadSniff } from './upload-format.js';
 
 export interface SourceEntry {
 	path: string;
@@ -53,6 +55,13 @@ export interface SourceReader {
 	/** Renders one page of a PDF at `path` to an image (SPEC.md §6.3): "so a scanned page
 	 * is simply looked at. Local and deterministic: no OCR provider, no per-page fee." */
 	renderPage(path: string, page: number): Promise<RenderedPage>;
+	/** What this entry actually is, decided from its own bytes rather than its name
+	 * (`upload-format.ts`, issue #591). On the interface rather than only on
+	 * `ArchiveSourceReader` because the callers that need it - detection, and the
+	 * refusal that stops a job for a format nobody wrote a reader for - are the same
+	 * two `detectSource`/`documentsForPlaybook` functions the in-memory double already
+	 * stands in for. */
+	sniffEntry(path: string): Promise<UploadSniff>;
 }
 
 export class SourceNotFoundError extends Error {
@@ -120,5 +129,19 @@ export class InMemorySourceReader implements SourceReader {
 		const rendered = this.pages.get(key);
 		if (!rendered) throw new SourceNotFoundError(key);
 		return rendered;
+	}
+
+	async sniffEntry(path: string): Promise<UploadSniff> {
+		const text = this.files.get(path);
+		if (text !== undefined) {
+			return sniffUpload(new Uint8Array(Buffer.from(text, 'utf8')), { unzip: unzipSync });
+		}
+		const asset = this.binaries.get(path);
+		if (asset) {
+			return sniffUpload(new Uint8Array(Buffer.from(asset.base64, 'base64')), {
+				unzip: unzipSync
+			});
+		}
+		throw new SourceNotFoundError(path);
 	}
 }

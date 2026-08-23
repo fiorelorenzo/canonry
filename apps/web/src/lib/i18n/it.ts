@@ -1263,6 +1263,18 @@ export const it: Messages = {
 							return `${d.files} file, schema di export non riconosciuto`;
 					}
 				},
+				notice: (n) => {
+					switch (n) {
+						case 'printed-notebook':
+							return (
+								'Questo PDF lo ha stampato OneNote, quindi ci sono tutte le pagine ma non ' +
+								"c'è più il blocco appunti: una pagina secondaria ora è solo un altro titolo, e " +
+								'niente nel file dice sotto quale pagina stava. Se esporti invece ' +
+								"l'albero delle pagine quella struttura resta, e la guida all'import da OneNote " +
+								'spiega come.'
+							);
+					}
+				},
 				playbookLabel: 'Playbook da eseguire',
 				continueButton: 'Conferma e continua',
 				checking: 'Verifica…'
@@ -1294,6 +1306,29 @@ export const it: Messages = {
 				needsLiveModel: (playbookLabel) =>
 					`Avviare un import ${playbookLabel} richiede un modello live, e questa installazione non ha credenziali AI_GATEWAY_* configurate. Gli import da Obsidian, Kanka e testo generico non ne hanno bisogno.`,
 				noDocumentsFound: 'Questo playbook non ha riconosciuto nessun documento nel file caricato.',
+				unreadableFormat: (format, path) => {
+					const cosa = {
+						mhtml:
+							'una pagina Web in file unico di OneNote, e Canonry non ha ancora un lettore per ' +
+							"questo formato. Esporta lo stesso blocco appunti o la stessa sezione in PDF o DOCX dall'app " +
+							"desktop di OneNote e carica quel file, oppure esporta l'albero delle pagine come " +
+							"spiega la guida all'import da OneNote",
+						xps:
+							'un documento XPS, che è lo stesso blocco appunti stampato che sarebbe un PDF e per ' +
+							'cui Canonry non ha un lettore. Stampa o esporta la stessa cosa in PDF e carica quel file',
+						onestore:
+							'uno dei file di sezione binari di OneNote, e Canonry non ha un lettore per questo ' +
+							"formato. Esporta il blocco appunti o la sezione in PDF o DOCX dall'app desktop di " +
+							'OneNote e carica quel file',
+						onepkg:
+							'un pacchetto di OneNote, cioè un archivio cabinet Microsoft che contiene il blocco ' +
+							'appunti in quello stesso formato binario, e Canonry non ha un lettore per questo. ' +
+							"Esporta in PDF o DOCX dall'app desktop di OneNote, oppure esporta l'albero delle " +
+							"pagine come spiega la guida all'import da OneNote"
+					}[format];
+					const chiusa = 'Non è partito niente e non hai speso nessun credito.';
+					return `Canonry non riesce a leggere "${path}": è ${cosa}. ${chiusa}`;
+				},
 				refused: {
 					jobsQuota: 'Import rifiutato: hai raggiunto il tuo limite di import.',
 					documentsQuota: 'Import rifiutato: questo import ha troppi documenti per il tuo piano.',

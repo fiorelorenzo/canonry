@@ -1220,6 +1220,17 @@ export const en: Messages = {
 							return `${d.files} file${d.files === 1 ? '' : 's'}, no known export schema`;
 					}
 				},
+				notice: (n) => {
+					switch (n) {
+						case 'printed-notebook':
+							return (
+								'OneNote printed this PDF, so every page is here and the notebook itself is not: ' +
+								'a subpage has become just another heading, and nothing in the file says which ' +
+								'page it used to sit under. Exporting the page tree instead keeps that, and the ' +
+								'OneNote import guide says how.'
+							);
+					}
+				},
 				playbookLabel: 'Playbook to run',
 				continueButton: 'Confirm and continue',
 				checking: 'Checking…'
@@ -1251,6 +1262,26 @@ export const en: Messages = {
 				needsLiveModel: (playbookLabel) =>
 					`Starting a ${playbookLabel} import needs a live model, and this deployment has no AI_GATEWAY_* credentials configured. Obsidian, Kanka and generic text imports do not need one.`,
 				noDocumentsFound: 'No documents this playbook recognises were found in the upload.',
+				unreadableFormat: (format, path) => {
+					const what = {
+						mhtml:
+							'a OneNote Single File Web Page, and Canonry has no reader for one yet. Export the ' +
+							'same notebook or section to PDF or DOCX from the OneNote desktop app and upload ' +
+							'that, or export the page tree the OneNote import guide describes',
+						xps:
+							'an XPS document, which is the same printed notebook a PDF would be and which ' +
+							'Canonry has no reader for. Print or export the same thing to PDF and upload that',
+						onestore:
+							"one of OneNote's own binary section files, and Canonry has no reader for the " +
+							'format. Export the notebook or section to PDF or DOCX from the OneNote desktop app ' +
+							'and upload that instead',
+						onepkg:
+							'a OneNote package, a Microsoft cabinet holding the notebook in that same binary ' +
+							'format, and Canonry has no reader for it. Export to PDF or DOCX from the OneNote ' +
+							'desktop app instead, or export the page tree the OneNote import guide describes'
+					}[format];
+					return `Canonry cannot read "${path}": it is ${what}. Nothing was started and no credits were spent.`;
+				},
 				refused: {
 					jobsQuota: 'This import was refused: you have reached your import job limit.',
 					documentsQuota:

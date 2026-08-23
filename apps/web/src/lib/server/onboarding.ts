@@ -38,6 +38,7 @@ import {
 	ImportJobRunner,
 	ImportQuotaExceededError,
 	InMemoryImageStore,
+	isUnreadableUploadFormat,
 	loadBuiltinPlaybook,
 	MATCH_THRESHOLDS,
 	type AcceptImportProposalInput,
@@ -53,7 +54,8 @@ import {
 	type ModelSelector,
 	type RelationProposalPayload,
 	type RunImportJobParams,
-	type SourceReader
+	type SourceReader,
+	type UnreadableUploadFormat
 } from '@canonry/import';
 import { createGatewayEmbedder, embeddingDimensionsFor, hashingEmbedder } from '@canonry/indexing';
 import {
@@ -64,7 +66,7 @@ import {
 	type ResolvedModel
 } from '@canonry/ai';
 import { detectLanguage, type Locale } from '@canonry/lang';
-import type { DetectedDetail } from '$lib/i18n';
+import type { DetectedDetail, DetectedNotice } from '$lib/i18n';
 import { eq, type Db } from '@canonry/db';
 import { importJob, proposal, proposalPlan, universe } from '@canonry/db/schema';
 import type { EntityType, ProposalKind } from '@canonry/db/schema';
@@ -213,15 +215,42 @@ export function tempUploadPath(tempId: string): string {
 	return path.join(importRoot(), `${tempId}.upload`);
 }
 
+/** The upload's own file name, stored beside its bytes (issue #591). A single-file upload
+ * is opened as a one-entry reader keyed by that name, so the name decides which playbook
+ * `detectSource` picks and which documents `documentsForPlaybook` enumerates - which means
+ * it has to be the same name on the confirm and start steps as it was on the detect step.
+ * It travels through the form too, for the summary line the confirm screen shows, but that
+ * copy is a display string a client can edit; this one is what re-opening reads, so the
+ * three steps cannot disagree about what was uploaded. */
+function tempUploadNamePath(tempId: string): string {
+	return path.join(importRoot(), `${tempId}.name`);
+}
+
 /** Stores an uploaded file's raw bytes under a temp name before an import_job row (and
  * therefore a real id) exists - D1's confirm step needs to re-open the same archive after
  * the detect step without asking the GM to upload twice. */
-export async function storeUpload(bytes: Uint8Array): Promise<StoredUpload> {
+export async function storeUpload(bytes: Uint8Array, fileName: string): Promise<StoredUpload> {
 	const root = importRoot();
 	await mkdir(root, { recursive: true });
 	const tempId = randomUUID();
 	await writeFile(tempUploadPath(tempId), bytes);
+	await writeFile(tempUploadNamePath(tempId), fileName, 'utf8');
 	return { tempId, bytes: bytes.byteLength };
+}
+
+/** Re-opens a stored upload the same way the upload action opened it, name included.
+ * Every call site that used to pair `readFile(tempUploadPath(...))` with
+ * `ArchiveSourceReader.open` goes through here instead, so a single-file upload survives
+ * the round trip from detect to start rather than failing to parse as a zip on the second
+ * step. A stored upload with no name file beside it is one written before this existed:
+ * it opens under a dull name rather than failing, which for an archive changes nothing at
+ * all, since the name is only ever used for the single-document case. */
+export async function openStoredUpload(
+	tempId: string
+): Promise<{ bytes: Uint8Array; reader: ArchiveSourceReader }> {
+	const bytes = new Uint8Array(await readFile(tempUploadPath(tempId)));
+	const fileName = await readFile(tempUploadNamePath(tempId), 'utf8').catch(() => 'upload');
+	return { bytes, reader: ArchiveSourceReader.openUpload(bytes, fileName, DEFAULT_ARCHIVE_LIMITS) };
 }
 
 // ---------------------------------------------------------------------------------------
@@ -265,6 +294,45 @@ export interface DetectedSource {
 	playbookId: KnownPlaybookId;
 	confident: boolean;
 	detail: DetectedDetail;
+	/** Set when the upload is readable but not as the thing the GM thinks they exported
+	 * (issue #591). `printed-notebook` means a PDF whose own info dictionary says OneNote
+	 * printed it: the pages are all there and the notebook's hierarchy is not, and the
+	 * confirm screen says so rather than letting the GM believe they got the good import.
+	 * Null for everything else, including a DOCX, because OneNote's DOCX export goes
+	 * through Word and leaves no provenance to read (`hasOneNotePdfProducer`'s own comment
+	 * has the measurement). */
+	notice: DetectedNotice | null;
+}
+
+/**
+ * An upload we recognise and have no reader for (issue #591). SPEC.md §15's "no opaque
+ * credits" and guardrail 5 both say the same thing here: a job that cannot succeed must
+ * not charge, so this is checked in the upload action, before a `tempId` exists and
+ * therefore before anything downstream can create an `import_job` row at all.
+ *
+ * It refuses only an upload that is *nothing but* formats with no reader: a single file
+ * that is one of them, or an archive whose every file is. That is the case that matters,
+ * because it is what a GM produces when they zip the `.one` OneNote gave them, and it
+ * leaves a real export carrying one stray unreadable file importable minus that file,
+ * which `readsAsText` already skips. `path` is the first offending file, which the copy
+ * names so the GM can see what it read rather than being told their upload was empty.
+ */
+export interface UploadRefusal {
+	format: UnreadableUploadFormat;
+	path: string;
+}
+
+export async function refuseUnreadableUpload(reader: SourceReader): Promise<UploadRefusal | null> {
+	const paths = (await walkAllPaths(reader)).filter((p) => !p.startsWith('__MACOSX/'));
+	if (paths.length === 0) return null;
+
+	let firstUnreadable: UploadRefusal | null = null;
+	for (const path of paths) {
+		const { format } = await reader.sniffEntry(path);
+		if (!isUnreadableUploadFormat(format)) return null;
+		firstUnreadable ??= { format, path };
+	}
+	return firstUnreadable;
 }
 
 async function walkAllPaths(reader: SourceReader, prefix = ''): Promise<string[]> {
@@ -309,7 +377,8 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 		return {
 			playbookId: 'obsidian',
 			confident: true,
-			detail: { kind: 'obsidian', notes }
+			detail: { kind: 'obsidian', notes },
+			notice: null
 		};
 	}
 
@@ -318,7 +387,8 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 		return {
 			playbookId: 'kanka',
 			confident: true,
-			detail: { kind: 'kanka', jsonFiles: jsonPaths.length }
+			detail: { kind: 'kanka', jsonFiles: jsonPaths.length },
+			notice: null
 		};
 	}
 
@@ -328,7 +398,8 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 		return {
 			playbookId: 'world-anvil',
 			confident: true,
-			detail: { kind: 'world-anvil' }
+			detail: { kind: 'world-anvil' },
+			notice: null
 		};
 	}
 
@@ -347,9 +418,31 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 			return {
 				playbookId: 'onenote',
 				confident: true,
-				detail: { kind: 'onenote', pages: htmlPaths.length }
+				detail: { kind: 'onenote', pages: htmlPaths.length },
+				notice: null
 			};
 		}
+	}
+
+	// A single-file upload is the one case where the file's own bytes decide the playbook
+	// (issue #591), and it is sniffed rather than trusted by extension for two reasons: a
+	// file named `.pdf` that is not one used to reach the pdf playbook and cost a document
+	// to fail inside `ArchiveEntryExtractionError`, and a `.docx` renamed to `.zip` used to
+	// be unpacked into its own OOXML parts. Only sniffed here, and not for every entry of
+	// a real export, because a sniff reads bytes and an export can hold ten thousand
+	// entries; `documentsForPlaybook` sniffs per candidate where it is already reading
+	// each one anyway.
+	const sole = paths.length === 1 ? await reader.sniffEntry(paths[0]!) : null;
+	if (sole?.format === 'pdf') {
+		return {
+			playbookId: 'pdf',
+			confident: true,
+			detail: { kind: 'pdf' },
+			notice: sole.printedFromOneNote ? 'printed-notebook' : null
+		};
+	}
+	if (sole?.format === 'docx') {
+		return { playbookId: 'docx', confident: true, detail: { kind: 'docx' }, notice: null };
 	}
 
 	const mdPaths = paths.filter((p) => p.toLowerCase().endsWith('.md'));
@@ -357,21 +450,16 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 		return {
 			playbookId: 'obsidian',
 			confident: false,
-			detail: { kind: 'obsidian-unsure', markdownFiles: mdPaths.length }
+			detail: { kind: 'obsidian-unsure', markdownFiles: mdPaths.length },
+			notice: null
 		};
-	}
-
-	if (paths.length === 1 && paths[0]!.toLowerCase().endsWith('.pdf')) {
-		return { playbookId: 'pdf', confident: true, detail: { kind: 'pdf' } };
-	}
-	if (paths.length === 1 && paths[0]!.toLowerCase().endsWith('.docx')) {
-		return { playbookId: 'docx', confident: true, detail: { kind: 'docx' } };
 	}
 
 	return {
 		playbookId: 'generic',
 		confident: false,
-		detail: { kind: 'generic', files: paths.length }
+		detail: { kind: 'generic', files: paths.length },
+		notice: null
 	};
 }
 
@@ -408,7 +496,20 @@ const MAX_REPLACEMENT_CHAR_SHARE = 0.1;
  * own. And a PDF with no text layer extracts to nothing, so a scanned PDF sitting in a
  * mixed folder is skipped rather than enumerated as an empty document; uploaded on its
  * own it detects as `pdf`, whose playbook renders each page as an image. The generic
- * import guide says both. */
+ * import guide says both.
+ *
+ * Issue #591 adds one more thing that is text and still not a document: a file whose own
+ * bytes are a format nobody wrote a reader for. OneNote's Single File Web Page is the
+ * measured case - a MIME envelope full of quoted-printable HTML passes every check above,
+ * so it used to become exactly one `generic` document and a real job, and a live run
+ * against the corpus's 3.3KB page spent 0.3581 credits proposing an entity whose body was
+ * the string `MIME-Version: 1.0`. Sniffing the bytes here rather than trusting the name is
+ * also what stops the same file slipping in renamed.
+ *
+ * The sniff is deliberately only on this path and not on the `obsidian`/`onenote`
+ * branches below, which filter by extension and read nothing at all: this branch already
+ * reads every candidate in full, so one more look at its prefix is proportionate, while
+ * adding a read per note to a two thousand note vault's estimate would not be. */
 async function readsAsText(reader: SourceReader, path: string): Promise<boolean> {
 	let content: string;
 	try {
@@ -416,6 +517,7 @@ async function readsAsText(reader: SourceReader, path: string): Promise<boolean>
 	} catch {
 		return false;
 	}
+	if (isUnreadableUploadFormat((await reader.sniffEntry(path)).format)) return false;
 	// An empty or whitespace-only file can produce nothing and would still cost a
 	// document's credits, so it is not a document.
 	if (content.trim().length === 0) return false;
@@ -1142,12 +1244,19 @@ export interface StartImportRunInput {
 	locale?: Locale;
 }
 
-/** Loads the archive back off disk into a fresh ArchiveSourceReader - the same reader an
- * upload's own detect step used, reopened rather than kept around in process memory so a
- * server restart between confirm and run does not lose the job. */
+/** Loads the artefact back off disk into a fresh `ArchiveSourceReader` (issue #591:
+ * `openUpload`, so a single-file upload opens as its own one entry instead of failing to
+ * parse as a zip). The name file sits beside the bytes at the path `storeUpload` wrote,
+ * and `import_job.artefact_path` points at the bytes, so the name is derived from that
+ * rather than stored a second time on the row. An artefact written before that file
+ * existed opens under a dull name, which only matters for a single-document upload and
+ * none of those could be started before this change anyway. */
 export async function openArtefact(artefactPath: string): Promise<ArchiveSourceReader> {
-	const bytes = await readFile(artefactPath);
-	return ArchiveSourceReader.open(bytes, DEFAULT_ARCHIVE_LIMITS);
+	const bytes = new Uint8Array(await readFile(artefactPath));
+	const fileName = await readFile(artefactPath.replace(/\.upload$/, '.name'), 'utf8').catch(
+		() => 'upload'
+	);
+	return ArchiveSourceReader.openUpload(bytes, fileName, DEFAULT_ARCHIVE_LIMITS);
 }
 
 export function startImportRun(database: Db, input: StartImportRunInput): void {
