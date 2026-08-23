@@ -770,6 +770,31 @@
 
 <section>
   <h2>Decision</h2>
+  <!-- Answered 2026-08-23, and written here as plain markup rather than through the
+       register. `assets/ux.js`'s UX_REGISTER is closed as of the same day (#631): every
+       decision from here on lives in the answer table at the top of DECISIONS.md, and this
+       page keeps only its head, breadcrumb and prev/next from that list. So the recorder
+       below stays for the record of how the question was put, and this callout is the
+       answer. -->
+  <div class="callout rec">
+    <h3>A, and the two components were merged rather than both taking the prop</h3>
+    <p><b>Answered 2026-08-23, Lorenzo, in <a
+    href="https://github.com/fiorelorenzo/canonry/issues/598">#598</a>.</b> The band takes
+    the body's width: it is a header over the column, not a full-width frame. Its paper still
+    spans the shell, so round eighteen's #527 is untouched, and the offset is 0 by
+    construction at every width on all thirty-one call sites. V1 is amended rather than
+    reversed, because what V1's structure was about is that no page draws its own title, and
+    none does.</p>
+    <p><code>PageHeader</code> and <code>PageBody</code> are one <code>Page</code> taking
+    <code>width</code> once, which is the version this page recommended: the same thirty-one
+    files either way, and only one of them leaves a route unable to contradict itself.
+    <code>page-width.ts</code> is now the only file that spells the two container tokens.</p>
+    <p>Two numbers on this page did not survive the implementation and the amendment says so:
+    the <code>working</code>-with-no-sidebar row should read 112 at 1280 rather than 0, and
+    the actions that move inward by 64px are the entry page's alone, not the entry page's and
+    <code>/dev/ui</code>'s. The full record, with the measurement over all thirty-one call
+    sites at four widths, is <a href="DECISIONS.md">DECISIONS.md</a>'s round twenty.</p>
+  </div>
   <div class="decide" data-ux-record></div>
 </section>
 

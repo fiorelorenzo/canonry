@@ -1,4 +1,4 @@
-This table is the answer set for all eighteen rounds plus the one open question (`X1`), one row per decision: `ID` links to the prose section that explains it where one exists, `Round` and `Question` are stated in the product's own words, and `Answer` is the letter and short name the register already uses. `Rule it creates` is filled only where a decision produced something a component can violate; it is empty everywhere else. The prose below the table, starting at the heading, is the reasoning behind every answer and is unchanged: it is what stops a settled question being reopened.
+This table is the answer set for all nineteen rounds, one row per decision: `ID` links to the prose section that explains it where one exists, `Round` and `Question` are stated in the product's own words, and `Answer` is the letter and short name the register already uses. `Rule it creates` is filled only where a decision produced something a component can violate; it is empty everywhere else. The prose below the table, starting at the heading, is the reasoning behind every answer and is unchanged: it is what stops a settled question being reopened.
 
 | ID | Round | Question | Answer | Rule it creates |
 | --- | --- | --- | --- | --- |
@@ -143,7 +143,7 @@ This table is the answer set for all eighteen rounds plus the one open question 
 | [W1](#w1-and-the-finding-that-decided-it) | eighteen | Table mode is unusable. What is on the screen while people are at the table? | A, the board. One screen: the place and its brief, the people present each with theirs, a persistent action bar. Nothing hidden behind a name |  |
 | [W2](#w2-and-the-data-that-was-being-thrown-away) | eighteen | The players' wiki is an alphabetical list of three names. What does a player read? | A, the campaign diary. The index is the sessions, newest first, each carrying the GM's own prose and what the party learned that night |  |
 | [W3](#w3-reverses-u11-three-days-after-it-was-taken-and-here-is-what-that-costs) | eighteen | The Ask page and the dock are the same surface twice. Which one is which? | B, the notebook. The dock is where you ask; the page becomes the searchable record of what you asked and what it answered. U11 is reversed |  |
-| X1 | twenty | The band is flush against main's gutter and the body centres inside it, so a page title and the first line of its prose disagree by up to 336px. Does the band take the body's width, does the body go flush left, or is the band a full-width frame on purpose? | Open — drawn, not yet decided |  |
+| [X1](#x1-amends-v1-and-makes-one-number-zero-instead-of-smaller) | twenty | The band is flush against main's gutter and the body centres inside it, so a page title and the first line of its prose disagree by up to 336px. Does the band take the body's width, does the body go flush left, or is the band a full-width frame on purpose? | A, the band takes the body's width. It is a header over the column, not a full-width frame; the paper still spans the shell. V1 is amended | a page declares its width once, on `Page`; a route that spells a container width itself, or draws the band on its own, is a violated rule |
 
 ---
 
@@ -2400,3 +2400,105 @@ files. That is what #551 is for: one component, so the next one cannot drift sil
 place's context pack, with a loader behind it) and #537's sibling findings. #479 stays deliberately
 untouched, because an import proposing a duplicate is prompt and matching work to measure with
 `packages/bench`, not a UI correction.
+
+## Round twenty, decided 2026-08-23
+
+One question, and it is the first one in this set that amends a decision from a round that
+already shipped rather than answering something new. It was drawn rather than argued, in
+`docs/ux/x1-band-and-body-alignment.html`, because it is a geometry and a paragraph cannot
+show one.
+
+| Id  | Question                                                                              | Chosen                                                                                                                             |
+| --- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| X1  | V1's band is flush against `main`'s gutter and the body centres inside it, so a page's title and the first line of its prose disagree by up to 336px. | **A, the band takes the body's width.** It is a header over the column, not a full-width frame. The paper still spans the shell |
+
+### X1 amends V1, and makes one number zero instead of smaller
+
+V1 = B settled two things in one answer and never said how they relate. The band is rendered
+as the first thing a route draws, with no wrapper around it, so it sits against `main`'s own
+gutter; the body is wrapped in `mx-auto max-w-reading` or `max-w-working`, so it centres
+inside that same gutter. Both halves do exactly what V1 says. What nothing said is where the
+title of a page is in relation to the first line of its prose, and the answer the code gave
+was "it depends".
+
+The measurement is the argument, and the first thing it corrects is the issue that filed it.
+That issue measured three `reading` routes and found 336 on all three, which reads as a
+constant and is not one. The offset is `max(0, (available - cap) / 2)`, so it varies with the
+width a page declared, with whether the route sits inside the app shell, and with the
+viewport. Measured on the branch, over thirty-five URLs covering all thirty-one call sites at
+four widths, signed in and signed out, it took six distinct values:
+
+| Shell                                            | Declared | Cap | 1440 | 1280 | 768 | 390 |
+| ------------------------------------------------ | -------- | --- | ---- | ---- | --- | --- |
+| no sidebar (`/p/`, `/u/`, `/privacy` signed out) | reading  | 704 | 336  | 256  | 0   | 0   |
+| no sidebar (`/settings`, account mode)           | working  | 992 | 192  | 112  | 0   | 0   |
+| app shell (`/privacy` signed in)                 | reading  | 704 | 208  | 128  | 0   | 0   |
+| app shell (the inbox, an entry, Ask, settings)   | working  | 992 | 64   | 0    | 0   | 0   |
+| app shell (the table, table mode, admin)         | wide     | -   | 0    | 0    | 0   | 0   |
+
+Three things read straight off that, and each one changed an option's argument rather than
+decorating it. Every `wide` route already agreed, at every width, because a body with no cap
+starts where the band starts: seven of the thirty-one call sites were already the thing A
+makes universal. Nothing disagreed at 768 or below on any route, because the cap stops biting
+before the gutter does. And of the nineteen `working` call sites, seventeen disagreed by 64 at
+1440 and by nothing at 1280, `/settings` by 192 and 112 because account mode draws no sidebar,
+and `works/[work]` by nothing at any width because it renders inside its own tree pane. That
+is what made B, flush left on `reading` pages, the wrong shape: it closes five call sites and
+leaves nineteen misaligned at desktop width, and it gives up A1's centred measure on exactly
+the surfaces the reading room is for.
+
+One cell of the artifact's own table is wrong, and it is worth saying so rather than leaving
+two documents to disagree quietly: it put `working` with no sidebar at 0 for 1280, and the
+measured value is 112. Available at 1280 with no sidebar is 1216 and the cap is 992, so the
+offset is 112. Nothing in the argument turns on it; the option ordering is the same either way.
+
+So A, and the band is from now on a header over the column. It keeps its full-width paper and
+its rule, because that paper is what round eighteen's #527 needed: the band bleeds `main`'s
+gutter and re-adds it precisely so a sticky band's own paper reaches the scrollport's edge and
+content cannot scroll through a strip above it. What moves is the band's content, onto the
+same cap the page declared for its body. It also finishes a rule the band was already half
+following, since its `description` was capped at `--container-measure` while its `h1` was
+flush, by an earlier decision nobody wrote down as one.
+
+C was the honest alternative and it lost on its own sentence. Writing down "the band is a
+full-width frame that belongs to the route" means writing down that the frame sits 0, 64, 112,
+128, 192, 208, 256 or 336 pixels from its content depending on where you are standing, and a
+frame at a varying distance from its content is not a frame. It would also have left
+`/u/<handle>` looking like a defect to everybody who has not read this file, which is where
+the question came from in the first place: `/privacy` is 3986px of ink and `/u/lorenzo` is
+104px in a 900px viewport, so the profile did not get this wrong, it is the only page with too
+little ink to hide it.
+
+**What this costs in code, and the part of V1 it really repeals.** The band needs the width
+and the body owned it, so `PageHeader` and `PageBody` are now one `Page` taking `width` once,
+with the band as an internal component. The other shape was the same prop on both halves at
+the same thirty-one call sites, and it was refused for one reason: it lets a route give its
+band one width and its body another, and nothing but a reviewer would catch it. That is a real
+loss of independence between the two components and it is the right loss, because the
+independence is what produced the 336 in the first place. What V1's structural guarantee was
+actually about survives untouched, because it was never that the band ignores the width: it
+was that no page draws its own title, and none does.
+
+Two routes had already declined `PageBody` and applied the width token to their own element,
+the entry editor because `MarkdownEditor`'s `fill` needs an unbroken `h-full` chain and an
+auto-height wrapper breaks it, and a work node because its body is a flex row beside a
+fixed-width aside. Both now take a `bodyClass` for the layout and no width at all, so the two
+places a width used to be spelled twice are down to one. `page-width.ts` is the only file in
+`apps/web` that spells `max-w-reading` or `max-w-working`, and
+`page-header-offset.test.ts` fails if a second one appears or if any route but the component
+gallery draws the band on its own.
+
+**And one correction to the artifact's own cost list.** It said two bands' actions move inward
+by 64px at 1440, the entry page's and `/dev/ui`'s. Measured, it is one: the entry page's write
+controls and audit badge move from a right edge of 1408 to 1344, and `/dev/ui`'s own band
+carries no actions at all. The gallery's *demo* band does, and it does not move either, because
+it is drawn inside a 972px box that never reaches the 992px cap. Every other cost the artifact
+listed held: the seven `wide` routes are pixel-identical before and after at 1440 and 1280 in
+both palettes, and every existing screenshot in `docs/ux` showing a `reading` or `working`
+route is out of date as of today.
+
+### Where round twenty lands
+
+[#598](https://github.com/fiorelorenzo/canonry/issues/598), one commit across the layout shell
+and its thirty-one call sites. [#621](https://github.com/fiorelorenzo/canonry/issues/621), the
+role-named type scale, was held until this landed because it touches the same two components.
