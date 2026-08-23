@@ -155,7 +155,12 @@ import {
 	pruneForeignAliases,
 	updatePatchAddsNothing
 } from './proposal-guards.js';
-import type { OutcomeNoteLossy, OutcomeNoteOffender, OutcomeNotePayload } from './outcome-note.js';
+import type {
+	OutcomeNoteLossy,
+	OutcomeNoteOffender,
+	OutcomeNotePayload,
+	OutcomeNoteSkippedImages
+} from './outcome-note.js';
 
 // ---------------------------------------------------------------------------
 // Estimate (issue #30: "an estimate before the run covering size, time and cost").
@@ -386,6 +391,11 @@ export interface DocumentOutcome {
 	 * emitted for it (gateway-driver.ts, guardrail 3). Zero for a clean run and for
 	 * `skipped_unchanged`, which never ran a step at all. */
 	lostToolCallCount: number;
+	/** issue #623: images this document carried that Canonry does not store, in the order
+	 * they were refused. Empty for a clean run and for `skipped_unchanged`, which never
+	 * ran a step. A skip does not stop the document, so this is the only record that the
+	 * export held a picture the GM will not find in the library. */
+	skippedImages: { path: string; format: string }[];
 	/** issue #613: what became of the relations this document proposed. All zeroes for a
 	 * document that never reached the merge engine (`skipped_unchanged`, `cancelled`,
 	 * `failed`), which is the honest answer for one: nothing became of them because
@@ -437,16 +447,21 @@ function classifyOffenderDetail(detail: string): Omit<OutcomeNoteOffender, 'path
 	return { reason: 'other', text: detail };
 }
 
-/** Merges `lossy` into a payload's JSON string only when there is one -
+/** Merges the optional suffixes into a payload's JSON string only when there is one -
  * `exactOptionalPropertyTypes` treats a present `lossy: undefined` key differently from
- * an absent one, and `OutcomeNotePayload` wants the latter, so this stringifies from two
- * branches instead of assigning a possibly-`undefined` property. Three call sites below,
- * one per payload kind that carries a lossy suffix. */
-function stringifyWithLossy(
+ * an absent one, and `OutcomeNotePayload` wants the latter, so this builds the object up
+ * instead of assigning possibly-`undefined` properties. Three call sites below, one per
+ * payload kind that carries a suffix. */
+function stringifyWithSuffixes(
 	base: Record<string, unknown>,
-	lossy: OutcomeNoteLossy | undefined
+	lossy: OutcomeNoteLossy | undefined,
+	skippedImages: OutcomeNoteSkippedImages | undefined
 ): string {
-	return JSON.stringify(lossy ? { ...base, lossy } : base);
+	return JSON.stringify({
+		...base,
+		...(lossy ? { lossy } : {}),
+		...(skippedImages ? { skippedImages } : {})
+	});
 }
 
 /** issue #177, guardrail 7 ("the product says what did not add up, it never
@@ -475,10 +490,20 @@ function buildOutcomeNote(
 			}
 		: undefined;
 
+	// issue #623: same argument as `lossy` above, and the same reason it is computed here
+	// rather than inside one branch: a document that skipped an image almost always still
+	// finishes, so the `finished` branch is exactly the one that has to say so.
+	const skipped = outcomes.flatMap((outcome) => outcome.skippedImages);
+	const [firstSkip] = skipped;
+	const skippedPayload: OutcomeNoteSkippedImages | undefined = firstSkip
+		? { path: firstSkip.path, format: firstSkip.format, count: skipped.length }
+		: undefined;
+
 	if (finalStatus === 'finished') {
-		return stringifyWithLossy(
+		return stringifyWithSuffixes(
 			{ v: 1, kind: 'finished', documents: outcomes.length, proposals: proposalsEmitted },
-			lossyPayload
+			lossyPayload,
+			skippedPayload
 		);
 	}
 
@@ -501,17 +526,18 @@ function buildOutcomeNote(
 		// Every branch that sets finalStatus to something other than 'finished' also
 		// puts at least one entry into unfinished or neverStarted, so this is not
 		// reachable - kept honest rather than silent if that ever stops being true.
-		return stringifyWithLossy(
+		return stringifyWithSuffixes(
 			{
 				v: 1,
 				kind: 'stopped_no_offender',
 				documents: outcomes.length,
 				proposals: proposalsEmitted
 			},
-			lossyPayload
+			lossyPayload,
+			skippedPayload
 		);
 	}
-	return stringifyWithLossy(
+	return stringifyWithSuffixes(
 		{
 			v: 1,
 			kind: 'offender',
@@ -521,7 +547,8 @@ function buildOutcomeNote(
 				...classifyOffenderDetail(first.detail)
 			}
 		},
-		lossyPayload
+		lossyPayload,
+		skippedPayload
 	);
 }
 
@@ -572,6 +599,7 @@ export class ImportJobRunner {
 					proposalsCreated: 0,
 					droppedRelations: newRelationDropLedger(),
 					lostToolCallCount: 0,
+					skippedImages: [],
 					detail: 'unchanged since the last import'
 				});
 				checkpoint.documents[doc.id] = { status: 'finished' };
@@ -619,6 +647,7 @@ export class ImportJobRunner {
 		const buffers = new Map<string, DocumentBuffer>();
 		const sourcePathByDocument = new Map(documentsToRun.map((doc) => [doc.id, doc.sourcePath]));
 		const partialLossByDocument = new Map<string, number>();
+		const skippedImagesByDocument = new Map<string, { path: string; format: string }[]>();
 		const lastModelCallIdByDocument = new Map<string, string>();
 		let proposalsEmitted = 0;
 		let sawStoppedAtCeiling = false;
@@ -636,6 +665,7 @@ export class ImportJobRunner {
 					contentHashByDocument,
 					sourcePathByDocument,
 					partialLossByDocument,
+					skippedImagesByDocument,
 					lastModelCallIdByDocument,
 					onDocumentSettled: (outcome) => {
 						outcomes.push(outcome);
@@ -725,6 +755,11 @@ interface HandleEventContext {
 	 * (a document can lose calls in more than one step) and read once, at the terminal
 	 * `progress` event, onto that document's `DocumentOutcome.lostToolCallCount`. */
 	partialLossByDocument: Map<string, number>;
+	/** issue #623: images this document's run refused on format grounds, keyed by
+	 * documentId, in the order they were skipped - accumulated across every
+	 * `image_skipped` event and read once, at the terminal `progress` event, onto that
+	 * document's `DocumentOutcome.skippedImages`. */
+	skippedImagesByDocument: Map<string, { path: string; format: string }[]>;
 	/** issue #133: the id of the most recent `model_call` row written for this document,
 	 * one written per `usage` event as it arrives (real per-call tokens and cost, agent
 	 * 'import', zero credits since the user is charged once per document below, never per
@@ -795,6 +830,13 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 		return;
 	}
 
+	if (event.type === 'image_skipped') {
+		const skipped = ctx.skippedImagesByDocument.get(event.documentId) ?? [];
+		skipped.push({ path: event.path, format: event.format });
+		ctx.skippedImagesByDocument.set(event.documentId, skipped);
+		return;
+	}
+
 	if (event.type !== 'progress' || !DOCUMENT_TERMINAL_STATUSES.includes(event.status)) return;
 
 	let proposalsCreated = 0;
@@ -839,6 +881,7 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 		proposalsCreated,
 		droppedRelations: relationDrops,
 		lostToolCallCount: ctx.partialLossByDocument.get(event.documentId) ?? 0,
+		skippedImages: ctx.skippedImagesByDocument.get(event.documentId) ?? [],
 		detail: event.detail
 	});
 }

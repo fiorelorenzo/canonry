@@ -18,7 +18,7 @@ import { tool, type ToolSet } from 'ai';
 import { z } from 'zod';
 import type { Locale } from '@canonry/lang';
 import type { SourceReader } from './sources.js';
-import type { ImageStore } from './images.js';
+import { UnsupportedImageFormatError, type ImageStore } from './images.js';
 import type { EntityProposalPayload, JobEvent, RelationProposalPayload } from './driver.js';
 
 const SPAN_SCHEMA = z
@@ -339,6 +339,21 @@ export function createImportTools(
 					});
 					return { ok: true as const, assetId: stored.assetId };
 				} catch (cause) {
+					// A refused format is a reportable outcome, not a failure the model should
+					// retry: it will get the same answer for the same bytes. The event is what
+					// makes it reach the GM (#623); the model is told plainly so it moves on and
+					// leaves the image out of the entity's `images` rather than looping on it.
+					if (cause instanceof UnsupportedImageFormatError) {
+						ctx.pending.push({
+							type: 'image_skipped',
+							jobId: ctx.jobId,
+							documentId: ctx.documentId,
+							step: ctx.step,
+							path: cause.sourcePath,
+							format: cause.format
+						});
+						return { ok: false as const, error: cause.message };
+					}
 					return {
 						ok: false as const,
 						error: cause instanceof Error ? cause.message : String(cause)

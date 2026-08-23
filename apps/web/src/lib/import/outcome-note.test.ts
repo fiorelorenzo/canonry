@@ -88,4 +88,64 @@ describe('renderOutcomeNote (issue #263)', () => {
 		expect(renderOutcomeNote('it', '')).toBeNull();
 		expect(renderOutcomeNote('en', '')).toBeNull();
 	});
+
+	// issue #623: the import narrowed to PNG/JPEG/WebP, so an export carrying a GIF or an
+	// SVG loses it. That is only acceptable if the GM is told, in their own locale, which
+	// picture went and why - the refusal itself reaches only the model's tool result.
+	vitestIt('a skipped image names the file and its format, in both locales', () => {
+		const raw = JSON.stringify({
+			v: 1,
+			kind: 'finished',
+			documents: 1,
+			proposals: 2,
+			skippedImages: { path: 'images/sigil.gif', format: 'image/gif', count: 1 }
+		});
+
+		const it = renderOutcomeNote('it', raw);
+		expect(it).toContain('1 documento elaborato, 2 proposte generate;');
+		expect(it).toContain('1 immagine non è stata salvata');
+		expect(it).toContain('images/sigil.gif (image/gif)');
+
+		const en = renderOutcomeNote('en', raw);
+		expect(en).toContain('1 image was not stored');
+		expect(en).toContain('images/sigil.gif (image/gif)');
+	});
+
+	vitestIt(
+		'several skipped images name the first and count the rest, not an unbounded list',
+		() => {
+			const raw = JSON.stringify({
+				v: 1,
+				kind: 'finished',
+				documents: 4,
+				proposals: 9,
+				skippedImages: { path: 'images/sigil.gif', format: 'image/gif', count: 3 }
+			});
+			expect(renderOutcomeNote('en', raw)).toContain(
+				'3 images were not stored because Canonry does not keep those formats: ' +
+					'images/sigil.gif (image/gif) and 2 others'
+			);
+			expect(renderOutcomeNote('it', raw)).toContain(
+				'3 immagini non sono state salvate perché Canonry non conserva quei formati: ' +
+					'images/sigil.gif (image/gif) e 2 altre'
+			);
+		}
+	);
+
+	// Both suffixes answer different questions and a job can do both, so neither may
+	// swallow the other - #212's `lossy` was the only suffix when it was written.
+	vitestIt('a job that both lost tool calls and skipped an image reports both', () => {
+		const raw = JSON.stringify({
+			v: 1,
+			kind: 'finished',
+			documents: 2,
+			proposals: 3,
+			lossy: { path: 'notes/g.md', count: 1, othersCount: 0 },
+			skippedImages: { path: 'images/sigil.svg', format: 'image/svg+xml', count: 1 }
+		});
+		const rendered = renderOutcomeNote('en', raw);
+		expect(rendered).toContain('notes/g.md lost 1 tool call');
+		expect(rendered).toContain('images/sigil.svg (image/svg+xml)');
+		expect(rendered?.split('; ').length).toBe(3);
+	});
 });

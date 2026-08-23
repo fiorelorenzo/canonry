@@ -46,18 +46,31 @@ export interface OutcomeNoteLossy {
 	othersCount: number;
 }
 
-export type OutcomeNotePayload =
-	| { v: 1; kind: 'finished'; documents: number; proposals: number; lossy?: OutcomeNoteLossy }
-	| { v: 1; kind: 'no_documents' }
-	| { v: 1; kind: 'unchanged'; documents: number }
-	| {
-			v: 1;
-			kind: 'stopped_no_offender';
-			documents: number;
-			proposals: number;
-			lossy?: OutcomeNoteLossy;
-	  }
-	| { v: 1; kind: 'offender'; offender: OutcomeNoteOffender; lossy?: OutcomeNoteLossy };
+/** issue #623: an import that could not keep a picture says so. `path` and `format` name
+ * the first one, the way `OutcomeNoteLossy` names the first document rather than listing
+ * every one; `count` is the job-wide total, so one skip and nine read the same way
+ * without an unbounded sentence on a review screen. */
+export interface OutcomeNoteSkippedImages {
+	path: string;
+	format: string;
+	count: number;
+}
+
+export type OutcomeNotePayload = (
+	| { kind: 'finished'; documents: number; proposals: number }
+	| { kind: 'no_documents' }
+	| { kind: 'unchanged'; documents: number }
+	| { kind: 'stopped_no_offender'; documents: number; proposals: number }
+	| { kind: 'offender'; offender: OutcomeNoteOffender }
+) & {
+	v: 1;
+	/** Absent on `no_documents` and `unchanged` in practice, since neither ran a step
+	 * that could skip an image, but carried on the shared shape rather than repeated per
+	 * kind: #212's `lossy` was added to one branch at a time and the branch its author
+	 * was not thinking about stayed silent. */
+	lossy?: OutcomeNoteLossy;
+	skippedImages?: OutcomeNoteSkippedImages;
+};
 
 export type ParsedOutcomeNote = OutcomeNotePayload | { kind: 'legacy'; text: string } | null;
 

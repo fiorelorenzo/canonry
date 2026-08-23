@@ -22,6 +22,7 @@ import {
 	ImageTooLargeError,
 	MediaAssetImageStore
 } from './media-store.js';
+import { UnsupportedImageFormatError } from './images.js';
 import { openTestDb } from './test-db.js';
 
 const FIXTURE_ROOT = fileURLToPath(new URL('../test/fixtures/media/', import.meta.url));
@@ -184,5 +185,61 @@ describe('MediaAssetImageStore (issue #40, SPEC.md §6.3, §6.6)', () => {
 				base64: corrupt.toString('base64')
 			})
 		).rejects.toThrow(ImageDecodeError);
+	});
+
+	// issue #623: the import path used to validate no mime type at all, so an export could
+	// put anything into media_asset - including the two formats a GM cannot upload by hand,
+	// since MediaGallery.svelte's picker, AllowedImageMimeType, that route's own
+	// sniffImageMimeType and @canonry/media's EXTENSION_BY_MIME all name only these three.
+	it.each([
+		['a real GIF', 'sigil.gif', 'images/sigil.gif', 'image/gif', 'image/gif'],
+		['a real SVG', 'sigil.svg', 'images/sigil.svg', 'image/svg+xml', 'image/svg+xml']
+	])(
+		'refuses %s with a named error that says which format it was, and writes neither a file nor a row',
+		async (_label, fixture, sourcePath, declaredMimeType, expectedFormat) => {
+			const bytes = await readFile(`${FIXTURE_ROOT}${fixture}`);
+			const store = new MediaAssetImageStore({ db, universeId, mediaRoot });
+			const rowsBefore = await db
+				.select()
+				.from(mediaAsset)
+				.where(eq(mediaAsset.universeId, universeId));
+
+			const rejection = await store
+				.store({ sourcePath, mimeType: declaredMimeType, base64: bytes.toString('base64') })
+				.then(
+					() => undefined,
+					(cause: unknown) => cause
+				);
+
+			expect(rejection).toBeInstanceOf(UnsupportedImageFormatError);
+			// The format is on the error, not only inside its message, because the tool layer
+			// puts it in front of the GM rather than logging the sentence.
+			expect((rejection as UnsupportedImageFormatError).format).toBe(expectedFormat);
+			expect((rejection as UnsupportedImageFormatError).sourcePath).toBe(sourcePath);
+
+			const rowsAfter = await db
+				.select()
+				.from(mediaAsset)
+				.where(eq(mediaAsset.universeId, universeId));
+			expect(rowsAfter.length).toBe(rowsBefore.length);
+		}
+	);
+
+	it('stores the sniffed type rather than the export\'s guess, so a PNG named ".jpg" is not filed as a JPEG (issue #623)', async () => {
+		const bytes = await readFile(`${FIXTURE_ROOT}small.png`);
+		const store = new MediaAssetImageStore({ db, universeId, mediaRoot });
+
+		// What ArchiveSourceReader.readBinary would hand over for this name: a guess from
+		// the extension, contradicted by the file's own signature.
+		const { assetId } = await store.store({
+			sourcePath: 'images/mislabelled.jpg',
+			mimeType: 'image/jpeg',
+			base64: bytes.toString('base64')
+		});
+
+		const [row] = await db.select().from(mediaAsset).where(eq(mediaAsset.id, assetId));
+		if (!row) throw new Error('media_asset row missing after store()');
+		expect(row.mimeType).toBe('image/png');
+		expect(row.path.endsWith('.png')).toBe(true);
 	});
 });

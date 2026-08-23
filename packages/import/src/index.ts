@@ -110,7 +110,14 @@ export {
 	type OneNotePrintedFooter
 } from './pdf.js';
 
-export { InMemoryImageStore, type ImageStore, type StoredImage } from './images.js';
+export {
+	InMemoryImageStore,
+	SUPPORTED_IMPORT_IMAGE_MIME_TYPES,
+	UnsupportedImageFormatError,
+	type ImageStore,
+	type StoredImage,
+	type SupportedImportImageMimeType
+} from './images.js';
 
 export {
 	createLoopLogger,
@@ -225,7 +232,8 @@ export {
 	type ParsedOutcomeNote,
 	type OutcomeNoteOffender,
 	type OutcomeNoteOffenderReason,
-	type OutcomeNoteLossy
+	type OutcomeNoteLossy,
+	type OutcomeNoteSkippedImages
 } from './outcome-note.js';
 
 export {

@@ -130,6 +130,22 @@ export type JobEvent =
 			 * this fires, and the document keeps running past it. */
 			lostToolCallCount: number;
 			detail: string;
+	  }
+	| {
+			/** issue #623: an image in the export whose format Canonry does not store. The
+			 * document keeps running: a picture it cannot keep is not a reason to abandon the
+			 * text around it. Guardrail 7's habit applies to an image as much as to a
+			 * sentence, so this is carried up to the job's `outcome_note` and shown on the
+			 * review screen rather than left in a log the GM never opens. */
+			type: 'image_skipped';
+			jobId: string;
+			documentId: string;
+			step: number;
+			/** The image's own path inside the export, the name a GM would recognise. */
+			path: string;
+			/** Its real format when the bytes could be identified, the export's own guess
+			 * otherwise. */
+			format: string;
 	  };
 
 /** A `startJob` return value is a stream, decorated with the id `cancel` addresses -
