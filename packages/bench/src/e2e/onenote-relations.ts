@@ -490,9 +490,10 @@ async function main(): Promise<void> {
 		// pretending the two runs did the same work. Nothing about the model's own output
 		// changes: that comes from the recorded stream either way.
 		//
-		// It is a harness cost and not a product one. `apps/web`'s own wiring passes
-		// `hashingEmbedder` for this rung (`onboarding.ts`), which reaches no gateway, so a
-		// real import pays nothing for the relation labels this fix newly resolves.
+		// It was a harness cost and not a product one until issue #629: `apps/web` passed
+		// `hashingEmbedder` for this rung, which reached no gateway. It now passes the real
+		// embedder when the process has a credential, so a real import pays for these too -
+		// measured on this notebook at 178 calls, 26,344 embedding tokens and EUR 0.000456.
 		let embedInner: Embedder | null = null;
 		const credentials = process.env.AI_GATEWAY_API_KEY ? readGatewayCredentials(process.env) : null;
 		if (credentials) {
