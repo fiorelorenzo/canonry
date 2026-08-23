@@ -330,28 +330,40 @@ than stalling a wave on a field.
 ## The UX decisions live in `docs/ux/`
 
 `SPEC.md` says a proposal shows its evidence and never where the evidence sits, and it
-is quiet about the interface on purpose. The questions that leaves open are written
-down as one HTML artifact each in `docs/ux/`, with the options rendered as working mock
-UI on one shared sample world (`docs/ux/SAMPLE-WORLD.md`), what each option costs, a
-recommendation and what the choice locks in. Start at `docs/ux/index.html`, which also
-carries the inventory of every surface the product has to grow and the review rubric
-the guardrails turn into.
+is quiet about the interface on purpose. That used to mean drawing the open questions as
+59 hand-built HTML artifacts under `docs/ux/`, one per surface; that set is closed and
+frozen as the record of rounds one to eighteen, and `docs/ux/index.html` still carries the
+surface inventory and the review rubric the guardrails turn into. A new UX question is not
+built by hand here any more: it is drawn in Claude Design.
 
-**`docs/ux/DECISIONS.md` is the answer set.** Seventeen rounds and a hundred-odd answers,
-the first thirty-eight on 2026-08-13, including the visual language (the reading room: warm
-paper, serif for canon prose and entry titles, burnt umber accent). No gate is open: rounds
-one to three answered questions asked before there was code, and every round since came from
-using the deployed preview, which is why several answers reverse an earlier one. Two worth
-knowing before you touch a component: the copilot's own hue was deleted in U10 after being
-rejected on three surfaces, so unaccepted AI text is marked by shape rather than by colour,
-and V1 gives every route one header band with three declared body widths. The register in
-`docs/ux/assets/ux.js` carries the same answers so an artifact shows its decision at the top.
+**Two kinds of Claude Design project, and only two.** A disposable one per surface, named
+`canonry · <surface>`, regenerated from the repo with "Start from code" whenever it goes
+stale rather than hand-maintained. And one durable project, **`Canonry Design System`**
+(`https://claude.ai/design/p/c00e5984-8a90-4ece-82cb-8bc387b46aa1`, built 2026-08-23 from
+this repo's `main`), which is where the tokens, the fonts and the component guidance the
+design agent reads live. Attach it to every surface project; its own readme records what it
+was built from and what it deliberately did not recreate (table mode, Works, Import,
+Settings, Ask and the admin surfaces), so check that list before trusting it on a surface.
+Neither is version-controlled: a project's menu is exactly Rename, Duplicate project,
+Delete project, no history and no restore, it is Beta, and it sits behind one personal
+`claude.ai` account that omp cannot read. A canvas is a drawing tool. It is never the source
+of truth, and it never holds anything client-confidential.
 
-Before you build a screen, read the decision that gates it, and build what was decided
-rather than what the artifact recommended, since those differ in three places. If a decision
-has to move, say so on the issue instead of settling it by accident inside a component: that
-is the whole reason this set exists. Changing a decision means editing `DECISIONS.md` and the
-register together, and saying so on the issues it blocks.
+**The answer still lives here, not on a canvas.** `docs/ux/DECISIONS.md` opens with a table,
+one row per decision (`ID`, `Round`, `Question`, `Answer`, `Rule it creates`), and that table
+is where a decision lives now. Moving one means editing that row and saying so on the issues
+it blocks. `docs/ux/assets/ux.js`'s register is closed as of 2026-08-23 and takes no more
+rows; it stays only because the 59 frozen artifacts still render their head, breadcrumb and
+prev/next from it.
+
+**An implementation starts from the export's map, never from its CSS.** Claude Design's
+"Project archive" export is a zip: the canvas, a `github.md` screen map naming the repo files
+behind each artboard, and the copied assets. Read that map and the decision row it points at.
+Two exports measured on 2026-08-23 carried 163 and 168 raw hex literals between them and zero
+`var(--token)`, every one of them a colour the repo already had a token for and none invented,
+which is exactly why the values transfer and the token layer does not. #621 is the standing
+cost of pasting one in anyway. `uishot --axe --fail-on serious` and `uislop` still gate the
+result, because the canvas was never the product.
 
 **`docs/ux/REFERENCES.md` is the other input**, added 2026-08-22: eleven files under
 `docs/ux/references/`, one per cluster of surfaces, each a list of named mechanics from real
