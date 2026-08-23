@@ -6,6 +6,8 @@ import {
 	extractPdfPageTexts,
 	extractPdfText,
 	formatPdfPageText,
+	parseOneNotePrintedFooter,
+	printedNotebookCoversManySections,
 	renderPdfPage
 } from './pdf.js';
 
@@ -107,5 +109,80 @@ describe('renderPdfPage (issue #39, SPEC.md §6.6)', () => {
 		const rendered = await renderPdfPage(bytes, 2);
 		expect(extraction.pageTexts).toHaveLength(2);
 		expect(rendered.mimeType).toBe('image/jpeg');
+	});
+});
+
+/**
+ * Issue #604. OneNote's whole-notebook export drops pages its section-scope export keeps,
+ * so the confirm screen needs to know which scope a print came from, and the printed
+ * footer is the only thing in the file that says: OneNote writes the **section's** name
+ * into every page's footer, never the notebook's. Measured on the corpus
+ * (`docs/corpus-onenote.md`): the notebook-scope print's 161 footers name three sections
+ * (80 pages of one, 39 of another, 42 of a third) and each section-scope print's footers
+ * name exactly one.
+ *
+ * The two fixtures reproduce that and nothing else, and they deliberately disagree on the
+ * word between the name and the number, because keying on "Pagina" or "Page" would work
+ * on exactly one language's exports.
+ */
+const ONENOTE_FIXTURES = fileURLToPath(
+	new URL('../test/fixtures/onenote-formats/', import.meta.url)
+);
+
+describe('parseOneNotePrintedFooter (issue #604)', () => {
+	it('splits a footer into the section name, the page word and the number', () => {
+		expect(parseOneNotePrintedFooter('Note Storia Pagina 1')).toEqual({
+			section: 'Note Storia',
+			pageWord: 'Pagina',
+			number: 1
+		});
+		expect(parseOneNotePrintedFooter('Ashenport Page 12')).toEqual({
+			section: 'Ashenport',
+			pageWord: 'Page',
+			number: 12
+		});
+	});
+
+	it('reads a section name that is one word, which is the common case', () => {
+		expect(parseOneNotePrintedFooter('Mondo Pagina 49')?.section).toBe('Mondo');
+	});
+
+	it('answers null for a line that is not a footer at all', () => {
+		expect(parseOneNotePrintedFooter('Warden Iset Nour')).toBeNull();
+		expect(parseOneNotePrintedFooter('')).toBeNull();
+		expect(parseOneNotePrintedFooter('42')).toBeNull();
+	});
+});
+
+describe('printedNotebookCoversManySections (issue #604)', () => {
+	async function fixture(name: string): Promise<Uint8Array> {
+		return new Uint8Array(await readFile(`${ONENOTE_FIXTURES}${name}`));
+	}
+
+	it('says so when the first and last page footers name different sections', async () => {
+		expect(
+			await printedNotebookCoversManySections(await fixture('printed-notebook-scope.pdf'))
+		).toBe(true);
+	});
+
+	it('stays quiet on a print of one section, whatever language the footer is in', async () => {
+		// The section fixture's footer word is English and the notebook fixture's is
+		// Italian, so a pair of green assertions here is also the proof that neither answer
+		// comes from recognising the word.
+		expect(
+			await printedNotebookCoversManySections(await fixture('printed-section-scope.pdf'))
+		).toBe(false);
+	});
+
+	it('stays quiet on a one-page print, which cannot span anything', async () => {
+		expect(await printedNotebookCoversManySections(await fixture('printed.pdf'))).toBe(false);
+	});
+
+	it('stays quiet on a PDF whose bottom line is prose rather than a footer', async () => {
+		// Guardrail 7 in the shape it takes here: a body line ending in a number can parse
+		// as a footer once, so the claim needs both pages to agree on the page word and the
+		// first of them to be page 1. `handout.pdf` is a real PDF nothing printed from
+		// OneNote, and its second page has no text layer at all.
+		expect(await printedNotebookCoversManySections(await loadHandout())).toBe(false);
 	});
 });

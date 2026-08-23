@@ -139,7 +139,7 @@ export const actions: Actions = {
 			playbookId: detected.playbookId,
 			confident: detected.confident,
 			detail: detected.detail,
-			notice: detected.notice
+			notices: detected.notices
 		};
 	},
 
@@ -167,7 +167,7 @@ export const actions: Actions = {
 			playbookId,
 			confident: true,
 			detail: null,
-			notice: null
+			notices: []
 		};
 
 		if (!hasLiveGatewayCredentials() && !FAKE_DRIVER_SUPPORTED_PLAYBOOKS.has(playbookId)) {

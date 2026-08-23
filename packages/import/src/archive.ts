@@ -343,6 +343,11 @@ export function stripHtmlPresentationNoise(html: string): string {
 export class ArchiveSourceReader implements SourceReader {
 	/** SHA-256 of the raw archive bytes, for `import_job.artefact_sha256`. */
 	readonly artefactSha256: string;
+	/** `SourceReader.oneNoteEnvelopes`: how many of this upload's files were OneNote
+	 * Single File Web Page envelopes that `expandOneNoteMhtml` turned into a page tree.
+	 * Counted here because this is the only place that knows: by the time anything walks
+	 * the entries, an expanded envelope and a real exported page tree look alike. */
+	oneNoteEnvelopes = 0;
 	private readonly entries = new Map<string, StoredEntry>();
 	private readonly limits: ArchiveLimits;
 
@@ -414,6 +419,7 @@ export class ArchiveSourceReader implements SourceReader {
 				const path = normalizeEntryPath(entry.path);
 				reader.entries.set(path, { path, content: entry.bytes });
 			}
+			reader.oneNoteEnvelopes += 1;
 			return reader;
 		}
 
@@ -527,6 +533,7 @@ export class ArchiveSourceReader implements SourceReader {
 				}
 			});
 			this.entries.delete(entry.path);
+			this.oneNoteEnvelopes += 1;
 			for (const page of expanded) {
 				const path = normalizeEntryPath(`${directory}${page.path}`);
 				this.entries.set(path, { path, content: page.bytes });

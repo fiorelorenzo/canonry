@@ -149,6 +149,101 @@ export async function extractPdfText(bytes: Uint8Array): Promise<PdfTextExtracti
 }
 
 /**
+ * What OneNote prints at the bottom of every page: the name of the **section** the page
+ * belongs to, a word for "page" in whatever language the app runs in, and a page number
+ * running across the whole print. Issue #604 keys on the section name.
+ */
+export interface OneNotePrintedFooter {
+	/** Everything before the page word, which is the section's own name. */
+	section: string;
+	/** The page word itself, kept because it is the anchor: two footers of the same print
+	 * always agree on it, and a line that is not a footer almost never matches twice. */
+	pageWord: string;
+	number: number;
+}
+
+/**
+ * Reads that footer out of one printed line. Deliberately not keyed on "Pagina" or
+ * "Page": OneNote prints the word in its own UI language, and the corpus
+ * (`docs/corpus-onenote.md`) is an Italian install, so keying on either would work on
+ * exactly one language's exports. What is language-independent is the shape, a name then
+ * one word then a number, and the caller compares two footers of the same file rather
+ * than trusting one on its own.
+ */
+export function parseOneNotePrintedFooter(line: string): OneNotePrintedFooter | null {
+	const match = /^(\S.*?)\s+(\S+)\s+(\d{1,6})$/.exec(line.trim());
+	if (!match) return null;
+	return { section: match[1]!, pageWord: match[2]!, number: Number(match[3]) };
+}
+
+/** The bottom-most line of text on a page: the items with the lowest baseline, in reading
+ * order. Taken from the baseline rather than from `joinTextItems`'s line breaks because a
+ * footer is defined by where it sits on the paper, and `hasEOL` is pdf.js's own reading of
+ * a layout rather than a position. */
+function bottomLine(items: readonly TextItem[]): string {
+	let lowest: number | null = null;
+	for (const item of items) {
+		if (item.str.trim() === '') continue;
+		const y = item.transform[5];
+		if (lowest === null || y < lowest) lowest = y;
+	}
+	if (lowest === null) return '';
+	return items
+		.filter((item) => item.str.trim() !== '' && Math.abs(item.transform[5] - lowest) < 1)
+		.sort((a, b) => a.transform[4] - b.transform[4])
+		.map((item) => item.str)
+		.join(' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+async function printedFooterOfPage(
+	doc: PDFDocumentProxy,
+	pageNumber: number
+): Promise<OneNotePrintedFooter | null> {
+	const page = await doc.getPage(pageNumber);
+	try {
+		const textContent = await page.getTextContent();
+		return parseOneNotePrintedFooter(bottomLine(textContent.items.filter(isTextItem)));
+	} finally {
+		page.cleanup();
+	}
+}
+
+/**
+ * Whether a PDF OneNote printed covers **more than one section** of its notebook, which
+ * is the only in-file evidence that the GM exported at notebook scope rather than a
+ * section at a time (issue #604, `docs/onenote-export.md`). It matters because the
+ * notebook-scope export drops pages the section-scope one keeps.
+ *
+ * Two pages are read, the first and the last, not all of them: the sections print as
+ * contiguous runs, so the first and last page of a notebook print name different sections
+ * and those of a section print name the same one. On the corpus that is 3 seconds of
+ * pdf.js for the whole 161-page file against under a second for two pages, on a path that
+ * runs while a GM waits for a confirm screen.
+ *
+ * It answers false whenever the evidence is not there, and that direction is deliberate:
+ * the footer has to parse on both pages, the two have to agree on the page word (so a body
+ * line that happens to end in a number cannot pass for a footer twice), and the first
+ * page's number has to be 1. A file whose footers this does not understand gets no claim
+ * made about it, because guardrail 7 makes silence the safe answer and an unwanted warning
+ * on a section export the GM did right would be the expensive one.
+ */
+export async function printedNotebookCoversManySections(bytes: Uint8Array): Promise<boolean> {
+	const { doc, close } = await openDocument(bytes);
+	try {
+		if (doc.numPages < 2) return false;
+		const first = await printedFooterOfPage(doc, 1);
+		if (!first || first.number !== 1) return false;
+		const last = await printedFooterOfPage(doc, doc.numPages);
+		if (!last || last.pageWord !== first.pageWord) return false;
+		return last.section !== first.section;
+	} finally {
+		await close();
+	}
+}
+
+/**
  * Render resolution (SPEC.md §6.6's "local and deterministic... rendered to an image
  * and handed to a multimodal model, once"). Two constants, not one, because a page's
  * physical size varies (this module has seen a "page" whose declared size matches a

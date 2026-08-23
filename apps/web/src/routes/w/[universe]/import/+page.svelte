@@ -96,14 +96,14 @@
 							{#if form.detail}
 								<p class="mt-1 text-sm text-muted">{t.upload.confirm.detail(form.detail)}</p>
 							{/if}
-							{#if form.notice}
+							{#each form.notices as notice (notice)}
 								<p
 									class="mt-2 rounded-md border border-line-2 bg-panel-2 p-3 text-sm text-ink"
 									data-testid="import-detected-notice"
 								>
-									{t.upload.confirm.notice(form.notice)}
+									{t.upload.confirm.notice(notice)}
 								</p>
-							{/if}
+							{/each}
 						</div>
 
 						<form

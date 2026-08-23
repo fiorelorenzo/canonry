@@ -42,6 +42,7 @@ import {
 	isUnreadableUploadFormat,
 	loadBuiltinPlaybook,
 	MATCH_THRESHOLDS,
+	printedNotebookCoversManySections,
 	type AcceptImportProposalInput,
 	type BandedSimilarity,
 	type EntityProposalPayload,
@@ -295,14 +296,24 @@ export interface DetectedSource {
 	playbookId: KnownPlaybookId;
 	confident: boolean;
 	detail: DetectedDetail;
-	/** Set when the upload is readable but not as the thing the GM thinks they exported
-	 * (issue #591). `printed-notebook` means a PDF whose own info dictionary says OneNote
-	 * printed it: the pages are all there and the notebook's hierarchy is not, and the
-	 * confirm screen says so rather than letting the GM believe they got the good import.
-	 * Null for everything else, including a DOCX, because OneNote's DOCX export goes
-	 * through Word and leaves no provenance to read (`hasOneNotePdfProducer`'s own comment
-	 * has the measurement). */
-	notice: DetectedNotice | null;
+	/** What the upload is readable as, but not as the thing the GM thinks they exported.
+	 * Empty for most uploads, and a list rather than one value because a printed notebook
+	 * can be two things at once: one long document instead of a hierarchy, and a scope that
+	 * left pages behind.
+	 *
+	 * `printed-notebook` (issue #591) is a PDF whose own info dictionary says OneNote
+	 * printed it, so the notebook's hierarchy is not in it. Never for a DOCX, because
+	 * OneNote's DOCX export goes through Word and leaves no provenance to read
+	 * (`hasOneNotePdfProducer`'s own comment has the measurement).
+	 *
+	 * `printed-many-sections` and `onenote-scope-unknown` (issue #604) are about scope:
+	 * OneNote's whole-notebook export drops pages that its section-scope export keeps, and
+	 * the file imports cleanly either way, so the confirm screen is the last place a GM can
+	 * be told before they spend credits on a partial export. Which of the two applies is
+	 * decided by what the file actually carries, and the two cases are genuinely different:
+	 * a print records its section in every page footer, and a Single File Web Page records
+	 * nothing about scope at all. */
+	notices: DetectedNotice[];
 }
 
 /**
@@ -398,7 +409,7 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 			playbookId: 'obsidian',
 			confident: true,
 			detail: { kind: 'obsidian', notes },
-			notice: null
+			notices: []
 		};
 	}
 
@@ -408,7 +419,7 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 			playbookId: 'kanka',
 			confident: true,
 			detail: { kind: 'kanka', jsonFiles: jsonPaths.length },
-			notice: null
+			notices: []
 		};
 	}
 
@@ -419,7 +430,7 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 			playbookId: 'world-anvil',
 			confident: true,
 			detail: { kind: 'world-anvil' },
-			notice: null
+			notices: []
 		};
 	}
 
@@ -444,11 +455,21 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 		// envelope alike, and nothing else in this product's sources writes it.
 		const declaresOneNote = await firstHtmlDeclaresOneNote(reader, htmlPaths);
 		if (hasAttachmentFolder || declaresOneNote) {
+			// Issue #604: a Single File Web Page that came from the whole notebook is missing
+			// pages the same export at section scope keeps, and nothing in the envelope says
+			// which scope it was. That was measured rather than assumed: at all three scopes
+			// the corpus's `.mht` files carry one identical page-wrapper `div` style, one
+			// `<head>`, one `Main-File` link and no section marker of any kind, so the only
+			// thing that differs is how many pages are in it, which cannot tell a large
+			// section from a small notebook. So the notice says we cannot tell, rather than
+			// guessing from a page count. `oneNoteEnvelopes` is what keeps it off a real
+			// exported page tree, which is produced page by page and loses nothing.
+			const fromEnvelope = (reader.oneNoteEnvelopes ?? 0) > 0;
 			return {
 				playbookId: 'onenote',
 				confident: true,
 				detail: { kind: 'onenote', pages: htmlPaths.length },
-				notice: null
+				notices: fromEnvelope ? ['onenote-scope-unknown'] : []
 			};
 		}
 	}
@@ -463,15 +484,25 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 	// each one anyway.
 	const sole = paths.length === 1 ? await reader.sniffEntry(paths[0]!) : null;
 	if (sole?.format === 'pdf') {
+		const notices: DetectedNotice[] = [];
+		if (sole.printedFromOneNote) {
+			notices.push('printed-notebook');
+			// Issue #604: OneNote prints the section's name into every page footer, so a
+			// print whose first and last page name different sections came from a
+			// whole-notebook export, which is the one that drops pages. Only asked of a PDF
+			// OneNote printed, and it reads two pages rather than all of them.
+			const bytes = Buffer.from((await reader.readBinary(paths[0]!)).base64, 'base64');
+			if (await printedNotebookCoversManySections(bytes)) notices.push('printed-many-sections');
+		}
 		return {
 			playbookId: 'pdf',
 			confident: true,
 			detail: { kind: 'pdf' },
-			notice: sole.printedFromOneNote ? 'printed-notebook' : null
+			notices
 		};
 	}
 	if (sole?.format === 'docx') {
-		return { playbookId: 'docx', confident: true, detail: { kind: 'docx' }, notice: null };
+		return { playbookId: 'docx', confident: true, detail: { kind: 'docx' }, notices: [] };
 	}
 
 	const mdPaths = paths.filter((p) => p.toLowerCase().endsWith('.md'));
@@ -480,7 +511,7 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 			playbookId: 'obsidian',
 			confident: false,
 			detail: { kind: 'obsidian-unsure', markdownFiles: mdPaths.length },
-			notice: null
+			notices: []
 		};
 	}
 
@@ -488,7 +519,7 @@ export async function detectSource(reader: SourceReader): Promise<DetectedSource
 		playbookId: 'generic',
 		confident: false,
 		detail: { kind: 'generic', files: paths.length },
-		notice: null
+		notices: []
 	};
 }
 

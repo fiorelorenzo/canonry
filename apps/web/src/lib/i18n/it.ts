@@ -1266,12 +1266,34 @@ export const it: Messages = {
 				notice: (n) => {
 					switch (n) {
 						case 'printed-notebook':
+							// #604: "ci sono tutte le pagine" è uscita da questa frase. Era vera per le
+							// due stampe di sezione del corpus e falsa per quella di tutto il blocco
+							// appunti, e una riga che promette un import completo quando l'export non lo
+							// era è proprio quello che vieta la garanzia 5.
 							return (
-								'Questo PDF lo ha stampato OneNote, quindi ci sono tutte le pagine ma non ' +
-								"c'è più il blocco appunti: una pagina secondaria ora è solo un altro titolo, e " +
-								'niente nel file dice sotto quale pagina stava. Se esporti invece ' +
+								'Questo PDF lo ha stampato OneNote, quindi a Canonry arriva un unico documento ' +
+								'lungo e non il blocco appunti: una pagina secondaria ora è solo un altro ' +
+								'titolo, e niente nel file dice sotto quale pagina stava. Se esporti invece ' +
 								"l'albero delle pagine quella struttura resta, e la guida all'import da OneNote " +
 								'spiega come.'
+							);
+						case 'printed-many-sections':
+							return (
+								'I piè di pagina di questo file nominano più di una sezione, quindi viene da un ' +
+								"export di tutto il blocco appunti. Di quell'export sappiamo che lascia fuori " +
+								'delle pagine dal file che OneNote scrive, e niente nel file dice quali, così ' +
+								'questo import può proporre solo quello che il file contiene. Esportare una ' +
+								'sezione alla volta non le perde, e ogni sezione la puoi caricare in questo ' +
+								'universo.'
+							);
+						case 'onenote-scope-unknown':
+							return (
+								'Una pagina Web in file unico non registra se viene da una sola sezione o da ' +
+								'tutto il blocco appunti, quindi Canonry non può sapere quale dei due sia. La ' +
+								"differenza conta: dell'export di tutto il blocco appunti sappiamo che lascia " +
+								'fuori delle pagine dal file che OneNote scrive, mentre esportare una sezione ' +
+								'alla volta non lo fa. Se qui hai esportato tutto il blocco appunti, esporta ' +
+								"ogni sezione per conto suo e caricale una dopo l'altra."
 							);
 					}
 				},

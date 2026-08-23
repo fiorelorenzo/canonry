@@ -90,6 +90,12 @@ export {
 	type ExpandOneNoteMhtmlOptions
 } from './mhtml.js';
 
+export {
+	printedNotebookCoversManySections,
+	parseOneNotePrintedFooter,
+	type OneNotePrintedFooter
+} from './pdf.js';
+
 export { InMemoryImageStore, type ImageStore, type StoredImage } from './images.js';
 
 export {
