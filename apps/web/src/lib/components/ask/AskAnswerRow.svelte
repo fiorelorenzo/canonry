@@ -63,14 +63,20 @@
 	<summary
 		class="flex cursor-pointer list-none items-start gap-2 rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"
 	>
+		<!-- #711: `text-ink-2`, not `text-muted`. The row above takes `bg-accent-bg` when it
+		     is the turn the dock sent the reader to, and muted is a paper-and-panel ink that
+		     fails AA the moment a surface takes a hue (#562, and the ten measurements next to
+		     the tokens in layout.css). Unconditional rather than paired with `highlighted`,
+		     because ink-2 is right on panel too and it is what the preview line below already
+		     uses, so the two secondary lines in this summary stop disagreeing. -->
 		<span
-			class="mt-1 shrink-0 text-label text-muted transition-transform"
+			class="mt-1 shrink-0 text-label text-ink-2 transition-transform"
 			class:rotate-90={open}
 			aria-hidden="true">&#9656;</span
 		>
 		<div class="min-w-0 flex-1">
 			<h2 class="m-0 text-body font-medium text-ink">{turn.question}</h2>
-			<p class="mt-0.5 text-label text-muted">
+			<p class="mt-0.5 text-label text-ink-2">
 				{askedAtLabel(turn.keptAt)} · {t.sourceCount(turn.sources.length)}
 			</p>
 			{#if !open}
@@ -134,7 +140,9 @@
 										class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-label text-ink hover:bg-accent-bg"
 									>
 										<span class="truncate">{source.entity.name}</span>
-										<span class="shrink-0 text-label text-muted">{t.ownCanonLabel}</span>
+										<!-- The pill takes `hover:bg-accent-bg`, so this label sits on a tinted surface
+										     for as long as a pointer is on it: `text-ink-2` (#562), not `text-muted`. -->
+										<span class="shrink-0 text-label text-ink-2">{t.ownCanonLabel}</span>
 									</button>
 								{:else}
 									<span

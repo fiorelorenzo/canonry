@@ -703,7 +703,9 @@
 													class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-label text-ink hover:bg-accent-bg"
 												>
 													<span class="truncate">{source.entityName}</span>
-													<span class="shrink-0 text-label text-muted">{askT.ownCanonLabel}</span>
+													<!-- The pill takes `hover:bg-accent-bg`, so this label sits on a tinted
+													     surface while a pointer is on it: `text-ink-2` (#562), not muted. -->
+													<span class="shrink-0 text-label text-ink-2">{askT.ownCanonLabel}</span>
 												</a>
 											{:else}
 												<a

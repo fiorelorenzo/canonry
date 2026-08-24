@@ -225,8 +225,12 @@
 					>
 						{row.factCount}
 					</td>
+					<!-- The row takes `focus-within:bg-accent-bg`, which is the state a keyboard
+					     reader is in for the whole time they are on it, so this cell has to clear
+					     AA on a tinted surface: `text-ink-2` (#562), which is also what the two
+					     numeric cells above already use. -->
 					<td
-						class="w-28 px-2 py-2 text-right align-middle text-nowrap text-muted tabular-nums sm:w-auto sm:px-3"
+						class="w-28 px-2 py-2 text-right align-middle text-nowrap text-ink-2 tabular-nums sm:w-auto sm:px-3"
 					>
 						{relativeTime(row.updatedAt, relativeTimeT)}
 					</td>

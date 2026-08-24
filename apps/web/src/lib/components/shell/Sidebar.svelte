@@ -142,8 +142,10 @@
 							<span>{t.nav[item.id]}</span>
 							{#if counts[item.id] !== undefined}
 								{#key counts[item.id]}
+									<!-- The badge turns `bg-accent-bg` on the active item, so its own text has to
+									     clear AA on a tinted surface: `text-ink-2` (#562), not `text-muted`. -->
 									<span
-										class="animate-in rounded-full bg-panel-2 px-1.5 py-0.5 text-label text-muted duration-fade ease-arrive fade-in-0"
+										class="animate-in rounded-full bg-panel-2 px-1.5 py-0.5 text-label text-ink-2 duration-fade ease-arrive fade-in-0"
 										class:bg-accent-bg={active}
 									>
 										{counts[item.id]}
