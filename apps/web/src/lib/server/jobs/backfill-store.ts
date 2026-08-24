@@ -159,6 +159,21 @@ export interface BackfillIndexJobRow {
  * index engine for every job, not only for one that asked - so doing nothing is both the safe
  * answer and the correct one.
  *
+ * **The conflict clause alone does not say that, though, which is issue #737.**
+ * `canon_save_job_pending_key` is unique on `(universe_id, entity_id)` *where status =
+ * 'pending'* and nothing more, so the moment a worker claims a row that row stops blocking an
+ * insert for the same entity. A verification pass that re-enumerates while the fan-out it just
+ * wrote is still draining therefore schedules every in-flight entity a second time: a second
+ * embedding call and a second upsert for work already under way. Measured rather than reasoned
+ * about - three entries against a slow embedder came out as three duplicated rows and an
+ * `entities_scheduled` of 6 - and it is what made this file's own count assertions flake under
+ * load. So the anti-join below is the real dedupe and the conflict clause is the atomic
+ * backstop behind it. It is cheap: both `canon_save_job` claim indexes lead with `status`, so
+ * the in-flight set is an index scan rather than a lookup per candidate row.
+ *
+ * A row that has genuinely stopped (`done`, or dead-lettered `failed`) is deliberately not
+ * in-flight, because an entry whose job ended without writing its point still needs one.
+ *
  * Bodies are empty for the same structural reason `EntityIndexJobInput` has no body fields: an
  * empty `semanticDiff` is what makes propagation and audit no-ops without a flag, so a
  * backfill cannot make the copilot write anything. `trigger_revision_id` is null, and
@@ -186,6 +201,12 @@ export async function scheduleBackfillIndexJobRows(
 		from (values ${sql.join(values, sql`, `)})
 			as v(universe_id, entity_id, entity_name, locale, run_after)
 		join ${universe} u on u.id = v.universe_id
+		where not exists (
+			select 1 from ${canonSaveJob} inflight
+			where inflight.universe_id = v.universe_id
+				and inflight.entity_id = v.entity_id
+				and inflight.status in ('pending', 'claimed')
+		)
 		on conflict do nothing
 		returning id
 	`);
