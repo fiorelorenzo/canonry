@@ -374,6 +374,18 @@ let CI run the package.
 rate limit already exceeded" while REST still had its full 5000. `gh api rate_limit` says which
 budget is gone, and it is worth checking before a long board pass rather than after.
 
+**And the per-call cost is nowhere near one point, which is what makes the budget vanish
+without warning.** Measured on 2026-08-24: a board pass over five new issues, each one
+`item-add`, then `item-list` to find its id, then four `item-edit`s, then `issue view` and
+`addSubIssue`, is about 40 calls, and it burned roughly 4,400 points in 100 seconds. That is
+~110 points a call, not 1, and `gh project item-list --limit 600` is the expensive one
+because it pages the whole board every time. So **list the board once, cache the item ids,
+and read the field and option ids once into a file** rather than calling `field-list` per
+edit; that alone is the difference between a pass that fits in one hour's budget and one
+that dies four issues in. Check `gh api rate_limit --jq '.resources.graphql'` before
+starting, not after, and note that the reset is a hard hour: there is nothing to do but
+wait, so do the REST half (issue and PR creation, comments, merges) while it refills.
+
 **Far more of `gh` is GraphQL than the name suggests, and each one has a REST twin.** A wave on
 2026-08-23 hit the wall four times and re-derived the workaround each time, so here is the whole
 set. `gh pr create`, `gh pr merge`, `gh pr edit`, `gh issue create`, `gh issue comment` and every
