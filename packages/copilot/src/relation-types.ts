@@ -321,8 +321,14 @@ function cosineSimilarity(a: number[], b: number[]): number {
  * that lowering the threshold is not the lever it looks like. Ten shipped types against the
  * 113 distinct concepts that notebook wanted is the actual gap (#639), and no cutoff closes
  * it, because a label can only merge onto a type that exists.
+ *
+ * #637 built the gold set, and exported this constant to do it. `matching.ts` exports
+ * `MATCH_THRESHOLDS` for the same reason: a sweep has to state what the shipped value costs
+ * on the corpus, next to what the optimum costs, or it is only reporting an optimum. Nothing
+ * outside a benchmark reads it, and `resolveRelationType` is still the only thing that
+ * decides with it.
  */
-const SEMANTIC_REUSE_THRESHOLD = 0.86;
+export const SEMANTIC_REUSE_THRESHOLD = 0.86;
 
 async function bestSemanticMatch(
 	embed: Embedder,
