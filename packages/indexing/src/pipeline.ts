@@ -117,6 +117,10 @@ async function indexPage(
 				sectionSummary: chunkMetadata.sectionSummary,
 				questionsThisExcerptCanAnswer: chunkMetadata.questionsThisExcerptCanAnswer,
 				excerptKeywords: chunkMetadata.excerptKeywords,
+				// issue #703. A wiki crawl only ever writes body chunks, and a wiki page belongs
+				// to no entity, so there is no type to carry here.
+				pointKind: 'body',
+				entityType: null,
 				// SPEC.md §17, issue #125: the chunk's own language, detected from its own
 				// text (not the page's, not the universe's - a page can be mixed), so a future
 				// ranking change has it to read. `detectLanguage` is the same conservative

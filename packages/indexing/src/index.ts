@@ -22,7 +22,7 @@ export {
 	type ChunkWikiPageOptions
 } from './chunking.js';
 
-export { chunkPointId } from './point-id.js';
+export { chunkPointId, entityPointId } from './point-id.js';
 
 export type {
 	ResolvedExtractionModel,

@@ -33,7 +33,7 @@ import {
 	recordProposalDiff,
 	type Db
 } from '@canonry/db';
-import { resolveModel } from '@canonry/ai';
+import { clearModelCache, resolveModel } from '@canonry/ai';
 import type { GatewayWrapper, ModelFactory } from '@canonry/copilot';
 import {
 	canonSaveJob,
@@ -58,8 +58,11 @@ import { createVectorClient, dropCollection, loreCollectionNameForModel } from '
 import {
 	createCanonSaveJobQueue,
 	type CanonSaveJobQueue,
-	type CanonSaveJobQueueOptions
+	type CanonSaveJobQueueOptions,
+	type EngineOutcome,
+	type IndexOutcome
 } from './canon-save.js';
+import { entitiesSkippedForNoEmbeddingModel } from './store.js';
 
 const DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
@@ -863,6 +866,11 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 
 			const firstBody =
 				'The Gilded Rat is a smugglers tavern in the harbour district, run by Old Maren.';
+			// The entity's own row moves first, then the job is scheduled - the order
+			// `e/[slug]/edit`'s save action follows, and since issue #703 the order the index
+			// engine depends on: it embeds what the entity currently says, not what the row that
+			// scheduled it remembers.
+			await db.update(entity).set({ body: firstBody }).where(eq(entity.id, saved.id));
 			queue.schedule({
 				universeId: world.id,
 				entityId: saved.id,
@@ -880,9 +888,13 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 				saved.id,
 				(row) => row.status === 'done' && row.newBody === firstBody
 			);
-			const firstOutcome = firstRow.indexOutcome as { status: string; chunkCount?: number };
-			expect(firstOutcome.status).toBe('ok');
+			// `index_outcome` is jsonb, so drizzle gives it back as `unknown`; the engine that
+			// wrote it is the only writer, so the row's own union is the shape rather than a
+			// fabricated one, asserted once into a named const.
+			const firstOutcome = firstRow.indexOutcome as IndexOutcome;
+			if (firstOutcome.status !== 'ok') throw new Error(`indexed ${firstOutcome.status}`);
 			expect(firstOutcome.chunkCount).toBeGreaterThan(0);
+			expect(firstOutcome.entityPointWritten).toBe(true);
 
 			const findsMaren = 'smugglers tavern harbour district Old Maren';
 			const marenHits = await retrieveForUniverse({
@@ -900,6 +912,7 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			// Re-save with a different body: the stale chunk has to be replaced, not
 			// accumulated alongside the new one.
 			const secondBody = 'The Gilded Rat burned down last winter; only the sign remains.';
+			await db.update(entity).set({ body: secondBody }).where(eq(entity.id, saved.id));
 			queue.schedule({
 				universeId: world.id,
 				entityId: saved.id,
@@ -916,8 +929,8 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 				saved.id,
 				(row) => row.status === 'done' && row.newBody === secondBody
 			);
-			const secondOutcome = secondRow.indexOutcome as { status: string; chunkCount?: number };
-			expect(secondOutcome.status).toBe('ok');
+			const secondOutcome = secondRow.indexOutcome as IndexOutcome;
+			if (secondOutcome.status !== 'ok') throw new Error(`re-indexed ${secondOutcome.status}`);
 
 			const afterResave = await retrieveForUniverse({
 				db,
@@ -943,12 +956,209 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 				threshold: -1
 			});
 			const pointsForEntity = allForEntity.filter((h) => h.payload.url.endsWith(saved.id));
-			expect(pointsForEntity, 'no duplicate points left behind by the first save').toHaveLength(
-				secondOutcome.chunkCount ?? -1
-			);
+			expect(
+				pointsForEntity,
+				'no duplicate points left behind by the first save, plus the one entity point'
+			).toHaveLength(secondOutcome.chunkCount + 1);
+			expect(pointsForEntity.filter((h) => h.payload.pointKind === 'entity')).toHaveLength(1);
 		} finally {
 			await queue.stop();
 			await dropCollection(vector, collectionName).catch(() => undefined);
+		}
+	});
+
+	it('an index-only schedule indexes a bodyless entry and runs neither other engine (issue #703)', async () => {
+		const { owner, world } = await fixture();
+		const embeddingModel = await resolveModel(db, 'embedding');
+		const dims = embeddingDimensionsFor(embeddingModel.provider, embeddingModel.modelId);
+		const collectionName = loreCollectionNameForModel(embeddingModel, world.id);
+		const vector = createVectorClient();
+		const queue = testQueue({
+			vectorClient: vector,
+			embeddingModelFactory: fakeEmbeddingModelFactory()
+		});
+
+		try {
+			// The state the entity-level point exists for, and the one an import accept and the
+			// entries list's "New entry" both produce: a name, its aliases, a type, no prose.
+			const [created] = await db
+				.insert(entity)
+				.values({
+					universeId: world.id,
+					type: 'place',
+					name: 'Il Ratto Dorato',
+					slug: unique('ratto-dorato'),
+					aliases: ['the Gilded Rat'],
+					body: ''
+				})
+				.returning();
+			if (!created) throw new Error('entity insert returned no row');
+
+			queue.scheduleIndexOnly({
+				universeId: world.id,
+				entityId: created.id,
+				entityName: created.name,
+				userId: owner.id,
+				locale: 'en'
+			});
+
+			const row = await waitForEntityRow(
+				db,
+				world.id,
+				created.id,
+				(r) => r.status === 'done' && r.entityId === created.id
+			);
+			const index = row.indexOutcome as IndexOutcome;
+			if (index.status !== 'ok') throw new Error(`indexed ${index.status}`);
+			expect(index.chunkCount, 'no prose to chunk').toBe(0);
+			expect(index.entityPointWritten).toBe(true);
+
+			// The recursion guard, restated for the surface that replaced it: an index-only row
+			// carries no diff, so both other engines answer `no-change` without a model call, and
+			// neither a plan nor a spend exists for this universe afterwards.
+			const propagation = row.propagationOutcome as EngineOutcome;
+			const audit = row.auditOutcome as EngineOutcome;
+			expect(propagation.status).toBe('no-change');
+			expect(audit.status).toBe('no-change');
+			expect(
+				await db.select().from(proposalPlan).where(eq(proposalPlan.universeId, world.id))
+			).toHaveLength(0);
+			// One `model_call` row and one only, the index engine's own embedding: agent
+			// 'indexing', which is reading infrastructure charged at zero credits, never
+			// generation. Anything from propagation or audit would be a different agent, and
+			// there is none.
+			const calls = await db.select().from(modelCall).where(eq(modelCall.universeId, world.id));
+			expect(calls.every((call) => call.agent === 'indexing')).toBe(true);
+			expect(calls.every((call) => call.credits === 0)).toBe(true);
+
+			// And the point of all of it: an entry with no body is now retrievable, by the alias
+			// as well as by the name. Nothing about this entity was in the collection before.
+			const query = 'the Gilded Rat';
+			const hits = await retrieveForUniverse({
+				db,
+				vectorClient: vector,
+				collectionName,
+				universeId: world.id,
+				queryVector: fakeEmbedVector(query, dims),
+				queryText: query,
+				topK: 10,
+				threshold: -1
+			});
+			const hit = hits.find((h) => h.payload.url.endsWith(created.id));
+			expect(hit, 'a named, unwritten entry is citable').toBeDefined();
+			expect(hit?.payload.pointKind).toBe('entity');
+			expect(hit?.payload.entityType).toBe('place');
+			expect(hit?.payload.text).toContain('the Gilded Rat');
+		} finally {
+			await queue.stop();
+			await dropCollection(vector, collectionName).catch(() => undefined);
+		}
+	});
+
+	it('an index-only schedule never clobbers a pending human save\u2019s diff (issue #703)', async () => {
+		const { owner, world } = await fixture();
+		const [edited] = await db
+			.insert(entity)
+			.values({
+				universeId: world.id,
+				type: 'character',
+				name: 'Merged Burst',
+				slug: unique('merged-burst'),
+				aliases: [],
+				body: 'Old body.'
+			})
+			.returning();
+		if (!edited) throw new Error('entity insert returned no row');
+
+		// A GM saving an entry and an accept landing on the same entity inside one debounce
+		// window merge into one row (the partial unique index on (universe, entity) while
+		// pending). The human save's diff has to survive that merge, or its propagation is
+		// silently dropped - which is the one thing this table exists to deliver.
+		const queue = testQueue();
+		try {
+			queue.schedule({
+				universeId: world.id,
+				entityId: edited.id,
+				entityName: edited.name,
+				userId: owner.id,
+				oldBody: 'Old body.',
+				newBody: 'New body, materially different.',
+				triggerRevisionId: null,
+				locale: 'en'
+			});
+			queue.scheduleIndexOnly({
+				universeId: world.id,
+				entityId: edited.id,
+				entityName: edited.name,
+				userId: owner.id,
+				locale: 'en'
+			});
+
+			const row = await waitForEntityRow(
+				db,
+				world.id,
+				edited.id,
+				(r) => r.status === 'claimed' || r.status === 'done'
+			);
+			expect(row.oldBody).toBe('Old body.');
+			expect(row.newBody).toBe('New body, materially different.');
+		} finally {
+			await queue.stop();
+		}
+	});
+
+	it('records a universe with no embedding model as no-embedding-model rather than silence (issue #703)', async () => {
+		const { owner, world } = await fixture();
+		const [created] = await db
+			.insert(entity)
+			.values({
+				universeId: world.id,
+				type: 'place',
+				name: 'Unindexable Hold',
+				slug: unique('unindexable-hold'),
+				aliases: [],
+				body: 'A keep nobody can find, for want of an embedding row.'
+			})
+			.returning();
+		if (!created) throw new Error('entity insert returned no row');
+
+		// `resolveModel` is process-wide and caches for 30 seconds, so reaching the state a
+		// fresh deployment is in takes both halves: deactivate the row migration 0025 seeds,
+		// and clear that cache, or the engine answers from a resolution taken before this test
+		// ran. Restored in the `finally` below, and safe to do here because no other test file
+		// in `apps/web` resolves the `embedding` purpose, directly or through a route it calls -
+		// a file that starts to will need this one to hold an advisory lock instead (the shape
+		// `packages/media`'s `lockImageModelConfigForFile` already has).
+		const active = await db
+			.update(modelConfig)
+			.set({ active: false })
+			.where(and(eq(modelConfig.purpose, 'embedding'), eq(modelConfig.active, true)))
+			.returning({ id: modelConfig.id });
+		clearModelCache();
+		const queue = testQueue();
+		try {
+			queue.scheduleIndexOnly({
+				universeId: world.id,
+				entityId: created.id,
+				entityName: created.name,
+				userId: owner.id,
+				locale: 'en'
+			});
+			const row = await waitForEntityRow(db, world.id, created.id, (r) => r.status === 'done');
+			// The whole point: not `no-change`, which is what this used to say and what made a
+			// quietly empty index indistinguishable from a save that changed nothing.
+			const outcome = row.indexOutcome as IndexOutcome;
+			expect(outcome.status).toBe('no-embedding-model');
+			expect(
+				await entitiesSkippedForNoEmbeddingModel(db, world.id, created.id),
+				'the count that goes on the log line, so one line says how much of the universe is missing'
+			).toBe(1);
+		} finally {
+			await queue.stop();
+			for (const row of active) {
+				await db.update(modelConfig).set({ active: true }).where(eq(modelConfig.id, row.id));
+			}
+			clearModelCache();
 		}
 	});
 });

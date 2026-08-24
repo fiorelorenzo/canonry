@@ -10,6 +10,7 @@ import { priceOf, universeAccessBySlug } from '@canonry/db';
 import { generatePlanDiffs, AiDisabledError } from '@canonry/copilot';
 import { MissingGatewayEnvError } from '@canonry/ai';
 import { db } from '$lib/server/db';
+import { scheduleIndexAfterAccept } from '$lib/server/jobs';
 import { PLAN_CREDITS_LINE } from '$lib/proposals/creditsLine';
 import { modelFactory, identityGateway } from '$lib/server/copilot';
 import {
@@ -175,6 +176,12 @@ export const actions: Actions = {
 		if (typeof proposalId !== 'string') return fail(400, { error: 'Missing proposalId' });
 		try {
 			const accepted = await acceptProposal(db(), { proposalId, decidedBy: userId });
+			// Issue #703: an accepted propagation update rewrites a body, so the index has to
+			// catch up or every later Ask answer quotes canon that has changed underneath it.
+			// Index engine only - the accept must not itself trigger propagation, which is the
+			// guard `$lib/server/jobs/canon-save.ts` describes and `scheduleEntityIndexJob`'s
+			// input type is what now enforces.
+			await scheduleIndexAfterAccept(db(), accepted, { userId, locale: locals.locale });
 			return { id: accepted.id };
 		} catch (err) {
 			if (err instanceof ProposalNotFoundError || err instanceof ProposalAlreadyDecidedError) {

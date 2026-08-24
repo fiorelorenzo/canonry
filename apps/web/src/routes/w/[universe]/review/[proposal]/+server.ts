@@ -17,6 +17,7 @@ import { error, json } from '@sveltejs/kit';
 import { universeAccessBySlug } from '@canonry/db';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
+import { scheduleIndexAfterAccept } from '$lib/server/jobs';
 import {
 	acceptProposal,
 	rejectProposal,
@@ -74,6 +75,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 					proposalId: params.proposal,
 					decidedBy: userId
 				});
+				// Issue #703: keep the index in step with a body this accept just rewrote. Index
+				// engine only, so an accepted AI write still never triggers propagation.
+				await scheduleIndexAfterAccept(conn, accepted, { userId, locale: locals.locale });
 				return json({ id: accepted.id, outcome: accepted.outcome });
 			}
 			case 'reject': {

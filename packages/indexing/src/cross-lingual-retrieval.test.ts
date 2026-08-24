@@ -179,6 +179,8 @@ describe("cross-lingual retrieval (SPEC.md §17, issue #125): today's hashing em
 				sectionSummary: chunk.text.slice(0, 120),
 				questionsThisExcerptCanAnswer: [],
 				excerptKeywords: chunk.keywords ?? [],
+				pointKind: 'body',
+				entityType: null,
 				language: detectLanguage(chunk.text)
 			}
 		}));
@@ -283,6 +285,8 @@ describe('chunk language is metadata, never a retrieval filter (SPEC.md §17, is
 					sectionSummary: enText,
 					questionsThisExcerptCanAnswer: [],
 					excerptKeywords: [],
+					pointKind: 'body',
+					entityType: null,
 					language: 'en'
 				}
 			},
@@ -301,6 +305,8 @@ describe('chunk language is metadata, never a retrieval filter (SPEC.md §17, is
 					sectionSummary: itText,
 					questionsThisExcerptCanAnswer: [],
 					excerptKeywords: [],
+					pointKind: 'body',
+					entityType: null,
 					language: 'it'
 				}
 			}

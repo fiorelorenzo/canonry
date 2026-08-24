@@ -14,6 +14,7 @@ import {
 	loreCollectionName
 } from './collections.js';
 import {
+	countLorePoints,
 	deleteLorePage,
 	findPageUpdatedAt,
 	queryLore,
@@ -22,7 +23,7 @@ import {
 	type LoreChunk,
 	type LoreChunkPayload
 } from './lore.js';
-import { countPoints } from './points.js';
+import { countPoints, upsertPoints } from './points.js';
 
 const client = createVectorClient();
 const VECTOR_SIZE = 8;
@@ -50,6 +51,8 @@ function payload(overrides: Partial<LoreChunkPayload>): LoreChunkPayload {
 		sectionSummary: 'summary',
 		questionsThisExcerptCanAnswer: ['What is this?'],
 		excerptKeywords: ['keyword'],
+		pointKind: 'body',
+		entityType: null,
 		language: null,
 		...overrides
 	};
@@ -276,6 +279,87 @@ describe('deleteLorePage', () => {
 			limit: 10
 		});
 		expect(hits.map((h) => h.payload.url)).toEqual(['https://wiki.example.com/Fresh']);
+	});
+
+	it("takes only the body points when scoped to 'body', leaving the entity point behind (issue #703)", async () => {
+		const name = scratchCollectionName();
+		await ensureCollection(client, {
+			name,
+			vectorSize: VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
+		const url = 'canonry://entity/e1';
+		const scope = { universeId: 'universe-a', dataSourceId: 'source-1', url };
+		await upsertLoreChunks(client, name, [
+			{
+				id: randomUUID(),
+				vector: unitVector(3),
+				payload: payload({ ...scope, text: 'body chunk', entityType: 'place' })
+			},
+			{
+				id: randomUUID(),
+				vector: unitVector(4),
+				payload: payload({
+					...scope,
+					text: 'The Gilded Rat / Gilded Rat Tavern',
+					pointKind: 'entity',
+					entityType: 'place'
+				})
+			}
+		]);
+
+		await deleteLorePage(client, name, { ...scope, pointKind: 'body' });
+
+		expect(await countLorePoints(client, name, scope)).toBe(1);
+		expect(await countLorePoints(client, name, { ...scope, pointKind: 'body' })).toBe(0);
+		const survivors = await queryLore(client, name, {
+			vector: unitVector(4),
+			universeId: 'universe-a',
+			limit: 10
+		});
+		expect(survivors.map((h) => h.payload.pointKind)).toEqual(['entity']);
+		expect(survivors[0]?.payload.entityType).toBe('place');
+	});
+
+	it("counts a point written before point_kind existed as a body point, and deletes it under 'body'", async () => {
+		const name = scratchCollectionName();
+		await ensureCollection(client, {
+			name,
+			vectorSize: VECTOR_SIZE,
+			onDimensionMismatch: 'recreate'
+		});
+		const url = 'canonry://entity/legacy';
+		const scope = { universeId: 'universe-a', dataSourceId: 'source-1', url };
+		// Written the way every point in a deployed collection was written before issue #703:
+		// through the generic points layer, with no `point_kind` key at all. A `must` on
+		// `point_kind = 'body'` would match none of these and orphan every one of them, which
+		// is why the body filter is a `must_not` on 'entity' instead.
+		await upsertPoints(client, name, [
+			{
+				id: randomUUID(),
+				vector: unitVector(3),
+				payload: {
+					text: 'legacy chunk',
+					breadcrumb: 'Page',
+					page_title: 'Page',
+					url,
+					page_updated_at: '2026-01-01T00:00:00.000Z',
+					indexed_at: '2026-01-02T00:00:00.000Z',
+					universe_id: scope.universeId,
+					data_source_id: scope.dataSourceId,
+					section_summary: 'summary',
+					questions_this_excerpt_can_answer: [],
+					excerpt_keywords: [],
+					language: null
+				}
+			}
+		]);
+
+		expect(await countLorePoints(client, name, { ...scope, pointKind: 'body' })).toBe(1);
+		expect(await countLorePoints(client, name, { ...scope, pointKind: 'entity' })).toBe(0);
+
+		await deleteLorePage(client, name, { ...scope, pointKind: 'body' });
+		expect(await countLorePoints(client, name, scope)).toBe(0);
 	});
 });
 

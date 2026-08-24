@@ -19,11 +19,16 @@ import { entity } from '@canonry/db/schema';
 import { resolveModel } from '@canonry/ai';
 import { createVectorClient, type QdrantClient } from '@canonry/vector';
 import { heuristicExtractor, indexEntity, resolveOwnCanonCollection } from '@canonry/indexing';
+import { matchTextFor, oneLineSummary } from '@canonry/import';
 import { benchEmbedder } from './embedder.js';
 
 export interface IndexedCanon {
 	collection: string;
 	chunks: number;
+	/** Issue #703: one entity-level point per entity, beside the body chunks, so a corpus of
+	 * N entities has N of these however few of them have prose. Counted separately because
+	 * `chunks` is what every retrieval number in `docs/eval.md` is stated against. */
+	entityPoints: number;
 	vectorSize: number;
 }
 
@@ -55,11 +60,18 @@ export async function indexCorpus(
 	const vectorClient: QdrantClient = createVectorClient();
 
 	const rows = await db
-		.select({ id: entity.id, name: entity.name, body: entity.body })
+		.select({
+			id: entity.id,
+			name: entity.name,
+			aliases: entity.aliases,
+			type: entity.type,
+			body: entity.body
+		})
 		.from(entity)
 		.where(eq(entity.universeId, universeId));
 
 	let chunks = 0;
+	let entityPoints = 0;
 	for (const row of rows) {
 		const result = await indexEntity(
 			{ db, vectorClient, extractor: heuristicExtractor, embedder },
@@ -69,6 +81,14 @@ export async function indexCorpus(
 				entityId: row.id,
 				entityName: row.name,
 				body: row.body,
+				entityType: row.type,
+				// The same text `canon-save.ts`'s index engine builds, so what the bench measures
+				// is what a save writes (issue #703).
+				entityMatchText: matchTextFor({
+					name: row.name,
+					aliases: row.aliases,
+					context: { type: row.type, summary: oneLineSummary(row.body), sourceSentence: null }
+				}),
 				collectionName,
 				vectorSize,
 				...(options.chunkTokenBudget === undefined
@@ -77,7 +97,8 @@ export async function indexCorpus(
 			}
 		);
 		chunks += result.chunkCount;
+		if (result.entityPointWritten) entityPoints += 1;
 	}
 
-	return { collection: collectionName, chunks, vectorSize };
+	return { collection: collectionName, chunks, entityPoints, vectorSize };
 }
