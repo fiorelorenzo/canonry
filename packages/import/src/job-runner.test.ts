@@ -68,6 +68,11 @@ function createHashOf(text: string): string {
 // this file and in `media-store.test.ts`, neither of which had anything to do with the
 // cause. The connection details still come from `TEST_DATABASE_URL` when it is set, since
 // that is how CI names its host; only the database is this file's.
+//
+// That is also why this file keeps `concurrencyLimit: 5` while its five siblings moved to
+// `TEST_CONCURRENCY_LIMIT` (issue #658): `admitImportJob` counts every `running` job in the
+// database it is given, and the database it is given here holds nothing but this file's own
+// jobs, one at a time, since vitest runs files in parallel and a file's tests in sequence.
 const suffix = process.env.TEST_DB_SUFFIX ?? 'jobrunner-local';
 const TEST_DATABASE_URL = (() => {
 	const base = new URL(

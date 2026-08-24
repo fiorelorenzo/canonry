@@ -31,7 +31,7 @@ import {
 	universe,
 	user
 } from '@canonry/db/schema';
-import { openTestDb } from './test-db.js';
+import { openTestDb, TEST_CONCURRENCY_LIMIT } from './test-db.js';
 import {
 	GatewayDriver,
 	type GatewayWrapper,
@@ -262,7 +262,8 @@ describe('issue #573: a document that produced no proposal', () => {
 				documentCount: documents.length,
 				budgetCredits: 1000,
 				estimate: { documentCount: documents.length, estimatedMinutes: 1, estimatedCredits: 10 },
-				concurrencyLimit: 5
+				// issue #658: a budget no sibling file can spend. `TEST_CONCURRENCY_LIMIT` has why.
+				concurrencyLimit: TEST_CONCURRENCY_LIMIT
 			});
 			expect(admission.admitted).toBe(true);
 			const result = await new ImportJobRunner().run({
