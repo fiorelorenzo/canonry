@@ -210,6 +210,7 @@
 					class:border-line={item.id !== currentId}
 					class:text-ok={item.outcome === 'accepted'}
 					class:text-danger={item.outcome === 'rejected'}
+					aria-current={item.id === currentId ? 'true' : undefined}
 					onclick={() => (currentId = item.id)}
 				>
 					{index + 1}

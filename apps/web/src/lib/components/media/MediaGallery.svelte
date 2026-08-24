@@ -537,6 +537,7 @@
 									class="overflow-hidden rounded-md border-2"
 									class:border-accent={selectedCandidateId === candidate.id}
 									class:border-transparent={selectedCandidateId !== candidate.id}
+									aria-pressed={selectedCandidateId === candidate.id}
 									onclick={() => (selectedCandidateId = candidate.id)}
 								>
 									<img

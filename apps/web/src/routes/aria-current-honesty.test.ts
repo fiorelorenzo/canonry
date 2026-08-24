@@ -50,10 +50,12 @@
  * `page.url.pathname === tab.href` and puts `page` on that, so the claim is about the
  * document being displayed and it is true whenever it is made.
  *
- * What this does not do is require the attribute to exist. It reads the value wherever
- * one is spelled, so a surface that marks "you are here" with weight alone and says
- * nothing to a screen reader passes here and is filed instead (#732, the sidebar's two
- * navs, which already compute the comparison `page` wants and set no attribute at all).
+ * What this does not do is require the attribute to exist, and that hole is why #732
+ * happened: a surface that marked "you are here" with weight alone and said nothing to a
+ * screen reader passed here. The paired half now lives in
+ * `class-directive-conflict.test.ts`, which fails a repeated control that paints a state
+ * and announces none, so the two files together cover both directions: this one polices
+ * what a spelled value claims, that one polices the absence.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -74,6 +76,28 @@ const URL_COMPARED: { file: string; reason: string }[] = [
 		reason:
 			'active = page.url.pathname === tab.href, and tab.href is the anchor href, so the ' +
 			'tab marked current is the route being displayed.'
+	},
+	{
+		file: 'lib/components/shell/Sidebar.svelte',
+		reason:
+			'#732: both navs compute active = page.url.pathname === href against the anchor ' +
+			'own href, one for a universe seven places and one for the account three. An ' +
+			'exact match, so on a descendant route (an entry under Entries) nothing is ' +
+			'marked, which is what the paint already does.'
+	},
+	{
+		file: 'lib/components/account/SettingsNav.svelte',
+		reason:
+			'#732: active = page.url.pathname === item.href, and every href is a real route ' +
+			'rather than a same-page anchor, which is what separates this nav from ' +
+			'UniverseSettingsRail below it.'
+	},
+	{
+		file: 'lib/components/works/WorkTree.svelte',
+		reason:
+			'#732: active = node.id === activeNodeId, activeNodeId is page.params.node, and ' +
+			'the href is built from the same work slug and node id, so the comparison is a ' +
+			'URL comparison by route param rather than by pathname string.'
 	}
 ];
 
@@ -158,14 +182,19 @@ describe('aria-current says only what is true (#724)', () => {
 	it('finds every aria-current in the tree', () => {
 		const files = [...new Set(ALL_USES.map((use) => use.file))].sort();
 		expect(files).toEqual([
+			'lib/components/account/SettingsNav.svelte',
 			'lib/components/entries/TypeFilterRow.svelte',
+			'lib/components/proposals/InlineProposalReview.svelte',
+			'lib/components/proposals/TypeFilterChips.svelte',
 			'lib/components/settings/UniverseSettingsRail.svelte',
 			'lib/components/shell/PhoneNav.svelte',
 			'lib/components/shell/ShellUserRow.svelte',
+			'lib/components/shell/Sidebar.svelte',
 			'lib/components/shell/UniverseSwitcher.svelte',
-			'lib/components/table/TableDeck.svelte'
+			'lib/components/table/TableDeck.svelte',
+			'lib/components/works/WorkTree.svelte'
 		]);
-		expect(ALL_USES.length).toBe(8);
+		expect(ALL_USES.length).toBe(14);
 	});
 
 	it('reads a value out of every shape the attribute is written in', () => {

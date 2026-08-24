@@ -35,6 +35,23 @@
 	 * `MentionPreview.svelte`, same GM endpoint. Mounted once per `<aside>` below
 	 * (`container`), not once per page, keyed off `data-entry-slug` on the Recents
 	 * anchors, the same attribute `markdown.ts`'s mention renderer emits.
+	 *
+	 * #732: both navs below mark the active item `aria-current="page"`, which is the value
+	 * #724's rule earns rather than a second convention: `active` is
+	 * `page.url.pathname === href`, so the marked anchor's href is the document being
+	 * displayed, exactly as `PhoneNav` already computes it. Before this the desktop rail
+	 * painted the active item (weight 600, `text-ink`, and #721's accent tint on its count
+	 * badge) and told a screen reader nothing, so below `md` a reader was told which place
+	 * they were in and above `md` they were not.
+	 *
+	 * The scope is deliberately the routes that are already painted and no others. `active`
+	 * is an exact pathname match, so on `/w/<slug>/e/<slug>` no item is marked: the reader
+	 * is inside the Entries section without being on the Entries page, and nothing here
+	 * claims otherwise. Marking the section root on its descendants would need the paint to
+	 * follow, since a programmatic marker with no visual twin is the defect this fixes
+	 * inverted, and what the shell's active affordance looks like is #720's open question.
+	 * Same for the universe home and for five of the six account settings leaves, where no
+	 * nav item matches today either.
 	 */
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -139,6 +156,7 @@
 							class:text-ink={active}
 							class:font-semibold={active}
 							class:text-ink-2={!active}
+							aria-current={active ? 'page' : undefined}
 						>
 							<span>{t.nav[item.id]}</span>
 							{#if counts[item.id] !== undefined}
@@ -201,6 +219,7 @@
 							class:text-ink={active}
 							class:font-semibold={active}
 							class:text-ink-2={!active}
+							aria-current={active ? 'page' : undefined}
 						>
 							{shellT.sidebar.accountNav[item.id]}
 						</a>
