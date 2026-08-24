@@ -148,3 +148,154 @@ export function preferredRelationTypeByKey<T extends RelationTypeIdentity>(
 	}
 	return byKey;
 }
+
+// ---------------------------------------------------------------------------
+// Rung 1's identity function for a relation label.
+// ---------------------------------------------------------------------------
+
+/** An articled preposition folded onto its bare form (issue #669). A static, closed table
+ * rather than a rule, because that is what it is: Italian has exactly these, they are all
+ * function words, and a whole-word lookup cannot reach inside a content word the way a suffix
+ * rule can. Deliberately not `nell`/`dell`, the elided forms before a vowel, which arrive as
+ * `nell` plus a separate token once punctuation has been collapsed to spaces and are therefore
+ * a different edit; no label in either measured corpus uses one. */
+const ARTICLED_PREPOSITIONS: Record<string, string> = {
+	del: 'di',
+	dello: 'di',
+	della: 'di',
+	dei: 'di',
+	degli: 'di',
+	delle: 'di',
+	dal: 'da',
+	dallo: 'da',
+	dalla: 'da',
+	dai: 'da',
+	dagli: 'da',
+	dalle: 'da',
+	nel: 'in',
+	nello: 'in',
+	nella: 'in',
+	nei: 'in',
+	negli: 'in',
+	nelle: 'in',
+	al: 'a',
+	allo: 'a',
+	alla: 'a',
+	ai: 'a',
+	agli: 'a',
+	alle: 'a',
+	sul: 'su',
+	sullo: 'su',
+	sulla: 'su',
+	sui: 'su',
+	sugli: 'su',
+	sulle: 'su',
+	col: 'con',
+	coi: 'con'
+};
+
+/** The bare prepositions an Italian relation label puts immediately after a participle:
+ * "fondata **da**", "situata **in**", "ambientata **a**". This is the lookahead that keeps the
+ * gender rule below off English, and it is the whole reason the rule is safe unlocalised. */
+const ITALIAN_PREPOSITIONS: Record<string, true> = {
+	da: true,
+	di: true,
+	in: true,
+	a: true,
+	su: true,
+	con: true,
+	per: true,
+	tra: true,
+	fra: true
+};
+
+/** The four participle terminations that actually occur in the two measured corpora: the three
+ * regular conjugations (`-ata` fondata, `-ita` costruita, `-uta` venduta) plus the commonest
+ * irregular shape (`-tta` protetta, distrutta). `-sta` and `-sa` are deliberately absent: they
+ * are real Italian participle endings and neither corpus contains one, so including them would
+ * widen the rule for no measured gain. */
+const FEMININE_PARTICIPLE_ENDINGS = ['ata', 'ita', 'uta', 'tta'];
+
+/** Six letters, so `data` and `via` cannot reach the rule at all. It also costs the two
+ * five-letter participles `fatta` and `nata`, which is a real loss and the right trade: an
+ * English label ending in `-a` is a live possibility in every world, and neither of those two
+ * appears as a relation label in either corpus. */
+const MIN_PARTICIPLE_LENGTH = 6;
+
+/**
+ * Lowercases, strips diacritics and collapses anything that is not a letter or digit to
+ * single spaces - the same first move `packages/import/src/matching.ts`'s
+ * `normalizeForMatching` makes for entity names, for the same reason (issue #36/#37: cheap,
+ * free, and it is what makes "Employs" / "employs," / "employs" the same string). Then three
+ * deliberately narrow morphology rules on top, since a *label* additionally needs "employs" /
+ * "employ" / "employed" to collapse - the exact three-way example the epic names - which a
+ * name-matching normaliser has no reason to do.
+ *
+ * This is not a stemmer for any language and is not meant to be one. Two labels that normalise
+ * to one string are one question, both to rung 1 (`resolveRelationType`) and to the vocabulary
+ * dedupe key (`packages/db`'s `dedupKeyFor`), and under decision L1 a `key` that gets created
+ * is permanent, so every rule here is sized to the collapses that were measured rather than to
+ * the ones a lemmatiser would find.
+ *
+ * **Issue #669: two of the three rules are Italian, and neither is switched on by locale.** A
+ * world's labels can be in any language and a real notebook mixes them, so the rules have to be
+ * safe on English input rather than gated on a setting. What makes that possible is that both
+ * Italian rules are anchored on *function words*, which are closed sets, rather than on a
+ * suffix alone:
+ *
+ * 1. An articled preposition folds onto its bare preposition, so `nominato dal` reads as
+ *    `nominato da` and `situato nella` as `situato in`. Whole-word table.
+ * 2. A feminine participle folds onto its masculine form, but *only* immediately before one of
+ *    those bare prepositions, so `fondata da` reads as `fondato da` while English `errata of`
+ *    and `vendetta with` are left alone: `of` and `with` are not Italian prepositions. `data`
+ *    and `via` are below the length floor and cannot reach the rule under any following word.
+ * 3. The English inflection stripper, unchanged, with its own long-word guards so a short
+ *    function word ending in "s"/"ed" ("as", "of", "is") survives.
+ *
+ * The residue, stated rather than hidden: an English label whose word ends in one of the four
+ * terminations *and* is followed by `in` or `a` does fold, `strata in` being the plausible one.
+ * That is the cost of not switching on locale, it is one collapse rather than a mangling, and
+ * the alternative is a rule that a mixed-language notebook defeats. Nothing in the shipped
+ * catalogue changes under any of the three rules, in either locale, which is asserted rather
+ * than asserted-in-prose (`relation-catalogue.test.ts`).
+ */
+export function normalizeRelationLabel(raw: string): string {
+	const normalized = raw
+		.normalize('NFKD')
+		.replace(/\p{Diacritic}/gu, '')
+		.toLowerCase()
+		.replace(/[^\p{L}\p{N}]+/gu, ' ')
+		.trim();
+	if (normalized.length === 0) return normalized;
+	// Rule 1 first, so rule 2's lookahead sees the bare preposition: `fondata dalla` has to
+	// read as `fondato da`, which needs `dalla` to already be `da` when the participle is
+	// examined.
+	const words = normalized.split(' ').map((word) => ARTICLED_PREPOSITIONS[word] ?? word);
+	return words
+		.map((word, index) =>
+			stemWord(
+				ITALIAN_PREPOSITIONS[words[index + 1] ?? ''] === true ? masculineParticiple(word) : word
+			)
+		)
+		.join(' ');
+}
+
+/** Rule 2's body: only ever called on a word the caller has established is followed by an
+ * Italian preposition. */
+function masculineParticiple(word: string): string {
+	if (word.length < MIN_PARTICIPLE_LENGTH) return word;
+	for (const ending of FEMININE_PARTICIPLE_ENDINGS) {
+		if (word.endsWith(ending)) return `${word.slice(0, -1)}o`;
+	}
+	return word;
+}
+
+/** Rule 3, the English inflection stripper, unchanged since #197. The length checks before
+ * stripping "s"/"ed"/"ing" are what keep it off a short function word that happens to end the
+ * same way. */
+function stemWord(word: string): string {
+	if (word.length > 5 && word.endsWith('ing')) return word.slice(0, -3);
+	if (word.length > 4 && word.endsWith('ed')) return word.slice(0, -2);
+	if (word.length > 3 && word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
+	return word;
+}

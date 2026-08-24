@@ -48,11 +48,11 @@
  * range, and reports what the corpus implies. It reports; it does not set anything.
  */
 import {
+	normalizeRelationLabel,
 	RELATION_TYPE_CATALOGUE,
 	relationTypeMatchCandidates,
 	type RelationTypeIdentity
 } from '@canonry/lang';
-import { normalizeRelationLabel } from './relation-types.js';
 
 /**
  * Ground truth for one pair. `same` and `inverse` both mean "this is that type", and they

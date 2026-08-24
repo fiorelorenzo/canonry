@@ -124,9 +124,11 @@ export {
 
 export { completeEntry, type CompleteEntryInput, type CompleteEntryResult } from './complete.js';
 
+// `normalizeRelationLabel` is not here: #669 moved it to `@canonry/lang`, beside the catalogue
+// it compares against, because `packages/db`'s vocabulary dedupe key needs the same answer and
+// cannot depend on this package. Import it from there.
 export {
 	resolveRelationType,
-	normalizeRelationLabel,
 	SEMANTIC_REUSE_THRESHOLD,
 	type RelationTypeResolution,
 	type ResolveRelationTypeDeps,

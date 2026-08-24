@@ -65,7 +65,7 @@
 import type { Db } from '@canonry/db';
 import { relationTypesForUniverse, type RelationTypeRow } from '@canonry/db';
 import type { EntityType, RelationCardinality } from '@canonry/db/schema';
-import { relationTypeMatchCandidates } from '@canonry/lang';
+import { normalizeRelationLabel, relationTypeMatchCandidates } from '@canonry/lang';
 
 export type RelationTypeResolution = {
 	/** True when the proposed label matched the chosen type's *inverse* label, so the
@@ -141,34 +141,11 @@ export interface ResolveRelationTypeInput {
 // Rung 1: normalised exact match.
 // ---------------------------------------------------------------------------
 
-/** Lowercases, strips diacritics and collapses anything that is not a letter or digit to
- * single spaces - the same first move `packages/import/src/matching.ts`'s
- * `normalizeForMatching` makes for entity names, for the same reason (issue #36/#37: cheap,
- * free, and it is what makes "Employs" / "employs," / "employs" the same string). Then a
- * deliberately narrow inflection stripper on top, since a *label* additionally needs
- * "employs" / "employ" / "employed" to collapse - the exact three-way example the epic
- * names - which a name-matching normaliser has no reason to do. Long-word-only guards
- * (length checks before stripping "s"/"ed"/"ing") keep this from mangling a short
- * function word ("as", "of", "is") that happens to end the same way. This is not a real
- * stemmer and is not meant to be one - it is the "obvious morphology" the issue asks for,
- * nothing cleverer; anything past this narrow a rule is rung 2's job. */
-export function normalizeRelationLabel(raw: string): string {
-	const normalized = raw
-		.normalize('NFKD')
-		.replace(/\p{Diacritic}/gu, '')
-		.toLowerCase()
-		.replace(/[^\p{L}\p{N}]+/gu, ' ')
-		.trim();
-	if (normalized.length === 0) return normalized;
-	return normalized.split(' ').map(stemWord).join(' ');
-}
-
-function stemWord(word: string): string {
-	if (word.length > 5 && word.endsWith('ing')) return word.slice(0, -3);
-	if (word.length > 4 && word.endsWith('ed')) return word.slice(0, -2);
-	if (word.length > 3 && word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
-	return word;
-}
+/** Rung 1's identity function for a relation label lives in `@canonry/lang`, beside the
+ * catalogue it compares against (issue #669 moved it there): `packages/db`'s vocabulary dedupe
+ * key has to answer the same "are these two labels the same question" that this rung answers,
+ * and it cannot depend on this package. See that module's own doc for the three rules and for
+ * why two of them are Italian without being switched on by locale. */
 
 /** Whether `label` (after normalising) reads as `type`'s *inverse* rather than its
  * forward label. Private, like its forward counterpart below: what a caller building the

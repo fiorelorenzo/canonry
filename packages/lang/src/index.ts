@@ -23,11 +23,16 @@ export { functionWords, LOCALES_WITH_FUNCTION_WORDS } from './function-words.js'
 // that dragged the copilot's whole server graph (the AI SDK, model routing, env secrets)
 // into the client bundle through the barrel, which broke hydration on every page. This
 // package has no dependencies at all, which is exactly why it is the right home.
+// `normalizeRelationLabel` joined them in #669, for the same reason one layer along: rung 1
+// (`packages/copilot`) and the vocabulary dedupe key (`packages/db`) both have to answer "are
+// these two labels the same question", and they were answering it differently. `packages/db`
+// cannot depend on `packages/copilot` and this package is what both already depend on.
 export {
 	RELATION_TYPE_CATALOGUE,
 	relationTypeMatchCandidates,
 	localizedRelationLabel,
 	preferredRelationTypeByKey,
+	normalizeRelationLabel,
 	type RelationTypeCatalogueEntry,
 	type RelationTypeIdentity
 } from './relation-catalogue.js';

@@ -19,6 +19,7 @@ import {
 	or,
 	sql
 } from 'drizzle-orm';
+import { normalizeRelationLabel } from '@canonry/lang';
 import type { Db } from '../client.js';
 import { entity } from '../schema/entity.js';
 import type { EntityType, ImportJobStatus, RelationCardinality } from '../schema/enums.js';
@@ -1233,22 +1234,33 @@ export function isRelationTypeProposalKind(kind: string): kind is RelationTypeVo
 	return RELATION_TYPE_PROPOSAL_KINDS[kind] === true;
 }
 
-/** Grouping key for "the same vocabulary question" within one job - case/whitespace
- * normalisation only, never the semantic step (that already happened once, inside
- * resolveRelationType; this only asks "did a later document in this same job just ask
- * the identical question a moment ago"). */
-function normalizeLabelKey(label: string): string {
-	return label.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
+/** Grouping key for "the same vocabulary question" within one job.
+ *
+ * A `relation_type_reuse` question is identified by the type it reuses plus the label the model
+ * proposed, and there case and whitespace is the whole job: the proposed label is shown to the
+ * GM verbatim, and two spellings of it against the same type really are one question.
+ *
+ * A `relation_type_new` question used to use the same weak key, and issue #669 is what that
+ * cost. `resolveRelationType`'s rung 1 already decides whether two labels are the same string
+ * for matching purposes, through `normalizeRelationLabel`; asking a *different* question here
+ * meant `fondata da` and `fondato da` reached the review queue as two questions after rung 1
+ * had established they are one label. Measured on the recorded Italian notebook: seven of its
+ * 130 questions, covering 27 relations, are that shape and nothing else. So this key is now
+ * the same predicate rung 1 uses, which is what makes the two agree rather than nearly agree.
+ *
+ * It is still not the *semantic* step: rung 2's embedding comparison happens once, inside
+ * `resolveRelationType`, and nothing here re-runs it. This only asks whether a later document
+ * in this same job just asked the identical question, and `normalizeRelationLabel` answers that
+ * with a normalised exact string match, which is a strictly narrower claim than the one rung 1
+ * already acted on when it declined to match the catalogue. */
 function dedupKeyFor(resolution: RelationTypeVocabResolutionInput): string {
 	switch (resolution.kind) {
 		case 'relation_type_reuse':
-			return `${resolution.existingTypeId}::${normalizeLabelKey(resolution.proposedLabel)}`;
+			return `${resolution.existingTypeId}::${resolution.proposedLabel.trim().toLowerCase().replace(/\s+/g, ' ')}`;
 		case 'relation_type_widen':
 			return `${resolution.existingTypeId}::${resolution.addFrom ?? '-'}::${resolution.addTo ?? '-'}`;
 		case 'relation_type_new':
-			return normalizeLabelKey(resolution.label);
+			return normalizeRelationLabel(resolution.label);
 	}
 }
 
