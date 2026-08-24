@@ -86,6 +86,7 @@ import {
 	userBilling
 } from '@canonry/db/schema';
 import { dataDir, loadEnv, requireEnv } from '../env.js';
+import { cachedEmbedder } from './embedding-cache.js';
 
 // ---------------------------------------------------------------------------
 // Arguments.
@@ -191,39 +192,10 @@ class ReplayDriver implements ImportDriver {
 }
 
 // ---------------------------------------------------------------------------
-// A disk-backed embedding cache, so a replay costs nothing and never moves.
+// A disk-backed embedding cache, so a replay costs nothing and never moves. Lives in
+// `./embedding-cache.ts`, which also records why it exists next to a recording at all: this
+// file ends in `await main()`, so a test cannot reach anything declared in it (issue #668).
 // ---------------------------------------------------------------------------
-
-function cachedEmbedder(inner: Embedder | null, cachePath: string): Embedder {
-	const cache: Record<string, number[]> = existsSync(cachePath)
-		? (JSON.parse(readFileSync(cachePath, 'utf8')) as Record<string, number[]>)
-		: {};
-	let dirty = false;
-
-	return async (texts: string[]): Promise<number[][]> => {
-		const keys = texts.map((text) => createHash('sha256').update(text).digest('hex'));
-		const missing = texts.filter((_, i) => cache[keys[i]!] === undefined);
-		if (missing.length > 0) {
-			if (!inner) {
-				throw new Error(
-					`replay asked for ${missing.length} embedding(s) the recorded run never took. ` +
-						'Re-record, or check that the merge engine is being fed the same payloads.'
-				);
-			}
-			const vectors = await inner(missing);
-			let m = 0;
-			for (let i = 0; i < texts.length; i++) {
-				if (cache[keys[i]!] === undefined) cache[keys[i]!] = vectors[m++]!;
-			}
-			dirty = true;
-		}
-		if (dirty) {
-			writeFileSync(cachePath, JSON.stringify(cache));
-			dirty = false;
-		}
-		return keys.map((key) => cache[key]!);
-	};
-}
 
 // ---------------------------------------------------------------------------
 // Fixture rows: this harness owns its own user and a fresh universe per run, because a
