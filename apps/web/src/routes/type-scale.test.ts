@@ -109,13 +109,13 @@ const ALLOWED: { file: string; util: string; count: number; reason: string }[] =
 		file: 'lib/components/players/EntryProseWithSecrets.svelte',
 		util: 'text-xl',
 		count: 1,
-		reason: "the players' wiki draws the same prose ladder as EntryProse"
+		reason: "the GM's own entry view draws the same prose ladder as EntryProse"
 	},
 	{
 		file: 'lib/components/players/EntryProseWithSecrets.svelte',
 		util: 'text-lg',
 		count: 1,
-		reason: "the players' wiki draws the same prose ladder as EntryProse"
+		reason: "the GM's own entry view draws the same prose ladder as EntryProse"
 	},
 	{
 		file: 'lib/components/docs/DocPage.svelte',
@@ -127,7 +127,7 @@ const ALLOWED: { file: string; util: string; count: number; reason: string }[] =
 		file: 'lib/components/docs/DocPage.svelte',
 		util: 'text-lg',
 		count: 1,
-		reason: 'the docs draw the same prose ladder as EntryProse'
+		reason: 'the same ladder again, on a level no docs page ships an h3 for yet (#649)'
 	},
 
 	// A display figure. Not one of the five roles, and reading it as --text-title would
@@ -136,7 +136,7 @@ const ALLOWED: { file: string; util: string; count: number; reason: string }[] =
 		file: 'routes/admin/metrics/+page.svelte',
 		util: 'text-2xl',
 		count: 4,
-		reason: 'the four accept-rate figures, a display number rather than a title'
+		reason: 'the accept rate and its three counts, display numbers rather than titles'
 	},
 	{
 		file: 'routes/settings/billing/+page.svelte',
