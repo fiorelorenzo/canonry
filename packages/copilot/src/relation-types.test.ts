@@ -25,7 +25,7 @@ import {
 } from './relation-types.js';
 import { insertHomebrewUniverse, insertRelationType } from './test-helpers.js';
 import { openTestDb } from './test-db.js';
-import { RELATION_TYPE_CATALOGUE } from '@canonry/lang';
+import { normalizeRelationLabel, RELATION_TYPE_CATALOGUE } from '@canonry/lang';
 
 // An embedder that must never be called - for a case rung 1 (exact/inverse match) is
 // expected to resolve on its own, so this also proves rung 1 short-circuits rung 2 rather
@@ -41,17 +41,16 @@ const UNREACHABLE_EMBEDDER: Embedder = async () => {
  * synonyms and "employs" itself all land on the same basis vector (cosine similarity
  * exactly 1), every other catalogue label lands on its own orthogonal one (similarity
  * exactly 0 to anything outside its own family) - a deliberately idealised stand-in for
- * what a real dense embedding model's *judgement* should produce, not a claim about what
  * `hashingEmbedder` produces (see the `SEMANTIC_REUSE_THRESHOLD` comment on why that
  * distinction matters, and the "fears" test below for the one case that does run against
  * the real network-free embedder instead of this stub).
+ *
+ * Both stubs recognise a text through `normalizeRelationLabel`, because that is the string
+ * `bestSemanticMatch` hands an embedder since #690: "hires" arrives as "hire" and "located in"
+ * as "locat in". Matching on the raw literal would make these stubs answer a question
+ * production no longer asks.
  */
-const EMPLOYS_FAMILY: Record<string, true> = {
-	employs: true,
-	'employer of': true,
-	'works for': true,
-	hires: true
-};
+const EMPLOYS_FAMILY = ['employs', 'employer of', 'works for', 'hires'];
 const CONCEPTS = [
 	'employs',
 	'commands',
@@ -66,9 +65,10 @@ const CONCEPTS = [
 ];
 const conceptEmbedder: Embedder = async (texts) => {
 	return texts.map((text) => {
-		const key = text.toLowerCase().trim();
-		const concept = EMPLOYS_FAMILY[key] ? 'employs' : key;
-		const index = CONCEPTS.indexOf(concept);
+		const key = normalizeRelationLabel(text);
+		const index = EMPLOYS_FAMILY.some((label) => normalizeRelationLabel(label) === key)
+			? CONCEPTS.indexOf('employs')
+			: CONCEPTS.findIndex((concept) => normalizeRelationLabel(concept) === key);
 		const vector = new Array(CONCEPTS.length).fill(0);
 		if (index >= 0) vector[index] = 1;
 		return vector;
@@ -85,13 +85,13 @@ const conceptEmbedder: Embedder = async (texts) => {
 const LOCATED_IN_PARAPHRASE = 'si trova a';
 const CATALOGUE_KEYS = Object.keys(RELATION_TYPE_CATALOGUE.en);
 function crossLocaleConceptFor(text: string): string | null {
-	const normalized = text.toLowerCase().trim();
-	if (normalized === LOCATED_IN_PARAPHRASE) return 'located_in';
+	const normalized = normalizeRelationLabel(text);
+	if (normalized === normalizeRelationLabel(LOCATED_IN_PARAPHRASE)) return 'located_in';
 	for (const key of CATALOGUE_KEYS) {
 		const en = RELATION_TYPE_CATALOGUE.en[key]!;
 		const it = RELATION_TYPE_CATALOGUE.it[key]!;
 		const strings = [en.label, en.inverseLabel, it.label, it.inverseLabel];
-		if (strings.some((s) => s.toLowerCase() === normalized)) return key;
+		if (strings.some((s) => normalizeRelationLabel(s) === normalized)) return key;
 	}
 	return null;
 }
@@ -213,6 +213,54 @@ describe('resolveRelationType', () => {
 		expect(resolution.inverseLabel).toBe('feared by');
 		expect(resolution.from).toBe('character');
 		expect(resolution.to).toBe('character');
+	});
+
+	it('gives two labels rung 1 calls one string the same rung-2 answer (issue #690)', async () => {
+		const { id: universeId } = await insertHomebrewUniverse(db);
+		// A stub that scores the two spellings differently, which is what the real model does:
+		// #629 measured `situata in` and `situato in` at 0.8414 and 0.8221 against `located in`,
+		// and any threshold between them resolves one and asks about the other. Rung 1 and
+		// `packages/db`'s dedupe key had already declared them one question, so that gap was a
+		// rung contradicting the rung above it. Both labels reach the embedder as the same string
+		// now, so no stub can tell them apart: the first branch below is unreachable through
+		// `bestSemanticMatch` and is what fails this case on 1d656be.
+		const masculineOnly: Embedder = async (texts) =>
+			texts.map((text) => {
+				if (text === 'situata in') return [0, 1];
+				const key = normalizeRelationLabel(text);
+				return key === normalizeRelationLabel('situato in') ||
+					key === normalizeRelationLabel(RELATION_TYPE_CATALOGUE.en.located_in!.label)
+					? [1, 0]
+					: [0, 1];
+			});
+
+		const resolutions = [];
+		for (const label of ['situata in', 'situato in']) {
+			resolutions.push(
+				await resolveRelationType(
+					{ db, embed: masculineOnly },
+					baseInput(universeId, {
+						label,
+						inverseLabel: 'contiene',
+						fromType: 'character',
+						toType: 'place'
+					})
+				)
+			);
+		}
+
+		const [feminine, masculine] = resolutions;
+		expect(feminine?.kind).toBe('reuse-proposed');
+		expect(masculine?.kind).toBe(feminine?.kind);
+		if (feminine?.kind !== 'reuse-proposed' || masculine?.kind !== 'reuse-proposed') {
+			throw new Error('unreachable');
+		}
+		expect(masculine.type.id).toBe(feminine.type.id);
+		expect(feminine.type.key).toBe('located_in');
+		// Guardrail 1 and guardrail 3 both: the label the GM reads and the evidence quote it are
+		// still the words the model wrote, not the string the rung compared.
+		expect(feminine.proposedLabel).toBe('situata in');
+		expect(feminine.why).toContain('situata in');
 	});
 
 	it("a pair a universe's own type does not admit comes back widen-proposed, not a rejection or a silent write", async () => {
