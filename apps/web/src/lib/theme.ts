@@ -51,6 +51,20 @@ const OS_THEME_COLOR_MEDIA = {
 	dark: '(prefers-color-scheme: dark)'
 } as const;
 
+/** The two palettes a `theme-color` meta can carry, which is also its marker attribute. */
+export type Palette = 'light' | 'dark';
+
+/**
+ * The `media` one `theme-color` meta must carry for a resolved preference. Both halves of
+ * the rewrite below go through this, so the server-rendered document and the live one
+ * cannot disagree about a palette (#752): `all` always matches, `not all` never does, and
+ * `system` hands the question back to the OS query the file was authored with.
+ */
+export function themeColorMedia(preference: ThemePreference, palette: Palette): string {
+	if (preference === 'system') return OS_THEME_COLOR_MEDIA[palette];
+	return preference === palette ? 'all' : 'not all';
+}
+
 /**
  * Everything a resolved preference changes about the document `app.html` describes, in one
  * place so the string replaces can be tested against the real file rather than reasoned
@@ -63,11 +77,9 @@ const OS_THEME_COLOR_MEDIA = {
  * and the reverse. The browser reads them before any of our JavaScript runs, so the answer
  * has to be server side or the chrome flashes the wrong colour on every load.
  *
- * The rewrite moves each meta's media query rather than adding or removing a meta: the
- * chosen palette's becomes `all`, which always matches, and the other becomes `not all`,
- * which never does. Exactly one of the two applies in every case, so nothing here depends
- * on how a UA breaks a tie between two matching `theme-color` metas, and `system` leaves
- * both queries alone.
+ * The rewrite moves each meta's media query rather than adding or removing a meta, so
+ * exactly one of the two applies in every case and nothing here depends on how a UA breaks
+ * a tie between two matching `theme-color` metas.
  */
 export function applyThemePreference(html: string, preference: ThemePreference): string {
 	const attribute = themeAttribute(preference);
@@ -75,14 +87,40 @@ export function applyThemePreference(html: string, preference: ThemePreference):
 		? html.replace('data-theme-pref', `data-theme="${attribute}"`)
 		: html.replace(' data-theme-pref', '');
 
-	if (preference === 'system') return themed;
 	return themed
 		.replace(
 			`media="${OS_THEME_COLOR_MEDIA.light}"`,
-			`media="${preference === 'light' ? 'all' : 'not all'}"`
+			`media="${themeColorMedia(preference, 'light')}"`
 		)
 		.replace(
 			`media="${OS_THEME_COLOR_MEDIA.dark}"`,
-			`media="${preference === 'dark' ? 'all' : 'not all'}"`
+			`media="${themeColorMedia(preference, 'dark')}"`
 		);
+}
+
+/**
+ * The same transform against a live document, which is what makes the appearance setting
+ * take effect without a reload (#752).
+ *
+ * `app.html` is rendered once per document and nothing re-renders it, so before this the
+ * setting wrote its cookie and repainted nothing: `data-theme` stayed as it was for the
+ * rest of the session, through every client-side navigation, until a full document load.
+ * Measured on `/settings/appearance` with a light OS, choosing Dark left
+ * `--color-paper` at `#f4efe4` and `performance.getEntriesByType('navigation').length` at
+ * 1, so a GM picked a theme and watched nothing happen.
+ *
+ * The metas are found by their `data-theme-color` marker rather than by their media query,
+ * because the query is the thing being rewritten and would only be findable the first time.
+ * Both halves share `themeColorMedia`, so there is one rule and two ways to apply it.
+ */
+export function applyThemePreferenceToDocument(doc: Document, preference: ThemePreference): void {
+	const attribute = themeAttribute(preference);
+	if (attribute) doc.documentElement.setAttribute('data-theme', attribute);
+	else doc.documentElement.removeAttribute('data-theme');
+
+	for (const palette of ['light', 'dark'] as const) {
+		doc
+			.querySelector(`meta[name='theme-color'][data-theme-color='${palette}']`)
+			?.setAttribute('media', themeColorMedia(preference, palette));
+	}
 }

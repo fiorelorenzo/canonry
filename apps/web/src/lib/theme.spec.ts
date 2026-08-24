@@ -6,6 +6,7 @@ import {
 	isThemePreference,
 	parseThemePreference,
 	themeAttribute,
+	themeColorMedia,
 	type ThemePreference
 } from './theme';
 
@@ -50,32 +51,58 @@ describe('themeAttribute', () => {
  * `applyThemePreference` is three string replaces against one authored file, and a string
  * replace that stops matching is silent: the page still renders, with the wrong chrome or
  * the wrong palette. So these read the real `app.html` rather than a fixture. A rename of
- * `data-theme-pref`, a reordered attribute on either `theme-color` meta, or a change of
- * quoting in any of the three is a failure here rather than a defect somebody notices on a
- * phone.
+ * `data-theme-pref` or `data-theme-color`, or a change of quoting in any of the three
+ * targets, is a failure here rather than a defect somebody notices on a phone.
  */
 const APP_HTML = readFileSync(fileURLToPath(new URL('../app.html', import.meta.url)), 'utf-8');
 
-/** The `media` value of each `theme-color` meta, keyed by the colour it carries. */
-function themeColorMedia(html: string): Record<string, string | null> {
-	const metas = [...html.matchAll(/<meta name="theme-color"[^>]*>/g)].map((m) => m[0]);
+/**
+ * Each `theme-color` meta keyed by its `data-theme-color` marker, which is also how the
+ * live-document half finds them (#752). `[^>]` crosses newlines, so this holds whether the
+ * attributes sit on one line or four.
+ */
+function themeColorMetas(html: string): Record<string, { media?: string; content?: string }> {
+	const metas = [...html.matchAll(/<meta\b[^>]*name="theme-color"[^>]*>/g)].map((m) => m[0]);
 	return Object.fromEntries(
 		metas.map((meta) => [
-			/content="([^"]*)"/.exec(meta)?.[1] ?? '?',
-			/media="([^"]*)"/.exec(meta)?.[1] ?? null
+			/data-theme-color="([^"]*)"/.exec(meta)?.[1] ?? '?',
+			{
+				media: /media="([^"]*)"/.exec(meta)?.[1],
+				content: /content="([^"]*)"/.exec(meta)?.[1]
+			}
 		])
 	);
 }
 
+/** The `media` per marker, which is the only thing the rewrite moves. */
+const mediaByPalette = (html: string): Record<string, string | undefined> =>
+	Object.fromEntries(Object.entries(themeColorMetas(html)).map(([k, v]) => [k, v.media]));
+
 const LIGHT_CHROME = '#f4efe4';
 const DARK_CHROME = '#17140f';
 
+describe('themeColorMedia', () => {
+	it('makes the chosen palette unconditional and the other unreachable', () => {
+		expect(themeColorMedia('dark', 'dark')).toBe('all');
+		expect(themeColorMedia('dark', 'light')).toBe('not all');
+		expect(themeColorMedia('light', 'light')).toBe('all');
+		expect(themeColorMedia('light', 'dark')).toBe('not all');
+	});
+
+	it('hands the question back to the OS for Match system', () => {
+		expect(themeColorMedia('system', 'light')).toBe('(prefers-color-scheme: light)');
+		expect(themeColorMedia('system', 'dark')).toBe('(prefers-color-scheme: dark)');
+	});
+});
+
 describe('applyThemePreference against the real app.html', () => {
-	it('finds all three things it rewrites, so a rename fails here', () => {
+	it('finds everything it rewrites, so a rename fails here', () => {
 		expect(APP_HTML).toContain(' data-theme-pref');
-		expect(themeColorMedia(APP_HTML)).toEqual({
-			[LIGHT_CHROME]: '(prefers-color-scheme: light)',
-			[DARK_CHROME]: '(prefers-color-scheme: dark)'
+		// Both markers present, each on the meta carrying that palette's own paper, because
+		// the live-document half selects on the marker and the colour is what it paints.
+		expect(themeColorMetas(APP_HTML)).toEqual({
+			light: { media: '(prefers-color-scheme: light)', content: LIGHT_CHROME },
+			dark: { media: '(prefers-color-scheme: dark)', content: DARK_CHROME }
 		});
 	});
 
@@ -97,19 +124,19 @@ describe('applyThemePreference against the real app.html', () => {
 	it('leaves exactly one theme-color meta applicable, and it is the chosen one (#740)', () => {
 		// `all` always matches and `not all` never does, so this is the whole of the fix:
 		// the browser has one candidate and it agrees with the palette under it.
-		expect(themeColorMedia(applyThemePreference(APP_HTML, 'dark'))).toEqual({
-			[LIGHT_CHROME]: 'not all',
-			[DARK_CHROME]: 'all'
+		expect(mediaByPalette(applyThemePreference(APP_HTML, 'dark'))).toEqual({
+			light: 'not all',
+			dark: 'all'
 		});
-		expect(themeColorMedia(applyThemePreference(APP_HTML, 'light'))).toEqual({
-			[LIGHT_CHROME]: 'all',
-			[DARK_CHROME]: 'not all'
+		expect(mediaByPalette(applyThemePreference(APP_HTML, 'light'))).toEqual({
+			light: 'all',
+			dark: 'not all'
 		});
 	});
 
 	it('leaves both OS queries alone for Match system, which is the case they are right for', () => {
-		expect(themeColorMedia(applyThemePreference(APP_HTML, 'system'))).toEqual(
-			themeColorMedia(APP_HTML)
+		expect(themeColorMetas(applyThemePreference(APP_HTML, 'system'))).toEqual(
+			themeColorMetas(APP_HTML)
 		);
 	});
 
