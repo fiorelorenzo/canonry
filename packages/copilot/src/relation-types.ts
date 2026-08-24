@@ -364,9 +364,19 @@ function cosineSimilarity(a: number[], b: number[]): number {
  * **0.84, 0.86 and 0.88 now all cost 11**. So the notch reason 1 is about no longer exists: this
  * value is at the corpus's minimum rather than one false split above it, and "situata in", the
  * single pair that bought 0.84, scores 0.7983 today rather than 0.8421. What replaces that
- * argument as the thing to watch is one rung lower: at 0.8210 a direction error appears that the
- * raw subject did not have (#697), so the floor under this constant is now 0.84 for a measured
- * reason rather than a jitter one.
+ * argument as the thing to watch is one rung lower: a direction error sits at 0.8206, so the
+ * floor under this constant is 0.84 for a measured reason rather than a jitter one.
+ *
+ * **#697 narrowed that direction error and did not remove it, which is the useful thing it
+ * says about this constant.** The stemmer used to take the `-ed` off the five inverse labels
+ * whose direction lives in it, so `employed by` reached the embedder as `employ by` and the
+ * whole signal was one function word; it now keeps the participle in front of `by` or `da`.
+ * That moves `works for` against `employed by` from 0.7573 to 0.7759 and leaves `works for`
+ * against `employs` at 0.8206, so the pair is still read forward, by 0.0447 rather than by
+ * 0.0634, and is still a direction error at 0.82 and below (5 runs, worst spread 0.0017). The
+ * conclusion is the same and the reason is now the model rather than our morphology: this
+ * corpus has a backwards pair sitting a sweep step under 0.84, and nothing in the normaliser
+ * is going to move it. Lowering to 0.82 buys two correct merges and that pair, at 2x.
  */
 export const SEMANTIC_REUSE_THRESHOLD = 0.86;
 

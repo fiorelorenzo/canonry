@@ -157,7 +157,7 @@ export const ONENOTE_RELATION_LABEL_CORPUS: RelationLabelCorpus = {
 			catalogueKey: 'commands',
 			verdict: 'inverse',
 			rungOne: true,
-			note: 'casing and the `-ed` stripper, not meaning: `normalizeRelationLabel` collapses this onto `commanded by`. Here so the rung-1 subset is not entirely Italian, and so a change to that stemmer shows up as a corpus failure rather than as a threshold argument'
+			note: 'casing, not meaning: `normalizeRelationLabel` collapses this onto `commanded by`. Until #697 the `-ed` stripper was doing half the work and both sides arrived as `command by`; now the participle survives in front of `by` and both sides arrive as `commanded by`, so the pair is a rung-1 match either way and it is the property test in `packages/lang` rather than this pair that guards the marker. Here so the rung-1 subset is not entirely Italian, and so a change to that stemmer shows up as a corpus failure rather than as a threshold argument'
 		},
 
 		// -------------------------------------------------------------------------------
