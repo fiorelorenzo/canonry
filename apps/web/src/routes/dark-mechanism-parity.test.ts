@@ -2,13 +2,17 @@
  * G1 = B (docs/design/DECISIONS.md): dark is a whole-app preference with three values,
  * and the third one, "Match system", resolves to **no `data-theme` attribute at all**
  * (`lib/theme.ts`, deliberately, so the setting keeps tracking a later OS change). So
- * dark arrives by two different selector conditions, and CSS has no single rule for
- * both:
+ * neither palette arrives by a single selector condition, and CSS has no one rule for
+ * either of them:
  *
- * - an explicit choice, `[data-theme='dark']` on `<html>`, written server side in
+ * - dark, chosen: `[data-theme='dark']` on `<html>`, written server side in
  *   `hooks.server.ts` so there is no flash;
- * - no choice at all, `@media (prefers-color-scheme: dark)` scoped to
- *   `html:not([data-theme])`.
+ * - dark, not chosen: `@media (prefers-color-scheme: dark)` scoped to
+ *   `html:not([data-theme])`;
+ * - light, chosen: `[data-theme='light']`, which had no rule of its own at all until #738
+ *   and therefore meant nothing;
+ * - light, not chosen: the defaults `@theme` generates onto `:root, :host`, which is what
+ *   most people are actually looking at.
  *
  * **Anything keyed off dark belongs in both branches or in neither.** That is the whole
  * of this file, and it exists because the rule has now been broken once in each
@@ -43,10 +47,24 @@
  *    third scope nobody compares is the same silence again. That scope earns its place on
  *    its own merit rather than as symmetry: it is what an explicit Light choice renders,
  *    so a property missing from it falls through to `:root` and is right by luck.
- * 3. **Every `prefers-color-scheme: dark` rule excludes an explicit attribute.** A media
- *    rule that forgets `:not([data-theme])` repaints a GM who explicitly chose **light**
- *    on a dark machine, which is the leak the third cookie state exists to catch. It is
- *    also the reason the media branch cannot simply be widened to "dark OS".
+ * 3. **`@theme`'s own light defaults stay in step with `[data-theme='light']`.** The
+ *    fourth cell of the table above, and the last one to be guarded (#754). #742 and #747
+ *    both left it out for the same reason: `@theme` also carries the fonts, the type
+ *    scale, the containers, the radii and the motion tokens, so the comparison needs a
+ *    filter down to the palette subset, and a filter is where a stale exception hides.
+ *    That is true of an *authored* filter. This one is `[data-theme='light']`'s own
+ *    property list, so there is nothing to maintain: a token added to the light scope is
+ *    required in `@theme` from that moment, and one removed stops being required. Values
+ *    are compared as well as names, because since #738 those two scopes both read
+ *    `--light-*` and are meant to restate each other exactly. Order is not compared,
+ *    because `@theme` interleaves the non-palette tokens between the palette's own
+ *    declarations and always did.
+ * 4. **Every `prefers-color-scheme` rule, of either value, excludes an explicit
+ *    attribute.** A media rule that forgets `:not([data-theme])` repaints a GM who
+ *    explicitly chose the other palette, which is the leak the third cookie state exists
+ *    to catch. It is also the reason a media branch cannot simply be widened to "dark OS".
+ *    Either value rather than only `dark`, because a `prefers-color-scheme: light` block
+ *    that forgot it would repaint the GM who chose Dark, and that would pass unnoticed.
  *
  * ## What this cannot see
  *
@@ -54,18 +72,42 @@
  * nothing else. It cannot tell you that a `dark:` utility renders, that the cascade
  * resolves the way the selector suggests, or that the result clears a contrast floor:
  * #727 verified all three in a browser across three cookie states, and this is the part
- * of that which is cheap enough to run on every push. It also says nothing about
- * `app.html`'s two `theme-color` metas or `static/favicon.svg`, both of which key off
- * the media query **alone** and so ignore an explicit choice: that is the same class of
- * defect in the other direction, filed separately rather than asserted here, because
- * neither is CSS this file can read and a `<meta>` cannot read the attribute at all.
+ * of that which is cheap enough to run on every push. Three specific edges, because a
+ * guard whose limits nobody knows gets trusted past them:
+ *
+ * - **Cascade order is not asserted, and #754 measured that it could not usefully be.**
+ *   `@theme`'s output and both attribute scopes land at specificity (0,1,0) in
+ *   `@layer theme`, so only source order separates them, which reads like something this
+ *   file should pin. It is not ours to pin: a probe `@layer theme` block inserted *above*
+ *   the `@theme` block still compiles *after* it, at byte 5898 against the theme output at
+ *   2229 in the built asset, because Tailwind emits that output at the `@import` position
+ *   regardless. An assertion on the source order would guard nothing while reading as
+ *   though it guarded the thing that decides which palette wins.
+ * - **The variant still crosses into a nested `[data-theme='light']` island** (#743), so
+ *   with `<html>` dark a `dark:` utility fires inside `/dev/ui`'s light pane and paints
+ *   the light value of the token it names. That is text this file could read, and it is
+ *   deliberately not asserted, because the assertion would fail on `main`. Whoever closes
+ *   #743 turns this bullet into assertion 5.
+ * - **`app.html`'s two `theme-color` metas and `static/favicon.svg`** are selected by a
+ *   media query rather than by the attribute, and a `<meta>` cannot read the attribute at
+ *   all, so this file has no way to hold either of them in step with anything. #740 is the
+ *   metas' own answer and `lib/theme.spec.ts` is where they end up held to the palette;
+ *   the favicon is correct as it stands, being a separate document with no access to the
+ *   page.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const SRC = fileURLToPath(new URL('..', import.meta.url));
-const CSS = readFileSync(`${SRC}routes/layout.css`, 'utf-8');
+/**
+ * Comments are stripped before anything looks at the text (#754). `layout.css` is more
+ * comment than CSS and its prose quotes the very selectors and at-rules this file greps
+ * for, so a matcher can measure a paragraph about the mechanism instead of the mechanism:
+ * the first `@theme` in the file, in reading order, is inside a comment. Replaced with a
+ * space rather than deleted, so two tokens either side of a comment cannot fuse.
+ */
+const CSS = readFileSync(`${SRC}routes/layout.css`, 'utf-8').replace(/\/\*[\s\S]*?\*\//g, ' ');
 
 /**
  * Every block whose header matches, with its body brace-matched rather than
@@ -99,10 +141,24 @@ function declared(body: string): string[] {
 	return [...body.matchAll(/(?:^|[;{\s])(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]);
 }
 
+/** The same declarations as a name-to-value map, whitespace normalised. */
+function declaredValues(body: string): Map<string, string> {
+	return new Map(
+		[...body.matchAll(/(?:^|[;{\s])(--[a-z0-9-]+)\s*:([^;{}]*);/g)].map((m) => [
+			m[1],
+			m[2].trim().replace(/\s+/g, ' ')
+		])
+	);
+}
+
 const MEDIA_DARK = /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{/;
+/** Either value, because the light one is the leak nobody has written yet. */
+const MEDIA_SCHEME = /@media\s*\(prefers-color-scheme:\s*(?:dark|light)\)\s*\{/;
 
 const variant = blocks(CSS, /@custom-variant\s+dark\s*\{/);
 const mediaDarkBlocks = blocks(CSS, MEDIA_DARK);
+const mediaSchemeBlocks = blocks(CSS, MEDIA_SCHEME);
+const themeBlock = blocks(CSS, /@theme\s*\{/);
 const attributeScope = blocks(CSS, /(?:^|\n)\s*\[data-theme='dark'\]\s*\{/);
 const lightAttributeScope = blocks(CSS, /(?:^|\n)\s*\[data-theme='light'\]\s*\{/);
 /** The token half: the one `prefers-color-scheme` block that sets custom properties. */
@@ -126,15 +182,18 @@ const paletteScopes = (): Record<string, string[]> => ({
 });
 
 describe('layout.css parses the way this guard thinks it does', () => {
-	it('found the file and both dark mechanisms in it', () => {
+	it('found the file and every theme mechanism in it', () => {
 		// A broken read or a broken walk would make every assertion below pass on nothing.
 		expect(CSS.length).toBeGreaterThan(10_000);
 		expect(variant).toHaveLength(1);
+		expect(themeBlock).toHaveLength(1);
 		expect(attributeScope).toHaveLength(1);
 		expect(tokenMediaScope).toHaveLength(1);
 		expect(lightAttributeScope).toHaveLength(1);
-		// Two of them now: the variant's own branch, and the token block's.
+		// Two of them now: the variant's own branch, and the token block's. Both dark, which
+		// is why the exclusion below looks for either value rather than only for this one.
 		expect(mediaDarkBlocks).toHaveLength(2);
+		expect(mediaSchemeBlocks).toHaveLength(2);
 	});
 });
 
@@ -200,11 +259,41 @@ describe('every palette scope declares the same tokens (#137, #742)', () => {
 	});
 });
 
+describe("@theme's light defaults stay in step with [data-theme='light'] (#754)", () => {
+	// Light's other arrival condition, and the mirror of the dark pair above. The property
+	// list is taken from `[data-theme='light']` rather than authored here, so this
+	// comparison has no exception list to go stale, which is why #742 and #747 left it out.
+	const lightProperties = () => declared(lightAttributeScope[0].body);
+
+	it('@theme declares every property the chosen-light scope does', () => {
+		const inTheme = declaredValues(themeBlock[0].body);
+		expect(lightProperties().filter((p) => !inTheme.has(p))).toEqual([]);
+	});
+
+	it('declares them with the same values, since the two scopes restate each other', () => {
+		const inTheme = declaredValues(themeBlock[0].body);
+		const inLight = declaredValues(lightAttributeScope[0].body);
+		const differing = Object.fromEntries(
+			lightProperties()
+				.filter((p) => inTheme.get(p) !== inLight.get(p))
+				.map((p) => [p, { theme: inTheme.get(p), light: inLight.get(p) }])
+		);
+		expect(differing).toEqual({});
+	});
+
+	// Order is deliberately not compared: `@theme` interleaves the fonts, the type scale,
+	// the containers, the radii and the motion tokens between the palette's own
+	// declarations, so the palette subset's order there is not the light scope's.
+});
+
 describe('an explicit choice always outranks the OS preference', () => {
-	it('every prefers-color-scheme: dark rule excludes an explicit data-theme', () => {
+	it('every prefers-color-scheme rule, of either value, excludes an explicit data-theme', () => {
 		// Otherwise a GM who chose Light on a dark machine gets repainted, which is the
-		// state the third cookie state in #727 exists to prove does not happen.
-		for (const block of mediaDarkBlocks) {
+		// state the third cookie state in #727 exists to prove does not happen. Either
+		// value, because a `prefers-color-scheme: light` block that forgot this would
+		// repaint the GM who chose Dark, and that is the same bug mirrored.
+		expect(mediaSchemeBlocks.length).toBeGreaterThan(0);
+		for (const block of mediaSchemeBlocks) {
 			expect(block.body).toMatch(/:not\(\[data-theme\]\)/);
 		}
 	});
