@@ -41,6 +41,33 @@ export async function unlockImageModelConfigForFile(db: Db): Promise<void> {
 	await db.execute(sql`select pg_advisory_unlock(hashtext('image_model_config'), 0)`);
 }
 
+/**
+ * The `concurrencyLimit` a test in this package passes to `admitImportJob` when what it
+ * needs is a running job rather than a verdict on the cap, and the answer to issue #682.
+ *
+ * `admitImportJob` counts every `import_job` row in the database whose status is `running`,
+ * with no scoping by user or universe, because the cap it enforces is about the machine's
+ * capacity and not about one account (`src/queries/import.ts`, issue #30). Vitest's fork
+ * pool runs this package's files concurrently against the one database `env.ts` names, since
+ * AGENTS.md's suffix convention is per run and not per file, so that count is shared state
+ * between files. A test passing a bare 5 is asking to be admitted against a budget its
+ * siblings are spending. Polling the running count every 25ms through a full run of this
+ * package on 2026-08-24 reached 4 concurrent rows over 1341 samples and never 5, so the
+ * margin was one row.
+ *
+ * This is #658 and #683 one package over, and it is deliberately the same fix rather than
+ * the advisory-lock shape above: a lock is what you need when two files want exclusive
+ * control of a shared row whose value is under test, and no assertion here reads the running
+ * count, so a lock would order the coupling rather than remove it. The full argument is in
+ * `packages/import/src/test-db.ts`.
+ *
+ * The exception is `import.test.ts`'s refusal test, which is the assertion #683 predicted
+ * would live here and the one case that has to control the count instead of opting out of
+ * it. It reads `countRunningImportJobs` and passes that as the limit, which is correct as
+ * written, so it does not use this constant and should not be tidied into its shape.
+ */
+export const TEST_CONCURRENCY_LIMIT = 100_000;
+
 /** A short, collision-free suffix so parallel test files never trip each other's unique
  * constraints (owner ids, slugs) even though they share one database for the run. */
 export function unique(prefix: string): string {
