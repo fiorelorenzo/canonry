@@ -23,6 +23,20 @@
  * | `/w/valdoria-reach/entries`       | `/w/valdoria-reach`  | `page`  | no   |
  * | `/w/valdoria-reach/proposals`     | `/w/valdoria-reach`  | `page`  | no   |
  *
+ * And what #731 measured the same way, on the entries browser with 34 characters over two
+ * pages, which is the second and last member of the class #724 found:
+ *
+ * | document                                 | chip's uri            | was    | true |
+ * | ---------------------------------------- | --------------------- | ------ | ---- |
+ * | `/entries?type=character`                | `?type=character`     | `page` | yes  |
+ * | `/entries?type=character&page=2`         | `?type=character`     | `page` | no   |
+ * | `/entries?page=2` (the All chip)         | `/entries`            | `page` | no   |
+ *
+ * `browseQuery` resets `page` on every chip href on purpose, so the href is right and the
+ * value was what was wrong. It is `true` now, because a chip belongs to a set of filters
+ * and the paginator beside it is the set of pages: adjacency to a set of pages does not
+ * make a filter one of them.
+ *
  * Two things this class of defect is invisible to, which is why it wants a test in the
  * tree rather than a gate. axe-core has no rule for an `aria-current` that lies: the
  * value is valid, the element is a link, nothing is malformed, and #730 is the standing
@@ -67,16 +81,12 @@ const URL_COMPARED: { file: string; reason: string }[] = [
  * Where `page` is spelled without that comparison and was filed rather than fixed, each
  * with its issue, so nothing here quietly becomes the convention. A stale entry fails
  * below the same way a new unlisted one does.
+ *
+ * Empty since #731, and the emptiness is the assertion: every `page` left in the tree is
+ * earned by a URL comparison. The slot stays because the next case wants a home that
+ * carries an issue number rather than a shrug, which is what #724 filed this list for.
  */
-const FILED: { file: string; reason: string }[] = [
-	{
-		file: 'lib/components/entries/TypeFilterRow.svelte',
-		reason:
-			'#731: the active chip claims page while its href resets to page 1, so on ' +
-			'/w/valdoria-reach/entries?type=character&page=2 the chip announces "current page" ' +
-			'pointing at /entries?type=character. Measured, 34 characters over two pages.'
-	}
-];
+const FILED: { file: string; reason: string }[] = [];
 
 /** Every `.svelte` file under `apps/web/src`, relative to it. */
 function sources(dir = '', out: string[] = []): string[] {
@@ -201,5 +211,18 @@ describe('aria-current says only what is true (#724)', () => {
 			(use) => use.file === 'lib/components/shell/UniverseSwitcher.svelte'
 		);
 		expect(switcher.map((use) => use.values)).toEqual([['true']]);
+	});
+
+	it('marks the active entries chip as the current filter and not the current page', () => {
+		// The subject of #731, and the reason `FILED` is empty. Both chips (All, and one per
+		// browsable type) belong to a set of filters; the paginator beside them is the set of
+		// pages. `browseQuery` resets `page` on every chip href, so on
+		// /entries?type=character&page=2 the old `page` pointed at page 1 of the same filter,
+		// which is a different page inside exactly the set the value is defined over. Measured
+		// out of the AT-SPI tree, 34 characters over two pages.
+		const chips = ALL_USES.filter(
+			(use) => use.file === 'lib/components/entries/TypeFilterRow.svelte'
+		);
+		expect(chips.map((use) => use.values)).toEqual([['true'], ['true']]);
 	});
 });
