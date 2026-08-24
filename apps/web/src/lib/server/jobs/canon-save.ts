@@ -276,7 +276,7 @@ async function runIndexEngine(
 					entityId: input.entityId,
 					// The number that turns one skipped entry into a statement about the universe:
 					// nothing re-indexes what was skipped when an `embedding` row does appear later
-					// (issue #704), so this is how many entries stay unfindable until somebody edits
+					// (issue #709), so this is how many entries stay unfindable until somebody edits
 					// each one by hand.
 					entitiesSkippedInUniverse: entities
 				})
