@@ -81,6 +81,9 @@
 				locale={data.locale}
 				canManage={data.canManage}
 				form={form ?? undefined}
+				forkTypeId={data.forkTypeId}
+				forkAddFrom={data.forkAddFrom}
+				forkAddTo={data.forkAddTo}
 			/>
 		</div>
 	</SettingsShell>

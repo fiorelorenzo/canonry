@@ -2254,6 +2254,24 @@ export const it: Messages = {
 					noChangeError: 'Seleziona almeno un tipo di entità da aggiungere.',
 					notOwnedError: 'Solo un tipo creato da questo universo può essere ampliato.'
 				},
+				fork: {
+					trigger: 'Aggiungi la tua versione',
+					dialogTitle: (label) => `La tua versione di "${label}"`,
+					dialogDescription:
+						'Il catalogo di serie cambia solo con una nuova versione, quindi questo universo prende una copia del tipo con le stesse parole, che collega quello che ti serve. Nel canone non entra nulla: il collegamento che ti ha portato qui aspetta ancora che tu lo accetti.',
+					fromHeading: 'Da',
+					toHeading: 'A',
+					shippedAdmits: 'Il tipo di serie collega',
+					addOption: (typeLabel) => `Aggiungi ${typeLabel}`,
+					submit: 'Aggiungi la mia versione',
+					noChangeError: 'Seleziona almeno un tipo di entità da aggiungere.',
+					notShippedError:
+						"Questo tipo appartiene già all'universo, quindi amplialo invece di copiarlo.",
+					conflictError:
+						'Questo universo ha già la sua versione di questo tipo. Amplia quella, invece.',
+					createdNotice: (label) =>
+						`Adesso questo universo ha la sua versione di "${label}". Torna alla revisione dell'import e accetta di nuovo il collegamento.`
+				},
 				translate: {
 					trigger: 'Aggiungi una traduzione',
 					dialogTitle: (label) => `Traduci "${label}"`,

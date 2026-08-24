@@ -1020,6 +1020,7 @@ async function acceptProposalTx(db: Db, input: AcceptProposalInput): Promise<Pro
 			}
 			const [type] = await tx
 				.select({
+					key: relationType.key,
 					label: relationType.label,
 					universeId: relationType.universeId,
 					allowedFrom: relationType.allowedFrom,
@@ -1055,27 +1056,82 @@ async function acceptProposalTx(db: Db, input: AcceptProposalInput): Promise<Pro
 			// travel with the refusal. This is the only place both the type's arrays and the
 			// endpoints' real types are in hand, so computing it anywhere else would mean
 			// reading all four again.
-			const fromAdmitted = type.allowedFrom.includes(fromEntity.type);
-			const toAdmitted = type.allowedTo.includes(toEntity.type);
+			const shippedAdmits =
+				type.allowedFrom.includes(fromEntity.type) && type.allowedTo.includes(toEntity.type);
+			let writeTypeId = existing.relationTypeId;
+			let effective = { id: existing.relationTypeId, ...type };
+			if (!shippedAdmits && type.universeId === null) {
+				// Issue #648: a shipped row cannot be widened - `widenRelationType` refuses a
+				// `universe_id`-null row on purpose, because a shipped key is API surface
+				// (decision L1, #195). What a GM can have instead is their own version of that
+				// type, wider than the shipped one, and `resolveRelationType` already prefers
+				// it: `preferUniverseOwned` puts a universe's own row ahead of the shipped one
+				// at rung 1, so a label resolved *after* the fork exists lands on the fork. The
+				// gap this closes is that a proposal written *before* it still names the shipped
+				// row, so the same preference has to hold one rung later, here, or forking is a
+				// write with no effect on the queue that asked for it.
+				//
+				// Only ever consulted on the refusal path, so a pair the shipped type already
+				// admits is written against the shipped type exactly as before, whatever else
+				// this universe owns. Matched on `key` rather than on `label`: `key` is the
+				// stable identity a rename does not move (#195), and `forkShippedRelationType`
+				// lands the fork on the shipped type's own key under this universe's id.
+				const [own] = await tx
+					.select({
+						id: relationType.id,
+						key: relationType.key,
+						label: relationType.label,
+						universeId: relationType.universeId,
+						allowedFrom: relationType.allowedFrom,
+						allowedTo: relationType.allowedTo
+					})
+					.from(relationType)
+					.where(
+						and(eq(relationType.universeId, existing.universeId), eq(relationType.key, type.key))
+					)
+					.limit(1);
+				// A fork that does not admit the pair either still replaces the shipped row in
+				// the refusal below: it is the row the GM can act on, so naming it turns a dead
+				// end into the widen the queue already offers for a universe's own type.
+				if (own) {
+					effective = own;
+					writeTypeId = own.id;
+				}
+			}
+			const fromAdmitted = effective.allowedFrom.includes(fromEntity.type);
+			const toAdmitted = effective.allowedTo.includes(toEntity.type);
 			if (!fromAdmitted || !toAdmitted) {
 				throw new RelationTypeNotAdmittedError(
 					existing.id,
-					existing.relationTypeId,
-					type.label,
+					effective.id,
+					effective.label,
 					fromEntity.type,
 					toEntity.type,
 					fromAdmitted ? null : fromEntity.type,
 					toAdmitted ? null : toEntity.type,
-					type.universeId === null
+					effective.universeId === null
 				);
 			}
 			await tx.insert(relation).values({
 				universeId: existing.universeId,
-				relationTypeId: existing.relationTypeId,
+				relationTypeId: writeTypeId,
 				fromEntityId: existing.targetEntityId,
 				toEntityId: existing.relatedEntityId,
 				authorKind: 'ai_accepted'
 			});
+			if (writeTypeId !== existing.relationTypeId) {
+				// The proposal records which type the relation was written with, because
+				// `undoAcceptedProposal` deletes the relation by (type, from, to) read back off
+				// this row: without this, an undo of a fork-resolved accept would match nothing
+				// and leave the relation behind. It is the same relation in the same words - the
+				// fork carries the shipped type's own label - and `author_kind` on the relation
+				// row is untouched, so nothing about what a reader sees or what guardrail 2
+				// tracks changes with it.
+				await tx
+					.update(proposal)
+					.set({ relationTypeId: writeTypeId })
+					.where(eq(proposal.id, existing.id));
+			}
 			// A relation carries its own author_kind and has no entity body to snapshot into a
 			// revision, so appliedRevisionId stays null for this kind.
 		} else if (existing.kind === 'flag') {

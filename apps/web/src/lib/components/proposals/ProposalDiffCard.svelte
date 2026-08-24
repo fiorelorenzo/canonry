@@ -148,6 +148,18 @@
 			candidate.relationLabel
 	);
 
+	/** Issue #648: the relation settings, opened on the shipped type this accept refused and
+	 * the ends it needs. `resolve` types the route and takes no query of its own, so the
+	 * pair is appended here, and `addFrom`/`addTo` are omitted rather than sent empty when
+	 * only one end is short - the settings page reads them back as the pair to pre-check and
+	 * validates each against the entity-type enum. */
+	function shippedForkHref(notAdmitted: DiffCandidateNotAdmittedView): string {
+		const params = new URLSearchParams({ fork: notAdmitted.relationTypeId });
+		if (notAdmitted.addFrom) params.append('addFrom', notAdmitted.addFrom);
+		if (notAdmitted.addTo) params.append('addTo', notAdmitted.addTo);
+		return `${resolve(`/w/${universeSlug}/settings/relations`)}?${params.toString()}`;
+	}
+
 	/** C5's popover hangs off the first changed row, as it did off the first changed
 	 * sentence before Q1: one popover per proposal, on the evidence's own first claim,
 	 * rather than one per region repeating the same sources. */
@@ -458,8 +470,14 @@
 				t.diffCard.entityTypeLabel(notAdmitted.toType)
 			)}
 			{#if notAdmitted.shipped}
+				<!-- Issue #648: the link carries the type the accept refused and the ends it
+				     needs, so the relation settings open on the question rather than making the
+				     GM re-derive it from a page of ten types. Still a link and not a button:
+				     forking one of the shipped ten is a decision about this universe's own
+				     vocabulary, and it belongs where the GM's other vocabulary decisions are
+				     taken, not as a way past an error in the queue. -->
 				{t.diffCard.notAdmittedShipped(notAdmitted.typeLabel)}
-				<InlineLink href={resolve(`/w/${universeSlug}/settings/relations`)}>
+				<InlineLink href={shippedForkHref(notAdmitted)}>
 					{t.diffCard.notAdmittedShippedLink}
 				</InlineLink>
 			{/if}

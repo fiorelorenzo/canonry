@@ -2187,6 +2187,24 @@ export const en: Messages = {
 					noChangeError: 'Check at least one entity type to add.',
 					notOwnedError: 'Only a type this universe created can be widened.'
 				},
+				fork: {
+					trigger: 'Add your own version',
+					dialogTitle: (label) => `Your own "${label}"`,
+					dialogDescription:
+						'The shipped catalogue only changes in a release, so instead this universe gets its own copy under the same words, joining whatever you need it to. Nothing is written to canon: the link that sent you here still waits for your accept.',
+					fromHeading: 'From',
+					toHeading: 'To',
+					shippedAdmits: 'The shipped type joins',
+					addOption: (typeLabel) => `Add ${typeLabel}`,
+					submit: 'Add my own version',
+					noChangeError: 'Check at least one entity type to add.',
+					notShippedError:
+						'This type already belongs to the universe, so widen it instead of copying it.',
+					conflictError:
+						'This universe already has its own version of this type. Widen that one instead.',
+					createdNotice: (label) =>
+						`This universe now has its own "${label}". Go back to the import review and accept the link again.`
+				},
 				translate: {
 					trigger: 'Add a translation',
 					dialogTitle: (label) => `Translate "${label}"`,

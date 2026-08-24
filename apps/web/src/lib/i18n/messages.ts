@@ -2482,6 +2482,27 @@ export interface Messages {
 					noChangeError: string;
 					notOwnedError: string;
 				};
+				/** Issue #648: the shipped half of `resolveAdmissionGap`, taken by hand. A
+				 * shipped row cannot be widened at all (decision L1: a shipped key is API
+				 * surface), so what a GM gets instead is their own copy of that type, under
+				 * the shipped type's own words, wide enough for the pair a refused accept
+				 * named. `createdNotice` is the one string that names the queue the GM came
+				 * from, because the fork on its own writes nothing to canon - the link they
+				 * were accepting is still a proposal waiting for them. */
+				fork: {
+					trigger: string;
+					dialogTitle: (label: string) => string;
+					dialogDescription: string;
+					fromHeading: string;
+					toHeading: string;
+					shippedAdmits: string;
+					addOption: (typeLabel: string) => string;
+					submit: string;
+					noChangeError: string;
+					notShippedError: string;
+					conflictError: string;
+					createdNotice: (label: string) => string;
+				};
 				/** #198: the GM-written half of a per-locale reading for a universe's own
 				 * type - one field pair per shipped locale, all in one form. Leaving both
 				 * fields of a locale blank clears that locale's translation back to

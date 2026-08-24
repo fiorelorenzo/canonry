@@ -17,6 +17,16 @@ export interface WidenActionResult {
 	error?: string;
 }
 
+/** Issue #648: `forkShippedRelationType`'s own result. `createdLabel` is set only on
+ * success, and is what the catalogue shows afterwards: the fork writes nothing to canon,
+ * so a GM who came here from a refused accept has to be told where to go back to. */
+export interface ForkActionResult {
+	action: 'fork';
+	typeId: string;
+	error?: string;
+	createdLabel?: string;
+}
+
 export interface MergeActionResult {
 	action: 'merge';
 	error?: string;
@@ -40,7 +50,11 @@ export interface TranslateActionResult {
 }
 
 export type RelationCatalogueFormResult =
-	RenameActionResult | WidenActionResult | MergeActionResult | TranslateActionResult;
+	| RenameActionResult
+	| WidenActionResult
+	| ForkActionResult
+	| MergeActionResult
+	| TranslateActionResult;
 
 /** #196 (decision L1): the settings catalogue table and its rename/widen/merge dialogs
  * all show the same two columns - a shipped type's label and inverse label - and all
