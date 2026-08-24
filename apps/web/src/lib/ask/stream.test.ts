@@ -82,7 +82,35 @@ describe('consumeAskStream', () => {
 		);
 		expect(seen).toEqual(['sources', 'token', 'token', 'done']);
 		expect(sources).toEqual([ownCanon]);
-		expect(done).toEqual({ generated: true });
+		// issue #678: a `done` frame with no `loss` field is a turn that finished, and it
+		// parses as one rather than being dropped.
+		expect(done).toEqual({ generated: true, loss: null });
+	});
+
+	it('issue #678: carries the truncation report off the done event, and drops a malformed one rather than claiming a loss', async () => {
+		let done: AskDone | null = null;
+		await consumeAskStream(
+			streamOf([
+				`event: done\ndata: ${JSON.stringify({
+					generated: true,
+					answer: 'The Harbourmaster keeps',
+					credits: 1,
+					loss: { truncated: true, lostProposals: 1 }
+				})}\n\n`
+			]),
+			{ onDone: (payload) => (done = payload) }
+		);
+		expect(done).toEqual({ generated: true, loss: { truncated: true, lostProposals: 1 } });
+
+		// A `loss` this schema cannot read must not reach a surface as a partial claim: the
+		// panel would then say a proposal was lost on the strength of a field it could not
+		// parse. The whole frame is dropped, exactly as every other malformed event is.
+		let second: AskDone | null = null;
+		await consumeAskStream(
+			streamOf(['event: done\ndata: {"generated":true,"loss":{"truncated":"yes"}}\n\n']),
+			{ onDone: (payload) => (second = payload) }
+		);
+		expect(second).toBeNull();
 	});
 
 	it('reads a final event that arrived without its trailing blank line', async () => {

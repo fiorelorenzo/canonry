@@ -155,7 +155,11 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 				send(controller, 'done', {
 					answer: result.answer,
 					generated: result.generated,
-					credits: result.credits
+					credits: result.credits,
+					// issue #678: what the turn could not finish, or null when it finished.
+					// `done` rather than an event of its own, because it is a property of the
+					// settled turn: nothing can know a turn was cut off until it ends.
+					loss: result.loss
 				});
 			} catch (err) {
 				send(controller, 'error', {

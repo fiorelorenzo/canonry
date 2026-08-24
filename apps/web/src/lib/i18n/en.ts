@@ -1926,6 +1926,20 @@ export const en: Messages = {
 				reviewLink: 'Review in Proposals',
 				failed: (message) => `A proposal attempt failed, and nothing was proposed: ${message}`
 			},
+			truncated: {
+				notice:
+					'This answer stops where the Loremaster ran out of room, not where it had finished. Ask again for the part that is missing and it will have room for it.',
+				proposalsLost: (count) => {
+					const n = numberFormat('en', {
+						maximumFractionDigits: 0,
+						useGrouping: 'always'
+					}).format(count);
+					const form = pluralRules('en').select(Math.round(count));
+					return form === 'one'
+						? 'A proposal it had started was cut off too, so nothing was proposed for it.'
+						: `${n} proposals it had started were cut off too, so nothing was proposed for them.`;
+				}
+			},
 			keep: {
 				failed: 'Could not keep that answer.',
 				invalidRequest: 'That answer cannot be kept as it was sent.',
