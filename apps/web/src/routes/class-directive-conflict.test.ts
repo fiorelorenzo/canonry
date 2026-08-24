@@ -562,3 +562,148 @@ describe('a bare state marker a variant can erase is inventoried, not silent (#7
 		expect(found).toEqual(KNOWN_ERASURES.map((entry) => entry.replace(' (#720)', '')));
 	});
 });
+
+/**
+ * #732's rule, and the natural other half of the two above: **a control that paints one
+ * member of a set as the current one must also say so.** #717 and #720 are both about a
+ * marker the eye cannot see; this is about a marker only the eye can see.
+ *
+ * The precondition is set membership, which is why the walk below only looks at controls
+ * inside an `{#each}`: `aria-current` is defined as "the current one within a set", so a
+ * lone control carrying a stateful colour is far more often a status or a validation tint
+ * (an accepted proposal's green, an over-ceiling amber) than a claim about which of several
+ * things you are on, and requiring an announcement there would be wrong rather than noisy.
+ * Inside a repeated block the marker distinguishes siblings by construction.
+ *
+ * Which announcement satisfies it is deliberately not decided here, because the tree has
+ * three honest answers and they are not interchangeable: `aria-current` for the current one
+ * of a set (`page` when the marked control's own href is the document being displayed,
+ * `true` otherwise, which is `aria-current-honesty.test.ts`'s subject and #724's rule),
+ * `aria-pressed` for a toggle, `aria-selected` for an option inside a listbox. Any of the
+ * four attributes counts, and which one is right is a code-review question.
+ */
+
+/** The offsets of every `{#each}` block, so a tag can be asked whether it repeats. */
+function eachSpans(source: string): [number, number][] {
+	const spans: [number, number][] = [];
+	const open: number[] = [];
+	for (const match of source.matchAll(/\{#each\b|\{\/each\}/g)) {
+		if (match[0] === '{/each}') {
+			const start = open.pop();
+			if (start !== undefined) spans.push([start, match.index]);
+		} else open.push(match.index);
+	}
+	return spans;
+}
+
+/**
+ * Whether any piece of this element's class list that is *conditional* names a colour, in
+ * any of the three properties and either bare or under a variant. `pieces` is the same
+ * function #720's half uses, so "conditional" means exactly what it means there: a `class:`
+ * directive, a literal guarded by `&&`, or a branch of a ternary. An unconditional class is
+ * the resting look and marks nothing.
+ */
+function paintsAState(attrs: string): boolean {
+	return pieces(attrs).some(
+		(piece) =>
+			piece.stateful &&
+			PROPERTIES.some(
+				(property) => bare(property).test(piece.classes) || varied(property).test(piece.classes)
+			)
+	);
+}
+
+const ANNOUNCES = /(?<![\w-])aria-(?:current|pressed|selected|sort)\s*=/;
+
+interface Silence {
+	file: string;
+	line: number;
+	tag: string;
+}
+
+/** Every repeated control that paints a state and announces none. */
+function silences(source: string, file: string): Silence[] {
+	const spans = eachSpans(source);
+	const found: Silence[] = [];
+	for (const match of source.matchAll(TAG)) {
+		const [, closing, tag, attrs] = match;
+		// An anchor with an href, or a button: a `<li>` or a `<span>` wrapping one is not the
+		// element an assistive technology reports, so the attribute belongs on these two.
+		if (closing || !(tag === 'button' || (tag === 'a' && /(?<![\w-])href/.test(attrs)))) continue;
+		if (!spans.some(([from, to]) => match.index > from && match.index < to)) continue;
+		if (!paintsAState(attrs) || ANNOUNCES.test(attrs)) continue;
+		found.push({ file, line: source.slice(0, match.index).split('\n').length, tag });
+	}
+	return found;
+}
+
+const ALL_SILENCES = ALL.flatMap((file) => silences(markup(file), file));
+
+/**
+ * The inventory, one entry, spelled out so the failure names the element. The entries table's
+ * sort headers paint the sorted column (`class:text-ink={active}`) and add an `aria-hidden`
+ * direction arrow, so neither the column nor the direction reaches a screen reader. It is
+ * filed rather than fixed because the fix is a different attribute in a different place:
+ * `aria-sort` belongs on the `<th>` ancestor and not on the link this walk found, and it has
+ * to carry ascending/descending rather than a boolean, which is a change to what the header
+ * renders and not one line on a control.
+ */
+const KNOWN_SILENT = ['lib/components/entries/EntryTable.svelte:182 <a> (#750, wants aria-sort)'];
+
+/** The shape the detector must catch. */
+const SILENT_SHAPES = [
+	`{#each xs as x}<a href="/a" class:text-ink={x.id === cur}>x</a>{/each}`,
+	`{#each xs as x}<a href="/a" class:bg-accent-bg={x.on} class:bg-panel={!x.on}>x</a>{/each}`,
+	`{#each xs as x}<button class={cn('px-2', x.id === cur && 'bg-accent-bg')}>x</button>{/each}`,
+	`{#each xs as x}<button class={cn(x.id === cur ? 'bg-accent-bg' : 'hover:bg-panel-2')}>x</button>{/each}`
+];
+
+/** Shapes that look like it and are not, each for a different reason. */
+const ANNOUNCED_SHAPES = [
+	// Announced, in each of the four attributes that count.
+	`{#each xs as x}<a href="/a" class:text-ink={x.on} aria-current={x.on ? 'page' : undefined}>x</a>{/each}`,
+	`{#each xs as x}<button class:border-accent={x.on} aria-pressed={x.on}>x</button>{/each}`,
+	`{#each xs as x}<button class:bg-accent-bg={x.on} aria-selected={x.on}>x</button>{/each}`,
+	`{#each xs as x}<a href="/a" class:text-ink={x.on} aria-sort="ascending">x</a>{/each}`,
+	// Paints nothing conditional: the colours are the resting look.
+	`{#each xs as x}<a href="/a" class="text-ink-2 hover:bg-panel-2">x</a>{/each}`,
+	// Conditional, but not a colour: a layout or a size cannot be a "you are here" marker.
+	`{#each xs as x}<a href="/a" class:font-semibold={x.on} class:pl-4={x.on}>x</a>{/each}`,
+	// Not a control: the attribute belongs on the anchor inside, not on the row.
+	`{#each xs as x}<li class:bg-accent-bg={x.on}><a href="/a">x</a></li>{/each}`,
+	// An anchor with no href is not a control either.
+	`{#each xs as x}<a class:text-ink={x.on}>x</a>{/each}`,
+	// Outside any {#each}: the blind spot this walk accepts, asserted so it stays known.
+	`<a href="/a" class:text-ink={isAll}>All</a>`
+];
+
+function silencesIn(fragment: string): number {
+	return silences(fragment, '<fixture>').length;
+}
+
+describe('a repeated control that paints a state announces one (#732)', () => {
+	it('catches the shape in each channel a marker can arrive through', () => {
+		for (const shape of SILENT_SHAPES) expect(silencesIn(shape), shape).toBe(1);
+	});
+
+	it('leaves alone what is announced, unconditional, colourless or not a control', () => {
+		for (const shape of ANNOUNCED_SHAPES) expect(silencesIn(shape), shape).toBe(0);
+	});
+
+	it('finds the {#each} blocks it depends on', () => {
+		// A broken span scan would empty the walk and make the assertion below pass by
+		// finding nothing, which is the failure mode this whole file is built against.
+		// `{#each a as b}` is 14 characters, `x` is at 14, so `{/each}` opens at 15.
+		expect(eachSpans(`{#each a as b}x{/each}`)).toEqual([[0, 15]]);
+		expect(eachSpans(`{#each a as b}{#each c as d}x{/each}{/each}`)).toHaveLength(2);
+		expect(eachSpans('no blocks here')).toEqual([]);
+		expect(eachSpans(markup('lib/components/shell/Sidebar.svelte')).length).toBeGreaterThanOrEqual(
+			2
+		);
+	});
+
+	it('holds the inventory to the one entry that is filed', () => {
+		const found = ALL_SILENCES.map((silence) => `${silence.file}:${silence.line} <${silence.tag}>`);
+		expect(found).toEqual(KNOWN_SILENT.map((entry) => entry.replace(/ \(#\d+.*\)$/, '')));
+	});
+});

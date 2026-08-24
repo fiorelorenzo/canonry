@@ -4,6 +4,14 @@
 	 * islands, no index" (docs/design/DECISIONS.md, I6; product-pass.html's own phrase, in git history at c84c8f8) with one list. Labels reuse
 	 * each pane's own catalogue title (`settings.account.title`, `settings.language.
 	 * title`, ...) rather than a second copy of the same six words for the nav row.
+	 *
+	 * #732: the active row is `aria-current="page"`, on the same terms as `Sidebar` and
+	 * `PhoneNav`. `active` is `page.url.pathname === item.href` and every href is a real
+	 * route (this nav is the one place in a universe's settings that routes rather than
+	 * anchoring, which is the distinction `UniverseSettingsRail`'s doc comment draws), so
+	 * the marked row's href is the document being displayed. It was found by #732's sweep
+	 * rather than named in the issue: it paints an active row (weight 600, `text-ink`, a
+	 * `bg-panel-2` fill) and announced nothing.
 	 */
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
@@ -35,6 +43,7 @@
 			class:font-semibold={active}
 			class:text-ink={active}
 			class:text-ink-2={!active}
+			aria-current={active ? 'page' : undefined}
 		>
 			{item.label}
 		</a>

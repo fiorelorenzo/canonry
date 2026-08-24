@@ -16,6 +16,16 @@
 	 * component owning any candidate state itself - `ProposalQueue` already owns that.
 	 * Bucket `label`s arrive already localized (`computeFilterBuckets`'s own `locale`
 	 * argument).
+	 *
+	 * #732: the selected chip is `aria-current="true"`, which is the value the repo already
+	 * spells for an in-place button that marks the current one of a set (`TableDeck.svelte`
+	 * twice, `ShellUserRow.svelte` for the chosen locale). Not `"page"`, since nothing here
+	 * navigates: filtering is client state and the URL never changes, so #731's sibling
+	 * question about pages does not arise. And not `aria-pressed`, which says "this button
+	 * is pressed" and understates a single-select row where exactly one chip is current.
+	 * Found by #732's sweep rather than named in the issue: it paints the selected chip
+	 * (`bg-ink` with `text-panel`, the same look as the entries chips) and announced nothing,
+	 * which made it the only filter row in the app whose state was invisible to a reader.
 	 */
 	import type { FilterBucket } from './importFilter';
 
@@ -40,6 +50,7 @@
 			class:text-panel={bucket.type === selected}
 			class:border-line-2={bucket.type !== selected}
 			class:text-ink-2={bucket.type !== selected}
+			aria-current={bucket.type === selected ? 'true' : undefined}
 			onclick={() => onSelect(bucket.type)}
 		>
 			{bucket.label}

@@ -3,6 +3,14 @@
 	 * Decision B5 = A's left pane: the whole tree, one line per node, indented by depth.
 	 * Flat rather than recursive on purpose - `workNodeTree` already hands back a
 	 * pre-order list, so rendering it is one `{#each}`, not a component calling itself.
+	 *
+	 * #732: the active node is `aria-current="page"`, and `page` is earned here the same way
+	 * it is in `Sidebar` even though the comparison does not read a pathname. `activeNodeId`
+	 * is `page.params.node` (the work layout passes it), the tree only ever holds nodes of
+	 * the work in the current route, and the href is built from that same slug and node id,
+	 * so `node.id === activeNodeId` holds exactly when this anchor's href is the document
+	 * being displayed. Found by #732's sweep rather than named in the issue: it painted the
+	 * active row (weight 600, `text-ink`, a `bg-panel` fill) and announced nothing.
 	 */
 	import { resolve } from '$app/paths';
 	import { messages, type Locale } from '$lib/i18n';
@@ -45,6 +53,7 @@
 			class:text-ink={active}
 			class:text-ink-2={!active}
 			class:hover:bg-panel-2={!active}
+			aria-current={active ? 'page' : undefined}
 		>
 			<span class="shrink-0 font-mono text-label text-muted uppercase"
 				>{t.works.kinds[node.kind][0]}</span
