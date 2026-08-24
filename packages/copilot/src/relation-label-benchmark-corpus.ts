@@ -54,14 +54,23 @@
  * once. Splitting the corpus by the proposed label's language would report a number
  * production cannot reproduce.
  *
- * **Nine pairs are byte-identical to a catalogue label, and that is their point.** They
- * carry `rungOne: true`: rung 1's normalised exact match already resolves them, so they are
- * present to be *subtracted*. #629's headline was that all three labels crossing 0.86 on
- * the real model were exact catalogue labels rung 1 had already matched, which is a
- * semantic-rung contribution of nothing reported as three merges. `runRelationLabelBenchmark`
+ * **Eleven pairs carry `rungOne: true`, nine of them because they are byte-identical to a
+ * catalogue label, and that is their point.** Rung 1's normalised exact match already resolves
+ * them, so they are present to be *subtracted*. #629's headline was that all three labels
+ * crossing 0.86 on the real model were exact catalogue labels rung 1 had already matched, which
+ * is a semantic-rung contribution of nothing reported as three merges. `runRelationLabelBenchmark`
  * sweeps the rung-2-only subset next to the whole corpus for exactly that reason, and this
  * corpus's own test verifies each `rungOne` flag against the production predicate rather
  * than trusting the declaration.
+ *
+ * The other two are `protetta da` and `nominato dal`, and they were rung-2 pairs until issue
+ * #669 taught `normalizeRelationLabel` Italian gender agreement and the enclitic article. That
+ * they moved here rather than silently changing a number is exactly what the flag is for: both
+ * were *correct* merges at the shipped threshold on the real model (0.9857 and 0.9585), so the
+ * rung-2 subset lost two of its four true positives at 0.86 by having them resolved for free one
+ * rung earlier. Nothing that was `distinct` moved, which is the property that mattered: a
+ * `distinct` pair reaching rung 1 would be a false merge under L1 with no proposal in front of
+ * it, and the test above is what would have caught it.
  *
  * **No pair against `ally_of` is labelled `inverse`.** Its inverse label is itself, so a
  * direction is meaningless there and a corpus that claimed one would be measuring
@@ -233,8 +242,8 @@ export const ONENOTE_RELATION_LABEL_CORPUS: RelationLabelCorpus = {
 			proposedLabel: 'protetta da',
 			catalogueKey: 'protects',
 			verdict: 'inverse',
-			rungOne: false,
-			note: 'one letter of Italian gender agreement is the whole distance from rung 1: the catalogue ships `protetto da` and the notebook writes `protetta da` about its cities. If the semantic rung cannot buy this, it cannot buy anything, because there is no cheaper true pair in the language'
+			rungOne: true,
+			note: 'one letter of Italian gender agreement was the whole distance from rung 1: the catalogue ships `protetto da` and the notebook writes `protetta da` about its cities. #637 measured the semantic rung buying it at 0.9857, the highest true score in the corpus, and #669 then made rung 1 collapse the agreement so it is resolved for free and never reaches an embedding call. Kept here rather than deleted because it is the cheapest true pair in the language and therefore the one that says most if rung 1 ever stops seeing it'
 		},
 		{
 			id: 'di-proprieta-di-vs-owns',
@@ -273,8 +282,8 @@ export const ONENOTE_RELATION_LABEL_CORPUS: RelationLabelCorpus = {
 			proposedLabel: 'nominato dal',
 			catalogueKey: 'appointed',
 			verdict: 'inverse',
-			rungOne: false,
-			note: "the catalogue's `nominato da` with the article contracted onto the preposition, which is how the notebook actually writes it. One enclitic `l` is the difference between rung 1 and rung 2, and `control-comandato-dal-vs-appointed` is the same edit against the wrong type"
+			rungOne: true,
+			note: "the catalogue's `nominato da` with the article contracted onto the preposition, which is how the notebook actually writes it. One enclitic `l` was the difference between rung 1 and rung 2 (#637 measured 0.9585 through the rung); #669 folded the articled prepositions in the normaliser, so rung 1 resolves it now. `control-comandato-dal-vs-appointed` is the same edit against the wrong type and is still `distinct` at rung 1, which is what makes this collapse safe rather than merely cheap"
 		},
 		{
 			id: 'hires-vs-employs',

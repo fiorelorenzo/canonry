@@ -19,7 +19,6 @@ import { closeDb } from '@canonry/db';
 import { hashingEmbedder } from '@canonry/indexing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-	normalizeRelationLabel,
 	resolveRelationType,
 	type Embedder,
 	type ResolveRelationTypeInput
@@ -372,22 +371,5 @@ describe('cross-locale matching (#197)', () => {
 		expect(resolution.type.universeId).toBe(universeId); // the universe's own row won the tie
 	});
 });
-
-describe('normalizeRelationLabel', () => {
-	it('collapses case, punctuation and whitespace', () => {
-		expect(normalizeRelationLabel('  Employs, ')).toBe(normalizeRelationLabel('employs'));
-	});
-
-	it("collapses the epic's own three-way morphology example", () => {
-		const employ = normalizeRelationLabel('employ');
-		const employs = normalizeRelationLabel('employs');
-		const employed = normalizeRelationLabel('employed');
-		expect(employ).toBe(employs);
-		expect(employ).toBe(employed);
-	});
-
-	it('never mangles a short function word that happens to end in "s"/"ed"', () => {
-		expect(normalizeRelationLabel('as')).toBe('as');
-		expect(normalizeRelationLabel('of')).toBe('of');
-	});
-});
+// `normalizeRelationLabel`'s own cases moved to `packages/lang/src/relation-catalogue.test.ts`
+// with the function itself (#669). What stays here is the rung that uses it, above.
