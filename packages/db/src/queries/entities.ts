@@ -73,6 +73,66 @@ export async function createEntity(db: Db, input: CreateEntityInput): Promise<En
 	return row;
 }
 
+/** Everything indexing an entity needs, read at the moment it runs rather than carried on
+ * the job row that scheduled it (issue #703): the name, aliases and type the entity-level
+ * point embeds, plus the body its chunks embed. Null when the entity has been deleted since,
+ * which a background worker has to expect and which is not an error.
+ *
+ * `canon_save_job` denormalises `entity_name` so a finished job still reads as something a
+ * human recognises after a rename; that is history, and history is the wrong thing to index.
+ * A run that read a name from a row written four seconds ago would write a stale vector for
+ * every rename, and it could not see the aliases or the type at all, because the row has
+ * never carried them. */
+export interface EntityIndexTarget {
+	id: string;
+	universeId: string;
+	name: string;
+	aliases: string[];
+	type: EntityType;
+	body: string;
+}
+
+const ENTITY_INDEX_TARGET_COLUMNS = {
+	id: entity.id,
+	universeId: entity.universeId,
+	name: entity.name,
+	aliases: entity.aliases,
+	type: entity.type,
+	body: entity.body
+} as const;
+
+export async function entityIndexTargetById(
+	db: Db,
+	entityId: string
+): Promise<EntityIndexTarget | null> {
+	const [row] = await db
+		.select(ENTITY_INDEX_TARGET_COLUMNS)
+		.from(entity)
+		.where(eq(entity.id, entityId))
+		.limit(1);
+	return row ?? null;
+}
+
+/** The same target, reached from a revision instead of an entity id (issue #703). An
+ * accepted import proposal names the entity it wrote only through its `appliedRevisionId` -
+ * `acceptProposal` creates the entity inside its own transaction and never writes the new id
+ * back onto the proposal row - so this is the one read that turns an accept's return value
+ * into something the index job can be scheduled for. Null for a revision that does not
+ * exist, and callers pass `appliedRevisionId` which is null for a relation or a
+ * relation-type-vocabulary accept, neither of which writes an entity at all. */
+export async function entityIndexTargetByRevisionId(
+	db: Db,
+	revisionId: string
+): Promise<EntityIndexTarget | null> {
+	const [row] = await db
+		.select(ENTITY_INDEX_TARGET_COLUMNS)
+		.from(revision)
+		.innerJoin(entity, eq(entity.id, revision.entityId))
+		.where(eq(revision.id, revisionId))
+		.limit(1);
+	return row ?? null;
+}
+
 export interface EntityBrowserRow {
 	id: string;
 	name: string;

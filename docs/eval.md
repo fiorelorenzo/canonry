@@ -267,6 +267,16 @@ chunk, so a question has to beat every other entity in the world on a single who
 vector, and top-k 8 of 32 returns a quarter of the world. This is not the 2044-chunk shape
 SPEC.md §11.4's own numbers came from.
 
+And one caveat that arrived later: since issue #703 `indexEntity` writes one entity-level
+point per entity beside its body chunks, carrying the name, the aliases and the type rather
+than any prose. Every retrieval number on this page, and the threshold and top-k
+derivations in `packages/indexing/src/retriever.ts`, were measured before those points
+existed, so a corpus of N entities now holds N points more than the figure quoted next to
+them. Nothing was re-derived on that basis, deliberately: the point of the new points is
+that a bodyless entry is findable at all, and what they cost a question a body already
+answers is unmeasured. `indexCorpus` reports `entityPoints` separately from `chunks` so the
+next re-derivation can say which of the two it is talking about.
+
 ### Import, end to end, for the first time
 
 Every source format, three imports each (the export, the same export again, the export a

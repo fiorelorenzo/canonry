@@ -17,6 +17,7 @@
 import { error, fail } from '@sveltejs/kit';
 import { priceOf, universeAccessBySlug } from '@canonry/db';
 import { db } from '$lib/server/db';
+import { scheduleIndexAfterAccept } from '$lib/server/jobs';
 import {
 	propagationGroupsForInbox,
 	importGroupsForInbox,
@@ -94,6 +95,11 @@ export const actions: Actions = {
 				proposalId,
 				userId
 			);
+			// Issue #703: index whatever entity this accept wrote. The inbox mixes propagation
+			// and import proposals on one page, and `scheduleIndexAfterAccept` reads the accepted
+			// row's own applied revision, so it covers both origins without this action having to
+			// know which one it just decided.
+			await scheduleIndexAfterAccept(conn, accepted, { userId, locale: locals.locale });
 			return { id: accepted.id };
 		} catch (err) {
 			if (

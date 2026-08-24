@@ -46,9 +46,18 @@
  * `revision` with `author_kind: 'human'`. An accepted AI proposal writes its own revision
  * with `author_kind: 'ai_accepted'` through `acceptProposal` (`@canonry/db`) - a function
  * this file never calls, on a route (`proposals/[plan]/+page.server.ts`'s `accept` action)
- * that never imports this module. So an accept can never re-trigger propagation on itself;
- * that is a structural guarantee (the accept code path and this file share no call edge),
- * not a runtime flag two files have to keep in sync.
+ * that never imports this module. So an accept can never re-trigger propagation on itself.
+ *
+ * Issue #703 made the import accept route import this module after all, to index the entity
+ * it just created, so "these two share no call edge" is no longer the whole guarantee and the
+ * replacement has to be as hard to get wrong. It is `scheduleEntityIndexJob` and its own
+ * input type: no `oldBody`, no `newBody`, no `triggerRevisionId`, so the row it writes names
+ * no diff, and both `planPropagation` and `runAudit` return on an empty `semanticDiff` before
+ * any model call. An accept cannot ask for propagation because the function it is given
+ * cannot express it, which is still the type system rather than a flag two files keep in sync.
+ * `canon-save.test.ts` has a test per half: the accept still schedules no save job, and an
+ * index-only schedule runs the index engine with propagation and audit both `no-change` and
+ * zero `model_call` rows.
  */
 import { DEFAULT_LOCALE, toLocale, type Locale } from '@canonry/lang';
 import { AiDisabledError, planPropagation, runAudit } from '@canonry/copilot';
@@ -62,15 +71,23 @@ import {
 	type EmbeddingModelFactory
 } from '@canonry/indexing';
 import type { QdrantClient } from '@canonry/vector';
-import { propagationCapForUniverse, type Db } from '@canonry/db';
+import { matchTextFor, oneLineSummary } from '@canonry/import';
+import {
+	entityIndexTargetById,
+	entityIndexTargetByRevisionId,
+	propagationCapForUniverse,
+	type Db
+} from '@canonry/db';
 import { db } from '$lib/server/db';
 import { identityGateway, modelFactory, vectorClient } from '$lib/server/copilot';
 import { DurableJobPoller, type DurableQueueHandlers } from './queue.js';
 import {
 	claimNextCanonSaveJob,
 	completeCanonSaveJob,
+	entitiesSkippedForNoEmbeddingModel,
 	recentCanonSaveJobRows,
 	scheduleCanonSaveJobRow,
+	scheduleEntityIndexJobRow,
 	statusesFor,
 	type CanonSaveJobRow
 } from './store.js';
@@ -78,6 +95,7 @@ import type {
 	CanonSaveJobInput,
 	CanonSaveJobResult,
 	EngineOutcome,
+	EntityIndexJobInput,
 	IndexOutcome
 } from './store.js';
 
@@ -85,6 +103,7 @@ export type {
 	CanonSaveJobInput,
 	CanonSaveJobResult,
 	EngineOutcome,
+	EntityIndexJobInput,
 	IndexOutcome
 } from './store.js';
 
@@ -213,25 +232,56 @@ async function runAuditEngine(input: EngineRunInput): Promise<EngineOutcome> {
  * credits through `operation_price`'s existing `index.embed` row (issue #164's own note:
  * "charging for indexing a save would tax the act of saving").
  *
- * A body that did not actually change is `no-change`, not a failed run - so is a universe
- * with no `embedding` purpose configured yet (a fresh deployment, the same state
- * `searchIndexed` already treats as normal rather than an error). Anything else that goes
- * wrong - the gateway down, a missing credential, a dimension mismatch - is caught here
- * and recorded as `error`, never rethrown: the `Promise.all` below can never let an
- * embedding failure take propagation or audit down with it, and a job whose only trouble
- * was indexing still completes `done`. */
+ * Reads the entity rather than the job row, since issue #703. The row's `old_body`/`new_body`
+ * exist so propagation and audit see the burst they were scheduled for; indexing has no
+ * business with a diff, its job is to make the collection agree with what the entry now says,
+ * and the name, the aliases and the type it also has to embed were never on that row at all.
+ * The `oldBody === newBody` short-circuit this used to open with went with it: it saved one
+ * embedding call on a save that changed nothing, and it silently indexed nothing at all for a
+ * job scheduled by anything other than an editor save (`scheduleEntityIndexJob`, whose rows
+ * carry no bodies by construction).
+ *
+ * An entity that has been deleted since the job was scheduled is `no-change`. A universe with
+ * no `embedding` row in `model_config` is `no-embedding-model`, which is a status of its own
+ * and a log line carrying how many entities of that universe it has now happened to, because
+ * the old behaviour (report `no-change`, index nothing, never revisit) is a whole world
+ * quietly missing from retrieval with nothing anywhere saying so. Anything else that goes
+ * wrong - the gateway down, a missing credential, a dimension mismatch - is caught here and
+ * recorded as `error`, never rethrown: the `Promise.all` below can never let an embedding
+ * failure take propagation or audit down with it, and a job whose only trouble was indexing
+ * still completes `done`. */
 async function runIndexEngine(
 	input: EngineRunInput,
 	deps: { vectorClient: QdrantClient; embeddingModelFactory: EmbeddingModelFactory }
 ): Promise<IndexOutcome> {
-	if (input.oldBody === input.newBody) return { status: 'no-change' };
 	try {
+		const target = await entityIndexTargetById(input.db, input.entityId);
+		if (!target) return { status: 'no-change' };
+
 		let embeddingModel;
 		try {
 			embeddingModel = await resolveModel(input.db, 'embedding');
 		} catch (err) {
-			if (err instanceof ModelNotConfiguredError) return { status: 'no-change' };
-			throw err;
+			if (!(err instanceof ModelNotConfiguredError)) throw err;
+			const entities = await entitiesSkippedForNoEmbeddingModel(
+				input.db,
+				input.universeId,
+				input.entityId
+			);
+			console.warn(
+				JSON.stringify({
+					event: 'canon_save_job_index_skipped',
+					reason: 'no-embedding-model',
+					universeId: input.universeId,
+					entityId: input.entityId,
+					// The number that turns one skipped entry into a statement about the universe:
+					// nothing re-indexes what was skipped when an `embedding` row does appear later
+					// (issue #704), so this is how many entries stay unfindable until somebody edits
+					// each one by hand.
+					entitiesSkippedInUniverse: entities
+				})
+			);
+			return { status: 'no-embedding-model' };
 		}
 		const { collectionName, vectorSize, dataSourceId } = await resolveOwnCanonCollection(
 			input.db,
@@ -250,14 +300,34 @@ async function runIndexEngine(
 			{
 				dataSourceId,
 				universeId: input.universeId,
-				entityId: input.entityId,
-				entityName: input.entityName,
-				body: input.newBody,
+				entityId: target.id,
+				entityName: target.name,
+				body: target.body,
+				entityType: target.type,
+				// The merge engine's own definition of "how one side of a match reads", so the
+				// entity-level point's vector is comparable to what `bandedSimilarity` embeds
+				// rather than merely similar in spirit. Same shape `job-runner.ts` builds for an
+				// already-imported candidate: name and aliases, then its type and the first line
+				// of its body, and no source sentence, because an entity has no source text kept
+				// anywhere to quote.
+				entityMatchText: matchTextFor({
+					name: target.name,
+					aliases: target.aliases,
+					context: {
+						type: target.type,
+						summary: oneLineSummary(target.body),
+						sourceSentence: null
+					}
+				}),
 				collectionName,
 				vectorSize
 			}
 		);
-		return { status: 'ok', chunkCount: result.chunkCount };
+		return {
+			status: 'ok',
+			chunkCount: result.chunkCount,
+			entityPointWritten: result.entityPointWritten
+		};
 	} catch (err) {
 		return {
 			status: 'error',
@@ -315,6 +385,10 @@ export interface CanonSaveJobQueueOptions extends JobQueueOptions {
  * not a private in-memory copy. */
 export interface CanonSaveJobQueue {
 	schedule(input: CanonSaveJobInput): void;
+	/** Issue #703: schedules the same durable row for the index engine alone. What an import
+	 * accept and the entries list's "New entry" call, neither of which may run propagation or
+	 * audit - see `EntityIndexJobInput` on why the shape rather than a flag is the guard. */
+	scheduleIndexOnly(input: EntityIndexJobInput): void;
 	/** Starts this instance's worker loop. Idempotent. */
 	start(): void;
 	/** Graceful shutdown: stops claiming new rows, waits for whatever is in flight to
@@ -348,6 +422,29 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 	// what `waitForIdle` drains first, so it always observes the row `schedule()` is still
 	// in the middle of writing.
 	const pendingSchedules = new Set<Promise<void>>();
+
+	/** Both `schedule` and `scheduleIndexOnly` are fire-and-forget and both have to leave the
+	 * row's id where `waitForIdle` can see it, including while the insert is still in flight. */
+	function trackSchedule(row: Promise<string>, universeId: string, entityId: string): void {
+		const settled = row
+			.then((id) => {
+				tracked.add(id);
+			})
+			.catch((err) => {
+				console.error(
+					JSON.stringify({
+						event: 'canon_save_job_schedule_failed',
+						universeId,
+						entityId,
+						message: err instanceof Error ? err.message : String(err)
+					})
+				);
+			});
+		pendingSchedules.add(settled);
+		void settled.finally(() => {
+			pendingSchedules.delete(settled);
+		});
+	}
 
 	async function runClaimedJob(row: CanonSaveJobRow): Promise<void> {
 		const input: EngineRunInput = {
@@ -409,24 +506,18 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 		start: () => poller.start(),
 		stop: () => poller.stop(),
 		schedule(input) {
-			const settled = scheduleCanonSaveJobRow(conn, input, debounceMs)
-				.then((id) => {
-					tracked.add(id);
-				})
-				.catch((err) => {
-					console.error(
-						JSON.stringify({
-							event: 'canon_save_job_schedule_failed',
-							universeId: input.universeId,
-							entityId: input.entityId,
-							message: err instanceof Error ? err.message : String(err)
-						})
-					);
-				});
-			pendingSchedules.add(settled);
-			void settled.finally(() => {
-				pendingSchedules.delete(settled);
-			});
+			trackSchedule(
+				scheduleCanonSaveJobRow(conn, input, debounceMs),
+				input.universeId,
+				input.entityId
+			);
+		},
+		scheduleIndexOnly(input) {
+			trackSchedule(
+				scheduleEntityIndexJobRow(conn, input, debounceMs),
+				input.universeId,
+				input.entityId
+			);
 		},
 		async waitForIdle(timeoutMs = 5000) {
 			const start = Date.now();
@@ -506,6 +597,62 @@ export function startCanonSaveJobWorker(): void {
  * process's worker on the first call, so a route never has to know that durability exists. */
 export function scheduleCanonSaveJob(input: CanonSaveJobInput): void {
 	getProductionQueue().schedule(input);
+}
+
+/**
+ * Issue #703: the same durable row, for the index engine alone.
+ *
+ * Called by the two paths that create or rewrite an entity without a human-authored
+ * `revision` behind it: an import proposal's accept (`import/[job]/review`) and the entries
+ * list's "New entry" (`entries/+page.server.ts`). Before this, neither was ever indexed -
+ * the accept deliberately, because scheduling a save's job off an accepted AI write is what
+ * the recursion guard forbids, and the entries-list create incidentally, because it writes no
+ * body and there was nothing but a body to index. So an entry the GM created and had not yet
+ * written could not be cited by the copilot at all, which is the gap the entity-level point
+ * closes and the reason this second scheduling surface exists rather than a flag on the
+ * first.
+ *
+ * `EntityIndexJobInput` carries no bodies, so the row it writes has none, so propagation and
+ * audit have no diff to run on and return before any model call. That is the whole guard, and
+ * it is a property of the type rather than of a caller remembering something.
+ */
+export function scheduleEntityIndexJob(input: EntityIndexJobInput): void {
+	getProductionQueue().scheduleIndexOnly(input);
+}
+
+/**
+ * The accept sites' one line: schedule the index job for whatever entity this accepted
+ * proposal wrote, or do nothing when it wrote none.
+ *
+ * Every route that accepts a proposal calls this after the accept has committed, the same
+ * ordering rule the editor's save follows for `scheduleCanonSaveJob`. Typed on the one field
+ * it reads rather than on `ProposalRow`, because `appliedRevisionId` is the whole question: it
+ * is null for a relation accept and for a relation-type vocabulary accept, neither of which
+ * writes an entity, and it names the revision that created or rewrote one otherwise.
+ * `acceptProposal` creates a `create` proposal's entity inside its own transaction without
+ * writing the id back onto the proposal row, so the revision is the only link to it.
+ *
+ * An accepted `update` from a propagation plan reaches here too, which is wider than issue
+ * #703's own wording ("entities created by an import accept") and deliberate: it rewrites a
+ * body, so leaving it out would keep the index disagreeing with canon on the most common
+ * accept in the product, for no reason other than which issue named it. It cannot trigger
+ * propagation for the same structural reason nothing else here can.
+ */
+export async function scheduleIndexAfterAccept(
+	conn: Db,
+	accepted: { appliedRevisionId: string | null },
+	actor: { userId: string; locale: Locale }
+): Promise<void> {
+	if (!accepted.appliedRevisionId) return;
+	const target = await entityIndexTargetByRevisionId(conn, accepted.appliedRevisionId);
+	if (!target) return;
+	scheduleEntityIndexJob({
+		universeId: target.universeId,
+		entityId: target.id,
+		entityName: target.name,
+		userId: actor.userId,
+		locale: actor.locale
+	});
 }
 
 /** Every completed (or dead-lettered) job for the production queue, newest last - a

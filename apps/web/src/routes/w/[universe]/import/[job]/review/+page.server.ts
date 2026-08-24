@@ -32,6 +32,7 @@ import {
 import { acceptAnyImportProposal, type AcceptImportProposalInput } from '@canonry/import';
 import { messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
+import { scheduleIndexAfterAccept } from '$lib/server/jobs';
 import {
 	importJobDetailFor,
 	enrichCandidates,
@@ -173,6 +174,13 @@ export const actions: Actions = {
 				decidedBy: userId,
 				...importAcceptFields(candidate.proposal, detail.job)
 			});
+			// Issue #703: the entity this accept just created or rewrote gets indexed, which
+			// nothing did before - an import-created entry was never in the collection at all,
+			// so the copilot could not cite the canon the GM had just accepted. Index engine
+			// only: `scheduleEntityIndexJob`'s input carries no diff, so propagation and audit
+			// cannot run off an accepted AI write, which is the recursion guard this route has
+			// to keep (`$lib/server/jobs/canon-save.ts`'s own header).
+			await scheduleIndexAfterAccept(conn, accepted, { userId, locale: locals.locale });
 			return { id: accepted.id };
 		} catch (err) {
 			// Issue #613: a relation whose entry is still only proposed. The card withholds
@@ -227,7 +235,13 @@ export const actions: Actions = {
 			...importAcceptFields(candidate.proposal, detail.job)
 		};
 		try {
-			return { id: (await acceptAnyImportProposal(conn, candidate.proposal.kind, acceptInput)).id };
+			// A no-op for the relation proposals this action actually exists for (a relation
+			// accept writes no entity and no revision), and here anyway so that "every accept
+			// site schedules the index job" has no exceptions to remember - `widenAndAccept`
+			// takes whatever kind is posted to it, the same way `accept` above does.
+			const widened = await acceptAnyImportProposal(conn, candidate.proposal.kind, acceptInput);
+			await scheduleIndexAfterAccept(conn, widened, { userId, locale: locals.locale });
+			return { id: widened.id };
 		} catch (err) {
 			if (!(err instanceof RelationTypeNotAdmittedError)) {
 				if (err instanceof RelationEndpointNotAcceptedError) {
@@ -245,6 +259,7 @@ export const actions: Actions = {
 					...(err.addTo ? { addTo: [err.addTo] } : {})
 				});
 				const accepted = await acceptAnyImportProposal(conn, candidate.proposal.kind, acceptInput);
+				await scheduleIndexAfterAccept(conn, accepted, { userId, locale: locals.locale });
 				return { id: accepted.id };
 			} catch (widenErr) {
 				if (widenErr instanceof RelationTypeNotOwnedError) {

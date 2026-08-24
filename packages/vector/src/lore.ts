@@ -16,8 +16,25 @@ import {
 	queryPoints,
 	deletePoints,
 	scrollPoints,
+	countPoints,
+	type VectorFilter,
 	type VectorFilterCondition
 } from './points.js';
+
+/**
+ * Which of the two kinds of point this is (issue #703).
+ *
+ * `'body'` is every point this collection held before that issue: one chunk of a wiki page
+ * or of an entity's own body. `'entity'` is one point per entity carrying its name, its
+ * aliases and its type instead of any prose, so an entry a GM has named and not yet written
+ * is findable at all - through the body it does not have, it never was.
+ *
+ * A point written before the field existed carries no `point_kind` key at all, which
+ * `fromWirePayload` reads as `'body'` and which is why every kind-scoped filter below is
+ * written as "not entity" rather than "is body": a `must` on a key that is absent matches
+ * nothing in Qdrant, so filtering *for* `'body'` would silently orphan every legacy point.
+ */
+export type LorePointKind = 'body' | 'entity';
 
 /** SPEC.md §11.3: "payload carrying text, breadcrumb, page title and url, timestamps,
  * universe_id, data_source_id and the three extracted metadata fields." `pageUpdatedAt`
@@ -36,6 +53,15 @@ export interface LoreChunkPayload {
 	sectionSummary: string;
 	questionsThisExcerptCanAnswer: string[];
 	excerptKeywords: string[];
+	/** issue #703. Required rather than optional so that every writer has to decide which
+	 * kind it is producing; absent on the wire means `'body'`, for the points written before
+	 * the field existed. */
+	pointKind: LorePointKind;
+	/** The `entity.type` of the entity this point belongs to (issue #703, `LoreChunkPayload`
+	 * carried no type at all before it), or `null` for a wiki page's chunk, which belongs to
+	 * no entity. Carried on both kinds of point, so a type-scoped read is possible over
+	 * either; nothing filters on it yet, and #679's pool ordering is the caller that would. */
+	entityType: string | null;
 	/** SPEC.md §17 (issue #125): the chunk's own content language, a BCP-47 primary
 	 * subtag ('en', 'it') or `null` when it was not detected (too short, mostly proper
 	 * nouns, or genuinely mixed - see `@canonry/lang`'s `detectLanguage`). This is
@@ -65,6 +91,8 @@ function toWirePayload(payload: LoreChunkPayload): Record<string, unknown> {
 		section_summary: payload.sectionSummary,
 		questions_this_excerpt_can_answer: payload.questionsThisExcerptCanAnswer,
 		excerpt_keywords: payload.excerptKeywords,
+		point_kind: payload.pointKind,
+		entity_type: payload.entityType,
 		language: payload.language
 	};
 }
@@ -82,6 +110,9 @@ function fromWirePayload(raw: Record<string, unknown>): LoreChunkPayload {
 		sectionSummary: raw.section_summary as string,
 		questionsThisExcerptCanAnswer: (raw.questions_this_excerpt_can_answer as string[]) ?? [],
 		excerptKeywords: (raw.excerpt_keywords as string[]) ?? [],
+		// A point written before issue #703 has neither key, and is a body chunk of something.
+		pointKind: raw.point_kind === 'entity' ? 'entity' : 'body',
+		entityType: (raw.entity_type as string | null | undefined) ?? null,
 		language: (raw.language as string | null | undefined) ?? null
 	};
 }
@@ -152,34 +183,82 @@ export async function queryLore(
 	);
 }
 
-export async function deleteLorePage(
-	client: QdrantClient,
-	collectionName: string,
-	params: { universeId: string; dataSourceId: string; url: string }
-): Promise<void> {
-	await deletePoints(client, collectionName, {
-		must: [
-			{ key: 'universe_id', value: params.universeId },
-			{ key: 'data_source_id', value: params.dataSourceId },
-			{ key: 'url', value: params.url }
-		]
-	});
-}
-
-/** Reads the stored `pageUpdatedAt` for a page's existing chunks, or `null` if the page
- * has never been indexed - the idempotency check of issue #58: an unchanged page's own
- * `updatedAt` from the wiki compares equal to this, and the pipeline skips it entirely. */
-export async function findPageUpdatedAt(
-	client: QdrantClient,
-	collectionName: string,
-	params: { universeId: string; dataSourceId: string; url: string }
-): Promise<string | null> {
+/** The `must`/`mustNot` pair that selects one page's (or one entity's) points, optionally
+ * narrowed to one kind. `'entity'` is a plain `must`, because only a point written since
+ * issue #703 can be one; `'body'` is a `must_not` on `'entity'` instead of a `must` on
+ * `'body'`, because Qdrant matches nothing on an absent key and every point written before
+ * that issue has no `point_kind` at all. */
+function pageFilter(
+	params: { universeId: string; dataSourceId: string; url: string },
+	pointKind: LorePointKind | undefined
+): VectorFilter {
 	const must: VectorFilterCondition[] = [
 		{ key: 'universe_id', value: params.universeId },
 		{ key: 'data_source_id', value: params.dataSourceId },
 		{ key: 'url', value: params.url }
 	];
-	const records = await scrollPoints(client, collectionName, { filter: { must }, limit: 1 });
+	if (pointKind === 'entity') must.push({ key: 'point_kind', value: 'entity' });
+	return pointKind === 'body'
+		? { must, mustNot: [{ key: 'point_kind', value: 'entity' }] }
+		: { must };
+}
+
+/**
+ * Deletes one page's points. `pointKind` omitted means both kinds, which is what an entity
+ * being deleted outright wants (`deleteEntityLoreChunks`) and what a wiki page, which only
+ * ever has body chunks, always wants.
+ *
+ * `pointKind: 'body'` is the one issue #703 added, and it is the whole reason an entity-level
+ * point survives a body being emptied: `indexEntity` clears stale chunks before writing new
+ * ones, and clearing by entity id alone would take the name point with them, so the feature
+ * would work until the first GM deleted a paragraph.
+ */
+export async function deleteLorePage(
+	client: QdrantClient,
+	collectionName: string,
+	params: {
+		universeId: string;
+		dataSourceId: string;
+		url: string;
+		pointKind?: LorePointKind;
+	}
+): Promise<void> {
+	await deletePoints(client, collectionName, pageFilter(params, params.pointKind));
+}
+
+/** Exact count of one page's (or one entity's) stored points, optionally narrowed to one
+ * kind. What `indexEntity` reads to answer "is there anything of this entity in here at
+ * all", and what a test asserts on instead of inferring a delete from a retrieval miss. */
+export async function countLorePoints(
+	client: QdrantClient,
+	collectionName: string,
+	params: {
+		universeId: string;
+		dataSourceId: string;
+		url: string;
+		pointKind?: LorePointKind;
+	}
+): Promise<number> {
+	return countPoints(client, collectionName, pageFilter(params, params.pointKind));
+}
+
+/** Reads the stored `pageUpdatedAt` for a page's existing chunks, or `null` if the page
+ * has never been indexed - the idempotency check of issue #58: an unchanged page's own
+ * `updatedAt` from the wiki compares equal to this, and the pipeline skips it entirely.
+ *
+ * Body points only. Today's only caller is the MediaWiki crawl, whose pages have no
+ * entity-level point to confuse this with, so the narrowing changes nothing yet; it is
+ * there because "when did we last see the source of this text" is a question about the
+ * text, and an entity's name point carries the timestamp of a name rather than of a body. */
+export async function findPageUpdatedAt(
+	client: QdrantClient,
+	collectionName: string,
+	params: { universeId: string; dataSourceId: string; url: string }
+): Promise<string | null> {
+	const records = await scrollPoints(client, collectionName, {
+		filter: pageFilter(params, 'body'),
+		limit: 1
+	});
 	const first = records[0];
 	if (!first) return null;
 	const updatedAt = first.payload.page_updated_at;

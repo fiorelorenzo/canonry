@@ -33,10 +33,12 @@ export {
 	upsertLoreChunks,
 	queryLore,
 	deleteLorePage,
+	countLorePoints,
 	findPageUpdatedAt,
 	urlMatchesPattern,
 	type LoreChunk,
 	type LoreChunkPayload,
+	type LorePointKind,
 	type LoreQuery,
 	type LoreHit
 } from './lore.js';

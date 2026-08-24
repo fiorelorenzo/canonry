@@ -30,6 +30,7 @@ import {
 	universeAccessBySlug
 } from '@canonry/db';
 import { db } from '$lib/server/db';
+import { scheduleEntityIndexJob } from '$lib/server/jobs';
 import { messages } from '$lib/i18n';
 import { stripMentionSyntax } from '$lib/markdown';
 import {
@@ -99,7 +100,14 @@ export const actions: Actions = {
 	/** Moved verbatim from `/w/[universe]` with the list it belongs to (#283). The smallest
 	 * honest write that gets a GM from a name and a type to a slug they can open in the real
 	 * editor: no body, no revision, no `scheduleCanonSaveJob`, because guardrail 2's one write
-	 * path for canon (`saveEntityBody`) is what the editor's own first save already calls. */
+	 * path for canon (`saveEntityBody`) is what the editor's own first save already calls.
+	 *
+	 * It does schedule an index job since issue #703, and the two are not in tension: that job
+	 * runs the index engine and nothing else, so it writes no canon and raises no proposal. An
+	 * entry created here has a name, aliases and no prose, which is exactly the state the
+	 * entity-level point exists for - before it, this entry was invisible to the copilot until
+	 * the GM's first save, and #535's floor work made that read as "the world does not say"
+	 * rather than "this entry is not written yet". */
 	createEntry: async ({ request, params, locals }) => {
 		if (!locals.user) error(404, `no universe called "${params.universe}"`);
 		const conn = db();
@@ -124,6 +132,13 @@ export const actions: Actions = {
 			universeId: access.universe.id,
 			type,
 			name: name.trim()
+		});
+		scheduleEntityIndexJob({
+			universeId: access.universe.id,
+			entityId: created.id,
+			entityName: created.name,
+			userId: locals.user.id,
+			locale: locals.locale
 		});
 
 		redirect(303, `/w/${params.universe}/e/${created.slug}/edit`);

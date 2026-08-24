@@ -26,3 +26,11 @@ function uuidV5(name: string, namespace: string = NAMESPACE): string {
 export function chunkPointId(dataSourceId: string, pageUrl: string, chunkIndex: number): string {
 	return uuidV5(`${dataSourceId}\u0000${pageUrl}\u0000${chunkIndex}`);
 }
+
+/** The single entity-level point's id (issue #703): one per (data source, entity url), so
+ * re-indexing an entity overwrites its name point instead of accumulating one per save.
+ * `'entity'` where `chunkPointId` puts a chunk index, which is a number, so the two name
+ * spaces cannot collide however many chunks a body grows to. */
+export function entityPointId(dataSourceId: string, entityUrl: string): string {
+	return uuidV5(`${dataSourceId}\u0000${entityUrl}\u0000entity`);
+}

@@ -8,7 +8,12 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, ownCanonDataSource, type Db } from '@canonry/db';
 import { user, universe } from '@canonry/db/schema';
-import { createVectorClient, dropCollection, type QdrantClient } from '@canonry/vector';
+import {
+	countLorePoints,
+	createVectorClient,
+	dropCollection,
+	type QdrantClient
+} from '@canonry/vector';
 import { heuristicExtractor } from './extraction.js';
 import { hashingEmbedder, type Embedder } from './embedding.js';
 import { deleteEntityLoreChunks, entityLoreUrl, indexEntity } from './entity-pipeline.js';
@@ -96,13 +101,17 @@ describe('indexEntity: a save puts retrievable chunks in the universe collection
 			entityId,
 			entityName: 'Valdoria Reach',
 			body: 'Valdoria Reach is a coastal trading city.\n\n== History ==\nFounded centuries ago by exiled sailors.',
+			entityType: 'place',
+			entityMatchText: 'Valdoria Reach\ntype: place',
 			collectionName,
 			vectorSize: HASH_VECTOR_SIZE
 		};
 
 		const first = await indexEntity(deps, options);
 		expect(first.chunkCount).toBeGreaterThan(0);
-		expect(embedCalls).toBeGreaterThan(0);
+		expect(first.entityPointWritten).toBe(true);
+		// One batch for the body chunks and the name text together, not one call each.
+		expect(embedCalls).toBe(1);
 
 		const hits = await retrieve(
 			collectionName,
@@ -112,21 +121,29 @@ describe('indexEntity: a save puts retrievable chunks in the universe collection
 		expect(hits.some((h) => h.payload.url === entityLoreUrl(entityId))).toBe(true);
 		expect(hits.every((h) => h.payload.dataSourceId === source.id)).toBe(true);
 		expect(hits.every((h) => h.payload.universeId === u.id)).toBe(true);
+		expect(hits.every((h) => h.payload.entityType === 'place')).toBe(true);
 
 		// Re-save with a different, shorter body: the stale chunk(s) have to be replaced,
-		// never left behind alongside the new one.
+		// never left behind alongside the new one, and the entity point overwritten rather
+		// than duplicated (`entityPointId` is derived, not random).
 		const second = await indexEntity(deps, { ...options, body: 'Valdoria Reach is now a ruin.' });
 		expect(second.chunkCount).toBeGreaterThan(0);
 
 		const afterResave = await retrieve(collectionName, u.id, 'ruin');
 		const pointsForEntity = afterResave.filter((h) => h.payload.url === entityLoreUrl(entityId));
 		expect(pointsForEntity, 'no duplicate points left behind by the first save').toHaveLength(
-			second.chunkCount
+			second.chunkCount + 1
 		);
-		expect(pointsForEntity.every((h) => !h.payload.text.includes('Founded centuries'))).toBe(true);
+		expect(
+			pointsForEntity.filter((h) => h.payload.pointKind === 'entity'),
+			'exactly one entity-level point, however many times the entity is indexed'
+		).toHaveLength(1);
+		const bodyPoints = pointsForEntity.filter((h) => h.payload.pointKind === 'body');
+		expect(bodyPoints).toHaveLength(second.chunkCount);
+		expect(bodyPoints.every((h) => !h.payload.text.includes('Founded centuries'))).toBe(true);
 	});
 
-	it('a save with an empty body indexes nothing and deletes whatever this entity had before', async () => {
+	it('a body emptied to nothing loses its chunks and keeps its entity point (issue #703)', async () => {
 		const { universe: u } = await insertUniverseWithOwner(db);
 		const source = await ownCanonDataSource(db, u.id);
 		const collectionName = scratchCollection();
@@ -138,8 +155,15 @@ describe('indexEntity: a save puts retrievable chunks in the universe collection
 			entityId,
 			entityName: 'Thin Stub',
 			body: 'Something worth finding, once.',
+			entityType: 'place',
+			entityMatchText: 'Thin Stub / Stubby\ntype: place',
 			collectionName,
 			vectorSize: HASH_VECTOR_SIZE
+		};
+		const scope = {
+			universeId: u.id,
+			dataSourceId: source.id,
+			url: entityLoreUrl(entityId)
 		};
 
 		await indexEntity(deps, options);
@@ -147,13 +171,26 @@ describe('indexEntity: a save puts retrievable chunks in the universe collection
 			(await retrieve(collectionName, u.id, 'something worth finding')).length
 		).toBeGreaterThan(0);
 
+		// Before #703 this call was a pure delete and the entity vanished from the index
+		// entirely. The prose is gone, which is correct, and the entry is still findable by
+		// name, which is the whole point of the second kind of point.
 		const cleared = await indexEntity(deps, { ...options, body: '' });
 		expect(cleared.chunkCount).toBe(0);
-		const hits = await retrieve(collectionName, u.id, 'something worth finding');
-		expect(hits.some((h) => h.payload.url === entityLoreUrl(entityId))).toBe(false);
+		expect(cleared.entityPointWritten).toBe(true);
+		expect(
+			await countLorePoints(vectorClient, collectionName, { ...scope, pointKind: 'body' })
+		).toBe(0);
+		expect(
+			await countLorePoints(vectorClient, collectionName, { ...scope, pointKind: 'entity' })
+		).toBe(1);
+
+		const prose = await retrieve(collectionName, u.id, 'something worth finding');
+		expect(prose.some((h) => h.payload.text.includes('worth finding'))).toBe(false);
+		const byName = await retrieve(collectionName, u.id, 'Thin Stub Stubby');
+		expect(byName.some((h) => h.payload.url === entityLoreUrl(entityId))).toBe(true);
 	});
 
-	it('deleteEntityLoreChunks removes an entity’s points, nothing about it left to retrieve', async () => {
+	it('deleteEntityLoreChunks removes both kinds of point, nothing about it left to retrieve', async () => {
 		const { universe: u } = await insertUniverseWithOwner(db);
 		const source = await ownCanonDataSource(db, u.id);
 		const collectionName = scratchCollection();
@@ -166,6 +203,8 @@ describe('indexEntity: a save puts retrievable chunks in the universe collection
 			entityId,
 			entityName: 'Doomed Keep',
 			body: 'The Doomed Keep once guarded the mountain pass.',
+			entityType: 'place',
+			entityMatchText: 'Doomed Keep\ntype: place',
 			collectionName,
 			vectorSize: HASH_VECTOR_SIZE
 		});
@@ -180,11 +219,61 @@ describe('indexEntity: a save puts retrievable chunks in the universe collection
 			{ collectionName, universeId: u.id, dataSourceId: source.id, entityId }
 		);
 
+		// The entity itself is gone, so unlike an emptied body this takes the name point too.
+		expect(
+			await countLorePoints(vectorClient, collectionName, {
+				universeId: u.id,
+				dataSourceId: source.id,
+				url: entityLoreUrl(entityId)
+			})
+		).toBe(0);
 		expect(
 			(await retrieve(collectionName, u.id, 'Doomed Keep guarded the mountain pass')).some(
 				(h) => h.payload.url === entityLoreUrl(entityId)
 			)
 		).toBe(false);
+	});
+
+	it('finds an entity that has a name and aliases and no body at all (issue #703)', async () => {
+		const { universe: u } = await insertUniverseWithOwner(db);
+		const source = await ownCanonDataSource(db, u.id);
+		const collectionName = scratchCollection();
+		const entityId = randomUUID();
+		const deps = { db, vectorClient, extractor: heuristicExtractor, embedder: hashingEmbedder };
+		const query = 'Gilded Rat Tavern';
+
+		// The state issue #703 exists for: a GM has named an entry and its aliases and written
+		// no prose. Body-only indexing produced nothing at all for this entity, so the copilot
+		// could not cite it - it existed in the wiki and was invisible to retrieval.
+		const options = {
+			dataSourceId: source.id,
+			universeId: u.id,
+			entityId,
+			entityName: 'the Gilded Rat',
+			body: '',
+			entityType: 'place',
+			entityMatchText: 'the Gilded Rat / Gilded Rat Tavern\ntype: place',
+			collectionName,
+			vectorSize: HASH_VECTOR_SIZE
+		};
+
+		// Before: the same entity, indexed the way this pipeline did it before #703, which for
+		// an empty body is one delete and no write.
+		await indexEntity(deps, { ...options, entityMatchText: '' });
+		const before = await retrieve(collectionName, u.id, query);
+		expect(before.some((h) => h.payload.url === entityLoreUrl(entityId))).toBe(false);
+
+		// After: one entity-level point, and the entry answers to its own alias.
+		const result = await indexEntity(deps, options);
+		expect(result.chunkCount).toBe(0);
+		expect(result.entityPointWritten).toBe(true);
+
+		const after = await retrieve(collectionName, u.id, query);
+		const hit = after.find((h) => h.payload.url === entityLoreUrl(entityId));
+		expect(hit, 'a bodyless entry is retrievable by its name and aliases').toBeDefined();
+		expect(hit?.payload.pointKind).toBe('entity');
+		expect(hit?.payload.entityType).toBe('place');
+		expect(hit?.payload.pageTitle).toBe('the Gilded Rat');
 	});
 });
 
@@ -203,6 +292,8 @@ describe('indexEntity: cross-universe isolation (SPEC.md §11.3, issue #164)', (
 				entityId: randomUUID(),
 				entityName: 'Ember Vault',
 				body: 'The Ember Vault holds the last dragon egg in the kingdom.',
+				entityType: 'place',
+				entityMatchText: 'Ember Vault\ntype: place',
 				collectionName,
 				vectorSize: HASH_VECTOR_SIZE
 			}

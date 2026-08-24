@@ -56,6 +56,8 @@ async function seedCorpus(corpus: RetrievalCorpus): Promise<void> {
 			sectionSummary: chunk.text.slice(0, 120),
 			questionsThisExcerptCanAnswer: [],
 			excerptKeywords: chunk.keywords ?? [],
+			pointKind: 'body',
+			entityType: null,
 			language: detectLanguage(chunk.text)
 		}
 	}));

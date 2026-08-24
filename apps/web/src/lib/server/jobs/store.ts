@@ -36,22 +36,61 @@ export interface CanonSaveJobInput {
 	locale: Locale;
 }
 
+/**
+ * Issue #703: what an index-only schedule carries, which is deliberately not a
+ * `CanonSaveJobInput`.
+ *
+ * The recursion guard in `canon-save.ts` used to be structural in the strongest possible
+ * sense: the accept path and that module shared no call edge at all, so an accepted AI
+ * proposal could not re-trigger propagation on itself however anybody wired it. Indexing an
+ * entity created by an import accept means the accept path has to reach the worker, so that
+ * exact guarantee cannot survive as written, and the replacement has to be as hard to get
+ * wrong. This type is it: an accept route imports `scheduleEntityIndexJob` and this shape,
+ * which has no `oldBody`, no `newBody` and no `triggerRevisionId`, so there is no diff for
+ * it to name and therefore nothing for propagation or audit to run on. It cannot request
+ * them, rather than being trusted not to.
+ */
+export interface EntityIndexJobInput {
+	universeId: string;
+	entityId: string;
+	entityName: string;
+	userId: string;
+	/** Only the index engine runs for these jobs, and it needs no locale (SPEC.md §17 is about
+	 * the propagation and audit speech). Carried anyway because the row's column is not
+	 * nullable in practice for new rows and because a job that is later reported in a UI
+	 * should read in the language of whoever caused it. */
+	locale: Locale;
+}
+
 export type EngineOutcome =
 	| { status: 'ok'; planId: string }
 	| { status: 'no-change' }
 	| { status: 'ai-disabled' }
 	| { status: 'error'; errorName: string; message: string };
 
-/** Issue #164: the third engine's outcome, alongside `EngineOutcome` above - shaped
+/**
+ * Issue #164: the third engine's outcome, alongside `EngineOutcome` above - shaped
  * differently on purpose rather than shoehorned into it. There is no "plan" for indexing
  * to name (`ok` carries a chunk count instead), and indexing is never gated on
  * `aiEnabled` (embedding for search is reading infrastructure, not generation - see
  * `runIndexEngine`'s own doc comment), so there is no `ai-disabled` case here either.
- * `no-change` covers both "the body did not actually change" and "no embedding model is
- * configured yet", neither of which is a failure. */
+ *
+ * `'no-embedding-model'` is its own status since issue #703, and it used to be folded into
+ * `no-change`. That was the failure mode worth naming: a universe with no `embedding` row in
+ * `model_config` indexed nothing, said `no-change`, and stayed unindexed at every later
+ * point too, so every Ask answer in it degraded with nothing anywhere recording why. An
+ * index that is quietly empty is worse than one that is obviously missing. This status is
+ * how a reader of `canon_save_job` tells the two apart;
+ * `entitiesSkippedForNoEmbeddingModel` below is how they count them, and it is logged once
+ * per skipped job with that count on it.
+ *
+ * `no-change` now means only "the entity is not there any more", which is what a job for an
+ * entity deleted between scheduling and running honestly is.
+ */
 export type IndexOutcome =
-	| { status: 'ok'; chunkCount: number }
+	| { status: 'ok'; chunkCount: number; entityPointWritten: boolean }
 	| { status: 'no-change' }
+	| { status: 'no-embedding-model' }
 	| { status: 'error'; errorName: string; message: string };
 
 export interface CanonSaveJobResult {
@@ -113,6 +152,89 @@ export async function scheduleCanonSaveJobRow(
 		.returning({ id: canonSaveJob.id });
 	if (!row) throw new Error('scheduleCanonSaveJobRow: upsert returned no row');
 	return row.id;
+}
+
+/**
+ * Issue #703: the same row, scheduled for indexing alone.
+ *
+ * Both bodies are the empty string, and that is what makes propagation and audit no-ops
+ * without a flag: `semanticDiff('', '')` is empty, and both engines return before any model
+ * call on an empty diff (`planPropagation`, `runAudit` in `@canonry/copilot`). The index
+ * engine never reads either field - it reads the entity - so writing nothing into them costs
+ * indexing nothing.
+ *
+ * **The conflict branch deliberately leaves both bodies alone.** A GM saving an entry and an
+ * import accept landing on the same entity inside one four-second debounce window is narrow
+ * but real, and clobbering that row's `new_body` with an empty string would silently throw
+ * away the human save's propagation, which is the one thing this table exists to deliver. So
+ * a pending human save absorbs this schedule instead: its own run indexes the entity anyway,
+ * because indexing is a thing the worker does for every job rather than a thing this row
+ * asks for.
+ */
+export async function scheduleEntityIndexJobRow(
+	db: Db,
+	input: EntityIndexJobInput,
+	debounceMs: number
+): Promise<string> {
+	const runAfter = new Date(Date.now() + debounceMs);
+	const [row] = await db
+		.insert(canonSaveJob)
+		.values({
+			universeId: input.universeId,
+			entityId: input.entityId,
+			entityName: input.entityName,
+			userId: input.userId,
+			oldBody: '',
+			newBody: '',
+			triggerRevisionId: null,
+			locale: input.locale,
+			runAfter
+		})
+		.onConflictDoUpdate({
+			target: [canonSaveJob.universeId, canonSaveJob.entityId],
+			targetWhere: sql`${canonSaveJob.status} = 'pending'`,
+			set: {
+				entityName: input.entityName,
+				locale: input.locale,
+				runAfter,
+				updatedAt: new Date()
+			}
+		})
+		.returning({ id: canonSaveJob.id });
+	if (!row) throw new Error('scheduleEntityIndexJobRow: upsert returned no row');
+	return row.id;
+}
+
+/**
+ * How many distinct entities in this universe have had a job skip indexing for want of an
+ * `embedding` row in `model_config`, counting the one named by `entityId` whether or not its
+ * own row has been written yet.
+ *
+ * This is the count that makes the silence visible. `runIndexEngine` puts it on the log line
+ * it writes for every skip, so one line answers "how much of this universe is not indexed"
+ * rather than only "this entity was not indexed", which on a fresh deployment is the
+ * difference between a curiosity and a finding. Cheap enough to run on that path: it only
+ * ever executes for a universe that has no embedding model at all, which is a state to fix
+ * rather than a state to be in.
+ */
+export async function entitiesSkippedForNoEmbeddingModel(
+	db: Db,
+	universeId: string,
+	entityId: string
+): Promise<number> {
+	const rows = await db
+		.selectDistinct({ entityId: canonSaveJob.entityId })
+		.from(canonSaveJob)
+		.where(
+			and(
+				eq(canonSaveJob.universeId, universeId),
+				sql`${canonSaveJob.indexOutcome}->>'status' = 'no-embedding-model'`
+			)
+		);
+	// The current job's own row is not written yet (the outcome is recorded after every engine
+	// has answered), so it is added here rather than counted: a log line that is off by one on
+	// the first skip in a universe is a number nobody trusts afterwards.
+	return new Set([...rows.map((row) => row.entityId), entityId]).size;
 }
 
 export interface ClaimOptions {

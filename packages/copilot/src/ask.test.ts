@@ -584,6 +584,8 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 				sectionSummary: 'Waterdeep overview',
 				questionsThisExcerptCanAnswer: ['What is Waterdeep?'],
 				excerptKeywords: ['waterdeep', 'bank'],
+				pointKind: 'body',
+				entityType: null,
 				language: 'en'
 			}
 		};

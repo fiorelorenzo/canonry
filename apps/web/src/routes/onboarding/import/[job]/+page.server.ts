@@ -10,6 +10,7 @@ import { eq, universeAccessBySlug, type UniverseAccess } from '@canonry/db';
 import { universe } from '@canonry/db/schema';
 import { messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
+import { scheduleIndexAfterAccept } from '$lib/server/jobs';
 import {
 	acceptOnboardingProposal,
 	evidenceSourcePath,
@@ -75,7 +76,7 @@ export const actions: Actions = {
 			}
 		}
 
-		await acceptOnboardingProposal(db(), target.kind, {
+		const accepted = await acceptOnboardingProposal(db(), target.kind, {
 			proposalId,
 			decidedBy: locals.user!.id,
 			sourceSystem: job.sourceType,
@@ -83,6 +84,14 @@ export const actions: Actions = {
 			sourceUrl: null,
 			contentHash,
 			importJobId: job.id
+		});
+		// Issue #703: onboarding's whole point is a first accepted proposal (D7 = A), and until
+		// now that entry was never indexed, so the very first thing a new GM accepted was also
+		// the first thing Ask could not cite. Index engine only, same guard as every other
+		// accept site.
+		await scheduleIndexAfterAccept(db(), accepted, {
+			userId: locals.user!.id,
+			locale: locals.locale
 		});
 
 		redirect(303, `/onboarding/import/${job.id}?accepted=${proposalId}`);
