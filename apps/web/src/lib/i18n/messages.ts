@@ -2215,6 +2215,21 @@ export interface Messages {
 				 * the model reporting it honestly. */
 				failed: (message: string) => string;
 			};
+			/** issue #678: what a turn that ran out of output tokens says for itself.
+			 * `ai@7.0.70` made a truncated step propose nothing at all, and `runAsk` now
+			 * settles those calls itself so the proposals that were already whole survive
+			 * (#212's principle on this surface); these two lines are the other half, since a
+			 * turn that quietly stops mid-sentence is exactly the shape guardrail 3 objects
+			 * to. `notice` names the cut-off and never claims anything about the proposals
+			 * that did survive, which speak for themselves through `propose` above.
+			 * `proposalsLost` is the loss that cannot be recovered: a tool call the model
+			 * began and could not finish parses as nothing, so there is no name to show and
+			 * nothing to review, only a count. Neither is shown on a turn that finished
+			 * (`AskResult.loss` is `null` there), because guardrail 7 cuts both ways. */
+			truncated: {
+				notice: string;
+				proposalsLost: (count: number) => string;
+			};
 			/** #290 (decision O3), its manual half repealed by #437 (T10) and #455 (U11):
 			 * every turn is kept automatically now, so nothing here is a button's own label
 			 * any more. What is left: the server's own rejection wording for a malformed

@@ -288,6 +288,7 @@
 			proposalFailures: [],
 			askError: null,
 			generated: null,
+			loss: null,
 			keeping: false,
 			keptId: null,
 			keepError: null
@@ -338,6 +339,10 @@
 					const turn = liveTurn();
 					if (!turn) return;
 					turn.generated = done.generated;
+					// issue #678: a turn that ran out of output tokens says so under the answer,
+					// which is the only place a GM can connect it to the sentence that stops
+					// short. `null` on a turn that finished, and the copy below never runs.
+					turn.loss = done.loss;
 				},
 				onError: (message) => {
 					const turn = liveTurn();
@@ -612,6 +617,30 @@
 											bg-accent align-middle"
 										></span>{/if}
 								</p>
+							</div>
+						{/if}
+
+						{#if turn.loss}
+							<!-- issue #678: directly under the answer it is about, above the
+							     proposals, because the sentence it explains is the one that stops
+							     short. Same warn treatment as `noLiveModel` above: a turn that ran
+							     out of room is a caveat on a real answer, not a failure - the
+							     `danger` treatment belongs to `proposalFailures` below, where
+							     nothing was written at all. Guardrail 7: the second line only
+							     appears when a proposal really was lost, and neither line says
+							     anything about the proposals that survived, which render as their
+							     own chips below and are pending review like any other. -->
+							<div
+								class="mt-2 rounded-md border border-warn-bg bg-warn-bg px-2.5 py-1.5 text-label text-warn"
+							>
+								{#if turn.loss.truncated}
+									<p class="m-0">{askT.truncated.notice}</p>
+								{/if}
+								{#if turn.loss.lostProposals > 0}
+									<p class="m-0" class:mt-1={turn.loss.truncated}>
+										{askT.truncated.proposalsLost(turn.loss.lostProposals)}
+									</p>
+								{/if}
 							</div>
 						{/if}
 

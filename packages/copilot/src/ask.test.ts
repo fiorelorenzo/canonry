@@ -1051,10 +1051,7 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		// value, which is the guarantee `onProposal` exists for (#256).
 		expect(proposalEvents).toHaveLength(1);
 		// A real row, not just an event: the drafting call ran and wrote a pending proposal.
-		const rows = await db
-			.select()
-			.from(proposal)
-			.where(eq(proposal.universeId, universe.id));
+		const rows = await db.select().from(proposal).where(eq(proposal.universeId, universe.id));
 		expect(rows.filter((row) => row.trigger === 'ask')).toHaveLength(1);
 		// The text that did arrive is still the answer, streamed as it came.
 		expect(result.answer).toBe('The Harbourmaster keeps the tide tables and');

@@ -1165,10 +1165,7 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 				// run exactly the call the SDK would have run. Sharing one body is the whole
 				// point: a second dispatch path that drifts from the first is how a
 				// settlement meant to preserve behaviour ends up changing it.
-				const runPropose = async (
-					toolInput: z.infer<typeof PROPOSE_INPUT>,
-					toolCallId: string
-				) => {
+				const runPropose = async (toolInput: z.infer<typeof PROPOSE_INPUT>, toolCallId: string) => {
 					try {
 						return recordProposal(
 							await entryPropose({

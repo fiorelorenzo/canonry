@@ -29,7 +29,7 @@
  * The rune-module pattern: the export is an object mutated in place, so every importer's
  * reads stay reactive across the module boundary.
  */
-import type { AskProposalEvent, AskProposalFailure, AskSource } from '$lib/ask/stream';
+import type { AskDone, AskProposalEvent, AskProposalFailure, AskSource } from '$lib/ask/stream';
 
 /** One question and its answer, in flight or settled - the same bag of fields a single
  * top-level `QuickAsk.svelte` question used to keep, one instance per turn instead of one
@@ -48,6 +48,10 @@ export interface QuickAskTurn {
 	proposalFailures: AskProposalFailure[];
 	askError: string | null;
 	generated: boolean | null;
+	/** issue #678: what the turn could not finish, from the `done` event - `null` both
+	 * before that event arrives and on a turn that finished, which is why nothing reads it
+	 * to decide whether the turn is still in flight (`asking` is that flag). */
+	loss: AskDone['loss'];
 	keeping: boolean;
 	keptId: string | null;
 	keepError: string | null;

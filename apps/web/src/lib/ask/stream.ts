@@ -105,13 +105,20 @@ const sourcesEventSchema = z.object({
 	followUps: z.array(z.string())
 });
 const tokenEventSchema = z.object({ delta: z.string() });
-/** Issue #570: `generated` and nothing else. `provider` and `modelId` used to ride along
- * for the keep card's guardrail 5 sentence; T10 (#464) deleted the card and no surface has
- * read either field since, so the route stopped resolving them. `answer` and `credits`
- * still arrive on the wire and are still parsed away here: the answer came token by token
- * already, and zod strips what this schema does not name. */
+/** Issue #570: `provider` and `modelId` used to ride along for the keep card's guardrail 5
+ * sentence; T10 (#464) deleted the card and no surface has read either field since, so the
+ * route stopped resolving them. `answer` and `credits` still arrive on the wire and are
+ * still parsed away here: the answer came token by token already, and zod strips what this
+ * schema does not name. Issue #678 adds the second field a surface does read, `loss`. */
 const doneEventSchema = z.object({
-	generated: z.boolean()
+	generated: z.boolean(),
+	/** issue #678: what the turn could not finish. Optional rather than required so a
+	 * `done` frame from a server that predates this field still parses as a settled turn
+	 * rather than being dropped, which would leave the panel spinning. */
+	loss: z
+		.object({ truncated: z.boolean(), lostProposals: z.number() })
+		.nullish()
+		.transform((value) => value ?? null)
 });
 const errorEventSchema = z.object({ message: z.string() });
 

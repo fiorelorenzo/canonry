@@ -1991,6 +1991,20 @@ export const it: Messages = {
 				failed: (message) =>
 					`Un tentativo di proposta non è riuscito, e non è stato proposto nulla: ${message}`
 			},
+			truncated: {
+				notice:
+					'Questa risposta si interrompe dove il Loremaster ha esaurito lo spazio, non dove aveva finito. Richiedi la parte che manca e avrà lo spazio per scriverla.',
+				proposalsLost: (count) => {
+					const n = numberFormat('it', {
+						maximumFractionDigits: 0,
+						useGrouping: 'always'
+					}).format(count);
+					const form = pluralRules('it').select(Math.round(count));
+					return form === 'one'
+						? 'Anche una proposta che aveva iniziato è stata troncata, quindi per quella non è stato proposto nulla.'
+						: `Anche ${n} proposte che aveva iniziato sono state troncate, quindi per quelle non è stato proposto nulla.`;
+				}
+			},
 			keep: {
 				failed: 'Non è stato possibile conservare questa risposta.',
 				invalidRequest: 'Questa risposta non può essere conservata così come è stata inviata.',
