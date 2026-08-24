@@ -45,7 +45,7 @@ import {
 	universe,
 	user
 } from '@canonry/db/schema';
-import { openTestDb } from './test-db.js';
+import { openTestDb, TEST_CONCURRENCY_LIMIT } from './test-db.js';
 import {
 	GatewayDriver,
 	type GatewayWrapper,
@@ -252,12 +252,8 @@ describe('sizing a relation type from the ends it actually has (issue #628)', ()
 			documentCount: documents.length,
 			budgetCredits: 1000,
 			estimate: { documentCount: documents.length, estimatedMinutes: 1, estimatedCredits: 10 },
-			// `admitImportJob`'s concurrency cap counts every `running` job in the database, not
-			// this universe's, and vitest's fork pool runs this package's files against one
-			// database (AGENTS.md's suffix convention is per run, not per file). A low limit
-			// fails admission whenever a sibling file happens to have a job running, which is a
-			// flake about admission in a file that is not testing admission.
-			concurrencyLimit: 1000
+			// issue #658: a budget no sibling file can spend. `TEST_CONCURRENCY_LIMIT` has why.
+			concurrencyLimit: TEST_CONCURRENCY_LIMIT
 		});
 		expect(admission.admitted).toBe(true);
 

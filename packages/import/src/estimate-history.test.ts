@@ -48,7 +48,7 @@ import { loadPlaybook } from './playbook.js';
 import { InMemorySourceReader } from './sources.js';
 import { InMemoryImageStore } from './images.js';
 import type { Embedder } from '@canonry/copilot';
-import { openTestDb } from './test-db.js';
+import { openTestDb, TEST_CONCURRENCY_LIMIT } from './test-db.js';
 
 let db: Db;
 let universeId: string;
@@ -591,7 +591,8 @@ One document.
 			documentCount: 2,
 			budgetCredits: WIDE_BUDGET_CREDITS,
 			estimate: { documentCount: 2, estimatedMinutes: 1, estimatedCredits: 10 },
-			concurrencyLimit: 20
+			// issue #658: a budget no sibling file can spend. `TEST_CONCURRENCY_LIMIT` has why.
+			concurrencyLimit: TEST_CONCURRENCY_LIMIT
 		});
 		expect(admission.admitted).toBe(true);
 
@@ -811,7 +812,8 @@ One document.
 				documentCount: documents.length,
 				budgetCredits: WIDE_BUDGET_CREDITS,
 				estimate: { documentCount: 2, estimatedMinutes: 1, estimatedCredits: 10 },
-				concurrencyLimit: 20
+				// issue #658: a budget no sibling file can spend. `TEST_CONCURRENCY_LIMIT` has why.
+				concurrencyLimit: TEST_CONCURRENCY_LIMIT
 			});
 			expect(admission.admitted).toBe(true);
 			return admission.jobId;
