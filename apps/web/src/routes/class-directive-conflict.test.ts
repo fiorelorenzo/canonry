@@ -24,13 +24,37 @@
  * property the attribute already names". A directive on an element with no competing
  * utility is fine, and eleven of them are exactly that.
  *
- * A **variant** is also fine, and this is the distinction #717 turned on: `hover:bg-panel-2`
- * beside `class:bg-accent-bg` is not a tie, because `hover:` adds a pseudo-class and
- * therefore specificity, so the hover rule wins whenever it applies and the directive wins
- * the rest of the time. That is a decidable outcome rather than a coin flip on emission
- * order, so the check below only looks at bare utilities.
+ * A **variant** is decidable rather than a coin flip, and this is the distinction #717
+ * turned on: `hover:bg-panel-2` beside `class:bg-accent-bg` is not a tie, because `hover:`
+ * adds a pseudo-class and therefore specificity, so the hover rule wins whenever it applies
+ * and the directive wins the rest of the time. The tie check below only looks at bare
+ * utilities for that reason.
  *
- * ## Two halves, because one of them is #653's blind spot
+ * Decidable is not the same as harmless, which #720 is the proof of and which this file
+ * claimed the opposite of until it was written. `UniverseSwitcher.svelte`'s row spells
+ * `hover:bg-panel-2` in the attribute and `class:bg-accent-bg={isCurrent}` beside it:
+ * `.hover\:bg-panel-2:hover` is (0,2,0) against `.bg-accent-bg`'s (0,1,0), so hover wins
+ * whenever it applies and the row that says "you are here" loses the thing that says it
+ * exactly while the pointer is on it. Measured `rgb(243, 231, 213)` resting and
+ * `rgb(249, 244, 234)` hovered, and with the pointer on it the row is identical on every
+ * computed property to a hovered row that is not current.
+ *
+ * So there is a second rule, and the second half of this file holds it: **a marker that is
+ * only present in one state must not be overwritable by a variant of the same property on
+ * the same element.** The healthy way round is the one `segmented.svelte` and the settings
+ * radio cards use, the resting value bare and the state marker in the variant
+ * (`border-line` plus `has-checked:border-accent`), where specificity runs with the intent
+ * instead of against it. Forty-six elements pair a bare colour with a variant of the same
+ * property, and forty-five of them are that: an unconditional resting value a hover
+ * temporarily replaces, which loses nothing because the base comes back. Only a
+ * *conditional* bare marker loses information when a variant beats it, and exactly one
+ * element in the tree is that shape.
+ *
+ * Which way #720 should be resolved is a taste call and not this file's business, so the
+ * inventory is an expected set rather than a prohibition: a new instance of the shape
+ * fails, and so does resolving this one, which is the PR that should be editing the set.
+ *
+ * ## Three checks, because one of them is #653's blind spot
  *
  * The first half reads source text and finds the tying pattern anywhere in the tree, in
  * every state, which is the part a screenshot cannot do: the badge needed a specific route
@@ -40,6 +64,11 @@
  * this library's behaviour on this repo's tokens is not something to assume: it read an
  * unknown `text-*` as a colour and silently deleted the whole type scale. A source guard
  * cannot see a resolution, so it gets asserted directly instead of hoped for.
+ *
+ * The third is #720's inventory. It reads the same markup and asks a narrower question: is
+ * this element's state marker bare while a variant of the same property sits beside it?
+ * That is source text again, and it can only ever say the erasure is possible; the computed
+ * backgrounds in #720 are what say it happens.
  *
  * ## What this cannot see
  *
@@ -64,6 +93,12 @@
  * 6. **A tag whose attributes contain a bare `<` or `>`.** The tag regex, shared in shape
  *    with `tinted-surface-ink.test.ts`, stops at one, so `class={a > b ? 'x' : 'y'}` would
  *    hide the element rather than misjudge it. Nothing in the tree writes that today.
+ * 7. **Whether a conditional literal is really conditional.** The inventory treats a
+ *    `class:` directive and a literal guarded by `&&` or held in a ternary branch as state
+ *    markers, and everything else in the class expression as unconditional. A marker built
+ *    some other way, a variable holding the token or a helper returning it, is invisible,
+ *    and a ternary whose two branches are two spellings of the same resting value would be
+ *    read as conditional and could produce a false entry.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -101,6 +136,18 @@ const bare = (property: string) =>
 const directive = (property: string) =>
 	new RegExp(String.raw`class:${property}-(?:${GROUP})(?![\w-])`, 'g');
 
+/**
+ * The mirror of `bare`: the same utility carrying at least one variant prefix, which is
+ * what buys it the extra specificity. `hover:`, `focus-within:`, `has-checked:`,
+ * `dark:aria-invalid:` and an arbitrary-selector variant like `[&_svg]:` all match, which
+ * is why a prefix segment may be a bracket group rather than a word.
+ */
+const varied = (property: string) =>
+	new RegExp(
+		String.raw`(?<![\w-])(?:(?:[a-z][\w-]*(?:\[[^\]]*\])?|\[[^\]]*\]):)+${property}-(?:${GROUP})(?![\w-])`,
+		'g'
+	);
+
 /** Every `.svelte` file under `apps/web/src`, relative to it. A `class:` directive is
  * Svelte-only syntax, so nothing else can carry one. */
 function sources(dir = '', out: string[] = []): string[] {
@@ -127,6 +174,15 @@ function markup(file: string): string {
 const TAG = /<(\/?)([A-Za-z][\w.:-]*)((?:[^<>'"]|"[^"]*"|'[^']*')*?)(\/?)>/g;
 
 /**
+ * A `class={...}` expression's own body. The `|$` in the lookahead matters: `TAG` consumes
+ * the closing `>`, so on an element whose only attribute is a `class` expression the `}` is
+ * the last character of what this ever sees, and without it such an element reads as having
+ * no class at all. Every element in the tree carries something after it, which is why the
+ * hole showed up in a #720 fixture rather than in the walk.
+ */
+const CLASS_EXPRESSION = /(?<![\w-:])class\s*=\s*\{([\s\S]*?)\}\s*(?=[\s/>]|$)/g;
+
+/**
  * Every class string one element's own `class` spells: the quoted attribute, plus every
  * quoted string inside a `class={...}` expression, since `cn(...)` and a ternary both put
  * their literals there.
@@ -140,7 +196,7 @@ function classText(attrs: string): string {
 	for (const match of attrs.matchAll(/(?<![\w-:])class\s*=\s*("([^"]*)"|'([^']*)')/g)) {
 		strings.push(match[2] ?? match[3]);
 	}
-	for (const match of attrs.matchAll(/(?<![\w-:])class\s*=\s*\{([\s\S]*?)\}\s*(?=[\s/>])/g)) {
+	for (const match of attrs.matchAll(CLASS_EXPRESSION)) {
 		for (const literal of match[1].matchAll(/'([^']*)'|"([^"]*)"|`([^`]*)`/g)) {
 			strings.push(literal[1] ?? literal[2] ?? literal[3] ?? '');
 		}
@@ -189,6 +245,167 @@ function ties(file: string): Tie[] {
 }
 
 const ALL_TIES = ALL.flatMap(ties);
+
+/**
+ * One element's class list broken into the pieces that can be on it at the same time.
+ * `ternary` is an id shared by the two branches of one `cond ? 'a' : 'b'`, which is the
+ * only thing here that makes two pieces mutually exclusive; `stateful` is whether the piece
+ * can be absent, which is what makes a bare utility inside it a marker rather than a
+ * resting value.
+ */
+interface Piece {
+	classes: string;
+	ternary: number | null;
+	branch: number | null;
+	stateful: boolean;
+}
+
+/**
+ * Every piece of one element's class list. A `class:` directive is a stateful piece of its
+ * own. Inside `class={...}`, a ternary contributes two exclusive stateful pieces, a literal
+ * guarded by `&&` one stateful piece, and everything else left over is the unconditional
+ * resting value, which a variant beating loses nothing: that is what forty-five of the
+ * forty-six variant-versus-bare pairs in this tree are.
+ */
+function pieces(attrs: string): Piece[] {
+	const out: Piece[] = [];
+	let ternaries = 0;
+
+	for (const match of attrs.matchAll(/class:([\w-]+)/g)) {
+		out.push({ classes: match[1], ternary: null, branch: null, stateful: true });
+	}
+
+	for (const match of attrs.matchAll(/(?<![\w-:])class\s*=\s*("([^"]*)"|'([^']*)')/g)) {
+		out.push({ classes: match[2] ?? match[3], ternary: null, branch: null, stateful: false });
+	}
+
+	for (const match of attrs.matchAll(CLASS_EXPRESSION)) {
+		let rest = match[1];
+		rest = rest.replace(
+			/\?\s*(['"`])([^'"`]*)\1\s*:\s*(['"`])([^'"`]*)\3/g,
+			(_whole, _q1, first: string, _q2, second: string) => {
+				const id = ternaries++;
+				out.push({ classes: first, ternary: id, branch: 0, stateful: true });
+				out.push({ classes: second, ternary: id, branch: 1, stateful: true });
+				return ' ';
+			}
+		);
+		rest = rest.replace(/&&\s*(['"`])([^'"`]*)\1/g, (_whole, _quote, only: string) => {
+			out.push({ classes: only, ternary: null, branch: null, stateful: true });
+			return ' ';
+		});
+		for (const literal of rest.matchAll(/'([^']*)'|"([^"]*)"|`([^`]*)`/g)) {
+			out.push({
+				classes: literal[1] ?? literal[2] ?? literal[3] ?? '',
+				ternary: null,
+				branch: null,
+				stateful: false
+			});
+		}
+	}
+	return out;
+}
+
+interface Erasure {
+	file: string;
+	line: number;
+	property: string;
+	marker: string[];
+	erasedBy: string[];
+}
+
+/**
+ * Every element whose state marker for a property is bare while a variant of that same
+ * property can be on the element at the same time under a different token. The variant wins
+ * on specificity, so the marker is invisible in exactly the state the variant describes.
+ *
+ * The co-possibility test is the load-bearing part rather than a refinement: two pieces that
+ * are the branches of one ternary never meet, so `cn('px-3', isCurrent ? 'bg-accent-bg' :
+ * 'hover:bg-panel-2')` is not this defect. That happens to be one of the ways #720 could be
+ * resolved, and a detector without the test would fail the PR that fixed it.
+ */
+function erasures(source: string, file: string): Erasure[] {
+	const found: Erasure[] = [];
+
+	for (const match of source.matchAll(TAG)) {
+		const [, closing, , attrs] = match;
+		if (closing) continue;
+		const parts = pieces(attrs);
+
+		for (const property of PROPERTIES) {
+			const marker = new Set<string>();
+			const erasedBy = new Set<string>();
+			for (const holder of parts) {
+				if (!holder.stateful) continue;
+				for (const hit of holder.classes.matchAll(bare(property))) {
+					for (const other of parts) {
+						if (
+							holder.ternary !== null &&
+							holder.ternary === other.ternary &&
+							holder.branch !== other.branch
+						) {
+							continue;
+						}
+						for (const rival of other.classes.matchAll(varied(property))) {
+							if (rival[0].slice(rival[0].lastIndexOf(':') + 1) === hit[0]) continue;
+							marker.add(hit[0]);
+							erasedBy.add(rival[0]);
+						}
+					}
+				}
+			}
+			if (marker.size === 0) continue;
+			found.push({
+				file,
+				line: source.slice(0, match.index).split('\n').length,
+				property,
+				marker: [...marker],
+				erasedBy: [...erasedBy]
+			});
+		}
+	}
+	return found;
+}
+
+const ALL_ERASURES = ALL.flatMap((file) => erasures(markup(file), file));
+
+/**
+ * The inventory as it stands, and the only entry is #720's. It is spelled out rather than
+ * counted so that the failure names the element, and it carries the issue that owns it so a
+ * reader knows the entry is a filed decision rather than an oversight. Resolving #720 either
+ * way empties this list, and the PR that does it edits this constant.
+ */
+const KNOWN_ERASURES = [
+	'lib/components/shell/UniverseSwitcher.svelte bg: bg-accent-bg erased by hover:bg-panel-2 (#720)'
+];
+
+/** The shape the detector must catch, and the near misses it must not. */
+const ERASING_SHAPES = [
+	'<a class="px-3 hover:bg-panel-2" class:bg-accent-bg={isCurrent}>x</a>',
+	"<a class={cn('px-3 hover:bg-panel-2', isCurrent && 'bg-accent-bg')}>x</a>",
+	"<a class={cn('px-3 hover:bg-panel-2', isCurrent ? 'bg-accent-bg' : 'bg-panel')}>x</a>"
+];
+
+const NON_ERASING_SHAPES = [
+	// The healthy way round: resting value bare, state marker in the variant, so specificity
+	// runs with the intent. This is `segmented.svelte` and the settings radio cards.
+	'<label class="border-line has-checked:border-accent">x</label>',
+	// An unconditional resting colour a hover replaces: the base comes back, nothing is lost.
+	'<a class="text-ink-2 hover:text-ink">x</a>',
+	// Same token on both sides, so there is nothing to erase.
+	'<a class="hover:bg-panel-2" class:bg-panel-2={active}>x</a>',
+	// A marker with no variant of its property beside it.
+	'<a class="px-3 hover:text-ink" class:bg-accent-bg={active}>x</a>',
+	// Exclusive branches: the hover utility is never on the element that carries the marker,
+	// which is one of the shapes #720 could be resolved into.
+	"<a class={cn('px-3', isCurrent ? 'bg-accent-bg' : 'hover:bg-panel-2')}>x</a>"
+];
+
+/** The fixtures go through the same detector the walk uses, rather than a second copy of it
+ * that could drift into agreeing with itself. */
+function erasuresIn(fragment: string): number {
+	return erasures(fragment, '<fixture>').length;
+}
 
 /** The three spellings of one element the detector has to recognise, all of them the
  * `Sidebar` badge as it was before #717. */
@@ -304,5 +521,44 @@ describe('a class: directive never competes with a bare utility (#717)', () => {
 		expect(cn('bg-panel-2', 'focus-within:bg-accent-bg')).toBe(
 			'bg-panel-2 focus-within:bg-accent-bg'
 		);
+	});
+});
+
+describe('a bare state marker a variant can erase is inventoried, not silent (#720)', () => {
+	it('catches the shape in each channel a marker can arrive through', () => {
+		for (const shape of ERASING_SHAPES) expect(erasuresIn(shape), shape).toBe(1);
+	});
+
+	it('leaves alone the pairs that lose nothing', () => {
+		for (const shape of NON_ERASING_SHAPES) expect(erasuresIn(shape), shape).toBe(0);
+	});
+
+	it('reads a variant prefix on every spelling the tree uses', () => {
+		// A `varied` regex that stopped matching would empty the inventory and make the
+		// assertion below pass for the wrong reason, so the prefixes get asserted directly.
+		const spellings: [string, string][] = [
+			['bg', 'hover:bg-panel-2'],
+			['bg', 'focus-within:bg-accent-bg'],
+			['border', 'has-checked:border-accent'],
+			['border', 'has-[:checked]:border-accent'],
+			['border', 'dark:aria-invalid:border-destructive'],
+			['text', '[&_svg]:text-ink']
+		];
+		for (const [property, utility] of spellings) {
+			expect([...utility.matchAll(varied(property))], utility).toHaveLength(1);
+		}
+		// And the bare spelling of the same utility is not a variant.
+		expect([...'bg-panel-2'.matchAll(varied('bg'))]).toHaveLength(0);
+		expect([...'border-accent'.matchAll(varied('border'))]).toHaveLength(0);
+	});
+
+	it('holds the inventory to the one entry #720 owns', () => {
+		const found = ALL_ERASURES.map(
+			(erasure) =>
+				`${erasure.file} ${erasure.property}: ${erasure.marker.join(',')} erased by ${erasure.erasedBy.join(',')}`
+		);
+		// Not a prohibition: which way #720 goes is a taste call. A second instance appearing,
+		// or this one being resolved, both belong in a PR that edits KNOWN_ERASURES.
+		expect(found).toEqual(KNOWN_ERASURES.map((entry) => entry.replace(' (#720)', '')));
 	});
 });
