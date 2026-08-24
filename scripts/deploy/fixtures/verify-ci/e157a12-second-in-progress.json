@@ -1,0 +1,27 @@
+{
+  "total_count": 2,
+  "workflow_runs": [
+    {
+      "conclusion": "success",
+      "created_at": "2026-08-24T15:57:59Z",
+      "event": "push",
+      "head_sha": "e157a12efada61c73fa2e8f16adab0f8c1b637f7",
+      "html_url": "https://github.com/fiorelorenzo/canonry/actions/runs/32748062187",
+      "id": 32748062187,
+      "name": "CI",
+      "status": "completed",
+      "updated_at": "2026-08-24T16:06:27Z"
+    },
+    {
+      "conclusion": null,
+      "created_at": "2026-08-24T15:58:11Z",
+      "event": "push",
+      "head_sha": "e157a12efada61c73fa2e8f16adab0f8c1b637f7",
+      "html_url": "https://github.com/fiorelorenzo/canonry/actions/runs/32748082241",
+      "id": 32748082241,
+      "name": "CI",
+      "status": "in_progress",
+      "updated_at": "2026-08-24T16:06:38Z"
+    }
+  ]
+}

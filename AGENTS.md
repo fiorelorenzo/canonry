@@ -242,7 +242,15 @@ gh api repos/fiorelorenzo/canonry \
 A green CI run on `main` deploys preview through `deploy.yml`, so whatever lands there
 reaches a real stack a few minutes later. Merging a wave one PR at a time queues one preview
 deploy per merge, and `deploy.yml`'s concurrency group cancels the superseded ones, which is
-expected rather than a failure to chase.
+expected rather than a failure to chase: 77 of the 265 preview deploys so far concluded
+`cancelled`, 8 of them on 2026-08-24 alone, so the group does do what this file has always
+said it does. Two things it does not say, and both cost me time on #712. It only cancels what
+overlaps, so a deploy that fails in twelve seconds at the CI gate is over before the next one
+starts and stays in the list as a real failure rather than being superseded away. And listing
+deploy runs by `head_sha` attributes each one to `main`'s tip rather than to the commit it
+actually deploys, which is how one commit looked like it had three preview deploys when the
+earliest of the three was the previous commit's: the sha a run really deployed is in its own
+log, on the line the resolve step prints as `deploying <version> (<sha>) to <stack>`.
 
 **`git stash` is shared between worktrees, and it will swap two agents' work.** This is the
 worst collision found so far because nothing about it looks like a collision: `refs/stash`

@@ -61,6 +61,9 @@ jobs:
   # be pushed at any commit, including one CI never saw. On the `workflow_run`
   # path the trigger already is a finished CI run, and the check still runs
   # because it costs one API call and it is what makes the two paths identical.
+  #
+  # The two paths do ask for different strictness, though, which they say with
+  # `--require` below (issue #712).
   verify-ci:
     name: Resolve the target stack and refuse a commit without a green CI run
     # A failed or cancelled CI run also completes, and `workflow_run` fires on any
@@ -119,10 +122,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # preview follows a completed successful CI run, so a second run for the
+          # same commit still going says nothing new and refusing over it would only
+          # keep main off preview. A tag is a release, so nothing may still be
+          # running for that tree and nothing may have failed for it; when something
+          # is still running, wait for it rather than sending a human back in nine
+          # minutes to re-run a deploy that would then pass. 900s is comfortably over
+          # the ~9 minutes ci.yml takes, and it is a bound rather than a hope: a
+          # stuck job costs fifteen minutes and then the same refusal.
+          if [ "${{ steps.resolve.outputs.stack }}" = "preview" ]; then
+            set -- --require any
+          else
+            set -- --require all --wait 900
+          fi
+
           scripts/deploy/verify-ci.sh \
             --repo "${{ github.repository }}" \
             --sha "${{ steps.resolve.outputs.sha }}" \
-            --workflow ci.yml
+            --workflow ci.yml "$@"
 
   # Builds the runtime image once and pushes it to GHCR tagged with both the
   # release version and the commit sha. The self-hosted deploy job below

@@ -8,6 +8,34 @@ on:
   push:
     branches: [main]
 
+# One run per commit per event, and it is insurance rather than a fix, because the
+# thing it guards against is not in this file (issue #712). On 2026-08-24 the push
+# of e157a12 produced two `push` runs of this workflow twelve seconds apart, both
+# running the whole suite, and the earlier one going green while the later one was
+# still in progress is what made the preview deploy's CI gate refuse a commit that
+# had already passed. There is nothing here that can fire twice for one push: the
+# only trigger that matches is `push: branches: [main]`, there is no `paths`
+# filter, a filter can match an event once anyway, and the branch deletion that
+# `delete_branch_on_merge` performs arrives as a push whose after-sha is all
+# zeroes and cannot produce a run for a commit at all. GitHub's own record agrees:
+# the repository saw exactly one push event for that transition (one `PushEvent`,
+# one check suite each for the four other apps installed here) and two
+# `github-actions` check suites for it, 15:57:59Z and 15:58:11Z, with identical
+# `before` and `after`. It is the only sha out of 305 that has ever had two, so it
+# is a duplicated internal delivery and not a shape of ours to correct.
+#
+# So this group makes "one run per (event, sha)" hold whatever GitHub delivers.
+# `cancel-in-progress` is deliberate and it is what stops the doubled bill: a
+# duplicate cancels the twelve seconds the first run got through rather than
+# queueing behind eight more minutes of it. Two different commits are two
+# different groups and can never cancel each other, and neither can a pull_request
+# run and a push run, so nothing outside the duplicate case changes. It leaves a
+# `cancelled` run next to the green one for that sha, which is why
+# scripts/deploy/verify-ci.sh treats a cancelled run as evidence of nothing.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.sha }}
+  cancel-in-progress: true
+
 # Node version pinned here must track .node-version; pnpm/setup has no
 # node-version-file input.
 env:
@@ -318,6 +346,15 @@ jobs:
       # and no real stack, unlike the deploy job itself.
       - name: Run the deploy script tests
         run: scripts/deploy/test-release-supersede.sh
+
+      # Issue #712: the CI gate the deploy workflow calls, whose verdict used to
+      # depend on which run for a commit happened to be newest at the moment it was
+      # asked. Drives verify-ci.sh through its --stdin path against recorded
+      # `gh api .../runs` responses, so it needs no network and no token; the gh
+      # call itself, and therefore the deploy job, is still only exercised for real
+      # on a deploy.
+      - name: The deploy's CI gate gives the same verdict whenever it is asked
+        run: scripts/deploy/test-verify-ci.sh
 
       # Every credential .env.example documents has to reach the deployed web container.
       # #247's password reset and #250's account deletion both shipped unable to send a
