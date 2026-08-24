@@ -92,8 +92,14 @@
 <svelte:head><title>Component gallery: AI marking and the change bar (dev only)</title></svelte:head
 >
 
+<!-- #728: the tag and the `id` both come from whether AppShell already supplied a
+     `<main id="main">`, which it only does signed in. Signed out this page owned the
+     `main` but not the id, so the root layout's skip link to `#main` had no target and
+     axe reported `skip-link` plus `region`, the second one because an anchor to a
+     missing fragment is not a skip link, just content outside every landmark. -->
 <svelte:element
 	this={page.data.user ? 'div' : 'main'}
+	id={page.data.user ? undefined : 'main'}
 	class={page.data.user ? undefined : 'px-4 md:px-8'}
 >
 	<Page

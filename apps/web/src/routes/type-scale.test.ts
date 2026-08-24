@@ -281,7 +281,14 @@ describe('the type scale is spelled in role tokens, or listed with a reason (V3 
 	it('--text-page-title has a consumer, which is what #621 was opened about', () => {
 		const band = ALL.find((f) => f.endsWith('page-band.svelte'));
 		expect(band).toBeDefined();
-		expect(readFileSync(`${SRC}${band}`, 'utf-8')).toMatch(/<h1 class="text-page-title/);
+		const src = readFileSync(`${SRC}${band}`, 'utf-8');
+		// #728: the title element is a `<svelte:element>` now, not a literal `<h1>`, because
+		// `dev/ui` renders the band inside itself and needed a deeper level (page-band.svelte
+		// says why). What #621 is about is unchanged: the token has to sit on whatever
+		// heading the band resolves to, so this matches the element rather than the tag.
+		expect(src).toMatch(/this=\{`h\$\{headingLevel\}`\}[^>]*class="text-page-title/);
+		// And the default has to stay 1, or every real route silently loses its `<h1>`.
+		expect(src).toMatch(/headingLevel = 1\b/);
 		const consumers = ALL.filter((f) =>
 			/\btext-page-title\b/.test(readFileSync(`${SRC}${f}`, 'utf-8'))
 		);

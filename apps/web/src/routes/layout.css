@@ -185,9 +185,9 @@
 
 	/* Reading room, light. Named by role rather than by hue: a token called
 	 * --color-paper survives a repaint, a token called --color-cream does not. */
-	--color-paper: #f4efe4;
-	--color-panel: #fffdf7;
-	--color-panel-2: #f9f4ea;
+	--color-paper: var(--light-paper);
+	--color-panel: var(--light-panel);
+	--color-panel-2: var(--light-panel-2);
 	/* The form-field well (#726). A field's fill used to be `bg-input/30`: an alpha composite
 	 * of --color-line-2 over whichever surface the field happened to sit on, which made the
 	 * pair arithmetic rather than a token. Nothing could name it, `tinted-surface-ink.test.ts`
@@ -201,19 +201,19 @@
 	 * measured; dark needs its own value, because --dark-panel-2 sits only 1.05 off
 	 * --dark-panel and a field has to stay legible inside a panel-2 container as well. */
 	--color-field: var(--color-panel-2);
-	--color-ink: #221d16;
-	--color-ink-2: #4c4238;
+	--color-ink: var(--light-ink);
+	--color-ink-2: var(--light-ink-2);
 	/* #469 (closes #369): darkened on its own hue rather than inverted from --dark-muted -
 	 * same 36.5deg warm hue and ~11% saturation as before, lightness moved from 0.469 to
 	 * 0.410 so every surface it sits on clears the 4.5:1 AA floor for small text: 4.57:1
 	 * against --color-paper, 5.16:1 against --color-panel, 4.78:1 against --color-panel-2
 	 * (measured in the browser, replacing the 3.67/4.13/3.84 the old #857a6a carried). */
-	--color-muted: #746b5d;
-	--color-line: #e2d8c6;
-	--color-line-2: #cfc2ab;
-	--color-accent: #7a4a1f;
-	--color-accent-ink: #5c3714;
-	--color-accent-bg: #f3e7d5;
+	--color-muted: var(--light-muted);
+	--color-line: var(--light-line);
+	--color-line-2: var(--light-line-2);
+	--color-accent: var(--light-accent);
+	--color-accent-ink: var(--light-accent-ink);
+	--color-accent-bg: var(--light-accent-bg);
 
 	/* The diff's own pair (P3, round eleven #344). Deliberately hue-less: --color-diff-bg
 	 * is paper's hue and paper's chroma at 0.874 lightness instead of 0.953, so "this
@@ -227,15 +227,15 @@
 	 * numbered marker, onto this same token. A shape that means "unaccepted" and a bar
 	 * that means "changed" never land on the same sentence, so one hue-less value
 	 * signal carries both jobs without the two being confusable. */
-	--color-diff-bg: #dad5cb;
-	--color-diff-line: #7a7466;
+	--color-diff-bg: var(--light-diff-bg);
+	--color-diff-line: var(--light-diff-line);
 
-	--color-ok: #2f6b45;
-	--color-ok-bg: #e6efe1;
-	--color-warn: #8a6510;
-	--color-warn-bg: #f7eed8;
-	--color-danger: #a03a22;
-	--color-danger-bg: #f8e7e0;
+	--color-ok: var(--light-ok);
+	--color-ok-bg: var(--light-ok-bg);
+	--color-warn: var(--light-warn);
+	--color-warn-bg: var(--light-warn-bg);
+	--color-danger: var(--light-danger);
+	--color-danger-bg: var(--light-danger-bg);
 
 	/* Secondary text on any of the five tinted backgrounds above (`accent-bg`, `diff-bg`,
 	 * `ok-bg`, `warn-bg`, `danger-bg`) is `--color-ink-2`, never `--color-muted`. Measured,
@@ -371,6 +371,29 @@
 	 * unconditionally on the root, is the one place both can read from without either
 	 * restating a hex value. */
 	:root {
+		/* The light literals, here rather than inline in @theme so that @theme and
+		 * [data-theme='light'] below can both read them without restating a hex - the
+		 * same reason the dark values sit here (#137). */
+		--light-paper: #f4efe4;
+		--light-panel: #fffdf7;
+		--light-panel-2: #f9f4ea;
+		--light-ink: #221d16;
+		--light-ink-2: #4c4238;
+		--light-muted: #746b5d;
+		--light-line: #e2d8c6;
+		--light-line-2: #cfc2ab;
+		--light-accent: #7a4a1f;
+		--light-accent-ink: #5c3714;
+		--light-accent-bg: #f3e7d5;
+		--light-diff-bg: #dad5cb;
+		--light-diff-line: #7a7466;
+		--light-ok: #2f6b45;
+		--light-ok-bg: #e6efe1;
+		--light-warn: #8a6510;
+		--light-warn-bg: #f7eed8;
+		--light-danger: #a03a22;
+		--light-danger-bg: #f8e7e0;
+
 		--dark-paper: #17140f;
 		--dark-panel: #1e1a14;
 		--dark-panel-2: #191510;
@@ -426,6 +449,72 @@
 		/* V3 (#495): its own literal value, not color-mix(var(--color-ink)) - see
 		 * @theme's --shadow-elevated comment for why. */
 		--shadow-elevated: 0 12px 28px -8px color-mix(in oklab, var(--dark-paper) 70%, transparent);
+
+		/* shadcn's aliases, repeated verbatim from @theme above - see that block's own
+		 * doc comment for why a custom property alias has to be redeclared per scope
+		 * rather than just once. */
+		--color-background: var(--color-paper);
+		--color-foreground: var(--color-ink);
+		--color-card: var(--color-panel);
+		--color-card-foreground: var(--color-ink);
+		--color-popover: var(--color-panel);
+		--color-popover-foreground: var(--color-ink);
+		--color-primary: var(--color-accent);
+		--color-primary-foreground: var(--color-panel);
+		--color-secondary: var(--color-panel-2);
+		--color-secondary-foreground: var(--color-ink);
+		--color-muted-foreground: var(--color-muted);
+		--color-accent-foreground: var(--color-accent-ink);
+		--color-destructive: var(--color-danger);
+		--color-destructive-foreground: var(--color-panel);
+		--color-border: var(--color-line);
+		--color-input: var(--color-line-2);
+		--color-ring: var(--color-accent);
+	}
+
+	/* #728: the light palette needs a scope of its own, and until this it had none.
+	 *
+	 * The light values landed only on `:root` (via the generated @theme block) and dark
+	 * had two scopes, so `[data-theme='light']` matched no rule anywhere in this file and
+	 * therefore meant nothing. On `<html>` that was harmless, because `:root` is already
+	 * light and a chosen-light theme wants exactly the defaults. It was not harmless on a
+	 * *nested* light island: custom properties inherit, so a `data-theme="light"` subtree
+	 * under a dark `<html>`, or under the `prefers-color-scheme` fallback, declared no
+	 * tokens of its own and inherited the dark ones.
+	 *
+	 * `dev/ui` is that island, and it is the whole reason the route exists: it draws every
+	 * component in `<section data-theme="light">` beside `<section data-theme="dark">` so
+	 * the two palettes can be compared. Measured before this: in match-system dark and in
+	 * chosen dark the light section resolved `--color-paper` to `#17140f`, the dark value,
+	 * so the gallery rendered the dark palette twice and could not do the one thing it is
+	 * for. Every dark screenshot of that route ever taken was two dark columns.
+	 *
+	 * So this mirrors `[data-theme='dark']` above, token for token, and the light literals
+	 * moved into `--light-*` beside `--dark-*` for the same reason #137 put the dark ones
+	 * there: two scopes now read the same values and neither restates a hex. */
+	[data-theme='light'] {
+		--color-paper: var(--light-paper);
+		--color-panel: var(--light-panel);
+		--color-panel-2: var(--light-panel-2);
+		--color-field: var(--color-panel-2);
+		--color-ink: var(--light-ink);
+		--color-ink-2: var(--light-ink-2);
+		--color-muted: var(--light-muted);
+		--color-line: var(--light-line);
+		--color-line-2: var(--light-line-2);
+		--color-accent: var(--light-accent);
+		--color-accent-ink: var(--light-accent-ink);
+		--color-accent-bg: var(--light-accent-bg);
+		--color-diff-bg: var(--light-diff-bg);
+		--color-diff-line: var(--light-diff-line);
+		--color-ok: var(--light-ok);
+		--color-ok-bg: var(--light-ok-bg);
+		--color-warn: var(--light-warn);
+		--color-warn-bg: var(--light-warn-bg);
+		--color-danger: var(--light-danger);
+		--color-danger-bg: var(--light-danger-bg);
+		/* Light's own elevation, the same value @theme declares. */
+		--shadow-elevated: 0 12px 28px -8px color-mix(in oklab, var(--color-ink) 32%, transparent);
 
 		/* shadcn's aliases, repeated verbatim from @theme above - see that block's own
 		 * doc comment for why a custom property alias has to be redeclared per scope

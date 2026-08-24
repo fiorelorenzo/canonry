@@ -29,8 +29,17 @@
 	 * filter or a search field (D4's import queue, the entries table) - the reason V1's
 	 * option C ("the title in the shell's own bar") lost is that a 48px shell bar has
 	 * nowhere to grow that row, and a band that belongs to the page does.
-	 * `titleAdornment` renders inline immediately after the `h1`, same row, same
+	 * `titleAdornment` renders inline immediately after the title, same row, same
 	 * baseline, for the one caller that needs it (the entry page's audit-flag badge).
+	 *
+	 * `headingLevel` exists for `dev/ui` and nothing else (#728). The band is an `<h1>`
+	 * on every real route, because a route has one title and this is it. Rendered inside
+	 * the gallery it was a second and third `<h1>` halfway down the page, and the `<h3>`
+	 * that followed each one skipped two levels, which axe reported as `heading-order`
+	 * twice. The level is a prop rather than something the gallery works around, because
+	 * `ProposalDiffCard` already answers this exact question the same way (#672): a
+	 * component that carries a heading takes its level from the context that renders it.
+	 * Every other call site leaves the default alone.
 	 */
 	let {
 		width,
@@ -39,7 +48,8 @@
 		description,
 		actions,
 		filters,
-		titleAdornment
+		titleAdornment,
+		headingLevel = 1
 	}: {
 		width: PageWidth;
 		title: string;
@@ -48,6 +58,7 @@
 		actions?: Snippet;
 		filters?: Snippet;
 		titleAdornment?: Snippet;
+		headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
 	} = $props();
 </script>
 
@@ -58,7 +69,9 @@
 				<p class="mb-1 font-mono text-label tracking-wide text-muted uppercase">{eyebrow}</p>
 			{/if}
 			<div class="flex flex-wrap items-center gap-2">
-				<h1 class="text-page-title font-semibold text-ink">{title}</h1>
+				<svelte:element this={`h${headingLevel}`} class="text-page-title font-semibold text-ink">
+					{title}
+				</svelte:element>
 				{#if titleAdornment}
 					{@render titleAdornment()}
 				{/if}

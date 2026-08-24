@@ -121,10 +121,18 @@
      `<main>` inside it while signed in, but this gallery carries no auth guard of its
      own and still needs exactly one `main` when nobody is. `<svelte:element>` picks
      the tag AppShell is not already providing, rather than duplicating the whole
-     gallery body once per branch. -->
+     gallery body once per branch.
+
+     #728: and it has to carry AppShell's `id` too, not just its tag. The root layout
+     renders a skip link to `#main` on every route including this one, so signed out
+     that link had no target at all: axe reported `skip-link`, and `region` alongside it,
+     because an anchor to a fragment that does not exist is not a skip link, it is just
+     page content sitting outside every landmark. Signed in AppShell owns the id, so this
+     has to stay conditional or the page would carry it twice. -->
 <Tooltip.Provider>
 	<svelte:element
 		this={page.data.user ? 'div' : 'main'}
+		id={page.data.user ? undefined : 'main'}
 		class={page.data.user ? undefined : 'px-4 md:px-8'}
 	>
 		<Page
@@ -410,6 +418,7 @@
 							eyebrow="Universe"
 							title="Valdoria Reach"
 							description="214 entries, last touched an hour ago."
+							headingLevel={4}
 						>
 							{#snippet actions()}
 								<Button variant="secondary">Settings</Button>
