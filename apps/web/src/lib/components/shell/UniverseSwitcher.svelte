@@ -91,6 +91,21 @@
 				<ul class="flex flex-col">
 					{#each universes as universe (universe.id)}
 						<li class="border-b border-line last:border-b-0">
+							<!-- #720, open: these two paint the same property and specificity decides, not
+							     the order they are written in. `.hover\:bg-panel-2:hover` is (0,2,0) against
+							     `.bg-accent-bg`'s (0,1,0), so hover wins whenever it applies and the row that
+							     says "you are here" loses the thing that says it exactly while the pointer is
+							     on it: `rgb(243, 231, 213)` resting and `rgb(249, 244, 234)` hovered, and under
+							     the pointer this row is identical on every computed property to a hovered row
+							     that is not current. Routing it through `cn` does not help, which is the
+							     difference from #717: tailwind-merge deliberately keeps a variant and a bare
+							     utility apart, so both survive the merge and the browser still picks.
+							     Whether the tint should hold under the pointer or the current universe should
+							     be marked with something hover cannot reach is a taste call, which is why #720
+							     is open rather than fixed. The dot below is not already the answer: it encodes
+							     `kind`, so it is byte-identical on this row and on every other homebrew one.
+							     `routes/class-directive-conflict.test.ts` holds this as the tree's only
+							     instance of the shape; resolving #720 either way edits that inventory. -->
 							<a
 								href={resolve(`/w/${universe.slug}`)}
 								class="flex items-start gap-2 px-3 py-2 hover:bg-panel-2"
