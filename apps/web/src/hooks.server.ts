@@ -9,10 +9,14 @@
  * comment on `$lib/server/auth.ts`). For every other path it falls through to the
  * `resolve` passed in below, which is the same theme-rewriting resolve this file always
  * used, now also rewriting `<html lang>` the same way (a plain string swap on
- * `app.html`'s hardcoded `lang="en"`, exactly like the `data-theme-pref` swap already
- * did for the theme attribute) so a screen reader picks the right pronunciation and a
- * search engine reads the right language, for every route including the ones rendered
- * by other packages under this same SvelteKit app (e.g. routes/p/**, issue #127).
+ * `app.html`'s hardcoded `lang="en"`, exactly like the `data-theme-pref` swap it sits
+ * beside) so a screen reader picks the right pronunciation and a search engine reads the
+ * right language, for every route including the ones rendered by other packages under
+ * this same SvelteKit app (e.g. routes/p/**, issue #127). The theme half of that swap
+ * moved into `$lib/theme`'s `applyThemePreference` with #740, which gave it a second
+ * target, `app.html`'s two `theme-color` metas: three replaces against one authored file
+ * is worth a test that reads that file rather than a comment about ordering, and the
+ * locale swap stays here because a locale is not a theme concern.
  *
  * `event.locals.session`/`user`/`locale` are populated before that branch, so a route
  * loader, a form action and the auth handler itself all see the same thing.
@@ -39,7 +43,7 @@ import { startCanonSaveJobWorker } from '$lib/server/jobs';
 import { db } from '$lib/server/db';
 import { LOCALE_COOKIE } from '$lib/i18n';
 import { isPublicReaderPath } from '$lib/publicSurface';
-import { parseThemePreference, THEME_COOKIE, themeAttribute } from '$lib/theme';
+import { applyThemePreference, parseThemePreference, THEME_COOKIE } from '$lib/theme';
 import { negotiateLocale, type Locale } from '@canonry/lang';
 import { eq } from '@canonry/db';
 import { user as userTable } from '@canonry/db/schema';
@@ -135,16 +139,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	const rewrite = (innerEvent: RequestEvent) => {
 		const preference = parseThemePreference(innerEvent.cookies.get(THEME_COOKIE));
-		const attribute = themeAttribute(preference);
 		const locale = event.locals.locale;
 
 		return resolve(innerEvent, {
-			transformPageChunk: ({ html }) => {
-				const themed = attribute
-					? html.replace('data-theme-pref', `data-theme="${attribute}"`)
-					: html.replace(' data-theme-pref', '');
-				return themed.replace('lang="en"', `lang="${locale}"`);
-			}
+			transformPageChunk: ({ html }) =>
+				applyThemePreference(html, preference).replace('lang="en"', `lang="${locale}"`)
 		});
 	};
 
