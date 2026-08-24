@@ -11,6 +11,20 @@
 	 * click. Changing a filter always returns to page 1, since page 4 of one filter is nowhere
 	 * in another.
 	 *
+	 * The active chip is `aria-current="true"` and not `"page"` (#731), which is #724's rule
+	 * applied rather than a second convention: `page` is "the current page within a set of
+	 * pages" and the set a chip belongs to is a set of filters. The paginator below is the set
+	 * of pages over this list; the chip row is the set of filters over it, and being adjacent
+	 * to the one does not make the other's members pages. What made the old value observably
+	 * false is the page reset above: on `/entries?type=character&page=2` the Character chip's
+	 * href is `?type=character`, which is page 1 of the same filter, so it announced "current
+	 * page" while pointing at a different page inside exactly the set `page` is defined over.
+	 * A conditional (`page` when the href happens to equal the current URL, `true` otherwise)
+	 * is cheap here, since the condition is just `params.page === 1`, and it was still the
+	 * wrong answer: it would make one control say two different sentences as the reader pages
+	 * through, encoding pagination state on a control whose whole job is the filter, which is
+	 * constant across pages. "Current" is true on every page.
+	 *
 	 * Deliberately five types, not six: 'session' has no create path anywhere in the product
 	 * yet, so it never earns a chip. It still shows up under "All" and through search, so it
 	 * stays reachable.
@@ -48,7 +62,7 @@
 		class:text-panel={params.type === null}
 		class:border-line-2={params.type !== null}
 		class:text-ink-2={params.type !== null}
-		aria-current={params.type === null ? 'page' : undefined}
+		aria-current={params.type === null ? 'true' : undefined}
 	>
 		{t.all}
 		{totalCount}
@@ -62,7 +76,7 @@
 			class:text-panel={params.type === type}
 			class:border-line-2={params.type !== type}
 			class:text-ink-2={params.type !== type}
-			aria-current={params.type === type ? 'page' : undefined}
+			aria-current={params.type === type ? 'true' : undefined}
 		>
 			{t.typeLabel(type)}
 			{counts[type] ?? 0}
