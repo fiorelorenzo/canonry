@@ -183,11 +183,20 @@ export {
 
 export {
 	runMatchingBenchmark,
+	runPoolOrderingBenchmark,
+	poolSubjectsFromCorpus,
 	type MatchingPairExample,
 	type MatchingCorpus,
 	type ThresholdScore,
 	type MatchingBenchmarkReport,
-	type RunMatchingBenchmarkOptions
+	type RunMatchingBenchmarkOptions,
+	type OrderedPool,
+	type PoolFetch,
+	type PoolSubject,
+	type PoolSubjectOutcome,
+	type PoolOrderingScore,
+	type PoolOrderingReport,
+	type RunPoolOrderingBenchmarkOptions
 } from './matching-benchmark.js';
 
 export { SAMPLE_WORLD_MATCHING_CORPUS } from './matching-benchmark-corpus.js';
