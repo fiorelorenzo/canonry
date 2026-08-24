@@ -138,6 +138,22 @@ it needs the dev services up. It needs the opposite discipline instead: a leftov
 `DATABASE_URL` or `TEST_DATABASE_URL` outranks those defaults, so clear it rather than trust
 the file.
 
+**Two ways to drive the Loremaster with no gateway credential, and they cover different
+things.** `COPILOT_DEV_MOCK_MODEL=1` swaps every `modelFactory` call in `apps/web` for a
+`MockLanguageModelV4`, which is the one to reach for when what you want is a click-through:
+Ask streams an answer, a question that asks for something to be written proposes an entry,
+and propagation, audit and Complete all answer too. Its own comment in
+`apps/web/src/lib/server/copilot.ts` lists what it does not reach, and the short version is
+that every branch of it is a well-formed success, so nothing that only happens when a model
+gets it wrong can be reproduced with it. That is the second way: point `AI_GATEWAY_BASE_URL`
+at a throwaway `node:http` server. `@ai-sdk/gateway` POSTs to `${baseURL}/language-model`,
+says which kind of call it is in an `ai-language-model-streaming` header (`true` for
+`doStream`, `false` for `doGenerate`), and for a stream pipes the SSE body straight through
+as the AI SDK's own stream parts, so about thirty lines will serve a truncated answer, an
+arbitrary finish reason or a malformed tool call with nothing in the app mocked at all, and
+the real gateway client gets exercised on the way in. #678 and #698 both needed exactly that
+and both re-derived it.
+
 **Regenerate the playbooks, or CI will.** `packages/import/src/playbooks.generated.ts` is
 committed because the Docker image builds `apps/web` directly and never runs that package's
 build. Its own `build`, `check` and `test` scripts regenerate it first, and CI runs the
