@@ -2,6 +2,7 @@
 	import './layout.css';
 	import AppShell from '$lib/components/shell/AppShell.svelte';
 	import { messages } from '$lib/i18n';
+	import { applyThemePreferenceToDocument } from '$lib/theme';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
@@ -16,6 +17,18 @@
 	// response, and nothing else in SvelteKit ever touches `document.documentElement`).
 	$effect(() => {
 		document.documentElement.lang = data.locale;
+	});
+
+	// The same thing for the theme (#752), and for the same reason: `app.html` carries
+	// `<html data-theme>` and the two `theme-color` metas, hooks.server.ts writes them per
+	// request, and the appearance page submits through `use:enhance`, so before this a GM
+	// picked Dark and watched nothing happen - measured on a light OS, `data-theme` stayed
+	// null and `--color-paper` stayed `#f4efe4` for the rest of the session, through every
+	// client-side navigation, until a full document load. Here rather than in that form's
+	// own callback so any future path that changes the preference repaints too, exactly as
+	// the locale effect above already covers both of its two submitters.
+	$effect(() => {
+		applyThemePreferenceToDocument(document, data.themePreference);
 	});
 
 	// The spec's own TL;DR sentence (SPEC.md §1), not marketing copy: guardrail 7 means

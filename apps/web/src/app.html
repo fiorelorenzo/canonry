@@ -22,8 +22,18 @@
 		<link rel="alternate icon" type="image/png" href="%sveltekit.assets%/favicon-32.png" />
 		<link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
 		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
-		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4efe4" />
-		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#17140f" />
+		<meta
+			name="theme-color"
+			data-theme-color="light"
+			media="(prefers-color-scheme: light)"
+			content="#f4efe4"
+		/>
+		<meta
+			name="theme-color"
+			data-theme-color="dark"
+			media="(prefers-color-scheme: dark)"
+			content="#17140f"
+		/>
 		<!-- The pair above is the OS-preference answer, which is right for "Match system" and
 				is also all this file can say with no request behind the render. hooks.server.ts
 				rewrites each one's `media` for an explicit Light or Dark, through
@@ -31,7 +41,12 @@
 				[data-theme], so left alone the browser chrome contradicts a palette the GM
 				chose in Settings. Same rule as the comment at the top of this head about where
 				prose may sit: this one is after the metas it describes, and deliberately does
-				not quote the attribute being replaced. -->
+				not quote the attribute being replaced.
+
+				`data-theme-color` is how the same rewrite finds these two again on a live
+				document when the setting changes without a reload (issue #752). It cannot go
+				by the media query, because the query is the thing being rewritten and would
+				only be findable the first time. -->
 
 		<!-- V10 (#496): preload the reading room's own face. Roman only, not the italic
 				variant - italic is real but rarer per page, and a second preloaded font
