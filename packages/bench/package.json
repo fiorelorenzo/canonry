@@ -22,6 +22,7 @@
 		"import-e2e": "tsx src/e2e/import.ts",
 		"onenote-relations": "tsx src/e2e/onenote-relations.ts",
 		"pool-determinism": "tsx src/e2e/pool-determinism.ts",
+		"pool-ordering": "tsx src/pool-ordering.ts",
 		"loop-cost": "tsx src/loop-cost.ts",
 		"loremaster-e2e": "tsx src/e2e/loremaster.ts",
 		"seed": "tsx src/prepare.ts",

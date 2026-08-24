@@ -438,10 +438,57 @@ export interface MatchCandidatePool {
  * claim to matching relevance that I measured (`lower(name)`, `updated_at desc`) turns
  * that early stop into a full scan of the universe plus a top-N sort (300 buffers, 2.9ms
  * at 3000 entities, and it grows with the universe rather than with the cap), which is
- * the cost the cap exists to bound. So this order is reproducible and deliberately
- * arbitrary with respect to matching: a pool ordered by name proximity to the subject
- * would be better and is a matching change that needs the §6.4 benchmark behind it
- * (issue #641), not a query I can pick. */
+ * the cost the cap exists to bound.
+ *
+ * **And it stays slug, measured (issue #641).** #627 left open whether the surviving 200
+ * should be the alphabetically first or the 200 most likely to be right, with the §6.4
+ * benchmark named as the way to settle it. `packages/bench`'s `pool-ordering` runner is that
+ * measurement and the answer is no, for a reason that is not the plan cost.
+ *
+ * Cost first, because it turned out not to be the objection. `ORDER BY similarity(name, $1)
+ * DESC` is a sequential scan plus a top-N sort whatever indexes exist, and a GIN trigram
+ * index does not help an ordering at all, but `ORDER BY name <-> $1` against a multicolumn
+ * GiST on `(universe_id, type, name gist_trgm_ops)` is an index scan: on a 3000-entity
+ * six-type universe, 198 buffers and 0.88ms, against this query's own 1158 and 0.53ms,
+ * because the type predicate is not in `entity_universe_slug_key` and an index scan on it
+ * walks past five other types to fill one page. So a proximity ordering can be made
+ * index-backed and cheaper in buffers than this one. A GiST on `name` alone is the trap in
+ * that family: 2051 buffers, because the index carries neither predicate. And #627's own
+ * write-up of the sequential-scan orderings is too kind to them: a `Seq Scan` here reads
+ * every row of `entity` in every universe, 54 buffers at a 3000-row table and 107 at 6000,
+ * so their cost grows with the deployment rather than with the universe.
+ *
+ * What decides it is that trigram distance is blind to the candidates this ordering would be
+ * introduced to rescue. The pool's order only changes an outcome for a candidate the layer
+ * above cannot rank, and that layer is `preFilterCandidates`, which sorts by name and alias
+ * token overlap and breaks ties on the input order: a candidate sharing one token with the
+ * subject beats every candidate sharing none regardless of where the pool put it. So the
+ * order decides among candidates sharing no token with the subject, which in the labelled
+ * corpus is the translated names ("Il Ratto Dorato" against "the Gilded Rat", "il Patto di
+ * Cenere" against "the Ashen Covenant"), and those share no trigrams either. Scored over the
+ * corpus at 209 entities of one type, slug loses two of the nine true candidates and trigram
+ * proximity loses one, both to the pre-filter rather than to this cap.
+ *
+ * The one place the caps do bite hard is a universe far past them: at 1009 entities of one
+ * type, slug never scores six of the nine and trigram proximity none or two depending on
+ * which wording the world holds. That is around 4000 entries in a six-type mix, and if it
+ * ever needs fixing the ordering to reach for is embedding distance rather than trigram
+ * distance, because it is the only one that cannot disagree with the scorer that decides,
+ * and the product already keeps those vectors in Qdrant.
+ *
+ * Read the retention columns and not the weighted cost when comparing orderings at that
+ * size, which is the one trap in the measurement: at 1009 slug's weighted cost is the lowest
+ * of the three, and the reason is that truncation also dropped the corpus's two
+ * identical-name false-merge traps, which every ordering merges when the candidate is in the
+ * pool. Losing six true candidates to buy two fewer expensive errors is not a property to
+ * bank. The retention columns repeated exactly across two runs; the band classifications
+ * moved by one subject, which is issue #279's known jitter and not the pool.
+ *
+ * **The effective cap is 20 and not 200**, for the same pre-filter reason, which is worth
+ * knowing before reading `truncatedPools` as "the pool was complete": one type reaches 21
+ * entities at 69 to 121 entries depending on the type mix, and from there the 20 candidates
+ * that reach the scorer for a subject sharing no token with any of them are the
+ * alphabetically first 20. */
 export async function candidateEntitiesForMatching(
 	db: Db,
 	universeId: string,
