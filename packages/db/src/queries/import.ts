@@ -1288,7 +1288,16 @@ export async function pendingRelationTypeProposalForJob(
  * job - #191's "narrower than the world needs" bug (a type invented from one sighting)
  * fixed at the source: the type this proposal will create on accept is sized to every
  * relation actually waiting on it, never just the first one seen. `newTypePair` is
- * only meaningful (and only ever passed) for a 'relation_type_new' fold. */
+ * only meaningful (and only ever passed) for a 'relation_type_new' fold.
+ *
+ * Issue #638: the fold also writes `rank`, which is how many relations are waiting on
+ * this question once this sighting is in. `rank` is "ordering inside a plan" everywhere
+ * else (`proposal.rank`'s own comment, decision C3's cap), and a vocabulary question is
+ * a plan of exactly one candidate, so that job was vacant here and the column was left
+ * at 0 for all 130 questions a real notebook asks. This is the number the review queue
+ * orders them by, and it has to be written on the fold rather than once at creation
+ * because a question's weight is only known when the job ends: on the OneNote notebook
+ * `located in` reaches 19 relations across 88 documents, one sighting at a time. */
 export async function foldRelationIntoPendingRelationTypeProposal(
 	db: Db,
 	proposalId: string,
@@ -1322,7 +1331,10 @@ export async function foldRelationIntoPendingRelationTypeProposal(
 							: [...patch.allowedTo, newTypePair.toType]
 					}
 				: { ...patch, relations };
-		await tx.update(proposal).set({ patch: nextPatch }).where(eq(proposal.id, proposalId));
+		await tx
+			.update(proposal)
+			.set({ patch: nextPatch, rank: relations.length })
+			.where(eq(proposal.id, proposalId));
 	});
 }
 
@@ -1388,7 +1400,10 @@ export async function proposeRelationTypeVocabulary(
 				relatedEntityId: null,
 				rationale: input.resolution.why,
 				evidence: {},
-				rank: 0
+				// Issue #638: one relation is waiting the moment the question exists, and the
+				// fold above raises this as more arrive. Never 0, so a question is always
+				// ordered by something true rather than by the column's default.
+				rank: 1
 			}
 		]
 	});
