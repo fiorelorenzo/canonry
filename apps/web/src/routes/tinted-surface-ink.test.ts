@@ -88,9 +88,12 @@ const TINT_DIRECTIVE = new RegExp(String.raw`class:bg-(?:${TINTS.join('|')})(?![
 
 /** A background that puts the element back on an untinted surface. `--color-muted` is
  * right on paper and panel, so a descendant that re-declares one of these is out of
- * scope rather than a violation. */
+ * scope rather than a violation. `field` is here for the same reason as the rest and not
+ * as an exception: #726 moved the form-field fill off the `bg-input/30` alpha composite
+ * this file admits below that it cannot see, onto an opaque `--color-field` measured to
+ * clear muted in both palettes (4.78 light, 5.23 dark). */
 const OPAQUE_BG = new RegExp(
-	String.raw`(?<![\w-])${VARIANTS}bg-(?:paper|panel-2|panel|background|card|popover|secondary|primary)(?![\w-])`
+	String.raw`(?<![\w-])${VARIANTS}bg-(?:paper|panel-2|panel|field|background|card|popover|secondary|primary)(?![\w-])`
 );
 
 /** Both spellings: `--color-muted-foreground` is declared as `var(--color-muted)`, so
