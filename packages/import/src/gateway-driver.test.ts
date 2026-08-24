@@ -21,8 +21,9 @@ import { createLoopLogger, type LoopLogFields } from './logging.js';
 import { createImportTools, createDocumentRunContext } from './tools.js';
 
 // Minimal generateResult builders matching @ai-sdk/provider's LanguageModelV4GenerateResult
-// shape (verified against the installed ai@7.0.65 / @ai-sdk/provider@4.0.7 types), used to
-// script MockLanguageModelV4 without hitting any network.
+// shape, used to script MockLanguageModelV4 without hitting any network. Verified against
+// the installed types on `ai@7.0.65` when written and re-verified on `ai@7.0.66` and
+// `ai@7.0.77` for issue #673, which is the pair every test in this file now has to hold on.
 function usage(inputTotal: number, outputTotal: number) {
 	return {
 		inputTokens: {
