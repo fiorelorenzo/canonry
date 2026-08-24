@@ -26,6 +26,7 @@
  * scored by identical code.
  */
 import {
+	DEFAULT_PRE_FILTER_LIMIT,
 	normalizeForMatching,
 	preFilterCandidates,
 	resolveMatch,
@@ -198,6 +199,10 @@ export interface PoolSubjectOutcome {
 	subjectId: string;
 	/** How many rows the cap let through. */
 	poolSize: number;
+	/** And how many of those reached the similarity call, after `preFilterCandidates`
+	 * (issue #666). `poolSize - scoredSize` is what the pre-filter dropped, which is the
+	 * narrowing the pool's own order decides and the one no `truncated` flag counts. */
+	scoredSize: number;
 	truncated: boolean;
 	/** Did the capped pool contain a candidate the labels call the same entity? This is the
 	 * question the ordering decides. `null` when the subject has no true candidate at all. */
@@ -231,6 +236,10 @@ export interface PoolOrderingScore {
 	matched: number;
 	correctlyNew: number;
 	asked: number;
+	/** Subjects whose pool the pre-filter cut (issue #666): the effective cap's own count,
+	 * beside `truncated`'s. A run where this is the subject count and `trueCandidateUnscored`
+	 * is zero got lucky rather than being under the cap. */
+	narrowedPools: number;
 	outcomes: PoolSubjectOutcome[];
 }
 
@@ -243,8 +252,8 @@ export interface PoolOrderingReport {
 
 export interface RunPoolOrderingBenchmarkOptions {
 	thresholds: MatchThresholds;
-	/** Mirrors `resolveMatch`'s own default, and is a parameter because the pre-filter is
-	 * half of what this measures. */
+	/** `resolveMatch`'s own default, and a parameter because the pre-filter is half of what
+	 * this measures: a sweep over it is how #666 decided that default was right. */
 	preFilterLimit?: number;
 	falseMergeWeight?: number;
 }
@@ -267,7 +276,7 @@ export async function runPoolOrderingBenchmark(
 	options: RunPoolOrderingBenchmarkOptions
 ): Promise<PoolOrderingReport> {
 	const falseMergeWeight = options.falseMergeWeight ?? DEFAULT_FALSE_MERGE_WEIGHT;
-	const preFilterLimit = options.preFilterLimit ?? 20;
+	const preFilterLimit = options.preFilterLimit ?? DEFAULT_PRE_FILTER_LIMIT;
 	const scores: PoolOrderingScore[] = [];
 
 	for (const ordering of orderings) {
@@ -307,6 +316,7 @@ export async function runPoolOrderingBenchmark(
 			outcomes.push({
 				subjectId: entry.id,
 				poolSize: pool.candidates.length,
+				scoredSize: scoredSet.length,
 				truncated: pool.truncated,
 				trueCandidateInPool: hasTruth ? inPool : null,
 				trueCandidateScored: hasTruth ? inScored : null,
@@ -330,6 +340,7 @@ export async function runPoolOrderingBenchmark(
 			matched: outcomes.filter((o) => o.outcome === 'matched').length,
 			correctlyNew: outcomes.filter((o) => o.outcome === 'correctly_new').length,
 			asked: outcomes.filter((o) => o.outcome === 'asked').length,
+			narrowedPools: outcomes.filter((o) => o.scoredSize < o.poolSize).length,
 			outcomes
 		});
 	}

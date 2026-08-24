@@ -25,8 +25,16 @@
  * **What to read in the output.** `creates` is the count that moved between two replays of
  * byte-identical model output on the real notebook, 383 and then 386. `folds` is the same
  * number seen from the other side. `truncatedPools` is issue #627's own addition: how many
- * sightings were decided against a pool the cap cut short, which is zero for a job that
- * fits under it and was invisible before.
+ * sightings were decided against a pool the SQL cap cut short, which is zero for a job that
+ * fits under it and was invisible before. `narrowedPools` is issue #666's, and it is the
+ * figure to read next to it: how many were decided against a pool the *pre-filter* cut to
+ * 20. On this job, measured 2026-08-24, that is `truncatedPools: 0` against
+ * `narrowedPools: 234` of 449 sightings, over 59 of the 90 documents. The pool doing the
+ * narrowing is the job's own pending creates rather than committed canon, since nothing is
+ * accepted while a job runs: four creates a document over six types puts a type past 20 at
+ * document 31, and the 31 documents before that are exactly the 31 this run reports as not
+ * narrowed. Both numbers together are the honest shape of a run this size, and it was the
+ * first one alone that used to be reported.
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
@@ -176,6 +184,12 @@ interface RunReport {
 	folds: number;
 	truncatedPools: number;
 	documentsWithTruncatedPool: number;
+	/** Issue #666's own figures, the other cap's. `truncatedPools` is a claim about the SQL
+	 * 200 and nothing else, and on a job this size it is always zero, so on its own it reads
+	 * as "every sighting saw the whole universe" when the pre-filter had already cut the pool
+	 * to 20. */
+	narrowedPools: number;
+	documentsWithNarrowedPool: number;
 	seconds: number;
 }
 
@@ -251,15 +265,22 @@ async function runOnce(db: Db, label: string): Promise<RunReport> {
 			sql`${proposalPlan.importJobId} = ${job.id} and jsonb_array_length(coalesce(${proposal.evidence}->'foldedSources', '[]'::jsonb)) > 0`
 		);
 
-	// `truncatedPools` is #627's own field, and it does not exist before the fix, so read it
-	// defensively: this harness has to run against both sides to be worth anything.
-	const outcomes = result.documents as Array<{ truncatedPools?: number }>;
+	// `truncatedPools` is #627's own field and `narrowedPools` is #666's, and neither exists
+	// before its own fix, so read both defensively: this harness has to run against both
+	// sides to be worth anything.
+	const outcomes = result.documents as Array<{ truncatedPools?: number; narrowedPools?: number }>;
+	const sum = (read: (d: (typeof outcomes)[number]) => number | undefined): number =>
+		outcomes.reduce((total, d) => total + (read(d) ?? 0), 0);
+	const documentsWith = (read: (d: (typeof outcomes)[number]) => number | undefined): number =>
+		outcomes.filter((d) => (read(d) ?? 0) > 0).length;
 	return {
 		label,
 		creates: creates!.n,
 		folds: folded!.n,
-		truncatedPools: outcomes.reduce((sum, d) => sum + (d.truncatedPools ?? 0), 0),
-		documentsWithTruncatedPool: outcomes.filter((d) => (d.truncatedPools ?? 0) > 0).length,
+		truncatedPools: sum((d) => d.truncatedPools),
+		documentsWithTruncatedPool: documentsWith((d) => d.truncatedPools),
+		narrowedPools: sum((d) => d.narrowedPools),
+		documentsWithNarrowedPool: documentsWith((d) => d.narrowedPools),
 		seconds: Math.round(seconds * 10) / 10
 	};
 }

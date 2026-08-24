@@ -419,6 +419,16 @@ export interface DocumentOutcome {
 	 * count is what says a fold rate measured on this run is not comparable with one measured
 	 * on a smaller universe. */
 	truncatedPools: number;
+	/** issue #666: sightings in this document whose pool the *pre-filter* cut, which is a
+	 * different and much earlier cap than the one above. `candidateEntitiesForMatching` reads
+	 * at most 200 rows of one type; `preFilterCandidates` then keeps 20 of them, ranked by
+	 * name and alias token overlap with the subject and tied on the pool's own order, so for
+	 * a subject sharing no token with any candidate the 20 that reach the scorer are the
+	 * alphabetically first 20. This number is here because `truncatedPools: 0` on its own
+	 * reads as "nothing was dropped" and is only ever a claim about the 200: one type reaches
+	 * 21 entities at 69 to 121 entries depending on the type mix (#641), so a small campaign
+	 * can have every sighting decided on a window and still report zero truncated pools. */
+	narrowedPools: number;
 	/** issue #177: the settling `progress` event's own `detail` (issue #169 made every
 	 * terminal status specific and legible - "stuck in a loop: source_list was called
 	 * with identical arguments 4 times in a row..." rather than a generic "this
@@ -619,6 +629,7 @@ export class ImportJobRunner {
 					proposalsCreated: 0,
 					droppedRelations: newRelationDropLedger(),
 					truncatedPools: 0,
+					narrowedPools: 0,
 					lostToolCallCount: 0,
 					skippedImages: [],
 					detail: 'unchanged since the last import'
@@ -865,6 +876,7 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 	let proposalsCreated = 0;
 	let relationDrops = newRelationDropLedger();
 	let truncatedPools = 0;
+	let narrowedPools = 0;
 	const buffer = ctx.buffers.get(event.documentId);
 	if (buffer && (event.status === 'finished' || event.status === 'stopped_at_ceiling')) {
 		const materialized = await materializeDocumentProposals(
@@ -877,6 +889,7 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 		proposalsCreated = materialized.proposalsCreated;
 		relationDrops = materialized.relationDrops;
 		truncatedPools = materialized.truncatedPools;
+		narrowedPools = materialized.narrowedPools;
 		if (proposalsCreated > 0 && ctx.params.userId) {
 			await spendCredits(ctx.params.db, {
 				userId: ctx.params.userId,
@@ -906,6 +919,7 @@ async function handleEvent(event: JobEvent, ctx: HandleEventContext): Promise<vo
 		proposalsCreated,
 		droppedRelations: relationDrops,
 		truncatedPools,
+		narrowedPools,
 		lostToolCallCount: ctx.partialLossByDocument.get(event.documentId) ?? 0,
 		skippedImages: ctx.skippedImagesByDocument.get(event.documentId) ?? [],
 		detail: event.detail
@@ -933,6 +947,7 @@ interface MaterializeResult {
 	proposalsCreated: number;
 	relationDrops: RelationDropLedger;
 	truncatedPools: number;
+	narrowedPools: number;
 }
 
 /**
@@ -1364,6 +1379,11 @@ async function materializeDocumentProposals(
 	// measured over truncated pools is a different number from one measured over complete
 	// pools and the benchmark has no way to tell them apart unless the run says so.
 	let truncatedPools = 0;
+	// issue #666: and sightings whose pool the pre-filter cut, which is the cap that decides.
+	// Counted from `resolveMatch`'s own callback rather than from `candidates.length` here,
+	// because a sighting settled by an external id or an identity collision never reaches the
+	// pre-filter and must not be counted as narrowed by it.
+	let narrowedPools = 0;
 	const sourceTexts = await readSourceTextsForContext(params, buffer);
 
 	// The identity pool (issue #479), built once for the document rather than per entity:
@@ -1459,7 +1479,10 @@ async function materializeDocumentProposals(
 					}),
 			candidates: [...candidatePool.candidates, ...pendingPool.candidates].map(toMatchCandidate),
 			similarity: params.similarity,
-			thresholds: params.thresholds
+			thresholds: params.thresholds,
+			onPreFilter: ({ poolSize, scoredSize }) => {
+				if (scoredSize < poolSize) narrowedPools += 1;
+			}
 		});
 
 		if (
@@ -1776,7 +1799,12 @@ async function materializeDocumentProposals(
 				lastImportJobId: params.dbJobId
 			});
 		}
-		return { proposalsCreated: 0, relationDrops: declined.relationDrops, truncatedPools };
+		return {
+			proposalsCreated: 0,
+			relationDrops: declined.relationDrops,
+			truncatedPools,
+			narrowedPools
+		};
 	}
 
 	const { proposals } = await createProposalPlan(db, {
@@ -1812,7 +1840,8 @@ async function materializeDocumentProposals(
 	return {
 		proposalsCreated: proposals.length,
 		relationDrops: declined.relationDrops,
-		truncatedPools
+		truncatedPools,
+		narrowedPools
 	};
 }
 

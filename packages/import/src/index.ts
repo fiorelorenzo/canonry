@@ -161,6 +161,7 @@ export {
 	findIdentityCollision,
 	EMBEDDING_MATCH_THRESHOLDS,
 	MATCH_THRESHOLDS,
+	DEFAULT_PRE_FILTER_LIMIT,
 	type MatchCandidate,
 	type MatchContext,
 	type MatchSubject,
@@ -169,7 +170,8 @@ export {
 	type SimilarityFn,
 	type ResolveMatchInput,
 	type IdentityCandidate,
-	type SubjectIdentity
+	type SubjectIdentity,
+	type PreFilterNarrowing
 } from './matching.js';
 
 export {

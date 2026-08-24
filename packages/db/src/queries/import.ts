@@ -488,7 +488,11 @@ export interface MatchCandidatePool {
  * knowing before reading `truncatedPools` as "the pool was complete": one type reaches 21
  * entities at 69 to 121 entries depending on the type mix, and from there the 20 candidates
  * that reach the scorer for a subject sharing no token with any of them are the
- * alphabetically first 20. */
+ * alphabetically first 20. Issue #666 counted that separately rather than leaving it to be
+ * inferred, so `DocumentOutcome.narrowedPools` is the figure to read next to `truncated`
+ * here, and it kept the 20 on a measurement recorded in `DEFAULT_PRE_FILTER_LIMIT`'s own
+ * comment: the scripted 90-document job of `packages/bench/src/e2e/pool-determinism.ts`
+ * reports zero truncated pools and 234 narrowed ones out of 449 sightings. */
 export async function candidateEntitiesForMatching(
 	db: Db,
 	universeId: string,

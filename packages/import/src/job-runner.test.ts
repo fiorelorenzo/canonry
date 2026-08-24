@@ -378,6 +378,8 @@ describe('ImportJobRunner (issues #26, #27, #30, #36)', () => {
 					deferred: 0
 				},
 				truncatedPools: 0,
+				// And neither cap ever narrowed a pool it never read (#666).
+				narrowedPools: 0,
 				detail: 'unchanged since the last import'
 			}
 		]);
@@ -1871,6 +1873,89 @@ One document.
 		expect(scored.candidate.context?.type).toBe('character');
 		expect(scored.candidate.context?.summary).toBe('Dismissed captain of the Valdoria Watch.');
 		expect(scored.candidate.context?.sourceSentence).toBeNull();
+	});
+
+	// Issue #666: the whole point of the figure. `truncatedPools` counts the SQL cap, which a
+	// universe of 25 entities is nowhere near, so before this it read as "every sighting saw
+	// the whole universe" while the pre-filter had already thrown 5 of the 25 candidates away
+	// and, for a subject sharing no token with any of them, decided which 20 on `ORDER BY
+	// slug` alone. 21 of one type is the boundary and this fixture sits just past it.
+	it('counts the pre-filter narrowing per document, next to the SQL truncation it is not (issue #666)', async () => {
+		await priceFixture();
+		const { userId, universeId } = await userAndUniverse();
+		const prefix = `pool-${randomUUID().slice(0, 8)}`;
+		await db.insert(entity).values(
+			Array.from({ length: 25 }, (_, i) => ({
+				universeId,
+				type: 'character' as const,
+				// Names sharing no token with the subject below, so every candidate overlaps it
+				// equally at zero and the tie-break on the pool's order is the whole decision.
+				name: `Bystander ${String(i).padStart(2, '0')}`,
+				slug: `${prefix}-${String(i).padStart(2, '0')}`,
+				body: 'Somebody in the crowd.'
+			}))
+		);
+
+		const playbook = await loadBuiltinPlaybook('generic');
+		const sources = new InMemorySourceReader({
+			files: { 'notes/aldric.md': 'Aldric Vane commands the harbour watch, for now.' }
+		});
+		const admission = await admitAndCreateImportJob(db, {
+			universeId,
+			createdBy: userId,
+			sourceType: 'obsidian',
+			playbook: playbook.id,
+			playbookVersion: playbook.version,
+			artefactPath: 's3://fixtures/narrowed-pool.zip',
+			artefactBytes: 100,
+			artefactSha256: 'd'.repeat(64),
+			documentCount: 1,
+			budgetCredits: 1000,
+			estimate: { documentCount: 1, estimatedMinutes: 1, estimatedCredits: 10 },
+			concurrencyLimit: 5
+		});
+		expect(admission.admitted).toBe(true);
+
+		let scoredCandidates = 0;
+		const counting: SimilarityFn = () => {
+			scoredCandidates += 1;
+			return 0;
+		};
+
+		const model = scriptedModel([
+			toolCallStep([{ id: 'c1', name: 'source_read', input: { path: 'notes/aldric.md' } }]),
+			entityStep('c2', 'e1', 'Captain Aldric Vane', 'doc-1'),
+			finishStep('c3')
+		]);
+		const result = await new ImportJobRunner().run({
+			db,
+			driver: new GatewayDriver({
+				gateway: IDENTITY_GATEWAY,
+				models: fixedModelSelector(model)
+			}),
+			dbJobId: admission.jobId,
+			universeId,
+			sourceSystem: 'obsidian',
+			userId,
+			playbook,
+			documents: [{ id: 'doc-1', sourcePath: 'notes/aldric.md' }],
+			sources,
+			images: new InMemoryImageStore(),
+			budget: { maxCredits: 1000 },
+			similarity: counting,
+			thresholds: { matchAbove: 0.85, newBelow: 0.5 },
+			embedRelationLabel: stubEmbedRelationLabel,
+			timeoutMs: 30_000
+		});
+
+		expect(result.finalStatus).toBe('finished');
+		const [outcome] = result.documents;
+		// The two numbers that used to be one: nothing near the 200 cap, and a pool cut anyway.
+		expect(outcome?.truncatedPools).toBe(0);
+		expect(outcome?.narrowedPools).toBe(1);
+		// And the narrowing is the pre-filter's 20 and not the 25 the universe holds, which is
+		// what makes `narrowedPools` a claim about the scorer's input rather than about SQL.
+		expect(scoredCandidates).toBe(20);
 	});
 
 	describe('missing_in_source bookkeeping (issue #163, SPEC.md §6.4)', () => {

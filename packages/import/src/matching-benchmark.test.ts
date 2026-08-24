@@ -291,12 +291,17 @@ describe('runPoolOrderingBenchmark (issue #641)', () => {
 			orderingId: 'truth-last',
 			trueCandidateMissing: 0,
 			trueCandidateUnscored: 1,
+			// Issue #666: the pool was not truncated and was narrowed anyway, which is the
+			// distinction the two figures exist to keep apart.
+			narrowedPools: 1,
 			falseSplits: 1
 		});
+		expect(last!.outcomes[0]).toMatchObject({ poolSize: 3, scoredSize: 2, truncated: false });
 		expect(first).toMatchObject({
 			orderingId: 'truth-first',
 			trueCandidateMissing: 0,
 			trueCandidateUnscored: 0,
+			narrowedPools: 1,
 			matched: 1
 		});
 	});
@@ -323,5 +328,8 @@ describe('runPoolOrderingBenchmark (issue #641)', () => {
 			weightedCost: 0
 		});
 		expect(report.scores[0]!.outcomes[0]!.trueCandidateInPool).toBeNull();
+		// And nothing was narrowed, because there was nothing to narrow: a pre-filter that never
+		// dropped a row must not read as one that did (issue #666).
+		expect(report.scores[0]).toMatchObject({ narrowedPools: 0 });
 	});
 });
