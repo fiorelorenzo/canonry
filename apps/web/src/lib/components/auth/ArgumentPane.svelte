@@ -18,6 +18,18 @@
 	 * chrome around this mock rather than C1's own mark. The before/after sentence is a
 	 * diff, so it now reads as one on P3's hue-less `--color-diff-line`/`--color-diff-bg`,
 	 * the exact treatment `ProposalDiffCard.svelte` uses for a real proposal.
+	 *
+	 * #729: the two entity names here are not headings, and that is deliberate. This pane
+	 * is a picture of the product's own UI drawn in marketing copy, so "Aldric Vane" and
+	 * "The Valdoria Watch" are labels inside a simulated proposal card rather than sections
+	 * of the sign-up document, the same way text inside a screenshot is not a heading. They
+	 * used to be `<h3>` under AuthShell's `sr-only <h1>`, which skipped h2 and made the
+	 * page's outline depend on its width: the pane is `hidden min-[900px]:block`, so the
+	 * two headings were in the DOM at every width and only exposed above 900px, where axe
+	 * reported `heading-order`. The real card this mock imitates, `ProposalDiffCard`, takes
+	 * its heading level from the caller (#672) and renders the entity name as a plain link
+	 * whenever it has a slug, so "no heading" is what this context asks for rather than a
+	 * level to pick. The outline is now one `<h1>` at every width.
 	 */
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import { messages, type Locale } from '$lib/i18n';
@@ -33,7 +45,7 @@
 
 	<div class="rounded-md border border-line bg-panel p-4">
 		<div class="flex items-center justify-between gap-2">
-			<h3 class="font-serif text-title font-semibold text-ink">Aldric Vane</h3>
+			<p class="font-serif text-title font-semibold text-ink">Aldric Vane</p>
 			<Badge variant="secondary">{characterLabel}</Badge>
 		</div>
 		<p class="mt-2 text-body text-ink-2">{t.aldricSentence}</p>
@@ -41,7 +53,7 @@
 
 	<div class="rounded-md border border-line bg-panel p-4">
 		<div class="flex items-center justify-between gap-2">
-			<h3 class="font-serif text-title font-semibold text-ink">The Valdoria Watch</h3>
+			<p class="font-serif text-title font-semibold text-ink">The Valdoria Watch</p>
 			<Badge variant="secondary">{t.waitingBadge}</Badge>
 		</div>
 		<p class="mt-2 border-l-2 border-diff-line bg-diff-bg py-0.5 pr-2 pl-3 text-body text-ink-2">
