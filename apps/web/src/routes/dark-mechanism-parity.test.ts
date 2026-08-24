@@ -65,15 +65,25 @@
  *    to catch. It is also the reason a media branch cannot simply be widened to "dark OS".
  *    Either value rather than only `dark`, because a `prefers-color-scheme: light` block
  *    that forgot it would repaint the GM who chose Dark, and that would pass unnoticed.
+ * 5. **Both branches of the variant exclude a light island under their own dark root.**
+ *    #743: the two dark conditions above say "this document is in dark", and a variant has
+ *    to mean "this element is in dark". The token half never had the bug, because a custom
+ *    property is declared on the element and inheritance resolves the nearest scope for
+ *    free; a selector about `<html>` keeps matching straight through a
+ *    `[data-theme='light']` subtree. The flat exclusion both #743 and #749 proposed is
+ *    asserted *against* here rather than for: `:not([data-theme='light'], ...)` unanchored
+ *    also excludes the gallery's dark column whenever `<html>` is the light scope, which is
+ *    measured, so each branch anchors its exclusion to the same root its positive half is
+ *    anchored to.
  *
  * ## What this cannot see
  *
  * It reads one file's text, so it holds the palette scopes of `layout.css` in step and
  * nothing else. It cannot tell you that a `dark:` utility renders, that the cascade
  * resolves the way the selector suggests, or that the result clears a contrast floor:
- * #727 verified all three in a browser across three cookie states, and this is the part
- * of that which is cheap enough to run on every push. Three specific edges, because a
- * guard whose limits nobody knows gets trusted past them:
+ * #727 verified all three in a browser across three cookie states, #743 did it again
+ * across six, and this is the part of that which is cheap enough to run on every push.
+ * Three specific edges, because a guard whose limits nobody knows gets trusted past them:
  *
  * - **Cascade order is not asserted, and #754 measured that it could not usefully be.**
  *   `@theme`'s output and both attribute scopes land at specificity (0,1,0) in
@@ -83,11 +93,14 @@
  *   2229 in the built asset, because Tailwind emits that output at the `@import` position
  *   regardless. An assertion on the source order would guard nothing while reading as
  *   though it guarded the thing that decides which palette wins.
- * - **The variant still crosses into a nested `[data-theme='light']` island** (#743), so
- *   with `<html>` dark a `dark:` utility fires inside `/dev/ui`'s light pane and paints
- *   the light value of the token it names. That is text this file could read, and it is
- *   deliberately not asserted, because the assertion would fail on `main`. Whoever closes
- *   #743 turns this bullet into assertion 5.
+ * - **The island exclusion is depth-limited, and no selector can lift that.** Assertion 5
+ *   holds the two branches to excluding a light island one level below their own dark
+ *   root, which is every level the app has, `<html>` plus one `<section data-theme>` in
+ *   the two dev galleries. CSS cannot quantify over the path between two ancestors, so a
+ *   third level (`dark > light > dark`) reads the wrong scope again and every assertion
+ *   here still passes. A future surface that nests deeper is the first thing to check, and
+ *   the depth-free spelling is the style query named in `layout.css`'s own comment, which
+ *   is not written yet for the browser-support reason recorded there.
  * - **`app.html`'s two `theme-color` metas and `static/favicon.svg`** are selected by a
  *   media query rather than by the attribute, and a `<meta>` cannot read the attribute at
  *   all, so this file has no way to hold either of them in step with anything. #740 is the
@@ -149,6 +162,47 @@ function declaredValues(body: string): Map<string, string> {
 			m[2].trim().replace(/\s+/g, ' ')
 		])
 	);
+}
+
+/**
+ * The selector with every balanced `:where(...)` group removed, so what is left is
+ * whatever the variant still contributes to specificity. Depth-aware rather than a
+ * regex, because the exclusions nest `:not(...)` inside `:where(...)` and a non-greedy
+ * regex stops at the first `)`, which is inside the argument rather than after it.
+ */
+function stripWhere(selector: string): string {
+	let out = '';
+	for (let i = 0; i < selector.length;) {
+		if (selector.startsWith(':where(', i)) {
+			let depth = 0;
+			let j = i + ':where'.length;
+			for (; j < selector.length; j++) {
+				if (selector[j] === '(') depth++;
+				else if (selector[j] === ')' && --depth === 0) break;
+			}
+			i = j + 1;
+			continue;
+		}
+		out += selector[i];
+		i++;
+	}
+	return out.trim();
+}
+
+/**
+ * Each branch's own selector text, on one line. The variant's body is `<selector> {
+ * @slot; }` twice, once bare and once inside the media block, so the selector is
+ * everything before that rule's first brace.
+ */
+function branchSelectors(): { attribute: string; media: string } {
+	const [{ body }] = variant;
+	const selectorOf = (text: string) => text.slice(0, text.indexOf('{')).replace(/\s+/g, ' ').trim();
+	const mediaAt = body.search(MEDIA_DARK);
+	const [media] = blocks(body, MEDIA_DARK);
+	return {
+		attribute: selectorOf(body.slice(0, mediaAt)),
+		media: selectorOf(media.body)
+	};
 }
 
 const MEDIA_DARK = /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{/;
@@ -227,11 +281,45 @@ describe('the dark: variant covers both ways dark arrives (#727)', () => {
 	});
 
 	it('adds no specificity in either branch, so a dark: utility still wins on source order', () => {
-		// Both branches wrap their condition in :where(). If one of them stops doing that,
-		// it outranks its own unprefixed sibling asymmetrically and the two paths diverge
-		// again, in the cascade this time rather than in the selector.
-		const [{ body }] = variant;
-		expect(body.match(/:where\(/g)).toHaveLength(2);
+		// Every condition either branch adds sits inside a :where(), so the variant weighs
+		// nothing and a `dark:` utility beats its unprefixed sibling on source order alone.
+		// Asserted structurally rather than by counting `:where(` occurrences, which is what
+		// this used to do: a count is also satisfied by the wrong two and, worse, it fails on
+		// any correct change to the selector, so #743's fix had to edit this line to land.
+		// `:not()` takes its most specific argument's weight, so an exclusion that escapes
+		// its wrapper is exactly the regression this catches.
+		for (const [name, selector] of Object.entries(branchSelectors())) {
+			expect(stripWhere(selector), `${name} branch, outside :where()`).toBe('&');
+		}
+	});
+});
+
+describe('the dark: variant does not reach into a light island (#743)', () => {
+	it('excludes the island element and its descendants, in both branches', () => {
+		// The same `(X, X *)` shape the positive half uses: the light `<section>` itself is
+		// in light, not only what is inside it.
+		const { attribute, media } = branchSelectors();
+		expect(attribute).toMatch(
+			/:not\(\s*\[data-theme='dark'\] \[data-theme='light'\], \[data-theme='dark'\] \[data-theme='light'\] \*\s*\)/
+		);
+		expect(media).toMatch(
+			/:not\(\s*html:not\(\[data-theme\]\) \[data-theme='light'\], html:not\(\[data-theme\]\) \[data-theme='light'\] \*\s*\)/
+		);
+	});
+
+	it('anchors each exclusion to its own branch root, never flatly', () => {
+		// The flat form is the one both #743 and #749 proposed and the one that is wrong:
+		// `<html data-theme='light'>` is itself a light scope, so an unanchored exclusion
+		// also switches the gallery's *dark* column off whenever the GM has chosen Light.
+		// Measured on this branch before the fix: the dark pane's first input went from
+		// `#110e08` to no fill at all in both cookie=light rows. The two branches therefore
+		// cannot share one exclusion, which is the one place the "both branches or neither"
+		// rule above needs a different spelling per branch rather than the same one twice.
+		for (const [name, selector] of Object.entries(branchSelectors())) {
+			expect(selector, `${name} branch carries the flat exclusion`).not.toMatch(
+				/:not\(\s*\[data-theme='light'\]/
+			);
+		}
 	});
 });
 
