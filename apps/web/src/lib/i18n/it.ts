@@ -19,7 +19,7 @@ const PROPOSAL_REJECT_REASON_LABELS_IT: Record<string, string> = {
 
 // #196 (decisione L1) / #197: le dieci chiavi del catalogo di serie (#195, fisse,
 // superficie API dal giorno del rilascio), ciascuna mappata sulla coppia da mostrare.
-// Di proprietà di `packages/copilot/src/relation-catalogue.ts`, non duplicata qui - il
+// Di proprietà di `packages/lang/src/relation-catalogue.ts`, non duplicata qui - il
 // resolver (`resolveRelationType`, #197) ha bisogno delle stesse identiche stringhe per
 // far corrispondere un'etichetta proposta in qualunque lingua, quindi esiste un solo
 // letterale per lingua, non due. Un tipo proprio di un universo non ha una voce qui, di

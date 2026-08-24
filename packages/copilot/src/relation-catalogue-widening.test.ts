@@ -23,12 +23,13 @@
  * a third party's private campaign.
  *
  * The catalogue is a module-level literal rather than something injectable
- * (`relation-catalogue.ts`'s own doc comment explains why fixed shipped content is not a
- * seam), so a test that needs an eleventh entry adds one to it and puts it back. That is
- * safe across this package's concurrently-running test files for the reason vitest forks
- * per file: each file gets its own module registry, so the mutation is never visible
- * outside this one. The `relation_type` row is not, since every file in a run shares one
- * database - it carries a key nothing else selects on and is deleted in `afterAll`.
+ * (`packages/lang/src/relation-catalogue.ts`'s own doc comment explains why fixed shipped
+ * content is not a seam), so a test that needs an eleventh entry adds one to it and puts
+ * it back. That is safe across this package's concurrently-running test files for the
+ * reason vitest forks per file: each file gets its own module registry, so the mutation is
+ * never visible outside this one. The `relation_type` row is not, since every file in a
+ * run shares one database - it carries a key nothing else selects on and is deleted in
+ * `afterAll`.
  */
 import { closeDb, isNull, and, eq } from '@canonry/db';
 import { relationType } from '@canonry/db/schema';

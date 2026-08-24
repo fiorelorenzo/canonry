@@ -16,7 +16,7 @@ const PROPOSAL_REJECT_REASON_LABELS_EN: Record<string, string> = {
 
 // #196 (decision L1) / #197: the shipped catalogue's ten keys (#195, fixed, API surface
 // from the day they ship), each mapped to their display pair. Owned by
-// `packages/copilot/src/relation-catalogue.ts`, not duplicated here - the resolver
+// `packages/lang/src/relation-catalogue.ts`, not duplicated here - the resolver
 // (`resolveRelationType`, #197) needs the exact same strings to match a proposed label
 // in any locale, so there is one literal per language, not two. A universe's own type
 // has no entry here on purpose - see `Messages.relationTypeLabel`'s doc comment.
