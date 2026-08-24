@@ -209,6 +209,50 @@ const ITALIAN_PREPOSITIONS: Record<string, true> = {
 	fra: true
 };
 
+/** The leading copulas rule 2 strips (issue #689), and the whole list rather than a
+ * sample of it: the third person of `essere` and of `to be`, present tense, singular and plural.
+ * That is what a relation label written as a sentence fragment uses ("è sindaco di", "is part
+ * of"), and it is a closed set because a copula is a closed-class word. `è` arrives here as `e`,
+ * since the caller folds diacritics before this runs, so this entry also strips the conjunction
+ * "and"; that is deliberate and cheap, because a relation label that opens with "and" is a
+ * fragment of a longer phrase whose relation is the rest of it, and because an Italian who types
+ * `e sindaco di` for `è sindaco di` gets the same collapse as one who types the accent.
+ *
+ * **What is deliberately not here, since a leading strip is the widest edit in this file.**
+ * `has`/`have`/`ha`/`hanno`, which are not copulas: `has member` is `member_of`'s shipped English
+ * inverse label and `ha come membro` its Italian one, so they are the one place a leading strip
+ * could move a catalogue string, and the measurement says they buy nothing anyway (stripping them
+ * collapses the same 8 questions on the recorded notebook as leaving them out, and folds
+ * `ha partecipato a` and `has secret passage to` onto labels nothing else reaches). Past and
+ * first/second-person forms are out for the reason `-sta` is: `era` and `sei` are homographs of
+ * an English noun and of the Italian for "six", and no label in either corpus uses one. */
+const LEADING_COPULAS: Record<string, true> = {
+	is: true,
+	are: true,
+	e: true,
+	sono: true
+};
+
+/** The copula rule's anchor: what has to appear in the remainder before the copula comes off.
+ * Deliberately a different set from `ITALIAN_PREPOSITIONS` above rather than a widening of it,
+ * because the gender rule's safety on English depends on `of` and `with` *not* being in its
+ * lookahead ("errata of", "vendetta with"), while this rule's whole point is to reach `is part
+ * of`. The Italian nine come from #669; the English six are the ones the shipped catalogue and
+ * the two measured corpora's labels actually use (`of` in five catalogue labels, `by` in five,
+ * plus `for`, `with`, `to` and `at` from the notebooks). An English shape whose preposition is
+ * not one of these, `is based on` or `is known as`, does not fold: that is a missed collapse
+ * rather than a wrong one, which is the cheap direction to be wrong in, and the set grows when a
+ * corpus shows one. */
+const RELATION_PREPOSITIONS: Record<string, true> = {
+	...ITALIAN_PREPOSITIONS,
+	of: true,
+	by: true,
+	for: true,
+	with: true,
+	to: true,
+	at: true
+};
+
 /** The four participle terminations that actually occur in the two measured corpora: the three
  * regular conjugations (`-ata` fondata, `-ita` costruita, `-uta` venduta) plus the commonest
  * irregular shape (`-tta` protetta, distrutta). `-sta` and `-sa` are deliberately absent: they
@@ -226,7 +270,7 @@ const MIN_PARTICIPLE_LENGTH = 6;
  * Lowercases, strips diacritics and collapses anything that is not a letter or digit to
  * single spaces - the same first move `packages/import/src/matching.ts`'s
  * `normalizeForMatching` makes for entity names, for the same reason (issue #36/#37: cheap,
- * free, and it is what makes "Employs" / "employs," / "employs" the same string). Then three
+ * free, and it is what makes "Employs" / "employs," / "employs" the same string). Then four
  * deliberately narrow morphology rules on top, since a *label* additionally needs "employs" /
  * "employ" / "employed" to collapse - the exact three-way example the epic names - which a
  * name-matching normaliser has no reason to do.
@@ -237,27 +281,47 @@ const MIN_PARTICIPLE_LENGTH = 6;
  * is permanent, so every rule here is sized to the collapses that were measured rather than to
  * the ones a lemmatiser would find.
  *
- * **Issue #669: two of the three rules are Italian, and neither is switched on by locale.** A
- * world's labels can be in any language and a real notebook mixes them, so the rules have to be
- * safe on English input rather than gated on a setting. What makes that possible is that both
- * Italian rules are anchored on *function words*, which are closed sets, rather than on a
- * suffix alone:
+ * **Issues #669 and #689: three of the four rules are morphology rather than punctuation, and
+ * none of them is switched on by locale.** A world's labels can be in any language and a real
+ * notebook mixes them, so the rules have to be safe on English input rather than gated on a
+ * setting. What makes that possible is that each one is anchored on *function words*, which are
+ * closed sets, rather than on a suffix alone:
  *
  * 1. An articled preposition folds onto its bare preposition, so `nominato dal` reads as
  *    `nominato da` and `situato nella` as `situato in`. Whole-word table.
- * 2. A feminine participle folds onto its masculine form, but *only* immediately before one of
- *    those bare prepositions, so `fondata da` reads as `fondato da` while English `errata of`
- *    and `vendetta with` are left alone: `of` and `with` are not Italian prepositions. `data`
+ * 2. A leading copula comes off, so `è sindaco di` reads as `sindaco di` and `is part of` as
+ *    `part of`, but *only* when what is left still contains one of the prepositions in
+ *    `RELATION_PREPOSITIONS` and something that is not a preposition. That anchor is what keeps
+ *    the rule off `has member`, and more to the point it is what stops the rule producing a
+ *    `key` made of nothing but a function word: without it `is in` normalises to `in`, and under
+ *    L1 that string is then permanently the identity of whatever else lands on it.
+ * 3. A feminine participle folds onto its masculine form, but *only* immediately before one of
+ *    the bare Italian prepositions, so `fondata da` reads as `fondato da` while English `errata
+ *    of` and `vendetta with` are left alone: `of` and `with` are not Italian prepositions. `data`
  *    and `via` are below the length floor and cannot reach the rule under any following word.
- * 3. The English inflection stripper, unchanged, with its own long-word guards so a short
+ * 4. The English inflection stripper, unchanged, with its own long-word guards so a short
  *    function word ending in "s"/"ed" ("as", "of", "is") survives.
  *
- * The residue, stated rather than hidden: an English label whose word ends in one of the four
+ * Rule 2 runs after rule 1 so its anchor sees a bare preposition (`è sindaco del`), and before
+ * rule 3 so a copula does not hide an agreement edit behind it (`è situata a` has to reach
+ * `situato a`).
+ *
+ * What rule 2 buys, measured rather than assumed: on its own it collapses one question of the
+ * recorded notebook's 122, covering 4 relations (`è sindaco di` onto `sindaco di`), and it turns
+ * 22 of the catalogue's 36 distinct strings into rung-1 matches through their copula form, in
+ * both locales: `is part of` onto `part of`, `is located in` onto `located in`, `is owned by`
+ * onto `owned by`, `è parte di` onto `parte di`, `è protetto da` onto `protetto da`. The active
+ * forms (`is commands`, `è protegge`) do not fold, which is right, since they are not a copula
+ * construction in the first place.
+ *
+ * The residue, stated rather than hidden. An English label whose word ends in one of the four
  * terminations *and* is followed by `in` or `a` does fold, `strata in` being the plausible one.
- * That is the cost of not switching on locale, it is one collapse rather than a mangling, and
- * the alternative is a rule that a mixed-language notebook defeats. Nothing in the shipped
- * catalogue changes under any of the three rules, in either locale, which is asserted rather
- * than asserted-in-prose (`relation-catalogue.test.ts`).
+ * A hyphenated leading initial tokenises to a bare letter, so `e-commerce partner of` folds onto
+ * `commerce partner of`. And `is a member of` keeps its article, because stripping one is not a
+ * copula rule and no corpus asked for it. Each is one collapse rather than a mangling, and the
+ * alternative in every case is a rule a mixed-language notebook defeats. Nothing in the shipped
+ * catalogue changes under any of the four rules, in either locale, which is asserted rather than
+ * asserted-in-prose (`relation-catalogue.test.ts`).
  */
 export function normalizeRelationLabel(raw: string): string {
 	const normalized = raw
@@ -267,10 +331,11 @@ export function normalizeRelationLabel(raw: string): string {
 		.replace(/[^\p{L}\p{N}]+/gu, ' ')
 		.trim();
 	if (normalized.length === 0) return normalized;
-	// Rule 1 first, so rule 2's lookahead sees the bare preposition: `fondata dalla` has to
-	// read as `fondato da`, which needs `dalla` to already be `da` when the participle is
-	// examined.
-	const words = normalized.split(' ').map((word) => ARTICLED_PREPOSITIONS[word] ?? word);
+	// Rule 1 first, so rules 2 and 3 see the bare preposition: `fondata dalla` has to read as
+	// `fondato da`, which needs `dalla` to already be `da` when the participle is examined, and
+	// `è sindaco del` needs the same before the copula's anchor is looked for.
+	const folded = normalized.split(' ').map((word) => ARTICLED_PREPOSITIONS[word] ?? word);
+	const words = withoutLeadingCopula(folded);
 	return words
 		.map((word, index) =>
 			stemWord(
@@ -280,7 +345,23 @@ export function normalizeRelationLabel(raw: string): string {
 		.join(' ');
 }
 
-/** Rule 2's body: only ever called on a word the caller has established is followed by an
+/** Rule 2's body. Returns `words` itself when the rule does not fire, so the common case
+ * allocates nothing: a label that does not open with a copula is every label in both corpora but
+ * fifteen. The two-word floor is what keeps a one-word label from normalising to the empty
+ * string, and the "something that is not a preposition" half of the anchor is what keeps `is in`
+ * from normalising to `in`. */
+function withoutLeadingCopula(words: string[]): string[] {
+	if (words.length < 2 || LEADING_COPULAS[words[0]!] !== true) return words;
+	let preposition = false;
+	let content = false;
+	for (let i = 1; i < words.length; i++) {
+		if (RELATION_PREPOSITIONS[words[i]!] === true) preposition = true;
+		else content = true;
+	}
+	return preposition && content ? words.slice(1) : words;
+}
+
+/** Rule 3's body: only ever called on a word the caller has established is followed by an
  * Italian preposition. */
 function masculineParticiple(word: string): string {
 	if (word.length < MIN_PARTICIPLE_LENGTH) return word;
@@ -290,7 +371,7 @@ function masculineParticiple(word: string): string {
 	return word;
 }
 
-/** Rule 3, the English inflection stripper, unchanged since #197. The length checks before
+/** Rule 4, the English inflection stripper, unchanged since #197. The length checks before
  * stripping "s"/"ed"/"ing" are what keep it off a short function word that happens to end the
  * same way. */
 function stemWord(word: string): string {

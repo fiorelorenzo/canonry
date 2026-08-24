@@ -54,7 +54,7 @@
  * once. Splitting the corpus by the proposed label's language would report a number
  * production cannot reproduce.
  *
- * **Eleven pairs carry `rungOne: true`, nine of them because they are byte-identical to a
+ * **Twelve pairs carry `rungOne: true`, nine of them because they are byte-identical to a
  * catalogue label, and that is their point.** Rung 1's normalised exact match already resolves
  * them, so they are present to be *subtracted*. #629's headline was that all three labels
  * crossing 0.86 on the real model were exact catalogue labels rung 1 had already matched, which
@@ -63,14 +63,16 @@
  * corpus's own test verifies each `rungOne` flag against the production predicate rather
  * than trusting the declaration.
  *
- * The other two are `protetta da` and `nominato dal`, and they were rung-2 pairs until issue
- * #669 taught `normalizeRelationLabel` Italian gender agreement and the enclitic article. That
- * they moved here rather than silently changing a number is exactly what the flag is for: both
- * were *correct* merges at the shipped threshold on the real model (0.9857 and 0.9585), so the
- * rung-2 subset lost two of its four true positives at 0.86 by having them resolved for free one
- * rung earlier. Nothing that was `distinct` moved, which is the property that mattered: a
- * `distinct` pair reaching rung 1 would be a false merge under L1 with no proposal in front of
- * it, and the test above is what would have caught it.
+ * The other three are `protetta da`, `nominato dal` and `is part of`, and they were rung-2 pairs
+ * until issues #669 and #689 taught `normalizeRelationLabel` Italian gender agreement, the
+ * enclitic article and the leading copula. That they moved here rather than silently changing a
+ * number is exactly what the flag is for: all three were *correct* merges at the shipped
+ * threshold on the real model (0.9857, 0.9585 and 0.8816 respectively), so the rung-2 subset has
+ * gone from 41 pairs and 16 true positives to **38 and 13** across the two issues, and each of
+ * the three merges 0.86 used to make is now made one rung earlier for no embedding call at all.
+ * Nothing that was `distinct` moved, which is the property that mattered: a `distinct` pair
+ * reaching rung 1 would be a false merge under L1 with no proposal in front of it, and the test
+ * above is what would have caught it.
  *
  * **No pair against `ally_of` is labelled `inverse`.** Its inverse label is itself, so a
  * direction is meaningless there and a corpus that claimed one would be measuring
@@ -314,8 +316,8 @@ export const ONENOTE_RELATION_LABEL_CORPUS: RelationLabelCorpus = {
 			proposedLabel: 'is part of',
 			catalogueKey: 'part_of',
 			verdict: 'same',
-			rungOne: false,
-			note: "the catalogue's own label with a copula in front, which `normalizeRelationLabel` does not strip. The easiest true pair in the set, and it anchors the top of the range: a scorer that splits this splits everything"
+			rungOne: true,
+			note: "the catalogue's own label with a copula in front, and the pair #689 was filed off: it was the easiest true pair in the set at 0.8816, the one that anchored the top of the range, and it is now a rung-1 exact match costing no embedding call, because `normalizeRelationLabel` strips a leading copula when a preposition survives it. Kept here rather than deleted for the same reason `protetta da` was: it is the cheapest true pair in English, so it is the one that says most if rung 1 ever stops seeing it"
 		},
 
 		// -------------------------------------------------------------------------------
