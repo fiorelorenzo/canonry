@@ -284,26 +284,74 @@ function cosineSimilarity(a: number[], b: number[]): number {
  *
  * Issue #629 measured half of it, on the real Italian notebook #613 recorded: all 126 labels
  * that import proposed, scored against the whole locale-expanded catalogue with the gateway
- * embedding model production actually resolves (`alibaba/qwen3-embedding-4b`, 2560d). At 0.86
- * three labels cross, and all three are exact catalogue labels rung 1 had already matched, so
- * this rung contributed nothing on that corpus; the highest score any genuine rung-2
- * candidate reached is 0.8414, "situata in" against `located in`. At 0.80 eleven cross, and
- * reading the eight new ones by hand they are about five right ("lavora per" onto `employs`)
- * and three wrong ("occupato da" onto `owns`, "contiene parti di" onto `part of`, which is
- * inverted rather than merely loose). At 0.70 fifty-six cross and the list contains
- * "combatte contro" merged onto `ally of`, the opposite relation.
+ * embedding model production actually resolves (`alibaba/qwen3-embedding-4b`, 2560d). **Its
+ * numbers were taken with a broken instrument and are not quoted here any more** (#668): the
+ * bench harness's embedding cache returned a displaced vector after a duplicate in a batch, and
+ * the batch `bestSemanticMatch` builds carries four, so 19 of the 36 strings the catalogue is
+ * known by were scored against the wrong vector. What survived the correction is #629's
+ * conclusion rather than its table: at 0.86 nothing crosses that rung 1 had not already
+ * matched, and the highest score any genuine rung-2 candidate reaches is 0.8414, "situata in"
+ * against `located in`. That number has now been reproduced three times through three code
+ * paths, which is why it is the one figure from #629 worth keeping.
  *
- * That is the shape of the curve and not the gold set, so this number still should not move:
- * a precision figure needs labelled pairs, which is #637. What the measurement does settle is
- * that lowering the threshold is not the lever it looks like. Ten shipped types against the
- * 113 distinct concepts that notebook wanted is the actual gap (#639), and no cutoff closes
- * it, because a label can only merge onto a type that exists.
+ * #637 built the gold set and exported this constant to do it: 50 labelled pairs, three
+ * outcomes (`same` / `inverse` / `distinct`), false merge weighted 5x, direction error 2x,
+ * false split 1x, run against the real gateway model by
+ * `pnpm --filter @canonry/bench relation-label-sweep`. **Issue #657 is where this number was
+ * finally priced, and the answer is that it stays.** The rung-2-only subset, 39 pairs of which
+ * 14 are true, 5 runs:
  *
- * #637 built the gold set, and exported this constant to do it. `matching.ts` exports
- * `MATCH_THRESHOLDS` for the same reason: a sweep has to state what the shipped value costs
- * on the corpus, next to what the optimum costs, or it is only reporting an optimum. Nothing
- * outside a benchmark reads it, and `resolveRelationType` is still the only thing that
- * decides with it.
+ * | threshold | false merges | direction errors | false splits | merged of 14 | cost |
+ * | --- | --- | --- | --- | --- | --- |
+ * | 0.82 | 0 | 1 | 9 | 5 | 11 |
+ * | 0.84 | 0 | 0 | 11 | 3 | **11** |
+ * | 0.86 (shipped) | 0 | 0 | 12 | 2 | 12 |
+ * | 0.90 | 0 | 0 | 14 | 0 | 14 |
+ *
+ * So the corpus's cost minimum is 11 and this value costs 12, one false split above it. Three
+ * reasons it stays there anyway, and the third is the one that decided it:
+ *
+ * 1. **The whole difference is one pair, 0.0014 above 0.84.** "situata in" at 0.8414 is what
+ *    the notch buys, and the 0.01 jitter floor `matching-sweep` carries from #279's measurement
+ *    on this same model is seven times that headroom. The sweep says so itself: it reports 0.84
+ *    as the cheapest threshold and 0.86 as the cheapest one no pair's jitter can cross. The
+ *    observed spread on these labels is 0.0000 to 0.0011 over five runs, twenty times under the
+ *    floor, so the floor rather than the observation is doing the work - and a floor is the
+ *    right thing to trust for a constant that only moves when somebody re-measures it.
+ * 2. **The cost gap is entirely in the cheap direction.** Both thresholds commit zero false
+ *    merges and zero direction errors; 12 against 11 is one extra false split, which costs a GM
+ *    one decision that #192's `mergeRelationTypes` undoes. A false merge under L1 does not undo.
+ * 3. **On the corpus that motivated all of this, the notch buys one relation of 187 and no
+ *    questions at all.** Replayed at 0.84 against the kept OneNote recording: 122 vocabulary
+ *    questions, exactly as at 0.86, and one extra `relation_type_reuse` ("situata in" onto
+ *    `located_in`) carrying a single relation. The other ten relations under that label match
+ *    the type and then fail its admission check, so they fork under the shipped `located in`
+ *    label and land on a question that already existed; and the six relations written
+ *    "situato in" score 0.8221, so 0.84 splits a group #669's normaliser had just merged into
+ *    one question. Whatever else that is, it is not a lever.
+ *
+ * **Issue #669 is why the value of this rung fell rather than the threshold moving.** It taught
+ * `normalizeRelationLabel` Italian gender agreement and the enclitic article, and two of the
+ * four correct merges 0.86 was buying on the gold set ("protetta da" at 0.9857, "nominato dal"
+ * at 0.9585) are now resolved at rung 1 for free, with no embedding call. The cost curve did not
+ * move, because both were above 0.86 and removing a correct merge above the threshold removes no
+ * error at or below it; what moved is what the rung is for. It buys two pairs on the gold set now
+ * instead of four, and four reuse proposals on the real notebook. Paying for a fifth with a
+ * permanent `key` is the wrong trade at this evidence level.
+ *
+ * What would change this answer, stated so the next person does not have to re-derive it: a
+ * second corpus, in a language that is not Italian. The gold set is 50 pairs from one Italian
+ * notebook and is deliberately enriched with boundary cases, so "3 correct merges of 14 at 0.84"
+ * is the behaviour on pairs chosen to sit near the line and not a hit rate over arbitrary
+ * labels. Re-run the sweep on any embedding-model change (`docs/models.md`'s `embedding`
+ * section names it beside `matching-sweep`), and if a second corpus puts a second pair in the
+ * 0.84-0.86 band, move it: at that point the case is two independent pairs rather than one
+ * inside the jitter floor.
+ *
+ * `matching.ts` exports `MATCH_THRESHOLDS` for the same reason this is exported: a sweep has to
+ * state what the shipped value costs on the corpus, next to what the optimum costs, or it is
+ * only reporting an optimum. Nothing outside a benchmark reads it, and `resolveRelationType` is
+ * still the only thing that decides with it.
  */
 export const SEMANTIC_REUSE_THRESHOLD = 0.86;
 

@@ -324,6 +324,26 @@ matching side, and it is why `EMBEDDING_MATCH_THRESHOLDS` is a separate constant
 the same pair 0.802 and 0.799, so treat a threshold placed within about 0.01 of an observed
 score as noise rather than as a decision.
 
+The same model decides one more threshold, and issue #657 priced it rather than moving it.
+`SEMANTIC_REUSE_THRESHOLD` (`packages/copilot/src/relation-types.ts`) is the cutoff
+`resolveRelationType`'s semantic rung reuses an existing relation type at, and it is a
+short-label cosine scale rather than either of the two above: one to three words, not a name and
+not a passage. On #637's 50-pair gold set, the rung-2-only subset of 39 pairs over 5 runs, the
+weighted-cost minimum is 11 at both 0.82 and 0.84 and the shipped 0.86 costs 12, entirely in
+false splits, with zero false merges from 0.82 up. It stays at 0.86: the whole difference is one
+pair at 0.8414, which is 0.0014 of headroom against the 0.01 jitter floor the paragraph above
+records, and replaying the real OneNote notebook at 0.84 buys one reuse carrying one relation of
+187 and does not move the vocabulary-question count at all. The constant's own comment carries
+the table and the three reasons. Re-derive with
+`pnpm --filter @canonry/bench relation-label-sweep`, which costs 1,380 embedding tokens and zero
+credits, and re-run it on any change to this row.
+
+Worth recording next to it, because it is a fact about this model rather than about the
+threshold: run-to-run spread on those short labels is 0.0000 to 0.0011 over five runs, twenty
+times smaller than the 0.01 the same model shows on entity names. Short labels are far more
+stable here than names are, which is the opposite of what #637 expected, so do not carry the
+names figure across to labels without measuring.
+
 ## `scene`: bytedance/seedream-4 (issue #258)
 
 `image_feature` has three values and `image_model_config` had two rows, so `scene` was
