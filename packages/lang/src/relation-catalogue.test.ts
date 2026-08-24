@@ -262,7 +262,76 @@ describe('the copula rule is anchored rather than a bare leading strip (issue #6
 	});
 });
 
-describe('the shipped catalogue is unmoved by all three morphology rules (issues #669, #689)', () => {
+describe('the passive-agent marker keeps a participle whole (issue #697)', () => {
+	it('keeps the `-ed` of the five catalogue inverse labels', () => {
+		// Each of these is its forward label's stem plus `by` once the stripper has run, so before
+		// this rule the whole direction signal was that one function word, and since #690 the
+		// stemmed text is what rung 2 embeds.
+		expect(normalizeRelationLabel('employed by')).toBe('employed by');
+		expect(normalizeRelationLabel('owned by')).toBe('owned by');
+		expect(normalizeRelationLabel('commanded by')).toBe('commanded by');
+		expect(normalizeRelationLabel('protected by')).toBe('protected by');
+		expect(normalizeRelationLabel('appointed by')).toBe('appointed by');
+	});
+
+	it("still collapses the epic's three-way example, because a bare participle is not a passive", () => {
+		// The collapse #197 asked for is untouched: what the marker guards is a participle standing
+		// in front of its agent, not the participle.
+		expect(normalizeRelationLabel('employed')).toBe(normalizeRelationLabel('employs'));
+		expect(normalizeRelationLabel('appointed')).toBe(normalizeRelationLabel('appoints'));
+		expect(normalizeRelationLabel('Commanded By')).toBe(normalizeRelationLabel('commanded by'));
+	});
+
+	it('leaves the `-s` and `-ing` branches alone, so only the participle is guarded', () => {
+		expect(normalizeRelationLabel('guards by')).toBe('guard by');
+		expect(normalizeRelationLabel('guarding by')).toBe('guard by');
+	});
+
+	it('is two markers rather than every preposition, so a locative participle still folds', () => {
+		// `located in` is a shipped *forward* label whose inverse is `contains`, so `in` carries no
+		// direction and widening the set would edit a shipped string for nothing. The cost of that
+		// choice is `mentioned in`, which is a real inverse of `mentions` in the English corpus:
+		// both are proposed labels for a type the catalogue does not have, so rung 2 never scores
+		// one against the other, and the set grows when a corpus shows a case that is not that.
+		expect(normalizeRelationLabel('located in')).toBe('locat in');
+		expect(normalizeRelationLabel('mentioned in')).toBe('mention in');
+		expect(normalizeRelationLabel('associated with')).toBe('associat with');
+	});
+
+	it('does not fire on a short word that merely ends in "ed"', () => {
+		expect(normalizeRelationLabel('fed by')).toBe('fed by');
+		expect(normalizeRelationLabel('bed by')).toBe('bed by');
+	});
+});
+
+describe('the marker suppresses rule 4 and never rule 3 (issues #669, #697)', () => {
+	// The one ordering in this file that is load-bearing rather than incidental. `da` is a
+	// passive-agent marker and an Italian gender edit sits in front of one, so a guard written as
+	// "skip morphology before a marker" would leave `protetta da` and `protetto da` two questions
+	// and undo a rung-1 match #686 measured at 0.9857 on the real model. These cases fail under
+	// that reading of the rule and pass under the one that is implemented.
+	it('still folds a feminine participle standing before `da`', () => {
+		expect(normalizeRelationLabel('protetta da')).toBe('protetto da');
+		expect(normalizeRelationLabel('nominata da')).toBe('nominato da');
+		expect(normalizeRelationLabel('fondata da')).toBe('fondato da');
+	});
+
+	it('still folds the articled form through both rules', () => {
+		// Rule 1 turns `dal` into `da`, which is what rule 3's lookahead and rule 4's marker both
+		// read, so all three have to agree on one string.
+		expect(normalizeRelationLabel('nominato dal')).toBe('nominato da');
+		expect(normalizeRelationLabel('nominata dalla')).toBe('nominato da');
+		expect(normalizeRelationLabel('protetta dalla')).toBe('protetto da');
+	});
+
+	it('keeps an English participle whole in the same position', () => {
+		// `appointed da` is not a label anyone writes; it is the case that proves the two rules are
+		// reading the same following word and disagreeing about nothing.
+		expect(normalizeRelationLabel('appointed da')).toBe('appointed da');
+	});
+});
+
+describe('the shipped catalogue is unmoved by the morphology rules (issues #669, #689, #697)', () => {
 	// The strongest available guard. Every rule here is an addition to a function that decides
 	// rung 1, and rung 1 is what makes a shipped locale's label resolve at all (#197). If a
 	// catalogue string normalised differently after this change, every existing rung-1 match
@@ -278,12 +347,18 @@ describe('the shipped catalogue is unmoved by all three morphology rules (issues
 		for (const label of CATALOGUE_STRINGS) {
 			// Every shipped string is already lower case with single spaces, and none carries an
 			// articled preposition, a feminine participle or a leading copula, so the only rule that
-			// may touch one is the English stripper it has always been subject to.
-			const englishStripperOnly = label
-				.split(' ')
-				.map((word) => {
+			// may touch one is the English stripper it has always been subject to. Spelled out here
+			// rather than imported, so that widening a set in the module does not silently widen
+			// what this test believes the module is allowed to do. #697's marker is part of the
+			// stripper and so part of this model: it is what keeps `employed by` off `employ by`.
+			const words = label.split(' ');
+			const englishStripperOnly = words
+				.map((word, index) => {
+					const next = words[index + 1] ?? '';
 					if (word.length > 5 && word.endsWith('ing')) return word.slice(0, -3);
-					if (word.length > 4 && word.endsWith('ed')) return word.slice(0, -2);
+					if (word.length > 4 && word.endsWith('ed')) {
+						return next === 'by' || next === 'da' ? word : word.slice(0, -2);
+					}
 					if (word.length > 3 && word.endsWith('s') && !word.endsWith('ss')) {
 						return word.slice(0, -1);
 					}
@@ -291,6 +366,61 @@ describe('the shipped catalogue is unmoved by all three morphology rules (issues
 				})
 				.join(' ');
 			expect(normalizeRelationLabel(label), label).toBe(englishStripperOnly);
+		}
+	});
+
+	it('leaves no shipped type whose direction survives on a function word alone', () => {
+		/**
+		 * Issue #697, and the assertion that would have caught it the day #669 landed. It is not
+		 * enough that a type's two labels normalise to two strings: `employs` became `employ` and
+		 * `employed by` became `employ by`, which are two strings whose whole difference is one
+		 * function word, and since #690 that is the text rung 2 embeds. So the property is that
+		 * the two normalisations still differ once every function word is dropped from both.
+		 *
+		 * The function words are spelled out rather than imported for the reason above: this list
+		 * is the contract, and a set widened in the module must not widen it here. It is the union
+		 * of that module's `RELATION_PREPOSITIONS` and `LEADING_COPULAS`. `has` is deliberately
+		 * absent from both, which is why `member of` against `has member` passes on `has`; that is
+		 * #689's decision, recorded there, and this test inherits it rather than restating it.
+		 */
+		const FUNCTION_WORDS: Record<string, true> = {
+			da: true,
+			di: true,
+			in: true,
+			a: true,
+			su: true,
+			con: true,
+			per: true,
+			tra: true,
+			fra: true,
+			of: true,
+			by: true,
+			for: true,
+			with: true,
+			to: true,
+			at: true,
+			is: true,
+			are: true,
+			e: true,
+			sono: true
+		};
+		const contentWords = (label: string): string =>
+			normalizeRelationLabel(label)
+				.split(' ')
+				.filter((word) => FUNCTION_WORDS[word] !== true)
+				.join(' ');
+
+		for (const locale of LOCALES) {
+			for (const [key, entry] of Object.entries(RELATION_TYPE_CATALOGUE[locale])) {
+				// `ally_of` names itself in both directions, which is the relation being symmetric
+				// rather than the normaliser losing anything, so there is nothing to assert about it.
+				if (entry.label === entry.inverseLabel) continue;
+				const where = `${locale}/${key}: "${entry.label}" vs "${entry.inverseLabel}"`;
+				expect(normalizeRelationLabel(entry.label), where).not.toBe(
+					normalizeRelationLabel(entry.inverseLabel)
+				);
+				expect(contentWords(entry.label), where).not.toBe(contentWords(entry.inverseLabel));
+			}
 		}
 	});
 

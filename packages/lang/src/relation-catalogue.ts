@@ -253,6 +253,59 @@ const RELATION_PREPOSITIONS: Record<string, true> = {
 	at: true
 };
 
+/** The passive-agent marker, and the whole of it: `by` in English, `da` in Italian (issue #697).
+ * A participle standing immediately before one of these is the passive half of a relation, and
+ * the participle is where the direction lives: `employed by` against `employs`, `commanded by`
+ * against `commands`. Five of the ten shipped types name their inverse exactly that way
+ * (`employed by`, `owned by`, `commanded by`, `protected by`, `appointed by`), so once rule 4
+ * takes the `-ed` off, each one is its forward label's stem plus one function word, and since
+ * #690 that stemmed text is what rung 2 embeds rather than what a GM wrote. #628 is what a merge
+ * in the wrong direction costs, and a direction error is weighted 2x in #637's cost model.
+ *
+ * **What the rule is worth, measured on the real model rather than argued** (5 runs on
+ * `alibaba/qwen3-embedding-4b`, worst spread 0.0018; every number is a cosine between two
+ * normalised labels). It moves the inverse label towards the pairs it should win and away from
+ * the ones it should not:
+ *
+ * | cell | before | after |
+ * | --- | --- | --- |
+ * | `works for` / `employed by` (a true inverse) | 0.7573 | **0.7759** |
+ * | `guidato da` / `commanded by` (a true inverse) | 0.6537 | **0.7237** |
+ * | `hires` / `employed by` (a distractor on a `same` pair) | 0.8498 | **0.7537** |
+ * | `guards` / `protected by` (a distractor on a `same` pair) | 0.8011 | **0.7714** |
+ *
+ * It does **not** turn `works for` around: `work for` against `employ` stays 0.8206, so the pair
+ * is still read forward, by 0.0447 rather than by the 0.0634 it was. Nothing at or above 0.84
+ * ever saw it, and the floor that leaves under `SEMANTIC_REUSE_THRESHOLD` is recorded beside the
+ * constant. What the rule buys is the margin in the table above, and the property that a shipped
+ * type's direction no longer rests on one function word after this function has run, which
+ * `relation-catalogue.test.ts` asserts over all ten types rather than over these five labels.
+ *
+ * **Two entries rather than `RELATION_PREPOSITIONS`, and the label population is why.** Over the
+ * 289 distinct labels in the two recorded corpora plus the shipped catalogue, this set changes
+ * the normalisation of eight, every one of them a passive with an agent (the five catalogue
+ * inverses plus `visited by`, `trusted by` and `is influenced by`), and it collapses no group
+ * that did not already collapse and splits none that did: the partition of those 289 labels is
+ * identical before and after. Widening to every preposition additionally moves `located in`,
+ * `mentioned in` and `associated with`. The first is a shipped *forward* label whose inverse is
+ * `contains`, so `in` carries no direction there, and the third is symmetric; so the wide set
+ * edits a shipped string for a direction it cannot name, which is the expensive way to be wrong
+ * under L1. The residue that leaves is `mentions` against `mentioned in` in the English corpus,
+ * which is the same shape with a locative: they are both proposed labels for a type the
+ * catalogue does not have, so rung 2 never scores one against the other, and the set grows when
+ * a corpus shows a case that is not that.
+ *
+ * `da` changes nothing on that population, because an Italian passive marks itself on the
+ * participle (`protetto`, `nominato`) rather than with `-ed`, and rule 3 already owns that
+ * shape. It is here so the rule is the marker rather than the English half of the marker, and
+ * because its presence is what makes the order against rule 3 a decision rather than an
+ * accident: `protetta da` has to keep folding onto `protetto da`, which is a rung-1 match #686
+ * measured at 0.9857, so this guard suppresses rule 4 alone and never rule 3. */
+const PASSIVE_AGENT_MARKERS: Record<string, true> = {
+	by: true,
+	da: true
+};
+
 /** The four participle terminations that actually occur in the two measured corpora: the three
  * regular conjugations (`-ata` fondata, `-ita` costruita, `-uta` venduta) plus the commonest
  * irregular shape (`-tta` protetta, distrutta). `-sta` and `-sa` are deliberately absent: they
@@ -299,12 +352,20 @@ const MIN_PARTICIPLE_LENGTH = 6;
  *    the bare Italian prepositions, so `fondata da` reads as `fondato da` while English `errata
  *    of` and `vendetta with` are left alone: `of` and `with` are not Italian prepositions. `data`
  *    and `via` are below the length floor and cannot reach the rule under any following word.
- * 4. The English inflection stripper, unchanged, with its own long-word guards so a short
- *    function word ending in "s"/"ed" ("as", "of", "is") survives.
+ * 4. The English inflection stripper, with its own long-word guards so a short function word
+ *    ending in "s"/"ed" ("as", "of", "is") survives, and with one anchor of its own (#697): a
+ *    participle keeps its `-ed` when the next word is a passive-agent marker, so `employed by`
+ *    stays `employed by` while a bare `employed` still folds onto `employ`. That morpheme is the
+ *    whole direction signal of five shipped inverse labels, and since #690 the stemmed text is
+ *    what rung 2 embeds.
  *
  * Rule 2 runs after rule 1 so its anchor sees a bare preposition (`è sindaco del`), and before
  * rule 3 so a copula does not hide an agreement edit behind it (`è situata a` has to reach
- * `situato a`).
+ * `situato a`). Rule 3 runs before rule 4 and is **not** suppressed by rule 4's marker, which is
+ * the one ordering that is load-bearing rather than incidental: `da` is a passive-agent marker
+ * and `protetta da` is a gender edit sitting in front of one, so a guard that skipped all
+ * morphology before a marker would leave `protetta da` and `protetto da` two questions and undo
+ * #686's measured rung-1 match. Only the `-ed` strip is suppressed.
  *
  * What rule 2 buys, measured rather than assumed: on its own it collapses one question of the
  * recorded notebook's 122, covering 4 relations (`è sindaco di` onto `sindaco di`), and it turns
@@ -319,9 +380,10 @@ const MIN_PARTICIPLE_LENGTH = 6;
  * A hyphenated leading initial tokenises to a bare letter, so `e-commerce partner of` folds onto
  * `commerce partner of`. And `is a member of` keeps its article, because stripping one is not a
  * copula rule and no corpus asked for it. Each is one collapse rather than a mangling, and the
- * alternative in every case is a rule a mixed-language notebook defeats. Nothing in the shipped
- * catalogue changes under any of the four rules, in either locale, which is asserted rather than
- * asserted-in-prose (`relation-catalogue.test.ts`).
+ * alternative in every case is a rule a mixed-language notebook defeats. No rule but the English
+ * stripper touches a shipped catalogue string, in either locale, and no shipped type's forward
+ * and inverse labels normalise to strings that differ only in function words, which is asserted
+ * rather than asserted-in-prose (`relation-catalogue.test.ts`).
  */
 export function normalizeRelationLabel(raw: string): string {
 	const normalized = raw
@@ -337,11 +399,13 @@ export function normalizeRelationLabel(raw: string): string {
 	const folded = normalized.split(' ').map((word) => ARTICLED_PREPOSITIONS[word] ?? word);
 	const words = withoutLeadingCopula(folded);
 	return words
-		.map((word, index) =>
-			stemWord(
-				ITALIAN_PREPOSITIONS[words[index + 1] ?? ''] === true ? masculineParticiple(word) : word
-			)
-		)
+		.map((word, index) => {
+			const next = words[index + 1] ?? '';
+			// Rule 3 first and unconditionally, then rule 4 with the marker as its anchor: see the
+			// ordering paragraph above, `protetta da` is the case that makes the difference.
+			const agreed = ITALIAN_PREPOSITIONS[next] === true ? masculineParticiple(word) : word;
+			return stemWord(agreed, next);
+		})
 		.join(' ');
 }
 
@@ -371,12 +435,16 @@ function masculineParticiple(word: string): string {
 	return word;
 }
 
-/** Rule 4, the English inflection stripper, unchanged since #197. The length checks before
- * stripping "s"/"ed"/"ing" are what keep it off a short function word that happens to end the
- * same way. */
-function stemWord(word: string): string {
+/** Rule 4, the English inflection stripper, unchanged since #197 but for `next` (#697). The
+ * length checks before stripping "s"/"ed"/"ing" are what keep it off a short function word that
+ * happens to end the same way; the `PASSIVE_AGENT_MARKERS` check is what keeps it off a
+ * participle whose `-ed` is the direction of the relation. `next` is the following word, or the
+ * empty string at the end of the label, which is in no set here. */
+function stemWord(word: string, next: string): string {
 	if (word.length > 5 && word.endsWith('ing')) return word.slice(0, -3);
-	if (word.length > 4 && word.endsWith('ed')) return word.slice(0, -2);
+	if (word.length > 4 && word.endsWith('ed')) {
+		return PASSIVE_AGENT_MARKERS[next] === true ? word : word.slice(0, -2);
+	}
 	if (word.length > 3 && word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
 	return word;
 }
