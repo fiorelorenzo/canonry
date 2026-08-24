@@ -28,7 +28,14 @@ import { entity } from '../src/schema/entity.js';
 import { relation, relationType } from '../src/schema/relation.js';
 import { operationPrice } from '../src/schema/prices.js';
 import { revision } from '../src/schema/revision.js';
-import { insertHomebrewUniverse, testDb, unique } from './helpers.js';
+import {
+	insertHomebrewUniverse,
+	lockableTestDb,
+	lockOperationPriceForFile,
+	testDb,
+	unique,
+	unlockOperationPriceForFile
+} from './helpers.js';
 
 describe('proposals', () => {
 	let db: Db;
@@ -990,10 +997,16 @@ describe('proposals', () => {
  * catalogue `propagate.diff` and `audit.flag` are both 1.0000, and that coincidence is
  * exactly what hid the second bug here: a drop on an audit plan subtracted `propagate.diff`
  * whatever the trigger was, and every assertion about "the price its trigger implies" passes
- * by accident while the two agree. With 3 and 7 it cannot. No other test file in this
- * package asserts a credits value for either row (prices.test.ts only checks that both
- * exist and are priced as 'generation'), so repricing them here races nothing, and `afterAll`
- * puts the seeded values back.
+ * by accident while the two agree. With 3 and 7 it cannot.
+ *
+ * Which is why this block holds the `operation_price` advisory lock (#691). Those two rows
+ * are the shipped catalogue, shared by every file in this package, and moving them apart is
+ * not optional: `PER_CANDIDATE_OPERATION` picks the operation from the plan's trigger, so no
+ * operation this file could invent under `unique()` is the row the code reads. Nothing else
+ * here asserts either credits value today (prices.test.ts checks only that both exist and
+ * are priced as 'generation'), so the race is not in the read: it is in the restore below,
+ * which writes back what `beforeAll` read and would therefore persist a second writer's
+ * fixture value into the catalogue for every later run against the database.
  */
 describe('issue #508: estimated_credits follows a plan through accept, reject and drop', () => {
 	const DIFF_CREDITS = 3;
@@ -1002,7 +1015,8 @@ describe('issue #508: estimated_credits follows a plan through accept, reject an
 	let seededPrices: Array<{ operation: string; credits: number }> = [];
 
 	beforeAll(async () => {
-		db = testDb();
+		db = lockableTestDb();
+		await lockOperationPriceForFile(db);
 		seededPrices = await db
 			.select({ operation: operationPrice.operation, credits: operationPrice.credits })
 			.from(operationPrice)
@@ -1024,6 +1038,7 @@ describe('issue #508: estimated_credits follows a plan through accept, reject an
 				.set({ credits: row.credits })
 				.where(eq(operationPrice.operation, row.operation));
 		}
+		await unlockOperationPriceForFile(db);
 		await closeDb(db);
 	});
 

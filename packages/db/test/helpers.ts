@@ -42,6 +42,37 @@ export async function unlockImageModelConfigForFile(db: Db): Promise<void> {
 }
 
 /**
+ * `operation_price`'s shipped rows are the same shape of shared state one table over, and
+ * the reason they need a lock rather than a fixture of their own is worth stating, because
+ * the obvious fix does not work here (#691). Every other `operation_price` write in this
+ * package inserts an operation under `unique()`, so nothing shipped is touched, and that is
+ * the right thing whenever the test picks the operation. A test driving
+ * `proposal_plan.estimated_credits` does not pick it: `PER_CANDIDATE_OPERATION` in
+ * queries/proposals.ts maps a plan's trigger to the operation whose price moves the column,
+ * so a `save` plan reads `propagate.diff` and an `audit` plan reads `audit.flag` and no
+ * operation the test invents can ever be the row the code looks up. The price has to move
+ * under the shipped key or the assertion is not about the product's arithmetic at all.
+ *
+ * What makes it worth locking rather than leaving alone is the restore. A file that reads a
+ * shipped price, reprices it and writes the old value back in `afterAll` is correct on its
+ * own and destructive in pairs: two files doing it at once each restore what they read, one
+ * of them reads the other's fixture value, and the catalogue is left wrong for every later
+ * run against that database, which outlives the run that broke it.
+ *
+ * Same rules as the lock above: `lockableTestDb`, taken in `beforeAll`, released in
+ * `afterAll`, scoped to the describe block that needs it. Any future file that asserts or
+ * rewrites the credits of a shipped operation takes it too. Reading a shipped row's label,
+ * kind or notes needs nothing, since no test writes those.
+ */
+export async function lockOperationPriceForFile(db: Db): Promise<void> {
+	await db.execute(sql`select pg_advisory_lock(hashtext('operation_price'), 0)`);
+}
+
+export async function unlockOperationPriceForFile(db: Db): Promise<void> {
+	await db.execute(sql`select pg_advisory_unlock(hashtext('operation_price'), 0)`);
+}
+
+/**
  * The `concurrencyLimit` a test in this package passes to `admitImportJob` when what it
  * needs is a running job rather than a verdict on the cap, and the answer to issue #682.
  *
