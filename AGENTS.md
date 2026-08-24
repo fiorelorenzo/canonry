@@ -322,6 +322,34 @@ the `better-auth.session_token` cookie out of `curl -c -` and hand it to `uishot
 is worth knowing: it drops the database the app is holding a pool on, so the app exits and the
 script then waits for it to come back.
 
+**And the recipe stops one step short of a computed-style read, which is what a state-dependent
+defect needs**: #711 and #717 were both cases where the pixels were the claim and axe could not
+reach the state. `uishot --cookie` takes the value and nothing else, so handing it a cookie
+hides three things that bite the moment you want a `getComputedStyle`
+rather than a picture. First, `curl -c` writes an `HttpOnly` cookie as
+`#HttpOnly_127.0.0.27\tFALSE\t/\t...`, and the obvious way to parse a Netscape cookie jar,
+skip every line starting with `#`, drops exactly the session cookie and keeps nothing.
+The symptom is a signed-out 404 on a route you have already confirmed answers 200 under
+`curl -b`, which reads like a missing `universe_member` grant and is not one: strip the
+`#HttpOnly_` prefix rather than the line. Second, a cookie for an IP host wants `url:` and
+not `domain:` in puppeteer's `setCookie`, and on a browser spawned with `app.path` that call
+silently does nothing at all while CDP `Network.setCookie` works, so a spawned browser needs
+the CDP one. Third, a spawn needs `--headless=new --no-sandbox` explicitly or the open times
+out with no output on this box.
+
+The reason to spawn one at all is `hover:`. Tailwind 4 wraps every `hover:` utility in
+`@media (hover: hover)`, headless Chrome does not match it, and
+`Emulation.setEmulatedMedia` **cannot** fake it: emulating `hover`, `any-hover` and
+`pointer` together still leaves `matchMedia('(hover: hover)').matches` false, so a hover
+state measured in the shared browser is silently the resting state. Only
+`--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4`
+at spawn time flips it, and then `page.mouse.move` over the element's own box works and the
+media query reads true. #718 found that and wrote it in a PR body, which is why #717 paid for
+part of it again. The sibling trap from the same PR belongs next to it: a computed-style read
+in the same tick as a forced state returns the pre-transition value on anything carrying
+`transition-colors`, so wait a beat or the tinted thing you just triggered reads as
+transparent.
+
 **Formatting is a CI gate, and `pnpm check` does not stand in for `pnpm build`.** Two ways a
 PR goes red after a clean `check`. The Lint job is `prettier --check .` plus `eslint .` per
 package, so one unformatted file you touched is a red run on its own: run
