@@ -136,6 +136,16 @@
 
 	let t = $derived(messages(locale).proposals);
 
+	/** Issue #672: the two block headings inside a vocabulary card sit one level under the
+	 * card's own title, so they follow `headingLevel` rather than being fixed. They were
+	 * `h4` from #190 until now, which was right only when the card itself rendered at `h3`
+	 * (the inbox, whose groups have headings) and skipped a level everywhere the card
+	 * renders at `h2` - the import review queue, the plan route and the entry region -
+	 * where axe reported `heading-order` once per question on screen. Derived rather than a
+	 * second prop: the level is fully determined by the card's own, so a caller cannot
+	 * state it wrong, and it cannot drift from the title above it. */
+	let blockHeadingLevel = $derived(headingLevel + 1);
+
 	// #196 (decision L1): the shipped ten's words come from the catalogue, keyed on
 	// `relationType.key`; a universe's own type has no entry and `?? candidate.relationLabel`/
 	// `?? candidate.relationVocab.label` falls back to the stored text exactly as authored.
@@ -254,13 +264,16 @@
 	{#if candidate.relationVocab}
 		{@const vocab = candidate.relationVocab}
 		<div class="mb-3 max-w-measure text-body text-ink-2">
-			<h4 class="mb-1 font-mono text-label text-muted uppercase">
+			<svelte:element
+				this={`h${blockHeadingLevel}`}
+				class="mb-1 font-mono text-label text-muted uppercase"
+			>
 				{vocab.kind === 'relation_type_reuse'
 					? t.relationVocab.reuseHeading
 					: vocab.kind === 'relation_type_widen'
 						? t.relationVocab.widenHeading
 						: t.relationVocab.newHeading}
-			</h4>
+			</svelte:element>
 			<p class="mb-2">
 				{vocab.kind === 'relation_type_reuse'
 					? t.relationVocab.askReuse
@@ -311,9 +324,12 @@
 
 		{#if vocab.relations.length > 0}
 			<div class="mb-3">
-				<h4 class="mb-1.5 font-mono text-label text-muted uppercase">
+				<svelte:element
+					this={`h${blockHeadingLevel}`}
+					class="mb-1.5 font-mono text-label text-muted uppercase"
+				>
 					{t.relationVocab.waitingCount(vocab.relations.length)}
-				</h4>
+				</svelte:element>
 				<ul class="space-y-1.5">
 					{#each vocab.relations as relation, i (i)}
 						<li class="rounded-md bg-panel-2 px-3 py-2 text-body text-ink-2">
