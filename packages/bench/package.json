@@ -25,6 +25,7 @@
 		"pool-ordering": "tsx src/pool-ordering.ts",
 		"loop-cost": "tsx src/loop-cost.ts",
 		"loremaster-e2e": "tsx src/e2e/loremaster.ts",
+		"ask-output": "tsx src/e2e/ask-output.ts",
 		"seed": "tsx src/prepare.ts",
 		"rerender": "tsx src/models/rerender.ts",
 		"retrieval-sweep": "tsx src/retrieval-sweep.ts",

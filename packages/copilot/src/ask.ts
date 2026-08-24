@@ -166,6 +166,66 @@ const OWN_CANON_LIMIT = 6;
 export const MAX_HISTORY_TURNS = 6;
 export const MAX_HISTORY_TURN_CHARS = 4000;
 
+/** issue #698: the most output one step of an Ask turn may produce, passed to `streamText`
+ * below. `stopWhen: stepCountIs(6)` already bounds how many steps a turn takes; without
+ * this, each of those steps was bounded only by whatever the active `premium` row's
+ * provider defaults to, which we neither picked nor read and which moves when the
+ * `model_config` row moves. #134's argument for capping the import loop is the same one
+ * here: a cap bounds a step's real output rather than an estimate of it.
+ *
+ * The number is measured rather than copied, and it is deliberately **not**
+ * `STEP_MAX_OUTPUT_TOKENS` (24,576, `packages/import/src/gateway-driver.ts`). That number
+ * is sized for a step that batches several `entity_propose` calls at their schema ceiling;
+ * an Ask step emits prose a GM reads in a dock, which is a different natural length and a
+ * different cost shape. `packages/bench`'s own `ask-output` runner is what produced these
+ * figures, against `openai/gpt-5.4` on the sample world: six deliberately wide questions
+ * at `detailed` and at `full`, run twice, once before this cap existed and once with it in
+ * place, 24 turns in total (2026-08-24).
+ *
+ * | detail level | n | min | median | max |
+ * | --- | --- | --- | --- | --- |
+ * | `detailed` | 12 | 519 | 635 | 957 |
+ * | `full` | 12 | 1138 | 1635 | **2610** |
+ *
+ * So 8192 is 3.1x the longest answer a real `full` question produced, and the widest of
+ * those questions ("the places, the people who work them, the factions that claim them,
+ * and every tension between them") is already the shape a GM types before a session. Run
+ * to run the same question moves by several hundred tokens, which is itself an argument
+ * against a number chosen tight. Italian is the expensive direction and worth pricing in:
+ * 3.9 to 4.0 characters per output token against English's 4.7 to 4.9, so a cap sized on
+ * English prose alone would be about 19% tighter than it looks. In characters, 8192 tokens
+ * is 33,000 to 39,000 of prose depending on the language, forty-odd paragraphs; nothing
+ * measured came within a factor of three of that.
+ *
+ * **What the headroom is for, since issue #698's third point is the one that decides the
+ * number.** #696 made a truncated turn tell the GM it was cut off, and a cap set near the
+ * longest useful answer would turn that from an honest rare event into a line a GM sees on
+ * every long answer, which trains them to ignore it and is worse than the silence it
+ * replaced. There is no tension to report between that and a spend target here: the
+ * longest useful answer and a comfortable ceiling are 3.1x apart, so both fit. A tighter
+ * number would have to be argued from spend, and the spend does not need it.
+ *
+ * **What this does not inherit from #134.** That comment's "raising it is close to free"
+ * rests on the import loop's 134:1 input-to-output ratio: an output cap is not where an
+ * import's money goes. Ask is the opposite, and the number is worth stating so nobody
+ * copies the wrong conclusion. Those same 24 turns spent 49,738 input tokens against
+ * 29,202 output, a ratio of 1.70:1, and `gpt-5.4` prices output at six times input
+ * ($15.00 against $2.50 per MTok), so **output is about 78% of what an Ask turn costs us**
+ * (SPEC.md §15's margin question, since the GM pays a flat 2 credits either way). An
+ * output cap on this surface is therefore a real lever rather than a formality, which is
+ * an argument for choosing the number carefully and not for choosing it low.
+ *
+ * **What it replaces.** Measured the same day: the active row's own default is generous,
+ * not tight. Asked with no `maxOutputTokens` for four thousand numbered lines it produced
+ * 11,004 output tokens and still finished `stop`, so the inherited ceiling was somewhere
+ * above that, times six steps: at least $0.99 of output on one answer the GM pays a flat
+ * two credits for, and unknowable from this repo. This cap makes that worst case $0.74,
+ * which is a smaller change than it sounds and not the point. The point is that 8192 is
+ * ours, is written down, and does not move when an admin changes a `model_config` row.
+ * Re-run `pnpm --filter @canonry/bench ask-output` when that row does move, because a
+ * different model is a different natural answer length. */
+export const ASK_MAX_OUTPUT_TOKENS = 8192;
+
 /** The tokenized form of a locale's function words, built once per locale from
  * `@canonry/lang`'s list through this package's own `tokenize`, because the comparison has
  * to happen in the tokenizer's alphabet: it drops accents, so Italian `perché` and a canon
@@ -1286,7 +1346,13 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 					// step of headroom (e.g. a second retry) without making this an effectively
 					// uncapped loop: the tools only ever write a pending `proposal` (guardrail 1), so
 					// a longer loop still can't do more than draft more proposals for review.
-					stopWhen: stepCountIs(6)
+					stopWhen: stepCountIs(6),
+					// issue #698: the other half of the bound. `stopWhen` above caps how many steps
+					// a turn takes; this caps what each of them may emit, so a turn's output
+					// ceiling is ours rather than the active `premium` row's provider default. See
+					// `ASK_MAX_OUTPUT_TOKENS` for the measurement behind the number and for why it
+					// is not the import loop's.
+					maxOutputTokens: ASK_MAX_OUTPUT_TOKENS
 				});
 				let text = '';
 				// issue #678: the streaming half of #212's guarantee, and it is ours rather than
