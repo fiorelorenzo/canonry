@@ -88,10 +88,12 @@
  *   the light value of the token it names. That is text this file could read, and it is
  *   deliberately not asserted, because the assertion would fail on `main`. Whoever closes
  *   #743 turns this bullet into assertion 5.
- * - **`app.html`'s two `theme-color` metas and `static/favicon.svg`** key off the media
- *   query alone and so ignore an explicit choice: the same class of defect in the other
- *   direction, filed as #740 rather than asserted here, because neither is CSS this file
- *   can read and a `<meta>` cannot read the attribute at all.
+ * - **`app.html`'s two `theme-color` metas and `static/favicon.svg`** are selected by a
+ *   media query rather than by the attribute, and a `<meta>` cannot read the attribute at
+ *   all, so this file has no way to hold either of them in step with anything. #740 is the
+ *   metas' own answer and `lib/theme.spec.ts` is where they end up held to the palette;
+ *   the favicon is correct as it stands, being a separate document with no access to the
+ *   page.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
