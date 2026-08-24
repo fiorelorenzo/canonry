@@ -39,8 +39,8 @@
 	<InputGroup.Root
 		class={cn(
 			growing
-				? 'h-auto! items-end rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pb-1! *:data-[slot=input-group-addon]:pl-2!'
-				: 'h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!',
+				? 'h-auto! items-end rounded-lg! border-input/30 bg-field shadow-none! *:data-[slot=input-group-addon]:pb-1! *:data-[slot=input-group-addon]:pl-2!'
+				: 'h-8! rounded-lg! border-input/30 bg-field shadow-none! *:data-[slot=input-group-addon]:pl-2!',
 			groupClass
 		)}
 	>

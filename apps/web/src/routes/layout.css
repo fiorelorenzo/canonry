@@ -163,6 +163,19 @@
 	--color-paper: #f4efe4;
 	--color-panel: #fffdf7;
 	--color-panel-2: #f9f4ea;
+	/* The form-field well (#726). A field's fill used to be `bg-input/30`: an alpha composite
+	 * of --color-line-2 over whichever surface the field happened to sit on, which made the
+	 * pair arithmetic rather than a token. Nothing could name it, `tinted-surface-ink.test.ts`
+	 * says in its own doc comment that it cannot see "a background that is not a utility",
+	 * and in dark it composited to #262219, where --color-muted reads 4.30 and fails AA on
+	 * every text field, textarea, select trigger and combobox in the app. It is an opaque
+	 * named surface now, measured in both palettes: --color-muted clears it at 4.78 in light
+	 * and 5.23 in dark. That is deliberately the fix rather than promoting the placeholder to
+	 * --color-ink-2, which would have read 8.73 and made an empty field look like a full one.
+	 * Light reuses --color-panel-2, a visible step off --color-panel (1.08) and already
+	 * measured; dark needs its own value, because --dark-panel-2 sits only 1.05 off
+	 * --dark-panel and a field has to stay legible inside a panel-2 container as well. */
+	--color-field: var(--color-panel-2);
 	--color-ink: #221d16;
 	--color-ink-2: #4c4238;
 	/* #469 (closes #369): darkened on its own hue rather than inverted from --dark-muted -
@@ -211,7 +224,13 @@
 	 * carrying it three rounds later (#711), six of them only in a state a screenshot does
 	 * not land in: hover, focus-within, an active nav item, an open switcher. Writing the
 	 * rule down did not hold it, so `routes/tinted-surface-ink.test.ts` now does, by
-	 * reading which surface each `text-muted` actually sits on. */
+	 * reading which surface each `text-muted` actually sits on.
+	 *
+	 * Those five are the complete list of *tinted* surfaces, not the complete list of
+	 * surfaces muted is wrong on. #726 found a sixth carrying no hue at all, the form-field
+	 * fill, which was an alpha composite and is --color-field above now. Muted stays on that
+	 * one because the surface moved to clear it, so this rule reaches it by measurement
+	 * rather than by naming it. */
 
 	/* Prose measure. Long enough to read, short enough to scan back to the start of
 	 * the next line, which is what the reading room is for. */
@@ -330,6 +349,12 @@
 		--dark-paper: #17140f;
 		--dark-panel: #1e1a14;
 		--dark-panel-2: #191510;
+		/* #726: the form-field well, dark. Its own value rather than --dark-panel-2, which
+		 * sits 1.05 off --dark-panel and would leave a field indistinct inside one of the
+		 * 52 files that already spell bg-panel-2. This clears --dark-muted at 5.23, sits
+		 * 1.11 off --dark-panel and 1.06 off --dark-panel-2, and raises --dark-line-2's
+		 * contrast against the fill it borders from 1.50 to 1.60. */
+		--dark-field: #110e08;
 		--dark-ink: #f1e9db;
 		--dark-ink-2: #cabfae;
 		/* #469: authored independently of light's move above, and already clears AA on
@@ -356,6 +381,7 @@
 		--color-paper: var(--dark-paper);
 		--color-panel: var(--dark-panel);
 		--color-panel-2: var(--dark-panel-2);
+		--color-field: var(--dark-field);
 		--color-ink: var(--dark-ink);
 		--color-ink-2: var(--dark-ink-2);
 		--color-muted: var(--dark-muted);
@@ -413,6 +439,7 @@
 			--color-paper: var(--dark-paper);
 			--color-panel: var(--dark-panel);
 			--color-panel-2: var(--dark-panel-2);
+			--color-field: var(--dark-field);
 			--color-ink: var(--dark-ink);
 			--color-ink-2: var(--dark-ink-2);
 			--color-muted: var(--dark-muted);
