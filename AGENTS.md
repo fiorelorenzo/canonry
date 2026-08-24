@@ -468,6 +468,17 @@ Follows the shared UI pipeline (`ui-brief-first`, `ui-design-tokens`, `ui-visual
   one: `uishot --theme dark` sets the media preference, and if the app has a stored choice
   the cookie is what actually decides, so pass both rather than wondering why the pixels
   came back light.
+- **There are two darks and they render different components**, which is sharper than the
+  point above and cost #719 a whole second pass. `layout.css` wires the palette twice
+  (`[data-theme='dark']`, and a `prefers-color-scheme` fallback scoped to
+  `html:not([data-theme])`) so "Match system" is genuinely dark, but line 38 binds
+  Tailwind's `dark:` variant to the attribute alone. On the media path every one of the 29
+  `dark:` utilities in `lib/components/ui` is inert: same tokens, same `--color-paper`,
+  different input fill. `uishot --theme dark` only ever takes the media path, so no dark
+  shot or dark axe run in this repo's history has exercised a single `dark:` utility. Pass
+  `--cookie canonry_theme=dark` as well when a form control, a hover on one or an invalid
+  state is in the shot, and treat the two as two runs rather than one. #727 is the variant
+  itself.
 - **A native `<dialog>` is not centred in this app**, and the cause is not in our code:
   Tailwind 4's preflight sets `margin: 0` on `*`, `::before`, `::after` and `::backdrop`,
   which is the margin the user-agent stylesheet centres a modal `<dialog>` with. Three of
@@ -482,6 +493,27 @@ Follows the shared UI pipeline (`ui-brief-first`, `ui-design-tokens`, `ui-visual
   is. Reduced motion means nothing travels, not that nothing happens, so verify it by
   emulating the preference (CDP `Emulation.setEmulatedMedia`) rather than by reading the
   media query, and expect the two runs to differ.
+
+**The accessibility sweep is a manual gate and #719 is where it recurs.** Nothing in CI
+runs axe, and that is the considered answer rather than an omission: a real audit needs a
+signed-in session, a seeded database with a non-empty review queue and a real conversation
+in it, and a dozen states that only exist after a click, so a CI job could only ever cover
+the signed-out surfaces, which are five of the thirty. What it costs when done properly:
+one `uishot --axe` per surface per viewport (the tool audits only the last viewport in
+`--viewports`, which is what made every "clean at 390, 768 and 1440" in this repo's history
+a 1440 run), times both palettes, plus a second pass in chosen dark for anything with a
+form control in it. That was 66 invocations and about seven minutes of wall clock for the
+first pass on 2026-08-24, three passes in total, and it found four defects across three
+surfaces that eighteen rounds of desktop-only runs had not. So: **re-run it at the end of a
+round that reshaped a surface, and write the numbers into #719**, which stays open as the
+sweep's own record. The driver, the state-seeding script and the DOM-driving scripts for
+the drawer, the dock, the palette, the switcher and the dialogs are in that issue's PR
+description, so the next pass starts from a recipe rather than from scratch.
+
+**Read the whole axe output, not the exit code.** `--fail-on serious` has now been the
+reason three separate defects sat unnoticed (#672's `heading-order`, and #728's `region`
+and `skip-link`), because all of those are `moderate`. Use the gate to fail a script and
+read the `moderate` and `minor` lines yourself before saying a surface is clean.
 
 ## Deployment
 
