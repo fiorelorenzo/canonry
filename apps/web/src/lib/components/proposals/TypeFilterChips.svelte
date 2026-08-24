@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * D4 = B (docs/ux/DECISIONS.md): "one queue in C6's vocabulary, with type filters".
+	 * D4 = B (docs/design/DECISIONS.md): "one queue in C6's vocabulary, with type filters".
 	 * This is the whole of D4's addition to C6's `ProposalQueue.svelte` - a chip per
 	 * entity type (plus "All") that narrows which candidates the queue below shows.
 	 *

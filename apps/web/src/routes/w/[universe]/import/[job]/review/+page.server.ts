@@ -1,5 +1,5 @@
 /**
- * #42, D4 = B (docs/ux/DECISIONS.md), widened by round seventeen V2 = A (#498, #480):
+ * #42, D4 = B (docs/design/DECISIONS.md), widened by round seventeen V2 = A (#498, #480):
  * the import review screen is the same queue surface the inbox renders inline, scoped
  * to one job, with a type filter chip bar on top - D4's only addition to C6's screen.
  * Import proposals arrive already diffed by job-runner.ts's

@@ -367,7 +367,7 @@ Delete project, no history and no restore, it is Beta, and it sits behind one pe
 `claude.ai` account that omp cannot read. A canvas is a drawing tool. It is never the source
 of truth, and it never holds anything client-confidential.
 
-**The answer still lives here, not on a canvas.** `docs/ux/DECISIONS.md` opens with a table,
+**The answer still lives here, not on a canvas.** `docs/design/DECISIONS.md` opens with a table,
 one row per decision (`ID`, `Round`, `Question`, `Answer`, `Rule it creates`), and that table
 is where a decision lives now. Moving one means editing that row and saying so on the issues
 it blocks. `docs/ux/assets/ux.js`'s register, which used to drive the 59 artifacts' head,
@@ -406,7 +406,7 @@ Follows the shared UI pipeline (`ui-brief-first`, `ui-design-tokens`, `ui-visual
   once the db is up.
 - Tokens: `apps/web/src/routes/layout.css`'s `@theme` block. This is the canonical file;
   the landing repo hand-copies it. A raw hex in a component is a violated rule
-  (`I9 = C`, `docs/ux/DECISIONS.md`), not a style choice.
+  (`I9 = C`, `docs/design/DECISIONS.md`), not a style choice.
 - `/dev/ui` (issue #147) is the `/design` gallery: a fresh repo without one should add
   exactly this, a dev-only route enumerating every component and state, not a product
   surface.

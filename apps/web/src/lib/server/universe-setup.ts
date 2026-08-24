@@ -1,5 +1,5 @@
 /**
- * Issue #378, decision R3, and the checklist R4 asks for (docs/ux/DECISIONS.md "Round
+ * Issue #378, decision R3, and the checklist R4 asks for (docs/design/DECISIONS.md "Round
  * thirteen"): "a setting is on the checklist when it changes what the product does and
  * has no sensible default." Today that is exactly two settings, both from this issue -
  * the universe's image style and its Loremaster voice - and this file is the one place

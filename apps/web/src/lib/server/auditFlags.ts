@@ -1,5 +1,5 @@
 /**
- * C9 = B (`docs/ux/DECISIONS.md`; the drawn artifact is in git history at c84c8f8): "a badge on the entry,
+ * C9 = B (`docs/design/DECISIONS.md`; the drawn artifact is in git history at c84c8f8): "a badge on the entry,
  * reading the same flag list an aside section shows." `packages/copilot`'s `runAudit`
  * (issue #55) is the exclusive writer of a `proposal(trigger: 'audit', kind: 'flag')` row;
  * this module is the read side for the entry page - "application-shaped read composition

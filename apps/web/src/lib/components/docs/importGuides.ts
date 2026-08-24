@@ -6,7 +6,7 @@
  * source, and a shared shape keeps that difference reviewable as prose rather than
  * as seven copies of the same markup drifting apart.
  *
- * D1 = C, detect then confirm (docs/ux/DECISIONS.md): Canonry never makes a GM pick
+ * D1 = C, detect then confirm (docs/design/DECISIONS.md): Canonry never makes a GM pick
  * a source before uploading, it guesses from what was uploaded and asks for
  * confirmation. Every "what it recognises" section below is written to match that
  * flow, not a source picker.

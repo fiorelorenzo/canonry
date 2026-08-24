@@ -47,7 +47,7 @@ export class AiDisabledError extends Error {
 /** Guardrail 4: the switch stops generation completely. Checked first, before any model
  * resolution or spend, by every function in this package that generates - reading
  * (retrieval, search, mention suggestions) never calls this, since guardrail 4 keeps
- * those alive on purpose (docs/ux/DECISIONS.md, H1). */
+ * those alive on purpose (docs/design/DECISIONS.md, H1). */
 export async function requireAiEnabled(db: Db, universeId: string): Promise<void> {
 	const [row] = await db
 		.select({ aiEnabled: universe.aiEnabled })

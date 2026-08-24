@@ -49,10 +49,10 @@ export const universe = pgTable(
 		narrationStyleId: uuid('narration_style_id').references((): AnyPgColumn => narrationStyle.id, {
 			onDelete: 'set null'
 		}),
-		// Decision C10 (docs/ux/DECISIONS.md): the per-universe AI on/off switch. Guardrail 4
+		// Decision C10 (docs/design/DECISIONS.md): the per-universe AI on/off switch. Guardrail 4
 		// requires that turning this off still leaves a good wiki.
 		aiEnabled: boolean('ai_enabled').notNull().default(true),
-		// Decision C3 amendment (docs/ux/DECISIONS.md "Round nine", SPEC.md §5.1): how many
+		// Decision C3 amendment (docs/design/DECISIONS.md "Round nine", SPEC.md §5.1): how many
 		// entries a save's propagation plan may surface, replacing the old hardcoded ~10.
 		// Null means no limit - a real value rather than a sentinel like 0 or 9999, because
 		// "give me everything" and "the default applies" have to stay two states a query can

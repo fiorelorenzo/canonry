@@ -2,7 +2,7 @@
  * Reject reasons feed candidate ranking (issue #56, SPEC.md §5.1: "rejection asks for a
  * one-word reason, which is training signal for the ranking, not a survey").
  *
- * C7's decision (`docs/ux/DECISIONS.md`; the drawn artifact is in git history at c84c8f8) fixes the vocabulary and, in "What this
+ * C7's decision (`docs/design/DECISIONS.md`; the drawn artifact is in git history at c84c8f8) fixes the vocabulary and, in "What this
  * locks in", what each reason is for: "wrong" and "already true" are strong negative
  * weights on the candidate-finding step; "too much" tunes the ~10-entry cap's relevance
  * cutoff; "not canon yet" behaves like a snooze rather than a penalty; "prose" is never a
@@ -104,7 +104,7 @@ export function scoreCandidates(
 		.sort((a, b) => b.finalScore - a.finalScore);
 }
 
-/** C7 (`docs/ux/DECISIONS.md`; drawn artifact in git history at c84c8f8): "too much" tunes the cap's cutoff rather than
+/** C7 (`docs/design/DECISIONS.md`; drawn artifact in git history at c84c8f8): "too much" tunes the cap's cutoff rather than
  * penalising a specific candidate. Each recent "too much" tightens the cap by one entry,
  * down to a floor of 3 - a plan can get smaller as the GM says the copilot is too noisy,
  * but it never disappears, since a plan of zero candidates is silence, not a signal.

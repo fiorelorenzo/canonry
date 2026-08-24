@@ -1,6 +1,6 @@
 /**
  * Issue #108, D7 = A's screen: name a universe, then choose a start. Issue #142, I4 = B
- * ("one creation surface", docs/ux/DECISIONS.md) folded /w/new's standalone empty-universe
+ * ("one creation surface", docs/design/DECISIONS.md) folded /w/new's standalone empty-universe
  * form into this route as a third action rather than a second door - `empty` below is the
  * same createOnboardingUniverse call /w/new used to make, just reachable from here now.
  */

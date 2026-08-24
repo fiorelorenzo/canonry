@@ -368,7 +368,7 @@
 			{/if}
 		</p>
 	{:else if candidate.diff.rows.length > 0}
-		<!-- Q1 (round twelve, docs/ux/DECISIONS.md): C4's toggle is repealed, so every
+		<!-- Q1 (round twelve, docs/design/DECISIONS.md): C4's toggle is repealed, so every
 		     changed region is here at once with the unchanged sentences around it, and
 		     comparing is reading rather than remembering. `proseDiff` decided what a region
 		     is and what context it keeps; this only paints it.

@@ -10,7 +10,7 @@
  * both halves were untrue in the same direction, which is the direction a disclosure must
  * never be wrong in.
  *
- * That card is gone: #464 (T10, `docs/ux/DECISIONS.md`) deleted those four keys along with
+ * That card is gone: #464 (T10, `docs/design/DECISIONS.md`) deleted those four keys along with
  * the manual keep control and moved guardrail 5's disclosure to one standing line "where it
  * can be read before anything is asked, rather than after every answer". What actually
  * speaks per answer now is one of two sentences, `universe.ask.sourcesNote` when there are

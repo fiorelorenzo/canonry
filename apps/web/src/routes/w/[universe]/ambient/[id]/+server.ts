@@ -7,7 +7,7 @@
  * already stores every layer as a real `media_asset` row), so there is exactly one
  * media-serving endpoint in this app, not two.
  *
- * Reading is free (SPEC.md §15, H1 in docs/ux/DECISIONS.md) - `requireAmbientAccess`
+ * Reading is free (SPEC.md §15, H1 in docs/design/DECISIONS.md) - `requireAmbientAccess`
  * checks membership, never role, matching the media byte route's own "no requireWriter
  * here, a viewer may look".
  */

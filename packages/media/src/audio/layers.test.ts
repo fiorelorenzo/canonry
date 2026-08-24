@@ -153,7 +153,7 @@ describe('parseAmbientLayers (#68, SPEC.md §8.2)', () => {
 		const mine = calls.filter((c) => c.userId === userId);
 		expect(mine).toHaveLength(1);
 		expect(mine[0]?.agent).toBe('media');
-		// H1 (docs/ux/DECISIONS.md): free to the user, but still recorded with its real
+		// H1 (docs/design/DECISIONS.md): free to the user, but still recorded with its real
 		// tokens - the "zero-credit call still records its tokens and cost" rule.
 		expect(mine[0]?.credits).toBe(0);
 		expect(mine[0]?.inputTokens).toBe(90);

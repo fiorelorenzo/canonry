@@ -10,7 +10,7 @@
  * anchors a cost to is each resulting layer's generation, not the sentence that decides
  * how many there will be - charging both would double-bill the same decision and make a
  * two-layer pack cost more per layer than a five-layer one. Still recorded through
- * withQuota rather than skipped, because H1 (docs/ux/DECISIONS.md) closed exactly that
+ * withQuota rather than skipped, because H1 (docs/design/DECISIONS.md) closed exactly that
  * hole: a zero-credit call still records its real tokens and cost, nowhere else.
  */
 import { generateObject, type LanguageModel } from 'ai';

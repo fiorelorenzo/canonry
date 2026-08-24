@@ -1,6 +1,6 @@
 /**
  * Issue #108: onboarding that ends in a first accepted proposal. Decision D7 = A
- * (docs/ux/DECISIONS.md): import first, with a real pre-indexed-universe fallback for a
+ * (docs/design/DECISIONS.md): import first, with a real pre-indexed-universe fallback for a
  * GM with nothing to import. This file is the server-side plumbing shared by
  * apps/web/src/routes/onboarding/**:
  *

@@ -58,7 +58,7 @@ export async function universesForUser(
 	return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Decision C3 amendment (docs/ux/DECISIONS.md "Round nine"): the per-universe
+/** Decision C3 amendment (docs/design/DECISIONS.md "Round nine"): the per-universe
  * propagation cap, read by itself. `runPropagationEngine`
  * (apps/web/src/lib/server/jobs/canon-save.ts) only carries a durable job row's
  * `universeId` through the queue, not the whole universe row, and a save's plan needs

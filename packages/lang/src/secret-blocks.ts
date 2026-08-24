@@ -1,5 +1,5 @@
 /**
- * Decision E6 = A (docs/ux/DECISIONS.md): secrets and GM notes are inline fenced blocks,
+ * Decision E6 = A (docs/design/DECISIONS.md): secrets and GM notes are inline fenced blocks,
  * typed in place in the same document the GM already writes in - `:::secret` / `:::gmnote`
  * opening a block, a bare `:::` closing it, both block-level (each marker owns its own
  * line). SPEC.md §10: "hidden content inside public entries, GM notes always private."

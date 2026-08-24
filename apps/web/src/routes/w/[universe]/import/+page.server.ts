@@ -1,5 +1,5 @@
 /**
- * Issue R11, round thirteen (docs/ux/DECISIONS.md): `/w/[universe]/import`, the door for
+ * Issue R11, round thirteen (docs/design/DECISIONS.md): `/w/[universe]/import`, the door for
  * a world that already exists. `/onboarding/import` runs the identical D1/D2 flow
  * (upload -> confirm -> estimate -> start) for a universe being created; this route
  * reuses the same server helpers (`$lib/server/onboarding`) rather than a second

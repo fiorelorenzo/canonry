@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * Issue #383, decision R8 (docs/ux/DECISIONS.md, "Round thirteen"): the GM/player
+	 * Issue #383, decision R8 (docs/design/DECISIONS.md, "Round thirteen"): the GM/player
 	 * view used to be a label beside a button whose text changed - "a switch written
 	 * the long way". R8 is explicit that this call site is not an O4 = B case at all:
 	 * it is not choosing a value out of a list, it is turning one lens on, so it does

@@ -1,5 +1,5 @@
 /**
- * Round seventeen V1 = B (#494, docs/ux/DECISIONS.md): the guard against the exact
+ * Round seventeen V1 = B (#494, docs/design/DECISIONS.md): the guard against the exact
  * defect the decision measured - "the h1 of a page sits at 32, 48, 52, 60, 64, 72 or
  * 116 pixels from the top and at 288, 320, 464, 496, 520 or 608 from the left", because
  * every route drew its own title inside its own wrapper. `Page` fixes that by

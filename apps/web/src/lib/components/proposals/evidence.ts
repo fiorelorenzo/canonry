@@ -1,5 +1,5 @@
 /**
- * C5 = B (docs/ux/DECISIONS.md): evidence normalised into one small display shape,
+ * C5 = B (docs/design/DECISIONS.md): evidence normalised into one small display shape,
  * regardless of which producer wrote it - `packages/copilot`'s `CandidateEvidence[]` for a
  * propagation candidate, its `AskEvidence[]` for one Ask proposed, or `packages/import`'s
  * ad hoc match-evidence object for an import candidate. Guardrail 3's "never a bare

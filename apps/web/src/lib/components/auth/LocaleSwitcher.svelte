@@ -6,7 +6,7 @@
 	 * account preference once one exists). Both pages render this identically and post
 	 * to their own `?/setLocale` action - see either page's `+page.server.ts`.
 	 *
-	 * Issue #383, decision R8 (docs/ux/DECISIONS.md, "Round thirteen"): this used to be
+	 * Issue #383, decision R8 (docs/design/DECISIONS.md, "Round thirteen"): this used to be
 	 * a row of native buttons, one per locale, which is neither of O4 = B's three shapes
 	 * and stops fitting the moment there is a third language. The interface locale is a
 	 * vocabulary the product itself ships, so it becomes the Select.

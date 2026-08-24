@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * The one layout behind both auth pages (I2 = C for sign-in, B for sign-up,
-	 * docs/ux/DECISIONS.md#round-four-decided-2026-08-15, issue #139). Sign-in and sign-up are not two
+	 * docs/design/DECISIONS.md#round-four-decided-2026-08-15, issue #139). Sign-in and sign-up are not two
 	 * designs: this is the title page, and sign-up is the same title page with
 	 * `pane` set, which drops back to the title page below 900px. Full paper,
 	 * the mark large and centred and linking to canonry.io, the form at about

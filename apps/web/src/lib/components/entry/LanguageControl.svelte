@@ -23,7 +23,7 @@
 	 * ("not enough text to tell") reads the same as any other guess - unknown is not a
 	 * defect, so there is nothing here shaped like a warning.
 	 *
-	 * Issue #383, decision R8 (docs/ux/DECISIONS.md, "Round thirteen"): this was the
+	 * Issue #383, decision R8 (docs/design/DECISIONS.md, "Round thirteen"): this was the
 	 * segmented control issue #286/O4 = B put here, and R8 moves it to the Select. The
 	 * reasoning that used to justify the segmented control - "the machine is guessing"
 	 * versus "a person decided" are different enough that they should stay four visibly

@@ -32,7 +32,7 @@
 		/** issue #489 and #572: which of the three credits lines this plan reads is a fact
 		 * about its trigger, decided once in `$lib/proposals/creditsLine.ts`. `perDiff` is
 		 * propagation, the one trigger with a real "generate diffs" step still ahead of it:
-		 * `propagate.diff` prices per candidate (docs/ux/DECISIONS.md G11), so it shows the
+		 * `propagate.diff` prices per candidate (docs/design/DECISIONS.md G11), so it shows the
 		 * reconciling count x price = total plus the plan-level ranking charge as its own
 		 * separate already-spent figure, never one number that quietly bundles both.
 		 * `spent` carries the figure a trigger has already paid for what is still open, and

@@ -1187,7 +1187,7 @@ export interface Messages {
 			 * `perDiffCreditsFormatted` (already locale-formatted by the caller) appears in the
 			 * prefix beside `count`, the bold count-times-price total sits in between, so a GM
 			 * can check the multiplication rather than trust one opaque number
-			 * (docs/ux/DECISIONS.md G11). */
+			 * (docs/design/DECISIONS.md G11). */
 			toGenerate: (
 				count: number,
 				perDiffCreditsFormatted: string
@@ -2326,7 +2326,7 @@ export interface Messages {
 				resumingWriting: string;
 				offNotice: (universeName: string) => string;
 			};
-			/** Decision C3 amendment (docs/ux/DECISIONS.md "Round nine"): the per-universe
+			/** Decision C3 amendment (docs/design/DECISIONS.md "Round nine"): the per-universe
 			 * propagation cap, in the same visual language as `aiToggle` above it. Issue
 			 * #451, decision U3: the column default is null (no limit) now, not 25, so
 			 * `noLimitNotice` says plainly what "no limit" costs (guardrail 7, G11) rather
