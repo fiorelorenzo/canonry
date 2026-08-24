@@ -41,6 +41,7 @@
 	import Mark from '$lib/components/brand/Mark.svelte';
 	import MentionPreview from '$lib/components/entry/MentionPreview.svelte';
 	import { messages, type Locale } from '$lib/i18n';
+	import { cn } from '$lib/utils/cn.js';
 	import { ACCOUNT_NAV_ITEMS, NAV_ITEMS } from './nav';
 	import QuotaMeter from './QuotaMeter.svelte';
 	import ShellUserRow from './ShellUserRow.svelte';
@@ -143,10 +144,21 @@
 							{#if counts[item.id] !== undefined}
 								{#key counts[item.id]}
 									<!-- The badge turns `bg-accent-bg` on the active item, so its own text has to
-									     clear AA on a tinted surface: `text-ink-2` (#562), not `text-muted`. -->
+									     clear AA on a tinted surface: `text-ink-2` (#562), not `text-muted`.
+
+									     #717: that tint goes through `cn`, not through a `class:bg-accent-bg`
+									     directive, and the difference is the whole bug. A directive puts its
+									     class on the element beside the static `bg-panel-2` at equal
+									     specificity, so the winner is emission order, and Tailwind emits
+									     `.bg-panel-2` fifteen rules after `.bg-accent-bg`: panel-2 won and the
+									     active badge was never tinted at all. A `class:` directive is the one
+									     channel tailwind-merge cannot reach; inside `cn` the pair resolves to
+									     the accent one, and a third state later would resolve too. -->
 									<span
-										class="animate-in rounded-full bg-panel-2 px-1.5 py-0.5 text-label text-ink-2 duration-fade ease-arrive fade-in-0"
-										class:bg-accent-bg={active}
+										class={cn(
+											'animate-in rounded-full bg-panel-2 px-1.5 py-0.5 text-label text-ink-2 duration-fade ease-arrive fade-in-0',
+											active && 'bg-accent-bg'
+										)}
 									>
 										{counts[item.id]}
 									</span>
