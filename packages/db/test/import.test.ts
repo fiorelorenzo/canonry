@@ -34,7 +34,13 @@ import {
 import { entity } from '../src/schema/entity.js';
 import { entitySourceRef, importJob } from '../src/schema/source.js';
 import { userBilling } from '../src/schema/billing.js';
-import { insertHomebrewUniverse, insertUser, testDb, unique } from './helpers.js';
+import {
+	insertHomebrewUniverse,
+	insertUser,
+	TEST_CONCURRENCY_LIMIT,
+	testDb,
+	unique
+} from './helpers.js';
 
 describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)', () => {
 	let db: Db;
@@ -82,7 +88,8 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 	describe('admitImportJob - the queue and its global concurrency limit (issue #30)', () => {
 		it('admits a queued job under the concurrency limit and marks it running', async () => {
 			const { job } = await jobFixture();
-			const result = await admitImportJob(db, job.id, 5);
+			// issue #682: a budget no sibling file can spend. `TEST_CONCURRENCY_LIMIT` has why.
+			const result = await admitImportJob(db, job.id, TEST_CONCURRENCY_LIMIT);
 			expect(result.admitted).toBe(true);
 			expect(result.job.status).toBe('running');
 			expect(result.job.startedAt).not.toBeNull();
@@ -102,8 +109,9 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 
 		it('is idempotent - admitting an already-running job again changes nothing and reports it as admitted', async () => {
 			const { job } = await jobFixture();
-			const first = await admitImportJob(db, job.id, 5);
-			const second = await admitImportJob(db, first.job.id, 5);
+			// issue #682: a budget no sibling file can spend. `TEST_CONCURRENCY_LIMIT` has why.
+			const first = await admitImportJob(db, job.id, TEST_CONCURRENCY_LIMIT);
+			const second = await admitImportJob(db, first.job.id, TEST_CONCURRENCY_LIMIT);
 			expect(second.admitted).toBe(true);
 			expect(second.job.status).toBe('running');
 			expect(second.job.startedAt?.getTime()).toBe(first.job.startedAt?.getTime());
@@ -129,12 +137,17 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 			const first = await makeJob();
 			const second = await makeJob();
 
-			expect(await queuePositionFor(db, first.id)).toBeGreaterThanOrEqual(1);
-			const secondPosition = await queuePositionFor(db, second.id);
+			// issue #682: read `first` before `second`, not after. Both counts include every
+			// queued row in the database, and `metrics.test.ts` inserts import jobs backdated to
+			// 2026-01-01, so a sibling insert between the two reads only ever raises the position
+			// read second. Reading the older job first therefore keeps the comparison true, and
+			// reading it last was one interleaving away from inverting it.
 			const firstPosition = await queuePositionFor(db, first.id);
+			expect(firstPosition).toBeGreaterThanOrEqual(1);
+			const secondPosition = await queuePositionFor(db, second.id);
 			expect(secondPosition).toBeGreaterThan(firstPosition);
 
-			await admitImportJob(db, first.id, 999);
+			await admitImportJob(db, first.id, TEST_CONCURRENCY_LIMIT);
 			expect(await queuePositionFor(db, first.id)).toBe(0);
 		});
 	});
@@ -169,7 +182,7 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 	describe('settleImportJob - settles exactly once (issue #26)', () => {
 		it('moves a running job to a terminal status and stamps finishedAt', async () => {
 			const { job } = await jobFixture();
-			await admitImportJob(db, job.id, 5);
+			await admitImportJob(db, job.id, TEST_CONCURRENCY_LIMIT);
 			const result = await settleImportJob(db, job.id, {
 				status: 'finished',
 				outcomeNote: 'all documents completed',
@@ -182,7 +195,7 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 
 		it('refuses to settle a job twice once truly final - a second attempt reports settled: false and leaves the first outcome intact', async () => {
 			const { job } = await jobFixture();
-			await admitImportJob(db, job.id, 5);
+			await admitImportJob(db, job.id, TEST_CONCURRENCY_LIMIT);
 			const first = await settleImportJob(db, job.id, {
 				status: 'finished',
 				outcomeNote: 'all documents completed',
@@ -204,7 +217,7 @@ describe('import job lifecycle and matching queries (issues #26, #27, #30, #36)'
 
 		it('allows a resumed run to settle a stopped_at_ceiling job again - SPEC.md §6.7 makes that status resumable, not final', async () => {
 			const { job } = await jobFixture();
-			await admitImportJob(db, job.id, 5);
+			await admitImportJob(db, job.id, TEST_CONCURRENCY_LIMIT);
 			const first = await settleImportJob(db, job.id, {
 				status: 'stopped_at_ceiling',
 				outcomeNote: "this job's credit budget is exhausted",
