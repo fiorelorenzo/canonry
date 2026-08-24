@@ -166,6 +166,21 @@ configuration file to know about. So do not "align" the root with the packages: 
 reintroduces #585, and it fails silently, since an agent that gets no server falls back to
 grep.
 
+**The Svelte server's first answer costs 25 seconds, which is longer than `lsp`'s default
+timeout.** `svelteserver` loads the whole `apps/web` project before it answers anything:
+measured on 2026-08-24, a cold `references` on `ProposalDiffCard.svelte` took 26.0s and
+25.9s and a cold `definition` on the same file 24.8s, while every request after that came
+back in 0.1s to 0.2s. The default is 20 seconds, so the first call against a `.svelte` file
+fails and the next one is instant, which is how #672 lost its references and mapped a
+five-call-site component by hand: pass `timeout: 60` on the first request against a
+`.svelte` file and nothing after it needs one. `rename` and `definition` pay the same cost
+as `references`, and a timed-out `rename` writes nothing, which I checked rather than
+assumed: one at the default against a cold server answered "LSP rename timed out after 20s
+on svelte" and left `git status` clean. When it times out anyway, read the component graph
+rather than reaching for grep, because grep misses the re-exports and the shadowing that
+are the reason to ask a server in the first place, and a cross-file rename must never be
+done from a text search.
+
 **One migration per wave.** `pnpm --filter @canonry/db generate` numbers the next migration
 sequentially and also writes `migrations/meta/_journal.json` and a snapshot. Two agents
 generating at the same time produce the same number and both edit the journal, and no rebase
