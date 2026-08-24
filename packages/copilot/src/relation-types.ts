@@ -47,15 +47,15 @@
  * strings for a candidate type, not just the caller's active one - an Italian corpus
  * proposing "comanda" has no reason to know English, and matching it only against the
  * catalogue's English label used to fork a needless universe-scoped duplicate for every
- * one of the ten shipped types. `relation-catalogue.ts`'s `relationTypeMatchCandidates`
- * is the one place that expansion happens, shared by `isForwardMatch`/`isInverseMatch`
- * (rung 1) and `bestSemanticMatch` (rung 2). Not injected the way `embed` is - see
- * `relation-catalogue.ts`'s own doc comment for why fixed shipped content is not a seam.
- * Rung 2 leans on the injected `embed` being a genuinely multilingual model - the
- * property #168's own embedder selection measured for and chose it on - to bridge a
- * proposed label in one language against a candidate's text in another; swapping in a
- * monolingual embedder would not error, it would just quietly stop this rung matching
- * anything outside the one language it was trained on.
+ * one of the ten shipped types. `@canonry/lang`'s `relationTypeMatchCandidates` is the
+ * one place that expansion happens, shared by `isForwardMatch`/`isInverseMatch` (rung 1)
+ * and `bestSemanticMatch` (rung 2). Not injected the way `embed` is - see
+ * `packages/lang/src/relation-catalogue.ts`'s own doc comment for why fixed shipped
+ * content is not a seam. Rung 2 leans on the injected `embed` being a genuinely
+ * multilingual model - the property #168's own embedder selection measured for and chose
+ * it on - to bridge a proposed label in one language against a candidate's text in
+ * another; swapping in a monolingual embedder would not error, it would just quietly stop
+ * this rung matching anything outside the one language it was trained on.
  *
  * Lives here rather than in `packages/import` (where the only caller happens to be today)
  * because the copilot's own propose paths will want this the moment they can create a
