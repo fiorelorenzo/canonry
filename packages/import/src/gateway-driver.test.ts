@@ -21,8 +21,9 @@ import { createLoopLogger, type LoopLogFields } from './logging.js';
 import { createImportTools, createDocumentRunContext } from './tools.js';
 
 // Minimal generateResult builders matching @ai-sdk/provider's LanguageModelV4GenerateResult
-// shape (verified against the installed ai@7.0.65 / @ai-sdk/provider@4.0.7 types), used to
-// script MockLanguageModelV4 without hitting any network.
+// shape, used to script MockLanguageModelV4 without hitting any network. Verified against
+// the installed types on `ai@7.0.65` when written and re-verified on `ai@7.0.66` and
+// `ai@7.0.77` for issue #673, which is the pair every test in this file now has to hold on.
 function usage(inputTotal: number, outputTotal: number) {
 	return {
 		inputTokens: {
@@ -1322,6 +1323,116 @@ One document.
 			lostToolCallCount: 1
 		});
 		expect(partialLoss[0]?.detail).toMatch(/1 of 2 tool call\(s\).*truncated by the output limit/);
+	});
+});
+
+// issue #673: the case the two tests above do not reach, and the one `ai@7.0.70`'s
+// `isToolExecutionAllowedFinishReason` broke without any test noticing. A response cut off
+// exactly at a tool-call boundary emits nothing malformed: every call it did emit parses,
+// and the only trace of the truncation is `finishReason: 'length'`. From 7.0.70 the SDK
+// executes none of a step's client tools on that finish reason and hands back a transcript
+// whose tool calls no result answers, so before this loop settled them itself the whole
+// step's proposals were lost and the *next* step died on `MissingToolResultsError`.
+describe('GatewayDriver - a truncated step whose calls all parsed keeps every one of them (issue #673, defending issue #212)', () => {
+	const PLAYBOOK = loadPlaybook(`---
+id: fixture
+version: 1
+name: Fixture
+description: A playbook for issue #673's truncated-step test.
+stepBudget: 5
+---
+
+Propose entities then finish.
+
+## Inputs
+
+One document.
+
+## Tools
+
+- \`entity_propose\` - propose an entity.
+- \`job_finish\` - close the run.
+
+## Steps
+
+1. Propose, then finish.
+
+   \`\`\`json
+   { "outcome": "completed" }
+   \`\`\`
+`);
+
+	function proposal(localId: string, name: string) {
+		return {
+			localId,
+			type: 'character',
+			name,
+			aliases: [],
+			summary: `Proposed before the output limit cut this step off.`,
+			sourceRef: { documentId: 'doc-1' },
+			evidenceSpan: { start: 0, end: 5 },
+			images: []
+		};
+	}
+
+	it('proposes all of them, reports no loss, and the next step still runs', async () => {
+		const sources = new InMemorySourceReader({ files: { 'notes.md': 'irrelevant text' } });
+
+		let calls = 0;
+		const model = new MockLanguageModelV4({
+			provider: 'test',
+			modelId: 'test-cheap',
+			doGenerate: async () => {
+				calls += 1;
+				if (calls === 1) {
+					return {
+						content: (['e1', 'e2', 'e3', 'e4'] as const).map((localId, index) => ({
+							type: 'tool-call' as const,
+							toolCallId: `ok${index + 1}`,
+							toolName: 'entity_propose',
+							input: JSON.stringify(proposal(localId, `Entity ${localId}`))
+						})),
+						// The fifth call never made it onto the wire at all, so nothing in this
+						// step is malformed - only the finish reason says it was cut short.
+						finishReason: { unified: 'length' as const, raw: undefined },
+						usage: usage(10, 24576),
+						warnings: []
+					};
+				}
+				return toolCallStep([
+					{ id: 't2', name: 'job_finish', input: { outcome: 'completed', summary: '' } }
+				]);
+			}
+		});
+
+		const driver = new GatewayDriver({
+			gateway: IDENTITY_GATEWAY,
+			models: fixedModelSelector(model)
+		});
+		const { events } = await collect(
+			buildJob({
+				id: 'job-truncated-valid',
+				playbook: PLAYBOOK,
+				documents: [{ id: 'doc-1', sourcePath: 'notes.md' }],
+				sources
+			}),
+			driver
+		);
+
+		// Every call the model did finish writing is a proposal the GM gets to see.
+		expect(events.filter((e) => e.type === 'proposal')).toHaveLength(4);
+
+		// Nothing was lost, so nothing claims a loss - a truncation that cost no call is
+		// not something to tell a GM about (guardrail 7: report what does not add up, do
+		// not invent it).
+		expect(events.filter((e) => e.type === 'partial_loss')).toHaveLength(0);
+
+		// The step's tool results reached the transcript, so the loop's next step was a
+		// buildable prompt rather than a `MissingToolResultsError`, and the document
+		// finished on its own `job_finish`.
+		expect(model.doGenerateCalls).toHaveLength(2);
+		expect(events.at(-1)).toMatchObject({ type: 'progress', status: 'finished' });
+		expect(events.some((e) => e.type === 'progress' && e.status === 'failed')).toBe(false);
 	});
 });
 

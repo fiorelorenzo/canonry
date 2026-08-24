@@ -27,7 +27,14 @@
  *   through it before use, which is what makes this "GatewayDriver over @canonry/ai's
  *   gateway" rather than a driver that merely happens to sit in the same monorepo.
  */
-import { generateText, type ModelMessage, type LanguageModel, type ToolSet } from 'ai';
+import {
+	generateText,
+	type ModelMessage,
+	type LanguageModel,
+	type ToolExecutionOptions,
+	type ToolResultPart,
+	type ToolSet
+} from 'ai';
 import { computeCost, type ModelParams } from '@canonry/ai';
 import { detectLanguage, type Locale } from '@canonry/lang';
 import type {
@@ -257,6 +264,150 @@ interface StepOutcome {
 	toolCalls: Array<{ toolName: string; invalid: boolean }>;
 }
 
+/** One tool call as this step's settlement needs to see it: the SDK's own per-call
+ * `invalid` flag (which is the only thing in `generateText`'s result that says whether a
+ * call could be parsed at all), plus the parsed input a valid call has to be executed
+ * with. */
+interface StepToolCall {
+	toolCallId: string;
+	toolName: string;
+	input: unknown;
+	invalid: boolean;
+}
+
+/** issue #673: the tool calls in `messages` that no tool result answers, in the order the
+ * model emitted them.
+ *
+ * `ai@7.0.70` added `isToolExecutionAllowedFinishReason`
+ * (`src/generate-text/is-tool-execution-allowed-finish-reason.ts`), and gated
+ * `generate-text.ts`'s `executeTools` call behind it: a step whose `finishReason` is
+ * anything other than `stop` or `tool-calls` now has *none* of its client tools executed.
+ * `length` is one of those, and `length` is exactly what `STEP_MAX_OUTPUT_TOKENS` produces,
+ * so from 7.0.70 a step that batches four well-formed `entity_propose` calls and gets cut
+ * off inside the fifth proposes nothing at all. Worse, the `responseMessages` it hands back
+ * still carry the assistant's `tool-call` parts for the four with no matching result, and
+ * the SDK's own prompt validation rejects that, so the *next* step throws
+ * `MissingToolResultsError` and the document fails.
+ *
+ * Issue #212's guarantee is that a model which truncates its fifth proposal costs the GM
+ * the fifth and not the document, and a guarantee a minor version bump can remove is not
+ * one. So this and `settleUnansweredToolCalls` below make it ours. What they act on is a
+ * property of the transcript - a call nothing answers - never a version number or a
+ * finish reason, which is what makes the same code correct whether the SDK executed the
+ * step's tools or declined to. On a version or a step where it did, this finds nothing and
+ * costs one pass over two short arrays.
+ *
+ * A `providerExecuted` call is answered by the provider rather than by us, and is left
+ * alone for the same reason the SDK leaves it alone. */
+function unansweredToolCallIds(messages: ModelMessage[]): string[] {
+	const emitted: string[] = [];
+	const answered = new Set<string>();
+	for (const message of messages) {
+		if (message.role === 'assistant' && Array.isArray(message.content)) {
+			for (const part of message.content) {
+				if (part.type === 'tool-call' && part.providerExecuted !== true) {
+					emitted.push(part.toolCallId);
+				}
+			}
+		} else if (message.role === 'tool') {
+			for (const part of message.content) {
+				if (part.type === 'tool-result') answered.add(part.toolCallId);
+			}
+		}
+	}
+	return emitted.filter((id) => !answered.has(id));
+}
+
+function toolErrorResult(toolCallId: string, toolName: string, message: string): ToolResultPart {
+	return {
+		type: 'tool-result',
+		toolCallId,
+		toolName,
+		output: { type: 'error-text', value: message }
+	};
+}
+
+/** issue #673: runs the tool calls the SDK left unanswered and appends their results, so a
+ * step the SDK declined to execute settles exactly as it did before `ai@7.0.70` - every
+ * valid call executed, every invalid one answered with an error the model can read on its
+ * next turn, and a transcript the next step can actually be built from.
+ *
+ * Executing a complete tool call out of a truncated response is a product decision rather
+ * than a workaround, and it is #212's: a call the SDK marked valid parsed as whole JSON
+ * against its own schema, and `entity_propose` proposes rather than writes, so nothing
+ * reaches canon without the accept guardrail 1 requires either way. Nothing here touches
+ * `invalid`, so #134's all-invalid failure and #212's `partial_loss` count still read the
+ * SDK's own per-call verdict rather than ours. */
+async function settleUnansweredToolCalls(
+	responseMessages: ModelMessage[],
+	calls: StepToolCall[],
+	tools: ToolSet,
+	promptMessages: ModelMessage[],
+	abortSignal: AbortSignal
+): Promise<ModelMessage[]> {
+	const unanswered = unansweredToolCallIds(responseMessages);
+	if (unanswered.length === 0) return responseMessages;
+
+	const byId = new Map(calls.map((call) => [call.toolCallId, call]));
+	const results: ToolResultPart[] = [];
+	for (const toolCallId of unanswered) {
+		const call = byId.get(toolCallId);
+		// A call the step's own result never listed cannot be executed, and is still
+		// answered: an unanswered id is what makes the next step's prompt invalid, so
+		// leaving one behind would trade a lost proposal for a dead document.
+		if (!call) {
+			results.push(toolErrorResult(toolCallId, 'unknown', 'this tool call could not be read back'));
+			continue;
+		}
+		if (call.invalid) {
+			results.push(
+				toolErrorResult(
+					toolCallId,
+					call.toolName,
+					'this tool call could not be parsed, most likely truncated by the output limit'
+				)
+			);
+			continue;
+		}
+		const execute = tools[call.toolName]?.execute as
+			| ((input: unknown, options: ToolExecutionOptions<unknown>) => PromiseLike<unknown>)
+			| undefined;
+		if (!execute) {
+			results.push(
+				toolErrorResult(toolCallId, call.toolName, 'this tool is not available in this run')
+			);
+			continue;
+		}
+		try {
+			const output = await execute(call.input, {
+				toolCallId,
+				messages: promptMessages,
+				abortSignal,
+				context: undefined
+			});
+			results.push({
+				type: 'tool-result',
+				toolCallId,
+				toolName: call.toolName,
+				output: {
+					type: 'json',
+					value: (output ?? null) as Extract<ToolResultPart['output'], { type: 'json' }>['value']
+				}
+			});
+		} catch (error) {
+			const errorName = error instanceof Error ? error.name : 'UnknownError';
+			results.push(
+				toolErrorResult(toolCallId, call.toolName, `this tool call failed: ${errorName}`)
+			);
+		}
+	}
+	// Appended as its own `tool` message rather than merged into the one the SDK returned:
+	// `ai`'s `convertToLanguageModelPrompt` combines consecutive `tool` messages before any
+	// provider sees them, so this is one extra message to this loop and none on the wire,
+	// and nothing the SDK handed back is mutated.
+	return [...responseMessages, { role: 'tool', content: results }];
+}
+
 async function callStep(
 	model: LanguageModel,
 	system: string,
@@ -274,16 +425,25 @@ async function callStep(
 		abortSignal,
 		providerOptions: STABLE_PREFIX_CACHE_CONTROL
 	});
+	const calls: StepToolCall[] = result.toolCalls.map((call) => ({
+		toolCallId: call.toolCallId,
+		toolName: call.toolName,
+		input: call.input,
+		invalid: 'invalid' in call && call.invalid === true
+	}));
 	return {
-		responseMessages: result.responseMessages,
+		responseMessages: await settleUnansweredToolCalls(
+			result.responseMessages,
+			calls,
+			tools,
+			messages,
+			abortSignal
+		),
 		inputTokens: result.usage.inputTokens ?? 0,
 		outputTokens: result.usage.outputTokens ?? 0,
 		cachedInputTokens: result.usage.inputTokenDetails?.cacheReadTokens ?? 0,
 		cacheWriteInputTokens: result.usage.inputTokenDetails?.cacheWriteTokens ?? 0,
-		toolCalls: result.toolCalls.map((call) => ({
-			toolName: call.toolName,
-			invalid: 'invalid' in call && call.invalid === true
-		}))
+		toolCalls: calls.map((call) => ({ toolName: call.toolName, invalid: call.invalid }))
 	};
 }
 
