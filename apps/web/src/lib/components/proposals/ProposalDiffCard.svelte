@@ -10,6 +10,7 @@
 	import { InlineLink } from '$lib/components/ui/link';
 	import EvidencePopover from './EvidencePopover.svelte';
 	import RejectChips from './RejectChips.svelte';
+	import { shippedForkQuery } from './forkLink';
 	import type { EvidenceCaveat, EvidenceView } from './evidence';
 	import type { ProseDiff } from './proseDiff';
 
@@ -153,14 +154,12 @@
 
 	/** Issue #648: the relation settings, opened on the shipped type this accept refused and
 	 * the ends it needs. `resolve` types the route and takes no query of its own, so the
-	 * pair is appended here, and `addFrom`/`addTo` are omitted rather than sent empty when
-	 * only one end is short - the settings page reads them back as the pair to pre-check and
+	 * pair comes from `shippedForkQuery` - which lives in its own module rather than here,
+	 * see that file for why - and `addFrom`/`addTo` are omitted rather than sent empty when
+	 * only one end is short. The settings page reads them back as the pair to pre-check and
 	 * validates each against the entity-type enum. */
 	function shippedForkHref(notAdmitted: DiffCandidateNotAdmittedView): string {
-		const params = new URLSearchParams({ fork: notAdmitted.relationTypeId });
-		if (notAdmitted.addFrom) params.append('addFrom', notAdmitted.addFrom);
-		if (notAdmitted.addTo) params.append('addTo', notAdmitted.addTo);
-		return `${resolve(`/w/${universeSlug}/settings/relations`)}?${params.toString()}`;
+		return `${resolve(`/w/${universeSlug}/settings/relations`)}${shippedForkQuery(notAdmitted)}`;
 	}
 
 	/** C5's popover hangs off the first changed row, as it did off the first changed
