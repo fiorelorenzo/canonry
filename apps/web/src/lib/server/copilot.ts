@@ -79,23 +79,146 @@ function devMockUsage(inputTotal: number, outputTotal: number) {
 	};
 }
 
-/** Answers every `cheap`-purpose call `planPropagation`/`runAudit` make by sniffing the
- * prompt text for which one it is (same technique
- * `packages/copilot/src/propagate.test.ts`'s own `dynamicRankingModel` uses: read the real
- * candidate ids back out of the prompt rather than hand-picking an answer), and a
- * `premium`-purpose call with a fixed drafted body in case the plan page's own "Generate
- * diffs" action gets exercised too. */
+const DEV_MOCK_ANSWER =
+	'This is the dev mock model, not the Loremaster. COPILOT_DEV_MOCK_MODEL=1 is set, so no ' +
+	'request left this process: the retrieval, the conversation rows and this stream are all ' +
+	'real, and only the words are canned.';
+
+function devMockTextStream(text: string): ReadableStream {
+	const words = text.split(' ');
+	return new ReadableStream({
+		start(controller) {
+			controller.enqueue({ type: 'stream-start', warnings: [] });
+			controller.enqueue({ type: 'text-start', id: 'dev-mock' });
+			// One word per part rather than one part: the SSE route, `$lib/ask/stream.ts` and
+			// the typing the GM actually watches are only exercised by a stream that arrives in
+			// pieces, which is the half of Ask a single-chunk answer would still not reach.
+			for (const [i, word] of words.entries()) {
+				controller.enqueue({
+					type: 'text-delta',
+					id: 'dev-mock',
+					delta: i === 0 ? word : ` ${word}`
+				});
+			}
+			controller.enqueue({ type: 'text-end', id: 'dev-mock' });
+			controller.enqueue({
+				type: 'finish',
+				finishReason: { unified: 'stop', raw: undefined },
+				usage: devMockUsage(400, 60)
+			});
+			controller.close();
+		}
+	});
+}
+
+/**
+ * What this covers, stated exactly, because the version before this one claimed the
+ * Loremaster and reached everything except its main surface (#700).
+ *
+ * `doGenerate` answers the two `cheap` calls `planPropagation` and `runAudit` make, by
+ * sniffing the prompt for which one it is and reading the real candidate ids back out of it
+ * (the technique `packages/copilot/src/propagate.test.ts`'s own `dynamicRankingModel` uses),
+ * and the `premium` structured calls in both shapes they come in: `{ summary, after }` for
+ * `diffs.ts`, `complete.ts` and `ask-propose.ts`'s edit drafting, and `newEntitySchema` for
+ * its new-entry drafting. `usedSources` is empty on both, since a mock has drawn on nothing;
+ * the two schemas that do not declare it drop it.
+ *
+ * `doStream` is Ask. `runAsk` calls `streamText`, so a mock with only a `doGenerate` failed
+ * the one surface it was most wanted for. A question that reads like a request to write canon
+ * gets a first step that calls `entry_propose`, so the nested `newEntitySchema` drafting call
+ * and the real `proposal` write behind it are exercised too, and a second step that answers;
+ * anything else gets one streamed answer and no tool call.
+ *
+ * What it does not cover, and cannot:
+ *
+ * - Import. `$lib/server/onboarding.ts` builds its own `GatewayDriver` over
+ *   `createLanguageModel` rather than going through `modelFactory`, so this env var does
+ *   nothing to it.
+ * - Embeddings, media and audio. Retrieval falls back to `hashingEmbedder` on its own when
+ *   there is no credential (see this file's header), and Replicate and ElevenLabs are called
+ *   directly rather than through the gateway.
+ * - Token and credit accounting, per this file's header: the `usage` numbers below are made
+ *   up.
+ * - Any response a real model gets wrong: a truncated answer, an unexpected finish reason, a
+ *   malformed tool call, a schema the model violates. Every branch here is a well-formed
+ *   success by construction, so nothing that only happens on the failure paths can be
+ *   reproduced with it. That is what the stub-gateway recipe in `AGENTS.md` is for.
+ */
 function devMockModel(purpose: string): LanguageModel {
+	// `routeModel` is called once per Ask turn, so this counts the steps of one loop: the
+	// first may call a tool, the second answers. The nested drafting call `entry_propose`
+	// makes routes again and therefore gets its own instance and its own counter.
+	let streamStep = 0;
 	return new MockLanguageModelV4({
 		provider: 'dev-mock',
 		modelId: `dev-mock-${purpose}`,
+		doStream: async (options) => {
+			streamStep += 1;
+			const promptText = JSON.stringify(options.prompt);
+			// The GM's question, read off `Question: `, the last thing `runAsk` puts in the
+			// prompt. Deliberately not the whole prompt: its system half names both tools and
+			// instructs the model about proposing, so a verb matched there matches every turn.
+			// Asking for canon to be written is what a real model answers with a tool call, so
+			// the mock decides the same way it decides everything else, by reading the prompt.
+			const question = /Question: ([^"\\]*)/.exec(promptText)?.[1] ?? '';
+			const asksForCanon =
+				purpose === 'premium' && /\b(propose|create|add|draft|write|invent)\b/i.test(question);
+			if (streamStep === 1 && asksForCanon) {
+				return {
+					stream: new ReadableStream({
+						start(controller) {
+							controller.enqueue({ type: 'stream-start', warnings: [] });
+							controller.enqueue({
+								type: 'tool-call',
+								toolCallId: 'dev-mock-tool-call',
+								toolName: 'entry_propose',
+								input: JSON.stringify({
+									// Two or more capitalised words in a row, which is the name in "create an
+									// entry for Corvin Ashe": enough that the proposal a GM gets back is about
+									// what they asked for rather than being titled with their whole sentence,
+									// and it falls back rather than guessing when the question names nobody.
+									name:
+										/\b([A-Z][\p{L}']+(?: [A-Z][\p{L}']+)+)/u.exec(question)?.[1] ??
+										'A dev-mock entry',
+									instruction: 'Drafted by the dev mock model, from the question the GM asked.'
+								})
+							});
+							controller.enqueue({
+								type: 'finish',
+								finishReason: { unified: 'tool-calls', raw: undefined },
+								usage: devMockUsage(400, 20)
+							});
+							controller.close();
+						}
+					})
+				};
+			}
+			return { stream: devMockTextStream(DEV_MOCK_ANSWER) };
+		},
 		doGenerate: async (options) => {
 			const promptText = JSON.stringify(options.prompt);
 			if (purpose === 'premium') {
-				const object = {
-					summary: 'Drafted by the dev mock model.',
-					after: 'Dev-mock drafted body.'
-				};
+				// `aliases` is in `newEntitySchema` and in none of the other premium schemas, so
+				// the requested response format is what tells the two shapes apart. The prompt's
+				// own wording is the fallback, for the same reason the cheap branch below reads
+				// the prompt at all: it is the one thing a mock is always handed.
+				const wantsNewEntity =
+					JSON.stringify(options.responseFormat ?? '').includes('"aliases"') ||
+					promptText.includes('brand new wiki entry');
+				const object = wantsNewEntity
+					? {
+							type: 'character',
+							name: /Name: ([^"\\\n]+)/.exec(promptText)?.[1]?.trim() ?? 'A dev-mock entry',
+							aliases: [],
+							body: 'Drafted by the dev mock model. No model call left this process.',
+							summary: 'Drafted by the dev mock model.',
+							usedSources: []
+						}
+					: {
+							summary: 'Drafted by the dev mock model.',
+							after: 'Dev-mock drafted body.',
+							usedSources: []
+						};
 				return {
 					content: [{ type: 'text', text: JSON.stringify(object) }],
 					finishReason: { unified: 'stop', raw: undefined },
