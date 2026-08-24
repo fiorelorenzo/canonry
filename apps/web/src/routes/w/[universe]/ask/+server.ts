@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { identityGateway, modelFactory, queryEmbedderFor, vectorClient } from '$lib/server/copilot';
+import { recordTurnLoss } from '$lib/server/ask/turn-loss';
 import type { RequestHandler } from './$types';
 
 const DETAIL_LEVELS: readonly AskDetailLevel[] = ['1_line', 'short', 'normal', 'detailed', 'full'];
@@ -159,7 +160,12 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 					// issue #678: what the turn could not finish, or null when it finished.
 					// `done` rather than an event of its own, because it is a property of the
 					// settled turn: nothing can know a turn was cut off until it ends.
-					loss: result.loss
+					loss: result.loss,
+					// issue #699: the same fact, filed server-side under an opaque id so the keep
+					// that follows can store it without the client being the one that says whether
+					// the answer was complete. `loss` above is what the panel paints now; this is
+					// what the record is written from. See `$lib/server/ask/turn-loss.ts`.
+					turnId: recordTurnLoss(locals.user!.id, result.loss)
 				});
 			} catch (err) {
 				send(controller, 'error', {

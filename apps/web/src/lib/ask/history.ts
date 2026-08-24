@@ -34,6 +34,16 @@ export interface AskRowView {
 	 * canon quoted back (guardrail 4) - mirrors `turn.generated === false` everywhere
 	 * else Ask renders this warning. */
 	generated: boolean;
+	/** Issue #699: what the turn that produced this answer could not finish, or `null` when
+	 * there is nothing to say - either because the turn finished or because the row predates
+	 * the columns and "we do not know" is the honest answer. Rendered from the same
+	 * `universe.ask.truncated.*` keys the dock renders (#696), so the live turn and the record
+	 * cannot drift into two vocabularies for one fact.
+	 *
+	 * A finished turn collapses to `null` here rather than staying `{ truncated: false,
+	 * lostProposals: 0 }`: the record keeps that distinction because it is worth being able to
+	 * query, and the surface does not, because there is no line to paint for it. */
+	loss: { truncated: boolean; lostProposals: number } | null;
 	sources: AskSourceView[];
 }
 
@@ -76,6 +86,9 @@ export function toAskRowView(turn: KeptAnswerRecord): AskRowView {
 		preview: firstLine(turn.answer),
 		keptAt: turn.keptAt.toISOString(),
 		generated: turn.provider !== null,
+		// Nothing to show for a turn that finished, and nothing to show for a row that cannot
+		// say - a caveat invented for either would be the over-claiming half of guardrail 7.
+		loss: turn.loss && (turn.loss.truncated || turn.loss.lostProposals > 0) ? turn.loss : null,
 		sources: turn.sources.map(toAskSourceView)
 	};
 }

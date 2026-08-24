@@ -87,6 +87,29 @@
 		{/if}
 		<p class="text-body leading-relaxed whitespace-pre-wrap text-ink">{turn.answer}</p>
 
+		{#if turn.loss}
+			<!-- Issue #699: the same two lines the dock paints on the live turn (#696), from the
+			     same `universe.ask.truncated.*` keys and in the same `warn` treatment, so the
+			     record cannot say less than the answer said when it was written. Directly under
+			     the paragraph it is about and above the sources, which is where the dock puts it
+			     and what makes it legible: the sentence it explains is the one that stops short.
+			     Deliberately not on the collapsed summary above - that row shows one line of
+			     preview, so a caveat there would be attached to a sentence the reader cannot yet
+			     see, and the issue's own question about the list row is answered no for that
+			     reason. Guardrail 7: the second line only appears when a proposal really was
+			     lost, and neither line says anything about the ones that survived. -->
+			<div class="mt-2 rounded-md border border-warn-bg bg-warn-bg px-3 py-2 text-label text-warn">
+				{#if turn.loss.truncated}
+					<p class="m-0">{t.truncated.notice}</p>
+				{/if}
+				{#if turn.loss.lostProposals > 0}
+					<p class="m-0" class:mt-1={turn.loss.truncated}>
+						{t.truncated.proposalsLost(turn.loss.lostProposals)}
+					</p>
+				{/if}
+			</div>
+		{/if}
+
 		{#if turn.sources.length > 0}
 			<!-- Guardrail 3: which entry, which sentence, never a bare confidence number.
 			     #535: the sentence is the citation, so the row quotes it, in the app's own

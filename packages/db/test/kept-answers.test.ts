@@ -279,6 +279,75 @@ describe('kept answers', () => {
 		);
 	});
 
+	it('issue #699: keeps what the turn could not finish, and keeps "we do not know" apart from "it finished"', async () => {
+		const { u, cited, keeper } = await fixture();
+
+		const cut = await keepAnswer(db, {
+			...input(u, keeper, cited.id),
+			loss: { truncated: true, lostProposals: 1 }
+		});
+		const cutRecord = await keptAnswerById(db, { id: cut.id, universeId: u.id, keptBy: keeper });
+		expect(cutRecord!.loss).toEqual({ truncated: true, lostProposals: 1 });
+
+		// A turn that finished says so, which is a claim and not the same row shape as a turn
+		// nobody could ask about (guardrail 7 cuts both ways).
+		const whole = await keepAnswer(db, {
+			...input(u, keeper, cited.id),
+			loss: { truncated: false, lostProposals: 0 }
+		});
+		const wholeRecord = await keptAnswerById(db, {
+			id: whole.id,
+			universeId: u.id,
+			keptBy: keeper
+		});
+		expect(wholeRecord!.loss).toEqual({ truncated: false, lostProposals: 0 });
+
+		// And a caller with no way to know leaves both columns null, which every row written
+		// before this migration also reads as.
+		const silent = await keepAnswer(db, input(u, keeper, cited.id));
+		const silentRecord = await keptAnswerById(db, {
+			id: silent.id,
+			universeId: u.id,
+			keptBy: keeper
+		});
+		expect(silentRecord!.loss).toBeNull();
+	});
+
+	it('issue #699: refuses a row that knows one half of the answer, since half of it is not an answer', async () => {
+		const { u, keeper } = await fixture();
+		await expectConstraintViolation(
+			db.insert(keptAnswer).values({
+				universeId: u.id,
+				keptBy: keeper,
+				question: 'Was that answer complete?',
+				answer: 'It stops here.',
+				detailLevel: 'full',
+				locale: 'en',
+				askedFromPath: '/w/valdoria-reach',
+				truncated: true
+			}),
+			'kept_answer_loss_shape'
+		);
+	});
+
+	it('issue #699: refuses a negative count of lost proposals', async () => {
+		const { u, keeper } = await fixture();
+		await expectConstraintViolation(
+			db.insert(keptAnswer).values({
+				universeId: u.id,
+				keptBy: keeper,
+				question: 'Was that answer complete?',
+				answer: 'It stops here.',
+				detailLevel: 'full',
+				locale: 'en',
+				askedFromPath: '/w/valdoria-reach',
+				truncated: true,
+				lostProposals: -1
+			}),
+			'kept_answer_lost_proposals_non_negative'
+		);
+	});
+
 	it('keeps an answer a switched-off universe read without a model', async () => {
 		const { u, cited, keeper } = await fixture();
 		const row = await keepAnswer(db, {
