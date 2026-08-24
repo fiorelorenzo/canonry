@@ -6,6 +6,7 @@ import {
 	preFilterCandidates,
 	resolveMatch,
 	type MatchCandidate,
+	type PreFilterNarrowing,
 	type SimilarityFn
 } from './matching.js';
 
@@ -207,5 +208,69 @@ describe('resolveMatch (issue #36/#37)', () => {
 			preFilterLimit: 5
 		});
 		expect(calls).toBeLessThanOrEqual(5);
+	});
+
+	it('reports what the pre-filter dropped, which is the cap that actually decides (issue #666)', async () => {
+		const candidates: MatchCandidate[] = Array.from({ length: 50 }, (_, i) => ({
+			id: `e${i}`,
+			name: `Unrelated Entity ${i}`,
+			aliases: []
+		}));
+		const narrowing: PreFilterNarrowing[] = [];
+		await resolveMatch({
+			subject: { name: 'Aldric Voss', aliases: [] },
+			exactSourceRefMatch: null,
+			candidates,
+			similarity: () => 0.5,
+			thresholds: THRESHOLDS,
+			preFilterLimit: 5,
+			onPreFilter: (n) => narrowing.push(n)
+		});
+		expect(narrowing).toEqual([{ poolSize: 50, scoredSize: 5 }]);
+	});
+
+	it('reports a pool it did not narrow, so a caller can tell "not cut" from "not read"', async () => {
+		const narrowing: PreFilterNarrowing[] = [];
+		await resolveMatch({
+			subject: { name: 'Aldric Voss', aliases: [] },
+			exactSourceRefMatch: null,
+			candidates: [{ id: 'e1', name: 'Aldric Voss', aliases: [] }],
+			similarity: () => 0.9,
+			thresholds: THRESHOLDS,
+			onPreFilter: (n) => narrowing.push(n)
+		});
+		expect(narrowing).toEqual([{ poolSize: 1, scoredSize: 1 }]);
+	});
+
+	it('reports nothing when a source ref or an identity collision settled the sighting above it', async () => {
+		const candidates: MatchCandidate[] = Array.from({ length: 50 }, (_, i) => ({
+			id: `e${i}`,
+			name: `Unrelated Entity ${i}`,
+			aliases: []
+		}));
+		const narrowing: PreFilterNarrowing[] = [];
+		// Step 1 of SPEC.md §6.4, which never reaches a candidate list at all.
+		await resolveMatch({
+			subject: { name: 'Aldric Voss', aliases: [] },
+			exactSourceRefMatch: { id: 'by-source-ref', name: 'Aldric Voss', aliases: [] },
+			candidates,
+			similarity: () => 0.9,
+			thresholds: THRESHOLDS,
+			onPreFilter: (n) => narrowing.push(n)
+		});
+		// And #479's identity guard, which is above the scorer for the same reason.
+		await resolveMatch({
+			subject: { name: 'Aldric Voss', aliases: [] },
+			exactSourceRefMatch: null,
+			identity: {
+				subject: { name: 'Aldric Voss', slug: 'aldric-voss' },
+				candidates: [{ id: 'e-known', name: 'Aldric Voss', slug: 'aldric-voss', type: 'character' }]
+			},
+			candidates,
+			similarity: () => 0.9,
+			thresholds: THRESHOLDS,
+			onPreFilter: (n) => narrowing.push(n)
+		});
+		expect(narrowing).toEqual([]);
 	});
 });

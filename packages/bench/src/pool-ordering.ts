@@ -44,6 +44,20 @@
  * `pg_trgm` index shapes a proximity ordering would need. Quality without the plan cost next
  * to it is half an answer.
  *
+ * ### Part 4: is 20 the right pre-filter limit? (issue #666)
+ *
+ * Part 1 found that the cap which actually decides is the pre-filter's, so #666 asked the
+ * obvious next question: should it be larger. `--pre-filter=20,40,...` sweeps it under the
+ * production `slug` ordering and reports, per limit, how many true candidates never reached
+ * the scorer and what the limit costs. The cost is two numbers and they are not the same
+ * number: `sim calls` is one cosine per candidate scored, which is arithmetic, and `texts`
+ * is the distinct texts an embedding scorer would have to embed, which is the euro. They
+ * diverge because `createEmbeddingSimilarity` caches per text for the life of the job
+ * (`embedding-similarity.ts`), so a candidate the pre-filter admits for the tenth sighting
+ * is free and a candidate it admits for the first time is not. SPEC.md §15 puts embeddings
+ * outside the user's quota, so the second number is our margin rather than the GM's credits,
+ * and §11.5 is where it lands.
+ *
  * ### What it answered, on 2026-08-24
  *
  * No. Not because proximity is slow, which was the expectation: `name <-> $1` against a
@@ -63,6 +77,19 @@
  * candidates. And an ordering that falls back to a sequential scan reads every row of
  * `entity` in every universe, so its cost grows with the deployment and not with the
  * universe, which is worse than #627's write-up of the same measurement says.
+ *
+ * ### And what part 4 answered, on 2026-08-24 (issue #666)
+ *
+ * 20 stays. The narrowing is not free: on the `hardest` wording, from 59 entities of one type
+ * upwards, the window loses the corpus's two translated names, and under the production
+ * embedding scorer recovering them turns two false splits into one match and one question
+ * with no new false merge, weighted 14 down to 12. But the limit that recovers scales with
+ * the type's population, about half of it (30 at 59, 60 at 109, 120 at 189, 100 at 209), so
+ * no constant is the fix, and past 200 of one type the SQL cap has already dropped the
+ * candidate and no limit reaches it. Under the lexical scorer the weighted cost does not move
+ * at any limit at any size, which is worth knowing before reading a CI run as evidence about
+ * this number. `DEFAULT_PRE_FILTER_LIMIT`'s own comment carries the table and the decision;
+ * #679 is the ordering that would make the question moot.
  */
 import { randomUUID } from 'node:crypto';
 import { embedMany } from 'ai';
@@ -72,6 +99,8 @@ import { entity, universe, user, type EntityType } from '@canonry/db/schema';
 import { createEmbeddingModel, readGatewayCredentials, resolveModel } from '@canonry/ai';
 import { embeddingDimensionsFor } from '@canonry/indexing';
 import {
+	DEFAULT_PRE_FILTER_LIMIT,
+	matchTextFor,
 	nameOverlapScore,
 	oneLineSummary,
 	EMBEDDING_MATCH_THRESHOLDS,
@@ -92,10 +121,11 @@ import { loadEnv, requireEnv } from './env.js';
 
 const TYPES: EntityType[] = ['character', 'place', 'faction', 'item', 'event', 'session'];
 
-/** The SQL cap `candidateEntitiesForMatching` ships with, and the pre-filter cap
- * `resolveMatch` ships with. Both are measured, because both truncate. */
+/** The SQL cap `candidateEntitiesForMatching` ships with. The pre-filter cap comes from the
+ * product itself (`DEFAULT_PRE_FILTER_LIMIT`) rather than being restated here, because part
+ * 4 exists to defend that number and a copy of it could drift away from the one that runs. */
 const POOL_LIMIT = 200;
-const PRE_FILTER_LIMIT = 20;
+const PRE_FILTER_LIMIT = DEFAULT_PRE_FILTER_LIMIT;
 
 /** #627's own measurement size, so the plan numbers here are comparable to the ones in
  * `candidateEntitiesForMatching`'s doc comment. */
@@ -776,11 +806,11 @@ async function measureOrderings(
 					`\n   wording=${variant} ${typeCount!.n} entities of a type, scorer=${scorer.id} band=${scorer.thresholds.newBelow}/${scorer.thresholds.matchAbove}`
 				);
 				console.log(
-					'   ordering            missing  unscored  matched  asked  new  fmerge  fsplit  weighted'
+					'   ordering            missing  narrowed  unscored  matched  asked  new  fmerge  fsplit  weighted'
 				);
 				for (const score of report.scores) {
 					console.log(
-						`   ${score.orderingId.padEnd(19)} ${String(score.trueCandidateMissing).padStart(7)} ${String(score.trueCandidateUnscored).padStart(9)} ${String(score.matched).padStart(8)} ${String(score.asked).padStart(6)} ${String(score.correctlyNew).padStart(4)} ${String(score.falseMerges).padStart(7)} ${String(score.falseSplits).padStart(7)} ${String(score.weightedCost).padStart(9)}`
+						`   ${score.orderingId.padEnd(19)} ${String(score.trueCandidateMissing).padStart(7)} ${String(score.narrowedPools).padStart(9)} ${String(score.trueCandidateUnscored).padStart(9)} ${String(score.matched).padStart(8)} ${String(score.asked).padStart(6)} ${String(score.correctlyNew).padStart(4)} ${String(score.falseMerges).padStart(7)} ${String(score.falseSplits).padStart(7)} ${String(score.weightedCost).padStart(9)}`
 					);
 				}
 				// Which subject each ordering lost, which is the finding rather than the total.
@@ -790,6 +820,107 @@ async function measureOrderings(
 						console.log(
 							`     ${score.orderingId}: true candidate never reached the scorer for ${lost.map((o) => o.subjectId).join('; ')}`
 						);
+					}
+				}
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Part 4 (issue #666).
+// ---------------------------------------------------------------------------
+
+/** Counts what a limit costs, wrapped around the scorer the sweep is running. `calls` is one
+ * cosine per candidate scored; `texts` is the distinct texts an embedding scorer would pay a
+ * provider for, which is fewer than `calls` because `createEmbeddingSimilarity` caches per
+ * text for the life of a job and both sides of a pair are cached. */
+function countingSimilarity(inner: SimilarityFn): {
+	similarity: SimilarityFn;
+	calls: () => number;
+	texts: () => number;
+} {
+	let calls = 0;
+	const texts = new Set<string>();
+	return {
+		similarity: (subject, candidate) => {
+			calls += 1;
+			texts.add(matchTextFor(subject));
+			texts.add(matchTextFor(candidate));
+			return inner(subject, candidate);
+		},
+		calls: () => calls,
+		texts: () => texts.size
+	};
+}
+
+/**
+ * Issue #666's question: 20 candidates reach the scorer, and the pool's own order picks
+ * which 20 whenever the subject shares no token with any of them. Is 20 the right number?
+ *
+ * Swept under the production `slug` ordering only, because the ordering is #641's question
+ * and it answered it: the alternatives are blind to exactly the subjects the window decides.
+ * What moves here is the size of the window over the ordering we ship.
+ */
+async function measurePreFilter(
+	db: Db,
+	scorers: Scorer[],
+	fillerSizes: number[],
+	variants: WordingVariant[],
+	limits: number[]
+): Promise<void> {
+	const subjects = poolSubjectsFromCorpus(SAMPLE_WORLD_MATCHING_CORPUS);
+	console.log('\n## Part 4: the pre-filter limit, swept under the production slug ordering');
+	console.log(
+		`   ${subjects.length} subjects, pool cap ${POOL_LIMIT}, limits ${limits.join(', ')} (shipping ${PRE_FILTER_LIMIT})`
+	);
+
+	for (const variant of variants) {
+		for (const fillerPerType of fillerSizes) {
+			const spec = await buildScoringUniverse(db, fillerPerType, variant);
+			const ordering = slugOrdering(spec.corpusIdByName);
+			const [typeCount] = (await db.execute(sql`
+				select count(*)::int as n from entity
+				where universe_id = ${spec.universeId} and type = 'place'::entity_type
+			`)) as unknown as Array<{ n: number }>;
+
+			for (const scorer of scorers) {
+				console.log(
+					`\n   wording=${variant} ${typeCount!.n} entities of a type, scorer=${scorer.id}`
+				);
+				console.log(
+					'   limit  narrowed  unscored  matched  asked  new  fmerge  fsplit  weighted  sim calls  texts'
+				);
+				for (const limit of limits) {
+					const counted = countingSimilarity(scorer.similarity);
+					const report = await runPoolOrderingBenchmark(
+						SAMPLE_WORLD_MATCHING_CORPUS.id,
+						subjects,
+						[
+							{
+								id: ordering.id,
+								fetchPool: (subject: MatchSubject) =>
+									ordering.fetch(db, spec.universeId, subject, POOL_LIMIT)
+							}
+						],
+						counted.similarity,
+						{
+							thresholds: scorer.thresholds,
+							preFilterLimit: limit,
+							falseMergeWeight: FALSE_MERGE_WEIGHT
+						}
+					);
+					const score = report.scores[0]!;
+					// One scorer call per candidate that survived the pre-filter, over every subject.
+					// The benchmark's own extra `preFilterCandidates` call scores nothing, so this
+					// counts what a real job would pay and not what the harness did.
+					const calls = counted.calls();
+					console.log(
+						`   ${String(limit).padStart(5)} ${String(score.narrowedPools).padStart(9)} ${String(score.trueCandidateUnscored).padStart(9)} ${String(score.matched).padStart(8)} ${String(score.asked).padStart(6)} ${String(score.correctlyNew).padStart(4)} ${String(score.falseMerges).padStart(7)} ${String(score.falseSplits).padStart(7)} ${String(score.weightedCost).padStart(9)} ${String(calls).padStart(10)} ${String(counted.texts()).padStart(6)}`
+					);
+					const lost = score.outcomes.filter((o) => o.trueCandidateScored === false);
+					if (lost.length > 0) {
+						console.log(`     lost: ${lost.map((o) => o.subjectId).join('; ')}`);
 					}
 				}
 			}
@@ -824,6 +955,23 @@ function parseFiller(argv: string[]): number[] {
 	return [20, 200, 1000];
 }
 
+/** `--pre-filter=20,40,200`: which pre-filter limits part 4 sweeps (issue #666). The default
+ * brackets the shipping 20 on both sides and ends at the SQL cap, above which the limit
+ * cannot change anything because the pool never holds more rows than that. */
+function parsePreFilter(argv: string[]): number[] {
+	for (const arg of argv) {
+		const match = /^--pre-filter=?([\d,]+)$/.exec(arg);
+		if (match?.[1]) {
+			const limits = match[1]
+				.split(',')
+				.map((n) => Number(n))
+				.filter((n) => Number.isFinite(n) && n > 0);
+			if (limits.length > 0) return limits;
+		}
+	}
+	return [10, PRE_FILTER_LIMIT, 40, 100, POOL_LIMIT];
+}
+
 async function main(): Promise<void> {
 	loadEnv();
 	const databaseUrl = requireEnv('DATABASE_URL');
@@ -832,6 +980,7 @@ async function main(): Promise<void> {
 	}
 	const which = parseScorer(process.argv.slice(2));
 	const fillerSizes = parseFiller(process.argv.slice(2));
+	const preFilterLimits = parsePreFilter(process.argv.slice(2));
 
 	const db = createDb(databaseUrl, { max: 4 });
 	try {
@@ -876,6 +1025,7 @@ async function main(): Promise<void> {
 		}
 
 		await measureOrderings(db, scorers, fillerSizes, ['easiest', 'hardest']);
+		await measurePreFilter(db, scorers, fillerSizes, ['easiest', 'hardest'], preFilterLimits);
 	} finally {
 		await closeDb(db);
 	}

@@ -131,7 +131,16 @@ export function nameOverlapScore(subject: MatchSubject, candidate: MatchCandidat
  * decision by itself - a translated name scores zero here and still has to reach the
  * semantic step - this only bounds how many candidates ever get that far. Ties on overlap
  * preserve the input order, so a caller that already sorted candidates by relevance keeps
- * that ordering among equals. */
+ * that ordering among equals.
+ *
+ * **This is the cap that decides, not the SQL one (issue #666).** A subject that shares no
+ * name or alias token with any candidate overlaps all of them equally at zero, so the
+ * tie-break is the whole decision and the pool's own order picks which `limit` rows are
+ * ever scored. `candidateEntitiesForMatching` caps a pool at 200 and orders by slug, so
+ * from 21 candidates of one type upwards the 20 that reach the scorer for such a subject
+ * are the alphabetically first 20. That is why `resolveMatch` reports what this function
+ * dropped (`ResolveMatchInput.onPreFilter`): a run saying `truncatedPools: 0` is telling
+ * the truth about the 200 and nothing about the 20. */
 export function preFilterCandidates(
 	subject: MatchSubject,
 	candidates: MatchCandidate[],
@@ -352,11 +361,84 @@ export interface ResolveMatchInput {
 	thresholds: MatchThresholds;
 	/** Caps how many candidates ever reach `similarity` (issue #36/#37's "cheapest
 	 * first"): above this count, `preFilterCandidates` narrows by name overlap first.
-	 * Default 20 - generous for a single document's worth of candidates, still bounded. */
+	 * Default 20 - generous for a single document's worth of candidates, still bounded,
+	 * and measured rather than assumed (issue #666: see `DEFAULT_PRE_FILTER_LIMIT`). */
 	preFilterLimit?: number;
+	/** issue #666: called once, and only when the pre-filter actually ran, with what it was
+	 * handed and what survived. It lives here rather than in the caller's own arithmetic
+	 * because only this function knows whether the pre-filter ran at all: an external id or
+	 * an identity collision settles a sighting above it, and "not narrowed" and "narrowed by
+	 * nothing" are different facts. `job-runner.ts` counts it per document next to
+	 * `truncatedPools`, which counts the other cap. */
+	onPreFilter?: (narrowing: PreFilterNarrowing) => void;
 }
 
-const DEFAULT_PRE_FILTER_LIMIT = 20;
+/** What the pre-filter did to one sighting's pool (issue #666). `scoredSize` is how many
+ * candidates reached `similarity`, so `poolSize - scoredSize` is what the tie-break on
+ * input order silently decided against. */
+export interface PreFilterNarrowing {
+	poolSize: number;
+	scoredSize: number;
+}
+
+/**
+ * How many candidates reach the scorer when a caller states no limit, and therefore the
+ * merge engine's real cap on the candidate pool: `candidateEntitiesForMatching`'s 200 is
+ * the read, this is the decision (issue #666).
+ *
+ * **20 stays, and here is what it costs.** `packages/bench/src/pool-ordering.ts`'s part 4
+ * sweeps this number over the labelled corpus in a real universe grown to a stated size,
+ * under the production `slug` ordering and the production embedding scorer
+ * (`alibaba/qwen3-embedding-4b`, band 0.60/0.75). Two identical runs, 2026-08-24, 15
+ * subjects of which 9 have a true candidate:
+ *
+ * | entities of one type | limit | true candidates unscored | false merges | false splits | weighted | sim calls | texts |
+ * | --- | --- | --- | --- | --- | --- | --- | --- |
+ * | 59, hardest wording | 20 | 2 | 2 | 4 | 14 | 300 | 87 |
+ * | 59, hardest wording | 40 | 0 | 2 | 2 | **12** | 600 | 144 |
+ * | 209, hardest wording | 20 | 2 | 2 | 4 | 14 | 300 | 90 |
+ * | 209, hardest wording | 40 | 2 | 2 | 4 | 14 | 600 | 148 |
+ * | 209, hardest wording | 100 | 0 | 2 | 2 | **12** | 1500 | 324 |
+ * | 209, hardest wording | 200 | 0 | 2 | 2 | 12 | 3000 | 615 |
+ *
+ * So the narrowing does cost real accuracy, and a wider window does buy it back: the two
+ * subjects it loses are `SAMPLE_WORLD_MATCHING_CORPUS`'s translated names, "Il Ratto Dorato"
+ * against "the Gilded Rat" and "il Patto di Cenere" against "the Ashen Covenant", and
+ * recovering them turns two false splits into one match and one question with no new false
+ * merge. On the `easiest` wording, where the universe also holds a wording that shares a
+ * token, nothing is ever lost at any limit, because the pre-filter ranks a token-sharer
+ * first regardless of the window. Under the lexical scorer the weighted cost does not move
+ * at any limit at any size, so this is a finding about the embedding scorer specifically.
+ *
+ * Three reasons it is still 20 rather than 40.
+ *
+ * **No constant is the fix, because the limit that recovers scales with the universe.** The
+ * recovery threshold is roughly half the type's population: 30 at 59 entities of a type, 60
+ * at 109, 120 at 189, 100 at 209. That is what a uniformly distributed slug implies, since a
+ * candidate the ordering knows nothing about sits at an expected rank of half the pool. A 40
+ * that fixes a 250-entry world is a 40 that fixes nothing at 800, and above 200 of one type
+ * the SQL cap has already dropped the candidate so no limit reaches it at all (measured: 6
+ * of 9 unscored at 1009 of a type, unchanged from limit 10 to limit 200).
+ *
+ * **Widening buys the cheap error at the risk of the expensive one, on a scorer this corpus
+ * cannot audit for it.** SPEC.md §6.4 weights a false merge five times a false split, and
+ * `docs/models.md` records this embedding model scoring "Aldric Voss" against "Seraphine
+ * Duval", two entities with nothing in common, at 0.843 on bare names, above a `matchAbove`
+ * of 0.75. The band works because #310 gives both sides context lines, but a scorer that
+ * flat is one where admitting 80 more candidates per sighting is a false-merge exposure, and
+ * 15 subjects with 2 false merges is not enough to detect one more. `docs/models.md` says
+ * the same thing about its own 19 judged cases.
+ *
+ * **The window does not need to be wider, it needs to be right.** The candidates this
+ * ordering decides are exactly the ones sharing no token with the subject (#641), so the
+ * ordering that would put the translation in the first 20 is embedding distance, which is
+ * already in Qdrant. That is issue #679, and it is a change to which 20, not to how many.
+ *
+ * What would reopen this: a labelled corpus large enough to price a false merge, or #679
+ * landing and making the question moot. The figure that says whether it matters on a real
+ * import is `DocumentOutcome.narrowedPools`, which exists because of this issue.
+ */
+export const DEFAULT_PRE_FILTER_LIMIT = 20;
 
 /**
  * Runs SPEC.md §6.4's full matching order for one proposed entity: exact source-ref match
@@ -391,6 +473,10 @@ export async function resolveMatch(input: ResolveMatchInput): Promise<MatchDecis
 
 	const limit = input.preFilterLimit ?? DEFAULT_PRE_FILTER_LIMIT;
 	const narrowed = preFilterCandidates(input.subject, input.candidates, limit);
+	// issue #666: reported from here, the one place that knows the pre-filter ran at all.
+	// Both steps above settle a sighting without ever reaching it, and a caller reconstructing
+	// this from `candidates.length` would count a drop that never happened.
+	input.onPreFilter?.({ poolSize: input.candidates.length, scoredSize: narrowed.length });
 
 	const scored = await Promise.all(
 		narrowed.map(async (candidate) => ({
