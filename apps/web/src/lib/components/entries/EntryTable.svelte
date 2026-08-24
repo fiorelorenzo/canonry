@@ -40,8 +40,9 @@
 	import { TableScroll } from '$lib/components/ui/table';
 	import { cn } from '$lib/utils/cn.js';
 	import {
+		ariaSortFor,
 		browseQuery,
-		defaultDirectionFor,
+		nextDirectionFor,
 		type BrowseParams,
 		type PageWindow
 	} from './browse-params';
@@ -108,14 +109,14 @@
 
 	/** Clicking the column already sorted flips it; clicking another starts from whatever
 	 * reads naturally for that column (a-z for words, biggest first for numbers and dates),
-	 * and always goes back to page 1, since page 4 of one order is nowhere in another. */
+	 * and always goes back to page 1, since page 4 of one order is nowhere in another.
+	 *
+	 * The direction here is the one the click *produces*, which is the opposite of the one
+	 * the `<th>` announces on the sorted column. `nextDirectionFor` and `ariaSortFor` are two
+	 * functions on purpose (#750): a single one used for both would make the header say it is
+	 * sorted the way clicking it would sort it. */
 	function headerHref(column: Column): string {
-		const direction =
-			params.sort === column.sort
-				? params.direction === 'asc'
-					? 'desc'
-					: 'asc'
-				: defaultDirectionFor(column.sort);
+		const direction = nextDirectionFor(params, column.sort);
 		return `${base}${browseQuery(params, { sort: column.sort, direction, page: 1 })}`;
 	}
 
@@ -170,8 +171,17 @@
 			<tr class="border-b border-line-2 bg-panel-2">
 				{#each columns as column (column.sort)}
 					{@const active = params.sort === column.sort}
+					<!-- #750: the sorted column and its direction reached no screen reader at all. The
+					     link below carries the action ("Sort by Name"), and `class:text-ink` plus an
+					     `aria-hidden` triangle carry the state visually; `aria-sort` is the only
+					     channel that carries the state to an assistive technology. It belongs on the
+					     `<th>` rather than on the link, because it is defined on `columnheader` and a
+					     `<th scope="col">` is what maps to that role. Its value is built from
+					     `params.direction`, the order the table is in, not the flipped one
+					     `headerHref` builds. -->
 					<th
 						scope="col"
+						aria-sort={ariaSortFor(params, column.sort)}
 						class={cn(
 							'px-2 py-2 text-label font-semibold tracking-wide text-muted uppercase sm:px-3',
 							column.numeric ? 'text-right' : 'text-left',
