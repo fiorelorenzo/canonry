@@ -207,7 +207,11 @@
 	 * ten with room (6.70 at worst). Muted is a paper-and-panel ink: it is the right value
 	 * on `--color-paper` and `--color-panel`, and the wrong one the moment a surface takes
 	 * a hue. Two sites shipped the wrong pairing before this was written down, the audit
-	 * panel's disclaimer and the billing page's "/month". */
+	 * panel's disclaimer and the billing page's "/month", and seven more were still
+	 * carrying it three rounds later (#711), six of them only in a state a screenshot does
+	 * not land in: hover, focus-within, an active nav item, an open switcher. Writing the
+	 * rule down did not hold it, so `routes/tinted-surface-ink.test.ts` now does, by
+	 * reading which surface each `text-muted` actually sits on. */
 
 	/* Prose measure. Long enough to read, short enough to scan back to the start of
 	 * the next line, which is what the reading room is for. */

@@ -106,7 +106,9 @@
 								></span>
 								<span class="min-w-0">
 									<span class="block truncate text-body font-medium text-ink">{universe.name}</span>
-									<span class="block text-meta text-muted">
+									<!-- The row takes `bg-accent-bg` when it is the universe you are in, so this
+									     line has to clear AA on a tinted surface: `text-ink-2` (#562), not muted. -->
+									<span class="block text-meta text-ink-2">
 										{universe.kind}
 										{#if universe.baseUniverseName}
 											&middot; {t.derivedFrom(universe.baseUniverseName)}
