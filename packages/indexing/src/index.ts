@@ -83,3 +83,9 @@ export {
 	type DeleteEntityLoreChunksOptions,
 	type OwnCanonCollection
 } from './entity-pipeline.js';
+
+export {
+	unindexedEntities,
+	type UnindexedEntitiesOptions,
+	type UnindexedEntitiesResult
+} from './entity-backfill.js';

@@ -16,6 +16,7 @@ import {
 	queryPoints,
 	deletePoints,
 	scrollPoints,
+	scrollPointsPage,
 	countPoints,
 	type VectorFilter,
 	type VectorFilterCondition
@@ -240,6 +241,61 @@ export async function countLorePoints(
 	}
 ): Promise<number> {
 	return countPoints(client, collectionName, pageFilter(params, params.pointKind));
+}
+
+/** How many points one page of the enumeration below asks for. Well under Qdrant's own
+ * server-side scroll cap, and the payload is one short string per point, so a world of two
+ * thousand entries is two round trips rather than two thousand. */
+const ENTITY_URL_PAGE_SIZE = 512;
+
+/**
+ * Every `url` in this collection that currently has an entity-level point, for one universe's
+ * own-canon data source (issue #709).
+ *
+ * This is the whole-universe counterpart to `countLorePoints` with `pointKind: 'entity'`, and
+ * it exists because the per-entity question does not scale into the question a backfill
+ * actually has: not "is this entry indexed" but "which of these two thousand entries are
+ * not". Asking it per entity is two thousand round trips for an answer Qdrant will hand over
+ * in two.
+ *
+ * **A `must` on `point_kind` is safe here and is not elsewhere in this file.** Every filter
+ * that means "body" is written as `must_not: entity`, because a point written before issue
+ * #703 carries no `point_kind` key at all and Qdrant matches nothing on an absent key. The
+ * asymmetry is the point: a legacy point is a body chunk, so "not entity" has to include it,
+ * while "is entity" has to exclude it, and this filter is the second one. A universe whose
+ * points all predate #703 correctly answers "no entity is indexed", which is exactly what a
+ * backfill needs to hear.
+ */
+export async function indexedEntityUrls(
+	client: QdrantClient,
+	collectionName: string,
+	params: { universeId: string; dataSourceId: string }
+): Promise<Set<string>> {
+	const filter: VectorFilter = {
+		must: [
+			{ key: 'universe_id', value: params.universeId },
+			{ key: 'data_source_id', value: params.dataSourceId },
+			{ key: 'point_kind', value: 'entity' }
+		]
+	};
+	const urls = new Set<string>();
+	let offset: string | number | undefined;
+	for (;;) {
+		const page = await scrollPointsPage(client, collectionName, {
+			filter,
+			limit: ENTITY_URL_PAGE_SIZE,
+			// Spread rather than `offset` so `exactOptionalPropertyTypes` sees an absent key on the
+			// first page rather than an explicit `undefined`, which is what "start at the
+			// beginning" means to Qdrant.
+			...(offset === undefined ? {} : { offset }),
+			payloadKeys: ['url']
+		});
+		for (const record of page.records) {
+			if (typeof record.payload.url === 'string') urls.add(record.payload.url);
+		}
+		if (page.nextOffset === null) return urls;
+		offset = page.nextOffset;
+	}
 }
 
 /** Reads the stored `pageUpdatedAt` for a page's existing chunks, or `null` if the page

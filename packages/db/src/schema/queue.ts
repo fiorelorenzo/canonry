@@ -99,6 +99,96 @@ export const canonSaveJob = pgTable(
 		// Finished rows are the trigger's only history, so they are kept rather than deleted on
 		// completion, and something has to prune them eventually. This index is what makes that
 		// prune cheap when it lands with the rest of the retention work.
-		index('canon_save_job_finished_idx').on(t.finishedAt)
+		index('canon_save_job_finished_idx').on(t.finishedAt),
+		// Issue #709: the backfill's trigger read. A universe whose `embedding` row went missing
+		// is a state to fix rather than a state to be in, so the matching rows are a vanishing
+		// fraction of this table and a partial index over the expression is the whole point: the
+		// sweep asks "has any universe skipped since its last backfill" on a timer, forever, and
+		// without this that question is a sequential scan of every job ever run. The `finished_at`
+		// column is in the index because the sweep compares it against the watermark, so the
+		// answer never leaves the index.
+		index('canon_save_job_no_embedding_model_idx')
+			.on(t.universeId, t.finishedAt)
+			.where(sql`${t.indexOutcome}->>'status' = 'no-embedding-model'`)
+	]
+);
+
+/**
+ * Issue #709: one row per catch-up of a universe whose entries went unindexed while it had no
+ * active `embedding` row in `model_config`.
+ *
+ * The gap this closes is that nothing came back. #703 made the silence visible
+ * (`index_outcome = {"status":"no-embedding-model"}` plus a log line counting the universe's
+ * skipped entries) and deliberately stopped there, because the honest answer to "what happens
+ * when an `embedding` row appears later" was: nothing, and the universe stays out of retrieval
+ * until somebody edits every entry by hand.
+ *
+ * **Why a table and not a flag on `universe`.** Three things need to be durable and none of
+ * them is a boolean: that a catch-up is *owed* (survives the restart between the model
+ * appearing and the worker noticing), that one is *already running* (so two replicas do not
+ * both fan out over the same two thousand entries), and *how far it got* (so a run that dies
+ * halfway is resumed rather than restarted). The partial unique index is what makes the second
+ * one atomic rather than careful, exactly as `canon_save_job_pending_key` does for a save.
+ *
+ * The lease/attempt/dead-letter shape is deliberately the same as `canon_save_job`'s above,
+ * because it is the same problem and `DurableJobPoller` is already generic over it.
+ */
+export const universeIndexBackfillStatusEnum = pgEnum('universe_index_backfill_status', [
+	'pending',
+	'claimed',
+	'done',
+	'failed'
+]);
+
+export type UniverseIndexBackfillStatus =
+	(typeof universeIndexBackfillStatusEnum.enumValues)[number];
+
+export const universeIndexBackfill = pgTable(
+	'universe_index_backfill',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		universeId: uuid('universe_id')
+			.notNull()
+			.references(() => universe.id, { onDelete: 'cascade' }),
+		// Why this universe is owed a catch-up. One value today ('no-embedding-model'); a text
+		// column rather than an enum because the next reason to backfill (a model swap, an
+		// operator asking for one) is not a schema change and should not read as one.
+		reason: text('reason').notNull(),
+		status: universeIndexBackfillStatusEnum('status').notNull().default('pending'),
+		// The watermark the sweep compares a skipped job's `finished_at` against, so a universe
+		// that skips again after a completed catch-up is enqueued again and one that does not is
+		// never enqueued twice for the same skips. Set at insert and never moved.
+		requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
+		// A pass that scheduled its cap and has more to do requeues itself with this pushed out
+		// past the run_after of the rows it just wrote, so the next pass enumerates against a
+		// collection those rows have already been written into rather than re-finding them.
+		runAfter: timestamp('run_after', { withTimezone: true }).notNull().defaultNow(),
+		leaseHolder: text('lease_holder'),
+		leaseExpiresAt: timestamp('lease_expires_at', { withTimezone: true }),
+		attemptCount: integer('attempt_count').notNull().default(0),
+		lastError: text('last_error'),
+		// The enumeration's own answer, kept so a reader can tell "this universe had nothing
+		// missing" from "this universe was never looked at": entries in the universe, entries
+		// found to have no entity-level point, and index jobs actually scheduled. The last two
+		// differ when a pass hits its per-pass cap, and `entities_scheduled` accumulates across
+		// the passes of one backfill rather than being overwritten by the last of them.
+		entitiesTotal: integer('entities_total'),
+		entitiesMissing: integer('entities_missing'),
+		entitiesScheduled: integer('entities_scheduled').notNull().default(0),
+		startedAt: timestamp('started_at', { withTimezone: true }),
+		finishedAt: timestamp('finished_at', { withTimezone: true }),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		// "A backfill in progress cannot be started twice", enforced rather than checked: two
+		// replicas sweeping at the same instant both try to insert and exactly one succeeds.
+		uniqueIndex('universe_index_backfill_active_key')
+			.on(t.universeId)
+			.where(sql`${t.status} in ('pending', 'claimed')`),
+		index('universe_index_backfill_claim_idx').on(t.status, t.runAfter),
+		index('universe_index_backfill_lease_idx').on(t.status, t.leaseExpiresAt),
+		// The sweep's watermark read: newest row for one universe, whatever its status.
+		index('universe_index_backfill_universe_idx').on(t.universeId, t.requestedAt)
 	]
 );

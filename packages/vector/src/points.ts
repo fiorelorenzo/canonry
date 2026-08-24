@@ -118,6 +118,56 @@ export async function scrollPoints(
 	}));
 }
 
+/** One page of a scroll, plus the cursor Qdrant hands back for the next one - `null` once
+ * there is nothing left. `scrollPoints` above reads a single bounded page and is what a
+ * caller wants when it already knows the point it is looking for; this is what a caller
+ * wants when the answer is "every point matching this filter" and the count is a property
+ * of the world rather than of the query (issue #709: every entity-level point a universe's
+ * collection holds, which is one per entry and therefore unbounded by design). */
+export interface VectorScrollPage {
+	records: VectorRecord[];
+	nextOffset: string | number | null;
+}
+
+/**
+ * One page of points by filter, with the cursor to continue. `payloadKeys` narrows what
+ * comes back over the wire: an enumeration that only needs one payload field has no reason
+ * to pull whole chunk texts across for every point in a world.
+ *
+ * Paging rather than one large `limit` because Qdrant caps a scroll's page size server
+ * side, so a caller that passes a number bigger than that cap silently gets a short answer
+ * and, if it treats a short answer as "the end", a silently incomplete enumeration. The
+ * cursor is the only honest termination condition.
+ */
+export async function scrollPointsPage(
+	client: QdrantClient,
+	collectionName: string,
+	params: {
+		filter?: VectorFilter;
+		limit: number;
+		offset?: string | number;
+		payloadKeys?: string[];
+	}
+): Promise<VectorScrollPage> {
+	const response = await client.scroll(collectionName, {
+		...(params.filter ? { filter: toQdrantFilter(params.filter) } : {}),
+		...(params.offset === undefined ? {} : { offset: params.offset }),
+		limit: params.limit,
+		with_payload: params.payloadKeys ?? true
+	});
+	const next = response.next_page_offset;
+	return {
+		records: response.points.map((point) => ({
+			id: String(point.id),
+			payload: (point.payload ?? {}) as Record<string, unknown>
+		})),
+		// Qdrant answers `null` (or omits it) on the last page; it can also hand back a record
+		// id shape this wrapper never produces, so anything that is not a string or a number is
+		// treated as "no more pages" rather than passed back through as an offset.
+		nextOffset: typeof next === 'string' || typeof next === 'number' ? next : null
+	};
+}
+
 /** Exact point count matching `filter` (or the whole collection with no filter) - used to
  * report `data_source.chunk_count` accurately after an indexing run touches only some of
  * a source's pages. */

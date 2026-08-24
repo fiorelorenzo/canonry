@@ -31,6 +31,7 @@ import {
 	desc,
 	eq,
 	recordProposalDiff,
+	sql,
 	type Db
 } from '@canonry/db';
 import { clearModelCache, resolveModel } from '@canonry/ai';
@@ -296,6 +297,13 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 	// other, with a short debounce and a fast poll interval - real timers, on purpose:
 	// this exercises the real database and a real (mocked) model call, genuine I/O whose
 	// duration deterministic fake-timer control cannot stand in for.
+	//
+	// Issue #709's sweep is effectively off by default here (`backfillSweepIntervalMs` a day),
+	// and that is not tidiness. Every instance in this file shares one database, so a sweep
+	// firing on its own timer would enqueue a backfill for whatever universe another test has
+	// just left with a `no-embedding-model` row and fan out index jobs into it mid-assertion.
+	// The backfill tests below drive `sweepIndexBackfills()` by hand instead, which also keeps
+	// "the trigger fired" and "the catch-up ran" separately observable.
 	function testQueue(
 		overrides: Partial<CanonSaveJobQueueOptions> = {},
 		cheap: LanguageModel = combinedCheapModel()
@@ -306,6 +314,13 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			pollIntervalMs: 10,
 			leaseMs: 5000,
 			maxAttempts: 5,
+			backfillSweepIntervalMs: 24 * 3600_000,
+			backfillPollIntervalMs: 10,
+			backfillLeaseMs: 5000,
+			// Production is 5s and 10s. What a test has to prove is that the stagger is applied and
+			// that a pass comes back to verify, not that either number is spent in real seconds.
+			backfillStaggerMs: 300,
+			backfillVerifyDelayMs: 100,
 			db,
 			modelFactory: modelFactoryFor(cheap),
 			gateway: IDENTITY_GATEWAY,
@@ -1161,4 +1176,481 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			clearModelCache();
 		}
 	});
+
+	/**
+	 * Issue #709. #703 made the skip visible and named the fact that nothing came back for it;
+	 * these are the tests that it now does.
+	 *
+	 * `withoutEmbeddingModel` is the same manoeuvre the test above makes, factored out because
+	 * every test here needs the "before" arm to be a universe that genuinely has no embedding
+	 * model. Note the ordering it has to get right: the row goes back to active *and* the cache
+	 * is cleared before anything asserts on the catch-up, because "the row appeared" is the
+	 * trigger condition and a stale cache would make the sweep answer from a resolution taken
+	 * while it was still missing.
+	 */
+	async function withoutEmbeddingModel<T>(body: () => Promise<T>): Promise<T> {
+		const active = await db
+			.update(modelConfig)
+			.set({ active: false })
+			.where(and(eq(modelConfig.purpose, 'embedding'), eq(modelConfig.active, true)))
+			.returning({ id: modelConfig.id });
+		clearModelCache();
+		try {
+			return await body();
+		} finally {
+			for (const row of active) {
+				await db.update(modelConfig).set({ active: true }).where(eq(modelConfig.id, row.id));
+			}
+			clearModelCache();
+		}
+	}
+
+	async function insertEntry(worldId: string, name: string, body = '') {
+		const [row] = await db
+			.insert(entity)
+			.values({
+				universeId: worldId,
+				type: 'place',
+				name,
+				slug: unique('entry'),
+				aliases: [],
+				body
+			})
+			.returning();
+		if (!row) throw new Error('entity insert returned no row');
+		return row;
+	}
+
+	function backfillJobRowsFor(worldId: string) {
+		return db
+			.select()
+			.from(canonSaveJob)
+			.where(eq(canonSaveJob.universeId, worldId))
+			.orderBy(canonSaveJob.runAfter);
+	}
+
+	it('enqueues no backfill while there is no embedding model, and one for the skipped universe once there is (issue #709)', async () => {
+		const { owner, world } = await fixture();
+		const created = await insertEntry(world.id, 'Unreachable Hold');
+		const queue = testQueue();
+		try {
+			const skipped = await withoutEmbeddingModel(async () => {
+				queue.scheduleIndexOnly({
+					universeId: world.id,
+					entityId: created.id,
+					entityName: created.name,
+					userId: owner.id,
+					locale: 'en'
+				});
+				const row = await waitForEntityRow(db, world.id, created.id, (r) => r.status === 'done');
+				expect((row.indexOutcome as IndexOutcome).status).toBe('no-embedding-model');
+
+				// The trigger's own precondition, and the reason it is a separate assertion: with no
+				// row configured the sweep does nothing at all, so it can never enqueue a catch-up
+				// that could only be requeued until a model appears.
+				expect(await queue.sweepIndexBackfills()).toEqual([]);
+				expect(await queue.recentBackfills(world.id)).toEqual([]);
+				return row;
+			});
+			expect(skipped.status).toBe('done');
+
+			// The row is back. Nothing about this universe changed, nobody saved anything, and the
+			// catch-up is owed anyway - which is the difference between this trigger and one that
+			// hangs off the next save.
+			const enqueued = await queue.sweepIndexBackfills();
+			expect(enqueued).toContain(world.id);
+			const [backfill] = await queue.recentBackfills(world.id);
+			expect(backfill?.reason).toBe('no-embedding-model');
+
+			// And it is enqueued exactly once: a second sweep before the first has finished must not
+			// produce a second row, which is what the partial unique index is for.
+			expect(await queue.sweepIndexBackfills()).not.toContain(world.id);
+			expect(await queue.recentBackfills(world.id)).toHaveLength(1);
+		} finally {
+			await queue.stop();
+		}
+		// Longer than vitest's 5s default, and the only tests in this file that need it: each one
+		// drives several real debounce windows, a real Qdrant scroll and a real fan-out that then
+		// has to drain through the worker. Real timers, on purpose, like everything else here.
+	}, 45_000);
+
+	it('a backfill schedules one index job per unindexed entry, staggered, and none for an entry already indexed (issue #709)', async () => {
+		const { owner, world } = await fixture();
+		const embeddingModel = await resolveModel(db, 'embedding');
+		const collectionName = loreCollectionNameForModel(embeddingModel, world.id);
+		const vector = createVectorClient();
+		// A real fan-out has to happen against a queue that can actually index, or the jobs it
+		// writes cannot be told from jobs that failed for another reason.
+		const queue = testQueue({
+			vectorClient: vector,
+			embeddingModelFactory: fakeEmbeddingModelFactory()
+		});
+		try {
+			// One entry indexed the ordinary way, before the model ever goes missing: the backfill
+			// must leave it alone, because re-embedding a world that is already indexed is how a
+			// catch-up turns into a recurring cost.
+			const alreadyIndexed = await insertEntry(
+				world.id,
+				'The Lit Lantern',
+				'A tavern with a sign.'
+			);
+			queue.scheduleIndexOnly({
+				universeId: world.id,
+				entityId: alreadyIndexed.id,
+				entityName: alreadyIndexed.name,
+				userId: owner.id,
+				locale: 'en'
+			});
+			const indexedRow = await waitForEntityRow(
+				db,
+				world.id,
+				alreadyIndexed.id,
+				(r) => r.status === 'done'
+			);
+			expect((indexedRow.indexOutcome as IndexOutcome).status).toBe('ok');
+
+			const skippedEntries = await withoutEmbeddingModel(async () => {
+				const entries = [];
+				for (const name of ['Hollow Deep', 'Saltmarsh Gate', 'The Ashen Ledger']) {
+					const row = await insertEntry(world.id, name, `${name} is somewhere in the marsh.`);
+					entries.push(row);
+					queue.scheduleIndexOnly({
+						universeId: world.id,
+						entityId: row.id,
+						entityName: row.name,
+						userId: owner.id,
+						locale: 'en'
+					});
+					const job = await waitForEntityRow(db, world.id, row.id, (r) => r.status === 'done');
+					expect((job.indexOutcome as IndexOutcome).status).toBe('no-embedding-model');
+				}
+				return entries;
+			});
+
+			const before = await backfillJobRowsFor(world.id);
+			await queue.sweepIndexBackfills();
+			await queue.waitForBackfillIdle(world.id, 30_000);
+
+			const [backfill] = await queue.recentBackfills(world.id);
+			// `done` means an enumeration came back empty, not that a pass scheduled everything it
+			// found: this row went `pending -> claimed -> pending (verifying) -> claimed -> done`,
+			// and the counts on it are the *last* pass's, which is why `entities_missing` is zero.
+			expect(backfill?.status).toBe('done');
+			expect(backfill?.entitiesTotal).toBe(4);
+			expect(backfill?.entitiesMissing).toBe(0);
+			// Accumulated across the passes. Three, not four: the entry that already had its point
+			// was never missing, so nothing was scheduled for it.
+			expect(backfill?.entitiesScheduled).toBe(3);
+
+			const after = await backfillJobRowsFor(world.id);
+			const fannedOut = after.filter((row) => !before.some((old) => old.id === row.id));
+			expect(new Set(fannedOut.map((row) => row.entityId))).toEqual(
+				new Set(skippedEntries.map((row) => row.id))
+			);
+			// The shape that makes propagation and audit structurally impossible for these rows, the
+			// same guard `scheduleEntityIndexJob` relies on: no diff to name, no revision to blame.
+			for (const row of fannedOut) {
+				expect(row.oldBody).toBe('');
+				expect(row.newBody).toBe('');
+				expect(row.triggerRevisionId).toBeNull();
+				// There is no actor behind a backfill; the universe's owner is who a zero-credit
+				// `index.embed` in their own world belongs to.
+				expect(row.userId).toBe(owner.id);
+			}
+
+			// Three entries is one batch, so they share a `run_after` - the stagger is per batch of
+			// `BACKFILL_SCHEDULE_BATCH`, and what matters here is that a backfill row is never due
+			// *before* a save made at the same moment, which is what keeps a GM's propagation ahead
+			// of a catch-up they did not ask for.
+			const dueTimes = new Set(fannedOut.map((row) => row.runAfter.getTime()));
+			expect(dueTimes.size).toBe(1);
+
+			// The deliverable: those three entries are retrievable now, which they were not.
+			//
+			// `waitForIdle` is deliberately not what waits here. It tracks the ids this *instance's*
+			// own `schedule()` calls returned, and a backfill's rows are written by the worker's own
+			// statement rather than through that surface, so it answers immediately and proves
+			// nothing. The rows themselves are the thing to wait on.
+			const gate = skippedEntries.find((row) => row.name === 'Saltmarsh Gate')!;
+			for (const entry of skippedEntries) {
+				const done = await waitForEntityRow(
+					db,
+					world.id,
+					entry.id,
+					(row) => row.status === 'done' && (row.indexOutcome as IndexOutcome).status === 'ok',
+					20_000
+				);
+				const outcome = done.indexOutcome as IndexOutcome;
+				if (outcome.status !== 'ok') throw new Error(`backfilled ${outcome.status}`);
+				expect(outcome.entityPointWritten).toBe(true);
+			}
+
+			const findsGate = 'Saltmarsh Gate';
+			const hits = await retrieveForUniverse({
+				db,
+				vectorClient: vector,
+				collectionName,
+				universeId: world.id,
+				queryVector: fakeEmbedVector(
+					findsGate,
+					embeddingDimensionsFor(embeddingModel.provider, embeddingModel.modelId)
+				),
+				queryText: findsGate,
+				topK: 20,
+				threshold: -1
+			});
+			expect(
+				hits.some((hit) => hit.payload.text.includes(gate.name)),
+				'an entry skipped for want of an embedding model is retrievable after the backfill'
+			).toBe(true);
+		} finally {
+			await queue.stop();
+			await dropCollection(vector, collectionName).catch(() => undefined);
+		}
+	}, 45_000);
+
+	it('finds an entry the job rows cannot see, which is why the enumeration reads the collection (issue #709)', async () => {
+		// The completeness claim, as a test rather than an argument. Three entries, none of which
+		// has an entity-level point, and only one of which has a `canon_save_job` row carrying
+		// `no-embedding-model`:
+		//
+		//  - one written straight to `entity`, the way `seed-fixture.ts` and `packages/bench` do,
+		//    so no job was ever scheduled for it;
+		//  - one whose job dead-lettered, so `index_outcome` is null and the status predicate
+		//    cannot match it;
+		//  - one that genuinely skipped, which is the only one a job-row enumeration can name.
+		//
+		// A backfill driven off the job rows leaves all three out of retrieval forever. The one
+		// driven off the collection finds them.
+		const { owner, world } = await fixture();
+		const embeddingModel = await resolveModel(db, 'embedding');
+		const collectionName = loreCollectionNameForModel(embeddingModel, world.id);
+		const vector = createVectorClient();
+		const queue = testQueue({
+			vectorClient: vector,
+			embeddingModelFactory: fakeEmbeddingModelFactory()
+		});
+		try {
+			const neverScheduled = await insertEntry(world.id, 'Seeded Hold', 'Straight into the table.');
+			const deadLettered = await insertEntry(world.id, 'Abandoned Hold', 'Its job gave up.');
+			// The trigger still needs one genuine skip to have happened, which is what makes this
+			// universe owed a catch-up at all.
+			const skipped = await withoutEmbeddingModel(async () => {
+				const row = await insertEntry(world.id, 'Skipped Hold', 'Recorded honestly.');
+				queue.scheduleIndexOnly({
+					universeId: world.id,
+					entityId: row.id,
+					entityName: row.name,
+					userId: owner.id,
+					locale: 'en'
+				});
+				await waitForEntityRow(db, world.id, row.id, (r) => r.status === 'done');
+				return row;
+			});
+
+			await db.insert(canonSaveJob).values([
+				{
+					universeId: world.id,
+					entityId: deadLettered.id,
+					entityName: deadLettered.name,
+					userId: owner.id,
+					oldBody: '',
+					newBody: '',
+					locale: 'en',
+					status: 'failed',
+					attemptCount: 5,
+					lastError: 'lease expired after 5 attempt(s)',
+					finishedAt: new Date()
+				}
+			]);
+
+			// What a job-row enumeration would have to work from, measured rather than asserted
+			// about: one entity, the one whose run actually recorded the status.
+			const rowsCarryingTheStatus = await db
+				.selectDistinct({ entityId: canonSaveJob.entityId })
+				.from(canonSaveJob)
+				.where(
+					and(
+						eq(canonSaveJob.universeId, world.id),
+						sql`${canonSaveJob.indexOutcome}->>'status' = 'no-embedding-model'`
+					)
+				);
+			expect(rowsCarryingTheStatus.map((row) => row.entityId)).toEqual([skipped.id]);
+
+			await queue.sweepIndexBackfills();
+			await queue.waitForBackfillIdle(world.id, 30_000);
+
+			const [backfill] = await queue.recentBackfills(world.id);
+			expect(backfill?.status).toBe('done');
+			// All three, not the one the job rows can name.
+			expect(backfill?.entitiesTotal).toBe(3);
+			expect(backfill?.entitiesMissing).toBe(0);
+			expect(backfill?.entitiesScheduled).toBe(3);
+
+			for (const entry of [neverScheduled, deadLettered, skipped]) {
+				const done = await waitForEntityRow(
+					db,
+					world.id,
+					entry.id,
+					(row) => row.status === 'done' && (row.indexOutcome as IndexOutcome).status === 'ok',
+					20_000
+				);
+				expect((done.indexOutcome as IndexOutcome).status).toBe('ok');
+			}
+
+			const hits = await retrieveForUniverse({
+				db,
+				vectorClient: vector,
+				collectionName,
+				universeId: world.id,
+				queryVector: fakeEmbedVector(
+					'Seeded Hold straight into the table',
+					embeddingDimensionsFor(embeddingModel.provider, embeddingModel.modelId)
+				),
+				queryText: 'Seeded Hold straight into the table',
+				topK: 20,
+				threshold: -1
+			});
+			expect(
+				hits.some((hit) => hit.payload.text.includes('Seeded Hold')),
+				'an entry that never had a job row at all is retrievable after the backfill'
+			).toBe(true);
+		} finally {
+			await queue.stop();
+			await dropCollection(vector, collectionName).catch(() => undefined);
+		}
+	}, 45_000);
+
+	it('a backfill never touches an entry that already has a pending job of its own (issue #709)', async () => {
+		// The one thing a catch-up must never do. `scheduleEntityIndexJobRow`'s conflict branch
+		// moves `run_after`, which is right for a fresh accept and would be catastrophic here: a
+		// backfill row staggered minutes out would push a GM's queued save minutes out with it, and
+		// that save's propagation is the one thing `canon_save_job` exists to deliver on time. So
+		// the fan-out is `on conflict do nothing`, and this is that assertion.
+		const { owner, world } = await fixture();
+		const embeddingModel = await resolveModel(db, 'embedding');
+		const collectionName = loreCollectionNameForModel(embeddingModel, world.id);
+		const vector = createVectorClient();
+		const queue = testQueue({
+			vectorClient: vector,
+			embeddingModelFactory: fakeEmbeddingModelFactory()
+		});
+		try {
+			const queued = await insertEntry(world.id, 'Queued Hold', 'A save is already waiting.');
+			await withoutEmbeddingModel(async () => {
+				const row = await insertEntry(world.id, 'Skipped Hold', 'Recorded honestly.');
+				queue.scheduleIndexOnly({
+					universeId: world.id,
+					entityId: row.id,
+					entityName: row.name,
+					userId: owner.id,
+					locale: 'en'
+				});
+				await waitForEntityRow(db, world.id, row.id, (r) => r.status === 'done');
+			});
+
+			// Parked far enough out that it is unambiguously still `pending` when the pass runs,
+			// which is what the partial unique index keys on.
+			const parkedAt = new Date(Date.now() + 3_600_000);
+			const [pendingRow] = await db
+				.insert(canonSaveJob)
+				.values({
+					universeId: world.id,
+					entityId: queued.id,
+					entityName: queued.name,
+					userId: owner.id,
+					oldBody: 'before',
+					newBody: 'after',
+					locale: 'en',
+					status: 'pending',
+					runAfter: parkedAt
+				})
+				.returning();
+
+			await queue.sweepIndexBackfills();
+			// One pass is enough: this asserts what the fan-out did, not that the catch-up finished.
+			// It cannot finish here, because the entry it is waiting on is parked an hour out, and
+			// that is correct: a backfill is only `done` once an enumeration comes back empty.
+			const deadline = Date.now() + 20_000;
+			for (;;) {
+				const [row] = await queue.recentBackfills(world.id);
+				if (row && row.entitiesScheduled > 0) break;
+				if (Date.now() > deadline) throw new Error('the backfill never ran a pass');
+				await delay(25);
+			}
+
+			const rowsForQueued = await db
+				.select()
+				.from(canonSaveJob)
+				.where(and(eq(canonSaveJob.universeId, world.id), eq(canonSaveJob.entityId, queued.id)));
+			expect(rowsForQueued, 'no second row for an entry that already had one').toHaveLength(1);
+			expect(rowsForQueued[0]!.id).toBe(pendingRow!.id);
+			expect(
+				rowsForQueued[0]!.runAfter.getTime(),
+				'the queued save is still due exactly when it was'
+			).toBe(parkedAt.getTime());
+			// And its diff survived: an index-only write into this row would have blanked both
+			// bodies and silently dropped the propagation it was scheduled for.
+			expect(rowsForQueued[0]!.oldBody).toBe('before');
+			expect(rowsForQueued[0]!.newBody).toBe('after');
+		} finally {
+			await queue.stop();
+			await dropCollection(vector, collectionName).catch(() => undefined);
+		}
+	}, 45_000);
+
+	it('a second sweep enqueues nothing once a backfill has covered the skips, and a fresh skip enqueues again (issue #709)', async () => {
+		// The watermark. Without it the same historical `no-embedding-model` rows would enqueue a
+		// backfill on every sweep, forever, which is a full enumeration of every affected universe
+		// once a minute for the life of the deployment.
+		const { owner, world } = await fixture();
+		const embeddingModel = await resolveModel(db, 'embedding');
+		const collectionName = loreCollectionNameForModel(embeddingModel, world.id);
+		const vector = createVectorClient();
+		const queue = testQueue({
+			vectorClient: vector,
+			embeddingModelFactory: fakeEmbeddingModelFactory()
+		});
+		try {
+			await withoutEmbeddingModel(async () => {
+				const row = await insertEntry(world.id, 'First Hold', 'Skipped once.');
+				queue.scheduleIndexOnly({
+					universeId: world.id,
+					entityId: row.id,
+					entityName: row.name,
+					userId: owner.id,
+					locale: 'en'
+				});
+				await waitForEntityRow(db, world.id, row.id, (r) => r.status === 'done');
+			});
+
+			expect(await queue.sweepIndexBackfills()).toContain(world.id);
+			await queue.waitForBackfillIdle(world.id);
+			expect(await queue.recentBackfills(world.id)).toHaveLength(1);
+
+			// Nothing new has happened, so nothing is owed.
+			expect(await queue.sweepIndexBackfills()).not.toContain(world.id);
+			expect(await queue.recentBackfills(world.id)).toHaveLength(1);
+
+			// The row is deactivated again, which is the case #709 says matters: "the day a model
+			// change makes somebody deactivate a row to swap it".
+			await withoutEmbeddingModel(async () => {
+				const row = await insertEntry(world.id, 'Second Hold', 'Skipped again, later.');
+				queue.scheduleIndexOnly({
+					universeId: world.id,
+					entityId: row.id,
+					entityName: row.name,
+					userId: owner.id,
+					locale: 'en'
+				});
+				await waitForEntityRow(db, world.id, row.id, (r) => r.status === 'done');
+			});
+
+			expect(await queue.sweepIndexBackfills()).toContain(world.id);
+			expect(await queue.recentBackfills(world.id)).toHaveLength(2);
+		} finally {
+			await queue.stop();
+			await dropCollection(vector, collectionName).catch(() => undefined);
+		}
+	}, 45_000);
 });

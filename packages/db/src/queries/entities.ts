@@ -16,7 +16,7 @@
  * off to the real editor at `/e/[slug]/edit`, which already calls `saveEntityBody` and
  * `scheduleCanonSaveJob` on its own first save - no second write path invented here.
  */
-import { count, eq, sql } from 'drizzle-orm';
+import { count, desc, eq, sql } from 'drizzle-orm';
 import { detectLanguage, toLocale, type Locale } from '@canonry/lang';
 import type { Db } from '../client.js';
 import { entity } from '../schema/entity.js';
@@ -131,6 +131,35 @@ export async function entityIndexTargetByRevisionId(
 		.where(eq(revision.id, revisionId))
 		.limit(1);
 	return row ?? null;
+}
+
+/** Just enough of an entity to schedule an index job for it (issue #709): the id the job
+ * keys on and the name the row denormalises so a finished job still reads as something a
+ * human recognises.
+ *
+ * Deliberately not `listEntitiesForUniverse`, which is the browser's query: that one pulls
+ * every `body` in the universe across the wire to cut a 160-character excerpt out of it, and
+ * a backfill enumerating two thousand entries has no use for two thousand bodies. It also
+ * caps at 500 by default, which for this caller would silently mean "backfill the first five
+ * hundred and call it complete".
+ *
+ * Newest change first, so a backfill returns the entries a GM has touched most recently to
+ * retrieval soonest - the ones a question is most likely to be about while the rest of the
+ * fan-out is still draining. */
+export interface EntityIndexCandidate {
+	id: string;
+	name: string;
+}
+
+export async function entityIndexCandidatesForUniverse(
+	db: Db,
+	universeId: string
+): Promise<EntityIndexCandidate[]> {
+	return db
+		.select({ id: entity.id, name: entity.name })
+		.from(entity)
+		.where(eq(entity.universeId, universeId))
+		.orderBy(desc(entity.updatedAt));
 }
 
 export interface EntityBrowserRow {

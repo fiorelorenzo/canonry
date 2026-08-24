@@ -114,6 +114,41 @@ describe('ensureCollection against real Qdrant', () => {
 			ensureCollection(client, { name, vectorSize: VECTOR_SIZE, onDimensionMismatch: 'recreate' })
 		).resolves.toBeUndefined();
 	});
+
+	it('is idempotent under concurrency: several callers racing to create it all succeed (issue #709)', async () => {
+		// Sequential idempotence was never the hard case. The exists-then-create pair is not
+		// atomic, so callers that all find the collection absent all try to create it and Qdrant
+		// answers every loser `409 Conflict`. It took two writes to a never-indexed universe inside
+		// one debounce window to hit before; #709's backfill fans out N index jobs against exactly
+		// that state, and the first end-to-end run of it lost two of six entries this way.
+		const name = scratchCollectionName();
+		const results = await Promise.allSettled(
+			Array.from({ length: 6 }, () =>
+				ensureCollection(client, { name, vectorSize: VECTOR_SIZE, onDimensionMismatch: 'throw' })
+			)
+		);
+		const rejected = results.filter((result) => result.status === 'rejected');
+		expect(rejected.map((result) => String(result.reason))).toEqual([]);
+		expect(await collectionExists(client, name)).toBe(true);
+		const info = await client.getCollection(name);
+		const vectors = info.config.params.vectors as { size: number; distance: string };
+		expect(vectors.size).toBe(VECTOR_SIZE);
+	});
+
+	it('still throws on a real width mismatch, including for a caller that lost the create race', async () => {
+		// The `409` path must not become a way to skip the width check: the loser reads what the
+		// winner made, and if that is the wrong width it has to say so rather than write into
+		// something unreadable.
+		const name = scratchCollectionName();
+		await ensureCollection(client, { name, vectorSize: VECTOR_SIZE, onDimensionMismatch: 'throw' });
+		await expect(
+			ensureCollection(client, {
+				name,
+				vectorSize: VECTOR_SIZE * 2,
+				onDimensionMismatch: 'throw'
+			})
+		).rejects.toThrow(/holds 8-dimension vectors/);
+	});
 });
 
 describe('queryLore: cross-universe isolation', () => {
