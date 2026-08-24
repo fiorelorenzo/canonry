@@ -5,6 +5,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Page } from '$lib/components/ui/page';
+	import { TableScroll } from '$lib/components/ui/table';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -53,7 +54,7 @@
 		{#each groups as group (group.kind)}
 			<section class="mt-8">
 				<h2 class="text-title font-semibold text-ink">{t.pricing.kindLabel[group.kind]}</h2>
-				<div class="mt-3 overflow-x-auto rounded-lg border border-line">
+				<TableScroll class="mt-3">
 					<table class="w-full border-collapse text-body">
 						<thead>
 							<tr
@@ -133,7 +134,7 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
+				</TableScroll>
 			</section>
 		{/each}
 	</div>

@@ -54,7 +54,7 @@
 </script>
 
 <p class="mb-2 text-label text-muted sm:hidden">{t.continueOverflowHint(entries.length)}</p>
-<ul class="flex snap-x gap-3 overflow-x-auto pb-1">
+<ul class="relative flex snap-x gap-3 overflow-x-auto pb-1">
 	{#each entries as entry (entry.id)}
 		<li class="w-36 shrink-0 snap-start sm:w-44">
 			<a

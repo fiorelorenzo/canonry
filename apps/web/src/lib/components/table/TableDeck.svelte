@@ -350,7 +350,7 @@
 		{/key}
 	</section>
 
-	<nav class="flex gap-2 overflow-x-auto pb-1" aria-label={t.stripLabel}>
+	<nav class="relative flex gap-2 overflow-x-auto pb-1" aria-label={t.stripLabel}>
 		<button
 			type="button"
 			onclick={() => goTo(0)}

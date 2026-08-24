@@ -344,7 +344,7 @@
 
 		{#if showDiagnostics && diagnostics}
 			<pre
-				class="mt-3 overflow-x-auto rounded-md border border-line bg-panel-2 p-2 text-label text-ink-2">{JSON.stringify(
+				class="relative mt-3 overflow-x-auto rounded-md border border-line bg-panel-2 p-2 text-label text-ink-2">{JSON.stringify(
 					diagnostics,
 					null,
 					2

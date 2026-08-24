@@ -37,6 +37,7 @@
 	import type { EntityType } from '@canonry/db/schema';
 	import type { Messages } from '$lib/i18n';
 	import { Badge } from '$lib/components/ui/badge';
+	import { TableScroll } from '$lib/components/ui/table';
 	import { cn } from '$lib/utils/cn.js';
 	import {
 		browseQuery,
@@ -159,7 +160,7 @@
 
 <!-- eslint-disable svelte/no-navigation-without-resolve -- every href below is a resolve()
      result with a query string appended, which the rule cannot see through. -->
-<div class="mt-4 overflow-x-auto rounded-lg border border-line">
+<TableScroll class="mt-4">
 	<table
 		bind:this={tableEl}
 		class="w-full table-fixed border-collapse text-body sm:table-auto"
@@ -233,7 +234,7 @@
 			{/each}
 		</tbody>
 	</table>
-</div>
+</TableScroll>
 
 <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-meta text-muted">
 	<!-- Issue #148: bare `j`/`k`/`↵` hints name keys a phone does not have. Every other

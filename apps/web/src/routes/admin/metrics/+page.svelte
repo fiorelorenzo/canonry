@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { dateFormat, LOCALE_NAMES, messages, numberFormat } from '$lib/i18n';
 	import { Page } from '$lib/components/ui/page';
+	import { TableScroll } from '$lib/components/ui/table';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -90,7 +91,7 @@
 				</div>
 
 				{#if data.weeklyAcceptRate.length > 0}
-					<div class="mt-5 overflow-x-auto rounded-lg border border-line">
+					<TableScroll class="mt-5">
 						<table class="w-full border-collapse text-body">
 							<thead>
 								<tr
@@ -126,7 +127,7 @@
 								{/each}
 							</tbody>
 						</table>
-					</div>
+					</TableScroll>
 				{/if}
 
 				<div class="mt-5">
@@ -135,7 +136,7 @@
 						<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 						{@html t.metrics.accept.byLocale.intro}
 					</p>
-					<div class="mt-2 overflow-x-auto rounded-lg border border-line">
+					<TableScroll class="mt-2">
 						<table class="w-full border-collapse text-body">
 							<thead>
 								<tr
@@ -172,7 +173,7 @@
 								{/each}
 							</tbody>
 						</table>
-					</div>
+					</TableScroll>
 				</div>
 			{/if}
 		</section>
@@ -202,7 +203,7 @@
 								)}
 							{/if}
 						</p>
-						<div class="mt-2 overflow-x-auto rounded-lg border border-line">
+						<TableScroll class="mt-2">
 							<table class="w-full border-collapse text-body">
 								<thead>
 									<tr
@@ -233,7 +234,7 @@
 									{/each}
 								</tbody>
 							</table>
-						</div>
+						</TableScroll>
 					</div>
 				{/each}
 			{/if}
@@ -251,7 +252,7 @@
 					{t.metrics.noUniversesYet}
 				</p>
 			{:else}
-				<div class="mt-4 overflow-x-auto rounded-lg border border-line">
+				<TableScroll class="mt-4">
 					<table class="w-full border-collapse text-body">
 						<thead>
 							<tr
@@ -292,7 +293,7 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
+				</TableScroll>
 			{/if}
 		</section>
 
@@ -307,7 +308,7 @@
 					{t.metrics.noUniversesYet}
 				</p>
 			{:else}
-				<div class="mt-4 overflow-x-auto rounded-lg border border-line">
+				<TableScroll class="mt-4">
 					<table class="w-full border-collapse text-body">
 						<thead>
 							<tr
@@ -328,7 +329,7 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
+				</TableScroll>
 			{/if}
 		</section>
 
@@ -343,7 +344,7 @@
 					{t.metrics.auditFlags.noFlagsYet}
 				</p>
 			{:else}
-				<div class="mt-4 overflow-x-auto rounded-lg border border-line">
+				<TableScroll class="mt-4">
 					<table class="w-full border-collapse text-body">
 						<thead>
 							<tr
@@ -369,7 +370,7 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
+				</TableScroll>
 			{/if}
 		</section>
 	</div>
