@@ -1,4 +1,4 @@
-// Better Auth 1.6.27 owns these four tables and their column names, so nothing here is
+// Better Auth 1.7.1 owns these four tables and their column names, so nothing here is
 // a design choice: the shapes come from the library's own zod schemas
 // (packages/core/src/db/schema/{user,session,account,verification}.ts upstream). Ids are
 // text because Better Auth generates them, not the database.
@@ -7,6 +7,14 @@
 // Prisma and better-sqlite3 in as build dependencies, and the schema is stable enough
 // that carrying two extra native builds for it is a bad trade. If a Better Auth upgrade
 // changes a column, this file is the thing to diff against the release notes.
+//
+// "Stable enough" cost a release on 1.7 (issue #674) and the shape of that failure is worth
+// keeping: the field list this file has to match is `getAuthTables` in
+// `@better-auth/core/db`, the drizzle adapter compares it against these tables at call time
+// rather than at build time, and a minor version that adds one required field therefore
+// turns every affected call into a 500 that nothing in `pnpm check` can see. Diffing
+// `node_modules/.pnpm/@better-auth+core@*/node_modules/@better-auth/core/dist/db/get-tables.mjs`
+// between the old and new version is the check that would have caught it.
 import { sql } from 'drizzle-orm';
 import { boolean, check, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import {
@@ -96,23 +104,46 @@ export const session = pgTable(
 
 // One row per credential or social provider per user. `password` is only ever set for
 // providerId 'credential'; the OAuth columns are only ever set for a social provider.
-export const account = pgTable('account', {
-	id: text('id').primaryKey(),
-	userId: text('user_id')
-		.notNull()
-		.references(() => user.id, { onDelete: 'cascade' }),
-	accountId: text('account_id').notNull(),
-	providerId: text('provider_id').notNull(),
-	accessToken: text('access_token'),
-	refreshToken: text('refresh_token'),
-	idToken: text('id_token'),
-	accessTokenExpiresAt: timestamp('access_token_expires_at', { withTimezone: true }),
-	refreshTokenExpiresAt: timestamp('refresh_token_expires_at', { withTimezone: true }),
-	scope: text('scope'),
-	password: text('password'),
-	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
-});
+//
+// `issuer` arrived with Better Auth 1.7 (issue #674), and it is the one column in this file
+// whose absence was a runtime error rather than a type error: 1.7's `getAuthTables` declares
+// it `required: true` on `account`, the drizzle adapter checks declared fields against this
+// table at call time, and every credential sign-in and sign-up answered
+// `BetterAuthError: The field "issuer" does not exist in the "account" Drizzle schema`
+// instead of failing to compile. 1.7 recognises an external account by the pair
+// (`issuer`, `accountId`) rather than by (`providerId`, `accountId`): `providerId` stays the
+// local provider configuration, and `issuer` is the authority that assigned `accountId`.
+// The values are the library's, not ours - `local:credential` for a password account (whose
+// `accountId` is the linked user's own id), the provider's real OIDC issuer where it has one
+// (`https://accounts.google.com`), and `local:oauth:<encodeURIComponent(providerId)>` for an
+// OAuth provider without one. `packages/db/migrations/0053_account_issuer.sql` carries the
+// backfill and refuses a provider it has no mapping for.
+export const account = pgTable(
+	'account',
+	{
+		id: text('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		accountId: text('account_id').notNull(),
+		providerId: text('provider_id').notNull(),
+		issuer: text('issuer').notNull(),
+		accessToken: text('access_token'),
+		refreshToken: text('refresh_token'),
+		idToken: text('id_token'),
+		accessTokenExpiresAt: timestamp('access_token_expires_at', { withTimezone: true }),
+		refreshTokenExpiresAt: timestamp('refresh_token_expires_at', { withTimezone: true }),
+		scope: text('scope'),
+		password: text('password'),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	// 1.7's own account schema declares this index (unnamed, so the name is ours and follows
+	// this file's `*_key` convention rather than the upgrade guide's `_uidx`). It is what makes
+	// the identity pair an identity: without it the same provider account can be linked to two
+	// users, which is the collision the migration checks for before it creates the index.
+	(t) => [uniqueIndex('account_issuer_account_id_key').on(t.issuer, t.accountId)]
+);
 
 // Email verification codes and password reset tokens. Rows are short lived by design.
 export const verification = pgTable('verification', {
