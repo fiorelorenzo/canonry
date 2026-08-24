@@ -6,6 +6,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Page } from '$lib/components/ui/page';
+	import { TableScroll } from '$lib/components/ui/table';
 	import ProviderSelect from '$lib/components/admin/ProviderSelect.svelte';
 	import CurrencySelect from '$lib/components/admin/CurrencySelect.svelte';
 	import { COVER_ASPECT_RATIOS } from '$lib/components/media/cover-crop';
@@ -68,7 +69,7 @@
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 		<p class="mt-2 max-w-measure text-body text-ink-2">{@html t.models.textIntro2}</p>
 
-		<div class="mt-8 overflow-x-auto rounded-lg border border-line">
+		<TableScroll class="mt-8">
 			<table class="w-full border-collapse text-body">
 				<thead>
 					<tr
@@ -170,7 +171,7 @@
 					{/each}
 				</tbody>
 			</table>
-		</div>
+		</TableScroll>
 
 		<h2 class="mt-12 text-title font-semibold text-ink">{t.models.imageHeading}</h2>
 		<p class="mt-2 max-w-measure text-body text-ink-2">{t.models.imageIntro1}</p>
@@ -180,7 +181,7 @@
 			<InlineLink href={resolve('/admin/pricing')}>{t.pricing.title}</InlineLink>.
 		</p>
 
-		<div class="mt-8 overflow-x-auto rounded-lg border border-line">
+		<TableScroll class="mt-8">
 			<table class="w-full border-collapse text-body">
 				<thead>
 					<tr
@@ -305,6 +306,6 @@
 					{/each}
 				</tbody>
 			</table>
-		</div>
+		</TableScroll>
 	</div>
 </Page>
