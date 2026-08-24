@@ -12,9 +12,15 @@
 // keeping: the field list this file has to match is `getAuthTables` in
 // `@better-auth/core/db`, the drizzle adapter compares it against these tables at call time
 // rather than at build time, and a minor version that adds one required field therefore
-// turns every affected call into a 500 that nothing in `pnpm check` can see. Diffing
-// `node_modules/.pnpm/@better-auth+core@*/node_modules/@better-auth/core/dist/db/get-tables.mjs`
-// between the old and new version is the check that would have caught it.
+// turns every affected call into a 500 that nothing in `pnpm check` can see.
+//
+// `../../test/auth-schema.test.ts` is now that check, and it is the file to read before
+// editing this one (issue #685). It calls `getAuthTables` on the installed version and
+// compares what it declares against these four tables, in both directions, plus type,
+// nullability and uniqueness, so a bump that moves a column fails there by name instead of
+// at request time. A column of ours rather than Better Auth's - `user.locale`,
+// `user.handle` - has to be listed in that file's own allowlist with a reason, which is the
+// only maintenance it asks for.
 import { sql } from 'drizzle-orm';
 import { boolean, check, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import {
