@@ -25,16 +25,30 @@
 	 * wide inside a 292px box and it scrolls inside the page. V1's `wide` is the
 	 * declared width for the admin surfaces and V3 has just made the type scale mean
 	 * something, so shrinking the type or hiding columns to fit a phone was refused.
+	 *
+	 * #725 is the second defect at this same level: only a pointer could do that
+	 * scrolling. `keyboardScrollable` is the fix and carries the reasoning, including why
+	 * it applies only while the element overflows and why the name is required.
 	 */
 	import type { Snippet } from 'svelte';
 	import { cn } from '$lib/utils/cn.js';
+	import { keyboardScrollable } from '$lib/utils/keyboard-scrollable.js';
 </script>
 
 <script lang="ts">
 	let {
+		label,
 		class: className,
 		children
 	}: {
+		/**
+		 * Accessible name for the scroll container, announced when a keyboard reaches it.
+		 * Required, and it should be the heading this table already renders above itself
+		 * rather than a new string: a stop nobody can name is a stop nobody can be told
+		 * they have landed in. Required rather than optional so that an eleventh table
+		 * cannot be added without answering the question.
+		 */
+		label: string;
 		/** Spacing the call site owns (a `mt-*`), never the overflow or the position. */
 		class?: string;
 		children: Snippet;
@@ -42,6 +56,7 @@
 </script>
 
 <div
+	use:keyboardScrollable={label}
 	data-slot="table-scroll"
 	class={cn('relative overflow-x-auto rounded-lg border border-line', className)}
 >

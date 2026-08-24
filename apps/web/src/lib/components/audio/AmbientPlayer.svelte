@@ -18,6 +18,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { messages, type Locale } from '$lib/i18n';
+	import { keyboardScrollable } from '$lib/utils/keyboard-scrollable.js';
 	import {
 		AmbientEngine,
 		type LayerSpec,
@@ -344,6 +345,7 @@
 
 		{#if showDiagnostics && diagnostics}
 			<pre
+				use:keyboardScrollable={t.audioGraphAriaLabel}
 				class="relative mt-3 overflow-x-auto rounded-md border border-line bg-panel-2 p-2 text-label text-ink-2">{JSON.stringify(
 					diagnostics,
 					null,

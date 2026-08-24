@@ -1779,6 +1779,7 @@ export interface Messages {
 			couldNotStart: string;
 			crossfadeFailed: string;
 			layersAriaLabel: string;
+			audioGraphAriaLabel: string;
 		};
 
 		/** #529 (round eighteen, W1 = B for the phone): `TableDeck.svelte`'s own chrome -

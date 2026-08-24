@@ -1555,7 +1555,11 @@ export const en: Messages = {
 			couldNotLoadPack: (status) => `Could not load the ambient pack (${status})`,
 			couldNotStart: 'Could not start the soundscape',
 			crossfadeFailed: 'Crossfade failed',
-			layersAriaLabel: 'Ambient layers'
+			layersAriaLabel: 'Ambient layers',
+			/** #725: names the diagnostics `<pre>`, which becomes a focusable scroll region
+			 * when it overflows. Everything else on screen about it is the verb on its
+			 * toggle ("Show audio graph"), and a region has to be named by a noun. */
+			audioGraphAriaLabel: 'Audio graph'
 		},
 
 		deck: {

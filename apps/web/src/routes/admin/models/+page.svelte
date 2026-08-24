@@ -69,7 +69,7 @@
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 		<p class="mt-2 max-w-measure text-body text-ink-2">{@html t.models.textIntro2}</p>
 
-		<TableScroll class="mt-8">
+		<TableScroll class="mt-8" label={t.models.textHeading}>
 			<table class="w-full border-collapse text-body">
 				<thead>
 					<tr
@@ -181,7 +181,7 @@
 			<InlineLink href={resolve('/admin/pricing')}>{t.pricing.title}</InlineLink>.
 		</p>
 
-		<TableScroll class="mt-8">
+		<TableScroll class="mt-8" label={t.models.imageHeading}>
 			<table class="w-full border-collapse text-body">
 				<thead>
 					<tr
