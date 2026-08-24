@@ -28,6 +28,7 @@
 		"rerender": "tsx src/models/rerender.ts",
 		"retrieval-sweep": "tsx src/retrieval-sweep.ts",
 		"matching-sweep": "tsx src/matching-sweep.ts",
+		"relation-label-sweep": "tsx src/relation-label-sweep.ts",
 		"audit-pairs": "tsx src/audit-pairs.ts",
 		"scene-images": "tsx src/media/scene.ts",
 		"audio-throttle": "tsx src/media/elevenlabs-throttle.ts"

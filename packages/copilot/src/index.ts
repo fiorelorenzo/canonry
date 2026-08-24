@@ -127,11 +127,37 @@ export { completeEntry, type CompleteEntryInput, type CompleteEntryResult } from
 export {
 	resolveRelationType,
 	normalizeRelationLabel,
+	SEMANTIC_REUSE_THRESHOLD,
 	type RelationTypeResolution,
 	type ResolveRelationTypeDeps,
 	type ResolveRelationTypeInput,
 	type Embedder
 } from './relation-types.js';
+
+// Issue #637: the relation-label rung's own gold set and sweep, the analogue of
+// `packages/import`'s `matching-benchmark`. Exported because `packages/bench`'s
+// `relation-label-sweep` runs the same corpus against the real gateway embedding model, and
+// because a benchmark nothing outside its own package can run is a benchmark that gets run
+// once.
+export {
+	classifyRelationLabelPair,
+	relationLabelCandidates,
+	rungOneDirection,
+	runRelationLabelBenchmark,
+	scoreRelationLabelPair,
+	shippedRelationTypeIdentity,
+	type RelationLabelBenchmarkReport,
+	type RelationLabelCorpus,
+	type RelationLabelOutcome,
+	type RelationLabelPairExample,
+	type RelationLabelPairScore,
+	type RelationLabelSimilarityFn,
+	type RelationLabelSweep,
+	type RelationLabelThresholdScore,
+	type RelationLabelVerdict,
+	type RunRelationLabelBenchmarkOptions
+} from './relation-label-benchmark.js';
+export { ONENOTE_RELATION_LABEL_CORPUS } from './relation-label-benchmark-corpus.js';
 
 // The shipped relation catalogue's per-locale strings are not re-exported from here on
 // purpose: they live in `@canonry/lang`, which has no dependencies, and `apps/web`'s i18n
