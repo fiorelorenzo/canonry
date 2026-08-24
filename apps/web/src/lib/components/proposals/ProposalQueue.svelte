@@ -305,6 +305,7 @@
 					item.notAdmitted = {
 						relationTypeId: notAdmitted.relationTypeId,
 						typeLabel: notAdmitted.typeLabel,
+						typeKey: notAdmitted.typeKey,
 						fromType: notAdmitted.fromType,
 						toType: notAdmitted.toType,
 						addFrom: notAdmitted.addFrom,

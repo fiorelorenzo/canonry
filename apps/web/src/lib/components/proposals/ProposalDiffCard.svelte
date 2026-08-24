@@ -10,6 +10,7 @@
 	import { InlineLink } from '$lib/components/ui/link';
 	import EvidencePopover from './EvidencePopover.svelte';
 	import RejectChips from './RejectChips.svelte';
+	import { shippedForkQuery } from './forkLink';
 	import type { EvidenceCaveat, EvidenceView } from './evidence';
 	import type { ProseDiff } from './proseDiff';
 
@@ -51,6 +52,9 @@
 	export interface DiffCandidateNotAdmittedView {
 		relationTypeId: string;
 		typeLabel: string;
+		/** Issue #648: `relation_type.key` (#195), so one of the shipped ten reads in the
+		 * interface language here (#196) rather than as the English text the row stores. */
+		typeKey: string;
 		fromType: string;
 		toType: string;
 		addFrom: string | null;
@@ -148,6 +152,16 @@
 			candidate.relationLabel
 	);
 
+	/** Issue #648: the relation settings, opened on the shipped type this accept refused and
+	 * the ends it needs. `resolve` types the route and takes no query of its own, so the
+	 * pair comes from `shippedForkQuery` - which lives in its own module rather than here,
+	 * see that file for why - and `addFrom`/`addTo` are omitted rather than sent empty when
+	 * only one end is short. The settings page reads them back as the pair to pre-check and
+	 * validates each against the entity-type enum. */
+	function shippedForkHref(notAdmitted: DiffCandidateNotAdmittedView): string {
+		return `${resolve(`/w/${universeSlug}/settings/relations`)}${shippedForkQuery(notAdmitted)}`;
+	}
+
 	/** C5's popover hangs off the first changed row, as it did off the first changed
 	 * sentence before Q1: one popover per proposal, on the evidence's own first claim,
 	 * rather than one per region repeating the same sources. */
@@ -201,6 +215,15 @@
 				{#if candidate.targetType}
 					<Badge variant="accent" class="font-mono uppercase">
 						{t.diffCard.entityTypeLabel(candidate.targetType)}
+					</Badge>
+				{/if}
+				{#if candidate.relationVocab && candidate.relationVocab.relations.length > 0}
+					<!-- Issue #638: 102 of a first import's 130 vocabulary questions unblock one
+					     relation and three of them carry 36, so what a GM needs while triaging is
+					     the number, next to the kind rather than only as the heading over the
+					     waiting list further down the card. -->
+					<Badge variant="accent" class="font-mono">
+						{t.relationVocab.unblocks(candidate.relationVocab.relations.length)}
 					</Badge>
 				{/if}
 				{#if candidate.relationLabel && !candidate.relationVocab}
@@ -445,6 +468,8 @@
 
 	{#if candidate.notAdmitted && candidate.outcome === 'pending'}
 		{@const notAdmitted = candidate.notAdmitted}
+		{@const notAdmittedLabel =
+			relationTypeLabel(notAdmitted.typeKey)?.label ?? notAdmitted.typeLabel}
 		<!-- Issue #628: #191's admission check runs against the real endpoint types at
 		     accept time, the first moment they are known - propose time (packages/copilot,
 		     packages/import) only ever guesses. This is that check's refusal, reached from
@@ -453,13 +478,19 @@
 		     resolved before this link can be accepted, not a red error. -->
 		<p class="mb-3 rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-body text-ink-2">
 			{t.diffCard.notAdmittedNotice(
-				notAdmitted.typeLabel,
+				notAdmittedLabel,
 				t.diffCard.entityTypeLabel(notAdmitted.fromType),
 				t.diffCard.entityTypeLabel(notAdmitted.toType)
 			)}
 			{#if notAdmitted.shipped}
-				{t.diffCard.notAdmittedShipped(notAdmitted.typeLabel)}
-				<InlineLink href={resolve(`/w/${universeSlug}/settings/relations`)}>
+				<!-- Issue #648: the link carries the type the accept refused and the ends it
+				     needs, so the relation settings open on the question rather than making the
+				     GM re-derive it from a page of ten types. Still a link and not a button:
+				     forking one of the shipped ten is a decision about this universe's own
+				     vocabulary, and it belongs where the GM's other vocabulary decisions are
+				     taken, not as a way past an error in the queue. -->
+				{t.diffCard.notAdmittedShipped(notAdmittedLabel)}
+				<InlineLink href={shippedForkHref(notAdmitted)}>
 					{t.diffCard.notAdmittedShippedLink}
 				</InlineLink>
 			{/if}

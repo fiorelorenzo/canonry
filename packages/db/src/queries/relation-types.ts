@@ -218,6 +218,78 @@ export async function widenRelationType(
 	return updated;
 }
 
+export class RelationTypeNotShippedError extends Error {
+	constructor(typeId: string) {
+		super(`relation_type "${typeId}" is not a shipped catalogue row, so there is nothing to fork`);
+		this.name = 'RelationTypeNotShippedError';
+	}
+}
+
+export interface ForkShippedRelationTypeInput {
+	addFrom?: EntityType[];
+	addTo?: EntityType[];
+}
+
+/** Issue #648: the manual half of `resolveAdmissionGap`'s shipped branch. A shipped row
+ * cannot be widened at all - `widenRelationType` above filters on `universe_id =
+ * universeId` and a null row never matches, on purpose, because a shipped key is API
+ * surface (decision L1, #195) and the ten only change through a migration. What a GM can
+ * do instead is have their own version of that type, wider than the shipped one, which is
+ * exactly what the resolver already proposes at *propose* time: `resolveAdmissionGap`
+ * returns `new-proposed` under the shipped type's own label, inverse label and
+ * cardinality rather than the model's phrasing, so the fork reads as "the same 'member
+ * of', just wider here" instead of a fourth synonym. This is that same write, taken by
+ * hand from the catalogue page (#192's "a universe can add its own types"), for the case
+ * the resolver cannot reach: a gap only visible at accept time, once the endpoints are
+ * real entities.
+ *
+ * Copies the shipped row's three display facts verbatim and unions the pair the GM asked
+ * for into the arrays, so the fork admits everything the shipped type did plus what this
+ * universe needs. `key` is left to `relation_type_derive_key_trigger`, which derives it
+ * from the label: the fork lands on the shipped type's own key, under this universe's id,
+ * and `relation_type_universe_key_key` is `nullsNotDistinct` on (universe_id, key) so the
+ * shipped row and the fork never collide. That is what makes the fork read in the i18n
+ * bundle's words (#196) rather than as untranslated English.
+ *
+ * A universe that already has a type by that label gets `RelationTypeLabelConflictError`
+ * rather than a second row: the answer there is to widen the one it has. */
+export async function forkShippedRelationType(
+	db: Db,
+	universeId: string,
+	typeId: string,
+	input: ForkShippedRelationTypeInput
+): Promise<RelationTypeRow> {
+	const [shipped] = await db
+		.select()
+		.from(relationType)
+		.where(and(eq(relationType.id, typeId), isNull(relationType.universeId)))
+		.limit(1);
+	if (!shipped) throw new RelationTypeNotShippedError(typeId);
+
+	const allowedFrom = [...new Set([...shipped.allowedFrom, ...(input.addFrom ?? [])])];
+	const allowedTo = [...new Set([...shipped.allowedTo, ...(input.addTo ?? [])])];
+
+	try {
+		const [created] = await db
+			.insert(relationType)
+			.values({
+				universeId,
+				label: shipped.label,
+				inverseLabel: shipped.inverseLabel,
+				cardinality: shipped.cardinality,
+				allowedFrom,
+				allowedTo
+			})
+			.returning();
+		if (!created) throw new RelationTypeLabelConflictError(universeId, shipped.label);
+		return created;
+	} catch (err) {
+		if (err instanceof RelationTypeLabelConflictError) throw err;
+		if (isUniqueViolation(err)) throw new RelationTypeLabelConflictError(universeId, shipped.label);
+		throw err;
+	}
+}
+
 export interface MergeRelationTypesInput {
 	/** The losing type. Must be a type this universe owns - the shipped catalogue can
 	 * never be merged away through this function. */

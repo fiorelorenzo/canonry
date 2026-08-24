@@ -94,9 +94,14 @@ function importAcceptFields(
  * of a dead end. */
 function notAdmittedFailure(locale: Locale, proposalId: string, err: RelationTypeNotAdmittedError) {
 	const msgs = messages(locale);
+	// Issue #648: one of the shipped ten reads in the interface language, keyed on the type's
+	// own `key` (#196, decision L1), exactly like the card's heading two lines above this
+	// notice already does. A universe's own type has no bundle entry, and `typeLabel` is the
+	// stored text as authored, which is the right fallback for it.
+	const typeLabel = msgs.relationTypeLabel(err.typeKey)?.label ?? err.typeLabel;
 	return fail(409, {
 		error: msgs.import.review.errors.notAdmitted(
-			err.typeLabel,
+			typeLabel,
 			msgs.proposals.diffCard.entityTypeLabel(err.fromType),
 			msgs.proposals.diffCard.entityTypeLabel(err.toType)
 		),
@@ -104,6 +109,7 @@ function notAdmittedFailure(locale: Locale, proposalId: string, err: RelationTyp
 			proposalId,
 			relationTypeId: err.relationTypeId,
 			typeLabel: err.typeLabel,
+			typeKey: err.typeKey,
 			fromType: err.fromType,
 			toType: err.toType,
 			addFrom: err.addFrom,

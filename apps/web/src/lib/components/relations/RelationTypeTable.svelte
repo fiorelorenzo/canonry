@@ -32,7 +32,8 @@
 		onRename,
 		onWiden,
 		onTranslate,
-		onMerge
+		onMerge,
+		onFork
 	}: {
 		types: RelationTypeCatalogueRow[];
 		t: Messages['universe']['settings']['relations'];
@@ -49,6 +50,11 @@
 		 * itself as the losing side - it only opens the same dialog every other own row
 		 * already can. */
 		onMerge?: () => void;
+		/** Issue #648: the shipped half's only action. A shipped row is read-only, and this
+		 * does not change that: it creates a *copy* under this universe's id, which is the
+		 * one thing #192's own "a universe can add its own types" always allowed and never
+		 * built a control for. */
+		onFork?: (row: RelationTypeCatalogueRow) => void;
 	} = $props();
 
 	function summary(row: RelationTypeCatalogueRow): string {
@@ -73,9 +79,20 @@
 					>
 					{summary(row)}
 				</p>
-				<span class="shrink-0 text-meta text-muted tabular-nums"
-					>{t.usageCount(row.usageCount)}</span
-				>
+				<span class="flex shrink-0 items-baseline gap-3">
+					{#if canManage && onFork}
+						<Button
+							type="button"
+							variant="link"
+							size="sm"
+							class="h-auto p-0 text-label"
+							onclick={() => onFork?.(row)}
+						>
+							{t.fork.trigger}
+						</Button>
+					{/if}
+					<span class="text-meta text-muted tabular-nums">{t.usageCount(row.usageCount)}</span>
+				</span>
 			</li>
 		{/each}
 	</ul>

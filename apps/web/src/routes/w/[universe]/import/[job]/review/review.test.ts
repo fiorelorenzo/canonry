@@ -16,7 +16,7 @@
  * `review/[proposal]/awaiting-diff.test.ts` builds its own proposal rows by hand.
  */
 import { randomUUID } from 'node:crypto';
-import { and, closeDb, createDb, eq, type Db } from '@canonry/db';
+import { and, closeDb, createDb, eq, isNull, type Db } from '@canonry/db';
 import {
 	entity,
 	importJob,
@@ -30,6 +30,9 @@ import {
 import { isActionFailure } from '@sveltejs/kit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { actions } from './+page.server.js';
+// Issue #648: the route the shipped refusal points at is a different route's action, and
+// the last case below walks the whole of it, so this file drives both.
+import { actions as settingsActions } from '../../../settings/relations/+page.server.js';
 
 const DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
@@ -50,6 +53,7 @@ interface NotAdmittedFailureData {
 		proposalId: string;
 		relationTypeId: string;
 		typeLabel: string;
+		typeKey: string;
 		fromType: string;
 		toType: string;
 		addFrom: string | null;
@@ -92,6 +96,9 @@ describe('/w/[universe]/import/[job]/review actions (#628): the accept-time admi
 	let notAdmittedProposalId: string;
 	let widenTypeId: string;
 	let widenProposalId: string;
+	let shippedTypeId: string;
+	let shippedProposalId: string;
+	let shippedFromEntityId: string;
 
 	beforeAll(async () => {
 		db = createDb(DATABASE_URL, { max: 3 });
@@ -251,6 +258,52 @@ describe('/w/[universe]/import/[job]/review actions (#628): the accept-time admi
 			.returning({ id: proposal.id });
 		if (!widenProposal) throw new Error('proposal insert did not return a row');
 		widenProposalId = widenProposal.id;
+
+		// Issue #648: the shipped case, which #628 left with a refusal and no route. A
+		// `faction -> character` link on shipped "member of", which admits character ->
+		// faction only: #628's own `member of` finding, three times on the notebook before
+		// its inverse-label fix removed them. Reachable in principle and unobserved since,
+		// so this fixture is built from that measurement rather than from a run.
+		const [shipped] = await db
+			.select({ id: relationType.id, label: relationType.label })
+			.from(relationType)
+			.where(and(eq(relationType.label, 'member of'), isNull(relationType.universeId)))
+			.limit(1);
+		if (!shipped) throw new Error('no shipped "member of" relation type');
+		shippedTypeId = shipped.id;
+
+		const [factionEntity] = await db
+			.insert(entity)
+			.values({
+				universeId,
+				type: 'faction',
+				name: 'La Corona di Ferro',
+				slug: unique('corona-di-ferro'),
+				body: 'A compact of caravan masters.'
+			})
+			.returning({ id: entity.id });
+		if (!factionEntity) throw new Error('entity insert did not return a row');
+		shippedFromEntityId = factionEntity.id;
+
+		const [shippedProposal] = await db
+			.insert(proposal)
+			.values({
+				universeId,
+				planId,
+				trigger: 'import',
+				kind: 'relation',
+				targetEntityId: shippedFromEntityId,
+				relationTypeId: shippedTypeId,
+				relatedEntityId: fromEntityId,
+				patch: {},
+				rationale: 'The compact counts Mirenna among its own.',
+				evidence: {},
+				rank: 2,
+				outcome: 'pending'
+			})
+			.returning({ id: proposal.id });
+		if (!shippedProposal) throw new Error('proposal insert did not return a row');
+		shippedProposalId = shippedProposal.id;
 	});
 
 	afterAll(async () => {
@@ -268,6 +321,21 @@ describe('/w/[universe]/import/[job]/review actions (#628): the accept-time admi
 				body: formData
 			}),
 			params: { universe: universeSlug, job: jobId },
+			locals: { user: { id: ownerId }, locale: 'en' }
+		};
+	}
+
+	/** The same shape one route over: `settings/relations`'s actions take only the universe
+	 * param, and its own `requireManager` reads the role off the same signed-in owner. */
+	function settingsPostEvent(fields: Record<string, string>) {
+		const formData = new FormData();
+		for (const [key, value] of Object.entries(fields)) formData.set(key, value);
+		return {
+			request: new Request(`http://localhost/w/${universeSlug}/settings/relations`, {
+				method: 'POST',
+				body: formData
+			}),
+			params: { universe: universeSlug },
 			locals: { user: { id: ownerId }, locale: 'en' }
 		};
 	}
@@ -364,5 +432,113 @@ describe('/w/[universe]/import/[job]/review actions (#628): the accept-time admi
 		expect(widened?.allowedTo).not.toContain('session');
 		// What it did grow by is what the check asked for: the real `to` type.
 		expect(widened?.allowedTo).toContain('item');
+	});
+
+	it('refuses a shipped type as shipped, so the card shows the route instead of a widen button (#648)', async () => {
+		const result = await actions.accept(
+			postEvent({ proposalId: shippedProposalId }) as Parameters<typeof actions.accept>[0]
+		);
+
+		expect(isActionFailure(result)).toBe(true);
+		const failure = actionFailure(result);
+		expect(failure.status).toBe(409);
+		// `shipped: true` is what hides the widen-and-accept button and renders the link to
+		// the relation settings in its place: `widenRelationType` cannot touch this row, so
+		// offering the button at all would be offering a click that fails.
+		expect(failure.data).toMatchObject({
+			notAdmitted: {
+				proposalId: shippedProposalId,
+				relationTypeId: shippedTypeId,
+				typeLabel: 'member of',
+				fromType: 'faction',
+				toType: 'character',
+				addFrom: 'faction',
+				addTo: 'character',
+				shipped: true
+			}
+		});
+
+		const [row] = await db
+			.select({ outcome: proposal.outcome })
+			.from(proposal)
+			.where(eq(proposal.id, shippedProposalId));
+		expect(row?.outcome).toBe('pending');
+	});
+
+	it("says the shipped type's word in the interface language, not the row's English (#648)", async () => {
+		// Found by rendering the notice in Italian: it read `"member of"` in the middle of
+		// Italian prose, two lines under a card heading that correctly said "membro di". The
+		// shipped ten's words come from the bundle keyed on `relation_type.key` everywhere
+		// else (#196, decision L1), and this sentence is not an exception.
+		const result = await actions.accept({
+			...postEvent({ proposalId: shippedProposalId }),
+			locals: { user: { id: ownerId }, locale: 'it' }
+		} as Parameters<typeof actions.accept>[0]);
+
+		const failure = actionFailure(result);
+		expect(failure.data.error).toContain('membro di');
+		expect(failure.data.error).not.toContain('member of');
+		// The key travels with the refusal, which is what lets the card render the same word.
+		expect(failure.data.notAdmitted.typeKey).toBe('member_of');
+	});
+
+	it('answers widenAndAccept on a shipped type with the same refusal, not a widen (#648)', async () => {
+		// The card never offers the button here, so this is the stale-page and hand-built
+		// request path. It must not reach `widenRelationType` at all: that would answer
+		// `RelationTypeNotOwnedError`, a different and less useful thing to show than the
+		// refusal the GM can actually act on.
+		const result = await actions.widenAndAccept(
+			postEvent({ proposalId: shippedProposalId }) as Parameters<typeof actions.widenAndAccept>[0]
+		);
+
+		expect(isActionFailure(result)).toBe(true);
+		const failure = actionFailure(result);
+		expect(failure.data.notAdmitted).toMatchObject({
+			shipped: true,
+			relationTypeId: shippedTypeId
+		});
+
+		// And the shipped row is exactly as it was: nothing about this path may widen one.
+		const [shipped] = await db
+			.select({ allowedFrom: relationType.allowedFrom, allowedTo: relationType.allowedTo })
+			.from(relationType)
+			.where(eq(relationType.id, shippedTypeId));
+		expect(shipped?.allowedFrom).toEqual(['character']);
+		expect(shipped?.allowedTo).toEqual(['faction']);
+	});
+
+	it('accepts the same link once the GM has their own version of the shipped type (#648)', async () => {
+		// The route the refusal points at, end to end through the two real actions: the
+		// settings page's fork, then the accept that failed before it.
+		const forked = await settingsActions.forkShippedRelationType(
+			settingsPostEvent({
+				typeId: shippedTypeId,
+				addFrom: 'faction',
+				addTo: 'character'
+			}) as Parameters<typeof settingsActions.forkShippedRelationType>[0]
+		);
+		expect(isActionFailure(forked)).toBe(false);
+
+		const [fork] = await db
+			.select({ id: relationType.id })
+			.from(relationType)
+			.where(and(eq(relationType.universeId, universeId), eq(relationType.label, 'member of')))
+			.limit(1);
+		if (!fork) throw new Error('the fork was not created');
+
+		const result = await actions.accept(
+			postEvent({ proposalId: shippedProposalId }) as Parameters<typeof actions.accept>[0]
+		);
+		expect(isActionFailure(result)).toBe(false);
+
+		const written = await db
+			.select()
+			.from(relation)
+			.where(
+				and(eq(relation.fromEntityId, shippedFromEntityId), eq(relation.toEntityId, fromEntityId))
+			);
+		expect(written).toHaveLength(1);
+		// Written against the GM's own version, never against the shipped row.
+		expect(written[0]?.relationTypeId).toBe(fork.id);
 	});
 });

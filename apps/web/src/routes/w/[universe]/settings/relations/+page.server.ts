@@ -28,14 +28,16 @@ import {
 	renameRelationType,
 	setRelationTypeLabel,
 	widenRelationType,
+	forkShippedRelationType,
 	listRelationTypesForUniverse,
 	RelationTypeLabelConflictError,
 	RelationTypeNotOwnedError,
+	RelationTypeNotShippedError,
 	universeAccessBySlug,
 	type Db,
 	type UniverseAccess
 } from '@canonry/db';
-import type { EntityType } from '@canonry/db/schema';
+import { entityTypeEnum, type EntityType } from '@canonry/db/schema';
 import { LOCALES, messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { universeSetupItems } from '$lib/server/universe-setup';
@@ -55,7 +57,30 @@ async function requireManager(
 	return access;
 }
 
-export const load: PageServerLoad = async ({ params, locals }) => {
+/** Issue #648: `fork`, `addFrom` and `addTo` are the review queue's own shipped-refusal
+ * notice linking in - the type the accept refused and the ends it needs, so the GM lands
+ * on the question instead of on a page that makes them remember it. Every value is
+ * validated here rather than trusted: an entity type that is not one of the enum's is
+ * dropped, and the id is only ever matched against a shipped row this universe can see
+ * (`RelationCatalogue`'s own lookup), so a hand-typed link opens a dialog or nothing. */
+function forkFromUrl(url: URL): {
+	forkTypeId: string | null;
+	forkAddFrom: EntityType[];
+	forkAddTo: EntityType[];
+} {
+	const forkTypeId = url.searchParams.get('fork');
+	const admitted = (values: string[]): EntityType[] =>
+		values.filter((value): value is EntityType =>
+			(entityTypeEnum.enumValues as readonly string[]).includes(value)
+		);
+	return {
+		forkTypeId: forkTypeId && forkTypeId.length > 0 ? forkTypeId : null,
+		forkAddFrom: admitted(url.searchParams.getAll('addFrom')),
+		forkAddTo: admitted(url.searchParams.getAll('addTo'))
+	};
+}
+
+export const load: PageServerLoad = async ({ params, url, locals }) => {
 	if (!locals.user) error(404, `No universe named "${params.universe}"`);
 	const conn = db();
 	const access = await universeAccessBySlug(conn, params.universe, locals.user.id);
@@ -68,7 +93,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		universeName: access.universe.name,
 		canManage: access.role !== 'viewer',
 		setupItems: universeSetupItems(access.universe),
-		types
+		types,
+		...forkFromUrl(url)
 	};
 };
 
@@ -145,6 +171,50 @@ export const actions: Actions = {
 			throw err;
 		}
 		return { action: 'widen' as const, typeId };
+	},
+
+	/** Issue #648: the manual half of `resolveAdmissionGap`'s shipped branch. `widenRelationType`
+	 * above cannot serve a shipped row and never will (decision L1: a shipped key is API
+	 * surface), so a GM whose accept was refused on one of the ten gets their own copy of that
+	 * type here instead, wide enough for the pair the refusal named. Same kind of write as the
+	 * three above it: plain GM-initiated CRUD, nothing a model authored, and nothing that
+	 * reaches canon - the relation that sent the GM here is still a proposal waiting for its
+	 * own accept, which is what `createdLabel` is shown for. */
+	forkShippedRelationType: async ({ request, params, locals }) => {
+		if (!locals.user) error(404, `No universe named "${params.universe}"`);
+		const conn = db();
+		const access = await requireManager(conn, params.universe, locals.user.id, locals.locale);
+		const t = messages(locals.locale).universe.settings.relations;
+
+		const form = await request.formData();
+		const typeId = form.get('typeId');
+		const addFrom = form.getAll('addFrom').filter((v): v is string => typeof v === 'string');
+		const addTo = form.getAll('addTo').filter((v): v is string => typeof v === 'string');
+		if (typeof typeId !== 'string' || typeId.length === 0) {
+			return fail(400, { action: 'fork' as const, typeId: '', error: t.fork.notShippedError });
+		}
+		if (addFrom.length === 0 && addTo.length === 0) {
+			return fail(400, { action: 'fork' as const, typeId, error: t.fork.noChangeError });
+		}
+
+		let created;
+		try {
+			created = await forkShippedRelationType(conn, access.universe.id, typeId, {
+				addFrom: addFrom as EntityType[],
+				addTo: addTo as EntityType[]
+			});
+		} catch (err) {
+			if (err instanceof RelationTypeNotShippedError) {
+				return fail(400, { action: 'fork' as const, typeId, error: t.fork.notShippedError });
+			}
+			if (err instanceof RelationTypeLabelConflictError) {
+				return fail(409, { action: 'fork' as const, typeId, error: t.fork.conflictError });
+			}
+			throw err;
+		}
+		// The fork carries the shipped type's own label, so this reads in the catalogue's own
+		// words for a shipped key (#196) exactly like every other row does.
+		return { action: 'fork' as const, typeId, createdLabel: created.label };
 	},
 
 	mergeRelationTypes: async ({ request, params, locals }) => {
