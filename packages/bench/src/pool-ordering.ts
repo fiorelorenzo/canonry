@@ -29,7 +29,7 @@
  * is all of them - the SQL `ORDER BY` decides which 20 get scored. The effective cap is
  * therefore 20 of one type, an order of magnitude below the 200 #627 was reasoning about.
  *
- * ### Part 2: the two orderings over the labelled corpus
+ * ### Part 2: the orderings over the labelled corpus
  *
  * `runPoolOrderingBenchmark` (`packages/import/src/matching-benchmark.ts`) scores a pool
  * rather than a scorer: it hands each corpus subject the page one ordering produced, runs the
@@ -37,6 +37,13 @@
  * ordering caused. This runner supplies the pools from a real Postgres universe holding the
  * corpus's candidates plus filler, so the ordering under test is the SQL one and not a
  * re-implementation of it.
+ *
+ * Three of the four orderings are SQL. The fourth, `embedding-distance` (issue #679), is the
+ * only one the pre-filter is not blind to, and it needs a gateway credential because it ranks
+ * by cosine of the same `matchTextFor` text the scorer embeds: it is skipped under
+ * `--scorer=lexical`, where the other three still reproduce #641's own table for free. It
+ * also reports an exposure line the other three do not need, because "no new false merge"
+ * only means something next to how close the invented filler came to winning.
  *
  * ### Part 3: the plan cost of each ordering, at #627's own universe size
  *
@@ -90,6 +97,36 @@
  * at any limit at any size, which is worth knowing before reading a CI run as evidence about
  * this number. `DEFAULT_PRE_FILTER_LIMIT`'s own comment carries the table and the decision;
  * #679 is the ordering that would make the question moot.
+ *
+ * ### And what the fourth ordering answered, on 2026-08-24 (issue #679)
+ *
+ * The measurement says yes and the plumbing says not yet, so the pool still orders by `slug`
+ * and nothing in production changed here either.
+ *
+ * On the numbers it is not close. `embedding-distance` scores `unscored: 0` at 29, 209 and
+ * 1009 entities of one type, on both wordings and under both scorers, where slug loses two
+ * at 209 and six at 1009; and its weighted cost at 1009 is its cost at 29 (6 and 12 under
+ * the embedding scorer, 17 and 25 under the lexical one), so it is the only ordering that
+ * removes the pool size from the answer rather than delaying it. The false-merge column,
+ * which is the column #679 says decides this, does not move: 1 easiest and 2 hardest at
+ * every size, the corpus's own traps and no new one, even though the ordering hands the
+ * scorer the argmax of a 1009-row population instead of a 20-row window. The exposure line
+ * is why that reads as a result rather than as a fixture that cannot see the risk: the best
+ * cosine any invented filler reached against any subject is 0.458 at 29 of a type, 0.518 at
+ * 209 and 0.528 at 1009, against a `newBelow` of 0.60, so no filler was ever even in the
+ * band. It grows the way the maximum of N draws grows, about 0.07 per 35x of population,
+ * and the filler carries a name and a type where a real entity carries three lines, so
+ * treat that margin as an order of magnitude and not as a bound.
+ *
+ * What stopped it is that the vector it ranks by does not exist. `indexEntity` embeds an
+ * entity's *body*, in chunks, under a payload with no entity type; the only caller that
+ * schedules that work is a human editor save, so an entity an import created has no vector
+ * at all; an entity with an empty body chunks to nothing and has none either; and half the
+ * pool during an import job is `pendingEntityProposalsForJob`, rows in `proposal` that are
+ * not entities and were never indexed, which is the half #681 measured doing the narrowing
+ * on a real 90-document job. So this arm measures the ceiling on purpose: an exact cosine
+ * over every vector, which an ANN index can only lose recall against, over a text no
+ * collection currently holds. Three decisions follow and they are on the issue.
  */
 import { randomUUID } from 'node:crypto';
 import { embedMany } from 'ai';
@@ -105,6 +142,7 @@ import {
 	oneLineSummary,
 	EMBEDDING_MATCH_THRESHOLDS,
 	MATCH_THRESHOLDS,
+	cosineSimilarity,
 	createEmbeddingSimilarity,
 	lexicalTrigramSimilarity,
 	poolSubjectsFromCorpus,
@@ -493,6 +531,213 @@ function slugWindowOrdering(nameToId: Record<string, string>): OrderingSpec {
 }
 
 // ---------------------------------------------------------------------------
+// The fourth ordering (issue #679): embedding distance.
+// ---------------------------------------------------------------------------
+
+/** Texts per `embedMany` call. `embedMany` splits by the model's own per-call maximum
+ * anyway, but it fans the splits out in parallel, and a run of this bench asks for a few
+ * thousand short texts at once: batching here keeps that a sequence of ordinary calls
+ * rather than a burst the gateway rate-limits. */
+const EMBED_BATCH = 128;
+
+/**
+ * One vector per distinct `matchTextFor` text, cached for the whole run rather than per
+ * universe.
+ *
+ * The cache is what makes this arm cheap enough to run twice. `fillerName` is derived from
+ * an index, so the filler of a 20-per-type universe is a prefix of the filler of a
+ * 1000-per-type one and both wording variants hold the same rows; a text is therefore
+ * embedded once for the whole run and reused across the six universes part 2 builds. It is
+ * also the right shape for what production would do: an entity's vector is written once at
+ * index time and read by every later sighting, and only the subject side is new per
+ * document.
+ */
+class MatchTextVectors {
+	private readonly cache = new Map<string, number[]>();
+
+	constructor(private readonly embed: (texts: string[]) => Promise<number[][]>) {}
+
+	/** Embeds whatever is not cached yet, and returns how many texts that was, so the run
+	 * can report what it actually paid for rather than what it asked for. */
+	async warm(texts: string[]): Promise<number> {
+		const missing = [...new Set(texts)].filter((text) => !this.cache.has(text));
+		for (let i = 0; i < missing.length; i += EMBED_BATCH) {
+			const batch = missing.slice(i, i + EMBED_BATCH);
+			const vectors = await this.embed(batch);
+			batch.forEach((text, j) => this.cache.set(text, vectors[j]!));
+		}
+		return missing.length;
+	}
+
+	async get(text: string): Promise<number[]> {
+		await this.warm([text]);
+		return this.cache.get(text)!;
+	}
+}
+
+interface VectorEntry {
+	candidate: MatchCandidate;
+	vector: number[];
+}
+
+/**
+ * Every entity in the universe, grouped by type, with the vector of the text the scorer
+ * would embed it as.
+ *
+ * Read out of Postgres through the same projection `candidateEntitiesForMatching` uses and
+ * turned into candidates by the same `toCandidates`, so the row an ordering ranks is the row
+ * the scorer then sees. The whole type population is loaded because an exact top-N needs
+ * every vector; production would ask an index for the top N instead, which is the difference
+ * `embeddingOrdering`'s own note is about.
+ */
+async function buildVectorIndex(
+	db: Db,
+	universeId: string,
+	corpusIdByName: Record<string, string>,
+	vectors: MatchTextVectors
+): Promise<Map<EntityType, VectorEntry[]>> {
+	const rows = (await db.execute(sql`
+		select id, name, aliases, type::text as type, left(body, 400) as body_lead
+		from entity
+		where universe_id = ${universeId}
+		order by slug
+	`)) as unknown as RawRow[];
+	const candidates = toCandidates(rows, corpusIdByName);
+	await vectors.warm(candidates.map((candidate) => matchTextFor(candidate)));
+
+	const byType = new Map<EntityType, VectorEntry[]>();
+	for (const candidate of candidates) {
+		const type = (candidate.context?.type ?? 'character') as EntityType;
+		const bucket = byType.get(type) ?? [];
+		bucket.push({ candidate, vector: await vectors.get(matchTextFor(candidate)) });
+		byType.set(type, bucket);
+	}
+	return byType;
+}
+
+/**
+ * The exposure the false-merge column cannot state on its own: for one subject, the best
+ * cosine the corpus's own rows reached, and the best any row it did not contribute reached.
+ *
+ * Without this the column is unreadable. "No new false merge at 1009 candidates" means the
+ * ordering is safe if the invented filler came close to winning and was beaten, and means
+ * the fixture cannot detect the risk at all if the filler was never in contention. The
+ * number that separates those two readings is the best filler's own cosine against the band
+ * the scorer decides on.
+ */
+interface SubjectExposure {
+	subjectId: string;
+	bestCorpus: number;
+	bestFiller: number;
+	bestFillerName: string;
+}
+
+interface EmbeddingOrderingProbe {
+	spec: OrderingSpec;
+	/** One row per subject, in first-seen order; the second scorer arm re-fetches the same
+	 * pools and would otherwise double every row. */
+	exposure: () => SubjectExposure[];
+}
+
+/**
+ * Issue #679's ordering: the `limit` entities of this type in this universe whose own match
+ * text is nearest the subject's, by cosine.
+ *
+ * It is the one ordering the pre-filter is not blind to. `preFilterCandidates` ranks every
+ * candidate sharing a name or alias token above every candidate sharing none, so the pool's
+ * order only ever decides among the non-sharers, and a candidate sharing no token shares no
+ * trigram either (#641) and sits at an expected rank of half the population under `slug`
+ * (#666). Cosine is the metric that does see those pairs: `docs/models.md` records this
+ * model taking "the Gilded Rat" against "Il Ratto Dorato" from 0.074 on trigrams to 0.80.
+ *
+ * **Two ways this is deliberately the ceiling rather than the product, and both matter to
+ * reading the table.** The ranking is an exact cosine over every vector rather than an ANN
+ * search, and an HNSW index can only lose recall against that, never gain it. And the vector
+ * is `matchTextFor`'s text, which is *not* what `indexEntity` writes to Qdrant today: that
+ * pipeline chunks and embeds an entity's `body`, under a payload carrying no entity type, so
+ * the vector this ordering wants does not exist in production yet. Measuring the ceiling is
+ * the point: an ordering that does not pay for itself at its best does not pay for itself.
+ *
+ * Ranking by the scorer's own metric is also the sharp end of the question, not a
+ * convenience. An ordering that agrees with the scorer hands `resolveMatch` the same
+ * argmax it would have found over the whole type population, so it recovers every true
+ * candidate the scorer could find *and* exposes every false merge the scorer would make
+ * against a population two orders of magnitude larger than the window. That is why the
+ * false-merge column and not retention is what decides this.
+ */
+function embeddingOrdering(
+	index: Map<EntityType, VectorEntry[]>,
+	vectors: MatchTextVectors,
+	/** The ids `buildScoringUniverse` mapped to a labelled corpus entity. Everything else in
+	 * the universe is invented filler, which naming is a false merge by construction. */
+	corpusIds: ReadonlySet<string>
+): EmbeddingOrderingProbe {
+	const exposure = new Map<string, SubjectExposure>();
+	return {
+		exposure: () => [...exposure.values()],
+		spec: {
+			id: 'embedding-distance',
+			note: 'top N by cosine of matchTextFor, exact (the ceiling of a Qdrant search)',
+			fetch: async (_db, _universeId, subject, limit) => {
+				const type = (subject.context?.type ?? 'character') as EntityType;
+				const population = index.get(type) ?? [];
+				const subjectVector = await vectors.get(matchTextFor(subject));
+				const scored = population
+					.map((entry) => ({
+						entry,
+						score: cosineSimilarity(subjectVector, entry.vector)
+					}))
+					// Name breaks a tie, so two entities at the same cosine order the same way on
+					// every run: this table is only readable if it repeats (#279).
+					.sort(
+						(a, b) =>
+							b.score - a.score || a.entry.candidate.name.localeCompare(b.entry.candidate.name)
+					);
+
+				const key = `${type}:${subject.name}`;
+				if (!exposure.has(key)) {
+					// Over the whole type population rather than over the page, because the
+					// question is what the ranking had available to promote and not what it did.
+					const corpus = scored.filter((s) => corpusIds.has(s.entry.candidate.id));
+					const filler = scored.filter((s) => !corpusIds.has(s.entry.candidate.id));
+					exposure.set(key, {
+						subjectId: key,
+						bestCorpus: corpus[0]?.score ?? 0,
+						bestFiller: filler[0]?.score ?? 0,
+						bestFillerName: filler[0]?.entry.candidate.name ?? '-'
+					});
+				}
+
+				return {
+					candidates: scored.slice(0, limit).map((s) => s.entry.candidate),
+					truncated: population.length > limit
+				};
+			}
+		}
+	};
+}
+
+/** Prints the exposure rows against the band the ordering's own metric is judged by, which
+ * is the embedding scorer's: the ordering ranks on cosine, so this is the same scale the
+ * `matchAbove`/`newBelow` decision is taken on. */
+function reportExposure(rows: SubjectExposure[], thresholds: MatchThresholds): void {
+	if (rows.length === 0) return;
+	const inBand = rows.filter(
+		(r) => r.bestFiller >= thresholds.newBelow && r.bestFiller < thresholds.matchAbove
+	);
+	const above = rows.filter((r) => r.bestFiller >= thresholds.matchAbove);
+	const worst = [...rows].sort((a, b) => b.bestFiller - a.bestFiller)[0]!;
+	console.log(
+		`     embedding-distance exposure: best filler cosine ${worst.bestFiller.toFixed(3)} ("${worst.bestFillerName}" against ${worst.subjectId}), band ${thresholds.newBelow}/${thresholds.matchAbove}: ${above.length} of ${rows.length} subjects had a filler at or above matchAbove, ${inBand.length} in band`
+	);
+	for (const row of rows.filter((r) => r.bestFiller >= thresholds.newBelow)) {
+		console.log(
+			`       ${row.subjectId}: best filler ${row.bestFiller.toFixed(3)} ("${row.bestFillerName}"), best corpus row ${row.bestCorpus.toFixed(3)}`
+		);
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Part 3: plan cost.
 // ---------------------------------------------------------------------------
 
@@ -766,13 +1011,21 @@ async function measureOrderings(
 	db: Db,
 	scorers: Scorer[],
 	fillerSizes: number[],
-	variants: WordingVariant[]
+	variants: WordingVariant[],
+	/** Present only when the run has a gateway credential, because issue #679's ordering
+	 * needs a vector per entity whether or not the scorer being measured wants one. Under
+	 * `--scorer=lexical` the other three orderings still run, which is what reproduces
+	 * #641's own table for free. */
+	vectors: MatchTextVectors | null
 ): Promise<void> {
 	const subjects = poolSubjectsFromCorpus(SAMPLE_WORLD_MATCHING_CORPUS);
 	console.log('\n## Part 2: the corpus scored under each ordering');
 	console.log(
 		`   ${subjects.length} subjects, pool cap ${POOL_LIMIT}, pre-filter ${PRE_FILTER_LIMIT}, false merges weighted ${FALSE_MERGE_WEIGHT}x`
 	);
+	if (!vectors) {
+		console.log('   embedding-distance ordering skipped: no gateway credential in this run');
+	}
 
 	for (const variant of variants) {
 		for (const fillerPerType of fillerSizes) {
@@ -782,6 +1035,12 @@ async function measureOrderings(
 				trigramOrdering(spec.corpusIdByName),
 				slugWindowOrdering(spec.corpusIdByName)
 			];
+			let probe: EmbeddingOrderingProbe | null = null;
+			if (vectors) {
+				const index = await buildVectorIndex(db, spec.universeId, spec.corpusIdByName, vectors);
+				probe = embeddingOrdering(index, vectors, new Set(Object.values(spec.corpusIdByName)));
+				orderings.push(probe.spec);
+			}
 			const [typeCount] = (await db.execute(sql`
 				select count(*)::int as n from entity
 				where universe_id = ${spec.universeId} and type = 'place'::entity_type
@@ -823,6 +1082,9 @@ async function measureOrderings(
 					}
 				}
 			}
+			// Once per universe rather than per scorer: the ordering ranks on cosine whichever
+			// scorer is being measured, so the exposure is the same number both times.
+			if (probe) reportExposure(probe.exposure(), EMBEDDING_MATCH_THRESHOLDS);
 		}
 	}
 }
@@ -990,6 +1252,10 @@ async function main(): Promise<void> {
 		await measureTruncation(db);
 
 		const scorers: Scorer[] = [];
+		// Shared with the embedding-distance ordering (#679), which needs a vector per entity
+		// even when the arm being measured is the lexical scorer, and null when the run has no
+		// credential to make one with.
+		let vectors: MatchTextVectors | null = null;
 		if (which !== 'embedding') {
 			scorers.push({
 				id: 'lexical-trigram',
@@ -1019,12 +1285,15 @@ async function main(): Promise<void> {
 				similarity: createEmbeddingSimilarity({ vectorSize, embed }),
 				thresholds: EMBEDDING_MATCH_THRESHOLDS
 			});
+			// The ordering's own vectors go through the same counted `embed`, so the usage line
+			// below is the whole run's bill and not the scorer's half of it.
+			vectors = new MatchTextVectors(embed);
 			process.on('exit', () => {
 				console.log(`\nGateway usage: ${embedCalls} embedMany call(s), ${embedTexts} text(s).`);
 			});
 		}
 
-		await measureOrderings(db, scorers, fillerSizes, ['easiest', 'hardest']);
+		await measureOrderings(db, scorers, fillerSizes, ['easiest', 'hardest'], vectors);
 		await measurePreFilter(db, scorers, fillerSizes, ['easiest', 'hardest'], preFilterLimits);
 	} finally {
 		await closeDb(db);
