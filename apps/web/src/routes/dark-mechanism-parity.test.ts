@@ -71,10 +71,11 @@
  *   the light value of the token it names. That is text this file could read, and it is
  *   deliberately not asserted, because the assertion would fail on `main`. Whoever
  *   closes #743 turns this bullet into assertion 5.
- * - **`app.html`'s `theme-color` metas are not CSS** and are not here. They keyed off the
- *   media query alone until #740, which is the same class of defect in the other
- *   direction; `static/favicon.svg` still does and is correct to, being a separate
- *   document with no access to the page's attribute.
+ * - **`app.html`'s `theme-color` metas are not CSS** and are not here. They key off the
+ *   media query alone, which is the same class of defect in the other direction and is
+ *   #740; `lib/theme.spec.ts` is where that pair is held to the palette, because a `<meta>`
+ *   cannot read the attribute at all. `static/favicon.svg` keys off the media query too and
+ *   is correct to, being a separate document with no access to the page.
  *
  * The browser half, for anything this cannot reach: six states on `/auth/sign-in` (OS
  * dark or light, cookie absent, `dark`, `light`), computed styles, cookies cleared
