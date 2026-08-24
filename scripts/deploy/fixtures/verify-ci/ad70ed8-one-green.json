@@ -1,0 +1,16 @@
+{
+  "total_count": 1,
+  "workflow_runs": [
+    {
+      "conclusion": "success",
+      "created_at": "2026-08-24T16:28:34Z",
+      "event": "push",
+      "head_sha": "ad70ed84916f4d1deffe530347e7c187f67f1e66",
+      "html_url": "https://github.com/fiorelorenzo/canonry/actions/runs/32751041117",
+      "id": 32751041117,
+      "name": "CI",
+      "status": "completed",
+      "updated_at": "2026-08-24T16:37:01Z"
+    }
+  ]
+}
