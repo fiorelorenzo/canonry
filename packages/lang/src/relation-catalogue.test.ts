@@ -1,7 +1,8 @@
 /**
  * `normalizeRelationLabel`'s own cases. The first three describes came here from
  * `packages/copilot/src/relation-types.test.ts` with the function in issue #669; the rest are
- * that issue's two Italian rules and, more importantly, the things they must not do.
+ * that issue's two Italian rules, #689's leading copula, and, more importantly, the things they
+ * must not do.
  *
  * Two labels that normalise to one string are one question, both to `resolveRelationType`'s
  * rung 1 and to `packages/db`'s vocabulary dedupe key, and under decision L1 the `key` a
@@ -144,8 +145,125 @@ describe('Italian articled prepositions (issue #669)', () => {
 	});
 });
 
-describe('the shipped catalogue is unmoved by both rules (issue #669)', () => {
-	// The strongest available guard. Both new rules are additions to a function that decides
+describe('the leading copula (issue #689)', () => {
+	it('collapses the pair the recorded notebook actually produced', () => {
+		// `è sindaco di` carries 2 relations and `sindaco di` 2, and they are two
+		// `relation_type_new` questions on `main`. This is the whole of what the rule collapses on
+		// that corpus: one question of 122, covering 4 relations.
+		expect(normalizeRelationLabel('è sindaco di')).toBe(normalizeRelationLabel('sindaco di'));
+	});
+
+	it('reaches the catalogue in both locales, which is what makes it worth a rule', () => {
+		// #637's `is-part-of-vs-part-of`, described there as the easiest true pair in the set,
+		// stops being a rung-2 embedding call and becomes a rung-1 exact match. Its Italian
+		// reading is the same edit against the same key.
+		expect(normalizeRelationLabel('is part of')).toBe(
+			normalizeRelationLabel(RELATION_TYPE_CATALOGUE.en.part_of!.label)
+		);
+		expect(normalizeRelationLabel('è parte di')).toBe(
+			normalizeRelationLabel(RELATION_TYPE_CATALOGUE.it.part_of!.label)
+		);
+		// And it is not one pair: every catalogue label that is a copula construction in the
+		// first place (a participle plus `by`/`da`, or a noun plus `of`/`di`) is now reachable
+		// through its copula form, which is 22 of the 36 distinct shipped strings.
+		for (const [copula, label] of [
+			['is', RELATION_TYPE_CATALOGUE.en.located_in!.label],
+			['is', RELATION_TYPE_CATALOGUE.en.owns!.inverseLabel],
+			['is', RELATION_TYPE_CATALOGUE.en.protects!.inverseLabel],
+			['is', RELATION_TYPE_CATALOGUE.en.parent_of!.inverseLabel],
+			['è', RELATION_TYPE_CATALOGUE.it.protects!.inverseLabel],
+			['è', RELATION_TYPE_CATALOGUE.it.appointed!.inverseLabel],
+			['è', RELATION_TYPE_CATALOGUE.it.member_of!.label]
+		]) {
+			expect(normalizeRelationLabel(`${copula} ${label}`), `${copula} ${label}`).toBe(
+				normalizeRelationLabel(label!)
+			);
+		}
+	});
+
+	it('strips the plural and the Italian forms, not only "is"', () => {
+		// `sono attivi a` is a real label from the recorded notebook. `are allies of` is not in
+		// either corpus and is here because the rule cannot see the subject's number: a label is
+		// not a sentence, so excluding `are` would make the collapse depend on something the
+		// input does not carry.
+		expect(normalizeRelationLabel('sono attivi a')).toBe(normalizeRelationLabel('attivi a'));
+		expect(normalizeRelationLabel('are allies of')).toBe(normalizeRelationLabel('allies of'));
+		expect(normalizeRelationLabel('is influenced by')).toBe(
+			normalizeRelationLabel('influenced by')
+		);
+	});
+
+	it('composes with the other two rules rather than hiding them behind the copula', () => {
+		// Rule 1 runs first, so the anchor sees `di` rather than `del`; rule 3 runs after, so an
+		// agreement edit behind a copula still folds. Both orderings are load-bearing.
+		expect(normalizeRelationLabel('è parte del')).toBe(normalizeRelationLabel('parte di'));
+		expect(normalizeRelationLabel('è situata a')).toBe(normalizeRelationLabel('situato a'));
+		expect(normalizeRelationLabel('è fondata dalla')).toBe(normalizeRelationLabel('fondato da'));
+	});
+});
+
+describe('the copula rule is anchored rather than a bare leading strip (issue #689)', () => {
+	it('leaves "has member" and "ha come membro" alone, because it does not strip "has" at all', () => {
+		// The constraint #689 is built around: both are shipped `member_of` inverse labels, and
+		// they are the one place a leading strip could move a catalogue string. `has` and `ha` are
+		// not copulas and are not in the strip set, so nothing here depends on the anchor holding.
+		// Measured on the recorded notebook, adding them collapses the same 8 questions as leaving
+		// them out, so the exclusion costs nothing: it only declines to fold `ha partecipato a`
+		// and `has secret passage to` onto labels nothing else reaches.
+		expect(normalizeRelationLabel('has member')).toBe('has member');
+		expect(normalizeRelationLabel('ha come membro')).toBe('ha come membro');
+		expect(normalizeRelationLabel('has subpage')).toBe('has subpage');
+		expect(normalizeRelationLabel('ha partecipato a')).toBe('ha partecipato a');
+		// So `has as member` stays its own label rather than folding onto `has member`. Folding
+		// those two together would mean dropping a word from the middle, which is what
+		// `ha come membro` is made of, and that moves a catalogue string.
+		expect(normalizeRelationLabel('has as member')).toBe('has as member');
+	});
+
+	it('never strips a copula down to a function word or to nothing', () => {
+		// The anchor's two halves. A one-word label has nothing to strip to, and a remainder made
+		// only of prepositions would make `in` the permanent key of whatever else normalises to
+		// it, which under L1 is the worst shape a collapse can produce.
+		for (const label of ['is', 'are', 'e', 'è', 'sono']) {
+			expect(normalizeRelationLabel(label).length, label).toBeGreaterThan(0);
+		}
+		expect(normalizeRelationLabel('is in')).toBe('is in');
+		expect(normalizeRelationLabel('è in')).toBe('e in');
+		expect(normalizeRelationLabel('are of')).toBe('are of');
+	});
+
+	it('does not fire when the remainder is not shaped like a relation phrase', () => {
+		// No preposition, no fold: `is member` is not `member of` and must not become a third
+		// string sitting between them.
+		expect(normalizeRelationLabel('is member')).toBe('is member');
+		expect(normalizeRelationLabel('sono attivi')).toBe('sono attivi');
+		// An English preposition the anchor does not list is a missed collapse rather than a wrong
+		// one, and this is the assertion that says which direction the set errs in. Asserted as a
+		// non-collapse rather than against a literal, because the English stripper still runs and
+		// `based` becomes `bas` on both sides.
+		expect(normalizeRelationLabel('is based on')).not.toBe(normalizeRelationLabel('based on'));
+	});
+
+	it('matches a copula as a whole word, so an English label that merely starts with those letters is safe', () => {
+		// The analogue of #669's `data` and `via`: the words a leading strip would eat if it
+		// worked on characters instead of tokens. All five are plausible relation labels and none
+		// moves.
+		for (const label of ['island of', 'issued by', 'estate of', 'era of', 'eastern gate of']) {
+			// Word count is exactly the property: the rule drops a token, so if it fired on any of
+			// these the label would come back one word shorter. Asserted that way rather than
+			// against a literal because the English stripper still runs (`issued` becomes `issu`).
+			expect(normalizeRelationLabel(label).split(' ').length, label).toBe(label.split(' ').length);
+		}
+		expect(normalizeRelationLabel('island of')).toBe('island of');
+		// And the residue, pinned rather than described: an article after the copula survives,
+		// because stripping one is not a copula rule and no corpus asked for it.
+		expect(normalizeRelationLabel('is a member of')).toBe('a member of');
+		expect(normalizeRelationLabel('is a member of')).not.toBe(normalizeRelationLabel('member of'));
+	});
+});
+
+describe('the shipped catalogue is unmoved by all three morphology rules (issues #669, #689)', () => {
+	// The strongest available guard. Every rule here is an addition to a function that decides
 	// rung 1, and rung 1 is what makes a shipped locale's label resolve at all (#197). If a
 	// catalogue string normalised differently after this change, every existing rung-1 match
 	// through it would silently change behaviour, so the assertion is that none does.
@@ -159,8 +277,8 @@ describe('the shipped catalogue is unmoved by both rules (issue #669)', () => {
 	it('normalises every catalogue string to case-and-whitespace only', () => {
 		for (const label of CATALOGUE_STRINGS) {
 			// Every shipped string is already lower case with single spaces, and none carries an
-			// articled preposition or a feminine participle, so the only rule that may touch one is
-			// the English stripper it has always been subject to.
+			// articled preposition, a feminine participle or a leading copula, so the only rule that
+			// may touch one is the English stripper it has always been subject to.
 			const englishStripperOnly = label
 				.split(' ')
 				.map((word) => {
