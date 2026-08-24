@@ -321,7 +321,7 @@ function validDraft(name: string) {
 }
 
 /** issue #678: what truncation looks like on the streaming path - some answer text, one
- * well-formed `entry_propose` call, and `finishReason: 'length'`, all in a single step.
+ * well-formed `entry_propose` call, and `finishReason: 'length'`, all in one step.
  *
  * Measured against `ai@7.0.77` before this issue was fixed: zero tool executions, one
  * step, and no error raised at all. `ai@7.0.70` added
@@ -336,49 +336,82 @@ function validDraft(name: string) {
  * `withTruncatedCall` adds a second call cut off mid-JSON, which is the half that is
  * genuinely lost. Note which of the two is the unanswered one: the SDK marks the
  * malformed call `invalid` and answers it itself with a `tool-error`, so it is the
- * *whole* call beside it that nothing answers. */
+ * *whole* call beside it that nothing answers.
+ *
+ * The second step is scripted even though `ai@7.0.77` never reaches it, so that this mock
+ * is a model rather than a loop: on `ai@7.0.66` the SDK executes the truncated step's
+ * tool itself, which answers it, and the loop then runs a step a real model would use to
+ * close its answer. Without it a stateless `doStream` re-emits the same truncated step
+ * six times over and the run ends with six copies of one proposal, which measures the
+ * mock and not the product. */
 function truncatedToolCallModel(input: {
 	text: string;
 	name: string;
 	withTruncatedCall?: boolean;
 }): LanguageModel {
+	let step = 0;
 	return new MockLanguageModelV4({
 		provider: 'test',
 		modelId: 'test-premium',
-		doStream: async () => ({
-			stream: new ReadableStream({
-				start(controller) {
-					controller.enqueue({ type: 'stream-start', warnings: [] });
-					controller.enqueue({ type: 'text-start', id: '1' });
-					controller.enqueue({ type: 'text-delta', id: '1', delta: input.text });
-					controller.enqueue({ type: 'text-end', id: '1' });
-					controller.enqueue({
-						type: 'tool-call',
-						toolCallId: 'whole',
-						toolName: 'entry_propose',
-						input: JSON.stringify({
-							name: input.name,
-							instruction: `Make a card for ${input.name}.`
-						})
-					});
-					if (input.withTruncatedCall) {
-						// Cut off before the closing brace, exactly where an output limit leaves it.
+		doStream: async () => {
+			step += 1;
+			if (step > 1) {
+				return {
+					stream: new ReadableStream({
+						start(controller) {
+							controller.enqueue({ type: 'stream-start', warnings: [] });
+							controller.enqueue({ type: 'text-start', id: `s${step}` });
+							controller.enqueue({
+								type: 'text-delta',
+								id: `s${step}`,
+								delta: ' and it is pending your review.'
+							});
+							controller.enqueue({ type: 'text-end', id: `s${step}` });
+							controller.enqueue({
+								type: 'finish',
+								finishReason: { unified: 'stop', raw: undefined },
+								usage: usage(100, 40)
+							});
+							controller.close();
+						}
+					})
+				};
+			}
+			return {
+				stream: new ReadableStream({
+					start(controller) {
+						controller.enqueue({ type: 'stream-start', warnings: [] });
+						controller.enqueue({ type: 'text-start', id: '1' });
+						controller.enqueue({ type: 'text-delta', id: '1', delta: input.text });
+						controller.enqueue({ type: 'text-end', id: '1' });
 						controller.enqueue({
 							type: 'tool-call',
-							toolCallId: 'cut',
+							toolCallId: 'whole',
 							toolName: 'entry_propose',
-							input: '{"name":"The Lantern Quarter","instruc'
+							input: JSON.stringify({
+								name: input.name,
+								instruction: `Make a card for ${input.name}.`
+							})
 						});
+						if (input.withTruncatedCall) {
+							// Cut off before the closing brace, exactly where an output limit leaves it.
+							controller.enqueue({
+								type: 'tool-call',
+								toolCallId: 'cut',
+								toolName: 'entry_propose',
+								input: '{"name":"The Lantern Quarter","instruc'
+							});
+						}
+						controller.enqueue({
+							type: 'finish',
+							finishReason: { unified: 'length', raw: undefined },
+							usage: usage(80, 20)
+						});
+						controller.close();
 					}
-					controller.enqueue({
-						type: 'finish',
-						finishReason: { unified: 'length', raw: undefined },
-						usage: usage(80, 20)
-					});
-					controller.close();
-				}
-			})
-		}),
+				})
+			};
+		},
 		doGenerate: async () => validDraft(input.name)
 	}) as unknown as LanguageModel;
 }

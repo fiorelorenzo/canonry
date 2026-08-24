@@ -874,6 +874,20 @@ export interface AskProposalFailure {
 	message: string;
 }
 
+/** issue #678: what a turn could not finish, reported rather than left for the GM to
+ * notice. `null` on the ordinary turn, where nothing was cut off and nothing was dropped.
+ *
+ * Two separate facts, because guardrail 7 cuts both ways here: claiming a loss that did
+ * not happen is as wrong as hiding one that did. `truncated` says the answer text stops
+ * short of where the Loremaster meant to end it. `lostProposals` counts the tool calls it
+ * began and could not finish, which are proposals that do not exist and cannot be
+ * recovered - never the ones that survived, which arrive as ordinary `AskProposalEvent`s
+ * and are pending review like any other. */
+export interface AskTurnLoss {
+	truncated: boolean;
+	lostProposals: number;
+}
+
 /** issue #380, decision R5: one prior turn of the panel's own conversation. Untrusted
  * text, exactly like a source - never a place to look for instructions. */
 export interface AskHistoryTurn {
@@ -950,6 +964,43 @@ export interface AskResult {
 	proposals: AskProposalEvent[];
 	/** Every failure `onProposalFailure` fired during this call, in call order. */
 	failures: AskProposalFailure[];
+	/** issue #678: what this turn could not finish, or `null` when it finished. Always
+	 * `null` on the generation-off branch, which calls no model and so cannot be cut off
+	 * by one. */
+	loss: AskTurnLoss | null;
+}
+
+/** The two tools' input schemas, module-level because each of them now has two readers:
+ * the `tool()` definition `streamText` validates a call against, and `runAsk`'s own
+ * settlement of a step the SDK declined to execute, which re-validates the input it gets
+ * handed back rather than casting it. One schema, so the two cannot disagree about what a
+ * readable call is. */
+const PROPOSE_INPUT = z
+	.object({
+		name: z.string().min(1).max(200),
+		instruction: z
+			.string()
+			.min(1)
+			.max(2000)
+			.describe('What the GM said about this entry - the only content the draft may use.')
+	})
+	.strict();
+
+const EDIT_PROPOSE_INPUT = z
+	.object({
+		entityName: z.string().min(1).max(200),
+		instruction: z
+			.string()
+			.min(1)
+			.max(2000)
+			.describe('What the GM wants added or changed - the only content the draft may use.')
+	})
+	.strict();
+
+/** One client tool call a step emitted that nothing has answered yet. */
+interface UnansweredAskToolCall {
+	toolName: string;
+	input: unknown;
 }
 
 /** SPEC.md §5/§7, issues #53/#60. Retrieval (both layers) always runs, at zero cost,
@@ -1030,7 +1081,8 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 			generated: false,
 			credits: 0,
 			proposals: [],
-			failures: []
+			failures: [],
+			loss: null
 		};
 	}
 
@@ -1108,6 +1160,63 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 					};
 				};
 
+				// issue #678: the two tools' bodies, named rather than written inline in
+				// `tool()`, because the settlement in the drain loop below has to be able to
+				// run exactly the call the SDK would have run. Sharing one body is the whole
+				// point: a second dispatch path that drifts from the first is how a
+				// settlement meant to preserve behaviour ends up changing it.
+				const runPropose = async (
+					toolInput: z.infer<typeof PROPOSE_INPUT>,
+					toolCallId: string
+				) => {
+					try {
+						return recordProposal(
+							await entryPropose({
+								db: input.db,
+								userId: input.userId,
+								universeId: input.universeId,
+								locale: input.locale,
+								modelFactory: input.modelFactory,
+								gateway: input.gateway,
+								sources: ownCanon,
+								// issue #270: the GM's own message, not `toolInput.instruction`, which is
+								// the model's reading of it - the evidence quotes what the GM actually
+								// typed.
+								request: input.question,
+								name: toolInput.name,
+								instruction: toolInput.instruction,
+								requestId: toolCallId
+							})
+						);
+					} catch (err) {
+						return recordFailure('entry_propose', err);
+					}
+				};
+				const runEditPropose = async (
+					toolInput: z.infer<typeof EDIT_PROPOSE_INPUT>,
+					toolCallId: string
+				) => {
+					try {
+						return recordProposal(
+							await entryEditPropose({
+								db: input.db,
+								userId: input.userId,
+								universeId: input.universeId,
+								locale: input.locale,
+								modelFactory: input.modelFactory,
+								gateway: input.gateway,
+								sources: ownCanon,
+								request: input.question,
+								entityName: toolInput.entityName,
+								instruction: toolInput.instruction,
+								requestId: toolCallId
+							})
+						);
+					} catch (err) {
+						return recordFailure('entry_edit_propose', err);
+					}
+				};
+
 				// SPEC.md §5's Ask row, issue #256: the only two tools this loop can call, and
 				// both only ever write a `proposal` - guardrail 1 stays acceptProposal's alone,
 				// see ask-propose.ts's own header comment on that boundary. Registered here,
@@ -1155,81 +1264,16 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 								'Propose creating a brand new wiki entry. Writes a pending proposal for ' +
 								'the GM to review; never creates the entry directly. If an entry with ' +
 								'this name already exists, this proposes an edit to it instead and says so.',
-							inputSchema: z
-								.object({
-									name: z.string().min(1).max(200),
-									instruction: z
-										.string()
-										.min(1)
-										.max(2000)
-										.describe(
-											'What the GM said about this entry - the only content the draft may use.'
-										)
-								})
-								.strict(),
-							execute: async (toolInput, { toolCallId }) => {
-								try {
-									return recordProposal(
-										await entryPropose({
-											db: input.db,
-											userId: input.userId,
-											universeId: input.universeId,
-											locale: input.locale,
-											modelFactory: input.modelFactory,
-											gateway: input.gateway,
-											sources: ownCanon,
-											// issue #270: the GM's own message, not `toolInput.instruction`, which is
-											// the model's reading of it - the evidence quotes what the GM actually
-											// typed.
-											request: input.question,
-											name: toolInput.name,
-											instruction: toolInput.instruction,
-											requestId: toolCallId
-										})
-									);
-								} catch (err) {
-									return recordFailure('entry_propose', err);
-								}
-							}
+							inputSchema: PROPOSE_INPUT,
+							execute: (toolInput, { toolCallId }) => runPropose(toolInput, toolCallId)
 						}),
 						entry_edit_propose: tool({
 							description:
 								'Propose an edit to an existing wiki entry. Writes a pending proposal ' +
 								'for the GM to review; never edits the entry directly. If no entry with ' +
 								'this name exists, this proposes creating it instead and says so.',
-							inputSchema: z
-								.object({
-									entityName: z.string().min(1).max(200),
-									instruction: z
-										.string()
-										.min(1)
-										.max(2000)
-										.describe(
-											'What the GM wants added or changed - the only content the draft may use.'
-										)
-								})
-								.strict(),
-							execute: async (toolInput, { toolCallId }) => {
-								try {
-									return recordProposal(
-										await entryEditPropose({
-											db: input.db,
-											userId: input.userId,
-											universeId: input.universeId,
-											locale: input.locale,
-											modelFactory: input.modelFactory,
-											gateway: input.gateway,
-											sources: ownCanon,
-											request: input.question,
-											entityName: toolInput.entityName,
-											instruction: toolInput.instruction,
-											requestId: toolCallId
-										})
-									);
-								} catch (err) {
-									return recordFailure('entry_edit_propose', err);
-								}
-							}
+							inputSchema: EDIT_PROPOSE_INPUT,
+							execute: (toolInput, { toolCallId }) => runEditPropose(toolInput, toolCallId)
 						})
 					},
 					// A step is one model turn (the AI SDK's own "step (LLM call)"), and the stop
@@ -1248,16 +1292,102 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 					stopWhen: stepCountIs(6)
 				});
 				let text = '';
+				// issue #678: the streaming half of #212's guarantee, and it is ours rather than
+				// the SDK's.
+				//
+				// `ai@7.0.70` added `isToolExecutionAllowedFinishReason` and gated
+				// `executeToolsFromStream`'s dispatch behind it, so a step whose finish reason is
+				// anything but `stop` or `tool-calls` has *none* of its client tools executed -
+				// and `length` is what an output limit produces. #677 took the same problem on
+				// for the import loop's `generateText`; this is the same principle and
+				// deliberately not the same code, because the shape differs in two ways that
+				// both matter.
+				//
+				// First, there is no settled step to read back. `streamText` hands results out
+				// as they arrive, so "a tool call nothing answered" has to be accumulated across
+				// the stream and closed off at each `finish-step`, which is a step's last chunk
+				// and therefore the first moment the answer to that question is final.
+				//
+				// Second, there is no transcript to repair. `streamText` starts another step
+				// only once every client tool call of the last one came back answered, so on a
+				// truncated step it stops instead of dying on `MissingToolResultsError` the way
+				// the import loop did: the turn ends quietly, which is harder to notice and no
+				// better for the GM. So this settles calls to keep the proposals, not to keep
+				// the loop alive, and it never continues the conversation on the model's behalf.
+				// A GM is waiting on this stream, and a silent second premium call to finish a
+				// sentence would double the latency and the spend for one answer, which is its
+				// own defect and a SPEC.md §15 question rather than a fix.
+				//
+				// What it keys on is the transcript: a client tool call with neither a result
+				// nor an error against its id by the time its step closes. On a version or a
+				// step where the SDK did execute the tools, `unanswered` is empty at every
+				// `finish-step` and this costs one map operation per tool chunk. That is what
+				// makes the same code correct under both SDK behaviours, and what stops #212's
+				// promise from being a property of a version range.
+				const unanswered = new Map<string, UnansweredAskToolCall>();
+				let lostThisStep = 0;
+				let lostInLastStep = 0;
+				let truncated = false;
+				const settleStep = async () => {
+					for (const [toolCallId, call] of unanswered) {
+						if (call.toolName === 'entry_propose') {
+							const parsed = PROPOSE_INPUT.safeParse(call.input);
+							if (parsed.success) {
+								await runPropose(parsed.data, toolCallId);
+								continue;
+							}
+						} else if (call.toolName === 'entry_edit_propose') {
+							const parsed = EDIT_PROPOSE_INPUT.safeParse(call.input);
+							if (parsed.success) {
+								await runEditPropose(parsed.data, toolCallId);
+								continue;
+							}
+						}
+						// An input this schema rejects is the same loss a call cut off mid-JSON is.
+						// Nothing here reads a broken call more generously than the SDK did.
+						lostThisStep += 1;
+					}
+					unanswered.clear();
+				};
 				// Full stream, not just `textStream`: draining it is what drives the tool-call
 				// steps to completion, and `usage` below only resolves once every step has run.
 				for await (const part of stream.fullStream) {
 					if (part.type === 'text-delta') {
 						text += part.text;
 						input.onToken?.(part.text);
+					} else if (part.type === 'tool-call') {
+						// The SDK's own per-call verdict is still the only thing that says whether a
+						// call was readable, and it answers an `invalid` one itself with a
+						// `tool-error` even on a step it refuses to execute - so the call left
+						// unanswered is the *whole* one beside it, not the truncated one.
+						if (part.invalid === true) lostThisStep += 1;
+						else if (part.providerExecuted !== true) {
+							unanswered.set(part.toolCallId, { toolName: part.toolName, input: part.input });
+						}
+					} else if (part.type === 'tool-result' || part.type === 'tool-error') {
+						unanswered.delete(part.toolCallId);
+					} else if (part.type === 'finish-step') {
+						await settleStep();
+						lostInLastStep = lostThisStep;
+						lostThisStep = 0;
+						// The finish reason decides nothing above: it is read here only to report,
+						// and only for whichever step turns out to be the last. A future version
+						// that goes back to executing a truncated step's tools still owes the GM
+						// this sentence, because the answer text was cut off either way; one that
+						// declines to execute on some other reason is caught by the settlement
+						// instead. Either bump leaves the report standing.
+						truncated = part.finishReason === 'length';
 					}
 				}
 				const usage = await stream.usage;
-				return { text, usage, proposals, failures };
+				return {
+					text,
+					usage,
+					proposals,
+					failures,
+					loss:
+						truncated || lostInLastStep > 0 ? { truncated, lostProposals: lostInLastStep } : null
+				};
 			},
 			{
 				extractUsage: (r) => ({
@@ -1276,6 +1406,7 @@ export async function runAsk(input: AskInput): Promise<AskResult> {
 		generated: true,
 		credits: price.credits,
 		proposals: result.proposals,
-		failures: result.failures
+		failures: result.failures,
+		loss: result.loss
 	};
 }
