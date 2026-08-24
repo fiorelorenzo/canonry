@@ -97,6 +97,7 @@ export {
 export {
 	runAsk,
 	clampAskHistory,
+	ASK_MAX_OUTPUT_TOKENS,
 	MAX_HISTORY_TURNS,
 	MAX_HISTORY_TURN_CHARS,
 	type AskContext,

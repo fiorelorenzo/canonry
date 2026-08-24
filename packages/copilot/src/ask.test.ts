@@ -32,6 +32,7 @@ import type { ResolvedModel } from '@canonry/ai';
 import { resolveModel } from '@canonry/ai';
 import {
 	runAsk,
+	ASK_MAX_OUTPUT_TOKENS,
 	MAX_HISTORY_TURNS,
 	MAX_HISTORY_TURN_CHARS,
 	CARRIED_FORWARD_LIMIT,
@@ -104,10 +105,15 @@ function streamingModel(text: string): LanguageModel {
 
 /** Same shape as `streamingModel`, but hands the real call `options` to `capture` first -
  * for asserting on "the prompt actually sent" (SPEC.md §17, issues #123/#124) rather than
- * only on the text that comes back. */
+ * only on the text that comes back. `maxOutputTokens` is named alongside `prompt` because
+ * issue #698 made the per-step output ceiling part of what this call promises, and a
+ * promise nothing reads back is a promise nothing keeps. */
 function capturingStreamingModel(
 	text: string,
-	capture: (options: { prompt: Array<{ role: string; content: unknown }> }) => void
+	capture: (options: {
+		prompt: Array<{ role: string; content: unknown }>;
+		maxOutputTokens?: number;
+	}) => void
 ): LanguageModel {
 	const words = text.split(' ');
 	return new MockLanguageModelV4({
@@ -156,7 +162,10 @@ function toolCallThenTextModel(input: {
 	toolInput: Record<string, unknown>;
 	finalText: string;
 	failureMessage: string;
-	onSecondStep?: (options: { prompt: Array<{ role: string; content: unknown }> }) => void;
+	onSecondStep?: (options: {
+		prompt: Array<{ role: string; content: unknown }>;
+		maxOutputTokens?: number;
+	}) => void;
 }): LanguageModel {
 	let step = 0;
 	return new MockLanguageModelV4({
@@ -1089,6 +1098,58 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		// The malformed one is the loss, and it is counted rather than inferred from the
 		// difference between two numbers a GM never sees.
 		expect(result.loss).toEqual({ truncated: true, lostProposals: 1 });
+	});
+
+	it('issue #698: every step of a turn carries the output ceiling this package chose, not the provider default', async () => {
+		const { owner, universe } = await fixture();
+
+		// The single-step case first, which is the binding one: a turn with no tool call runs
+		// exactly one step, so this number is the whole answer's ceiling.
+		let single: { maxOutputTokens?: number } | undefined;
+		await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Why was Aldric Vane dismissed?',
+			detailLevel: 'full',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(
+				capturingStreamingModel('placeholder answer', (options) => {
+					single = options;
+				})
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+		expect(single?.maxOutputTokens).toBe(ASK_MAX_OUTPUT_TOKENS);
+
+		// And the step after a tool call, because the ceiling is per step: a turn that
+		// proposes and then writes its answer must not have the second call go out unbounded.
+		let second: { maxOutputTokens?: number } | undefined;
+		await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Add an entry for the Harbourmaster.',
+			detailLevel: 'full',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(
+				toolCallThenTextModel({
+					toolName: 'entry_propose',
+					toolInput: { name: 'Harbourmaster', instruction: 'The officer who runs the docks.' },
+					finalText: 'I could not draft that one.',
+					failureMessage: 'drafting refused',
+					onSecondStep: (options) => {
+						second = options;
+					}
+				})
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+		expect(second?.maxOutputTokens).toBe(ASK_MAX_OUTPUT_TOKENS);
 	});
 
 	it('issue #346: a broad question that shares only function words with the canon cites nothing, where a targeted question still cites the entry', async () => {
