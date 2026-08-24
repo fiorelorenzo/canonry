@@ -5,11 +5,18 @@
  * over.
  *
  *   pnpm --filter @canonry/bench relation-label-sweep -- --runs=5
+ *   pnpm --filter @canonry/bench relation-label-sweep -- --runs=5 --raw-label
  *
  * It reports and it changes nothing. #629 measured the shape of this rung's curve on the
  * real notebook and declined to move the threshold because there were no labelled pairs to
  * compute a precision against; the pairs now exist, and a threshold change is still its own
  * argument in its own issue, made from these numbers rather than bundled with them.
+ *
+ * The subject it embeds is `normalizeRelationLabel`'s output on both sides, which is what
+ * `bestSemanticMatch` compares since #690, so the default table is production's.
+ * **`--raw-label` reproduces the pre-#690 subject**, the string a model wrote, which is the
+ * comparison #690 was decided on: same corpus, same model, same classification, one substitution
+ * on the way into `embedMany`, and a separate output file so the two runs can be diffed.
  *
  * ### Runs, because one run sets a threshold by noise
  *
@@ -42,6 +49,7 @@ import { embedMany } from 'ai';
 import { closeDb, createDb } from '@canonry/db';
 import { createEmbeddingModel, readGatewayCredentials, resolveModel } from '@canonry/ai';
 import { embeddingDimensionsFor } from '@canonry/indexing';
+import { normalizeRelationLabel } from '@canonry/lang';
 import {
 	ONENOTE_RELATION_LABEL_CORPUS,
 	relationLabelCandidates,
@@ -110,6 +118,15 @@ async function main(): Promise<void> {
 	requireEnv('AI_GATEWAY_API_KEY');
 	const databaseUrl = requireEnv('DATABASE_URL');
 	const runs = parseRuns(process.argv.slice(2));
+	/**
+	 * Issue #690: `bestSemanticMatch` embeds `normalizeRelationLabel`'s output on both sides, so
+	 * that is what this sweep embeds too and the default table is the shipped rung's. Rung 1 and
+	 * `packages/db`'s vocabulary dedupe key compare normalised labels, and while this rung
+	 * compared raw ones two labels rung 1 called one question could get two rung-2 answers.
+	 * `--raw-label` puts that subject back, which is how the two tables in that function's own
+	 * comment were produced.
+	 */
+	const rawLabel = process.argv.includes('--raw-label');
 	const corpus = ONENOTE_RELATION_LABEL_CORPUS;
 
 	const db = createDb(databaseUrl);
@@ -124,12 +141,17 @@ async function main(): Promise<void> {
 
 		// Every distinct string the corpus needs, once per run: the proposed labels plus every
 		// label of every type they are scored against. Fewer than a hundred short texts, so one
-		// `embedMany` call per run.
+		// `embedMany` call per run. On the default subject the set is smaller than the corpus's
+		// label count, because that is the point: two labels rung 1 calls one string are one text
+		// here too, and the cosine table below is still keyed on the raw pair so the runner
+		// classifies the same rows either way.
+		const embeddedText = (label: string): string =>
+			rawLabel ? label : normalizeRelationLabel(label);
 		const texts = new Set<string>();
 		for (const pair of corpus.pairs) {
-			texts.add(pair.proposedLabel);
+			texts.add(embeddedText(pair.proposedLabel));
 			for (const candidate of relationLabelCandidates(pair.catalogueKey)) {
-				texts.add(candidate.label);
+				texts.add(embeddedText(candidate.label));
 			}
 		}
 		const ordered = [...texts];
@@ -151,10 +173,10 @@ async function main(): Promise<void> {
 				if (vector) vectors.set(text, vector);
 			}
 			for (const pair of corpus.pairs) {
-				const subject = vectors.get(pair.proposedLabel) ?? [];
+				const subject = vectors.get(embeddedText(pair.proposedLabel)) ?? [];
 				let best = Number.NEGATIVE_INFINITY;
 				for (const candidate of relationLabelCandidates(pair.catalogueKey)) {
-					const score = cosineSimilarity(subject, vectors.get(candidate.label) ?? []);
+					const score = cosineSimilarity(subject, vectors.get(embeddedText(candidate.label)) ?? []);
 					const key = cellKey(pair.proposedLabel, candidate.label);
 					const cell = samplesByCell.get(key);
 					if (cell) cell.push(score);
@@ -203,6 +225,10 @@ async function main(): Promise<void> {
 				`${report.rungTwoOnly.pairCount} of them past rung 1, ${runs} run(s)`
 		);
 		console.log(`Embedding model: ${model.provider}/${model.modelId}, ${dimensions} dimensions`);
+		console.log(
+			`Subject embedded: ${rawLabel ? 'the raw label, both sides (the pre-#690 rung)' : 'normalizeRelationLabel(label), both sides (shipped)'}` +
+				`, ${ordered.length} distinct texts`
+		);
 		console.log(
 			`Weights: false merge ${report.falseMergeWeight}x, direction error ` +
 				`${report.directionErrorWeight}x, false split 1x. Shipped threshold ` +
@@ -278,7 +304,12 @@ async function main(): Promise<void> {
 		);
 
 		mkdirSync(dataDir, { recursive: true });
-		const out = path.join(dataDir, 'relation-label-sweep.json');
+		// Two files rather than one, so the raw and normalised runs can be diffed rather than
+		// overwriting each other: comparing them is the whole of #690.
+		const out = path.join(
+			dataDir,
+			rawLabel ? 'relation-label-sweep.raw-label.json' : 'relation-label-sweep.json'
+		);
 		writeFileSync(
 			out,
 			JSON.stringify(
@@ -286,6 +317,7 @@ async function main(): Promise<void> {
 					corpusId: corpus.id,
 					model: `${model.provider}/${model.modelId}`,
 					dimensions,
+					normalizedSubject: !rawLabel,
 					runs,
 					shippedThreshold: SEMANTIC_REUSE_THRESHOLD,
 					weights: {

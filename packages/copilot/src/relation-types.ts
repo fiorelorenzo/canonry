@@ -298,8 +298,9 @@ function cosineSimilarity(a: number[], b: number[]): number {
  * outcomes (`same` / `inverse` / `distinct`), false merge weighted 5x, direction error 2x,
  * false split 1x, run against the real gateway model by
  * `pnpm --filter @canonry/bench relation-label-sweep`. **Issue #657 is where this number was
- * finally priced, and the answer is that it stays.** The rung-2-only subset, 39 pairs of which
- * 14 are true, 5 runs:
+ * finally priced, and the answer is that it stays.** As #687 measured it, on the raw label and
+ * before #689 moved `is part of` out of the rung-2 subset: 39 pairs of which 14 are true,
+ * 5 runs.
  *
  * | threshold | false merges | direction errors | false splits | merged of 14 | cost |
  * | --- | --- | --- | --- | --- | --- |
@@ -352,9 +353,92 @@ function cosineSimilarity(a: number[], b: number[]): number {
  * state what the shipped value costs on the corpus, next to what the optimum costs, or it is
  * only reporting an optimum. Nothing outside a benchmark reads it, and `resolveRelationType` is
  * still the only thing that decides with it.
+ *
+ * **Two changes since, and they leave the answer standing on firmer ground than #657 found it
+ * on.** #689 folded a leading copula into the normaliser, so `is part of` resolves at rung 1
+ * and the subset above is 38 pairs of which 13 are true: every `merged of 14` cell loses one and
+ * 0.90's false splits read 13, while no false-merge or direction-error cell moves, because that
+ * pair scored 0.8814 and was a correct merge at every row here. And #690 changed what this rung
+ * embeds, from the raw label to `normalizeRelationLabel`'s output on both sides, which re-prices
+ * the whole table; `bestSemanticMatch` below carries it, and the part that matters here is that
+ * **0.84, 0.86 and 0.88 now all cost 11**. So the notch reason 1 is about no longer exists: this
+ * value is at the corpus's minimum rather than one false split above it, and "situata in", the
+ * single pair that bought 0.84, scores 0.7983 today rather than 0.8421. What replaces that
+ * argument as the thing to watch is one rung lower: at 0.8210 a direction error appears that the
+ * raw subject did not have (#697), so the floor under this constant is now 0.84 for a measured
+ * reason rather than a jitter one.
  */
 export const SEMANTIC_REUSE_THRESHOLD = 0.86;
 
+/**
+ * Issue #690: this embeds `normalizeRelationLabel`'s output rather than the string a model
+ * wrote, on both sides, and that is the whole of the change. It is worth this much comment
+ * because the measurement did not choose it. The measurement ruled out the objection to it, and
+ * decision L1 chose.
+ *
+ * **The bug it closes, and why its failure mode is the expensive kind.** Rung 1 compares
+ * normalised labels and so does `packages/db`'s vocabulary dedupe key (`dedupKeyFor`), so after
+ * #669 and #689 `situata in` and `situato in` are one question by the time a GM reads one.
+ * Embedding the raw label meant this rung did not agree: the two score 0.8421 and 0.8221 against
+ * `located in`, and a threshold between them resolves one and asks about the other. That is not
+ * a false split. It puts one concept under two permanent keys, a shipped one for the spelling
+ * that crossed and a new one for the spelling that did not, and under L1 neither goes away.
+ * Nothing is observably wrong at the shipped 0.86 because neither crosses it, and #690 measured
+ * what 0.84 does instead: eleven relations resolve onto `located in` while six stay their own
+ * question. #657 is the issue that would move that threshold. Comparing normalised text on both
+ * sides makes the disagreement impossible rather than unlikely, and it is visible in the sweep:
+ * `situata in`, `situato in` and `risiede nel` now score identically instead of in an accidental
+ * order.
+ *
+ * **What it costs, measured rather than argued.** The normaliser mangles words on purpose, so
+ * the model sees `locat in` where the catalogue says `located in`. `packages/bench`'s
+ * `relation-label-sweep` ran against the real gateway model over #637's 50 labelled pairs, five
+ * runs each, on both subjects (`--raw-label` is the old one). On the 38-pair rung-2 subset,
+ * 13 true pairs, weighted cost with #637's weights:
+ *
+ * | threshold | raw subject | normalised |
+ * | --- | --- | --- |
+ * | 0.80 | 20 | 21 |
+ * | 0.82 | **11** | 13 |
+ * | 0.84 | **11** | **11** |
+ * | 0.86 (shipped) | 12 | **11** |
+ * | 0.88 | 12 | **11** |
+ * | 0.90 | 13 | 13 |
+ *
+ * At the shipped value it is one cheaper, and the minimum stops being a single point at 0.84
+ * with two pairs' jitter straddling it and becomes a plateau at 0.84, 0.86 and 0.88 that
+ * contains the value we ship. `hires` against `employs` goes from 0.6130 to 0.8983 and becomes
+ * a correct merge, `guards` from 0.7507 to 0.8195, and `è proprietario di` against `owns` stops
+ * being read backwards, all because the stemmer puts the two sides in the same shape. **The trap
+ * frontier does not move**, which is the property that had to hold: the highest-scoring
+ * `distinct` pair is `occupato da` at 0.8184 normalised against 0.8187 raw, so no false merge
+ * comes closer to any threshold anyone would ship.
+ *
+ * **And the real notebook says the opposite of the gold corpus, which is why the numbers did not
+ * decide this.** Replaying the kept OneNote recording, `membro della squadra` stops resolving
+ * onto `member_of`: 0.8632 against `membro di` raw, 0.8329 normalised, because folding `della`
+ * to `di` removes information the model was using. That is one of the four reuses #686 checked
+ * by hand as correct, so this change costs one correct merge there and gains one on #637's
+ * corpus, and 122 questions to 121 (#689) becomes 122 again. A wash on merges, and not a wash on
+ * L1: a lost merge is a duplicate a GM merges by hand, and the inconsistency above is two keys
+ * that cannot be un-created.
+ *
+ * Two more costs, neither hidden. `situata in` against `located in` falls from 0.8421 to 0.7983,
+ * so the one pair 0.84 used to buy is not there to buy any more, which #657 needs to know. And
+ * the English stripper takes the `-ed` off the five catalogue inverse labels that carry a
+ * direction in their morphology (`employed by` reads as `employ by`, and the same for `owned`,
+ * `commanded`, `protected`, `appointed`), so the direction of an English pair rests on the token
+ * `by` alone: `works for` flips from `impiegato da` inverse, which it won by 0.0018, to `employs`
+ * forward, which it wins by 0.0639, and becomes a direction error at 0.8210 and below. Nothing
+ * at or above 0.84 sees it, and it is an argument against lowering the threshold rather than
+ * against this change, but it is the sharpest thing the measurement says about what stemming
+ * costs a rung that has to answer *which way round*. #697 carries it.
+ *
+ * Not a cost saving on its own: this still embeds the label plus every candidate label on every
+ * relation. What it does is make #629's per-job memoisation strictly more effective when that
+ * lands, since two labels rung 1 calls one question are now one cache key (71 distinct texts to
+ * 65 over the benchmark corpus).
+ */
 async function bestSemanticMatch(
 	embed: Embedder,
 	label: string,
@@ -366,10 +450,12 @@ async function bestSemanticMatch(
 	// `embed` being multilingual. Still one batched call, same as before; a candidate's
 	// score is the best similarity across its own expanded text set, so it is found if
 	// *any* of its known synonyms or translations reads close to the proposed label.
+	// The direction and the row come off the candidate's index, not off the text, so
+	// normalising the text cannot move either.
 	const candidateTexts = candidates.map((candidate) =>
-		relationTypeMatchCandidates(candidate).map((match) => match.label)
+		relationTypeMatchCandidates(candidate).map((match) => normalizeRelationLabel(match.label))
 	);
-	const vectors = await embed([label, ...candidateTexts.flat()]);
+	const vectors = await embed([normalizeRelationLabel(label), ...candidateTexts.flat()]);
 	const inputVector = vectors[0];
 	if (!inputVector) return null;
 	let best: { type: RelationTypeRow; similarity: number } | null = null;

@@ -93,7 +93,15 @@ export interface RelationLabelCorpus {
  * out. A deterministic stand-in in CI, a cosine over the real gateway embedder in
  * `packages/bench`. Kept over two strings rather than over an `Embedder` so a caller is
  * free to batch every text in the corpus into one embedding call, which is what the sweep
- * does. */
+ * does.
+ *
+ * **The two strings are the corpus's own, and normalising them is the caller's business
+ * (issue #690).** `bestSemanticMatch` embeds `normalizeRelationLabel`'s output on both sides,
+ * and `relation-label-sweep` does the same by default so its table is production's; its
+ * `--raw-label` flag is what the comparison in #690 was made with. The offline `hashingEmbedder`
+ * case in this package's test deliberately keeps scoring the raw pair, because what it asserts
+ * is #629's 256-bucket collision between "fondata" and "nominato" on the strings #629 measured,
+ * not the pipeline around it. A pair's identity here is always the label a model wrote. */
 export type RelationLabelSimilarityFn = (
 	proposedLabel: string,
 	catalogueLabel: string
