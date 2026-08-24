@@ -9,6 +9,15 @@
 	 * (the ARIA "menu" pattern), it does not select a value in place, so plain links
 	 * inside a toggled region are the correct and simplest accessible shape here.
 	 *
+	 * The current universe's row is `aria-current="true"` and not `"page"` (#724). Those
+	 * announce differently, "current" against "current page", and the row's href is the
+	 * universe home while the switcher opens from every page inside that universe, so on
+	 * `/w/<slug>/entries` the row was telling a screen reader it was the current page while
+	 * pointing somewhere else. `page` is the wrong vocabulary for the set as well: ARIA
+	 * defines it as the current page within a set of pages, and this is a set of universes,
+	 * so `true`, "the current item within a set", is what the row means on every route.
+	 * Four other places in this app already spell it that way for the same shape.
+	 *
 	 * Issue #141, I3 = B: `current` is nullable now - the same component serves the
 	 * shell's account mode, with no universe selected. Universe mode is unchanged
 	 * (the list, nothing else); account mode's trigger reads "All universes" and its
@@ -110,7 +119,7 @@
 								href={resolve(`/w/${universe.slug}`)}
 								class="flex items-start gap-2 px-3 py-2 hover:bg-panel-2"
 								class:bg-accent-bg={universe.id === current?.id}
-								aria-current={universe.id === current?.id ? 'page' : undefined}
+								aria-current={universe.id === current?.id ? 'true' : undefined}
 								onclick={close}
 							>
 								<span
