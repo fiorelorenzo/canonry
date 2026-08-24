@@ -78,6 +78,16 @@ export interface KeepAnswerInput {
 	 * codebase always sends one today (issue #455), but a future one-off caller with
 	 * nothing to group against is still free to omit it. */
 	conversationId?: string;
+	/** Issue #699: what the turn could not finish, exactly as `AskResult.loss` reported it.
+	 * Omit it and both columns stay null, which is the honest record for a caller that has no
+	 * way to know - a turn kept through a path that never observed the stream. Pass
+	 * `{ truncated: false, lostProposals: 0 }` for a turn that finished, because "nothing was
+	 * lost" is a claim the record should be able to make and not the same thing as silence.
+	 *
+	 * Resolved server-side by its caller, never taken from a request body: a client that can
+	 * say an answer was not truncated is a client that can launder a bad answer. See
+	 * `apps/web/src/lib/server/ask/turn-loss.ts` for how the web app gets it there. */
+	loss?: { truncated: boolean; lostProposals: number } | null;
 	/** In the order they were shown, which is retrieval order. */
 	sources: KeepAnswerSourceInput[];
 }
@@ -114,7 +124,11 @@ export async function keepAnswer(db: Db, input: KeepAnswerInput): Promise<KeptAn
 				modelId: input.modelId ?? null,
 				// Omitted (`undefined`) rather than a generated fallback here: the column's own
 				// `defaultRandom()` is what a caller with nothing to group against actually wants.
-				conversationId: input.conversationId
+				conversationId: input.conversationId,
+				// Both or neither (`kept_answer_loss_shape`), so they are written from the one
+				// object rather than from two independently-optional inputs.
+				truncated: input.loss?.truncated ?? null,
+				lostProposals: input.loss?.lostProposals ?? null
 			})
 			.returning();
 		if (!row) throw new Error('keeping an answer did not return a row');
@@ -175,8 +189,43 @@ export interface KeptAnswerRecord {
 	/** Issue #437: which conversation this turn groups with. Always present - the column
 	 * itself is never null, even for a row nobody explicitly grouped. */
 	conversationId: string;
+	/** Issue #699: what the turn that produced this answer could not finish, or `null` on a
+	 * row written before the concept existed, where "we do not know" is the only honest
+	 * answer. `{ truncated: false, lostProposals: 0 }` on a turn that finished, which is a
+	 * claim rather than an absence: guardrail 7 cuts both ways and the record has to be able
+	 * to say "nothing was lost" as well as "something was". The two columns behind this are
+	 * both set or both null, enforced by `kept_answer_loss_shape`, so this reads as one
+	 * object rather than two independently-missing fields. */
+	loss: { truncated: boolean; lostProposals: number } | null;
 	keptAt: Date;
 	sources: KeptAnswerSourceRecord[];
+}
+
+/** The one row-to-record mapping, shared by all four reads below. It was written out four
+ * times before issue #699 needed to add a field to it, which is three chances for a read to
+ * quietly stop reporting something the others report. */
+function toKeptAnswerRecord(
+	row: KeptAnswerRow,
+	sources: KeptAnswerSourceRecord[]
+): KeptAnswerRecord {
+	return {
+		id: row.id,
+		question: row.question,
+		answer: row.answer,
+		detailLevel: row.detailLevel,
+		locale: row.locale,
+		askedFromPath: row.askedFromPath,
+		provider: row.provider,
+		modelId: row.modelId,
+		conversationId: row.conversationId,
+		// Both or neither, per the check constraint, so one of them decides for the pair.
+		loss:
+			row.truncated === null
+				? null
+				: { truncated: row.truncated, lostProposals: row.lostProposals ?? 0 },
+		keptAt: row.keptAt,
+		sources
+	};
 }
 
 export interface ListKeptAnswersInput {
@@ -211,19 +260,7 @@ export async function listKeptAnswers(
 		db,
 		rows.map((row) => row.id)
 	);
-	return rows.map((row) => ({
-		id: row.id,
-		question: row.question,
-		answer: row.answer,
-		detailLevel: row.detailLevel,
-		locale: row.locale,
-		askedFromPath: row.askedFromPath,
-		provider: row.provider,
-		modelId: row.modelId,
-		conversationId: row.conversationId,
-		keptAt: row.keptAt,
-		sources: sources.get(row.id) ?? []
-	}));
+	return rows.map((row) => toKeptAnswerRecord(row, sources.get(row.id) ?? []));
 }
 
 /** Issue #437, decision T10: one entry in the Ask page's history per conversation rather
@@ -284,19 +321,7 @@ export async function listKeptConversations(
 	const byConversation = new Map<string, KeptAnswerRecord[]>();
 	for (const row of rows) {
 		const turns = byConversation.get(row.conversationId) ?? [];
-		turns.push({
-			id: row.id,
-			question: row.question,
-			answer: row.answer,
-			detailLevel: row.detailLevel,
-			locale: row.locale,
-			askedFromPath: row.askedFromPath,
-			provider: row.provider,
-			modelId: row.modelId,
-			conversationId: row.conversationId,
-			keptAt: row.keptAt,
-			sources: sources.get(row.id) ?? []
-		});
+		turns.push(toKeptAnswerRecord(row, sources.get(row.id) ?? []));
 		byConversation.set(row.conversationId, turns);
 	}
 
@@ -344,19 +369,9 @@ export async function getKeptConversation(
 		db,
 		rows.map((row) => row.id)
 	);
-	const turns: KeptAnswerRecord[] = rows.map((row) => ({
-		id: row.id,
-		question: row.question,
-		answer: row.answer,
-		detailLevel: row.detailLevel,
-		locale: row.locale,
-		askedFromPath: row.askedFromPath,
-		provider: row.provider,
-		modelId: row.modelId,
-		conversationId: row.conversationId,
-		keptAt: row.keptAt,
-		sources: sources.get(row.id) ?? []
-	}));
+	const turns: KeptAnswerRecord[] = rows.map((row) =>
+		toKeptAnswerRecord(row, sources.get(row.id) ?? [])
+	);
 	return { conversationId: input.conversationId, keptAt: turns[turns.length - 1]!.keptAt, turns };
 }
 
@@ -416,19 +431,7 @@ export async function keptAnswerById(
 		.limit(1);
 	if (!row) return null;
 	const sources = await sourcesFor(db, [row.id]);
-	return {
-		id: row.id,
-		question: row.question,
-		answer: row.answer,
-		detailLevel: row.detailLevel,
-		locale: row.locale,
-		askedFromPath: row.askedFromPath,
-		provider: row.provider,
-		modelId: row.modelId,
-		conversationId: row.conversationId,
-		keptAt: row.keptAt,
-		sources: sources.get(row.id) ?? []
-	};
+	return toKeptAnswerRecord(row, sources.get(row.id) ?? []);
 }
 
 /** Question 2 of the issue, in one statement: the row is gone. Not flagged, not archived,

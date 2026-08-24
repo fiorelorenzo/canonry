@@ -118,7 +118,17 @@ const doneEventSchema = z.object({
 	loss: z
 		.object({ truncated: z.boolean(), lostProposals: z.number() })
 		.nullish()
-		.transform((value) => value ?? null)
+		.transform((value) => value ?? null),
+	/** Issue #699: an opaque handle on the same fact, which `keepAnswer` below hands back so
+	 * the server can write the record from its own copy rather than from the body. Nothing on
+	 * screen reads it; `loss` above is what the panel paints. Optional for the same reason
+	 * `loss` is: a `done` frame without it is still a settled turn, it just keeps a record
+	 * that honestly says nothing about completeness. */
+	turnId: z
+		.string()
+		.uuid()
+		.nullish()
+		.transform((value) => value ?? undefined)
 });
 const errorEventSchema = z.object({ message: z.string() });
 
@@ -278,6 +288,11 @@ export async function keepAnswer(args: {
 	 * `keepRequestSchema` field and the column behind it both still default to a fresh
 	 * id for whatever future caller has nothing to group against. */
 	conversationId?: string;
+	/** Issue #699: the `turnId` this turn's own `done` event carried. The endpoint redeems it
+	 * for the loss it filed and writes that; a body without one keeps a record whose two
+	 * truncation columns stay null, meaning "we do not know". Deliberately not the loss
+	 * itself: see `$lib/server/ask/turn-loss.ts`. */
+	turnId?: string;
 }): Promise<string> {
 	const response = await fetch(`/w/${args.universeSlug}/ask/keep`, {
 		method: 'POST',
@@ -288,7 +303,8 @@ export async function keepAnswer(args: {
 			detailLevel: args.detailLevel,
 			askedFromPath: args.askedFromPath,
 			sources: keepSourcePayload(args.sources),
-			conversationId: args.conversationId
+			conversationId: args.conversationId,
+			turnId: args.turnId
 		})
 	});
 	if (!response.ok) throw new Error(`keep failed with ${response.status}`);

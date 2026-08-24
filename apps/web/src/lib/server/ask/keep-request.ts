@@ -49,7 +49,15 @@ export const keepRequestSchema = z.object({
 	 * `quickAskState.conversationId`, and the Ask page's own, minted the moment a fresh
 	 * conversation's first question is sent - but stays optional on the wire so the
 	 * database column's own `defaultRandom()` still has a caller to serve. */
-	conversationId: z.string().uuid().optional()
+	conversationId: z.string().uuid().optional(),
+	/** Issue #699: the handle `ask/+server.ts` minted for this turn, redeemed server-side for
+	 * what the turn could not finish. The two facts themselves are deliberately absent from
+	 * this schema, and that absence is the point: a client that can claim an answer was not
+	 * truncated is a client that can launder a bad answer past the notice #696 added, exactly
+	 * as a client-set `provider` would not be a guardrail 5 disclosure. Optional, because an
+	 * unredeemable turn has to produce a record that says "we do not know" rather than a
+	 * rejected keep that loses the answer as well. */
+	turnId: z.string().uuid().optional()
 });
 
 export type KeepRequest = z.infer<typeof keepRequestSchema>;

@@ -24,6 +24,7 @@
 //     revision does not retroactively change what the Loremaster read.
 import { sql } from 'drizzle-orm';
 import {
+	boolean,
 	check,
 	index,
 	integer,
@@ -85,6 +86,29 @@ export const keptAnswer = pgTable(
 		// by row, only to group and to delete by this value, and `kept_answer_conversation_idx`
 		// below is what both of those actually run against.
 		conversationId: uuid('conversation_id').notNull().defaultRandom(),
+		// Issue #699: what the turn that produced this answer could not finish. #696 made a
+		// truncated Ask turn say so while it was on screen; without these two columns that
+		// sentence lived only in the dock, so reopening the conversation a week later showed a
+		// paragraph stopping mid-sentence and nothing beside it, reading as an answer the
+		// Loremaster chose to end there. That is the shape guardrail 3 objects to, one surface
+		// over, and the shape #437 and #455 were careful about in the other direction: a kept
+		// record that says less than the live turn did is a record that quietly improves the
+		// answer.
+		//
+		// Two columns rather than one jsonb, deliberately. They read better in a query, and
+		// the shape has been stable for exactly one issue, which is not long enough to commit
+		// to jsonb. They mirror `AskTurnLoss`'s own two fields name for name so there is one
+		// vocabulary from `runAsk` through the wire to this row.
+		//
+		// Nullable, and the null is load-bearing: every row written before this migration
+		// predates the concept, so `null` honestly means "we do not know" rather than "it
+		// finished". A turn that did finish records `false` and `0`, not null, because
+		// guardrail 7 cuts both ways here and "nothing was lost" is a claim worth being able
+		// to make. The `kept_answer_loss_shape` check below is what keeps those two states
+		// from blurring: both columns are set or neither is, since one `AskTurnLoss`
+		// resolution produces both.
+		truncated: boolean('truncated'),
+		lostProposals: integer('lost_proposals'),
 		// The moment of keeping, not the moment of asking. Those are seconds apart and only
 		// one of them is an event this product records.
 		keptAt: timestamp('kept_at', { withTimezone: true }).notNull().defaultNow()
@@ -105,6 +129,14 @@ export const keptAnswer = pgTable(
 		check(
 			'kept_answer_asked_from_path_relative',
 			sql`${t.askedFromPath} like '/%' and ${t.askedFromPath} not like '//%'`
+		),
+		// Both or neither: a row with one of the two set is not a partial answer to "was this
+		// turn cut off", it is a bug, and "we do not know" has to stay distinguishable from
+		// "it finished" for the record to be worth keeping at all.
+		check('kept_answer_loss_shape', sql`(${t.truncated} is null) = (${t.lostProposals} is null)`),
+		check(
+			'kept_answer_lost_proposals_non_negative',
+			sql`${t.lostProposals} is null or ${t.lostProposals} >= 0`
 		)
 	]
 );

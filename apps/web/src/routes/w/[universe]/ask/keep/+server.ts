@@ -22,6 +22,7 @@ import { resolveModel, ModelNotConfiguredError } from '@canonry/ai';
 import { messages } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { keepRequestSchema } from '$lib/server/ask/keep-request';
+import { takeTurnLoss } from '$lib/server/ask/turn-loss';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, params, locals }) => {
@@ -90,6 +91,15 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		}
 	}
 
+	// Issue #699, and the same principle as the block above: what the turn could not finish
+	// is resolved here from what the stream itself observed, never read off the body. The
+	// body carries only the opaque handle `ask/+server.ts` minted, and redeeming it is
+	// single-use and scoped to this account. `null` back - an unknown handle, one already
+	// spent, one past its TTL, one minted for somebody else, or a body with none at all -
+	// leaves both columns null, which is this schema's own way of saying "we do not know"
+	// rather than the friendlier and false "it finished".
+	const loss = takeTurnLoss(locals.user.id, body.turnId);
+
 	const row = await keepAnswer(conn, {
 		universeId: access.universe.id,
 		keptBy: locals.user.id,
@@ -101,6 +111,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 		provider,
 		modelId,
 		conversationId: body.conversationId,
+		loss,
 		sources: body.sources
 	});
 

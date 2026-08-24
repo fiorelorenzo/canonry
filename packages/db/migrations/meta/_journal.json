@@ -379,6 +379,13 @@
       "when": 1787575424314,
       "tag": "0053_account_issuer",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1787585977842,
+      "tag": "0054_fancy_magma",
+      "breakpoints": true
     }
   ]
 }
