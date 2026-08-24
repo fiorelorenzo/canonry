@@ -44,7 +44,7 @@
 		"@canonry/lang": "workspace:*",
 		"@canonry/media": "workspace:*",
 		"@canonry/vector": "workspace:*",
-		"ai": "^7.0.66",
+		"ai": "^7.0.73",
 		"zod": "^4.1.13",
 		"fflate": "^0.8.3",
 		"drizzle-orm": "^0.45.2"
