@@ -482,9 +482,14 @@ Follows the shared UI pipeline (`ui-brief-first`, `ui-design-tokens`, `ui-visual
 - Screenshot `/dev/ui` first: it renders every shadcn-svelte component in both palettes
   side by side, needs no signed-in session or seeded universe, and is the lightest route
   once the db is up.
-- Tokens: `apps/web/src/routes/layout.css`'s `@theme` block. This is the canonical file;
-  the landing repo hand-copies it. A raw hex in a component is a violated rule
-  (`I9 = C`, `docs/design/DECISIONS.md`), not a style choice.
+- Tokens: `apps/web/src/routes/layout.css`. `@theme` declares the token names Tailwind
+  generates utilities from, and since #738 the palette's literals are not in it: they live
+  in `:root` inside `@layer theme` as `--light-*` and `--dark-*`, and the four scopes that
+  declare the palette all reference those rather than restating a hex (`@theme` itself for
+  the light default, `[data-theme='dark']`, `[data-theme='light']`, and the
+  `prefers-color-scheme: dark` fallback). This is the canonical file; the landing repo
+  hand-copies it. A raw hex in a component is a violated rule (`I9 = C`,
+  `docs/design/DECISIONS.md`), not a style choice.
 - `/dev/ui` (issue #147) is the `/design` gallery: a fresh repo without one should add
   exactly this, a dev-only route enumerating every component and state, not a product
   surface.
@@ -494,17 +499,43 @@ Follows the shared UI pipeline (`ui-brief-first`, `ui-design-tokens`, `ui-visual
   one: `uishot --theme dark` sets the media preference, and if the app has a stored choice
   the cookie is what actually decides, so pass both rather than wondering why the pixels
   came back light.
-- **There are two darks and they render different components**, which is sharper than the
-  point above and cost #719 a whole second pass. `layout.css` wires the palette twice
-  (`[data-theme='dark']`, and a `prefers-color-scheme` fallback scoped to
-  `html:not([data-theme])`) so "Match system" is genuinely dark, but line 38 binds
-  Tailwind's `dark:` variant to the attribute alone. On the media path every one of the 29
-  `dark:` utilities in `lib/components/ui` is inert: same tokens, same `--color-paper`,
-  different input fill. `uishot --theme dark` only ever takes the media path, so no dark
-  shot or dark axe run in this repo's history has exercised a single `dark:` utility. Pass
-  `--cookie canonry_theme=dark` as well when a form control, a hover on one or an invalid
-  state is in the shot, and treat the two as two runs rather than one. #727 is the variant
-  itself.
+- **The two darks render the same thing now, and this paragraph said the opposite until
+  2026-08-25.** `layout.css` wires the dark palette twice on purpose (#137), once under
+  `[data-theme='dark']` for an explicit choice and once under a `prefers-color-scheme: dark`
+  block scoped to `html:not([data-theme])` for "Match system", and the `dark:` variant named
+  only the attribute for eighteen rounds, so on the media path every `dark:` utility in the
+  app was inert. That was true when #730 wrote it here and #739 fixed it hours later: the
+  variant carries both branches now. Measured on `/auth/sign-in` across the six states that
+  matter (OS dark or light, cookie absent, `dark`, `light`), the three dark states all
+  resolve `--color-paper: #17140f` with an input fill of `#110e08`, and the three light
+  states all resolve `#f4efe4` with no fill at all. So one dark run is enough again, and the
+  thing to point at is `apps/web/src/routes/dark-mechanism-parity.test.ts` rather than a
+  line number here, because a line number in this file is exactly what went stale. The count
+  it carried was wrong twice over and has since been repeated in an issue, a PR body and
+  here: it is **20 `dark:` utilities across 8 files**, not 29 across 11, and one of the 8 is
+  `palette/CommandPalette.svelte` rather than `lib/components/ui`.
+- **`/dev/ui` cannot reproduce an `<html>`-level theme defect**, which is awkward because
+  this section opens by telling you to shoot it first. Its two panes are
+  `<section data-theme="light">` and `<section data-theme="dark">`, so the dark pane matches
+  the attribute branch whatever `<html>` says, and the element that actually moves is the
+  *light* pane's, which is also the first `[data-slot="input"]` in DOM order: a
+  `querySelector` on the gallery measures the right thing for the wrong reason and a reader
+  cannot tell which. `/auth/sign-in` has real controls, no `data-theme` sections and no
+  session, and is the cheapest honest surface for anything about the two paths. The gallery
+  also carries a live defect from the same mechanism: with `<html>` dark the variant reaches
+  into the light pane, so `dark:bg-field` fills a light input with the light `#f9f4ea`, in
+  all three of the states where `<html>` is dark (#743).
+- **An axe sweep against the vite dev server can silently audit an unstyled page.** Firing a
+  run of Chrome instances back to back after touching a CSS file means some pages are
+  audited before the stylesheet applies, and the two halves of the output fail differently:
+  the structural findings (`region`, `skip-link`, `heading-order`) survive and every colour
+  finding disappears, so the run reads as clean rather than as broken. #739's first
+  before/after matrix reported zero `color-contrast` findings on a tree it had just measured
+  as failing. Gate on the stylesheet rather than on the navigation: fetch the compiled CSS
+  over HTTP and refuse to start until it carries the expected rule count, or under
+  `pnpm dev`, where vite injects it through JS and there is no stylesheet URL to fetch,
+  assert a resolved token is non-empty before every read. Then wait on a control selector
+  per shot.
 - **A native `<dialog>` is not centred in this app**, and the cause is not in our code:
   Tailwind 4's preflight sets `margin: 0` on `*`, `::before`, `::after` and `::backdrop`,
   which is the margin the user-agent stylesheet centres a modal `<dialog>` with. Three of
@@ -527,8 +558,10 @@ in it, and a dozen states that only exist after a click, so a CI job could only 
 the signed-out surfaces, which are five of the thirty. What it costs when done properly:
 one `uishot --axe` per surface per viewport (the tool audits only the last viewport in
 `--viewports`, which is what made every "clean at 390, 768 and 1440" in this repo's history
-a 1440 run), times both palettes, plus a second pass in chosen dark for anything with a
-form control in it. That was 66 invocations and about seven minutes of wall clock for the
+a 1440 run), times both palettes. It used to ask for a second pass in chosen dark on
+anything with a form control in it, and #739 removed the reason: the two dark paths now
+render identically, so the cookie changes nothing an audit sees. The numbers here predate that
+fix and include it. That was 66 invocations and about seven minutes of wall clock for the
 first pass on 2026-08-24, three passes in total, and it found four defects across three
 surfaces that eighteen rounds of desktop-only runs had not. So: **re-run it at the end of a
 round that reshaped a surface, and write the numbers into #719**, which stays open as the
