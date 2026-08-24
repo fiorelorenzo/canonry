@@ -160,7 +160,7 @@
 
 <!-- eslint-disable svelte/no-navigation-without-resolve -- every href below is a resolve()
      result with a query string appended, which the rule cannot see through. -->
-<TableScroll class="mt-4">
+<TableScroll class="mt-4" label={t.title}>
 	<table
 		bind:this={tableEl}
 		class="w-full table-fixed border-collapse text-body sm:table-auto"

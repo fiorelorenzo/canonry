@@ -1612,7 +1612,8 @@ export const it: Messages = {
 			couldNotLoadPack: (status) => `Impossibile caricare il pacchetto ambientale (${status})`,
 			couldNotStart: 'Impossibile avviare il paesaggio sonoro',
 			crossfadeFailed: 'Dissolvenza non riuscita',
-			layersAriaLabel: 'Livelli ambientali'
+			layersAriaLabel: 'Livelli ambientali',
+			audioGraphAriaLabel: 'Grafico audio'
 		},
 
 		deck: {

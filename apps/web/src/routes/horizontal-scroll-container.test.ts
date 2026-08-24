@@ -21,6 +21,18 @@
  * by hand ten times across four files before this, so the next table would have got
  * nine correct copies and one without the word, which is how this defect arrived. A
  * file that draws a `<table>` does not spell the scroll container itself.
+ *
+ * #725 adds the second rule about the same containers, for the same reason at the same
+ * level: an element that scrolls horizontally has to be reachable from a keyboard. Three
+ * of the five tables `/admin/metrics` draws overflow at 390 and 768 with zero focusable
+ * descendants, so a pointer could drag them and a keyboard could not reach them at all
+ * (axe `scrollable-region-focusable`, `serious`, WCAG 2.1.1). `keyboardScrollable`
+ * (`$lib/utils/keyboard-scrollable.ts`) is the one implementation, so the rule here is
+ * that the element declaring the scroll also applies that action.
+ *
+ * The two exceptions are listed rather than inferred, and the polarity matters: the
+ * default is that the action is required, so a new scroller that forgets it fails without
+ * anybody updating a list. Only a deliberate exception needs an entry.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +52,24 @@ const SCROLLS_X = /\boverflow-x-(?:auto|scroll)\b/;
  * for an absolutely positioned descendant just as well, so the rule accepts them rather
  * than mandating one spelling of it. `static` is the default and the defect. */
 const CONTAINING_BLOCK = /\b(?:relative|absolute|fixed|sticky)\b/;
+
+/** #725: the action that puts an overflowing scroll container in the tab order. */
+const KEYBOARD_SCROLLABLE = /\buse:keyboardScrollable\b/;
+
+/** The two horizontal scrollers that do not need it, with the reason, because "it has
+ * focusable content" is not by itself a reason: measured on `/admin/pricing` at 390, all
+ * 24, 36 and 3 focusables of its three tables sit in the first column and 476px of a 649px
+ * table could not be reached by tabbing. What earns an exception is children that are
+ * *individually* focusable all the way along the scroll, so tabbing through them traverses
+ * the whole extent and adding a stop on the container would only be a stop before the
+ * strip. Keyed by element as well as by file, so a second scroller added to either of
+ * these files is not silently exempt too. */
+const SPANNED_BY_FOCUSABLE_CHILDREN: ReadonlyArray<{ file: string; tag: string }> = [
+	// A `<button>` per card, one for the place and one per pin.
+	{ file: 'lib/components/table/TableDeck.svelte', tag: 'nav' },
+	// An `<a>` per entry card.
+	{ file: 'lib/components/entries/ContinueRow.svelte', tag: 'ul' }
+];
 
 /** Every `.svelte`/`.ts` file under `apps/web/src`, relative to it. */
 function sources(dir = '', out: string[] = []): string[] {
@@ -70,6 +100,39 @@ function scrollingClassLists(source: string): string[] {
 		.filter((list) => SCROLLS_X.test(list));
 }
 
+/**
+ * Every opening tag in a file, as raw text, so an assertion can ask whether the element
+ * that declares the scroll is also the element that takes the action. Scanned character by
+ * character rather than matched with `<[^>]*>`, because `onclick={() => ...}` contains a
+ * `>` and that regex ends the tag in the middle of it; tracking `{}` depth is what tells
+ * the two apart. A literal `>` inside a quoted attribute value would still cut a tag
+ * short, and there is none in this app.
+ */
+function openingTags(source: string): string[] {
+	const tags: string[] = [];
+	for (let i = 0; i < source.length; i++) {
+		if (source[i] !== '<' || !/[a-zA-Z]/.test(source[i + 1] ?? '')) continue;
+		let depth = 0;
+		let j = i + 1;
+		for (; j < source.length; j++) {
+			if (source[j] === '{') depth++;
+			else if (source[j] === '}') depth--;
+			else if (source[j] === '>' && depth === 0) break;
+		}
+		tags.push(source.slice(i, j + 1));
+		i = j;
+	}
+	return tags;
+}
+
+/** The opening tags in a file that declare a horizontal scroll, each with its element
+ * name, since both assertions below need the pair. */
+function scrollingTags(source: string): { tag: string; name: string }[] {
+	return openingTags(source)
+		.filter((tag) => SCROLLS_X.test(tag))
+		.map((tag) => ({ tag, name: tag.slice(1).match(/^[a-zA-Z][\w:-]*/)?.[0] ?? '' }));
+}
+
 describe('a horizontal scroll container is a containing block (#652)', () => {
 	it('finds the app it is walking', () => {
 		// A broken walk would make every assertion below pass by finding nothing.
@@ -97,4 +160,44 @@ describe('a horizontal scroll container is a containing block (#652)', () => {
 		expect(drawingTables.length).toBeGreaterThanOrEqual(4);
 		expect(drawingTables.filter((file) => SCROLLS_X.test(code(file)))).toEqual([]);
 	});
+});
+
+describe('a horizontal scroll container is reachable from a keyboard (#725)', () => {
+	it('finds the scrolling elements it is meant to be checking', () => {
+		// The same guard against a scanner that silently finds nothing: `openingTags` is
+		// hand-written, so a bug in it would turn every assertion below green.
+		const found = ALL.flatMap((file) => scrollingTags(code(file)).map((el) => ({ file, ...el })));
+		expect(found.length).toBeGreaterThanOrEqual(4);
+		expect(found.map((f) => f.file)).toContain(TABLE_SCROLL);
+		// And that it reads whole tags: the container's own class list arrives through
+		// `cn(...)`, which a `<[^>]*>` match would have truncated.
+		expect(found.find((f) => f.file === TABLE_SCROLL)?.tag).toMatch(/data-slot="table-scroll"/);
+	});
+
+	it('every exception in the allowlist still exists and still scrolls', () => {
+		// An exception for an element that has been renamed or deleted is a hole, not an
+		// exception, so it has to keep earning its place.
+		for (const { file, tag } of SPANNED_BY_FOCUSABLE_CHILDREN) {
+			expect(ALL, `${file} is in the allowlist`).toContain(file);
+			expect(
+				scrollingTags(code(file)).map((el) => el.name),
+				`${file} still scrolls a <${tag}>`
+			).toContain(tag);
+		}
+	});
+
+	for (const file of ALL) {
+		const tags = scrollingTags(code(file));
+		if (tags.length === 0) continue;
+		it(`${file} makes every element it scrolls horizontally focusable`, () => {
+			const missing = tags.filter(
+				(el) =>
+					!KEYBOARD_SCROLLABLE.test(el.tag) &&
+					!SPANNED_BY_FOCUSABLE_CHILDREN.some(
+						(allowed) => allowed.file === file && allowed.tag === el.name
+					)
+			);
+			expect(missing).toEqual([]);
+		});
+	}
 });

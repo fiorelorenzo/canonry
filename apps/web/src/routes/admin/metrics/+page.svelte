@@ -91,7 +91,7 @@
 				</div>
 
 				{#if data.weeklyAcceptRate.length > 0}
-					<TableScroll class="mt-5">
+					<TableScroll class="mt-5" label={t.metrics.accept.heading}>
 						<table class="w-full border-collapse text-body">
 							<thead>
 								<tr
@@ -136,7 +136,7 @@
 						<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 						{@html t.metrics.accept.byLocale.intro}
 					</p>
-					<TableScroll class="mt-2">
+					<TableScroll class="mt-2" label={t.metrics.accept.byLocale.heading}>
 						<table class="w-full border-collapse text-body">
 							<thead>
 								<tr
@@ -203,7 +203,7 @@
 								)}
 							{/if}
 						</p>
-						<TableScroll class="mt-2">
+						<TableScroll class="mt-2" label={universe.universeName}>
 							<table class="w-full border-collapse text-body">
 								<thead>
 									<tr
@@ -252,7 +252,7 @@
 					{t.metrics.noUniversesYet}
 				</p>
 			{:else}
-				<TableScroll class="mt-4">
+				<TableScroll class="mt-4" label={t.metrics.warmRadius.heading}>
 					<table class="w-full border-collapse text-body">
 						<thead>
 							<tr
@@ -308,7 +308,7 @@
 					{t.metrics.noUniversesYet}
 				</p>
 			{:else}
-				<TableScroll class="mt-4">
+				<TableScroll class="mt-4" label={t.metrics.entropy.heading}>
 					<table class="w-full border-collapse text-body">
 						<thead>
 							<tr
@@ -344,7 +344,7 @@
 					{t.metrics.auditFlags.noFlagsYet}
 				</p>
 			{:else}
-				<TableScroll class="mt-4">
+				<TableScroll class="mt-4" label={t.metrics.auditFlags.heading}>
 					<table class="w-full border-collapse text-body">
 						<thead>
 							<tr

@@ -54,7 +54,7 @@
 		{#each groups as group (group.kind)}
 			<section class="mt-8">
 				<h2 class="text-title font-semibold text-ink">{t.pricing.kindLabel[group.kind]}</h2>
-				<TableScroll class="mt-3">
+				<TableScroll class="mt-3" label={t.pricing.kindLabel[group.kind]}>
 					<table class="w-full border-collapse text-body">
 						<thead>
 							<tr
