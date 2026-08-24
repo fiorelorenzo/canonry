@@ -20,13 +20,15 @@ export {
 	queryPoints,
 	deletePoints,
 	scrollPoints,
+	scrollPointsPage,
 	countPoints,
 	type VectorPoint,
 	type VectorFilter,
 	type VectorFilterCondition,
 	type VectorQuery,
 	type VectorHit,
-	type VectorRecord
+	type VectorRecord,
+	type VectorScrollPage
 } from './points.js';
 
 export {
@@ -34,6 +36,7 @@ export {
 	queryLore,
 	deleteLorePage,
 	countLorePoints,
+	indexedEntityUrls,
 	findPageUpdatedAt,
 	urlMatchesPattern,
 	type LoreChunk,

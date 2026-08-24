@@ -4,7 +4,8 @@
 // human-authored `revision` calls `scheduleCanonSaveJob`; a route that creates or rewrites an
 // entity without one calls `scheduleEntityIndexJob` (issue #703), which runs the index engine
 // and cannot run the other two. Nothing else needs the poller, the store, or the engine
-// wiring directly.
+// wiring directly. The index backfill of issue #709 has no route at all: it is a loop inside
+// the same worker, triggered on a timer, so nothing outside this directory calls it.
 export {
 	createCanonSaveJobQueue,
 	scheduleCanonSaveJob,
@@ -19,7 +20,8 @@ export {
 	type CanonSaveJobResult,
 	type EngineOutcome,
 	type EntityIndexJobInput,
-	type IndexOutcome
+	type IndexOutcome,
+	type UniverseIndexBackfillRow
 } from './canon-save.js';
 
 export { DurableJobPoller, type DurableQueueHandlers, type DurableQueueOptions } from './queue.js';

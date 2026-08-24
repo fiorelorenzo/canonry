@@ -99,22 +99,55 @@ async function existingVectorSize(client: QdrantClient, name: string): Promise<n
  * universe reusing the same model - must not fail on an existing collection.
  *
  * An existing collection is also checked for width, per `onDimensionMismatch`.
+ *
+ * **Idempotent across concurrent callers too, since issue #709, and that is not a nicety.**
+ * The exists-then-create pair is not atomic, so two callers that both find the collection
+ * absent both try to create it and Qdrant answers the loser `409 Conflict`. It was rare
+ * before: it takes two writes to a universe that has never been indexed, inside one debounce
+ * window. #709's backfill makes it the normal case rather than a rarity, because a catch-up's
+ * whole premise is a collection that does not exist yet and N entries fanned out at once - and
+ * it was measured rather than reasoned about: the first end-to-end run of that backfill lost
+ * two of six entries to `{"status":"error","message":"Conflict"}`, which is an entry left out
+ * of retrieval by the very thing that exists to put it back.
+ *
+ * The loser re-reads instead of failing. A `409` here means somebody else created it in the
+ * gap, so the honest response is to check the width of what they made, which is exactly what
+ * the caller would have done had it arrived a moment later. Any other failure is rethrown.
  */
 export async function ensureCollection(
 	client: QdrantClient,
 	options: EnsureCollectionOptions
 ): Promise<void> {
 	const exists = await client.collectionExists(options.name);
-	if (exists.exists) {
-		const existing = await existingVectorSize(client, options.name);
-		// A null size means an unnamed-vector or multi-vector config this helper never writes;
-		// leave it alone rather than guessing which vector the caller meant.
-		if (existing === null || existing === options.vectorSize) return;
-		if (options.onDimensionMismatch === 'throw') {
-			throw new VectorDimensionMismatchError(options.name, existing, options.vectorSize);
-		}
-		await client.deleteCollection(options.name);
+	if (exists.exists) return checkExistingWidth(client, options);
+	try {
+		await client.createCollection(options.name, {
+			vectors: { size: options.vectorSize, distance: options.distance ?? 'Cosine' }
+		});
+	} catch (err) {
+		if (!(await collectionExists(client, options.name))) throw err;
+		// Lost a create race. Whatever the winner made is what this caller has to work with, so
+		// it goes through the same width check an existing collection always gets.
+		await checkExistingWidth(client, options);
 	}
+}
+
+/** The `onDimensionMismatch` branch, shared by "it was already there" and "somebody else
+ * created it while I was asking". Recreating on a mismatch is itself racy in principle, and
+ * deliberately not defended here: `'recreate'` is only ever passed for a cache whose entries
+ * are re-derivable, and the lore path passes `'throw'`. */
+async function checkExistingWidth(
+	client: QdrantClient,
+	options: EnsureCollectionOptions
+): Promise<void> {
+	const existing = await existingVectorSize(client, options.name);
+	// A null size means an unnamed-vector or multi-vector config this helper never writes;
+	// leave it alone rather than guessing which vector the caller meant.
+	if (existing === null || existing === options.vectorSize) return;
+	if (options.onDimensionMismatch === 'throw') {
+		throw new VectorDimensionMismatchError(options.name, existing, options.vectorSize);
+	}
+	await client.deleteCollection(options.name);
 	await client.createCollection(options.name, {
 		vectors: { size: options.vectorSize, distance: options.distance ?? 'Cosine' }
 	});

@@ -58,6 +58,21 @@
  * `canon-save.test.ts` has a test per half: the accept still schedules no save job, and an
  * index-only schedule runs the index engine with propagation and audit both `no-change` and
  * zero `model_call` rows.
+ *
+ * Issue #709: a second durable loop lives here now, and it is a catch-up rather than a third
+ * engine. The index engine resolves the `embedding` purpose per run, so a universe with no
+ * active `model_config` row indexes nothing; #703 made that state visible
+ * (`index_outcome = {"status":"no-embedding-model"}`) and named the fact that nothing ever
+ * came back for it. What comes back is `sweepIndexBackfills` plus `runBackfill`: the sweep
+ * asks, on a timer, whether an `embedding` row now resolves and any universe has skipped
+ * since its last catch-up, and a pass over `universe_index_backfill` enumerates that
+ * universe's entries against its own collection and fans out one index-only job per entry
+ * that has no entity-level point. Two things about it are worth knowing here rather than
+ * downstream. The trigger is not a save, because `resolveModel` takes no universe and so the
+ * condition is global - nobody's edit pays for the catch-up. And the enumeration reads the
+ * collection rather than the `canon_save_job` rows, because a job row records what one run
+ * skipped and there are four ways an entry is genuinely missing with no such row to read
+ * (`unindexedEntities` in `@canonry/indexing` carries the list).
  */
 import { DEFAULT_LOCALE, toLocale, type Locale } from '@canonry/lang';
 import { AiDisabledError, planPropagation, runAudit } from '@canonry/copilot';
@@ -68,11 +83,13 @@ import {
 	heuristicExtractor,
 	indexEntity,
 	resolveOwnCanonCollection,
+	unindexedEntities,
 	type EmbeddingModelFactory
 } from '@canonry/indexing';
 import type { QdrantClient } from '@canonry/vector';
 import { matchTextFor, oneLineSummary } from '@canonry/import';
 import {
+	entityIndexCandidatesForUniverse,
 	entityIndexTargetById,
 	entityIndexTargetByRevisionId,
 	propagationCapForUniverse,
@@ -98,6 +115,17 @@ import type {
 	EntityIndexJobInput,
 	IndexOutcome
 } from './store.js';
+import {
+	claimNextIndexBackfill,
+	completeIndexBackfill,
+	enqueueDueIndexBackfills,
+	recentIndexBackfills,
+	requeueIndexBackfill,
+	resumeIndexBackfill,
+	scheduleBackfillIndexJobRows,
+	type BackfillIndexJobRow,
+	type UniverseIndexBackfillRow
+} from './backfill-store.js';
 
 export type {
 	CanonSaveJobInput,
@@ -106,6 +134,8 @@ export type {
 	EntityIndexJobInput,
 	IndexOutcome
 } from './store.js';
+
+export type { UniverseIndexBackfillRow } from './backfill-store.js';
 
 interface EngineRunInput {
 	db: Db;
@@ -348,6 +378,67 @@ const DEFAULT_LEASE_MS = 10 * 60_000;
 const DEFAULT_POLL_INTERVAL_MS = 500;
 const DEFAULT_MAX_ATTEMPTS = 5;
 
+/**
+ * Issue #709's bound on the fan-out, and the reasoning behind the two numbers.
+ *
+ * The fan-out itself is a loop over the row `scheduleEntityIndexJob` already writes, so the
+ * question is not how to do the work but at what rate it is allowed to happen. Three
+ * candidates for the binding constraint, priced:
+ *
+ * - **Money.** `alibaba/qwen3-embedding-4b` is $0.020 per million tokens and an entity's
+ *   name-and-aliases text is under a hundred tokens, so two thousand entries is about
+ *   200k tokens, or **$0.004**, plus whatever their bodies come to. It is not the constraint,
+ *   and `index.embed` is priced at zero credits anyway (issue #164: charging for indexing a
+ *   save would tax the act of saving), so none of it reaches a GM's balance.
+ * - **The gateway's rate limit.** Real, and unknown at this layer.
+ * - **Fairness against ordinary saves.** The binding one. `claimNextCanonSaveJob` orders by
+ *   `run_after`, so two thousand rows all due at once sit ahead of every save made in the
+ *   next several minutes, and a GM's propagation would wait behind a catch-up they did not
+ *   ask for. That is the same failure the issue names about the *triggering* save, one layer
+ *   down.
+ *
+ * So the bound is a stagger rather than a sleep: `DEFAULT_BACKFILL_SCHEDULE_BATCH` rows share
+ * a `run_after`, the next batch is `DEFAULT_BACKFILL_STAGGER_MS` later, and the existing
+ * scheduler does the rate limiting. A save made during a backfill is due immediately and
+ * therefore sorts ahead of every batch that has not come due yet, so it waits for at most the
+ * batch already running. Five entries a second is also the order of what three concurrent
+ * workers can actually embed, so the queue drains rather than growing a backlog.
+ */
+const DEFAULT_BACKFILL_SCHEDULE_BATCH = 25;
+const DEFAULT_BACKFILL_STAGGER_MS = 5000;
+/** One pass schedules at most this many, then requeues itself for the rest. Two thousand
+ * entries is the size the issue names and fits in one pass (400s of stagger); the cap exists
+ * so a world an order of magnitude larger is still a sequence of bounded passes rather than
+ * one statement holding fifty thousand rows and a lease for three hours. */
+const BACKFILL_MAX_PER_PASS = 2000;
+/** Margin on top of a pass's stagger span before the verification pass re-enumerates. A
+ * backfill is only `done` once an enumeration comes back empty (see `runBackfill`), so every
+ * pass that scheduled something comes back to check; this is how long it waits. Long enough
+ * that the last batch's jobs have been claimed and run, short enough that a universe with a
+ * genuinely stuck entry reaches its attempt cap in minutes rather than hours. */
+const DEFAULT_BACKFILL_VERIFY_DELAY_MS = 10_000;
+/** How often the worker asks whether any universe is owed a catch-up. The trigger is the
+ * first successful `resolveModel(db, 'embedding')` after a run that skipped; `resolveModel`
+ * takes no universe, so that condition is global and the worker can ask it on a timer instead
+ * of waiting for somebody to save an entry. A minute is well inside the time it takes an
+ * operator to notice their own Ask answers are thin, and `resolveModel` caches for 30s, so the
+ * ordinary cost of asking is a map lookup and one empty partial-index scan. */
+const DEFAULT_BACKFILL_SWEEP_INTERVAL_MS = 60_000;
+/** The backfill poller's own idle poll. Slower than the save poller's 500ms because nothing
+ * about a catch-up is latency-sensitive, and this is a second loop querying the same
+ * database. */
+const DEFAULT_BACKFILL_POLL_INTERVAL_MS = 5000;
+/** A backfill pass is an enumeration and one insert: seconds, not the ten minutes a model
+ * call can legitimately take, so it gets its own much shorter lease. */
+const DEFAULT_BACKFILL_LEASE_MS = 2 * 60_000;
+/** How long a thrown pass waits before its lease is reclaimed. */
+const BACKFILL_RETRY_MS = 30_000;
+/** And how long to wait when the `embedding` row vanished again between the sweep enqueuing
+ * this backfill and the worker claiming it. Not an error: there is nothing to index against,
+ * and the row correctly stays owed. */
+const BACKFILL_NO_MODEL_RETRY_MS = 60_000;
+const RECENT_BACKFILLS_LIMIT = 50;
+
 export interface JobQueueOptions {
 	/** Quiet period after the last `schedule()` call for a key before its job becomes due
 	 * - SPEC.md §5.1/§5.2 says only "debounced", not a number. Authoritative in Postgres
@@ -374,6 +465,15 @@ export interface CanonSaveJobQueueOptions extends JobQueueOptions {
 	/** Reclaim attempts before a job dead-letters to `failed` instead of being retried
 	 * forever. */
 	maxAttempts?: number;
+	/** Issue #709's own knobs, all defaulted (`DEFAULT_BACKFILL_*` above). Overridden only by
+	 * `canon-save.test.ts`: it needs a sweep it can drive rather than one that fires while an
+	 * assertion is running, and it has no reason to spend the production stagger and
+	 * verification margin in real seconds to prove they are applied. */
+	backfillSweepIntervalMs?: number;
+	backfillPollIntervalMs?: number;
+	backfillLeaseMs?: number;
+	backfillStaggerMs?: number;
+	backfillVerifyDelayMs?: number;
 }
 
 /** One durable queue's whole public surface: schedule a save, start/stop its worker, and
@@ -389,6 +489,25 @@ export interface CanonSaveJobQueue {
 	 * accept and the entries list's "New entry" call, neither of which may run propagation or
 	 * audit - see `EntityIndexJobInput` on why the shape rather than a flag is the guard. */
 	scheduleIndexOnly(input: EntityIndexJobInput): void;
+	/**
+	 * Issue #709: runs the backfill sweep once, now, and answers which universes it enqueued.
+	 *
+	 * The worker calls this on its own timer, so nothing in the product needs it. It is here
+	 * because "the trigger fired" and "the catch-up ran" are two different claims and a test
+	 * that cannot separate them proves neither. Answers an empty array when no `embedding` row
+	 * is configured, which is the state the whole feature is about.
+	 */
+	sweepIndexBackfills(): Promise<string[]>;
+	/** Settles when no backfill row is `pending` or `claimed` any more - the backfill half of
+	 * `waitForIdle`, and note that a *scheduled* backfill is idle by this measure: its work is
+	 * now `canon_save_job` rows, which `waitForIdle` is what waits on.
+	 *
+	 * `universeId` is not optional in practice: this table is shared, the sweep is global by
+	 * design (an `embedding` row appearing is one global fact), so a caller that waits on every
+	 * universe waits on whatever else is going on in the same database. */
+	waitForBackfillIdle(universeId?: string, timeoutMs?: number): Promise<void>;
+	/** Every backfill row, newest first, optionally for one universe. Introspection only. */
+	recentBackfills(universeId?: string, limit?: number): Promise<UniverseIndexBackfillRow[]>;
 	/** Starts this instance's worker loop. Idempotent. */
 	start(): void;
 	/** Graceful shutdown: stops claiming new rows, waits for whatever is in flight to
@@ -415,6 +534,14 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 	} = options;
 	const leaseMs = options.leaseMs ?? DEFAULT_LEASE_MS;
 	const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+	const backfillLeaseMs = options.backfillLeaseMs ?? DEFAULT_BACKFILL_LEASE_MS;
+	const backfillSweepIntervalMs =
+		options.backfillSweepIntervalMs ?? DEFAULT_BACKFILL_SWEEP_INTERVAL_MS;
+	const backfillStaggerMs = options.backfillStaggerMs ?? DEFAULT_BACKFILL_STAGGER_MS;
+	const backfillVerifyDelayMs = options.backfillVerifyDelayMs ?? DEFAULT_BACKFILL_VERIFY_DELAY_MS;
+	// Zero rather than "now", so the first idle poll after start sweeps instead of waiting out
+	// a whole interval: a process that boots with a backfill already owed should not sit on it.
+	let lastSweepAt = 0;
 	const tracked = new Set<string>();
 	// `schedule()` fires the insert/upsert and returns immediately (fire-and-forget, same
 	// contract the in-memory queue had) - a `waitForIdle()` called right after `schedule()`
@@ -493,6 +620,194 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 			})
 	};
 
+	/**
+	 * Issue #709's trigger: the first successful `resolveModel(db, 'embedding')` after a run
+	 * that skipped.
+	 *
+	 * The issue's own framing was that this fires inside `runIndexEngine`, on the next save
+	 * after the row appears, and warned that the fan-out must not be paid for by whoever made
+	 * that save. `resolveModel` takes no universe, so "an embedding row appeared" is one global
+	 * condition rather than a per-universe one, which means the worker can ask it on its own
+	 * timer and there is no triggering save at all: nobody's edit pays for the catch-up, not
+	 * even in the background, and a universe whose GM adds the model and then does nothing is
+	 * still caught up rather than waiting for their next keystroke.
+	 *
+	 * When no row is configured this does nothing at all - not even the enqueue read. That is
+	 * the state the whole feature is about, and it is also the state in which enqueuing a
+	 * backfill would be a row that can only be requeued until a model appears.
+	 */
+	async function sweepIndexBackfills(): Promise<string[]> {
+		lastSweepAt = Date.now();
+		try {
+			await resolveModel(conn, 'embedding');
+		} catch (err) {
+			if (err instanceof ModelNotConfiguredError) return [];
+			throw err;
+		}
+		const enqueued = await enqueueDueIndexBackfills(conn);
+		for (const universeId of enqueued) {
+			console.warn(
+				JSON.stringify({
+					event: 'universe_index_backfill_enqueued',
+					reason: 'no-embedding-model',
+					universeId
+				})
+			);
+		}
+		return enqueued;
+	}
+
+	/**
+	 * One backfill pass: enumerate what this universe is missing from its own collection, then
+	 * schedule an index-only job per missing entry with the stagger `BACKFILL_*` describes.
+	 *
+	 * Reading the collection rather than the `canon_save_job` rows is the load-bearing choice,
+	 * and `unindexedEntities`' own comment carries the four ways a job row misses an entry that
+	 * is genuinely absent. The job rows are the trigger, not the work list.
+	 *
+	 * Idempotent by construction, which is what makes the lease safe: a pass that dies halfway
+	 * is reclaimed and re-enumerates, and the entries the dead pass already scheduled either
+	 * have their point by then (so they are not missing any more) or still have a pending row
+	 * (so `on conflict do nothing` skips them).
+	 */
+	async function runBackfill(row: UniverseIndexBackfillRow): Promise<void> {
+		let embeddingModel;
+		try {
+			embeddingModel = await resolveModel(conn, 'embedding');
+		} catch (err) {
+			if (!(err instanceof ModelNotConfiguredError)) throw err;
+			// The row was deactivated again between the sweep and this claim. The catch-up is
+			// still owed, so the row stays owed too.
+			await requeueIndexBackfill(conn, row.id, {
+				message: 'no active embedding model at claim time',
+				retryMs: BACKFILL_NO_MODEL_RETRY_MS
+			});
+			return;
+		}
+
+		const { collectionName, dataSourceId } = await resolveOwnCanonCollection(
+			conn,
+			row.universeId,
+			embeddingModel
+		);
+		const candidates = await entityIndexCandidatesForUniverse(conn, row.universeId);
+		const { missing, indexed, orphanedPoints } = await unindexedEntities(
+			{ vectorClient: qdrant },
+			{
+				collectionName,
+				universeId: row.universeId,
+				dataSourceId,
+				entityIds: candidates.map((candidate) => candidate.id)
+			}
+		);
+
+		const nameById = new Map(candidates.map((candidate) => [candidate.id, candidate.name]));
+		const pass = missing.slice(0, BACKFILL_MAX_PER_PASS);
+		const jobRows: BackfillIndexJobRow[] = pass.map((entityId, i) => ({
+			entityId,
+			entityName: nameById.get(entityId) ?? entityId,
+			delayMs: Math.floor(i / DEFAULT_BACKFILL_SCHEDULE_BATCH) * backfillStaggerMs
+		}));
+		// The locale of a backfill is nobody's: there is no actor and nothing it schedules will
+		// ever produce speech, because propagation and audit return on the empty diff these rows
+		// carry. Default rather than invented.
+		const scheduled = await scheduleBackfillIndexJobRows(
+			conn,
+			row.universeId,
+			DEFAULT_LOCALE,
+			jobRows
+		);
+		// How far past "now" the last batch comes due, plus a margin for the last job to actually
+		// run - which is how long a resumed pass has to wait before re-enumerating usefully.
+		const spanMs =
+			jobRows.length === 0 ? 0 : (jobRows[jobRows.length - 1]!.delayMs ?? 0) + backfillStaggerMs;
+		const capped = missing.length > pass.length;
+		const counts = {
+			entitiesTotal: candidates.length,
+			entitiesMissing: missing.length,
+			scheduled
+		};
+
+		console.warn(
+			JSON.stringify({
+				event: 'universe_index_backfill_scheduled',
+				backfillId: row.id,
+				universeId: row.universeId,
+				attemptCount: row.attemptCount,
+				entitiesTotal: candidates.length,
+				entitiesIndexed: indexed,
+				entitiesMissing: missing.length,
+				entitiesScheduledThisPass: scheduled,
+				// Non-zero means an entity was deleted without `deleteEntityLoreChunks` running for
+				// it. Nothing here repairs that; it is reported so that it is not invisible.
+				orphanedEntityPoints: orphanedPoints,
+				staggerSpanSeconds: Math.round(spanMs / 1000),
+				outcome: missing.length === 0 ? 'done' : capped ? 'capped' : 'verifying'
+			})
+		);
+
+		// **A backfill is done when the enumeration comes back empty, never when a pass has
+		// scheduled everything it found.** Scheduling is not indexing: a job can still fail, and
+		// because the sweep's watermark has already moved past this universe's skips, a backfill
+		// that reported `done` on a pass whose jobs then failed would leave those entries out of
+		// retrieval permanently - which is the bug this whole feature exists to fix, one level
+		// down. It is not hypothetical either: see `resumeIndexBackfill`'s own comment.
+		if (missing.length === 0) {
+			await completeIndexBackfill(conn, row.id, counts);
+			return;
+		}
+		await resumeIndexBackfill(conn, row.id, {
+			...counts,
+			nextRunAfterMs: spanMs + backfillVerifyDelayMs,
+			// A capped pass made progress and the next pass has different work, so its attempts
+			// reset. A pass that scheduled everything and is only coming back to check has made no
+			// progress if it finds the same entries again, so its attempts climb and the cap ends it.
+			resetAttempts: capped
+		});
+	}
+
+	const backfillHandlers: DurableQueueHandlers<UniverseIndexBackfillRow> = {
+		async claimNext(leaseHolder) {
+			if (Date.now() - lastSweepAt >= backfillSweepIntervalMs) {
+				// The sweep must never take the loop down with it: a transient database error here
+				// would otherwise stop this instance claiming backfills at all.
+				await sweepIndexBackfills().catch((err) => {
+					console.error(
+						JSON.stringify({
+							event: 'universe_index_backfill_sweep_failed',
+							message: err instanceof Error ? err.message : String(err)
+						})
+					);
+					return [];
+				});
+			}
+			return claimNextIndexBackfill(conn, {
+				leaseHolder,
+				leaseMs: backfillLeaseMs,
+				maxAttempts
+			});
+		},
+		run: (row) =>
+			runBackfill(row).catch(async (err) => {
+				const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+				console.error(
+					JSON.stringify({
+						event: 'universe_index_backfill_failed',
+						backfillId: row.id,
+						universeId: row.universeId,
+						attemptCount: row.attemptCount,
+						message
+					})
+				);
+				// Recorded on the row and left `claimed` with a short lease, so the claim above
+				// reclaims it and the attempt cap eventually dead-letters it - the same handling a
+				// crashed pass gets, rather than a second failure path.
+				await requeueIndexBackfill(conn, row.id, { message, retryMs: BACKFILL_RETRY_MS }).catch(
+					() => undefined
+				);
+			})
+	};
+
 	const poller = new DurableJobPoller<CanonSaveJobRow>(
 		{
 			pollIntervalMs: options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS,
@@ -502,9 +817,29 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 	);
 	poller.start();
 
+	// Its own poller rather than a second handler on the one above, because the two have
+	// nothing in common at runtime: a save's job is a model call whose fair share of three
+	// slots matters, and a backfill pass is one enumeration and one insert that must not be
+	// able to occupy any of those slots. `maxConcurrent: 1` because two passes over the same
+	// universe would be redundant and two over different universes would still serialise on
+	// the same Qdrant scroll for no gain. `queue.ts` was written generic for exactly this.
+	const backfillPoller = new DurableJobPoller<UniverseIndexBackfillRow>(
+		{
+			pollIntervalMs: options.backfillPollIntervalMs ?? DEFAULT_BACKFILL_POLL_INTERVAL_MS,
+			maxConcurrent: 1
+		},
+		backfillHandlers
+	);
+	backfillPoller.start();
+
 	return {
-		start: () => poller.start(),
-		stop: () => poller.stop(),
+		start: () => {
+			poller.start();
+			backfillPoller.start();
+		},
+		stop: async () => {
+			await Promise.all([poller.stop(), backfillPoller.stop()]);
+		},
 		schedule(input) {
 			trackSchedule(
 				scheduleCanonSaveJobRow(conn, input, debounceMs),
@@ -519,6 +854,22 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 				input.entityId
 			);
 		},
+		sweepIndexBackfills,
+		async waitForBackfillIdle(universeId, timeoutMs = 10_000) {
+			const start = Date.now();
+			for (;;) {
+				const open = await recentIndexBackfills(conn, RECENT_BACKFILLS_LIMIT, universeId);
+				if (!open.some((row) => row.status === 'pending' || row.status === 'claimed')) return;
+				if (Date.now() - start > timeoutMs) {
+					throw new Error(
+						`CanonSaveJobQueue.waitForBackfillIdle: still not idle after ${timeoutMs}ms`
+					);
+				}
+				await delay(25);
+			}
+		},
+		recentBackfills: (universeId, limit) =>
+			recentIndexBackfills(conn, limit ?? RECENT_BACKFILLS_LIMIT, universeId),
 		async waitForIdle(timeoutMs = 5000) {
 			const start = Date.now();
 			for (;;) {
