@@ -519,11 +519,17 @@ Follows the shared UI pipeline (`ui-brief-first`, `ui-design-tokens`, `ui-visual
   it carried was wrong twice over and has since been repeated in an issue, a PR body and
   here: it is **20 `dark:` utilities across 8 files**, not 29 across 11, and one of the 8 is
   `palette/CommandPalette.svelte` rather than `lib/components/ui`.
+  The same class runs the other way and is still open: `app.html`'s two
+  `<meta name="theme-color">` are selected by `media="(prefers-color-scheme: ...)"` alone,
+  so a GM who picks Dark on a light machine gets light browser chrome around a dark app and
+  the reverse (#740), which is invisible on a desktop tab and not in an installed PWA.
+  `static/favicon.svg` keys off the media query alone too and is right to: it is a separate
+  document with no access to the attribute, so that one is not a bug to file twice.
 - **`/dev/ui` cannot reproduce an `<html>`-level theme defect**, which is awkward because
   this section opens by telling you to shoot it first. Its two panes are
   `<section data-theme="light">` and `<section data-theme="dark">`, so the dark pane matches
   the attribute branch whatever `<html>` says, and the element that actually moves is the
-  *light* pane's, which is also the first `[data-slot="input"]` in DOM order: a
+  _light_ pane's, which is also the first `[data-slot="input"]` in DOM order: a
   `querySelector` on the gallery measures the right thing for the wrong reason and a reader
   cannot tell which. `/auth/sign-in` has real controls, no `data-theme` sections and no
   session, and is the cheapest honest surface for anything about the two paths. The gallery
@@ -541,6 +547,22 @@ Follows the shared UI pipeline (`ui-brief-first`, `ui-design-tokens`, `ui-visual
   `pnpm dev`, where vite injects it through JS and there is no stylesheet URL to fetch,
   assert a resolved token is non-empty before every read. Then wait on a control selector
   per shot.
+- **A pixel diff of this app needs `document.fonts.ready` and a same-state control, or
+  Literata's own swap reads as the defect.** V10 self-hosts Literata with
+  `font-display: swap`, so a capture taken before the woff2 lands shows the fallback face,
+  and on a text-heavy surface that is 5 to 7 per cent of the pixels with near-maximum
+  channel deltas: larger than most real findings. `layout.css`'s `size-adjust`
+  fallback-metrics block stops the swap _moving_ the text, which is a different thing from
+  stopping it repainting, so a stable layout is not evidence of a stable image. #739 chased
+  33294 differing pixels on `/auth/sign-up` as a possible second two-darks divergence, and
+  the same state shot twice differed by exactly the same 33294, same bounding box, same
+  maximum delta, with no computed style differing on any of the page's 86 elements. **So
+  shoot the same state twice and compare against that number rather than against zero**: a
+  comparison equal to its control is a difference of nothing, which is a claim worth making,
+  and it is the only one available when the noise floor moves per run. Awaiting
+  `document.fonts.ready` plus a `setTimeout` and two `requestAnimationFrame`s reached a hard
+  zero on `/dev/ui` and `/auth/sign-up` and did not on `/auth/sign-in` in the same run, so
+  the control is not optional.
 - **A native `<dialog>` is not centred in this app**, and the cause is not in our code:
   Tailwind 4's preflight sets `margin: 0` on `*`, `::before`, `::after` and `::backdrop`,
   which is the margin the user-agent stylesheet centres a modal `<dialog>` with. Three of

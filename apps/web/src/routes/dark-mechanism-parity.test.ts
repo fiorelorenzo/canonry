@@ -34,10 +34,15 @@
  *
  * 1. **The variant carries both branches.** The narrow assertion #727 wanted: reverting
  *    line 38 to a single-selector `@custom-variant dark (...)` fails here.
- * 2. **The two token scopes declare the same property names.** #137's invariant, which
+ * 2. **Every palette scope declares the same property names.** #137's invariant, which
  *    nothing guarded. A token added to `[data-theme='dark']` and forgotten in the media
  *    block is a property that is dark for a chosen theme and light for Match system,
- *    which is #727 again one token at a time.
+ *    which is #727 again one token at a time. This shipped comparing the two dark scopes,
+ *    because two was all the file had; #738 added `[data-theme='light']` an hour later so
+ *    the gallery's light column could be light, and #742 widened this to the set, since a
+ *    third scope nobody compares is the same silence again. That scope earns its place on
+ *    its own merit rather than as symmetry: it is what an explicit Light choice renders,
+ *    so a property missing from it falls through to `:root` and is right by luck.
  * 3. **Every `prefers-color-scheme: dark` rule excludes an explicit attribute.** A media
  *    rule that forgets `:not([data-theme])` repaints a GM who explicitly chose **light**
  *    on a dark machine, which is the leak the third cookie state exists to catch. It is
@@ -45,7 +50,7 @@
  *
  * ## What this cannot see
  *
- * It reads one file's text, so it holds the two halves of `layout.css` in step and
+ * It reads one file's text, so it holds the palette scopes of `layout.css` in step and
  * nothing else. It cannot tell you that a `dark:` utility renders, that the cascade
  * resolves the way the selector suggests, or that the result clears a contrast floor:
  * #727 verified all three in a browser across three cookie states, and this is the part
@@ -99,10 +104,26 @@ const MEDIA_DARK = /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{/;
 const variant = blocks(CSS, /@custom-variant\s+dark\s*\{/);
 const mediaDarkBlocks = blocks(CSS, MEDIA_DARK);
 const attributeScope = blocks(CSS, /(?:^|\n)\s*\[data-theme='dark'\]\s*\{/);
+const lightAttributeScope = blocks(CSS, /(?:^|\n)\s*\[data-theme='light'\]\s*\{/);
 /** The token half: the one `prefers-color-scheme` block that sets custom properties. */
 const tokenMediaScope = mediaDarkBlocks
 	.flatMap((b) => blocks(b.body, /html:not\(\[data-theme\]\)\s*\{/))
 	.filter((b) => declared(b.body).length > 0);
+
+/**
+ * Every scope that repaints the palette, by the name a failure should print. #739 shipped
+ * this guard with two, because two was all `layout.css` had; #738 added
+ * `[data-theme='light']` an hour later so the gallery's light column could be light, and
+ * a third scope nobody compares is the same silence this file exists to break (#742).
+ * `[data-theme='light']` matters in its own right rather than as symmetry: it is what a GM
+ * who explicitly chose Light gets, so a property missing from it falls through to `:root`
+ * and is correct by luck instead of by rule.
+ */
+const paletteScopes = (): Record<string, string[]> => ({
+	"[data-theme='dark']": declared(attributeScope[0].body),
+	"[data-theme='light']": declared(lightAttributeScope[0].body),
+	'@media (prefers-color-scheme: dark) html:not([data-theme])': declared(tokenMediaScope[0].body)
+});
 
 describe('layout.css parses the way this guard thinks it does', () => {
 	it('found the file and both dark mechanisms in it', () => {
@@ -111,6 +132,7 @@ describe('layout.css parses the way this guard thinks it does', () => {
 		expect(variant).toHaveLength(1);
 		expect(attributeScope).toHaveLength(1);
 		expect(tokenMediaScope).toHaveLength(1);
+		expect(lightAttributeScope).toHaveLength(1);
 		// Two of them now: the variant's own branch, and the token block's.
 		expect(mediaDarkBlocks).toHaveLength(2);
 	});
@@ -154,18 +176,27 @@ describe('the dark: variant covers both ways dark arrives (#727)', () => {
 	});
 });
 
-describe('the two dark scopes declare the same tokens (#137)', () => {
-	it('neither scope carries a property the other is missing', () => {
-		const attribute = new Set(declared(attributeScope[0].body));
-		const media = new Set(declared(tokenMediaScope[0].body));
-		expect([...attribute].filter((p) => !media.has(p))).toEqual([]);
-		expect([...media].filter((p) => !attribute.has(p))).toEqual([]);
-		// Not a coincidence of two empty sets: the palette plus shadcn's aliases.
-		expect(attribute.size).toBeGreaterThan(30);
+describe('every palette scope declares the same tokens (#137, #742)', () => {
+	it('no scope carries a property another one is missing', () => {
+		const scopes = paletteScopes();
+		const union = [...new Set(Object.values(scopes).flat())];
+		// Reported per scope rather than as one boolean, so a failure names the block and
+		// the property instead of leaving the reader to diff two 38-line CSS scopes by eye.
+		const missing = Object.fromEntries(
+			Object.entries(scopes)
+				.map(([name, props]) => [name, union.filter((p) => !props.includes(p))] as const)
+				.filter(([, gap]) => gap.length > 0)
+		);
+		expect(missing).toEqual({});
+		// Not a coincidence of empty sets: the palette plus shadcn's aliases, in each scope.
+		expect(union.length).toBeGreaterThan(30);
 	});
 
-	it('declares them in the same order, so the two blocks stay readable side by side', () => {
-		expect(declared(tokenMediaScope[0].body)).toEqual(declared(attributeScope[0].body));
+	it('declares them in the same order, so the blocks stay readable side by side', () => {
+		const [reference, ...rest] = Object.entries(paletteScopes());
+		for (const [name, props] of rest) {
+			expect(props, `${name} against ${reference[0]}`).toEqual(reference[1]);
+		}
 	});
 });
 
