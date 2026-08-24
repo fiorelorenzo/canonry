@@ -1,5 +1,5 @@
 /**
- * Round seventeen V3 = B (#495, docs/ux/DECISIONS.md): a type scale named by role
+ * Round seventeen V3 = B (#495, docs/design/DECISIONS.md): a type scale named by role
  * rather than by size, "because that is the only thing that stops the next arbitrary
  * value". #509 shipped the five tokens and migrated the sixty-six arbitrary bracket
  * sizes, which is the part it verified. It never touched Tailwind's default scale, so

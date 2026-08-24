@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * D2 = B, "live feed of proposals" (docs/ux/DECISIONS.md, d2-estimate-and-progress.html):
+	 * D2 = B, "live feed of proposals" (docs/design/DECISIONS.md, d2-estimate-and-progress.html):
 	 * "each row is already a real, clickable proposal." D7's own onboarding mock shows the
 	 * accept button inline on this exact row, so that is what this component does - the
 	 * full multi-proposal queue (D4) is a separate surface (ReviewSurfaces' review link),

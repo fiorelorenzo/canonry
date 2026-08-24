@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * Issue #142, I4 = B ("one creation surface", docs/ux/DECISIONS.md): the only place a
+	 * Issue #142, I4 = B ("one creation surface", docs/design/DECISIONS.md): the only place a
 	 * universe gets created now. Name the universe, then pick a start - import (D7's loud
 	 * default, `?/import`, continues at /onboarding/import), start empty (`?/empty`, what
 	 * /w/new used to do under its own URL), or derive from a pre-indexed universe

@@ -4,7 +4,7 @@
 	 * link wave one (#141) left here as a placeholder. Built on `dropdown-menu` (I9 = C)
 	 * so focus management, Escape and outside-click come from bits-ui rather than being
 	 * hand-rolled a third time in this app - `UniverseSwitcher.svelte`'s own open/close
-	 * listeners are exactly the cost I6 (`docs/ux/DECISIONS.md`) is naming. Kept as its
+	 * listeners are exactly the cost I6 (`docs/design/DECISIONS.md`) is naming. Kept as its
 	 * own file, not inlined into Sidebar.svelte, per that file's footer comment.
 	 *
 	 * Every row is one click from here to a real destination: Account, Language,

@@ -48,7 +48,7 @@ describe('propagation eval harness against the real candidate selector', () => {
 
 		// concentrated in the cases the corpus built specifically to expose graph-only
 		// reasoning (brackwater-mire's doc comment), plus one more since
-		// C9's own worked example (docs/ux/DECISIONS.md; drawn example in git history at c84c8f8): Cairnmouth's body names "Captain
+		// C9's own worked example (docs/design/DECISIONS.md; drawn example in git history at c84c8f8): Cairnmouth's body names "Captain
 		// Vane" (an alias) for audit's benefit (issue #55), which makes Cairnmouth a
 		// mechanical reverse-mention false positive whenever Aldric Vane is edited for an
 		// unrelated reason, exactly the "shares a mention without being narratively

@@ -1,5 +1,5 @@
 /**
- * G1 = B (docs/ux/DECISIONS.md): dark is a whole-app preference, not a table-mode skin.
+ * G1 = B (docs/design/DECISIONS.md): dark is a whole-app preference, not a table-mode skin.
  * This is the one place that knows the cookie name, the three legal values, and how a
  * preference resolves to the `data-theme` attribute `layout.css`'s
  * `[data-theme='dark']` variant reads. `src/hooks.server.ts` and

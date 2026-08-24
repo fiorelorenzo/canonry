@@ -1,3 +1,5 @@
+# Design decisions
+
 This table is the answer set for all twenty rounds, one row per decision: `ID` links to the prose section that explains it where one exists, `Round` and `Question` are stated in the product's own words, and `Answer` is the letter and short name each decision took. `Rule it creates` is filled only where a decision produced something a component can violate; it is empty everywhere else. The prose below the table, starting at the heading, is the reasoning behind every answer, and it now also carries what the register in `docs/ux/assets/ux.js` held in each entry's `dnote`, absorbed here because that file and the 59 drawn artifacts under `docs/ux/` are gone as of 2026-08-23, readable forever in git history at `c84c8f8`. Nothing else about the prose changed: it is still what stops a settled question being reopened.
 
 | ID | Round | Question | Answer | Rule it creates |

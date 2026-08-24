@@ -2,7 +2,7 @@
 -- migration 0004 (packages/db/migrations/0004_seed_operation_price_catalogue.sql)
 -- cite SPEC.md §15, SPEC.md §8.1, SPEC.md §9, docs/ux/h1-what-off-is-called.html,
 -- docs/ux/f2-quota-and-cost.html, docs/ux/SAMPLE-WORLD.md, docs/ux/d2-estimate-and-progress.html
--- and docs/ux/DECISIONS.md inside operation_price.notes. Four later migrations -
+-- and docs/design/DECISIONS.md inside operation_price.notes. Four later migrations -
 -- 0008_seed_indexing_prices.sql, 0013_seed_media_similarity_price.sql and
 -- 0017_seed_audio_layers_parse_price.sql - seeded four more rows the same way,
 -- citing SPEC.md and decision H1. apps/web/src/routes/admin/pricing/+page.svelte
@@ -44,7 +44,7 @@ UPDATE "operation_price" SET "notes" =
 UPDATE "operation_price" SET "notes" =
 	'1 credit for the candidate-identification pass. Combined with the per-entry diff price below, a ten-entry propagation plan totals 1 + 10x1 = 11 credits, matching the agreed fixture.'
 	WHERE "operation" = 'propagate.plan' AND "notes" =
-	'docs/ux/h1-what-off-is-called.html pricing mockup: 1 credit for the candidate-identification pass. Combined with propagate.diff below, a ten-entry plan totals 1 + 10x1 = 11 credits, matching the fixture in docs/ux/f2-quota-and-cost.html and docs/ux/DECISIONS.md.';
+	'docs/ux/h1-what-off-is-called.html pricing mockup: 1 credit for the candidate-identification pass. Combined with propagate.diff below, a ten-entry plan totals 1 + 10x1 = 11 credits, matching the fixture in docs/ux/f2-quota-and-cost.html and docs/design/DECISIONS.md.';
 
 UPDATE "operation_price" SET "notes" =
 	'1 credit per drafted diff. See the propagation plan price above for the ten-entry fixture total this reproduces.'

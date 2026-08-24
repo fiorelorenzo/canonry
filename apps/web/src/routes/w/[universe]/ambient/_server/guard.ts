@@ -16,7 +16,7 @@ interface GuardEvent {
 
 /** 404, never 401 - same reasoning as `requireTableAccess`: a slug that does not exist
  * and one this account cannot see must be indistinguishable to the caller. Reading a
- * pack's layers is never gated on role (H1, docs/ux/DECISIONS.md: "reading is free") -
+ * pack's layers is never gated on role (H1, docs/design/DECISIONS.md: "reading is free") -
  * every member, viewer included, may list and play what already exists. */
 export async function requireAmbientAccess(
 	event: GuardEvent

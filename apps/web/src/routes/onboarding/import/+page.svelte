@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * Three states on one screen: D1 = C ("detect then confirm", docs/ux/DECISIONS.md,
+	 * Three states on one screen: D1 = C ("detect then confirm", docs/design/DECISIONS.md,
 	 * d1-source-selection.html) for upload -> confirm, then D2 = B's estimate card
 	 * (d2-estimate-and-progress.html) for confirm -> start. The live feed itself lives on
 	 * /onboarding/import/[job], reached only after the explicit "Start import" consent

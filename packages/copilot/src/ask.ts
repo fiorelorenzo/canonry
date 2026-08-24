@@ -64,7 +64,7 @@ import { requireAiEnabled } from './propagate.js';
 import { entryEditPropose, entryPropose, type ProposeResult } from './ask-propose.js';
 
 /** SPEC.md §5: "five detail levels", shipped as a fixed row of buttons
- * (C8, `docs/ux/DECISIONS.md`), never a settings dialog. */
+ * (C8, `docs/design/DECISIONS.md`), never a settings dialog. */
 export type AskDetailLevel = '1_line' | 'short' | 'normal' | 'detailed' | 'full';
 
 /** Issue #535: a citation is a sentence with the entry it came from, never an entry with
@@ -534,7 +534,7 @@ function deriveFollowUps(locale: Locale, sources: AskSource[]): string[] {
 }
 
 /** SPEC.md §5 fixes five detail levels but not what distinguishes them, and no
- * `docs/ux/DECISIONS.md` entry (checked C8, G5, the C8 artifact itself) settles it either -
+ * `docs/design/DECISIONS.md` entry (checked C8, G5, the C8 artifact itself) settles it either -
  * C8 decided where Ask lives, not what its levels mean. Read as one length scale, since
  * that is the only reading `1_line` through `detailed` already support and it is the
  * smaller of the two honest fixes in issue #167: each level asks for strictly more than

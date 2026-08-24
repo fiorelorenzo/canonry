@@ -1,5 +1,5 @@
 /**
- * /admin/metrics (issues #100, #101, #102, #103; decision F5 = B, `docs/ux/DECISIONS.md`):
+ * /admin/metrics (issues #100, #101, #102, #103; decision F5 = B, `docs/design/DECISIONS.md`):
  * staff-only, reusing the app's own auth and chrome rather than a second internal tool.
  * Deliberately never shown to the GM - "a GM optimising their own accept rate is a strange
  * incentive", per the F5 artifact's rejected-outright section.

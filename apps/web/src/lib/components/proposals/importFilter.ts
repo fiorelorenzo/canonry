@@ -1,5 +1,5 @@
 /**
- * D4 = B (docs/ux/DECISIONS.md): "one queue in C6's vocabulary, with type filters". The
+ * D4 = B (docs/design/DECISIONS.md): "one queue in C6's vocabulary, with type filters". The
  * bucket shape `TypeFilterChips.svelte` renders and `import/[job]/review`'s bulk-reject
  * action reads back - kept as a pure function so the "which chips does this job get" and
  * "how many would a bulk reject touch" logic is one thing to test, not embedded in either
@@ -31,7 +31,7 @@ export interface FilterBucket {
 }
 
 /** SPEC.md §4.2's own order ("character, place, faction, item, event, session"), relations
- * last - matches the D4 mock's own chip order (docs/ux/DECISIONS.md; the drawn mock is in git history at c84c8f8). */
+ * last - matches the D4 mock's own chip order (docs/design/DECISIONS.md; the drawn mock is in git history at c84c8f8). */
 const BUCKET_ORDER = ['character', 'place', 'faction', 'item', 'event', 'session', 'relation'];
 
 /** "All" first, then one chip per type actually present in this job - a type nobody

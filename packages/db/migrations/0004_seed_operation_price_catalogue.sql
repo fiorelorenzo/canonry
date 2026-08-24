@@ -21,7 +21,7 @@ VALUES
 	('ask.answer', 'Ask''s generated answer', 2.0000, 'generation',
 		'docs/ux/h1-what-off-is-called.html pricing mockup: 2 credits, on par with a drafted entry since both are one generated passage of prose.'),
 	('propagate.plan', 'Propagation plan', 1.0000, 'generation',
-		'docs/ux/h1-what-off-is-called.html pricing mockup: 1 credit for the candidate-identification pass. Combined with propagate.diff below, a ten-entry plan totals 1 + 10x1 = 11 credits, matching the fixture in docs/ux/f2-quota-and-cost.html and docs/ux/DECISIONS.md.'),
+		'docs/ux/h1-what-off-is-called.html pricing mockup: 1 credit for the candidate-identification pass. Combined with propagate.diff below, a ten-entry plan totals 1 + 10x1 = 11 credits, matching the fixture in docs/ux/f2-quota-and-cost.html and docs/design/DECISIONS.md.'),
 	('propagate.diff', 'Propagation diff, per entry', 1.0000, 'generation',
 		'docs/ux/h1-what-off-is-called.html pricing mockup: 1 credit per drafted diff. See propagate.plan above for the fixture total this reproduces.'),
 	('entry.complete', 'Drafted entry', 2.0000, 'generation',

@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * Issue #143 (I6 = B): the two-pane settings page's own sub-nav, replacing "five
-	 * islands, no index" (docs/ux/DECISIONS.md, I6; product-pass.html's own phrase, in git history at c84c8f8) with one list. Labels reuse
+	 * islands, no index" (docs/design/DECISIONS.md, I6; product-pass.html's own phrase, in git history at c84c8f8) with one list. Labels reuse
 	 * each pane's own catalogue title (`settings.account.title`, `settings.language.
 	 * title`, ...) rather than a second copy of the same six words for the nav row.
 	 */

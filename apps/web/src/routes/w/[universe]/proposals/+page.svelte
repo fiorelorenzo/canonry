@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * C2 = A: the inbox. Round seventeen V2 = A (#498, docs/ux/DECISIONS.md): "the inbox
+	 * C2 = A: the inbox. Round seventeen V2 = A (#498, docs/design/DECISIONS.md): "the inbox
 	 * is the queue" - this page used to be three rows that only named what plan or import
 	 * job was waiting and linked out to read it; now every waiting proposal renders here,
 	 * as a `ProposalQueue` group per plan/import job, with C6's keyboard queue running

@@ -3,7 +3,7 @@
 @import 'shadcn-svelte/tailwind.css';
 @plugin '@tailwindcss/typography';
 
-/* Canonry's design system, as decided in docs/ux (see docs/ux/DECISIONS.md).
+/* Canonry's design system, as decided in docs/ux (see docs/design/DECISIONS.md).
  *
  * A1 = B, the reading room: warm paper, burnt umber accent, serif for prose.
  * G2 = C, serif everywhere, with no boundary rule and no exception, which is why

@@ -1,5 +1,5 @@
 /**
- * SPEC.md §14 and decision F5 (docs/ux/DECISIONS.md): the DB layer behind the staff-only
+ * SPEC.md §14 and decision F5 (docs/design/DECISIONS.md): the DB layer behind the staff-only
  * metrics admin surface. Four functions, one per issue:
  *
  * - #100 accept rate: raw `proposal` rows, so the admin route can hand them to

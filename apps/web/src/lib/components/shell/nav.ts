@@ -1,5 +1,5 @@
 /**
- * A2 = A (docs/ux/DECISIONS.md): "fixed sidebar, universe switcher on top, capped at
+ * A2 = A (docs/design/DECISIONS.md): "fixed sidebar, universe switcher on top, capped at
  * seven items." A2's own drawn option (A), in git history at c84c8f8, draws
  * exactly these seven as the nav proper, with the switcher pinned above and explicitly
  * *not* counted against the cap: "a full-height text nav, all seven places listed, the

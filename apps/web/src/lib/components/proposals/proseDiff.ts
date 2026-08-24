@@ -1,5 +1,5 @@
 /**
- * The diff a reviewer actually reads (Q1, round twelve in `docs/ux/DECISIONS.md`, issue
+ * The diff a reviewer actually reads (Q1, round twelve in `docs/design/DECISIONS.md`, issue
  * #362). C4 chose "in place with a toggle" and Q1 repeals the toggle: every changed part
  * of the entry shows at once, with enough unchanged text around it to read.
  *

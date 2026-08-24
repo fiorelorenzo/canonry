@@ -40,7 +40,7 @@ async function loadPlan(locals: App.Locals, universeSlug: string, planId: string
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const { conn, access, detail } = await loadPlan(locals, params.universe, params.plan);
 
-	// Issue #489: `propagate.diff` prices per candidate (docs/ux/DECISIONS.md G11), so a
+	// Issue #489: `propagate.diff` prices per candidate (docs/design/DECISIONS.md G11), so a
 	// propagation plan shows the reconciling count x price = total, plus the plan-level
 	// `propagate.plan` ranking charge as its own already-spent figure. Both are looked up
 	// live rather than trusted from the plan's stored `estimated_credits`, which is not

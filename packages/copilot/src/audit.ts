@@ -3,7 +3,7 @@
  * produces at most a handful of flags, and each flag carries the two statements that
  * disagree." Guardrail 7: never promise consistency - contradiction detection sits at
  * F1 ~52%, barely better than a coin flip, so a flag is a question addressed to the GM,
- * never a finding addressed at the canon (C9, `docs/ux/DECISIONS.md`).
+ * never a finding addressed at the canon (C9, `docs/design/DECISIONS.md`).
  *
  * "The sub-graph touched by recent edits" is not a second notion of impact radius: it is
  * propagation's own (candidates.ts's `buildCandidatePool` over the edited entity's
@@ -313,7 +313,7 @@ const FORBIDDEN_TOPIC_PATTERNS: RegExp[] = [
 
 /** Guardrail 7, enforced in code rather than trusted to prompting alone: whatever short
  * topic phrase the model volunteers is checked against the exact forbidden vocabulary
- * C9's table named (`docs/ux/DECISIONS.md`; the drawn table is in git history at c84c8f8) ("Contradiction detected.", a percentage,
+ * C9's table named (`docs/design/DECISIONS.md`; the drawn table is in git history at c84c8f8) ("Contradiction detected.", a percentage,
  * "consistent" in either direction, "no conflicts found", "fix this automatically") before
  * it is allowed into a flag's rationale. A phrase that trips any of them is dropped, not
  * rewritten - the deterministic template below is always safe on its own. */
@@ -321,7 +321,7 @@ export function isGuardrailSafeTopic(topic: string): boolean {
 	return !FORBIDDEN_TOPIC_PATTERNS.some((re) => re.test(topic));
 }
 
-/** The exact framing C9 (`docs/ux/DECISIONS.md`) locks in verbatim, drawn in git history at c84c8f8: "X and Y do not agree
+/** The exact framing C9 (`docs/design/DECISIONS.md`) locks in verbatim, drawn in git history at c84c8f8: "X and Y do not agree
  * on <topic>." Never "detected", never a percentage, never a verdict - a question, not a
  * finding. SPEC.md §17 rule two (issue #123): a locale-templated framing per
  * `speech.ts`'s `AUDIT_DISAGREEMENT`/`AUDIT_DISAGREEMENT_BARE`, since this is exactly the

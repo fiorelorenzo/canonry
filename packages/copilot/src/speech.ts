@@ -60,7 +60,7 @@ export function canonInstruction(contentLanguage: Locale): string {
 	);
 }
 
-/** R3 (docs/ux/DECISIONS.md "Round thirteen"), issue #378, amended by issue #451's
+/** R3 (docs/design/DECISIONS.md "Round thirteen"), issue #378, amended by issue #451's
  * decision U2: the resolved clause of whatever row `universe.narration_style_id` points
  * at - a shipped preset's own tone directive, or the GM's own words on their custom row
  * (`loremasterVoiceClauseForUniverse`, packages/db/src/queries/narration.ts) - appended
@@ -109,7 +109,7 @@ export const EMPTY_PLAN_SUMMARY: Record<Locale, (editedEntityName: string) => st
 };
 
 /** `buildFlagRationale`'s exact framing (audit.ts), one bilingual pair per guardrail 7's
- * own wording (C9, `docs/ux/DECISIONS.md`) - a question addressed to the GM, never a
+ * own wording (C9, `docs/design/DECISIONS.md`) - a question addressed to the GM, never a
  * verdict, in either language. */
 export const AUDIT_DISAGREEMENT: Record<Locale, (a: string, b: string, topic: string) => string> = {
 	en: (a, b, topic) => `${a} and ${b} do not agree on ${topic}.`,

@@ -1,4 +1,4 @@
--- Decision C3 amendment (docs/ux/DECISIONS.md "Round nine", SPEC.md §5.1): the
+-- Decision C3 amendment (docs/design/DECISIONS.md "Round nine", SPEC.md §5.1): the
 -- propagation plan cap moves from a hardcoded ~10 to a per-universe setting, in the
 -- same shape decision C10's `ai_enabled` already uses. `propagation_cap` null means
 -- the GM turned the limit off - a real value, not a sentinel like 0 or 9999, because

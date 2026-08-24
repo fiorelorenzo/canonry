@@ -2,7 +2,7 @@
  * Issue #489: the plan page showed three credit figures nobody could reconcile - a plan
  * with one surviving candidate read "Est. 4.00 credits to generate diffs" at the top and
  * "0.00 cr" on the candidate's own row. `propagate.diff` prices per candidate
- * (docs/ux/DECISIONS.md G11), so the arithmetic `planPropagation` writes at creation time
+ * (docs/design/DECISIONS.md G11), so the arithmetic `planPropagation` writes at creation time
  * (`planRationale.credits + survivors.length * diffPrice.credits`, see
  * `packages/copilot/src/propagate.ts`) is correct for what it is - the stored total is only
  * wrong to READ as "credits to generate diffs", because it also carries the plan-level

@@ -6,7 +6,7 @@
 	 * The title page (I2 = C, #139): AuthShell owns the frame, mark, subtitle and
 	 * footer rule; this file owns only the form that sits inside it. No `pane` prop
 	 * - the argument pane is sign-up's, since a visitor signing back in is already
-	 * sold (I2's own cost note against showing it here, `docs/ux/DECISIONS.md`; the drawn note is in git history at c84c8f8).
+	 * sold (I2's own cost note against showing it here, `docs/design/DECISIONS.md`; the drawn note is in git history at c84c8f8).
 	 *
 	 * #262: the session is created by `?/signIn` in `+page.server.ts`, not by a client
 	 * `authClient.signIn.email` call. This was `<form onsubmit={submit}>` with no `method`,

@@ -37,7 +37,7 @@
 
 <script lang="ts">
 	/**
-	 * Round seventeen V2 = A (docs/ux/DECISIONS.md), issue #498: "the inbox is the
+	 * Round seventeen V2 = A (docs/design/DECISIONS.md), issue #498: "the inbox is the
 	 * queue. Every waiting proposal, its diff, accept in place." This is C6's `j k a r u`
 	 * queue widened from "the current candidate, one at a time, behind a row of numbered
 	 * jump buttons" (issue #480's own description of what this component used to be) to

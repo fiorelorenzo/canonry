@@ -11,7 +11,7 @@
 
 <script lang="ts">
 	/**
-	 * Decision O4 = B (docs/ux/DECISIONS.md, "Round ten"), issue #286: a list drawn from
+	 * Decision O4 = B (docs/design/DECISIONS.md, "Round ten"), issue #286: a list drawn from
 	 * the GM's own data gets a combobox with search. This is the third of the three
 	 * controls, next to `ui/segmented` (a binary or ternary state) and `ui/select` (a
 	 * vocabulary the product itself ships).

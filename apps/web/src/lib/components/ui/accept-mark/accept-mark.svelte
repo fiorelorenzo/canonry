@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * V9 (round seventeen, docs/ux/DECISIONS.md, #501): the micro-interaction group's
+	 * V9 (round seventeen, docs/design/DECISIONS.md, #501): the micro-interaction group's
 	 * "accept mark drawing itself" - a checkmark whose stroke draws in once, for the
 	 * moment a control confirms a choice (a style preset picked, a proposal accepted),
 	 * rather than a mark that is simply there on the next paint. Lucide's `check` path

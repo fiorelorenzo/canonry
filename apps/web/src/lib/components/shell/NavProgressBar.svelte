@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * Issue #497, decision V11 = C (docs/ux/DECISIONS.md, "round seventeen"): a thin bar
+	 * Issue #497, decision V11 = C (docs/design/DECISIONS.md, "round seventeen"): a thin bar
 	 * on the accent, at the top of the shell's own scroll container, driven by
 	 * `$app/state`'s `navigating` - the current Svelte 5 runes API, not the deprecated
 	 * `$app/stores` version this app otherwise avoids. One place in the code: mounted

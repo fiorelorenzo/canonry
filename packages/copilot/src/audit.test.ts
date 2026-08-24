@@ -452,7 +452,7 @@ describe('runAudit (issue #55, SPEC.md §5.2)', () => {
 });
 
 describe('buildFlagRationale and isGuardrailSafeTopic (guardrail 7)', () => {
-	it('builds the exact framing C9 (docs/ux/DECISIONS.md; drawn artifact in git history at c84c8f8) locks in', () => {
+	it('builds the exact framing C9 (docs/design/DECISIONS.md; drawn artifact in git history at c84c8f8) locks in', () => {
 		expect(
 			buildFlagRationale(
 				'Aldric Vane',

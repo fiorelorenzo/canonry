@@ -11,7 +11,7 @@
 	import { cn } from '$lib/utils/cn.js';
 
 	/**
-	 * T5 (round fifteen, docs/ux/DECISIONS.md), issue #432: one key beside one verb, as a
+	 * T5 (round fifteen, docs/design/DECISIONS.md), issue #432: one key beside one verb, as a
 	 * row of pairs. Three call sites each drew a keyboard hint their own way -
 	 * `InlineProposalReview` printed five bare `kbd`s and then one joined phrase
 	 * ("muovi, accetta, rifiuta, annulla"), asking the reader to zip two lists together;

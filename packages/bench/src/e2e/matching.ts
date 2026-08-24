@@ -35,7 +35,7 @@ export interface BenchMatchingInput {
 }
 
 export interface BenchMatching extends BandedSimilarity {
-	/** K1 (docs/ux/DECISIONS.md round six, issue #189): the import loop resolves a relation
+	/** K1 (docs/design/DECISIONS.md round six, issue #189): the import loop resolves a relation
 	 * label the model proposed against the vocabulary the world already has, and the last rung
 	 * of that resolver is semantic. Same embedder as the matcher's, so one job pays for one
 	 * text once whichever of the two asked for it. */

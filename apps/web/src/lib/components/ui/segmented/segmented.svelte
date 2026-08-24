@@ -9,7 +9,7 @@
 
 <script lang="ts">
 	/**
-	 * Decision O4 = B (docs/ux/DECISIONS.md, "Round ten"), issue #286: a binary or
+	 * Decision O4 = B (docs/design/DECISIONS.md, "Round ten"), issue #286: a binary or
 	 * ternary state gets a segmented control, and this is it. The other two shapes of
 	 * that decision are `ui/select` (a vocabulary the product ships) and `ui/combobox`
 	 * (a list drawn from the GM's own data).

@@ -1,5 +1,5 @@
 /**
- * #47/#51, widened by round seventeen V2 = A (#498, docs/ux/DECISIONS.md): the inbox is
+ * #47/#51, widened by round seventeen V2 = A (#498, docs/design/DECISIONS.md): the inbox is
  * the queue now, not a row of links to it. Every propagation plan and import job that
  * still carries a pending proposal is resolved to its full candidate list here
  * (`propagationGroupsForInbox`/`importGroupsForInbox`), so the page below can render

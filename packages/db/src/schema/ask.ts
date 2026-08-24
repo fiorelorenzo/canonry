@@ -1,4 +1,4 @@
-// Decision O3 (docs/ux/DECISIONS.md, round ten) and issue #290 gave the Loremaster's
+// Decision O3 (docs/design/DECISIONS.md, round ten) and issue #290 gave the Loremaster's
 // composer two exits, "open in Ask" and "keep", with keep as the only one that wrote.
 // Decision T10 (round fifteen) and issue #437 repeal that: every turn is kept
 // automatically as it completes, so a row exists here because a question was asked, not

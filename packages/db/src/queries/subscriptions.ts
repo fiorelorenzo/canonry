@@ -32,7 +32,7 @@ type Queryable = Pick<Db, 'select' | 'insert' | 'update'>;
 // real, finite ceiling in its own copy, not just in the numbers a settings page renders
 // next to it. Credits are priced at the same 1 credit = EUR 0.01 default @canonry/ai's
 // usage.ts uses (DEFAULT_CREDITS_PER_EUR); the two paid tiers' numbers match the ones
-// already shown in F2's mock (docs/ux/DECISIONS.md; drawn mock in git history at c84c8f8) (2,400 / 5,000 credits, 180 / 600
+// already shown in F2's mock (docs/design/DECISIONS.md; drawn mock in git history at c84c8f8) (2,400 / 5,000 credits, 180 / 600
 // warm budget) so the settings page this file feeds does not tell a different story than
 // the decision that shaped it. The free plan reuses billing.ts's own constants rather
 // than restating them, so the two can never drift apart.
