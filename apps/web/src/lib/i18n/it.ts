@@ -1102,6 +1102,10 @@ export const it: Messages = {
 				const form = pluralRules('it').select(count);
 				return `${count} ${form === 'one' ? 'relazione in attesa' : 'relazioni in attesa'} di questo`;
 			},
+			unblocks: (count) => {
+				const form = pluralRules('it').select(count);
+				return `sblocca ${count} ${form === 'one' ? 'relazione' : 'relazioni'}`;
+			},
 			cardinalityLabel: (cardinality) => {
 				const labels: Record<string, string> = {
 					one_to_one: 'uno a uno',

@@ -930,6 +930,46 @@ export interface ImportJobDetail {
 	candidates: ProposalCandidate[];
 }
 
+/** Issue #638: the vocabulary questions of one import, ordered by how many relations each
+ * one unblocks, and nothing else moved.
+ *
+ * A first import of the OneNote notebook asks 130 of these, and they are not
+ * interchangeable: three of them carry 36 of the 193 relations waiting on an answer, and
+ * 102 carry one each. Nothing ordered them, so the queue read them by `created_at`, which
+ * is the order the model happened to emit them in, and the question worth 19 relations sat
+ * wherever in the hundred that fell.
+ *
+ * This permutes the vocabulary rows among the positions they already occupy rather than
+ * sorting the whole queue: every `create`, `update` and `relation` candidate stays exactly
+ * where `created_at` put it, and the nth vocabulary question in the list becomes the nth
+ * most valuable one. Sorting the queue outright would have moved 318 entity proposals to
+ * make a point about 130 vocabulary ones, and D4's "one queue with type filters" is what a
+ * GM navigates by; the filter chip for `relation_type` is what gathers these when the GM
+ * wants only them.
+ *
+ * Presentation only, per guardrails 1 and 3: same rows, same count, nothing hidden and no
+ * question answered on the GM's behalf. `rank` carries the count
+ * (`foldRelationIntoPendingRelationTypeProposal`), and `created_at` breaks a tie so two
+ * questions of equal weight keep the order the run produced them in. */
+export function orderVocabularyQuestions(rows: ProposalRow[]): ProposalRow[] {
+	const slots: number[] = [];
+	const questions: ProposalRow[] = [];
+	for (let i = 0; i < rows.length; i++) {
+		const row = rows[i]!;
+		if (!isRelationTypeProposalKind(row.kind)) continue;
+		slots.push(i);
+		questions.push(row);
+	}
+	if (questions.length < 2) return rows;
+	questions.sort(
+		(a, b) =>
+			b.rank - a.rank || a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : 1)
+	);
+	const ordered = [...rows];
+	for (let i = 0; i < slots.length; i++) ordered[slots[i]!] = questions[i]!;
+	return ordered;
+}
+
 export async function importJobDetailFor(
 	db: Db,
 	universeId: string,
@@ -947,7 +987,7 @@ export async function importJobDetailFor(
 
 	const candidates = await resolveCandidates(
 		db,
-		rows.map((r) => r.proposal)
+		orderVocabularyQuestions(rows.map((r) => r.proposal))
 	);
 	return { job, candidates };
 }

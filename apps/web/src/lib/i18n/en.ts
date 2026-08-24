@@ -1063,6 +1063,7 @@ export const en: Messages = {
 				`Creates "${label}" / "${inverseLabel}", ${cardinality}`,
 			newAdmits: (pairs) => `Would admit ${pairs}.`,
 			waitingCount: (count) => `${count} relation${count === 1 ? '' : 's'} waiting on this`,
+			unblocks: (count) => `unblocks ${count} relation${count === 1 ? '' : 's'}`,
 			cardinalityLabel: (cardinality) => {
 				const labels: Record<string, string> = {
 					one_to_one: 'one to one',

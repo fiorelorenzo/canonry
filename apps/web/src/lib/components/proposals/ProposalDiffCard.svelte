@@ -203,6 +203,15 @@
 						{t.diffCard.entityTypeLabel(candidate.targetType)}
 					</Badge>
 				{/if}
+				{#if candidate.relationVocab && candidate.relationVocab.relations.length > 0}
+					<!-- Issue #638: 102 of a first import's 130 vocabulary questions unblock one
+					     relation and three of them carry 36, so what a GM needs while triaging is
+					     the number, next to the kind rather than only as the heading over the
+					     waiting list further down the card. -->
+					<Badge variant="accent" class="font-mono">
+						{t.relationVocab.unblocks(candidate.relationVocab.relations.length)}
+					</Badge>
+				{/if}
 				{#if candidate.relationLabel && !candidate.relationVocab}
 					<span>{relationLabel}</span>
 				{/if}

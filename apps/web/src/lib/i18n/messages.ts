@@ -1333,6 +1333,12 @@ export interface Messages {
 			 * the type does not exist until this proposal is accepted. */
 			newAdmits: (pairs: string) => string;
 			waitingCount: (count: number) => string;
+			/** Issue #638: what accepting this question buys, on the card's own summary line
+			 * rather than only as the heading over the waiting list further down. A first
+			 * import asks 130 of these and 102 of them unblock exactly one relation, so the
+			 * number is what tells a GM triaging the queue which ones are worth the thought.
+			 * Lower case: it sits in the meta line next to the kind badge, not as a sentence. */
+			unblocks: (count: number) => string;
 			cardinalityLabel: (cardinality: string) => string;
 		};
 		evidence: {
