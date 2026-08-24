@@ -53,6 +53,7 @@ interface NotAdmittedFailureData {
 		proposalId: string;
 		relationTypeId: string;
 		typeLabel: string;
+		typeKey: string;
 		fromType: string;
 		toType: string;
 		addFrom: string | null;
@@ -462,6 +463,23 @@ describe('/w/[universe]/import/[job]/review actions (#628): the accept-time admi
 			.from(proposal)
 			.where(eq(proposal.id, shippedProposalId));
 		expect(row?.outcome).toBe('pending');
+	});
+
+	it("says the shipped type's word in the interface language, not the row's English (#648)", async () => {
+		// Found by rendering the notice in Italian: it read `"member of"` in the middle of
+		// Italian prose, two lines under a card heading that correctly said "membro di". The
+		// shipped ten's words come from the bundle keyed on `relation_type.key` everywhere
+		// else (#196, decision L1), and this sentence is not an exception.
+		const result = await actions.accept({
+			...postEvent({ proposalId: shippedProposalId }),
+			locals: { user: { id: ownerId }, locale: 'it' }
+		} as Parameters<typeof actions.accept>[0]);
+
+		const failure = actionFailure(result);
+		expect(failure.data.error).toContain('membro di');
+		expect(failure.data.error).not.toContain('member of');
+		// The key travels with the refusal, which is what lets the card render the same word.
+		expect(failure.data.notAdmitted.typeKey).toBe('member_of');
 	});
 
 	it('answers widenAndAccept on a shipped type with the same refusal, not a widen (#648)', async () => {

@@ -109,11 +109,20 @@ describe('/w/[universe]/settings/relations: a universe gets its own version of a
 		};
 	}
 
+	/** `load`'s own generated type is a union with `void`, since it may `error()` out, so the
+	 * three fields under test are read through the shape rather than off that union. */
+	async function loadFork(query: string) {
+		const data = await load(loadEvent(query) as Parameters<typeof load>[0]);
+		return data as unknown as {
+			forkTypeId: string | null;
+			forkAddFrom: string[];
+			forkAddTo: string[];
+		};
+	}
+
 	it('carries the refused pair through from the query string, and only real entity types', async () => {
-		const data = await load(
-			loadEvent(
-				`?fork=${shippedTypeId}&addFrom=faction&addTo=character&addTo=dragon`
-			) as Parameters<typeof load>[0]
+		const data = await loadFork(
+			`?fork=${shippedTypeId}&addFrom=faction&addTo=character&addTo=dragon`
 		);
 
 		expect(data.forkTypeId).toBe(shippedTypeId);
@@ -124,7 +133,7 @@ describe('/w/[universe]/settings/relations: a universe gets its own version of a
 	});
 
 	it('reads no fork target when the GM opened the catalogue by itself', async () => {
-		const data = await load(loadEvent('') as Parameters<typeof load>[0]);
+		const data = await loadFork('');
 		expect(data.forkTypeId).toBeNull();
 		expect(data.forkAddFrom).toEqual([]);
 		expect(data.forkAddTo).toEqual([]);

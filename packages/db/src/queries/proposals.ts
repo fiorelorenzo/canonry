@@ -114,7 +114,15 @@ export class RelationTypeNotAdmittedError extends Error {
 		readonly addFrom: EntityType | null,
 		readonly addTo: EntityType | null,
 		/** True for a shipped catalogue row (`universe_id` null), which cannot be widened. */
-		readonly shipped: boolean
+		readonly shipped: boolean,
+		/** Issue #648: the type's `key` (#195) next to its stored label, because that is what
+		 * every other surface renders one of the shipped ten through - their words come from
+		 * the i18n bundle keyed on this (#196, decision L1: a shipped label is interface
+		 * furniture, not the GM's writing). Without it the refusal's own sentence said
+		 * `"member of"` in the middle of Italian prose, on a card whose heading two lines up
+		 * read "membro di". A universe's own type has no bundle entry and falls back to
+		 * `typeLabel`, which is the same chain `relationTypeDisplayLabel` already uses. */
+		readonly typeKey: string = ''
 	) {
 		super(
 			`proposal "${proposalId}" cannot be accepted: relation type "${typeLabel}" does not admit ${fromType} -> ${toType}`
@@ -1109,7 +1117,8 @@ async function acceptProposalTx(db: Db, input: AcceptProposalInput): Promise<Pro
 					toEntity.type,
 					fromAdmitted ? null : fromEntity.type,
 					toAdmitted ? null : toEntity.type,
-					effective.universeId === null
+					effective.universeId === null,
+					effective.key
 				);
 			}
 			await tx.insert(relation).values({

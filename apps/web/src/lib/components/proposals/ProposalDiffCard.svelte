@@ -51,6 +51,9 @@
 	export interface DiffCandidateNotAdmittedView {
 		relationTypeId: string;
 		typeLabel: string;
+		/** Issue #648: `relation_type.key` (#195), so one of the shipped ten reads in the
+		 * interface language here (#196) rather than as the English text the row stores. */
+		typeKey: string;
 		fromType: string;
 		toType: string;
 		addFrom: string | null;
@@ -457,6 +460,8 @@
 
 	{#if candidate.notAdmitted && candidate.outcome === 'pending'}
 		{@const notAdmitted = candidate.notAdmitted}
+		{@const notAdmittedLabel =
+			relationTypeLabel(notAdmitted.typeKey)?.label ?? notAdmitted.typeLabel}
 		<!-- Issue #628: #191's admission check runs against the real endpoint types at
 		     accept time, the first moment they are known - propose time (packages/copilot,
 		     packages/import) only ever guesses. This is that check's refusal, reached from
@@ -465,7 +470,7 @@
 		     resolved before this link can be accepted, not a red error. -->
 		<p class="mb-3 rounded-md border border-line-2 bg-panel-2 px-3 py-2 text-body text-ink-2">
 			{t.diffCard.notAdmittedNotice(
-				notAdmitted.typeLabel,
+				notAdmittedLabel,
 				t.diffCard.entityTypeLabel(notAdmitted.fromType),
 				t.diffCard.entityTypeLabel(notAdmitted.toType)
 			)}
@@ -476,7 +481,7 @@
 				     forking one of the shipped ten is a decision about this universe's own
 				     vocabulary, and it belongs where the GM's other vocabulary decisions are
 				     taken, not as a way past an error in the queue. -->
-				{t.diffCard.notAdmittedShipped(notAdmitted.typeLabel)}
+				{t.diffCard.notAdmittedShipped(notAdmittedLabel)}
 				<InlineLink href={shippedForkHref(notAdmitted)}>
 					{t.diffCard.notAdmittedShippedLink}
 				</InlineLink>
