@@ -431,8 +431,12 @@ export interface PreFilterNarrowing {
  *
  * **The window does not need to be wider, it needs to be right.** The candidates this
  * ordering decides are exactly the ones sharing no token with the subject (#641), so the
- * ordering that would put the translation in the first 20 is embedding distance, which is
- * already in Qdrant. That is issue #679, and it is a change to which 20, not to how many.
+ * ordering that would put the translation in the first 20 is embedding distance. That is
+ * issue #679, and it is a change to which 20, not to how many. Measured since, as a fourth
+ * arm of `packages/bench`'s `pool-ordering`: it recovers both translated names at every
+ * size, adds no false merge, and holds the weighted cost at its 29-entity value all the way
+ * to 1009 of one type. It also turned out not to be reachable from what is in Qdrant today,
+ * which #679 is where to read about rather than here.
  *
  * What would reopen this: a labelled corpus large enough to price a false merge, or #679
  * landing and making the question moot. The figure that says whether it matters on a real

@@ -472,10 +472,17 @@ export interface MatchCandidatePool {
  *
  * The one place the caps do bite hard is a universe far past them: at 1009 entities of one
  * type, slug never scores six of the nine and trigram proximity none or two depending on
- * which wording the world holds. That is around 4000 entries in a six-type mix, and if it
- * ever needs fixing the ordering to reach for is embedding distance rather than trigram
- * distance, because it is the only one that cannot disagree with the scorer that decides,
- * and the product already keeps those vectors in Qdrant.
+ * which wording the world holds. That is around 4000 entries in a six-type mix. Issue #679
+ * measured the ordering to reach for there, embedding distance, as a fourth arm of the same
+ * harness, and on retention it is decisive: it loses nothing at 29, 209 or 1009 entities of
+ * a type, on either wording, and its weighted cost at 1009 is its cost at 29, so it is the
+ * only ordering that takes the cap out of the answer at all. What it is not is cheap to
+ * ship, and the reason is that the vectors are not the ones this comment used to claim were
+ * already in Qdrant: `indexEntity` embeds an entity's *body* in chunks, under a payload
+ * carrying no entity type; the only caller that schedules it is a human editor save, so an
+ * entity an import created has none; and half the pool during an import job is that job's
+ * own pending creates, which are `proposal` rows and have no vector anywhere. #679 carries
+ * the table and the three decisions that follow from that.
  *
  * Read the retention columns and not the weighted cost when comparing orderings at that
  * size, which is the one trap in the measurement: at 1009 slug's weighted cost is the lowest
