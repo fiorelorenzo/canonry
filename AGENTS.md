@@ -138,6 +138,20 @@ it needs the dev services up. It needs the opposite discipline instead: a leftov
 `DATABASE_URL` or `TEST_DATABASE_URL` outranks those defaults, so clear it rather than trust
 the file.
 
+**And "a leftover exported `DATABASE_URL`" is what an agent does to itself, because its shell
+persists between steps.** The obvious way to set a demo database up is
+`export DATABASE_URL=...canonry_w<issue>_demo` followed by `migrate` and `seed`, and that
+export then outranks `TEST_DB_SUFFIX` in every command run afterwards in the same session.
+On 2026-08-24 that pointed `TEST_DB_SUFFIX=w725 pnpm --filter web test` at the demo database
+instead of `canonry_test_w725`: the global setup never dropped it, so 288 fixture proposals
+and 66 test-created universes shared one database, three tests in `canon-save.test.ts` failed
+on counts, and the same file passed 17/17 when run alone. The failure looks exactly like the
+fork-pool race two paragraphs up and is not it. So set it inline per command
+(`DATABASE_URL=... pnpm --filter @canonry/db migrate`) rather than exporting it, and if a test
+failure appears in a file your change does not touch, check `env | grep DATABASE_URL` before
+believing anything else. The tell that it already happened is a demo database that has grown
+universes nobody seeded.
+
 **Two ways to drive the Loremaster with no gateway credential, and they cover different
 things.** `COPILOT_DEV_MOCK_MODEL=1` swaps every `modelFactory` call in `apps/web` for a
 `MockLanguageModelV4`, which is the one to reach for when what you want is a click-through:
