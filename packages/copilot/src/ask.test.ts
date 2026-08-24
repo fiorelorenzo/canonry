@@ -42,6 +42,7 @@ import type {
 	AskContext,
 	AskDetailLevel,
 	AskHistoryTurn,
+	AskProposalEvent,
 	AskSource,
 	OwnCanonSource
 } from './ask.js';
@@ -292,6 +293,93 @@ function twoCreatesWithRetriesModel(): LanguageModel {
 				warnings: []
 			};
 		}
+	}) as unknown as LanguageModel;
+}
+
+/** The nested `generateObject` result `entryPropose`'s drafting call needs in order to
+ * write a real proposal - the same shape `twoCreatesWithRetriesModel` returns on its
+ * successful attempts, named once because two builders below want it. */
+function validDraft(name: string) {
+	return {
+		content: [
+			{
+				type: 'text' as const,
+				text: JSON.stringify({
+					type: 'character',
+					name,
+					aliases: [],
+					body: `${name} keeps to the harbour and says little.`,
+					summary: `A card for ${name} drafted from the GM's instruction.`,
+					usedSources: []
+				})
+			}
+		],
+		finishReason: { unified: 'stop' as const, raw: undefined },
+		usage: usage(60, 20),
+		warnings: []
+	};
+}
+
+/** issue #678: what truncation looks like on the streaming path - some answer text, one
+ * well-formed `entry_propose` call, and `finishReason: 'length'`, all in a single step.
+ *
+ * Measured against `ai@7.0.77` before this issue was fixed: zero tool executions, one
+ * step, and no error raised at all. `ai@7.0.70` added
+ * `isToolExecutionAllowedFinishReason` and gated `executeToolsFromStream`'s dispatch
+ * behind it, so a step finishing `length` has none of its client tools executed; and
+ * `streamText` starts another step only once every client tool call of the last one came
+ * back answered, so the loop then stops dead rather than dying on
+ * `MissingToolResultsError` the way the import loop's `generateText` does (#673/#677).
+ * The turn just ends: an answer that breaks off mid-sentence, nothing proposed, nothing
+ * said about either.
+ *
+ * `withTruncatedCall` adds a second call cut off mid-JSON, which is the half that is
+ * genuinely lost. Note which of the two is the unanswered one: the SDK marks the
+ * malformed call `invalid` and answers it itself with a `tool-error`, so it is the
+ * *whole* call beside it that nothing answers. */
+function truncatedToolCallModel(input: {
+	text: string;
+	name: string;
+	withTruncatedCall?: boolean;
+}): LanguageModel {
+	return new MockLanguageModelV4({
+		provider: 'test',
+		modelId: 'test-premium',
+		doStream: async () => ({
+			stream: new ReadableStream({
+				start(controller) {
+					controller.enqueue({ type: 'stream-start', warnings: [] });
+					controller.enqueue({ type: 'text-start', id: '1' });
+					controller.enqueue({ type: 'text-delta', id: '1', delta: input.text });
+					controller.enqueue({ type: 'text-end', id: '1' });
+					controller.enqueue({
+						type: 'tool-call',
+						toolCallId: 'whole',
+						toolName: 'entry_propose',
+						input: JSON.stringify({
+							name: input.name,
+							instruction: `Make a card for ${input.name}.`
+						})
+					});
+					if (input.withTruncatedCall) {
+						// Cut off before the closing brace, exactly where an output limit leaves it.
+						controller.enqueue({
+							type: 'tool-call',
+							toolCallId: 'cut',
+							toolName: 'entry_propose',
+							input: '{"name":"The Lantern Quarter","instruc'
+						});
+					}
+					controller.enqueue({
+						type: 'finish',
+						finishReason: { unified: 'length', raw: undefined },
+						usage: usage(80, 20)
+					});
+					controller.close();
+				}
+			})
+		}),
+		doGenerate: async () => validDraft(input.name)
 	}) as unknown as LanguageModel;
 }
 
@@ -890,6 +978,87 @@ describe('runAsk (issues #53/#60, SPEC.md §5/§7)', () => {
 		// cap exists to avoid is the loop stopping on step 4 (a tool-call step) with
 		// proposals written but nothing ever said about them.
 		expect(result.answer).toBe('Proposed a blacksmith and a herbalist, both pending review.');
+		// issue #678: an ordinary turn claims no loss. Guardrail 7 cuts both ways, and this
+		// is the direction the settlement below must not break: five steps, two retries and
+		// a malformed nothing, so there is nothing to report and `loss` says so.
+		expect(result.loss).toBeNull();
+	});
+
+	it('issue #678: a step cut off at a tool-call boundary still proposes what it had already written whole, and the turn says it was cut off', async () => {
+		const { owner, universe } = await fixture();
+		const proposalEvents: AskProposalEvent[] = [];
+		const tokens: string[] = [];
+
+		const result = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Add an entry for the Harbourmaster.',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(
+				truncatedToolCallModel({
+					text: 'The Harbourmaster keeps the tide tables and',
+					name: 'Harbourmaster'
+				})
+			),
+			gateway: IDENTITY_GATEWAY,
+			onProposal: (p) => proposalEvents.push(p),
+			onToken: (delta) => tokens.push(delta)
+		});
+
+		// #212's principle on this surface: a truncated turn costs the GM what was cut off,
+		// never the proposal that was already whole. On `ai@7.0.77` without the settlement
+		// in `ask.ts` this is 0.
+		expect(result.proposals).toHaveLength(1);
+		expect(result.proposals[0]!.entityName).toBe('Harbourmaster');
+		// And it reaches the client the moment it is written rather than only in the return
+		// value, which is the guarantee `onProposal` exists for (#256).
+		expect(proposalEvents).toHaveLength(1);
+		// A real row, not just an event: the drafting call ran and wrote a pending proposal.
+		const rows = await db
+			.select()
+			.from(proposal)
+			.where(eq(proposal.universeId, universe.id));
+		expect(rows.filter((row) => row.trigger === 'ask')).toHaveLength(1);
+		// The text that did arrive is still the answer, streamed as it came.
+		expect(result.answer).toBe('The Harbourmaster keeps the tide tables and');
+		expect(tokens.join('')).toBe(result.answer);
+		// Guardrail 3: the turn names what it could not finish instead of reading as a
+		// complete answer that happened to stop there. Nothing was lost, so nothing is
+		// claimed lost.
+		expect(result.loss).toEqual({ truncated: true, lostProposals: 0 });
+	});
+
+	it('issue #678: the call cut off mid-JSON is reported lost, and the whole one beside it in the same step still lands', async () => {
+		const { owner, universe } = await fixture();
+
+		const result = await runAsk({
+			db,
+			userId: owner.id,
+			universeId: universe.id,
+			question: 'Add entries for the Harbourmaster and the Lantern Quarter.',
+			detailLevel: 'normal',
+			locale: 'en',
+			vectorClient,
+			embedder: hashingEmbedder,
+			modelFactory: modelFactoryFor(
+				truncatedToolCallModel({
+					text: 'The Harbourmaster keeps the tide tables, and the Lantern Quarter',
+					name: 'Harbourmaster',
+					withTruncatedCall: true
+				})
+			),
+			gateway: IDENTITY_GATEWAY
+		});
+
+		expect(result.proposals).toHaveLength(1);
+		expect(result.proposals[0]!.entityName).toBe('Harbourmaster');
+		// The malformed one is the loss, and it is counted rather than inferred from the
+		// difference between two numbers a GM never sees.
+		expect(result.loss).toEqual({ truncated: true, lostProposals: 1 });
 	});
 
 	it('issue #346: a broad question that shares only function words with the canon cites nothing, where a targeted question still cites the entry', async () => {
