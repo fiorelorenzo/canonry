@@ -35,7 +35,32 @@
  *          the page (popover, dialog, sheet, dropdown, the Loremaster dock).
  */
 
-@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+/* #727: the `dark:` variant carries both of the two conditions dark can arrive by, in
+ * the same order and the same shape as the token block further down (@layer theme).
+ * It used to name only the attribute, so on the "Match system" path - no attribute at
+ * all, dark palette from `prefers-color-scheme` - every `dark:` utility in the app was
+ * inert while the tokens around it were dark. That is the default path, the one a GM
+ * who never opened Settings is on, and it rendered form fields with no fill while a GM
+ * who had picked Dark got the filled ones. Nobody chose that.
+ *
+ * The two halves have to be written together or they drift apart again, which is the
+ * whole of #727: #137 added the media path to the tokens and this line was not
+ * updated. Anything keyed off dark belongs in both branches or in neither. `:where()`
+ * on both, so the variant adds no specificity of its own in either branch and a
+ * `dark:` utility keeps beating its unprefixed sibling on source order alone, exactly
+ * as the attribute branch already did. The media branch's selector mirrors the token
+ * block's `html:not([data-theme])` rather than inventing a second spelling. */
+@custom-variant dark {
+	&:where([data-theme='dark'], [data-theme='dark'] *) {
+		@slot;
+	}
+
+	@media (prefers-color-scheme: dark) {
+		&:where(html:not([data-theme]), html:not([data-theme]) *) {
+			@slot;
+		}
+	}
+}
 
 /* V10 (#496): Literata, self-hosted and variable, replaces the system-dependent serif
  * stack that used to resolve to Palatino on a Mac, Georgia on Windows, DejaVu on Linux and
