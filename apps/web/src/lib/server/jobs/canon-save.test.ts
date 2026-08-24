@@ -1338,8 +1338,10 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			expect(backfill?.status).toBe('done');
 			expect(backfill?.entitiesTotal).toBe(4);
 			expect(backfill?.entitiesMissing).toBe(0);
-			// Accumulated across the passes. Three, not four: the entry that already had its point
-			// was never missing, so nothing was scheduled for it.
+			// Three, not four: the entry that already had its point was never missing, so nothing
+			// was scheduled for it. Exact rather than "at least three" because the fan-out skips an
+			// entity that already has an in-flight row, so a verification pass cannot schedule the
+			// same entry twice however long the queue takes to drain (issue #737).
 			expect(backfill?.entitiesScheduled).toBe(3);
 
 			const after = await backfillJobRowsFor(world.id);
@@ -1477,6 +1479,7 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 				);
 			expect(rowsCarryingTheStatus.map((row) => row.entityId)).toEqual([skipped.id]);
 
+			const before = await backfillJobRowsFor(world.id);
 			await queue.sweepIndexBackfills();
 			await queue.waitForBackfillIdle(world.id, 30_000);
 
@@ -1486,6 +1489,16 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			expect(backfill?.entitiesTotal).toBe(3);
 			expect(backfill?.entitiesMissing).toBe(0);
 			expect(backfill?.entitiesScheduled).toBe(3);
+
+			// And which three, which is the claim the count only stands in for: a count can be
+			// right for the wrong reason, and this one was wrong under load until #737 stopped the
+			// fan-out re-scheduling an entry whose row was already claimed.
+			const fannedOut = (await backfillJobRowsFor(world.id)).filter(
+				(row) => !before.some((old) => old.id === row.id)
+			);
+			expect(new Set(fannedOut.map((row) => row.entityId))).toEqual(
+				new Set([neverScheduled.id, deadLettered.id, skipped.id])
+			);
 
 			for (const entry of [neverScheduled, deadLettered, skipped]) {
 				const done = await waitForEntityRow(

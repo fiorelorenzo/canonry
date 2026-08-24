@@ -128,7 +128,12 @@ advisory lock the files take in `beforeAll` and release in `afterAll`
 (`lockImageModelConfigForFile` in `packages/media/src/test-db.ts`, and the same shape already
 existed for `model_config` in the audio tests), which works because each file's `Db` holds a
 single connection for its whole run. A new test file that writes a table another file already
-owns takes the same lock or inherits the same flake.
+owns takes the same lock or inherits the same flake. The rule the four of these have earned,
+since #658, #682, #691 and #737 were all found by a flake rather than by looking: an assertion
+that counts rows the suite shares is a race, so scope it to something the test owns or lock it,
+and prefer one that says which rows it found over one that says how many. #737 is the reminder
+that owning the rows is not sufficient on its own, because its count was correctly scoped to
+its own universe and still wrong, the product having scheduled those rows twice.
 
 **`.env` is the compose stack's environment, not the test suite's.** Its `DATABASE_URL` and
 `QDRANT_URL` name the compose services (`postgres:5432`, `qdrant:6333`), which is correct
