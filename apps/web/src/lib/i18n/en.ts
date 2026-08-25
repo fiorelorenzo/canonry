@@ -2330,6 +2330,8 @@ export const en: Messages = {
 				image: 'Image (text purpose; see Image models below for the generator itself)'
 			},
 			saved: 'Saved. Takes effect immediately.',
+			indexingIntroPre:
+				'Changing the embedding purpose replaces the collection the whole product reads, and the worker notices that by itself and owes every universe a catch-up. How often those give up, and how much of it comes back without anybody asking, is on',
 			imageHeading: 'Image models',
 			imageIntro1:
 				'The active model per feature lives here, not in code, and a change here takes effect on the very next "Generate image" request - no deploy, no restart.',
@@ -2473,6 +2475,73 @@ export const en: Messages = {
 				invalidCredits: 'Enter a non-negative number, up to 4 decimal places.',
 				unknownOperation: (operation) => `"${operation}" is not a known operation.`
 			}
+		},
+
+		indexing: {
+			browserTitle: 'Indexing catch-ups, Canonry admin',
+			title: 'Indexing catch-ups',
+			intro1:
+				'A universe whose entries have no point in its own collection is owed a catch-up: the worker enumerates what is missing and schedules an index-only job for each entry. Three things ask for one - entries saved while <code class="text-label">model_config</code> had no active <b class="text-ink">embedding</b> row, a swap of that row, and a catch-up that gave up and is being offered another go.',
+			intro2:
+				"A catch-up that cannot shrink the shortfall gives up after a few passes, and the sweep then offers that universe another go on an interval that doubles each time, from an hour up to a week, so nothing here waits on somebody pressing a button. A retry only helps once whatever broke the entry is fixed: until then it gives up again, later each time. What this page shows is what the mechanism recorded about itself, never that a universe's index matches its canon.",
+			noneYet:
+				'No catch-up has been recorded yet. A universe lands here the first time the worker finds entries of it with no index point, which on a deployment whose embedding model has always been configured may be never.',
+			now: {
+				heading: 'Right now',
+				universesGivenUp: 'Universes that gave up',
+				entriesMissing: 'Entries with no index point',
+				entriesMissingNote:
+					'That figure is what each of those universes recorded at the moment it gave up, not a fresh look at the collection. It moves when a catch-up next runs, not when an entry is indexed.',
+				inFlight: 'Catch-ups queued or running',
+				universesEver: 'Universes ever owed one'
+			},
+			frequency: {
+				heading: 'How often this happens',
+				intro:
+					'The question this page exists for. A window counts a catch-up where it ended and a retry where it was offered, so the last column is the share of the trouble that resolved itself.',
+				window: 'Window',
+				windowLabel: (days) => `Last ${days} days`,
+				allTime: 'All time',
+				deadLetters: 'Gave up',
+				universesAffected: 'Universes affected',
+				retries: 'Retries offered',
+				recoveries: 'Recovered by itself'
+			},
+			byUniverse: {
+				heading: 'By universe',
+				intro:
+					'One row per universe that has ever been owed a catch-up, with the state of its newest one. A universe that gave up sorts to the top.',
+				universe: 'Universe',
+				state: 'Latest state',
+				lastActivity: 'Last activity',
+				shortfall: 'Shortfall',
+				passes: 'Passes',
+				deadLetters: 'Gave up',
+				inEpisode: 'Since last caught up',
+				recoveries: 'Recovered'
+			},
+			attempts: {
+				heading: 'Every catch-up',
+				intro: (shown, total) => `The ${shown} newest of ${total} recorded, newest first.`,
+				reason: 'Why',
+				requested: 'Requested',
+				finished: 'Finished',
+				entries: 'Entries: total / missing / scheduled',
+				lastError: 'Last error'
+			},
+			statusLabel: {
+				pending: 'Queued',
+				claimed: 'Running',
+				done: 'Caught up',
+				failed: 'Gave up'
+			},
+			reasonLabel: {
+				noEmbeddingModel: 'No embedding model at the time',
+				retryAfterDeadLetter: 'Another go after giving up',
+				embeddingModelChanged: 'Embedding model changed'
+			},
+			shortfallValue: (missing, total) => `${missing} of ${total}`,
+			unknownValue: 'not looked at yet'
 		}
 	},
 

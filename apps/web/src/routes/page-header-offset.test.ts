@@ -109,6 +109,7 @@ const SHELL_ROUTES = [
 	'./w/[universe]/works/[work]/+page.svelte',
 	'./w/[universe]/works/[work]/[node]/+page.svelte',
 	'./w/[universe]/table/+page.svelte',
+	'./admin/indexing/+page.svelte',
 	'./admin/metrics/+page.svelte',
 	'./admin/models/+page.svelte',
 	'./admin/pricing/+page.svelte',

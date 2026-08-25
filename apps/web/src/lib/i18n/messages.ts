@@ -2639,6 +2639,12 @@ export interface Messages {
 				image: string;
 			};
 			saved: string;
+			/** #768: the third intro paragraph, ending right before the real
+			 * `<a href={resolve('/admin/indexing')}>` link, same shape as `imageIntro2Pre`
+			 * below. It sits under the embedding paragraph because a swap of that row is one of
+			 * the three things that enqueues a catch-up, so this is where an admin who just
+			 * changed it should be told where the consequence shows up. */
+			indexingIntroPre: string;
 			imageHeading: string;
 			imageIntro1: string;
 			/** Ends right before the real `<a href={resolve('/admin/pricing')}>` link
@@ -2775,6 +2781,88 @@ export interface Messages {
 				invalidCredits: string;
 				unknownOperation: (operation: string) => string;
 			};
+		};
+
+		/**
+		 * #768: `/admin/indexing`, the staff view of the index catch-up mechanism across every
+		 * universe. The copy carries two claims that are the point of the page rather than
+		 * decoration, so neither may be dropped in a rewording: that recovery happens without
+		 * anybody pressing anything (#765), and that a retry only helps once whatever broke the
+		 * entry is fixed, otherwise it gives up again on a longer cooldown (#761's third
+		 * question). Guardrail 7 applies as it does everywhere: this reports what the mechanism
+		 * recorded, and never that a universe's index matches its canon.
+		 */
+		indexing: {
+			browserTitle: string;
+			title: string;
+			/** `{@html}`, static hand-written copy with `<code>` spans, same treatment as the
+			 * models page's two intro paragraphs. */
+			intro1: string;
+			intro2: string;
+			/** I8's `cold` empty state: nothing has ever been recorded, and there is nothing for
+			 * an operator to do about that, so no action goes beside it. */
+			noneYet: string;
+			now: {
+				heading: string;
+				universesGivenUp: string;
+				entriesMissing: string;
+				/** Why that figure is a last observation and not a live count. */
+				entriesMissingNote: string;
+				inFlight: string;
+				universesEver: string;
+			};
+			frequency: {
+				heading: string;
+				intro: string;
+				window: string;
+				windowLabel: (days: number) => string;
+				allTime: string;
+				deadLetters: string;
+				universesAffected: string;
+				retries: string;
+				recoveries: string;
+			};
+			byUniverse: {
+				heading: string;
+				intro: string;
+				universe: string;
+				state: string;
+				lastActivity: string;
+				shortfall: string;
+				passes: string;
+				deadLetters: string;
+				/** Dead letters since the last completed catch-up, which is what the cooldown is a
+				 * function of. */
+				inEpisode: string;
+				recoveries: string;
+			};
+			attempts: {
+				heading: string;
+				intro: (shown: number, total: number) => string;
+				reason: string;
+				requested: string;
+				finished: string;
+				/** One column carrying the pass's own three counts (total, missing, scheduled). */
+				entries: string;
+				lastError: string;
+			};
+			statusLabel: {
+				pending: string;
+				claimed: string;
+				done: string;
+				failed: string;
+			};
+			/** `reason` is a text column on purpose (the table's own comment), so a value this
+			 * catalogue does not know is shown as itself rather than as a blank. */
+			reasonLabel: {
+				noEmbeddingModel: string;
+				retryAfterDeadLetter: string;
+				embeddingModelChanged: string;
+			};
+			shortfallValue: (missing: number, total: number) => string;
+			/** A shortfall no pass has observed yet, which is a queued catch-up: `entities_missing`
+			 * is null until one looks. */
+			unknownValue: string;
 		};
 	};
 

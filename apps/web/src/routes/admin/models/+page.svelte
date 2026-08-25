@@ -68,6 +68,10 @@
 		<p class="mt-6 max-w-measure text-body text-ink-2">{@html t.models.textIntro1}</p>
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -- static, hand-written catalogue copy, never user input -->
 		<p class="mt-2 max-w-measure text-body text-ink-2">{@html t.models.textIntro2}</p>
+		<p class="mt-2 max-w-measure text-body text-ink-2">
+			{t.models.indexingIntroPre}
+			<InlineLink href={resolve('/admin/indexing')}>{t.indexing.title}</InlineLink>.
+		</p>
 
 		<TableScroll class="mt-8" label={t.models.textHeading}>
 			<table class="w-full border-collapse text-body">
