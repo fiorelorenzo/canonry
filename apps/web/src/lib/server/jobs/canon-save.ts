@@ -120,8 +120,8 @@ import {
 	completeIndexBackfill,
 	enqueueDueIndexBackfills,
 	enqueueRetriesForDeadLetteredBackfills,
-	entitiesWithIndexJobInFlight,
 	NO_EMBEDDING_MODEL_REASON,
+	observeIndexJobs,
 	recentIndexBackfills,
 	RETRY_AFTER_DEAD_LETTER_REASON,
 	requeueIndexBackfill,
@@ -777,7 +777,7 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 			embeddingModel
 		);
 		const candidates = await entityIndexCandidatesForUniverse(conn, row.universeId);
-		// **Read before the collection, on purpose (issue #764).** These two reads are one
+		// **Read before the collection, on purpose (issues #764, #770).** These two reads are one
 		// observation, and their order is what makes the fan-out below exact rather than likely.
 		// A job that is not in this set has already written whatever point it was going to write
 		// (`upsertPoints` uses `wait: true` and `completeCanonSaveJob` runs after it), so the
@@ -785,8 +785,12 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 		// so this pass must not schedule that entry on the strength of a read it may invalidate.
 		// Taken the other way round, an entity that finished in between is in neither the set nor
 		// the collection, and gets a second job for work already done: that is #764, and it is
-		// what `entitiesWithIndexJobInFlight`'s own comment describes.
-		const inFlight = await entitiesWithIndexJobInFlight(conn, row.universeId);
+		// what `observeIndexJobs`'s own comment describes.
+		//
+		// `observedAt` comes out of the same statement as the set, and the fan-out carries it:
+		// the set answers for a job that was already in the queue, the timestamp answers for one
+		// that joins and leaves it while the collection read below is in flight, which is #770.
+		const observation = await observeIndexJobs(conn, row.universeId);
 		const { missing, indexed, orphanedPoints } = await unindexedEntities(
 			{ vectorClient: qdrant },
 			{
@@ -801,7 +805,7 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 		// `missing` stays the universe's real shortfall, because that is what `entities_missing`
 		// records and what #762's give-up rule measures progress against. What this pass can
 		// usefully *do* is the subset with nothing in flight for it.
-		const schedulable = missing.filter((entityId) => !inFlight.has(entityId));
+		const schedulable = missing.filter((entityId) => !observation.inFlight.has(entityId));
 		const pass = schedulable.slice(0, BACKFILL_MAX_PER_PASS);
 		const jobRows: BackfillIndexJobRow[] = pass.map((entityId, i) => ({
 			entityId,
@@ -816,6 +820,7 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 			row,
 			row.universeId,
 			DEFAULT_LOCALE,
+			observation,
 			jobRows
 		);
 		// The first place a reclaimed pass finds out, and the last thing it does. Returning here
