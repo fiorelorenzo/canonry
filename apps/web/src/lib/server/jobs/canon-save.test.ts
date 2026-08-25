@@ -2427,10 +2427,24 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 		// `lease_expires_at` and not just `lease_holder`: a poller's holder is one `randomUUID()`
 		// for the life of the instance, so an instance reclaiming its own row would keep it
 		// identical.
+		//
+		// **The two lease lengths are load-bearing and this test was flaky without them.** With
+		// both claims at 60s it passed on this box for three runs and failed on CI's first: two
+		// `new Date(Date.now() + 60_000)` inside the same millisecond are the same timestamp, so
+		// the second claim superseded nothing and the fence correctly accepted the first token.
+		// Which is a true limit of the token worth stating rather than hiding: `(holder, expiry)`
+		// is unique per claim only because a real reclaim is separated from the claim it replaces
+		// by at least the lease it waited out, and because `maxConcurrent: 1` stops one poller
+		// running two passes over one row at once. Two claims a millisecond apart, by one holder,
+		// with one lease length, is a shape the claim path cannot produce and this test could.
 		const holder = randomUUID();
 		const first = await claimLike(row.id, 60_000, holder);
-		const second = await claimLike(row.id, 60_000, holder);
+		const second = await claimLike(row.id, 90_000, holder);
 		expect(first.leaseHolder).toBe(second.leaseHolder);
+		expect(
+			second.leaseExpiresAt?.getTime(),
+			'the second claim really did move the expiry, or this asserts nothing'
+		).not.toBe(first.leaseExpiresAt?.getTime());
 		expect(await requeueIndexBackfill(db, first, { message: 'superseded', retryMs: 1000 })).toBe(
 			false
 		);

@@ -109,6 +109,16 @@ export type UniverseIndexBackfillRow = typeof universeIndexBackfill.$inferSelect
  * database's clock rather than a worker's, is what bounds how stale a write may be: no write
  * is ever made from an observation older than one lease.
  *
+ * **What the token relies on, since a test of mine found the edge and CI found the test.** Two
+ * claims of one row by one holder are distinguishable only because their expiries differ, and
+ * two `new Date(now + leaseMs)` inside the same millisecond do not. Nothing in the claim path
+ * can produce that: reclaiming a row means waiting out the lease on it, which is orders of
+ * magnitude longer than a millisecond, and `maxConcurrent: 1` on the backfill poller means one
+ * instance never has two passes over one row in flight to confuse. A hand-written test can
+ * produce it, and did. So the invariant behind the token is "a reclaim is separated from the
+ * claim it replaces by at least one lease", and a change that lets one instance claim the same
+ * row twice in quick succession breaks the fence rather than merely the test.
+ *
  * Nullable on purpose, so that this is total rather than an assertion. A row with no lease
  * satisfies no fence: `lease_holder = null` is NULL rather than true, so a pass holding such
  * a row writes nothing, which is the answer we would want anyway.
