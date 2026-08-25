@@ -27,6 +27,7 @@
 	import { resolve } from '$app/paths';
 	import { messages, type Locale } from '$lib/i18n';
 	import { isDismissKey } from '$lib/keys';
+	import { cn } from '$lib/utils/cn';
 	import type { UniverseSummary } from './types';
 
 	let {
@@ -100,25 +101,30 @@
 				<ul class="flex flex-col">
 					{#each universes as universe (universe.id)}
 						<li class="border-b border-line last:border-b-0">
-							<!-- #720, open: these two paint the same property and specificity decides, not
-							     the order they are written in. `.hover\:bg-panel-2:hover` is (0,2,0) against
-							     `.bg-accent-bg`'s (0,1,0), so hover wins whenever it applies and the row that
-							     says "you are here" loses the thing that says it exactly while the pointer is
-							     on it: `rgb(243, 231, 213)` resting and `rgb(249, 244, 234)` hovered, and under
-							     the pointer this row is identical on every computed property to a hovered row
-							     that is not current. Routing it through `cn` does not help, which is the
-							     difference from #717: tailwind-merge deliberately keeps a variant and a bare
-							     utility apart, so both survive the merge and the browser still picks.
-							     Whether the tint should hold under the pointer or the current universe should
-							     be marked with something hover cannot reach is a taste call, which is why #720
-							     is open rather than fixed. The dot below is not already the answer: it encodes
-							     `kind`, so it is byte-identical on this row and on every other homebrew one.
-							     `routes/class-directive-conflict.test.ts` holds this as the tree's only
-							     instance of the shape; resolving #720 either way edits that inventory. -->
+							<!-- #720, A1: these two paint the same property and specificity decides it, not the
+							     order they are written in. `.hover\:bg-panel-2:hover` is (0,2,0) against
+							     `.bg-accent-bg`'s (0,1,0), so while both could sit on one row the hover rule won
+							     whenever it applied, and the row that says "you are here" lost the thing that
+							     says it exactly while the pointer was on it: `rgb(243, 231, 213)` resting and
+							     `rgb(249, 244, 234)` hovered, identical under the pointer on every computed
+							     property to a hovered row that is not current. So they are exclusive branches of
+							     one ternary now. The current row wears `bg-accent-bg` in every pointer state and
+							     never carries `hover:bg-panel-2` at all, every other row keeps its hover
+							     unchanged, and hover says nothing on the current row because `cursor: pointer` is
+							     already there and the reader is already on it. Exclusivity is the mechanism and
+							     `cn` is not, which is the difference from #717: tailwind-merge deliberately keeps
+							     a variant and a bare utility apart, so `cn('bg-panel-2', 'hover:bg-accent-bg')`
+							     returns both and the browser still picks. The dot below was not already the
+							     answer either: it encodes `kind`, so it is byte-identical on this row and on
+							     every other homebrew one.
+							     `routes/class-directive-conflict.test.ts` holds the inventory of this shape, and
+							     with this row exclusive it is empty. -->
 							<a
 								href={resolve(`/w/${universe.slug}`)}
-								class="flex items-start gap-2 px-3 py-2 hover:bg-panel-2"
-								class:bg-accent-bg={universe.id === current?.id}
+								class={cn(
+									'flex items-start gap-2 px-3 py-2',
+									universe.id === current?.id ? 'bg-accent-bg' : 'hover:bg-panel-2'
+								)}
 								aria-current={universe.id === current?.id ? 'true' : undefined}
 								onclick={close}
 							>

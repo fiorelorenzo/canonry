@@ -31,12 +31,12 @@
  * utilities for that reason.
  *
  * Decidable is not the same as harmless, which #720 is the proof of and which this file
- * claimed the opposite of until it was written. `UniverseSwitcher.svelte`'s row spells
+ * claimed the opposite of until it was written. `UniverseSwitcher.svelte`'s row spelled
  * `hover:bg-panel-2` in the attribute and `class:bg-accent-bg={isCurrent}` beside it:
- * `.hover\:bg-panel-2:hover` is (0,2,0) against `.bg-accent-bg`'s (0,1,0), so hover wins
- * whenever it applies and the row that says "you are here" loses the thing that says it
- * exactly while the pointer is on it. Measured `rgb(243, 231, 213)` resting and
- * `rgb(249, 244, 234)` hovered, and with the pointer on it the row is identical on every
+ * `.hover\:bg-panel-2:hover` is (0,2,0) against `.bg-accent-bg`'s (0,1,0), so hover won
+ * whenever it applied and the row that says "you are here" lost the thing that says it
+ * exactly while the pointer was on it. Measured `rgb(243, 231, 213)` resting and
+ * `rgb(249, 244, 234)` hovered, and with the pointer on it the row was identical on every
  * computed property to a hovered row that is not current.
  *
  * So there is a second rule, and the second half of this file holds it: **a marker that is
@@ -50,9 +50,10 @@
  * *conditional* bare marker loses information when a variant beats it, and exactly one
  * element in the tree is that shape.
  *
- * Which way #720 should be resolved is a taste call and not this file's business, so the
- * inventory is an expected set rather than a prohibition: a new instance of the shape
- * fails, and so does resolving this one, which is the PR that should be editing the set.
+ * #720 resolved that one as A1: the marker and the variant are exclusive branches of one
+ * ternary, so the tint holds under the pointer and `hover:bg-panel-2` is never on the current
+ * row at all. The inventory below is therefore empty, and it stays an expected set rather
+ * than a bare assertion of zero so that a filed instance can be carried with its issue.
  *
  * ## Three checks, because one of them is #653's blind spot
  *
@@ -321,8 +322,8 @@ interface Erasure {
  *
  * The co-possibility test is the load-bearing part rather than a refinement: two pieces that
  * are the branches of one ternary never meet, so `cn('px-3', isCurrent ? 'bg-accent-bg' :
- * 'hover:bg-panel-2')` is not this defect. That happens to be one of the ways #720 could be
- * resolved, and a detector without the test would fail the PR that fixed it.
+ * 'hover:bg-panel-2')` is not this defect. That is how #720 was resolved, and a detector
+ * without the test would have failed the PR that fixed it.
  */
 function erasures(source: string, file: string): Erasure[] {
 	const found: Erasure[] = [];
@@ -370,14 +371,14 @@ function erasures(source: string, file: string): Erasure[] {
 const ALL_ERASURES = ALL.flatMap((file) => erasures(markup(file), file));
 
 /**
- * The inventory as it stands, and the only entry is #720's. It is spelled out rather than
- * counted so that the failure names the element, and it carries the issue that owns it so a
- * reader knows the entry is a filed decision rather than an oversight. Resolving #720 either
- * way empties this list, and the PR that does it edits this constant.
+ * The inventory, and it is empty: #720 was resolved as A1, so `UniverseSwitcher.svelte`'s row
+ * holds `bg-accent-bg` and `hover:bg-panel-2` in the two branches of one ternary and they are
+ * never on the element together. An entry is spelled out rather than counted so that a
+ * failure names the element, and it carries the issue that owns it so a reader can tell a
+ * filed decision from an oversight. A new instance of the shape, or this one being
+ * reintroduced, fails here.
  */
-const KNOWN_ERASURES = [
-	'lib/components/shell/UniverseSwitcher.svelte bg: bg-accent-bg erased by hover:bg-panel-2 (#720)'
-];
+const KNOWN_ERASURES: string[] = [];
 
 /** The shape the detector must catch, and the near misses it must not. */
 const ERASING_SHAPES = [
@@ -397,7 +398,7 @@ const NON_ERASING_SHAPES = [
 	// A marker with no variant of its property beside it.
 	'<a class="px-3 hover:text-ink" class:bg-accent-bg={active}>x</a>',
 	// Exclusive branches: the hover utility is never on the element that carries the marker,
-	// which is one of the shapes #720 could be resolved into.
+	// which is the shape #720 was resolved into.
 	"<a class={cn('px-3', isCurrent ? 'bg-accent-bg' : 'hover:bg-panel-2')}>x</a>"
 ];
 
@@ -552,14 +553,15 @@ describe('a bare state marker a variant can erase is inventoried, not silent (#7
 		expect([...'border-accent'.matchAll(varied('border'))]).toHaveLength(0);
 	});
 
-	it('holds the inventory to the one entry #720 owns', () => {
+	it('holds the inventory to the entries an issue owns, and there are none', () => {
 		const found = ALL_ERASURES.map(
 			(erasure) =>
 				`${erasure.file} ${erasure.property}: ${erasure.marker.join(',')} erased by ${erasure.erasedBy.join(',')}`
 		);
-		// Not a prohibition: which way #720 goes is a taste call. A second instance appearing,
-		// or this one being resolved, both belong in a PR that edits KNOWN_ERASURES.
-		expect(found).toEqual(KNOWN_ERASURES.map((entry) => entry.replace(' (#720)', '')));
+		// An expected set rather than an assertion of zero, so a shape somebody decides to keep
+		// can be carried here with the issue that decided it. Empty since #720 was fixed: putting
+		// that row's marker and its hover back on one element fails this.
+		expect(found).toEqual(KNOWN_ERASURES.map((entry) => entry.replace(/ \(#\d+\)$/, '')));
 	});
 });
 

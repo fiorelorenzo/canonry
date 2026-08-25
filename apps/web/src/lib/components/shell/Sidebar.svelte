@@ -49,9 +49,10 @@
 	 * is inside the Entries section without being on the Entries page, and nothing here
 	 * claims otherwise. Marking the section root on its descendants would need the paint to
 	 * follow, since a programmatic marker with no visual twin is the defect this fixes
-	 * inverted, and what the shell's active affordance looks like is #720's open question.
-	 * Same for the universe home and for five of the six account settings leaves, where no
-	 * nav item matches today either.
+	 * inverted, and what the shell's active affordance looks like is still unanswered: #720
+	 * settled its own row and nothing wider, since A1 keeps the switcher's tint under the
+	 * pointer rather than giving "you are here" a new shape. Same for the universe home and
+	 * for five of the six account settings leaves, where no nav item matches today either.
 	 */
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
