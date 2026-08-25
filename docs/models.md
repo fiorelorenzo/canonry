@@ -344,6 +344,43 @@ times smaller than the 0.01 the same model shows on entity names. Short labels a
 stable here than names are, which is the opposite of what #637 expected, so do not carry the
 names figure across to labels without measuring.
 
+### Changing this row is not free, and it used to read as though it were (issue #773)
+
+Everything above talks about the `embedding` row as a switchable configuration value, the same
+way `cheap` and `premium` are. It is not. `loreCollectionNameForModel`
+(`packages/vector/src/collections.ts`) keys a universe's Qdrant collection on
+`(provider, modelId, universeId)`, deliberately, so that a model change can never read or write
+vectors another model wrote. So changing this row does not re-point a collection: it points the
+entire product at a **different collection**, which does not exist until the next save creates
+it.
+
+What that looks like, measured against the dev Qdrant on 2026-08-25 rather than reasoned about.
+The old collection is left in place beside the new one, is not dropped and is not rewritten; its
+points survive at their original declared width (2560 for `qwen3-embedding-4b`, and Qdrant
+refuses a 1024-wide vector into it with a 400). Nothing throws, because both readers ask
+`collectionExists` first: `searchIndexed` in `@canonry/copilot` returns no indexed sources and
+`unindexedEntities` reports every entry missing. So a universe that was fully indexed a second
+ago now answers nothing, with no error and no log line, and layer 1 of Ask (word overlap over
+the entries' own bodies, which never touches Qdrant) keeps answering, which is what hides it.
+No data is lost: a repair is a re-index and not a restore, and one universe accumulates one
+collection per model it has ever been indexed under, with nothing pruning them.
+
+Since #773 the repair is automatic rather than a thing to remember.
+`enqueueBackfillsForEmbeddingModelChange` runs in the canon-save worker's existing backfill
+sweep, detects the change out of `model_config`'s own history (the active `embedding` row
+against the most recently deactivated one), and enqueues one `universe_index_backfill` row per
+universe that predates the change and has at least one entry. It is detection rather than a
+notification from `/admin/models` because the swap has more than one writer, including `psql`.
+
+Two consequences to hold in mind before changing this row on a real install. It is a fan-out
+over every universe from one save, which is correct (a swap really does invalidate all of them)
+and is paced rather than instant: the backfill poller takes one universe at a time under a
+lease, each pass schedules at most `BACKFILL_MAX_PER_PASS` index jobs staggered by `run_after`,
+and every one of them stays behind a GM's own save. And it is a real re-embedding of every entry
+in the install, so the cost is the whole corpus at the new model's rate, not the delta. Swapping
+back does not avoid it: the old collection is intact but stale by everything written while the
+other model was active, and #773's detection enqueues a catch-up for that direction too.
+
 ## `scene`: bytedance/seedream-4 (issue #258)
 
 `image_feature` has three values and `image_model_config` had two rows, so `scene` was

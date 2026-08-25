@@ -13,7 +13,7 @@
  * the wiring while spending nothing. A test that skipped itself without credentials would
  * assert nothing at all in CI, which is exactly where the regression would land.
  */
-import { closeDb, createDb, priceOf, type Db } from '@canonry/db';
+import { closeDb, createDb, priceOf, sql, type Db } from '@canonry/db';
 import { clearModelCache } from '@canonry/ai';
 import type * as Indexing from '@canonry/indexing';
 import type { GatewayEmbedderDeps } from '@canonry/indexing';
@@ -58,11 +58,24 @@ const DATABASE_URL =
 
 let db: Db;
 
-beforeAll(() => {
-	db = createDb(DATABASE_URL);
-});
+beforeAll(async () => {
+	// The same `model_config` advisory lock `canon-save.test.ts`, `relation-label-embedder.test.ts`
+	// and `params-merge.test.ts` take, and for the same reason as the second of those:
+	// `resolveImportSimilarity` resolves the `embedding` purpose and catches
+	// `ModelNotConfiguredError` into a network-free stand-in that records no
+	// `createGatewayEmbedder` call, so while `canon-save.test.ts` has the shared active row
+	// deactivated for its #709/#773 tests the #309 billing assertion below reads `[]` and fails.
+	// Measured: with the lock removed from this file and the whole suite run, that is the
+	// assertion that failed. `max: 1`, because a session-scoped lock on a pool means nothing.
+	db = createDb(DATABASE_URL, { max: 1 });
+	// 120s rather than vitest's default 10s `hookTimeout`: `canon-save.test.ts` holds this lock
+	// for about 13.5s of its run, and a hook that waits past the timeout fails this whole file
+	// with `Hook timed out in 10000ms` instead of waiting its turn.
+	await db.execute(sql`select pg_advisory_lock(hashtext('model_config'), 0)`);
+}, 120_000);
 
 afterAll(async () => {
+	await db.execute(sql`select pg_advisory_unlock(hashtext('model_config'), 0)`);
 	await closeDb(db);
 });
 

@@ -86,17 +86,32 @@
  * probably changing what a backfill means, which is a bigger decision than it will look like
  * in a diff.
  *
- * **What none of them touches, which is the honest end of this list.** All seven are about the
- * queue side of the observation. The other side is Qdrant, and the pass has no snapshot
- * spanning both: the collection it enumerates is named after the active `embedding` model
- * (`loreCollectionNameForModel`), so changing that row replaces the collection wholesale, and
- * nothing enqueues a backfill for it because `enqueueDueIndexBackfills` fires only on a
- * `no-embedding-model` skip. That is a missed schedule rather than a duplicated one, and it is
- * filed separately rather than folded in here.
+ * **The eighth is not one of those clauses, and saying so is the point of it (#773).** All
+ * seven above are about the queue side of the observation; this one is the Qdrant side, where
+ * the pass has no snapshot at all. The collection a pass enumerates is named after the active
+ * `embedding` model (`loreCollectionNameForModel`), so changing that row replaces the
+ * collection the whole product reads, and neither of the two triggers could see it, because
+ * both fire on evidence a pass left behind and a swap leaves none: every save before it
+ * succeeded and every `index_outcome` says `ok`. So it is a missed schedule rather than a
+ * duplicated one, and the mirror of #709 rather than an instance of it - worse than the state
+ * #709 fixed, because a universe whose index is empty at least looks empty.
+ * `enqueueBackfillsForEmbeddingModelChange` is the third trigger, and it *detects* the change
+ * out of `model_config`'s own history rather than being told about it, because the swap has
+ * more than one writer and one of them is `psql`.
+ *
+ * **What none of them touches, which is the honest end of this list.** Both sides of the
+ * observation are now covered for one entity, and neither is covered for the *set*. A pass
+ * enumerates whatever `entityIndexCandidatesForUniverse` returned, and an entry can stop
+ * existing between that read and the fan-out's insert; the invariant says a pass may write
+ * only what an observation it still owns justifies, and it does not say what a pass owes the
+ * rest of its work list when one row of it has become impossible. Filed separately rather
+ * than folded in here.
  */
 import { and, desc, eq, inArray, sql, type Db } from '@canonry/db';
 import {
 	canonSaveJob,
+	entity,
+	modelConfig,
 	universe,
 	universeIndexBackfill,
 	type UniverseIndexBackfillStatus
@@ -174,9 +189,13 @@ function stillHeldBy(lease: BackfillLease) {
 export const NO_EMBEDDING_MODEL_REASON = 'no-embedding-model';
 /** #761: the sweep offering a dead-lettered universe another go once its cooldown is up. */
 export const RETRY_AFTER_DEAD_LETTER_REASON = 'retry-after-dead-letter';
+/** #773: the sweep noticing that the collection the product now reads is not the one this
+ * universe's index was written into. */
+export const EMBEDDING_MODEL_CHANGED_REASON = 'embedding-model-changed';
 
 /**
- * The first of the sweep's two writes (`enqueueRetriesForDeadLetteredBackfills` is the other):
+ * The first of the sweep's three writes (`enqueueRetriesForDeadLetteredBackfills` and
+ * `enqueueBackfillsForEmbeddingModelChange` are the others):
  * one statement that enqueues a backfill for every universe with a skipped index run more
  * recent than its last backfill request, and enqueues nothing for every other universe.
  *
@@ -289,6 +308,112 @@ export async function enqueueRetriesForDeadLetteredBackfills(
 			and e.finished_at + make_interval(secs => least(
 				${baseSeconds}::double precision * power(2, e.episode_failures - 1),
 				${maxSeconds}::double precision)) <= now()
+		on conflict do nothing
+		returning universe_id
+	`);
+	return rows.map((row) => row.universe_id);
+}
+
+/**
+ * The sweep's third write, and the answer to #773: the one trigger in this mechanism that is
+ * about Qdrant rather than about the queue.
+ *
+ * **Why nothing caught this, which is the whole shape of it.** `loreCollectionNameForModel`
+ * keys a universe's collection on `(provider, modelId, universeId)`, deliberately, so that a
+ * model change can never read or write vectors another model wrote. The consequence is that
+ * changing the active `embedding` row replaces the collection the entire product reads, and
+ * the two writes above cannot see it: both fire on evidence a *pass* left behind, and a swap
+ * leaves none. Every save before it succeeded, `index_outcome` says `ok` on every one of them,
+ * and there is no skip to detect. Measured rather than argued about (#773): the old collection
+ * is left in place beside a new one that does not exist yet, its points survive at their
+ * original width, and both readers guard on `collectionExists` first - `searchIndexed` in
+ * `@canonry/copilot` returns no indexed sources and `unindexedEntities` reports every entry
+ * missing - so retrieval goes silent with no error and no log line. That is the mirror of #709
+ * rather than an instance of it, and it is worse than the state #709 fixed, because a universe
+ * whose index is empty at least looks empty.
+ *
+ * **Detection and not notification, and the reason is that the swap has more than one writer.**
+ * #709 recorded that nothing in the repo writes `model_config` at all and the row is edited by
+ * hand; that is no longer true, since `/admin/models`' text panel writes it through
+ * `upsertTextModel`, and `packages/bench`'s `setActiveModel` writes it too. So the swap could
+ * notify. It is detected here instead, for the same reason #761's retry lives in the sweep: a
+ * trigger that already runs on a timer beats one that has to be added to every writer and kept
+ * there, it survives the process dying between the swap and the enqueue, and it covers the
+ * writer this mechanism cannot reach either way, which is a `psql` edit against the table.
+ *
+ * **What it detects with, and why that needs no new column.** `model_config` is its own record:
+ * `upsertTextModel` never updates a row in place, it deactivates the current one and inserts a
+ * fresh active one, so the table keeps the whole trail. The active `embedding` row and the most
+ * recently deactivated one are therefore the collection the product reads now and the one it
+ * read before, and comparing their `(provider, model_id)` is exactly the question "did the
+ * collection change identity". Comparing that rather than comparing timestamps alone is what
+ * keeps an admin who saves the same model twice from fanning out over the whole install for
+ * nothing: a no-op re-save inserts a new row whose provider and model id match the row it
+ * superseded, and this writes nothing.
+ *
+ * The two gates are what make it fire once per swap rather than every sweep. `changed_at >
+ * universe.created_at` excludes a universe that has only ever existed under the current row, so
+ * a world created after the swap is not owed a catch-up for it. The watermark is the same one
+ * `enqueueDueIndexBackfills` uses and has the same property: the row this insert writes has a
+ * `requested_at` later than `changed_at`, so the next sweep asks the same question and answers
+ * no, until the next actual change moves `changed_at` past it again.
+ *
+ * **This is a fan-out over the install from one admin click, and that is the honest cost.** A
+ * swap really does invalidate every universe's index, so anything less would leave some of them
+ * silently unanswerable, which is the defect. What bounds it is that these are rows and not
+ * work: the backfill poller claims one at a time under a lease, each pass schedules at most
+ * `BACKFILL_MAX_PER_PASS` staggered index jobs, and `run_after` keeps every one of them behind
+ * a GM's own save. `docs/models.md` says out loud that the row is not free to change.
+ *
+ * One writer it reads only by accident: `packages/bench`'s `setActiveModel` reactivates an
+ * existing row instead of inserting one and does not touch the deactivated row's `updated_at`,
+ * so in a bench database the "most recently deactivated" row is not reliably the predecessor.
+ * A bench run swapping models per arm would enqueue catch-ups nothing there drains, which costs
+ * inert rows and nothing else.
+ *
+ * **`for key share of u`, and it is not decoration.** This is a fan-out, and a fan-out over a set
+ * read a moment ago is exposed to the set shrinking under it: the statement's snapshot includes a
+ * universe, a concurrent transaction deletes that universe and commits, and then
+ * `universe_index_backfill_universe_id_universe_id_fk` fires and raises 23503, which takes down
+ * the *whole* insert rather than the one row. Found by a real run rather than reasoned about,
+ * once in five runs of the web suite. `for key share` is exactly the lock the foreign key
+ * trigger takes anyway, taken one step earlier so the delete cannot commit inside the window; it
+ * is the weakest row lock there is, shared between readers, and it blocks nothing but a delete of
+ * a universe this statement is in the middle of enqueuing for. It is deliberately not the same
+ * answer as #774's, because this is a statement that must write *all* its rows or none for one
+ * global event, where the fan-out over entities is a statement whose whole point is that one
+ * row's death costs one row.
+ */
+export async function enqueueBackfillsForEmbeddingModelChange(db: Db): Promise<string[]> {
+	const rows = await db.execute<{ universe_id: string }>(sql`
+		with swap as (
+			select active.updated_at as changed_at
+			from (
+				select provider, model_id, updated_at
+				from ${modelConfig}
+				where purpose = 'embedding' and active
+			) active
+			join (
+				select provider, model_id
+				from ${modelConfig}
+				where purpose = 'embedding' and not active
+				order by updated_at desc, created_at desc
+				limit 1
+			) previous
+				on (active.provider, active.model_id)
+					is distinct from (previous.provider, previous.model_id)
+		)
+		insert into ${universeIndexBackfill} (universe_id, reason)
+		select u.id, ${EMBEDDING_MODEL_CHANGED_REASON}
+		from ${universe} u
+		cross join swap s
+		where s.changed_at > u.created_at
+			and s.changed_at > coalesce(
+				(select max(b.requested_at) from ${universeIndexBackfill} b
+					where b.universe_id = u.id),
+				'-infinity'::timestamptz)
+			and exists (select 1 from ${entity} e where e.universe_id = u.id)
+		for key share of u
 		on conflict do nothing
 		returning universe_id
 	`);
