@@ -318,7 +318,16 @@ export async function claimNextCanonSaveJob(
 
 /** Marks a claimed row done with all three engines' outcomes - called only by the worker
  * that still holds the lease when its run actually finishes. A worker that dies before
- * this runs leaves the row `claimed` for the lease to reclaim, which is the point. */
+ * this runs leaves the row `claimed` for the lease to reclaim, which is the point.
+ *
+ * **`finished_at` is stamped by the database and not by this process (issue #770).** Two
+ * queries compare this column against a timestamp Postgres produced - the backfill sweep's
+ * watermark (`enqueueDueIndexBackfills`, `j.finished_at > max(b.requested_at)`, and
+ * `requested_at` defaults to `now()`) and the fan-out's "indexed since I looked" clause
+ * (`scheduleBackfillIndexJobRows`) - so a `new Date()` here made both of them a comparison
+ * between two clocks. Neither skew direction is catastrophic and both are avoidable for the
+ * price of one word, which is cheaper than the paragraph explaining why they were tolerable.
+ * `updated_at` stays a JS date: nothing compares it to anything. */
 export async function completeCanonSaveJob(
 	db: Db,
 	id: string,
@@ -331,7 +340,7 @@ export async function completeCanonSaveJob(
 			propagationOutcome: outcome.propagation,
 			auditOutcome: outcome.audit,
 			indexOutcome: outcome.index,
-			finishedAt: new Date(),
+			finishedAt: sql`now()`,
 			updatedAt: new Date()
 		})
 		.where(eq(canonSaveJob.id, id));

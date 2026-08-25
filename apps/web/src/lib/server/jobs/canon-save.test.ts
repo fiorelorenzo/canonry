@@ -65,10 +65,11 @@ import {
 	type EngineOutcome,
 	type IndexOutcome
 } from './canon-save.js';
-import { entitiesSkippedForNoEmbeddingModel } from './store.js';
+import { entitiesSkippedForNoEmbeddingModel, scheduleEntityIndexJobRow } from './store.js';
 import {
 	completeIndexBackfill,
 	enqueueRetriesForDeadLetteredBackfills,
+	observeIndexJobs,
 	requeueIndexBackfill,
 	resumeIndexBackfill,
 	RETRY_AFTER_DEAD_LETTER_REASON,
@@ -1719,6 +1720,157 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 		}
 	}, 45_000);
 
+	/**
+	 * Issue #770. #766 and #746 are the two endpoints of the interval a pass spends between
+	 * looking and writing; this is a job that joined the queue and left it inside that interval.
+	 *
+	 *   T0  the pass reads the in-flight set. This entry has only its `no-embedding-model`
+	 *       `done` row, so it is not in the set;
+	 *   T1  the pass reads the collection. The entry has no point, so it is `missing`, and
+	 *       nothing in flight excludes it, so it is schedulable;
+	 *   T2  the GM saves the entry. A `pending` row is written, a worker claims it,
+	 *       `indexEntity` upserts the point and `completeCanonSaveJob` marks the row `done`;
+	 *   T3  the pass runs its fan-out. The anti-join looks for `pending`/`claimed` and finds a
+	 *       `done` row, which is deliberately not in-flight (#715), and
+	 *       `canon_save_job_pending_key` constrains `pending` only. Second job.
+	 *
+	 * The lease fence of #769 does not apply, because this pass holds its lease throughout.
+	 *
+	 * **The `armed` flag and the entry indexed up front are load-bearing, and #767's own test
+	 * says why two hundred lines below.** `unindexedEntities` returns early, every entry
+	 * missing and *without calling `scroll` at all*, when the collection does not exist, which
+	 * is the ordinary state of a universe that has never indexed anything. On a one-entry
+	 * universe the first pass therefore never reaches the seam and what gets held is the
+	 * *verification* pass, whose observation is `missing: 0` and which schedules nothing
+	 * whatever the fan-out does. I wrote that version first: it failed with two rows before the
+	 * fix and two rows after it, because the two rows were the first pass's legitimate fan-out
+	 * and the hook's own save rather than a duplicate. So: one entry indexed up front to create
+	 * the collection, a second that is the real shortfall, an explicit arming point, and an
+	 * assertion that the held page did not contain the shortfall, which is the only thing that
+	 * says the observation being written from was the stale one.
+	 */
+	it('schedules nothing for an entry a save indexes after the pass has looked (issue #770)', async () => {
+		const { owner, world } = await fixture();
+		const embeddingModel = await resolveModel(db, 'embedding');
+		const collectionName = loreCollectionNameForModel(embeddingModel, world.id);
+		const vector = createVectorClient();
+
+		let armed = false;
+		let heldPageUrls: string[] = [];
+		let savedJobId = '';
+		let shortfallId = '';
+		let shortfallName = '';
+
+		// The seam is `scroll`, the enumeration's own read of the collection. The page handed
+		// back is the real answer from before the save landed; the hook only holds the pass there
+		// while a genuine save of the same entry runs to completion underneath it.
+		const interleavingVector = new Proxy(vector, {
+			get(target, prop, receiver) {
+				const value = Reflect.get(target, prop, receiver);
+				if (typeof value !== 'function') return value;
+				const method = value.bind(target) as (...args: never[]) => unknown;
+				if (prop !== 'scroll') return method;
+				return async (...args: never[]) => {
+					const page = (await method(...args)) as {
+						points: { payload?: Record<string, unknown> | null }[];
+					};
+					// Scoped to this universe's collection and to the moment the test says it is
+					// ready: this queue's pollers are global over a shared table, and before the
+					// arming point they are also indexing the entry that creates the collection.
+					if (!armed || args[0] !== collectionName) return page;
+					armed = false;
+					heldPageUrls = page.points.map((point) => String(point.payload?.url ?? ''));
+					// A real row through the real writer, claimed and run by this queue's own
+					// canon-save poller, which is not the one blocked here.
+					savedJobId = await scheduleEntityIndexJobRow(
+						db,
+						{
+							universeId: world.id,
+							entityId: shortfallId,
+							entityName: shortfallName,
+							userId: owner.id,
+							locale: 'en'
+						},
+						0
+					);
+					const done = await waitForRow(db, savedJobId, (r) => r.status === 'done', 20_000);
+					const outcome = done.indexOutcome as IndexOutcome;
+					if (outcome.status !== 'ok' || !outcome.entityPointWritten) {
+						throw new Error(
+							`the interleaved save did not index the entry: ${JSON.stringify(outcome)}`
+						);
+					}
+					return page;
+				};
+			}
+		}) as typeof vector;
+
+		const queue = testQueue({
+			vectorClient: interleavingVector,
+			embeddingModelFactory: fakeEmbeddingModelFactory()
+		});
+		try {
+			// One entry indexed the ordinary way, purely so that the collection exists and the
+			// enumeration below actually scrolls it.
+			const indexed = await insertEntry(world.id, 'Standing Hold', 'Indexed before any of this.');
+			queue.scheduleIndexOnly({
+				universeId: world.id,
+				entityId: indexed.id,
+				entityName: indexed.name,
+				userId: owner.id,
+				locale: 'en'
+			});
+			await waitForEntityRow(db, world.id, indexed.id, (r) => r.status === 'done');
+
+			// And the entry that is the real shortfall: recorded while there is no embedding
+			// model, which is what makes the sweep owe this universe a catch-up.
+			const shortfall = await withoutEmbeddingModel(async () => {
+				const created = await insertEntry(world.id, 'Saved Hold', 'Indexed by the GM mid-pass.');
+				queue.scheduleIndexOnly({
+					universeId: world.id,
+					entityId: created.id,
+					entityName: created.name,
+					userId: owner.id,
+					locale: 'en'
+				});
+				await waitForEntityRow(db, world.id, created.id, (r) => r.status === 'done');
+				return created;
+			});
+			shortfallId = shortfall.id;
+			shortfallName = shortfall.name;
+
+			const before = await backfillJobRowsFor(world.id);
+			armed = true;
+			await queue.sweepIndexBackfills();
+			await queue.waitForBackfillIdle(world.id, 30_000);
+
+			// The window, as the two facts that make the fan-out a stale write rather than a fresh
+			// one: the pass's own observation said this entry had no point, and by the time the
+			// pass got to its insert a save had given it one.
+			expect(heldPageUrls, "the pass's observation did not include the shortfall").not.toContain(
+				entityLoreUrl(shortfall.id)
+			);
+			expect(savedJobId, 'and a real save ran to done inside that window').not.toBe('');
+
+			const fannedOut = (await backfillJobRowsFor(world.id)).filter(
+				(row) => !before.some((old) => old.id === row.id)
+			);
+			// One row for that entry, and it is the save's own. Before the fix this is two rows for
+			// one entity: the save's, plus the backfill's redundant one.
+			expect(rowsPerEntity(fannedOut)).toEqual(new Map([[shortfall.id, 1]]));
+			expect(
+				fannedOut.map((row) => row.id),
+				'the surviving row is the save that did the work, not a duplicate of it'
+			).toEqual([savedJobId]);
+			const [backfill] = await queue.recentBackfills(world.id);
+			expect(backfill?.status).toBe('done');
+			expect(backfill?.entitiesMissing).toBe(0);
+		} finally {
+			await queue.stop();
+			await dropCollection(vector, collectionName).catch(() => undefined);
+		}
+	}, 60_000);
+
 	it('a backfill never touches an entry that already has a pending job of its own (issue #709)', async () => {
 		// The one thing a catch-up must never do. `scheduleEntityIndexJobRow`'s conflict branch
 		// moves `run_after`, which is right for a fresh accept and would be catastrophic here: a
@@ -2377,13 +2529,19 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 		const created = await insertEntry(world.id, 'Fenced Hold');
 		const row = await backfillRowFor(world.id);
 		const jobRows = [{ entityId: created.id, entityName: created.name, delayMs: 0 }];
+		// Since #770 the fan-out carries the observation the pass wrote from, so these store-level
+		// calls present a real one. Taken once, before either call: nothing finishes in between,
+		// so the `settled` clause excludes nothing and what is under test is still the fence.
+		const observation = await observeIndexJobs(db, world.id);
 
 		// Two claims of the same row, which is what a lease expiring under a live pass produces:
 		// the first pass keeps a token nothing told it was stale.
 		const stale = await claimLike(row.id);
 		const live = await claimLike(row.id);
 
-		expect(await scheduleBackfillIndexJobRows(db, stale, world.id, 'en', jobRows)).toEqual({
+		expect(
+			await scheduleBackfillIndexJobRows(db, stale, world.id, 'en', observation, jobRows)
+		).toEqual({
 			inserted: 0,
 			fenced: true
 		});
@@ -2414,7 +2572,9 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 
 		// The live holder's identical writes all land, so the fence discriminates rather than
 		// refusing everything.
-		expect(await scheduleBackfillIndexJobRows(db, live, world.id, 'en', jobRows)).toEqual({
+		expect(
+			await scheduleBackfillIndexJobRows(db, live, world.id, 'en', observation, jobRows)
+		).toEqual({
 			inserted: 1,
 			fenced: false
 		});

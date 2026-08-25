@@ -31,7 +31,8 @@
  * an observation it still holds, and it may give up on an attempt but never on the universe.**
  *
  * Every change this has taken restored one clause rather than adding a feature, which is the
- * evidence that the invariant and not the code is what was missing:
+ * evidence that the invariant and not the code is what was missing. One bullet each, naming
+ * the clause and not the feature:
  *
  * - **#709/#715 built it**, and got "only the index counts" right on the second try: the first
  *   end-to-end run reported `done` from a pass that had merely *scheduled* six entries, two of
@@ -64,11 +65,34 @@
  * - **#761** is the last clause: a dead letter had no way back, so the bound was in practice a
  *   bound on the universe. `enqueueRetriesForDeadLetteredBackfills` puts the universe back on
  *   the hook on a widening cooldown.
+ * - **#770** finished the second clause at observation time by giving the observation a
+ *   *timestamp* as well as a set. #766 and #746 are the two endpoints of the interval a pass
+ *   spends between looking and writing, and a job that joined the queue and left it inside
+ *   that interval is in neither: a GM saving exactly the entry the pass was about to schedule.
+ *   `observeIndexJobs` now reads `now()` in the same statement as the in-flight set, and the
+ *   fan-out excludes an entity whose job finished after it, which is what "somebody has
+ *   indexed this since I looked" actually says. It is also the bullet that says where the
+ *   clause **stops**, and that is the part worth keeping: because `indexEntity` has exactly
+ *   one production caller, every entity point is written by a `canon_save_job` run, and one
+ *   such row's life falls in exactly one of five positions relative to that interval - before
+ *   it, overlapping its start, inside it, overlapping its end, after it - each answered by the
+ *   collection read, #766, #770, #746 and #709's conflict branch respectively. Five cases
+ *   partition an interval, so there is no sixth fix of this kind waiting. What the argument
+ *   rests on is `indexEntity` keeping one caller; a second one would reopen all five silently.
  *
- * The reason to write this down rather than fix the sixth thing: every one of those was found
- * by a flake or by a reader noticing a comment that was not true, and each was correct in
- * isolation. A change that cannot be expressed as restoring one of these clauses is probably
- * changing what a backfill means, which is a bigger decision than it will look like in a diff.
+ * The reason to write this down rather than fix the seventh thing: every one of those was
+ * found by a flake or by a reader noticing a comment that was not true, and each was correct
+ * in isolation. A change that cannot be expressed as restoring one of these clauses is
+ * probably changing what a backfill means, which is a bigger decision than it will look like
+ * in a diff.
+ *
+ * **What none of them touches, which is the honest end of this list.** All seven are about the
+ * queue side of the observation. The other side is Qdrant, and the pass has no snapshot
+ * spanning both: the collection it enumerates is named after the active `embedding` model
+ * (`loreCollectionNameForModel`), so changing that row replaces the collection wholesale, and
+ * nothing enqueues a backfill for it because `enqueueDueIndexBackfills` fires only on a
+ * `no-embedding-model` skip. That is a missed schedule rather than a duplicated one, and it is
+ * filed separately rather than folded in here.
  */
 import { and, desc, eq, inArray, sql, type Db } from '@canonry/db';
 import {
@@ -369,10 +393,30 @@ export interface BackfillFanOutResult {
 	fenced: boolean;
 }
 
+/** What one pass saw of the queue when it looked, which is one row of one statement so that
+ * the instant and the set cannot drift apart. */
+export interface IndexJobObservation {
+	/** The database's clock at the moment of the read below, and therefore the line the
+	 * fan-out's "indexed since I looked" clause is drawn at. From `now()` rather than from a
+	 * JS `Date` because it is compared against `canon_save_job.finished_at`, which
+	 * `completeCanonSaveJob` also stamps from the database (#770).
+	 *
+	 * Held as the text Postgres produced rather than parsed into a `Date`, because Postgres
+	 * produces it and Postgres consumes it: the fan-out casts it straight back to
+	 * `timestamptz`. Two things a round trip through a `Date` would cost, and `db.execute`
+	 * hands raw SQL back untyped so the round trip has to be written by hand either way: the
+	 * microseconds, which `finished_at` has and a `Date` does not, and one parse of a
+	 * non-ISO-8601 literal (`2026-08-25 03:13:34.68611+00`) that only works because V8 is
+	 * lenient about it. */
+	observedAt: string;
+	/** Entities of this universe with an index job `pending` or `claimed` at `observedAt`. */
+	inFlight: Set<string>;
+}
+
 /**
- * Which entities of this universe already have an index job in flight, read as one set so
- * that a pass can fix its work list at the moment it looks rather than at the moment it
- * writes (issue #764).
+ * What this universe's queue looked like at one instant, read before the collection so that
+ * a pass fixes its work list at the moment it looks rather than at the moment it writes
+ * (issue #764) and can say afterwards when "the moment it looked" was (issue #770).
  *
  * **Why the caller needs this at all, when the fan-out below already anti-joins on the same
  * two states.** That anti-join runs inside the insert, and the insert is not where the pass
@@ -385,29 +429,40 @@ export interface BackfillFanOutResult {
  * rather than argued about: `canon-save.test.ts`'s #764 case forces exactly that ordering
  * and gets two rows for one entity out of it.
  *
- * So the pass reads this set **before** it reads the collection, and that order is the whole
+ * So the pass reads this **before** it reads the collection, and that order is the whole
  * guarantee rather than a detail. `upsertPoints` writes with `wait: true` and
- * `completeCanonSaveJob` runs after it, so a job that is not in this set has already made
+ * `completeCanonSaveJob` runs after it, so a job that is not in `inFlight` has already made
  * every point it is ever going to make visible to any read taken later - which the
  * collection read, taken later, therefore accounts for. An entity in the set is skipped this
  * pass and re-examined by the next one, which costs nothing: a backfill is only terminal on
  * an empty enumeration (#715), and one that never converges is dead-lettered with a
  * `last_error` rather than left looping (#762).
+ *
+ * **`observedAt` comes out of this same statement, and that is not tidiness (#770).** It is
+ * the other endpoint of the interval the set is one endpoint of, and the fan-out needs both
+ * to exclude a job that joined the queue and left it while the pass was reading Qdrant.
+ * Taking it in a second round trip would give the pass two instants where the invariant says
+ * it has one observation; `now()` is the transaction timestamp, and a bare statement is its
+ * own transaction, so this value and the rows beside it are the same snapshot by
+ * construction rather than by ordering the calls correctly.
  */
-export async function entitiesWithIndexJobInFlight(
-	db: Db,
-	universeId: string
-): Promise<Set<string>> {
-	const rows = await db
-		.selectDistinct({ entityId: canonSaveJob.entityId })
-		.from(canonSaveJob)
-		.where(
-			and(
-				eq(canonSaveJob.universeId, universeId),
-				inArray(canonSaveJob.status, ['pending', 'claimed'])
-			)
-		);
-	return new Set(rows.map((row) => row.entityId));
+export async function observeIndexJobs(db: Db, universeId: string): Promise<IndexJobObservation> {
+	// An aggregate with no `group by` returns exactly one row even over no input rows, which
+	// is what lets the clock and the set share a statement without a join to hang them off.
+	const [row] = await db.execute<{ observed_at: string; in_flight: string[] }>(sql`
+		select now()::text as observed_at,
+			coalesce(array_agg(distinct entity_id), '{}') as in_flight
+		from ${canonSaveJob}
+		where universe_id = ${universeId}::uuid and status in ('pending', 'claimed')
+	`);
+	// The aggregate makes the row certain, so this is a type-level total rather than a case:
+	// `-infinity` is the observation that excludes nothing and therefore schedules most, which
+	// is the safe direction - a duplicate index job costs one embedding call, and a skipped
+	// one leaves an entry out of retrieval.
+	return {
+		observedAt: row?.observed_at ?? '-infinity',
+		inFlight: new Set(row?.in_flight ?? [])
+	};
 }
 
 /**
@@ -444,10 +499,41 @@ export async function entitiesWithIndexJobInFlight(
  * finished by the time the caller got here is invisible to both mechanisms: `done` is not in
  * the anti-join's states by design, and the partial index constrains `pending` alone. So the
  * dedupe is in two halves and both are load-bearing. The caller owns the observation-time
- * half (`entitiesWithIndexJobInFlight`, read before the collection), which covers a job that
- * left the in-flight set; this statement owns the write-time half, which covers a job that
- * joined it - a GM saving that entry, or a second replica's pass - because a set read a
- * moment ago cannot know about those.
+ * half (`observeIndexJobs`, read before the collection), which covers a job that left the
+ * in-flight set; this statement owns the write-time half, which covers a job that joined it -
+ * a GM saving that entry, or a second replica's pass - because a set read a moment ago cannot
+ * know about those.
+ *
+ * **And the job that joined and left inside the interval, which is issue #770.** Those two
+ * halves are the endpoints, and between them is a job that did not exist when the caller
+ * looked and had finished by the time it got here: a GM saving exactly the entry this pass
+ * was about to schedule, which is likelier than it sounds in a universe whose embedding model
+ * has only just been configured. It is in neither the observation-time set nor the write-time
+ * anti-join, and its `done` row is not constrained by the partial index either. The
+ * `settled` clause below is that middle: an entity whose job *finished after the pass looked*
+ * has been indexed by somebody since, which is the fact the whole anti-join is a proxy for.
+ *
+ * **Where the second clause stops, which is worth stating because it is what makes the three
+ * exhaustive rather than three of an unknown number.** Every entity point in this product is
+ * written by `indexEntity`, and `runIndexEngine` is its only production caller, so it is
+ * written only by a `canon_save_job` run. One such row's life therefore falls in exactly one
+ * of five places relative to the interval from `observedAt` to this insert, and each is
+ * already answered: it finished before `observedAt` (its point, if any, is in the collection
+ * read that follows, and if it wrote none the entry does still need a job, which is #715); it
+ * was in flight at `observedAt` (`observeIndexJobs`, #766); it began and ended inside
+ * (`settled`, #770); it is in flight now (`inflight`, #746); it starts after this insert (our
+ * row is `pending`, so `scheduleEntityIndexJobRow`'s conflict branch absorbs it, #709). Five
+ * cases partition the interval, so there is no sixth clause of this kind to find. What that
+ * argument rests on, and what would silently break it, is `indexEntity` keeping one caller.
+ *
+ * `settled` is deliberately `done` and not also `failed`: `completeCanonSaveJob` is the only
+ * writer of `index_outcome` and a dead-lettered row never reaches it, so a `failed` job wrote
+ * no point and its entry is still owed one. It does not ask whether the `done` job's outcome
+ * was `ok` either, for the same reason `observeIndexJobs` does not ask whether an in-flight
+ * job will succeed: a pass may not conclude anything from a job it did not watch, and an
+ * entry skipped for a job that turned out to fail is picked up by the next pass, because only
+ * the index counts. Cheap, too: `canon_save_job_finished_idx` leads with `finished_at`, so the
+ * clause reads the few rows finished since this pass began rather than the entity's history.
  *
  * **And the third half, which is issue #767.** Both of the above are about the entity's index
  * state, and neither is about who is entitled to act on it. Two passes over one universe each
@@ -472,6 +558,7 @@ export async function scheduleBackfillIndexJobRows(
 	lease: BackfillLease,
 	universeId: string,
 	locale: Locale,
+	observation: IndexJobObservation,
 	rows: readonly BackfillIndexJobRow[]
 ): Promise<BackfillFanOutResult> {
 	if (rows.length === 0) return { inserted: 0, fenced: false };
@@ -504,6 +591,13 @@ export async function scheduleBackfillIndexJobRows(
 					where inflight.universe_id = v.universe_id
 						and inflight.entity_id = v.entity_id
 						and inflight.status in ('pending', 'claimed')
+				)
+				and not exists (
+					select 1 from ${canonSaveJob} settled
+					where settled.status = 'done'
+						and settled.finished_at > ${observation.observedAt}::timestamptz
+						and settled.universe_id = v.universe_id
+						and settled.entity_id = v.entity_id
 				)
 			on conflict do nothing
 			returning id
