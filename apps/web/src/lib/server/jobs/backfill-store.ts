@@ -147,6 +147,47 @@ export interface BackfillIndexJobRow {
 }
 
 /**
+ * Which entities of this universe already have an index job in flight, read as one set so
+ * that a pass can fix its work list at the moment it looks rather than at the moment it
+ * writes (issue #764).
+ *
+ * **Why the caller needs this at all, when the fan-out below already anti-joins on the same
+ * two states.** That anti-join runs inside the insert, and the insert is not where the pass
+ * decided anything. The decision is the enumeration: "this entry has no point in the
+ * collection", which is a read of Qdrant taken some milliseconds earlier. In between, the
+ * job that was going to write that point can finish, and then the anti-join sees a `done`
+ * row, which is deliberately *not* in-flight (#715: an entry whose job ended without writing
+ * its point still needs one) and which `canon_save_job_pending_key` does not constrain
+ * either, so the pass schedules a second job for work that has already been done. Measured
+ * rather than argued about: `canon-save.test.ts`'s #764 case forces exactly that ordering
+ * and gets two rows for one entity out of it.
+ *
+ * So the pass reads this set **before** it reads the collection, and that order is the whole
+ * guarantee rather than a detail. `upsertPoints` writes with `wait: true` and
+ * `completeCanonSaveJob` runs after it, so a job that is not in this set has already made
+ * every point it is ever going to make visible to any read taken later - which the
+ * collection read, taken later, therefore accounts for. An entity in the set is skipped this
+ * pass and re-examined by the next one, which costs nothing: a backfill is only terminal on
+ * an empty enumeration (#715), and one that never converges is dead-lettered with a
+ * `last_error` rather than left looping (#762).
+ */
+export async function entitiesWithIndexJobInFlight(
+	db: Db,
+	universeId: string
+): Promise<Set<string>> {
+	const rows = await db
+		.selectDistinct({ entityId: canonSaveJob.entityId })
+		.from(canonSaveJob)
+		.where(
+			and(
+				eq(canonSaveJob.universeId, universeId),
+				inArray(canonSaveJob.status, ['pending', 'claimed'])
+			)
+		);
+	return new Set(rows.map((row) => row.entityId));
+}
+
+/**
  * The fan-out: one index-only `canon_save_job` row per missing entity, due at a staggered
  * time, in one statement.
  *
@@ -173,6 +214,17 @@ export interface BackfillIndexJobRow {
  *
  * A row that has genuinely stopped (`done`, or dead-lettered `failed`) is deliberately not
  * in-flight, because an entry whose job ended without writing its point still needs one.
+ *
+ * **What this statement cannot see on its own, which is issue #764.** The anti-join covers
+ * every entity that is in flight *now*, and "now" is the insert rather than the enumeration
+ * that decided what to insert. An entity in flight when the caller read the collection and
+ * finished by the time the caller got here is invisible to both mechanisms: `done` is not in
+ * the anti-join's states by design, and the partial index constrains `pending` alone. So the
+ * dedupe is in two halves and both are load-bearing. The caller owns the observation-time
+ * half (`entitiesWithIndexJobInFlight`, read before the collection), which covers a job that
+ * left the in-flight set; this statement owns the write-time half, which covers a job that
+ * joined it - a GM saving that entry, or a second replica's pass - because a set read a
+ * moment ago cannot know about those.
  *
  * Bodies are empty for the same structural reason `EntityIndexJobInput` has no body fields: an
  * empty `semanticDiff` is what makes propagation and audit no-ops without a flag, so a

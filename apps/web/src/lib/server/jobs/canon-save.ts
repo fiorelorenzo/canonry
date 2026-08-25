@@ -119,6 +119,7 @@ import {
 	claimNextIndexBackfill,
 	completeIndexBackfill,
 	enqueueDueIndexBackfills,
+	entitiesWithIndexJobInFlight,
 	recentIndexBackfills,
 	requeueIndexBackfill,
 	resumeIndexBackfill,
@@ -691,6 +692,16 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 			embeddingModel
 		);
 		const candidates = await entityIndexCandidatesForUniverse(conn, row.universeId);
+		// **Read before the collection, on purpose (issue #764).** These two reads are one
+		// observation, and their order is what makes the fan-out below exact rather than likely.
+		// A job that is not in this set has already written whatever point it was going to write
+		// (`upsertPoints` uses `wait: true` and `completeCanonSaveJob` runs after it), so the
+		// collection read that follows accounts for it; a job that is in it may still write one,
+		// so this pass must not schedule that entry on the strength of a read it may invalidate.
+		// Taken the other way round, an entity that finished in between is in neither the set nor
+		// the collection, and gets a second job for work already done: that is #764, and it is
+		// what `entitiesWithIndexJobInFlight`'s own comment describes.
+		const inFlight = await entitiesWithIndexJobInFlight(conn, row.universeId);
 		const { missing, indexed, orphanedPoints } = await unindexedEntities(
 			{ vectorClient: qdrant },
 			{
@@ -702,7 +713,11 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 		);
 
 		const nameById = new Map(candidates.map((candidate) => [candidate.id, candidate.name]));
-		const pass = missing.slice(0, BACKFILL_MAX_PER_PASS);
+		// `missing` stays the universe's real shortfall, because that is what `entities_missing`
+		// records and what #762's give-up rule measures progress against. What this pass can
+		// usefully *do* is the subset with nothing in flight for it.
+		const schedulable = missing.filter((entityId) => !inFlight.has(entityId));
+		const pass = schedulable.slice(0, BACKFILL_MAX_PER_PASS);
 		const jobRows: BackfillIndexJobRow[] = pass.map((entityId, i) => ({
 			entityId,
 			entityName: nameById.get(entityId) ?? entityId,
@@ -721,7 +736,12 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 		// run - which is how long a resumed pass has to wait before re-enumerating usefully.
 		const spanMs =
 			jobRows.length === 0 ? 0 : (jobRows[jobRows.length - 1]!.delayMs ?? 0) + backfillStaggerMs;
-		const capped = missing.length > pass.length;
+		// Against `schedulable`, never against `missing`: `capped` means "this pass hit
+		// BACKFILL_MAX_PER_PASS, so the next one has different work to do", and #762 reads it as
+		// progress and resets the attempt count on it. Skipping an entry because something else is
+		// already indexing it is not different work waiting, and counting it as such would reset
+		// the attempts of exactly the stuck universe that rule exists to dead-letter.
+		const capped = schedulable.length > pass.length;
 		const counts = {
 			entitiesTotal: candidates.length,
 			entitiesMissing: missing.length,
