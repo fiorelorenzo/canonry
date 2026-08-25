@@ -1,23 +1,28 @@
 <script lang="ts">
 	/**
 	 * #192: one row shape shared by a universe's own types and the shipped ten, driven
-	 * by `shipped`. Issue #450 (U1, DECISIONS.md "Round sixteen"): what used to be a
-	 * six-column table is a list either way now - a spacious card per own type (its
-	 * label, a line of prose for its inverse and what it connects, then rename/widen/
-	 * translate/merge), or one compact reference line per shipped type, with no badge
-	 * repeating the section heading it already sits under. `summary` is the one
-	 * function that turns a row into that line of prose for both halves, so the shipped
-	 * list and the own list can never describe the same fact two different ways - only
-	 * how much room a row gets and whether it carries actions differs between the two
-	 * branches below.
+	 * by `shipped`. `summary` is the one function that turns a row into its line of
+	 * prose (inverse label, what it connects, cardinality when it is not the unmarked
+	 * `many_to_many` case), so the shipped list and the own list can never describe the
+	 * same fact two different ways - only how much room a row gets and whether it
+	 * carries actions differs between the two branches below.
 	 *
-	 * Cardinality only ever appears inside that prose, and only when it is not
-	 * `many_to_many`: the shipped ten are five one-to-many, two many-to-one and three
-	 * many-to-many, so the old dedicated column spent a whole width saying the least
-	 * surprising value most of the way down. A relation between two entries reads as
-	 * many-to-many by default; only a narrower cardinality is worth a word.
+	 * Issue #450 (U1, DECISIONS.md "Round sixteen"): a universe's own types get a
+	 * two-line cell (label, then the summary prose) and every action; the shipped ten
+	 * stay a compact one-line reference, with no badge repeating the section heading
+	 * it already sits under.
+	 *
+	 * Issue #795 (DECISIONS.md "Round twenty-one"): both are now a real `<table>` -
+	 * the product's own convention for a list with counts and per-row actions (compare
+	 * `admin/models`, `admin/pricing`, `EntryTable`) - rather than the `<ul>`/`<li>`
+	 * list U1 built, so a `Uses` column lines every row's count up under one header
+	 * instead of it trailing the prose at whatever width that prose happened to wrap
+	 * to. `usageCount`'s old sentence is gone with it: a bare, right-aligned, tabular
+	 * number under a header already named `Uses` says the same thing a table's numbers
+	 * always do.
 	 */
 	import { Button } from '$lib/components/ui/button';
+	import { TableScroll } from '$lib/components/ui/table';
 	import type { RelationTypeCatalogueRow } from '@canonry/db';
 	import type { Locale, Messages } from '$lib/i18n';
 	import { relationTypeDisplayLabel, relationTypeDisplayInverseLabel } from './types.js';
@@ -36,7 +41,7 @@
 		onFork
 	}: {
 		types: RelationTypeCatalogueRow[];
-		t: Messages['universe']['settings']['relations'];
+		t: Messages['universe']['relations'];
 		relationTypeLabel: Messages['relationTypeLabel'];
 		locale: Locale;
 		shipped: boolean;
@@ -68,88 +73,118 @@
 </script>
 
 {#if shipped}
-	<ul
-		class="mt-3 flex flex-col divide-y divide-line rounded-lg border border-line bg-panel text-body"
-	>
-		{#each types as row (row.id)}
-			<li class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-3 py-2">
-				<p class="min-w-0 text-ink-2">
-					<span class="font-medium text-ink"
-						>{relationTypeDisplayLabel(row, relationTypeLabel, locale)}</span
-					>
-					{summary(row)}
-				</p>
-				<span class="flex shrink-0 items-baseline gap-3">
-					{#if canManage && onFork}
-						<Button
-							type="button"
-							variant="link"
-							size="sm"
-							class="h-auto p-0 text-label"
-							onclick={() => onFork?.(row)}
-						>
-							{t.fork.trigger}
-						</Button>
+	<TableScroll class="mt-3" label={t.shippedHeading}>
+		<table class="w-full border-collapse text-body">
+			<thead>
+				<tr
+					class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
+				>
+					<th class="px-3 py-2 font-normal">{t.table.label}</th>
+					<th class="px-3 py-2 text-right font-normal">{t.table.uses}</th>
+					{#if canManage}
+						<th class="px-3 py-2 font-normal"><span class="sr-only">{t.table.actions}</span></th>
 					{/if}
-					<span class="text-meta text-muted tabular-nums">{t.usageCount(row.usageCount)}</span>
-				</span>
-			</li>
-		{/each}
-	</ul>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-line">
+				{#each types as row (row.id)}
+					<tr class="bg-panel">
+						<td class="px-3 py-2 text-ink-2">
+							<span class="font-medium text-ink"
+								>{relationTypeDisplayLabel(row, relationTypeLabel, locale)}</span
+							>
+							{summary(row)}
+						</td>
+						<td class="px-3 py-2 text-right text-ink-2 tabular-nums">{row.usageCount}</td>
+						{#if canManage}
+							<td class="px-3 py-2 text-right">
+								{#if onFork}
+									<Button
+										type="button"
+										variant="link"
+										size="sm"
+										class="h-auto p-0 text-label"
+										onclick={() => onFork?.(row)}
+									>
+										{t.fork.trigger}
+									</Button>
+								{/if}
+							</td>
+						{/if}
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</TableScroll>
 {:else}
-	<ul class="mt-3 flex flex-col gap-3">
-		{#each types as row (row.id)}
-			<li
-				class="flex flex-col gap-3 rounded-lg border border-line bg-panel p-4 sm:flex-row sm:items-start sm:justify-between"
-			>
-				<div class="min-w-0">
-					<p class="text-title font-semibold text-ink">
-						{relationTypeDisplayLabel(row, relationTypeLabel, locale)}
-					</p>
-					<p class="mt-1 max-w-measure text-body text-ink-2">{summary(row)}</p>
-					<p class="mt-1 text-meta text-muted tabular-nums">{t.usageCount(row.usageCount)}</p>
-				</div>
-				{#if canManage}
-					<div class="flex shrink-0 flex-wrap gap-3 sm:pl-4">
-						<Button
-							type="button"
-							variant="link"
-							size="sm"
-							class="h-auto p-0 text-label"
-							onclick={() => onRename?.(row)}
-						>
-							{t.rename.trigger}
-						</Button>
-						<Button
-							type="button"
-							variant="link"
-							size="sm"
-							class="h-auto p-0 text-label"
-							onclick={() => onWiden?.(row)}
-						>
-							{t.widen.trigger}
-						</Button>
-						<Button
-							type="button"
-							variant="link"
-							size="sm"
-							class="h-auto p-0 text-label"
-							onclick={() => onTranslate?.(row)}
-						>
-							{t.translate.trigger}
-						</Button>
-						<Button
-							type="button"
-							variant="link"
-							size="sm"
-							class="h-auto p-0 text-label"
-							onclick={() => onMerge?.()}
-						>
-							{t.merge.trigger}
-						</Button>
-					</div>
-				{/if}
-			</li>
-		{/each}
-	</ul>
+	<TableScroll class="mt-3" label={t.ownHeading}>
+		<table class="w-full border-collapse text-body">
+			<thead>
+				<tr
+					class="border-b border-line bg-panel-2 text-left text-label tracking-wide text-muted uppercase"
+				>
+					<th class="px-3 py-2 font-normal">{t.table.label}</th>
+					<th class="px-3 py-2 text-right font-normal">{t.table.uses}</th>
+					{#if canManage}
+						<th class="px-3 py-2 font-normal"><span class="sr-only">{t.table.actions}</span></th>
+					{/if}
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-line">
+				{#each types as row (row.id)}
+					<tr class="bg-panel align-top">
+						<td class="px-3 py-3 align-top">
+							<p class="font-medium text-ink">
+								{relationTypeDisplayLabel(row, relationTypeLabel, locale)}
+							</p>
+							<p class="mt-1 max-w-measure text-body text-ink-2">{summary(row)}</p>
+						</td>
+						<td class="px-3 py-3 text-right align-top text-ink-2 tabular-nums">{row.usageCount}</td>
+						{#if canManage}
+							<td class="px-3 py-3 align-top">
+								<div class="flex flex-wrap justify-end gap-3">
+									<Button
+										type="button"
+										variant="link"
+										size="sm"
+										class="h-auto p-0 text-label"
+										onclick={() => onRename?.(row)}
+									>
+										{t.rename.trigger}
+									</Button>
+									<Button
+										type="button"
+										variant="link"
+										size="sm"
+										class="h-auto p-0 text-label"
+										onclick={() => onWiden?.(row)}
+									>
+										{t.widen.trigger}
+									</Button>
+									<Button
+										type="button"
+										variant="link"
+										size="sm"
+										class="h-auto p-0 text-label"
+										onclick={() => onTranslate?.(row)}
+									>
+										{t.translate.trigger}
+									</Button>
+									<Button
+										type="button"
+										variant="link"
+										size="sm"
+										class="h-auto p-0 text-label"
+										onclick={() => onMerge?.()}
+									>
+										{t.merge.trigger}
+									</Button>
+								</div>
+							</td>
+						{/if}
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</TableScroll>
 {/if}

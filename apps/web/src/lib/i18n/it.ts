@@ -143,6 +143,7 @@ export const it: Messages = {
 			context: (pageName) => `su ${pageName}`,
 			disclosure:
 				'A ogni domanda qui viene data una risposta, conservata automaticamente come una tua nota raggruppata in una conversazione: non entra a fare parte di una voce senza una proposta che accetti, i giocatori non la vedono, e resta finché non elimini la conversazione. ',
+			disclosureLabel: 'Come vengono gestite le tue domande',
 			openInAsk: 'Apri in Chiedi',
 			// R6 (round tredici, #381): tre suggerimenti deterministici, mai da un modello.
 			// `connects` legge il tipo di entità (sei valori), lo stesso schema a una
@@ -1216,6 +1217,8 @@ export const it: Messages = {
 				"Le proposte appariranno qui man mano che l'importazione elabora i documenti.",
 			emptyDone: 'Niente da rivedere — questo import non ha prodotto proposte.',
 			filtering: 'Filtro in corso…',
+			documentsProgress: (settled, total) =>
+				`${settled} di ${total} document${total === 1 ? 'o' : 'i'} elaborat${total === 1 ? 'o' : 'i'}`,
 			missing: {
 				heading: (count) =>
 					count === 1
@@ -1424,6 +1427,16 @@ export const it: Messages = {
 					documentsQuota: 'Import rifiutato: questo import ha troppi documenti per il tuo piano.',
 					insufficientCredits: 'Import rifiutato: crediti insufficienti per il costo stimato.'
 				}
+			},
+			dropzone: {
+				heading: 'Trascina qui la tua esportazione',
+				hint: 'oppure fai clic per sfogliare i file',
+				formats:
+					'Obsidian, Kanka, World Anvil, OneNote, PDF, DOCX, oppure una cartella di file Markdown o di testo semplice.'
+			},
+			preview: {
+				useFormat: 'Usa invece questo formato',
+				cancel: 'Annulla'
 			}
 		},
 
@@ -1481,7 +1494,6 @@ export const it: Messages = {
 			fileInputLabel: 'File di esportazione',
 			jobsHeading: 'Importazioni precedenti',
 			jobsEmpty: 'Nessuna importazione è stata ancora eseguita in questo mondo.',
-			jobsEmptyAction: "Avvia un'importazione",
 			proposals: (count) => (count === 1 ? '1 proposta' : `${count} proposte`),
 			reviewLink: 'Revisiona',
 			viewerNotice: "Solo chi ha un ruolo di editor o proprietario può avviare un'importazione."
@@ -1493,11 +1505,13 @@ export const it: Messages = {
 
 		contextStrip: {
 			modeOn: 'Modalità tavolo: attiva',
-			noPlaceDeclared: (universeName) => `nessun luogo dichiarato ancora - ${universeName}`,
+			notStarted:
+				'Modalità tavolo: non avviata. Dichiara dove si trovano i giocatori per iniziare.',
 			pinnedIn: (ms) => `appuntati in ${ms}ms`,
 			change: 'Cambia',
-			declare: 'Dichiara',
-			exit: 'Esci dalla modalità tavolo'
+			exit: 'Esci dalla modalità tavolo',
+			exitTooltip:
+				'Termina la sessione per chiunque sia connesso: il luogo dichiarato viene cancellato e le proposte di oggi restano in coda da revisionare.'
 		},
 
 		declareContext: {
@@ -1590,7 +1604,8 @@ export const it: Messages = {
 			moodOff: 'Spenta',
 			showAudioGraph: 'Mostra il grafico audio',
 			hideAudioGraph: 'Nascondi il grafico audio',
-			noPackYet: 'Nessun pacchetto ambientale generato per questo luogo, per ora.',
+			noPackYet:
+				'Il suono ambientale non è disponibile per questo luogo - per ora nulla genera un paesaggio sonoro.',
 			layerSummary: (count, stale) => {
 				const layers = count === 1 ? 'livello' : 'livelli';
 				return `${count} ${layers}${stale ? ' · obsoleto, si aggiorna al prossimo innesco' : ''}`;
@@ -1636,8 +1651,8 @@ export const it: Messages = {
 
 		home: {
 			noContextDeclared:
-				'Dichiara un luogo per appuntare i suoi personaggi principali e le sue relazioni.',
-			choosePlace: 'Scegli un luogo',
+				'La modalità tavolo appunta i personaggi del luogo dichiarato e lascia che la sessione proceda senza attendere un modello. Qui nulla entra nel canone finché non viene revisionato in seguito.',
+			beginTableMode: 'Dichiara dove si trovano i giocatori',
 			placeHeading: 'Il luogo',
 			nearbyHeading: 'Nei dintorni',
 			hereHeading: 'Chi è qui',
@@ -1783,6 +1798,7 @@ export const it: Messages = {
 
 	universe: {
 		nav: {
+			home: 'Home',
 			entries: 'Voci',
 			works: 'Opere',
 			proposals: 'Proposte',
@@ -1864,7 +1880,7 @@ export const it: Messages = {
 			entries: {
 				headTitle: (universeName) => `Voci: ${universeName}`,
 				title: 'Voci',
-				backToHome: (universeName) => `Torna a ${universeName}`,
+				relationCatalogueLink: 'Catalogo delle relazioni',
 				columnName: 'Nome',
 				columnType: 'Tipo',
 				columnRelations: 'Relazioni',
@@ -1961,7 +1977,7 @@ export const it: Messages = {
 			sourcesNote:
 				'Le frasi da cui è scritta la risposta, citate dalle voci in cui si trovano. Il Loremaster ha avuto queste e nient’altro.',
 			sourcesEmpty:
-				'Il tuo canone non contiene ancora nulla che risponda a questa domanda, quindi qui sopra c’è conoscenza generale e non il tuo mondo. Fai il nome di una persona, di un luogo o di un evento e ci sarà qualcosa da citare.',
+				'Il tuo canone non risponde ancora a questo: qui sopra c’è conoscenza generale.',
 			deletedEntry: 'Questa voce è stata eliminata nel frattempo.',
 			sourceCount: (count) => {
 				const n = numberFormat('it', {
@@ -2045,6 +2061,7 @@ export const it: Messages = {
 				crumb: (universeName) => `Conversazioni · ${universeName}`,
 				heading: 'Conversazioni',
 				note: 'Il Loremaster conserva automaticamente ogni domanda e risposta, come una tua nota raggruppata per conversazione. Nulla qui entra a fare parte di una voce senza una proposta che accetti, i giocatori non la vedono, e una conversazione resta finché non la elimini.',
+				noteLabel: 'Come vengono gestite le tue domande',
 				searchPlaceholder: 'Cerca cosa hai chiesto…',
 				searchClear: 'Cancella ricerca',
 				searchResultCount: (query, count) => {
@@ -2095,10 +2112,7 @@ export const it: Messages = {
 				loremaster: 'Il Loremaster',
 				canon: 'Canone'
 			},
-			rail: {
-				ariaLabel: 'Gruppi delle impostazioni',
-				incompleteMark: 'Da impostare'
-			},
+			unsetMark: 'Da impostare',
 			aiToggle: {
 				heading: 'Scrittura del Loremaster',
 				description: (universeName) =>
@@ -2195,7 +2209,6 @@ export const it: Messages = {
 				missingIdError: 'Id della sostituzione mancante.'
 			},
 			relations: {
-				close: 'Chiudi',
 				cardHeading: 'Catalogo delle relazioni',
 				cardDescription: (universeName) =>
 					`Ogni tipo di relazione che ${universeName} può usare, i dieci di serie e i propri, con quante relazioni usa ciascuno.`,
@@ -2204,137 +2217,149 @@ export const it: Messages = {
 					if (count === 0) return 'Nessun tipo proprio ancora.';
 					return `${count} ${form === 'one' ? 'tipo proprio' : 'tipi propri'}.`;
 				},
-				manageLink: 'Gestisci i tipi di relazione',
-				headTitle: (universeName) => `Catalogo delle relazioni: ${universeName}`,
-				title: 'Catalogo delle relazioni',
-				description: (universeName) =>
-					`Ogni tipo di relazione che ${universeName} può usare: il catalogo di serie con cui parte ogni mondo, e quello proprio di questo universo. Rinomina, amplia o traduci i tuoi, unisci due tipi in uno; i dieci di serie restano cosa di una migrazione.`,
-				shippedHeading: 'Catalogo di serie',
-				shippedDescription:
-					"Le dieci etichette con cui parte ogni universo. Modificarne una è una migrazione, non un'impostazione, quindi questo elenco è di sola lettura.",
-				ownHeading: 'I tipi propri di questo universo',
-				ownDescription:
-					"Tipi inventati da questo universo, a mano o tramite una proposta d'importazione accettata.",
-				emptyOwn: 'Nessun tipo di relazione proprio ancora.',
-				emptyOwnExplanation:
-					"Un tipo compare qui appena un GM ne aggiunge uno, o accetta una proposta d'importazione che inventa una nuova etichetta.",
-				summary: (inverseLabel, from, to, cardinality) => {
-					const base = `Inversa «${inverseLabel}». Collega ${from} a ${to}`;
-					return cardinality ? `${base}, ${cardinality}.` : `${base}.`;
-				},
-				usageCount: (count) => {
-					if (count === 0) return 'Non ancora usato in questo universo.';
-					const form = pluralRules('it').select(count);
-					return `Usato da ${count} ${form === 'one' ? 'relazione' : 'relazioni'} in questo universo.`;
-				},
-				cardinalityLabel: (value) => {
-					const labels: Record<string, string> = {
-						one_to_one: 'uno a uno',
-						one_to_many: 'uno a molti',
-						many_to_one: 'molti a uno',
-						many_to_many: 'molti a molti'
-					};
-					return labels[value] ?? value;
-				},
-				entityTypeLabel: (type) => {
-					const labels: Record<string, string> = {
-						character: 'personaggio',
-						place: 'luogo',
-						faction: 'fazione',
-						item: 'oggetto',
-						event: 'evento',
-						session: 'sessione'
-					};
-					return labels[type] ?? type;
-				},
-				rename: {
-					trigger: 'Rinomina',
-					dialogTitle: (label) => `Rinomina "${label}"`,
-					dialogDescription:
-						'Una riga sola contiene entrambe le etichette, così i due lati della relazione non possono mai disallinearsi.',
-					labelField: 'Etichetta',
-					inverseLabelField: 'Etichetta inversa',
-					submit: 'Salva',
-					labelRequiredError: "L'etichetta non può essere vuota.",
-					inverseLabelRequiredError: "L'etichetta inversa non può essere vuota.",
-					conflictError: "Questo universo ha già un tipo con quell'etichetta.",
-					notOwnedError: 'Solo un tipo creato da questo universo può essere rinominato.'
-				},
-				widen: {
-					trigger: 'Amplia',
-					dialogTitle: (label) => `Amplia "${label}"`,
-					dialogDescription:
-						'Aggiungi i tipi di entità che questa relazione può collegare. Cresce soltanto: restringerla rischierebbe relazioni che il grafo ha già.',
-					fromHeading: 'Da',
-					toHeading: 'A',
-					currentlyAdmits: 'Ammette già',
-					addOption: (typeLabel) => `Aggiungi ${typeLabel}`,
-					submit: 'Amplia',
-					noChangeError: 'Seleziona almeno un tipo di entità da aggiungere.',
-					notOwnedError: 'Solo un tipo creato da questo universo può essere ampliato.'
-				},
-				fork: {
-					trigger: 'Aggiungi la tua versione',
-					dialogTitle: (label) => `La tua versione di "${label}"`,
-					dialogDescription:
-						'Il catalogo di serie cambia solo con una nuova versione, quindi questo universo prende una copia del tipo con le stesse parole, che collega quello che ti serve. Nel canone non entra nulla: il collegamento che ti ha portato qui aspetta ancora che tu lo accetti.',
-					fromHeading: 'Da',
-					toHeading: 'A',
-					shippedAdmits: 'Il tipo di serie collega',
-					addOption: (typeLabel) => `Aggiungi ${typeLabel}`,
-					submit: 'Aggiungi la mia versione',
-					noChangeError: 'Seleziona almeno un tipo di entità da aggiungere.',
-					notShippedError:
-						"Questo tipo appartiene già all'universo, quindi amplialo invece di copiarlo.",
-					conflictError:
-						'Questo universo ha già la sua versione di questo tipo. Amplia quella, invece.',
-					createdNotice: (label) =>
-						`Adesso questo universo ha la sua versione di "${label}". Torna alla revisione dell'import e accetta di nuovo il collegamento.`
-				},
-				translate: {
-					trigger: 'Aggiungi una traduzione',
-					dialogTitle: (label) => `Traduci "${label}"`,
-					dialogDescription:
-						"Le tue parole, lette in un'altra lingua dell'interfaccia. Lascia una lingua vuota per mostrare l'etichetta esattamente come l'hai scritta anche lì.",
-					labelField: 'Etichetta',
-					inverseLabelField: 'Etichetta inversa',
-					submit: 'Salva',
-					incompletePairError:
-						'Compila entrambi i campi per una lingua, oppure lasciali entrambi vuoti.',
-					notOwnedError: 'Solo un tipo creato da questo universo può essere tradotto.'
-				},
-				merge: {
-					trigger: 'Unisci',
-					dialogTitle: 'Unisci due tipi di relazione',
-					dialogDescription:
-						"Per fare ordine dopo un'importazione che ha chiamato la stessa relazione in due modi. Ogni relazione che usa il tipo perdente si sposta sul tipo in cui viene unito, e il tipo perdente viene rimosso.",
-					fromLabel: 'Unisci questo tipo',
-					intoLabel: 'In questo tipo',
-					pickFromPlaceholder: 'Scegli un tipo di questo universo',
-					pickIntoPlaceholder: 'Scegli il tipo in cui unirlo',
-					countWarning: (count, fromLabel, intoLabel) => {
-						const form = pluralRules('it').select(count);
-						const uses = form === 'one' ? 'relazione usa' : 'relazioni usano';
-						const moves = form === 'one' ? 'la sposta' : 'le sposta tutte';
-						return `${count} ${uses} "${fromLabel}". L'unione ${moves} su "${intoLabel}", e "${fromLabel}" viene rimosso.`;
-					},
-					countWarningZero: (fromLabel, intoLabel) =>
-						`"${fromLabel}" non ha ancora relazioni. L'unione lo rimuove e lascia "${intoLabel}" com'è.`,
-					sameTypeError: 'Scegli due tipi diversi.',
-					notOwnedError: 'Solo un tipo creato da questo universo può essere unito e rimosso.',
-					needsTwoTypesNotice:
-						'Questo universo ha bisogno di almeno un tipo proprio prima che due tipi possano unirsi.',
-					submit: 'Unisci',
-					movedToast: (count, intoLabel) => {
-						if (count === 0) return `Unito in "${intoLabel}".`;
-						const suffix = count === 1 ? 'a' : 'e';
-						const noun = count === 1 ? 'relazione' : 'relazioni';
-						return `Spostat${suffix} ${count} ${noun} in "${intoLabel}".`;
-					}
-				},
-				viewerForbiddenError:
-					'Chi ha accesso in sola visualizzazione non può modificare il catalogo delle relazioni.'
+				manageLink: 'Gestisci i tipi di relazione'
 			}
+		},
+		// Issue #795 (DECISIONS.md "Round twenty-one"): il catalogo vero e proprio si è
+		// spostato fuori dalle impostazioni, sulla sua rotta, `/w/[universe]/relations` -
+		// una pagina a pieno titolo ora, collegata sia da Impostazioni sia da Voci.
+		// `universe.settings.relations` sopra tiene solo il testo della scheda del gruppo
+		// Canone; tutto ciò che la pagina e le sue finestre leggono è qui adesso.
+		relations: {
+			close: 'Chiudi',
+			headTitle: (universeName) => `Catalogo delle relazioni: ${universeName}`,
+			title: 'Catalogo delle relazioni',
+			description: (universeName) =>
+				`Ogni tipo di relazione che ${universeName} può usare: il catalogo di serie con cui parte ogni mondo, e quello proprio di questo universo. Rinomina, amplia o traduci i tuoi, unisci due tipi in uno; i dieci di serie restano cosa di una migrazione.`,
+			shippedHeading: 'Catalogo di serie',
+			shippedDescription:
+				"Le dieci etichette con cui parte ogni universo. Modificarne una è una migrazione, non un'impostazione, quindi questo elenco è di sola lettura.",
+			ownHeading: 'I tipi propri di questo universo',
+			ownDescription:
+				"Tipi inventati da questo universo, a mano o tramite una proposta d'importazione accettata.",
+			emptyOwn: 'Nessun tipo di relazione proprio ancora.',
+			emptyOwnExplanation:
+				"Un tipo compare qui appena un GM ne aggiunge uno, o accetta una proposta d'importazione che inventa una nuova etichetta.",
+			summary: (inverseLabel, from, to, cardinality) => {
+				const base = `Inversa «${inverseLabel}». Collega ${from} a ${to}`;
+				return cardinality ? `${base}, ${cardinality}.` : `${base}.`;
+			},
+			cardinalityLabel: (value) => {
+				const labels: Record<string, string> = {
+					one_to_one: 'uno a uno',
+					one_to_many: 'uno a molti',
+					many_to_one: 'molti a uno',
+					many_to_many: 'molti a molti'
+				};
+				return labels[value] ?? value;
+			},
+			entityTypeLabel: (type) => {
+				const labels: Record<string, string> = {
+					character: 'personaggio',
+					place: 'luogo',
+					faction: 'fazione',
+					item: 'oggetto',
+					event: 'evento',
+					session: 'sessione'
+				};
+				return labels[type] ?? type;
+			},
+			// Issue #795: intestazioni della vera `<table>` che ciascuna delle due sezioni
+			// sotto ora disegna (al posto della lista `<ul>`/`<li>` del round sedici); la
+			// vecchia frase `usageCount` sparisce con essa, a favore di un numero nudo e
+			// allineato a destra sotto `uses`, come conta ogni altra tabella del prodotto.
+			table: {
+				label: 'Etichetta',
+				uses: 'Utilizzi',
+				actions: 'Azioni'
+			},
+			rename: {
+				trigger: 'Rinomina',
+				dialogTitle: (label) => `Rinomina "${label}"`,
+				dialogDescription:
+					'Una riga sola contiene entrambe le etichette, così i due lati della relazione non possono mai disallinearsi.',
+				labelField: 'Etichetta',
+				inverseLabelField: 'Etichetta inversa',
+				submit: 'Salva',
+				labelRequiredError: "L'etichetta non può essere vuota.",
+				inverseLabelRequiredError: "L'etichetta inversa non può essere vuota.",
+				conflictError: "Questo universo ha già un tipo con quell'etichetta.",
+				notOwnedError: 'Solo un tipo creato da questo universo può essere rinominato.'
+			},
+			widen: {
+				trigger: 'Amplia',
+				dialogTitle: (label) => `Amplia "${label}"`,
+				dialogDescription:
+					'Aggiungi i tipi di entità che questa relazione può collegare. Cresce soltanto: restringerla rischierebbe relazioni che il grafo ha già.',
+				fromHeading: 'Da',
+				toHeading: 'A',
+				currentlyAdmits: 'Ammette già',
+				addOption: (typeLabel) => `Aggiungi ${typeLabel}`,
+				submit: 'Amplia',
+				noChangeError: 'Seleziona almeno un tipo di entità da aggiungere.',
+				notOwnedError: 'Solo un tipo creato da questo universo può essere ampliato.'
+			},
+			fork: {
+				trigger: 'Aggiungi la tua versione',
+				dialogTitle: (label) => `La tua versione di "${label}"`,
+				dialogDescription:
+					'Il catalogo di serie cambia solo con una nuova versione, quindi questo universo prende una copia del tipo con le stesse parole, che collega quello che ti serve. Nel canone non entra nulla: il collegamento che ti ha portato qui aspetta ancora che tu lo accetti.',
+				fromHeading: 'Da',
+				toHeading: 'A',
+				shippedAdmits: 'Il tipo di serie collega',
+				addOption: (typeLabel) => `Aggiungi ${typeLabel}`,
+				submit: 'Aggiungi la mia versione',
+				noChangeError: 'Seleziona almeno un tipo di entità da aggiungere.',
+				notShippedError:
+					"Questo tipo appartiene già all'universo, quindi amplialo invece di copiarlo.",
+				conflictError:
+					'Questo universo ha già la sua versione di questo tipo. Amplia quella, invece.',
+				createdNotice: (label) =>
+					`Adesso questo universo ha la sua versione di "${label}". Torna alla revisione dell'import e accetta di nuovo il collegamento.`
+			},
+			translate: {
+				trigger: 'Aggiungi una traduzione',
+				dialogTitle: (label) => `Traduci "${label}"`,
+				dialogDescription:
+					"Le tue parole, lette in un'altra lingua dell'interfaccia. Lascia una lingua vuota per mostrare l'etichetta esattamente come l'hai scritta anche lì.",
+				labelField: 'Etichetta',
+				inverseLabelField: 'Etichetta inversa',
+				submit: 'Salva',
+				incompletePairError:
+					'Compila entrambi i campi per una lingua, oppure lasciali entrambi vuoti.',
+				notOwnedError: 'Solo un tipo creato da questo universo può essere tradotto.'
+			},
+			merge: {
+				trigger: 'Unisci',
+				dialogTitle: 'Unisci due tipi di relazione',
+				dialogDescription:
+					"Per fare ordine dopo un'importazione che ha chiamato la stessa relazione in due modi. Ogni relazione che usa il tipo perdente si sposta sul tipo in cui viene unito, e il tipo perdente viene rimosso.",
+				fromLabel: 'Unisci questo tipo',
+				intoLabel: 'In questo tipo',
+				pickFromPlaceholder: 'Scegli un tipo di questo universo',
+				pickIntoPlaceholder: 'Scegli il tipo in cui unirlo',
+				countWarning: (count, fromLabel, intoLabel) => {
+					const form = pluralRules('it').select(count);
+					const uses = form === 'one' ? 'relazione usa' : 'relazioni usano';
+					const moves = form === 'one' ? 'la sposta' : 'le sposta tutte';
+					return `${count} ${uses} "${fromLabel}". L'unione ${moves} su "${intoLabel}", e "${fromLabel}" viene rimosso.`;
+				},
+				countWarningZero: (fromLabel, intoLabel) =>
+					`"${fromLabel}" non ha ancora relazioni. L'unione lo rimuove e lascia "${intoLabel}" com'è.`,
+				sameTypeError: 'Scegli due tipi diversi.',
+				notOwnedError: 'Solo un tipo creato da questo universo può essere unito e rimosso.',
+				needsTwoTypesNotice:
+					'Questo universo ha bisogno di almeno un tipo proprio prima che due tipi possano unirsi.',
+				submit: 'Unisci',
+				movedToast: (count, intoLabel) => {
+					if (count === 0) return `Unito in "${intoLabel}".`;
+					const suffix = count === 1 ? 'a' : 'e';
+					const noun = count === 1 ? 'relazione' : 'relazioni';
+					return `Spostat${suffix} ${count} ${noun} in "${intoLabel}".`;
+				}
+			},
+			viewerForbiddenError:
+				'Chi ha accesso in sola visualizzazione non può modificare il catalogo delle relazioni.'
 		},
 		players: {
 			headTitle: (universeName) => `Giocatori · ${universeName}`,
@@ -2342,6 +2367,10 @@ export const it: Messages = {
 			description: 'Cosa ha scoperto il gruppo, e cosa è ancora dietro lo schermo.',
 			wikiLinkLabel: 'Il wiki dei giocatori',
 			openWikiLink: 'Apri il wiki dei giocatori',
+			// Issue #791: nome accessibile della pillola dell'indirizzo, dato che l'etichetta
+			// visibile è il testo dell'indirizzo stesso.
+			copyAddressLabel: (address) => `Copia l'indirizzo del wiki, ${address}`,
+			addressCopiedLabel: 'Copiato',
 			invitationsNotice:
 				"Non esiste ancora un invito da inviare: condividi l'indirizzo del wiki direttamente con i tuoi giocatori.",
 			revealedHeading: 'Rivelato',

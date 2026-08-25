@@ -49,7 +49,8 @@
 		actions,
 		filters,
 		titleAdornment,
-		headingLevel = 1
+		headingLevel = 1,
+		height = $bindable(0)
 	}: {
 		width: PageWidth;
 		title: string;
@@ -59,6 +60,12 @@
 		filters?: Snippet;
 		titleAdornment?: Snippet;
 		headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
+		/** #789: the band's own rendered height, measured. `Page` republishes it as a
+		 * CSS variable on the body wrapper so an element inside the body can stick
+		 * against `main`'s scrollport exactly at the band's lower edge (the entries
+		 * table header is the one consumer). Bound, not computed: the band wraps at
+		 * every width and carries an optional filters row, so no constant is true. */
+		height?: number;
 	} = $props();
 </script>
 
@@ -95,6 +102,7 @@
 
 <header
 	data-page-band
+	bind:offsetHeight={height}
 	class="sticky top-0 z-10 -mx-4 mb-6 border-b border-line bg-paper px-4 pt-4 pb-6 md:-mx-8 md:mb-8 md:px-8 md:pt-8 md:pb-8"
 >
 	<div class={PAGE_WIDTH_CLASS[width]}>{@render content()}</div>

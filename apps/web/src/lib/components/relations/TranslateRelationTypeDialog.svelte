@@ -40,7 +40,7 @@
 		onClose
 	}: {
 		type: RelationTypeCatalogueRow;
-		t: Messages['universe']['settings']['relations'];
+		t: Messages['universe']['relations'];
 		relationTypeLabel: Messages['relationTypeLabel'];
 		locale: Locale;
 		form?: TranslateActionResult | undefined;

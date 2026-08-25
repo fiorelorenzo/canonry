@@ -5,10 +5,15 @@
  * *not* counted against the cap: "a full-height text nav, all seven places listed, the
  * switcher pinned above it."
  *
- * Counted by hand before shipping this list: Entries, Works, Proposals, Table,
- * Players, Import, Settings is seven, not eight. Nothing here needed folding into the
- * switcher or nested under Settings; the list ships exactly as the artifact draws it.
- * Settings now resolves to the per-universe settings page (issue #107's "Stop writing"
+ * #788 (round nineteen) amends A2 twice without changing the cap. The order below is
+ * the order Lorenzo actually uses at the table - Entries, Proposals, Table, Players,
+ * Works, Import, Settings - rather than the order the artifact happened to draw. And
+ * the world home, which O1 = C gave to the switcher plus a back link on the entries
+ * page, is a pinned row above these seven now (Sidebar.svelte renders it directly, the
+ * way the switcher sits outside the cap), because a home reachable only through the
+ * switcher read as a feature of the entries page. The back link is gone.
+ *
+ * Settings resolves to the per-universe settings page (issue #107's "Stop writing"
  * switch, issue #19's precedence panel) rather than the account-wide appearance page -
  * that page is still reachable, linked from the universe settings page itself, since
  * A2 gives this nav item to "this universe", not to the account.
@@ -28,16 +33,14 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-	// O1 = C (#283): `/w/<slug>` is the world home now and the browser lives one level down, so
-	// this item points at the table and the world switcher keeps the home. Both used to point
-	// here, which was fine while the two were the same page and is a fork in the road now.
+	// O1 = C (#283): `/w/<slug>` is the world home and the browser lives one level down;
+	// #788 adds the sidebar's own home row above this list, so the fork stays visible.
 	{
 		id: 'entries',
 		label: 'Entries',
 		href: (slug) => `/w/${slug}/entries`,
 		issue: 283
 	},
-	{ id: 'works', label: 'Works', href: (slug) => `/w/${slug}/works`, issue: 20 },
 	{
 		id: 'proposals',
 		label: 'Proposals',
@@ -51,6 +54,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
 		href: (slug) => `/w/${slug}/players`,
 		issue: 82
 	},
+	{ id: 'works', label: 'Works', href: (slug) => `/w/${slug}/works`, issue: 20 },
 	{ id: 'import', label: 'Import', href: (slug) => `/w/${slug}/import`, issue: 26 },
 	{
 		id: 'settings',

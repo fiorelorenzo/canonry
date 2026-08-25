@@ -7,9 +7,9 @@
 import { error, json } from '@sveltejs/kit';
 import { runningSessionContext } from '@canonry/db';
 import { messages } from '$lib/i18n';
+import { identityGateway, modelFactory } from '$lib/server/copilot.js';
 import { db } from '$lib/server/db';
 import { publishTableEvent } from '$lib/server/table-stream';
-import { tableGatewayCredentials } from '../_server/deps.js';
 import { requireTableAccess } from '../_server/guard.js';
 import {
 	fireCreateChildLocation,
@@ -73,7 +73,8 @@ export const POST: RequestHandler = async (event) => {
 			placeLanguage,
 			placeBody,
 			sessionEntityId: context.sessionEntityId,
-			gatewayCredentials: tableGatewayCredentials
+			modelFactory,
+			gateway: identityGateway
 		})
 			.then((result) => {
 				publishTableEvent(access.universe.id, 'proposal', {
@@ -111,7 +112,8 @@ export const POST: RequestHandler = async (event) => {
 				placeLanguage,
 				placeBody,
 				sessionEntityId: context.sessionEntityId,
-				gatewayCredentials: tableGatewayCredentials
+				modelFactory,
+				gateway: identityGateway
 			},
 			label
 		);
@@ -142,7 +144,8 @@ export const POST: RequestHandler = async (event) => {
 					placeLanguage,
 					placeBody,
 					sessionEntityId: context.sessionEntityId,
-					gatewayCredentials: tableGatewayCredentials
+					modelFactory,
+					gateway: identityGateway
 				},
 				access.userId
 			);

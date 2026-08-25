@@ -37,7 +37,6 @@
 	import type { EntityType } from '@canonry/db/schema';
 	import type { Messages } from '$lib/i18n';
 	import { Badge } from '$lib/components/ui/badge';
-	import { TableScroll } from '$lib/components/ui/table';
 	import { cn } from '$lib/utils/cn.js';
 	import {
 		ariaSortFor,
@@ -161,14 +160,21 @@
 
 <!-- eslint-disable svelte/no-navigation-without-resolve -- every href below is a resolve()
      result with a query string appended, which the rule cannot see through. -->
-<TableScroll class="mt-4" label={t.title}>
+<!-- #789: not `TableScroll`. An `overflow-x: auto` wrapper is a scroll container, and a
+     sticky descendant resolves against the nearest one, so inside `TableScroll` the header
+     below could only ever stick to a box that never scrolls vertically - it would simply
+     never move. This table needs no horizontal scroll anyway: below `sm` it is
+     `table-fixed` at `w-full` (columns squeeze, the name truncates), at `sm` and up the
+     cells wrap. `overflow-clip` keeps the rounded corners clipping the header's own
+     paint without creating a scroll container, which is the whole trick. -->
+<div class="relative mt-4 overflow-clip rounded-lg border border-line">
 	<table
 		bind:this={tableEl}
 		class="w-full table-fixed border-collapse text-body sm:table-auto"
 		aria-label={t.tableAriaLabel}
 	>
 		<thead>
-			<tr class="border-b border-line-2 bg-panel-2">
+			<tr>
 				{#each columns as column (column.sort)}
 					{@const active = params.sort === column.sort}
 					<!-- #750: the sorted column and its direction reached no screen reader at all. The
@@ -179,11 +185,16 @@
 					     `<th scope="col">` is what maps to that role. Its value is built from
 					     `params.direction`, the order the table is in, not the flipped one
 					     `headerHref` builds. -->
+					<!-- #789: sticky against `main`'s scrollport, parked exactly under the page
+					     band (`--page-band-h`, published by `Page`). The bottom rule is an inset
+					     shadow rather than a row border because with `border-collapse` a border
+					     belongs to the row, and a row does not travel with its stuck cells. Each
+					     `th` carries the opaque background for the same reason. -->
 					<th
 						scope="col"
 						aria-sort={ariaSortFor(params, column.sort)}
 						class={cn(
-							'px-2 py-2 text-label font-semibold tracking-wide text-muted uppercase sm:px-3',
+							'sticky top-[var(--page-band-h,0px)] z-10 bg-panel-2 px-2 py-2 text-label font-semibold tracking-wide text-muted uppercase shadow-[inset_0_-1px_0_0_var(--color-line-2)] sm:px-3',
 							column.numeric ? 'text-right' : 'text-left',
 							column.phoneWidth && `${column.phoneWidth} sm:w-auto`,
 							column.phoneHidden && 'hidden sm:table-cell'
@@ -248,7 +259,7 @@
 			{/each}
 		</tbody>
 	</table>
-</TableScroll>
+</div>
 
 <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-meta text-muted">
 	<!-- Issue #148: bare `j`/`k`/`↵` hints name keys a phone does not have. Every other

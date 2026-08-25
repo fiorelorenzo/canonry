@@ -31,6 +31,7 @@
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { Button } from '$lib/components/ui/button';
 	import { Page } from '$lib/components/ui/page';
+	import WikiAddressRow from '$lib/components/players/WikiAddressRow.svelte';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import MentionPreview from '$lib/components/entry/MentionPreview.svelte';
 	import { InlineLink } from '$lib/components/ui/link';
@@ -62,23 +63,8 @@
 </svelte:head>
 
 <Page width="working" eyebrow={data.universe.name} title={t.heading} description={t.description}>
-	<div class="flex flex-col gap-8 px-8 py-16">
-		<div class="flex flex-col gap-2 rounded-lg border border-line bg-panel p-5">
-			<h2 class="text-title font-semibold text-ink">{t.wikiLinkLabel}</h2>
-			<p class="font-mono text-body text-ink-2">{resolve(`/p/${data.universe.slug}`)}</p>
-			<div>
-				<Button
-					href={resolve(`/p/${data.universe.slug}`)}
-					target="_blank"
-					rel="noopener"
-					variant="secondary"
-					size="sm"
-				>
-					{t.openWikiLink}
-				</Button>
-			</div>
-			<p class="mt-1 text-body text-muted">{t.invitationsNotice}</p>
-		</div>
+	<div class="flex flex-col gap-8 px-6 py-8">
+		<WikiAddressRow universeSlug={data.universe.slug} locale={data.locale} />
 
 		<div bind:this={revealedContainer} class="relative">
 			<h2 class="mb-3 text-label font-semibold tracking-wide text-muted uppercase">

@@ -270,11 +270,18 @@ export interface Messages {
 			 * front door says what the feature is for instead of a bare pill. */
 			launcherHint: string;
 			context: (pageName: string) => string;
-			/** Issue #437, decision T10: guardrail 5's disclosure, said once here where it
-			 * can be read before anything is asked, rather than on a card after every turn.
-			 * Ends with the same policy link `universe.ask.keep.noteLinkBefore`/`noteLink`
-			 * already carries, reused rather than duplicated. */
+			/** Issue #437, decision T10, amended by issue #797 (round twenty-one): guardrail
+			 * 5's disclosure. It used to stand on its own line, read before anything is
+			 * asked; it is now the body of a popover an info button opens (`disclosureLabel`
+			 * below), still read before anything is asked but no longer taking a full row on
+			 * every render. Ends with the same policy link
+			 * `universe.ask.keep.noteLinkBefore`/`noteLink` already carries, reused rather
+			 * than duplicated. */
 			disclosure: string;
+			/** Issue #797: the info button's `aria-label`, doubled as the popover's own
+			 * title (`Popover.Title`) - same word either way a reader meets it, the same
+			 * pattern `shell.quota.includedExplainLabel` already uses for its own popover. */
+			disclosureLabel: string;
 			/** Issue #437: the icon button on a settled turn, opening it on the Ask page.
 			 * Doubles as the button's `aria-label` and its `Tooltip.Content` (Q4) - same word
 			 * either way a reader meets it. */
@@ -1451,6 +1458,9 @@ export interface Messages {
 			emptyRunningExplanation: string;
 			emptyDone: string;
 			filtering: string;
+			/** Issue #790: the running job's per-document progress, next to `stillImporting`'s
+			 * proposal count - the same live status line, one more number wide. */
+			documentsProgress: (settled: number, total: number) => string;
 			/** Issue #163, SPEC.md §6.4: the entities this job's merge engine found missing
 			 * from the source. A statement of fact, never a proposal - no accept/reject verbs
 			 * belong in this copy. */
@@ -1584,6 +1594,24 @@ export interface Messages {
 					insufficientCredits: string;
 				};
 			};
+			/** Issue #790: the empty-state drop zone on `/w/[universe]/import` - the file-first
+			 * surface that replaced the old bare "start an import" button. Onboarding's own
+			 * `/onboarding/import` still opens on the plain `uploadButton` form above and has
+			 * no use for this. */
+			dropzone: {
+				heading: string;
+				hint: string;
+				formats: string;
+			};
+			/** Issue #790: the one preview screen `/w/[universe]/import` shows after detection -
+			 * `confirm`/`estimate` above stay onboarding's own two-step version, unchanged;
+			 * this page merges them into one screen and needs only its own override button and
+			 * cancel label from here, since it reads `confirm.detected`/`estimate.*` (already
+			 * screen-agnostic content) verbatim rather than duplicating it. */
+			preview: {
+				useFormat: string;
+				cancel: string;
+			};
 		};
 		job: {
 			headTitle: (universeName: string) => string;
@@ -1642,7 +1670,6 @@ export interface Messages {
 			fileInputLabel: string;
 			jobsHeading: string;
 			jobsEmpty: string;
-			jobsEmptyAction: string;
 			proposals: (count: number) => string;
 			reviewLink: string;
 			viewerNotice: string;
@@ -1658,15 +1685,24 @@ export interface Messages {
 		title: string;
 
 		contextStrip: {
+			/** The active-session chip prefix ("Table mode: on"), shared with
+			 * `+layout.svelte`'s browser-tab title (#792) so the tab and the strip never
+			 * disagree about what mode this is. Only rendered once a place is declared -
+			 * `notStarted` below is the not-started chip's entire content. */
 			modeOn: string;
-			noPlaceDeclared: (universeName: string) => string;
+			/** #792: the not-started chip. Replaces the old `noPlaceDeclared` fragment and
+			 * the strip's own declare/change toggle - `+page.svelte`'s cold `EmptyState`
+			 * action is now the one control that begins a session, so the strip states
+			 * what table mode is and that it has not started, nothing more. */
+			notStarted: string;
 			pinnedIn: (ms: number) => string;
 			change: string;
-			/** `ContextStrip`'s own control read as what it does when nothing is declared
-			 * yet (#470): "Change" implies an existing choice, so an undeclared table
-			 * reads "Declare" on the same button instead. */
-			declare: string;
 			exit: string;
+			/** #792: the exit button's own `title`. `table/end/+server.ts` closes the
+			 * running `session_context` and broadcasts `session-ended` to every client
+			 * subscribed to this universe's table stream, not only the one that clicked -
+			 * said here so exiting is never a surprise. */
+			exitTooltip: string;
 		};
 
 		declareContext: {
@@ -1764,6 +1800,9 @@ export interface Messages {
 			moodLabel: string;
 			moodOff: string;
 			hideAudioGraph: string;
+			/** #793: says plainly that sound is unavailable, not "not generated yet" - no
+			 * trigger anywhere in the shipped product ever asks for one (issue #798), so
+			 * "yet" would promise a background job that does not exist. */
 			noPackYet: string;
 			layerSummary: (count: number, stale: boolean) => string;
 			play: string;
@@ -1812,10 +1851,14 @@ export interface Messages {
 		 * above - section headings, the empty-context prompt, toasts, and the session's
 		 * own live proposal feed (issue #79). */
 		home: {
+			/** #792: the cold `EmptyState`'s own message - what table mode is, not only
+			 * that nothing is declared yet. */
 			noContextDeclared: string;
-			/** The inline quick-declare `Combobox`'s trigger before a place is chosen
-			 * (#470's empty state, `EmptyState`'s `action` snippet). */
-			choosePlace: string;
+			/** #792: the cold `EmptyState`'s action button, replacing #470's inline
+			 * quick-declare `Combobox` - one control for the one act of beginning a
+			 * session, opening the same `DeclareContext` form `contextStrip.change` opens
+			 * afterward. */
+			beginTableMode: string;
 			placeHeading: string;
 			nearbyHeading: string;
 			hereHeading: string;
@@ -1964,8 +2007,12 @@ export interface Messages {
 	 * a universe, Ask mode, and a universe's own settings page. */
 	universe: {
 		/** Sidebar.svelte's `NAV_ITEMS` lookup - real translated label per `item.id`,
-		 * `nav.ts`'s own `label` field stays an English id-like fallback/discriminant. */
+		 * `nav.ts`'s own `label` field stays an English id-like fallback/discriminant.
+		 * #788: `home` is the row pinned above the seven, not one of them - the world
+		 * home used to be reachable only through the switcher and the entries page's
+		 * back link, and the back link is gone. */
 		nav: {
+			home: string;
 			entries: string;
 			works: string;
 			proposals: string;
@@ -2054,9 +2101,8 @@ export interface Messages {
 			entries: {
 				headTitle: (universeName: string) => string;
 				title: string;
-				/** The way back to the world home, which the sidebar deliberately does not
-				 * carry: A2 caps that nav at seven items and `Entries` now points here. */
-				backToHome: (universeName: string) => string;
+				/** #795: the entries page's own link to the relation catalogue. */
+				relationCatalogueLink: string;
 				columnName: string;
 				columnType: string;
 				columnRelations: string;
@@ -2179,7 +2225,10 @@ export interface Messages {
 			 * `packages/copilot/src/speech.ts`), because a GM should meet one vocabulary for
 			 * "your canon does not answer this" rather than two, and it now also says what the
 			 * paragraph above it is, since with the floor in place that paragraph is general
-			 * knowledge rather than a refusal. */
+			 * knowledge rather than a refusal. Issue #797 (round twenty-one): compressed from
+			 * two sentences to one - the call to action ("name a person, a place or an event")
+			 * is gone, the "general knowledge, not your canon" distinction stays, because that
+			 * is the one guardrail-adjacent fact this line exists to carry. */
 			sourcesEmpty: string;
 			/** Issue #437 (T10) and #455 (U11): a citation whose entry has since been deleted
 			 * says so, on the conversation view, rather than dropping the citation and making
@@ -2273,8 +2322,13 @@ export interface Messages {
 				heading: string;
 				/** Guardrail 5's disclosure, read once at the top of the page as a single
 				 * standing line - not the boxed two-paragraph card this page used to carry.
-				 * Ends in `keep.noteLinkBefore`/`keep.noteLink`. */
+				 * Ends in `keep.noteLinkBefore`/`keep.noteLink`. Issue #797 (round twenty-one):
+				 * no longer a standing line either - `noteLabel` below is the info button's
+				 * `aria-label`/popover title that now carries it, same reasoning as
+				 * `shell.quickAsk.disclosureLabel`. */
 				note: string;
+				/** Issue #797: see `note`'s own comment. */
+				noteLabel: string;
 				searchPlaceholder: string;
 				searchClear: string;
 				/** `kept_answer` already holds the question and the answer as text, so this
@@ -2303,21 +2357,20 @@ export interface Messages {
 			appearanceLink: string;
 			exportLink: string;
 			viewerForbiddenError: string;
-			/** Issue #406 (S1, DECISIONS.md "Round fourteen"): the two-pane page's own
-			 * rail - the three group names below, in fixed order (Images, then the
-			 * Loremaster, then Canon) - and the small mark a row carries while
-			 * `universeSetupItems()` still has the one item that group owns unset.
-			 * Replaces the `setupChecklist` card this page used to render at the top:
-			 * the array itself is unchanged, only where its output surfaces. */
+			/** Issue #406 (S1, DECISIONS.md "Round fourteen"): originally the two-pane
+			 * page's own rail - the three group names below, in fixed order (Images,
+			 * then the Loremaster, then Canon). Issue #794 (DECISIONS.md "Round
+			 * twenty-one") dropped the rail; `groups` still names the three sections,
+			 * now plain `h2` headings on one scrolling page. */
 			groups: {
 				images: string;
 				loremaster: string;
 				canon: string;
 			};
-			rail: {
-				ariaLabel: string;
-				incompleteMark: string;
-			};
+			/** The small mark a group's own `h2` carries while `universeSetupItems()`
+			 * still has the one item that group owns unset - the rail row's own mark
+			 * before issue #794, moved onto the heading it used to point at. */
+			unsetMark: string;
 			aiToggle: {
 				heading: string;
 				description: (universeName: string) => string;
@@ -2438,126 +2491,139 @@ export interface Messages {
 				alreadySupersededError: string;
 				missingIdError: string;
 			};
-			/** Issue #192 (K1, DECISIONS.md "Round six"): the relation catalogue - every type a
-			 * universe can use, shipped and its own, with a real usage count, plus rename, merge,
-			 * widen and translate for a universe's own types. The shipped ten stay read-only here
-			 * on purpose; editing them is a migration's job, not a settings control's.
-			 *
-			 * Issue #450 (U1, DECISIONS.md "Round sixteen"): `table` (six columns, an "actions"
-			 * header, a `shippedBadge`) and `backLink` (this leaf's own back link) are gone -
-			 * this leaf now lives inside the settings shell (#421), and every row - shipped or a
-			 * universe's own - reads as one line of prose (`summary`, `usageCount`) instead of a
-			 * grid. */
+			/** Issue #795 moved the catalogue itself to `/w/[universe]/relations`
+			 * (`universe.relations` below); this is now only the Canon group's own card -
+			 * the count of a universe's own types and the button that links out to it. */
 			relations: {
-				close: string;
 				cardHeading: string;
 				cardDescription: (universeName: string) => string;
 				cardCountOwn: (count: number) => string;
 				manageLink: string;
-				headTitle: (universeName: string) => string;
-				title: string;
-				description: (universeName: string) => string;
-				shippedHeading: string;
-				shippedDescription: string;
-				ownHeading: string;
-				ownDescription: string;
-				emptyOwn: string;
-				emptyOwnExplanation: string;
-				/** One row's worth of prose: its inverse label, what it connects, and (only when
-				 * `cardinality` is not `null`, i.e. not the unmarked `many_to_many` case) the
-				 * cardinality word. `from`/`to` arrive already joined by `entityTypeLabel` below -
-				 * this stays a plain sentence template, not a second place that knows what an
-				 * entity type is called. */
-				summary: (
-					inverseLabel: string,
-					from: string,
-					to: string,
-					cardinality: string | null
-				) => string;
-				/** SPEC.md §4.2/guardrail 5: how many relations in this universe use a type,
-				 * plainly said rather than folded into `summary`'s own sentence - a fact worth
-				 * scanning for on its own, not a clause inside one about something else. */
-				usageCount: (count: number) => string;
-				cardinalityLabel: (value: string) => string;
-				entityTypeLabel: (type: string) => string;
-				rename: {
-					trigger: string;
-					dialogTitle: (label: string) => string;
-					dialogDescription: string;
-					labelField: string;
-					inverseLabelField: string;
-					submit: string;
-					labelRequiredError: string;
-					inverseLabelRequiredError: string;
-					conflictError: string;
-					notOwnedError: string;
-				};
-				widen: {
-					trigger: string;
-					dialogTitle: (label: string) => string;
-					dialogDescription: string;
-					fromHeading: string;
-					toHeading: string;
-					currentlyAdmits: string;
-					addOption: (typeLabel: string) => string;
-					submit: string;
-					noChangeError: string;
-					notOwnedError: string;
-				};
-				/** Issue #648: the shipped half of `resolveAdmissionGap`, taken by hand. A
-				 * shipped row cannot be widened at all (decision L1: a shipped key is API
-				 * surface), so what a GM gets instead is their own copy of that type, under
-				 * the shipped type's own words, wide enough for the pair a refused accept
-				 * named. `createdNotice` is the one string that names the queue the GM came
-				 * from, because the fork on its own writes nothing to canon - the link they
-				 * were accepting is still a proposal waiting for them. */
-				fork: {
-					trigger: string;
-					dialogTitle: (label: string) => string;
-					dialogDescription: string;
-					fromHeading: string;
-					toHeading: string;
-					shippedAdmits: string;
-					addOption: (typeLabel: string) => string;
-					submit: string;
-					noChangeError: string;
-					notShippedError: string;
-					conflictError: string;
-					createdNotice: (label: string) => string;
-				};
-				/** #198: the GM-written half of a per-locale reading for a universe's own
-				 * type - one field pair per shipped locale, all in one form. Leaving both
-				 * fields of a locale blank clears that locale's translation back to
-				 * display fallback on the authored label; filling only one of the pair is
-				 * `incompletePairError`, not a silent partial save. */
-				translate: {
-					trigger: string;
-					dialogTitle: (label: string) => string;
-					dialogDescription: string;
-					labelField: string;
-					inverseLabelField: string;
-					submit: string;
-					incompletePairError: string;
-					notOwnedError: string;
-				};
-				merge: {
-					trigger: string;
-					dialogTitle: string;
-					dialogDescription: string;
-					fromLabel: string;
-					intoLabel: string;
-					pickFromPlaceholder: string;
-					pickIntoPlaceholder: string;
-					countWarning: (count: number, fromLabel: string, intoLabel: string) => string;
-					countWarningZero: (fromLabel: string, intoLabel: string) => string;
-					sameTypeError: string;
-					notOwnedError: string;
-					needsTwoTypesNotice: string;
-					submit: string;
-					movedToast: (count: number, intoLabel: string) => string;
-				};
-				viewerForbiddenError: string;
 			};
+		};
+		/** Issue #192 (K1, DECISIONS.md "Round six"): the relation catalogue - every type a
+		 * universe can use, shipped and its own, with a real usage count, plus rename, merge,
+		 * widen and translate for a universe's own types. The shipped ten stay read-only here
+		 * on purpose; editing them is a migration's job, not a settings control's.
+		 *
+		 * Issue #450 (U1, DECISIONS.md "Round sixteen"): every row - shipped or a universe's
+		 * own - reads as one line of prose (`summary`) rather than a six-column grid, own
+		 * types first and given the room, the shipped ten compact reference below.
+		 *
+		 * Issue #795 (DECISIONS.md "Round twenty-one", amends U1): the page itself moved out
+		 * of the settings shell to its own route, `/w/[universe]/relations`, linked from both
+		 * Settings and Entries. `table` names the columns of the real `<table>` each of the
+		 * two sections now renders in place of round sixteen's `<ul>`/`<li>` list; the old
+		 * `usageCount` sentence is gone with it - a bare, right-aligned count under a `uses`
+		 * header reads the way every other product table's numbers do. */
+		relations: {
+			close: string;
+			headTitle: (universeName: string) => string;
+			title: string;
+			description: (universeName: string) => string;
+			shippedHeading: string;
+			shippedDescription: string;
+			ownHeading: string;
+			ownDescription: string;
+			emptyOwn: string;
+			emptyOwnExplanation: string;
+			/** One row's worth of prose: its inverse label, what it connects, and (only when
+			 * `cardinality` is not `null`, i.e. not the unmarked `many_to_many` case) the
+			 * cardinality word. `from`/`to` arrive already joined by `entityTypeLabel` below -
+			 * this stays a plain sentence template, not a second place that knows what an
+			 * entity type is called. */
+			summary: (
+				inverseLabel: string,
+				from: string,
+				to: string,
+				cardinality: string | null
+			) => string;
+			cardinalityLabel: (value: string) => string;
+			entityTypeLabel: (type: string) => string;
+			table: {
+				label: string;
+				uses: string;
+				/** sr-only header above the actions cell, same rationale as
+				 * `admin.models.table.actions`. */
+				actions: string;
+			};
+			rename: {
+				trigger: string;
+				dialogTitle: (label: string) => string;
+				dialogDescription: string;
+				labelField: string;
+				inverseLabelField: string;
+				submit: string;
+				labelRequiredError: string;
+				inverseLabelRequiredError: string;
+				conflictError: string;
+				notOwnedError: string;
+			};
+			widen: {
+				trigger: string;
+				dialogTitle: (label: string) => string;
+				dialogDescription: string;
+				fromHeading: string;
+				toHeading: string;
+				currentlyAdmits: string;
+				addOption: (typeLabel: string) => string;
+				submit: string;
+				noChangeError: string;
+				notOwnedError: string;
+			};
+			/** Issue #648: the shipped half of `resolveAdmissionGap`, taken by hand. A
+			 * shipped row cannot be widened at all (decision L1: a shipped key is API
+			 * surface), so what a GM gets instead is their own copy of that type, under
+			 * the shipped type's own words, wide enough for the pair a refused accept
+			 * named. `createdNotice` is the one string that names the queue the GM came
+			 * from, because the fork on its own writes nothing to canon - the link they
+			 * were accepting is still a proposal waiting for them. */
+			fork: {
+				trigger: string;
+				dialogTitle: (label: string) => string;
+				dialogDescription: string;
+				fromHeading: string;
+				toHeading: string;
+				shippedAdmits: string;
+				addOption: (typeLabel: string) => string;
+				submit: string;
+				noChangeError: string;
+				notShippedError: string;
+				conflictError: string;
+				createdNotice: (label: string) => string;
+			};
+			/** #198: the GM-written half of a per-locale reading for a universe's own
+			 * type - one field pair per shipped locale, all in one form. Leaving both
+			 * fields of a locale blank clears that locale's translation back to
+			 * display fallback on the authored label; filling only one of the pair is
+			 * `incompletePairError`, not a silent partial save. */
+			translate: {
+				trigger: string;
+				dialogTitle: (label: string) => string;
+				dialogDescription: string;
+				labelField: string;
+				inverseLabelField: string;
+				submit: string;
+				incompletePairError: string;
+				notOwnedError: string;
+			};
+			merge: {
+				trigger: string;
+				dialogTitle: string;
+				dialogDescription: string;
+				fromLabel: string;
+				intoLabel: string;
+				pickFromPlaceholder: string;
+				pickIntoPlaceholder: string;
+				countWarning: (count: number, fromLabel: string, intoLabel: string) => string;
+				countWarningZero: (fromLabel: string, intoLabel: string) => string;
+				sameTypeError: string;
+				notOwnedError: string;
+				needsTwoTypesNotice: string;
+				submit: string;
+				movedToast: (count: number, intoLabel: string) => string;
+			};
+			viewerForbiddenError: string;
 		};
 		/** Issue R11 (round thirteen, DECISIONS.md): the GM's side of `players.*` above -
 		 * what the party has learned and when (a `revelation` row, kept by session), and
@@ -2570,6 +2636,10 @@ export interface Messages {
 			description: string;
 			wikiLinkLabel: string;
 			openWikiLink: string;
+			/** Issue #791: the address pill's accessible name, since the pill's visible
+			 * label is the address text itself. */
+			copyAddressLabel: (address: string) => string;
+			addressCopiedLabel: string;
 			invitationsNotice: string;
 			revealedHeading: string;
 			/** Issue #492: aria-label for the small icon-link a revealed row offers next to an

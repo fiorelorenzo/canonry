@@ -7,8 +7,9 @@
 	 *
 	 * #732: the active row is `aria-current="page"`, on the same terms as `Sidebar` and
 	 * `PhoneNav`. `active` is `page.url.pathname === item.href` and every href is a real
-	 * route (this nav is the one place in a universe's settings that routes rather than
-	 * anchoring, which is the distinction `UniverseSettingsRail`'s doc comment draws), so
+	 * route (this nav is the one place in a universe's settings that routes, unlike the
+	 * universe settings page itself, whose in-page groups issue #794 (DECISIONS.md
+	 * "Round twenty-one") reduced from a same-page-anchor rail to plain headings), so
 	 * the marked row's href is the document being displayed. It was found by #732's sweep
 	 * rather than named in the issue: it paints an active row (weight 600, `text-ink`, a
 	 * `bg-panel-2` fill) and announced nothing.

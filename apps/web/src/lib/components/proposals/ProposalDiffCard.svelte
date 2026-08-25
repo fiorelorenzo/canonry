@@ -166,10 +166,11 @@
 	 * the ends it needs. `resolve` types the route and takes no query of its own, so the
 	 * pair comes from `shippedForkQuery` - which lives in its own module rather than here,
 	 * see that file for why - and `addFrom`/`addTo` are omitted rather than sent empty when
-	 * only one end is short. The settings page reads them back as the pair to pre-check and
-	 * validates each against the entity-type enum. */
+	 * only one end is short. The catalogue route (#795: `/w/[universe]/relations`, moved
+	 * off `settings/relations`) reads them back as the pair to pre-check and validates
+	 * each against the entity-type enum. */
 	function shippedForkHref(notAdmitted: DiffCandidateNotAdmittedView): string {
-		return `${resolve(`/w/${universeSlug}/settings/relations`)}${shippedForkQuery(notAdmitted)}`;
+		return `${resolve(`/w/${universeSlug}/relations`)}${shippedForkQuery(notAdmitted)}`;
 	}
 
 	/** C5's popover hangs off the first changed row, as it did off the first changed

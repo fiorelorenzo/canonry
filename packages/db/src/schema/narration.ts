@@ -37,7 +37,8 @@ export const narrationStyle = pgTable(
 		promptClause: text('prompt_clause').notNull(),
 		// One sentence in the chosen voice, shown on the preset's card in place of
 		// image_style's example image - as informative for a voice and costs nothing to
-		// ship. Null on a custom row.
+		// ship. Null on a custom row; `narration_style_label` below carries every other
+		// shipped locale's translation of it (issue #796).
 		exampleSentence: text('example_sentence'),
 		// Display order in the picker grid. Meaningless for a custom row - the picker
 		// always draws it last, as its own fixed card.
@@ -60,6 +61,12 @@ export const narrationStyleLabel = pgTable(
 		locale: text('locale').notNull(),
 		name: text('name').notNull(),
 		description: text('description').notNull(),
+		// Issue #796: the card's example sentence in this locale. Nullable, unlike
+		// name/description above - a locale can translate the picker copy before anyone
+		// writes a sample in it, and `listNarrationStylePresets`'s coalesce falls back to
+		// the row's own English `example_sentence` exactly the way a missing label row
+		// already does for every other field.
+		exampleSentence: text('example_sentence'),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 	},

@@ -4,10 +4,9 @@
 	 * (type chips with their counts, then the search box), the dense table, and the pager the
 	 * loader now has real pages behind.
 	 *
-	 * The link back to the world home is here rather than in the sidebar on purpose: A2 = A
-	 * caps that nav at seven items, and O1's own text gives the `Entries` item to this route and
-	 * the home to the world switcher, so the home is one click away from every page through the
-	 * switcher and one click away from this one through the line below the title.
+	 * The link back to the world home that used to sit above the table is gone (#788): the
+	 * sidebar carries a pinned home row now, so every page is one click from the home and
+	 * this page no longer needs private furniture for it.
 	 */
 	import { page } from '$app/state';
 	import { goto, replaceState } from '$app/navigation';
@@ -131,6 +130,11 @@
 
 <Page width="wide" title={entriesT.title}>
 	{#snippet actions()}
+		<!-- #795: the catalogue's visible door on the surface where relations are felt -
+		     quiet, next to the primary action, never competing with it. -->
+		<Button variant="ghost" href={resolve(`/w/${data.current.slug}/relations`)}>
+			{entriesT.relationCatalogueLink}
+		</Button>
 		<Button onclick={() => (newEntryOpen = true)}>{t.newEntryAction}</Button>
 	{/snippet}
 	{#snippet filters()}
@@ -201,13 +205,6 @@
 			</InputGroup.Root>
 		</form>
 	{/snippet}
-
-	<a
-		href={resolve(`/w/${data.current.slug}`)}
-		class="mb-2 inline-block text-label font-medium text-muted hover:text-ink"
-	>
-		&larr; {entriesT.backToHome(data.current.name)}
-	</a>
 
 	<NewEntryDialog
 		bind:open={newEntryOpen}

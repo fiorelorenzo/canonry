@@ -118,54 +118,52 @@
 
 		{#if turn.sources.length > 0}
 			<!-- Guardrail 3: which entry, which sentence, never a bare confidence number.
-			     #535: the sentence is the citation, so the row quotes it, in the app's own
-			     quote treatment (`border-line-2`, italic - `EvidencePopover.svelte`). The
-			     entry is the link under it. A name-only pill with the sentence hidden in a
-			     `title` attribute was an entry-level pointer, unreachable by touch and by a
-			     screen reader alike. -->
-			<div class="mt-3 border-t border-line pt-2">
+			     Issue #797 (round twenty-one): the entry used to be a bordered, rounded-full
+			     pill under the quote (see QuickAsk.svelte's own comment on the same change,
+			     shared shape). It is a plain inline link now - the app's own quote treatment
+			     (`border-line-2`, italic - `EvidencePopover.svelte`) for the sentence and the
+			     one inline-link shape (#551) for the entry underneath it, a tight list rather
+			     than a row of chips. -->
+			<div class="mt-2 border-t border-line pt-1.5">
 				<p class="m-0 text-label text-ink-2">{t.sourcesNote}</p>
-				<ul class="mt-1.5 mb-0 flex list-none flex-col gap-2 p-0">
+				<ul class="mt-1.5 mb-0 flex list-none flex-col gap-1.5 p-0">
 					{#each turn.sources as source, i (source.kind === 'own_canon' ? (source.entity?.slug ?? `deleted-${i}`) : `${source.url}-${i}`)}
-						<li class="min-w-0">
-							<span class="block border-l-2 border-line-2 pl-2 text-label text-ink-2 italic"
-								>&ldquo;{stripMentionSyntax(source.statement)}&rdquo;</span
-							>
-							{#if source.kind === 'own_canon'}
-								{#if source.entity}
-									<!-- G5: opens the side panel, no preview and no navigation. -->
-									<button
-										type="button"
-										onclick={() => onOpenEntry(source.entity!.slug)}
-										class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-label text-ink hover:bg-accent-bg"
-									>
-										<span class="truncate">{source.entity.name}</span>
-										<!-- The pill takes `hover:bg-accent-bg`, so this label sits on a tinted surface
-										     for as long as a pointer is on it: `text-ink-2` (#562), not `text-muted`. -->
-										<span class="shrink-0 text-label text-ink-2">{t.ownCanonLabel}</span>
-									</button>
+						<li class="min-w-0 border-l-2 border-line-2 pl-2 text-label text-ink-2">
+							<p class="m-0 italic">&ldquo;{stripMentionSyntax(source.statement)}&rdquo;</p>
+							<p class="m-0 mt-0.5">
+								{#if source.kind === 'own_canon'}
+									{#if source.entity}
+										<!-- G5: opens the side panel, no preview and no navigation. -->
+										<button
+											type="button"
+											onclick={() => onOpenEntry(source.entity!.slug)}
+											class="font-medium text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
+										>
+											{source.entity.name}
+										</button>
+										<!-- #562/#711: `text-ink-2`, not `text-muted` - this whole row sits
+										     inside `class:bg-accent-bg={highlighted}` (the row above, opened via
+										     the dock's "open in Ask"), and muted fails contrast the moment that
+										     surface takes the hue. -->
+										<span class="text-ink-2"> · {t.ownCanonLabel}</span>
+									{:else}
+										<span class="text-ink-2">{t.deletedEntry}</span>
+									{/if}
 								{:else}
-									<span
-										class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-label text-ink-2"
+									<a
+										href={source.url}
+										target="_blank"
+										rel="noreferrer"
+										class="font-medium text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
 									>
-										{t.deletedEntry}
-									</span>
-								{/if}
-							{:else}
-								<a
-									href={source.url}
-									target="_blank"
-									rel="noreferrer"
-									class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-label"
-								>
-									<span class="shrink-0 text-label text-ink-2">{t.indexedBadge}</span>
-									<span class="truncate text-ink">{source.pageTitle}</span>
-									<span class="shrink-0 font-mono text-label text-muted">
-										{source.attribution}{#if source.licence}
+										{source.pageTitle}
+									</a>
+									<span class="text-ink-2">
+										· {t.indexedBadge} · {source.attribution}{#if source.licence}
 											· {source.licence}{/if}
 									</span>
-								</a>
-							{/if}
+								{/if}
+							</p>
 						</li>
 					{/each}
 				</ul>
@@ -173,8 +171,9 @@
 		{:else}
 			<!-- #535: a stored answer with no citation is one the world had nothing to say
 			     about, and the paragraph above it is general knowledge. The line says both,
-			     because the record outlives the session that produced it (W3). -->
-			<div class="mt-3 border-t border-line pt-2">
+			     because the record outlives the session that produced it (W3). Issue #797:
+			     compressed to one line - see `t.sourcesEmpty`'s own comment in messages.ts. -->
+			<div class="mt-2 border-t border-line pt-1.5">
 				<p class="m-0 text-label text-ink-2">{t.sourcesEmpty}</p>
 			</div>
 		{/if}

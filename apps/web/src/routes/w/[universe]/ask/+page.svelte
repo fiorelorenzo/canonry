@@ -28,6 +28,8 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Button } from '$lib/components/ui/button';
 	import XIcon from '@lucide/svelte/icons/x';
+	import InfoIcon from '@lucide/svelte/icons/info';
+	import * as Popover from '$lib/components/ui/popover';
 	import AskConversationGroup from '$lib/components/ask/AskConversationGroup.svelte';
 	import AskEntryPanel from '$lib/components/ask/AskEntryPanel.svelte';
 	import { InlineLink } from '$lib/components/ui/link';
@@ -112,6 +114,32 @@
 </svelte:head>
 
 <Page width="working" eyebrow={th.crumb(data.current.name)} title={th.heading}>
+	{#snippet titleAdornment()}
+		<!-- Issue #797 (round twenty-one): guardrail 5's disclosure used to be a standing
+		     line at the top of the record, read whether or not anyone needed it right
+		     then. It is an info button beside the title now, same row and baseline as
+		     the entry page's own `titleAdornment` (`AuditFlagBadge`) - the full text is
+		     still one click away, just no longer a permanent row above every list. -->
+		<Popover.Root>
+			<Popover.Trigger
+				class="inline-flex items-center rounded-sm p-1 text-muted hover:bg-panel-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+				aria-label={th.noteLabel}
+			>
+				<InfoIcon class="size-4" aria-hidden="true" />
+			</Popover.Trigger>
+			<Popover.Content align="start">
+				<Popover.Header>
+					<Popover.Title>{th.noteLabel}</Popover.Title>
+					<Popover.Description>
+						{th.note}
+						{t.keep.noteLinkBefore}<InlineLink href={resolve('/privacy')}
+							>{t.keep.noteLink}</InlineLink
+						>.
+					</Popover.Description>
+				</Popover.Header>
+			</Popover.Content>
+		</Popover.Root>
+	{/snippet}
 	{#snippet filters()}
 		<form method="GET" class="flex items-center gap-2" onsubmit={onSearchSubmit}>
 			<InputGroup.Root class="w-full sm:w-80">
@@ -158,14 +186,6 @@
 
 	<div class="flex flex-col md:flex-row">
 		<div class="min-w-0 flex-1 px-4 py-8 md:px-8">
-			<!-- Guardrail 5's disclosure, read once here, as a single standing line rather than
-			     the boxed two-paragraph card this page used to carry. -->
-			<p class="max-w-measure text-label text-ink-2">
-				{th.note}
-				{t.keep.noteLinkBefore}<InlineLink href={resolve('/privacy')}>{t.keep.noteLink}</InlineLink
-				>.
-			</p>
-
 			{#if form?.message}
 				<p
 					class="mt-4 rounded-md border border-danger-bg bg-danger-bg px-3 py-2 text-body text-danger"
