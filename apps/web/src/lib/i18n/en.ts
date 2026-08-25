@@ -138,6 +138,7 @@ export const en: Messages = {
 			context: (pageName) => `about ${pageName}`,
 			disclosure:
 				'Every question here is answered and kept automatically, as your own note grouped into a conversation: it never becomes part of an entry without a proposal you accept, players never see it, and it stays until you delete the conversation. ',
+			disclosureLabel: 'How your questions are handled',
 			openInAsk: 'Open in Ask',
 			// R6 (round thirteen, #381): three deterministic suggestions, never from a model.
 			// `connects` reads the six-value entity type, the same one-function-per-catalogue
@@ -1169,6 +1170,8 @@ export const en: Messages = {
 			emptyRunningExplanation: 'Proposals appear here as the import processes each document.',
 			emptyDone: 'Nothing to review — this import produced no proposals.',
 			filtering: 'Filtering…',
+			documentsProgress: (settled, total) =>
+				`${settled} of ${total} document${total === 1 ? '' : 's'} processed`,
 			missing: {
 				heading: (count) =>
 					count === 1
@@ -1372,6 +1375,16 @@ export const en: Messages = {
 						'This import was refused: this import has too many documents for your plan.',
 					insufficientCredits: 'This import was refused: not enough credits for the estimated cost.'
 				}
+			},
+			dropzone: {
+				heading: 'Drop your export here',
+				hint: 'or click to browse your files',
+				formats:
+					'Obsidian, Kanka, World Anvil, OneNote, PDF, DOCX, or a folder of Markdown or plain text.'
+			},
+			preview: {
+				useFormat: 'Use this format instead',
+				cancel: 'Cancel'
 			}
 		},
 
@@ -1429,7 +1442,6 @@ export const en: Messages = {
 			fileInputLabel: 'Export file',
 			jobsHeading: 'Previous imports',
 			jobsEmpty: 'No import has run in this world yet.',
-			jobsEmptyAction: 'Start an import',
 			proposals: (count) => (count === 1 ? '1 proposal' : `${count} proposals`),
 			reviewLink: 'Review',
 			viewerNotice: 'Only an editor or owner can start an import.'
@@ -1441,11 +1453,12 @@ export const en: Messages = {
 
 		contextStrip: {
 			modeOn: 'Table mode: on',
-			noPlaceDeclared: (universeName) => `no place declared yet - ${universeName}`,
+			notStarted: 'Table mode: not started. Declare where the players are to begin.',
 			pinnedIn: (ms) => `pinned in ${ms}ms`,
 			change: 'Change',
-			declare: 'Declare',
-			exit: 'Exit table mode'
+			exit: 'Exit table mode',
+			exitTooltip:
+				'Ends the session for everyone connected: the declared place clears and any proposals from today stay queued to review.'
 		},
 
 		declareContext: {
@@ -1538,7 +1551,8 @@ export const en: Messages = {
 			moodOff: 'Off',
 			showAudioGraph: 'Show audio graph',
 			hideAudioGraph: 'Hide audio graph',
-			noPackYet: 'No ambient pack generated for this place yet.',
+			noPackYet:
+				'Ambient sound is not available for this place - nothing generates a soundscape here yet.',
 			layerSummary: (count, stale) => {
 				const layers = count === 1 ? 'layer' : 'layers';
 				return `${count} ${layers}${stale ? ' · stale, refreshes next trigger' : ''}`;
@@ -1581,8 +1595,9 @@ export const en: Messages = {
 		},
 
 		home: {
-			noContextDeclared: 'Declare a place to pin its main characters and relations.',
-			choosePlace: 'Choose a place',
+			noContextDeclared:
+				"Table mode pins the declared place's people and lets the session move without waiting on a model. Nothing here reaches canon until you review it afterward.",
+			beginTableMode: 'Declare where the players are',
 			placeHeading: 'The place',
 			nearbyHeading: 'Nearby',
 			hereHeading: 'Who is here',
@@ -1724,6 +1739,7 @@ export const en: Messages = {
 
 	universe: {
 		nav: {
+			home: 'Home',
 			entries: 'Entries',
 			works: 'Works',
 			proposals: 'Proposals',
@@ -1802,7 +1818,8 @@ export const en: Messages = {
 			entries: {
 				headTitle: (universeName) => `Entries: ${universeName}`,
 				title: 'Entries',
-				backToHome: (universeName) => `Back to ${universeName}`,
+				/** #795: the quiet door to the relation catalogue, beside the primary action. */
+				relationCatalogueLink: 'Relation catalogue',
 				columnName: 'Name',
 				columnType: 'Type',
 				columnRelations: 'Relations',
@@ -1899,8 +1916,7 @@ export const en: Messages = {
 			indexedBadge: 'indexed',
 			sourcesNote:
 				'The sentences the answer was written from, quoted from the entries they are in. The Loremaster was given these and nothing else.',
-			sourcesEmpty:
-				'Nothing in your own canon matches this question yet, so the answer above is general knowledge and not your world. Name a person, a place or an event from it and there will be something to cite.',
+			sourcesEmpty: "Your canon doesn't answer this yet: the answer above is general knowledge.",
 			deletedEntry: 'This entry has since been deleted.',
 			sourceCount: (count) => {
 				const n = numberFormat('en', {
@@ -1980,6 +1996,7 @@ export const en: Messages = {
 				crumb: (universeName) => `Conversations · ${universeName}`,
 				heading: 'Conversations',
 				note: 'The Loremaster keeps every question and answer automatically, as your own note grouped by conversation. Nothing here becomes part of an entry without a proposal you accept, players never see it, and a conversation stays until you delete it.',
+				noteLabel: 'How your questions are handled',
 				searchPlaceholder: 'Search what you asked…',
 				searchClear: 'Clear search',
 				searchResultCount: (query, count) => {
@@ -2028,10 +2045,7 @@ export const en: Messages = {
 				loremaster: 'The Loremaster',
 				canon: 'Canon'
 			},
-			rail: {
-				ariaLabel: 'Settings groups',
-				incompleteMark: 'Unset'
-			},
+			unsetMark: 'Unset',
 			aiToggle: {
 				heading: 'Loremaster writing',
 				description: (universeName) =>
@@ -2128,7 +2142,6 @@ export const en: Messages = {
 				missingIdError: 'Missing supersede id.'
 			},
 			relations: {
-				close: 'Close',
 				cardHeading: 'Relation catalogue',
 				cardDescription: (universeName) =>
 					`Every relation type ${universeName} can use, the shipped ten and its own, with how many relations use each one.`,
@@ -2137,134 +2150,146 @@ export const en: Messages = {
 					if (count === 0) return 'No types of its own yet.';
 					return `${count} ${form === 'one' ? 'type' : 'types'} of its own.`;
 				},
-				manageLink: 'Manage relation types',
-				headTitle: (universeName) => `Relation catalogue: ${universeName}`,
-				title: 'Relation catalogue',
-				description: (universeName) =>
-					`Every relation type ${universeName} can use: the shipped catalogue every world starts with, and this universe's own. Rename, widen or translate your own, merge two into one; the shipped ten stay a migration's to change.`,
-				shippedHeading: 'Shipped catalogue',
-				shippedDescription:
-					'The ten labels every universe starts with. Editing one is a migration, not a setting, so this list is read-only.',
-				ownHeading: "This universe's own types",
-				ownDescription:
-					'Types this universe invented, by hand or through an accepted import proposal.',
-				emptyOwn: 'No relation types of its own yet.',
-				emptyOwnExplanation:
-					'A type appears here the moment a GM adds one, or accepts an import proposal that invents a new label.',
-				summary: (inverseLabel, from, to, cardinality) => {
-					const base = `Inverse "${inverseLabel}". Connects ${from} to ${to}`;
-					return cardinality ? `${base}, ${cardinality}.` : `${base}.`;
-				},
-				usageCount: (count) => {
-					if (count === 0) return 'Not used in this universe yet.';
-					const form = pluralRules('en').select(count);
-					return `Used by ${count} ${form === 'one' ? 'relation' : 'relations'} in this universe.`;
-				},
-				cardinalityLabel: (value) => {
-					const labels: Record<string, string> = {
-						one_to_one: 'one to one',
-						one_to_many: 'one to many',
-						many_to_one: 'many to one',
-						many_to_many: 'many to many'
-					};
-					return labels[value] ?? value;
-				},
-				entityTypeLabel: (type) => {
-					const labels: Record<string, string> = {
-						character: 'character',
-						place: 'place',
-						faction: 'faction',
-						item: 'item',
-						event: 'event',
-						session: 'session'
-					};
-					return labels[type] ?? type;
-				},
-				rename: {
-					trigger: 'Rename',
-					dialogTitle: (label) => `Rename "${label}"`,
-					dialogDescription:
-						'One row holds both labels, so the two sides of the relation can never drift apart.',
-					labelField: 'Label',
-					inverseLabelField: 'Inverse label',
-					submit: 'Save',
-					labelRequiredError: 'The label cannot be empty.',
-					inverseLabelRequiredError: 'The inverse label cannot be empty.',
-					conflictError: 'This universe already has a type with that label.',
-					notOwnedError: 'Only a type this universe created can be renamed.'
-				},
-				widen: {
-					trigger: 'Widen',
-					dialogTitle: (label) => `Widen "${label}"`,
-					dialogDescription:
-						'Add entity types this relation can join. It only ever grows: narrowing it back would risk relations the graph already has.',
-					fromHeading: 'From',
-					toHeading: 'To',
-					currentlyAdmits: 'Currently admits',
-					addOption: (typeLabel) => `Add ${typeLabel}`,
-					submit: 'Widen',
-					noChangeError: 'Check at least one entity type to add.',
-					notOwnedError: 'Only a type this universe created can be widened.'
-				},
-				fork: {
-					trigger: 'Add your own version',
-					dialogTitle: (label) => `Your own "${label}"`,
-					dialogDescription:
-						'The shipped catalogue only changes in a release, so instead this universe gets its own copy under the same words, joining whatever you need it to. Nothing is written to canon: the link that sent you here still waits for your accept.',
-					fromHeading: 'From',
-					toHeading: 'To',
-					shippedAdmits: 'The shipped type joins',
-					addOption: (typeLabel) => `Add ${typeLabel}`,
-					submit: 'Add my own version',
-					noChangeError: 'Check at least one entity type to add.',
-					notShippedError:
-						'This type already belongs to the universe, so widen it instead of copying it.',
-					conflictError:
-						'This universe already has its own version of this type. Widen that one instead.',
-					createdNotice: (label) =>
-						`This universe now has its own "${label}". Go back to the import review and accept the link again.`
-				},
-				translate: {
-					trigger: 'Add a translation',
-					dialogTitle: (label) => `Translate "${label}"`,
-					dialogDescription:
-						'Your own words, read in another interface language. Leave a language blank to show the label as you wrote it there too.',
-					labelField: 'Label',
-					inverseLabelField: 'Inverse label',
-					submit: 'Save',
-					incompletePairError: 'Enter both fields for a language, or leave both blank.',
-					notOwnedError: 'Only a type this universe created can be translated.'
-				},
-				merge: {
-					trigger: 'Merge',
-					dialogTitle: 'Merge two relation types',
-					dialogDescription:
-						'For cleaning up after an import that named the same relation twice. Every relation using the losing type moves to the type it merges into, and the losing type is removed.',
-					fromLabel: 'Merge this type',
-					intoLabel: 'Into this type',
-					pickFromPlaceholder: 'Pick a type this universe owns',
-					pickIntoPlaceholder: 'Pick a type to merge into',
-					countWarning: (count, fromLabel, intoLabel) => {
-						const form = pluralRules('en').select(count);
-						const uses = form === 'one' ? 'relation currently uses' : 'relations currently use';
-						const moves = form === 'one' ? 'it' : 'all of them';
-						return `${count} ${uses} "${fromLabel}". Merging moves ${moves} to "${intoLabel}", and "${fromLabel}" is removed.`;
-					},
-					countWarningZero: (fromLabel, intoLabel) =>
-						`"${fromLabel}" has no relations yet. Merging removes it and leaves "${intoLabel}" as it is.`,
-					sameTypeError: 'Pick two different types.',
-					notOwnedError: 'Only a type this universe created can be merged away.',
-					needsTwoTypesNotice:
-						'This universe needs at least one type of its own before two types can merge.',
-					submit: 'Merge',
-					movedToast: (count, intoLabel) => {
-						const form = pluralRules('en').select(count);
-						if (count === 0) return `Merged into "${intoLabel}".`;
-						return `Moved ${count} ${form === 'one' ? 'relation' : 'relations'} into "${intoLabel}".`;
-					}
-				},
-				viewerForbiddenError: 'Viewers cannot change the relation catalogue.'
+				manageLink: 'Manage relation types'
 			}
+		},
+		// Issue #795 (DECISIONS.md "Round twenty-one"): the catalogue itself moved out of
+		// settings to its own route, `/w/[universe]/relations` - a page in its own right,
+		// linked from both Settings and Entries. `universe.settings.relations` above keeps
+		// only the Canon group's own card copy; everything the page and its dialogs read is
+		// here now.
+		relations: {
+			close: 'Close',
+			headTitle: (universeName) => `Relation catalogue: ${universeName}`,
+			title: 'Relation catalogue',
+			description: (universeName) =>
+				`Every relation type ${universeName} can use: the shipped catalogue every world starts with, and this universe's own. Rename, widen or translate your own, merge two into one; the shipped ten stay a migration's to change.`,
+			shippedHeading: 'Shipped catalogue',
+			shippedDescription:
+				'The ten labels every universe starts with. Editing one is a migration, not a setting, so this list is read-only.',
+			ownHeading: "This universe's own types",
+			ownDescription:
+				'Types this universe invented, by hand or through an accepted import proposal.',
+			emptyOwn: 'No relation types of its own yet.',
+			emptyOwnExplanation:
+				'A type appears here the moment a GM adds one, or accepts an import proposal that invents a new label.',
+			summary: (inverseLabel, from, to, cardinality) => {
+				const base = `Inverse "${inverseLabel}". Connects ${from} to ${to}`;
+				return cardinality ? `${base}, ${cardinality}.` : `${base}.`;
+			},
+			cardinalityLabel: (value) => {
+				const labels: Record<string, string> = {
+					one_to_one: 'one to one',
+					one_to_many: 'one to many',
+					many_to_one: 'many to one',
+					many_to_many: 'many to many'
+				};
+				return labels[value] ?? value;
+			},
+			entityTypeLabel: (type) => {
+				const labels: Record<string, string> = {
+					character: 'character',
+					place: 'place',
+					faction: 'faction',
+					item: 'item',
+					event: 'event',
+					session: 'session'
+				};
+				return labels[type] ?? type;
+			},
+			// Issue #795: the real `<table>` each of the two sections below now renders
+			// (replacing round sixteen's `<ul>`/`<li>` list) needs column headers; the old
+			// `usageCount` sentence is gone with it, in favour of a bare, right-aligned
+			// count under `uses`, the way every other product table in `apps/web` counts.
+			table: {
+				label: 'Label',
+				uses: 'Uses',
+				actions: 'Actions'
+			},
+			rename: {
+				trigger: 'Rename',
+				dialogTitle: (label) => `Rename "${label}"`,
+				dialogDescription:
+					'One row holds both labels, so the two sides of the relation can never drift apart.',
+				labelField: 'Label',
+				inverseLabelField: 'Inverse label',
+				submit: 'Save',
+				labelRequiredError: 'The label cannot be empty.',
+				inverseLabelRequiredError: 'The inverse label cannot be empty.',
+				conflictError: 'This universe already has a type with that label.',
+				notOwnedError: 'Only a type this universe created can be renamed.'
+			},
+			widen: {
+				trigger: 'Widen',
+				dialogTitle: (label) => `Widen "${label}"`,
+				dialogDescription:
+					'Add entity types this relation can join. It only ever grows: narrowing it back would risk relations the graph already has.',
+				fromHeading: 'From',
+				toHeading: 'To',
+				currentlyAdmits: 'Currently admits',
+				addOption: (typeLabel) => `Add ${typeLabel}`,
+				submit: 'Widen',
+				noChangeError: 'Check at least one entity type to add.',
+				notOwnedError: 'Only a type this universe created can be widened.'
+			},
+			fork: {
+				trigger: 'Add your own version',
+				dialogTitle: (label) => `Your own "${label}"`,
+				dialogDescription:
+					'The shipped catalogue only changes in a release, so instead this universe gets its own copy under the same words, joining whatever you need it to. Nothing is written to canon: the link that sent you here still waits for your accept.',
+				fromHeading: 'From',
+				toHeading: 'To',
+				shippedAdmits: 'The shipped type joins',
+				addOption: (typeLabel) => `Add ${typeLabel}`,
+				submit: 'Add my own version',
+				noChangeError: 'Check at least one entity type to add.',
+				notShippedError:
+					'This type already belongs to the universe, so widen it instead of copying it.',
+				conflictError:
+					'This universe already has its own version of this type. Widen that one instead.',
+				createdNotice: (label) =>
+					`This universe now has its own "${label}". Go back to the import review and accept the link again.`
+			},
+			translate: {
+				trigger: 'Add a translation',
+				dialogTitle: (label) => `Translate "${label}"`,
+				dialogDescription:
+					'Your own words, read in another interface language. Leave a language blank to show the label as you wrote it there too.',
+				labelField: 'Label',
+				inverseLabelField: 'Inverse label',
+				submit: 'Save',
+				incompletePairError: 'Enter both fields for a language, or leave both blank.',
+				notOwnedError: 'Only a type this universe created can be translated.'
+			},
+			merge: {
+				trigger: 'Merge',
+				dialogTitle: 'Merge two relation types',
+				dialogDescription:
+					'For cleaning up after an import that named the same relation twice. Every relation using the losing type moves to the type it merges into, and the losing type is removed.',
+				fromLabel: 'Merge this type',
+				intoLabel: 'Into this type',
+				pickFromPlaceholder: 'Pick a type this universe owns',
+				pickIntoPlaceholder: 'Pick a type to merge into',
+				countWarning: (count, fromLabel, intoLabel) => {
+					const form = pluralRules('en').select(count);
+					const uses = form === 'one' ? 'relation currently uses' : 'relations currently use';
+					const moves = form === 'one' ? 'it' : 'all of them';
+					return `${count} ${uses} "${fromLabel}". Merging moves ${moves} to "${intoLabel}", and "${fromLabel}" is removed.`;
+				},
+				countWarningZero: (fromLabel, intoLabel) =>
+					`"${fromLabel}" has no relations yet. Merging removes it and leaves "${intoLabel}" as it is.`,
+				sameTypeError: 'Pick two different types.',
+				notOwnedError: 'Only a type this universe created can be merged away.',
+				needsTwoTypesNotice:
+					'This universe needs at least one type of its own before two types can merge.',
+				submit: 'Merge',
+				movedToast: (count, intoLabel) => {
+					const form = pluralRules('en').select(count);
+					if (count === 0) return `Merged into "${intoLabel}".`;
+					return `Moved ${count} ${form === 'one' ? 'relation' : 'relations'} into "${intoLabel}".`;
+				}
+			},
+			viewerForbiddenError: 'Viewers cannot change the relation catalogue.'
 		},
 		players: {
 			headTitle: (universeName) => `Players · ${universeName}`,
@@ -2272,6 +2297,10 @@ export const en: Messages = {
 			description: 'What the party has learned, and what is still behind the screen.',
 			wikiLinkLabel: "The players' wiki",
 			openWikiLink: "Open the players' wiki",
+			// Issue #791: the address pill's own accessible name, since the visible label is
+			// the address text itself and a screen reader needs the verb spelled out.
+			copyAddressLabel: (address) => `Copy the wiki address, ${address}`,
+			addressCopiedLabel: 'Copied',
 			invitationsNotice:
 				'There is no invitation to send yet: share the wiki address with your players directly.',
 			revealedHeading: 'Revealed',

@@ -1,5 +1,5 @@
 /**
- * #192: the shapes `settings/relations/+page.server.ts`'s three actions return and the
+ * #192: the shapes `relations/+page.server.ts`'s three actions return and the
  * dialogs in this directory read back, kept in one place rather than inferred per dialog
  * from the route's generated `ActionData` - a leaf component under `$lib/components`
  * has no `./$types` of its own to import, and duplicating this shape per dialog would

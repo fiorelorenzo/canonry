@@ -169,10 +169,26 @@
 			     what keeps it true), so no route loses its top gutter by this. X1 moved the
 			     band's *content* onto the body's width and left the paper spanning the
 			     shell, so nothing above changes. -->
+			<!-- Issue #794: the same containing-block defect #652 already named for a
+			     horizontal scroller (`table-scroll.svelte`'s own doc comment), on the
+			     vertical one every route shares. `main` clips its own overflow but was
+			     `position: static`, so it was never a containing block for its
+			     `position: absolute` descendants - every `sr-only` legend, radio and
+			     checkbox a form on any route hides visually still occupies a box, and with
+			     `top: auto` its containing block fell back to the initial one (the document
+			     root) rather than `main`. That put the last such element's offset against
+			     the page's fully unclipped flow, and the outer window inherited that much
+			     genuinely empty scrollable space below wherever `main`'s own scrollport
+			     actually ends - worst on the universe settings page (measured: `document
+			     .documentElement.scrollHeight` 1555 against an 812px scrollport holding
+			     2422px of real content, an extra ~655px of nothing to scroll through).
+			     `relative` changes nothing about `main`'s own box, the same way it changed
+			     nothing about the horizontal wrapper's - no top/left/etc. is set, it only
+			     contains those descendants the way the scrollport already visually does. -->
 			<main
 				id="main"
 				tabindex="0"
-				class="mb-[var(--dock-reserve,0px)] min-w-0 flex-1 overflow-y-auto px-4 pb-4 md:px-8 md:pb-8"
+				class="relative mb-[var(--dock-reserve,0px)] min-w-0 flex-1 overflow-y-auto px-4 pb-4 md:px-8 md:pb-8"
 				style:--dock-reserve="{dockReserve}px"
 			>
 				<NavProgressBar />

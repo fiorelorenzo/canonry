@@ -52,8 +52,28 @@
 		bodyClass?: string;
 		children: Snippet;
 	} = $props();
+
+	// #789: the band's measured height, republished as a variable the body's own
+	// descendants can use as a sticky offset - the band is `sticky top-0` in `main`'s
+	// scrollport, so "stick just below the band" is `top: var(--page-band-h)`.
+	let bandHeight = $state(0);
 </script>
 
-<PageBand {width} {title} {eyebrow} {description} {actions} {filters} {titleAdornment} />
+<PageBand
+	{width}
+	{title}
+	{eyebrow}
+	{description}
+	{actions}
+	{filters}
+	{titleAdornment}
+	bind:height={bandHeight}
+/>
 
-<div data-page-body class={cn(PAGE_WIDTH_CLASS[width], bodyClass)}>{@render children()}</div>
+<div
+	data-page-body
+	class={cn(PAGE_WIDTH_CLASS[width], bodyClass)}
+	style:--page-band-h="{bandHeight}px"
+>
+	{@render children()}
+</div>

@@ -88,9 +88,11 @@
 	import { page } from '$app/state';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import XIcon from '@lucide/svelte/icons/x';
+	import InfoIcon from '@lucide/svelte/icons/info';
 	import CommandPalette from '$lib/components/palette/CommandPalette.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Tooltip from '$lib/components/ui/tooltip';
+	import * as Popover from '$lib/components/ui/popover';
 	import { InlineLink } from '$lib/components/ui/link';
 	import { messages, type Locale } from '$lib/i18n';
 	import { formatShortcut, matchesShortcut, SHORTCUTS } from '$lib/keys';
@@ -497,11 +499,35 @@
 		<div class="flex items-center gap-2 border-b border-line px-3 py-2">
 			<span aria-hidden="true" class="text-accent">✦</span>
 			<b class="text-body text-ink">{t.name}</b>
+			<!-- Issue #797 (round twenty-one): T10's standing disclosure line becomes this
+			     info button, opening a popover carrying the same text - guardrail 5 stays
+			     satisfied (the full text is one click away, never gone) and the panel gets a
+			     whole row back on every open, not only once a turn exists. Ends in the same
+			     policy link the Ask route's own history note still carries
+			     (`askT.keep.noteLinkBefore`/`noteLink`), reused rather than duplicated. -->
+			<Popover.Root>
+				<Popover.Trigger
+					class="ml-auto rounded-md p-1 text-muted hover:bg-panel-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+					aria-label={t.disclosureLabel}
+				>
+					<InfoIcon class="size-4" aria-hidden="true" />
+				</Popover.Trigger>
+				<Popover.Content align="end">
+					<Popover.Header>
+						<Popover.Title>{t.disclosureLabel}</Popover.Title>
+						<Popover.Description>
+							{t.disclosure}{askT.keep.noteLinkBefore}<InlineLink href={resolve('/privacy')}
+								>{askT.keep.noteLink}</InlineLink
+							>.
+						</Popover.Description>
+					</Popover.Header>
+				</Popover.Content>
+			</Popover.Root>
 			<button
 				type="button"
 				onclick={() => void close()}
 				aria-label={t.closeLabel}
-				class="ml-auto rounded-md p-1 text-muted hover:bg-panel-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+				class="rounded-md p-1 text-muted hover:bg-panel-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
 			>
 				<XIcon class="size-4" aria-hidden="true" />
 			</button>
@@ -509,17 +535,6 @@
 
 		<p class="m-0 border-b border-line bg-panel-2 px-3 py-1.5 text-label text-ink-2">
 			{t.context(contextName)}
-		</p>
-
-		<!-- Issue #437, decision T10: guardrail 5's disclosure, said once here rather than
-		     on a card after every turn - the first thing under the context line, so it is
-		     read before anything is asked whether or not the panel has a turn in it yet.
-		     Ends in the same policy link the Ask route's own keep control still carries
-		     (`askT.keep.noteLinkBefore`/`noteLink`), reused rather than duplicated. -->
-		<p class="m-0 border-b border-line px-3 py-1.5 text-label text-ink-2">
-			{t.disclosure}{askT.keep.noteLinkBefore}<InlineLink href={resolve('/privacy')}
-				>{askT.keep.noteLink}</InlineLink
-			>.
 		</p>
 
 		<!-- R6: "turns render in order, the composer stays at the bottom" - everything
@@ -683,45 +698,45 @@
 							     not a fourth paragraph the same size as everything above it.
 							     Guardrail 3: which entry, which sentence, as something a hand can
 							     open, and never a bare confidence score.
-							     #535: the sentence is the citation, so it is what the row shows,
-							     in the app's own quote treatment (`border-line-2`, italic, the way
-							     `EvidencePopover.svelte` and `EntryProse.svelte` already render one).
-							     A wrapping row of name-only pills was an entry-level pointer wearing
-							     a citation's clothes: a reader could not check a single claim
-							     without opening the page. -->
-							<div class="mt-3 border-t border-line pt-2">
+							     Issue #797 (round twenty-one): the entry used to be a bordered,
+							     rounded-full pill under the quote - a chip's worth of chrome per
+							     citation. It is a plain inline link now, in the app's own quote
+							     treatment (`border-line-2`, italic, the way `EvidencePopover.svelte`
+							     and `EntryProse.svelte` already render one) for the sentence and the
+							     one inline-link shape (#551) for the entry underneath it - a tight
+							     list rather than a row of chips, with the same two facts each pill
+							     carried (which entry, own canon or indexed) said in plain text
+							     instead of a badge. -->
+							<div class="mt-2 border-t border-line pt-1.5">
 								<p class="m-0 text-label text-ink-2">{askT.sourcesNote}</p>
-								<ul class="mt-1.5 mb-0 flex list-none flex-col gap-2">
+								<ul class="mt-1.5 mb-0 flex list-none flex-col gap-1.5">
 									{#each turn.sources as source, i (source.kind === 'own_canon' ? source.entityId : `${source.dataSourceId}-${i}`)}
-										<li class="min-w-0">
-											<span class="block border-l-2 border-line-2 pl-2 text-label text-ink-2 italic"
-												>&ldquo;{source.statement}&rdquo;</span
-											>
-											{#if source.kind === 'own_canon'}
-												<a
-													href={resolve(`/w/${universeSlug}/e/${source.entitySlug}`)}
-													class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line-2 bg-panel-2 px-2 py-0.5 text-label text-ink hover:bg-accent-bg"
-												>
-													<span class="truncate">{source.entityName}</span>
-													<!-- The pill takes `hover:bg-accent-bg`, so this label sits on a tinted
-													     surface while a pointer is on it: `text-ink-2` (#562), not muted. -->
-													<span class="shrink-0 text-label text-ink-2">{askT.ownCanonLabel}</span>
-												</a>
-											{:else}
-												<a
-													href={source.url}
-													target="_blank"
-													rel="noreferrer"
-													class="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-line bg-panel-2 px-2 py-0.5 text-label"
-												>
-													<span class="shrink-0 text-label text-ink-2">{askT.indexedBadge}</span>
-													<span class="truncate text-ink">{source.pageTitle}</span>
-													<span class="shrink-0 font-mono text-label text-muted">
-														{source.attribution}{#if source.licence}
+										<li class="min-w-0 border-l-2 border-line-2 pl-2 text-label text-ink-2">
+											<p class="m-0 italic">&ldquo;{source.statement}&rdquo;</p>
+											<p class="m-0 mt-0.5">
+												{#if source.kind === 'own_canon'}
+													<a
+														href={resolve(`/w/${universeSlug}/e/${source.entitySlug}`)}
+														class="font-medium text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
+													>
+														{source.entityName}
+													</a>
+													<span class="text-muted"> · {askT.ownCanonLabel}</span>
+												{:else}
+													<a
+														href={source.url}
+														target="_blank"
+														rel="noreferrer"
+														class="font-medium text-accent-ink underline decoration-line-2 underline-offset-2 hover:bg-accent-bg"
+													>
+														{source.pageTitle}
+													</a>
+													<span class="text-muted">
+														· {askT.indexedBadge} · {source.attribution}{#if source.licence}
 															· {source.licence}{/if}
 													</span>
-												</a>
-											{/if}
+												{/if}
+											</p>
 										</li>
 									{/each}
 								</ul>
@@ -732,8 +747,10 @@
 							     answer reads as a list that failed to load rather than as a canon
 							     this question did not touch. Since #535 this line also says what
 							     the paragraph above it is, because that paragraph is now general
-							     knowledge rather than a refusal (guardrail 7). -->
-							<div class="mt-3 border-t border-line pt-2">
+							     knowledge rather than a refusal (guardrail 7). Issue #797:
+							     compressed to one line - see `askT.sourcesEmpty`'s own comment in
+							     messages.ts. -->
+							<div class="mt-2 border-t border-line pt-1.5">
 								<p class="m-0 text-label text-ink-2">{askT.sourcesEmpty}</p>
 							</div>
 						{/if}

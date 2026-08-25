@@ -232,15 +232,26 @@ that on this box you cannot see the ambient one anyway: everything the Paseo dae
 inherits `DATABASE_URL=...canonry`, which an agent's own tool shell does not have, so
 `env | grep DATABASE_URL` there answers for the wrong process. A hub-launched `pnpm dev`
 therefore ignores the repo's `.env` and uses the shared dev database. The tell that the old
-trap already happened is a demo database that has grown universes nobody seeded.
+trap already happened is a demo database that has grown universes nobody seeded. And the
+`DATABASE_URL` rung has a sharper edge than "runs where you pointed it": the web suite's
+global setup (`apps/web/src/test-global-setup.ts`) migrates in place only when the target is
+literally named `canonry`, and **drop-creates any other name**, so an unsuffixed
+`pnpm --filter web test` with `DATABASE_URL` pointing at a demo database does not merely
+write into it, it erases it. That happened on 2026-08-25: one agent ran the full web suite
+with `DATABASE_URL=...canonry_wux_demo` and no suffix, and six sibling dev servers lost
+their database mid-wave. A demo database name never goes into a test run's environment;
+the suffix is the only isolation a web test run needs.
 
 **Two ways to drive the Loremaster with no gateway credential, and they cover different
 things.** `COPILOT_DEV_MOCK_MODEL=1` swaps every `modelFactory` call in `apps/web` for a
 `MockLanguageModelV4`, which is the one to reach for when what you want is a click-through:
 Ask streams an answer, a question that asks for something to be written proposes an entry,
-and propagation, audit and Complete all answer too. Its own comment in
-`apps/web/src/lib/server/copilot.ts` lists what it does not reach, and the short version is
-that every branch of it is a well-formed success, so nothing that only happens when a model
+propagation, audit and Complete all answer too, and the table's "+ NPC here" quick action
+drafts an NPC instead of always falling back to its scaffold (issue #793 - it used to build
+its own model call outside this seam, so the env var never reached it).
+Its own comment in `apps/web/src/lib/server/copilot.ts` lists what it does not reach, and the
+short version is that every branch of it is a well-formed success, so nothing that only
+happens when a model
 gets it wrong can be reproduced with it. That is the second way: point `AI_GATEWAY_BASE_URL`
 at a throwaway `node:http` server. `@ai-sdk/gateway` POSTs to `${baseURL}/language-model`,
 says which kind of call it is in an `ai-language-model-streaming` header (`true` for
@@ -407,7 +418,13 @@ problem goes away**: `127.0.0.11`, `127.0.0.12` and so on are different hosts to
 jar, they all exist on this box with no setup, and eight agents held eight independent
 sessions at once through them in round thirteen. `--host 127.0.0.N --port 52NN --strictPort`,
 and note that vite prints `Network:` rather than `Local:` for a non-loopback-default host, so
-a readiness pattern matching `Local:` waits forever.
+a readiness pattern matching `Local:` waits forever. One trap in how those flags are passed:
+`pnpm --filter web dev -- --host ...` works from an interactive shell, but from a supervisor
+that takes an argv array the standalone `--` lands in the script's own arguments and vite
+ignores everything after it, binds `localhost:5173+n`, and still prints a ready-looking
+banner (hit on 2026-08-25: the server answered on the wrong host with the wrong database).
+Pass the flags directly, `pnpm --filter web dev --host 127.0.0.N --port 52NN --strictPort`,
+with no bare `--` anywhere in the argv.
 
 The signed-in recipe itself, which every agent otherwise re-derives: create a
 `canonry_w<issue>_demo` database, migrate and seed it, start the dev server against it, create

@@ -303,10 +303,12 @@ describe('/w/[universe]/settings actions (issue #378, decision R3)', () => {
 	});
 });
 
-// Issue #406 (S1, DECISIONS.md "Round fourteen"): `setupItems` no longer feeds a
-// checklist card - `+page.svelte`'s rail turns the same payload into a mark on
-// whichever group row owns the unset item instead. The payload's own contract
-// (ids, `done`, what counts as unset) is unchanged, so these assertions stay put.
+// Issue #406 (S1, DECISIONS.md "Round fourteen"), issue #794 (DECISIONS.md "Round
+// twenty-one"): `setupItems` no longer feeds a checklist card - `+page.svelte` turns the
+// same payload into a mark on whichever group's own `h2` owns the unset item, first on
+// the rail's matching row (S1) and now, with the rail gone, directly on the heading. The
+// payload's own contract (ids, `done`, what counts as unset) is unchanged either way, so
+// these assertions stay put.
 describe('/w/[universe]/settings load: setupItems (issue #379 R4, issue #406 S1)', () => {
 	let db: Db;
 
@@ -468,5 +470,80 @@ describe('/w/[universe]/settings load: image style picker (issue #407, decision 
 		// its own to show until the GM saves one.
 		expect(data.imageStyleName).toBe('');
 		expect(data.imageStyleModifier).toBe('');
+	});
+});
+
+// Issue #796: the narration picker's example sentence used to be always English, even
+// when the load already threaded `locals.locale` into `listNarrationStylePresets` for
+// name/description. This is the route-level half of `packages/db/test/narration.test.ts`'s
+// own coverage of the coalesce itself - proof that this page's `load` actually passes the
+// signed-in reader's locale through, not just that the query knows what to do with one.
+describe('/w/[universe]/settings load: narration style picker (issue #796)', () => {
+	let db: Db;
+
+	beforeAll(() => {
+		db = createDb(DATABASE_URL, { max: 3 });
+	});
+
+	afterAll(async () => {
+		await closeDb(db);
+	});
+
+	async function fixture(locale: 'en' | 'it') {
+		const [owner] = await db
+			.insert(user)
+			.values({
+				id: unique('narration-user'),
+				name: 'Narration Owner',
+				email: `${unique('n')}@canonry.invalid`
+			})
+			.returning();
+		if (!owner) throw new Error('user insert returned no row');
+
+		const [world] = await db
+			.insert(universe)
+			.values({
+				name: 'Narration World',
+				slug: unique('narration-world'),
+				ownerUserId: owner.id,
+				kind: 'homebrew'
+			})
+			.returning();
+		if (!world) throw new Error('universe insert returned no row');
+
+		const locals = {
+			user: { id: owner.id, name: owner.name, email: owner.email },
+			locale
+		} as App.Locals;
+		return { world, locals };
+	}
+
+	async function loadFor(
+		slug: string,
+		locals: App.Locals
+	): Promise<{
+		narrationStylePresets: Array<{ slug: string; exampleSentence: string }>;
+	}> {
+		const result = await load({ params: { universe: slug }, locals } as Parameters<typeof load>[0]);
+		return result as {
+			narrationStylePresets: Array<{ slug: string; exampleSentence: string }>;
+		};
+	}
+
+	it("reads the signed-in reader's own locale into the example sentence, in English by default", async () => {
+		const { world, locals } = await fixture('en');
+		const data = await loadFor(world.slug, locals);
+		const warm = data.narrationStylePresets.find((p) => p.slug === 'warm-companion');
+		expect(warm?.exampleSentence).toBe(
+			"Aldric's not proud of it, but the watch let him go clean - no hard feelings, and he still buys the first round at the Gilded Rat."
+		);
+	});
+
+	it('reads the Italian translation for a reader whose locale is Italian', async () => {
+		const { world, locals } = await fixture('it');
+		const data = await loadFor(world.slug, locals);
+		const warm = data.narrationStylePresets.find((p) => p.slug === 'warm-companion');
+		expect(warm?.exampleSentence).toContain('Ratto Dorato');
+		expect(warm?.exampleSentence).not.toContain('Gilded Rat');
 	});
 });

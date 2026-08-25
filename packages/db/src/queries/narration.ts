@@ -22,7 +22,8 @@ export interface NarrationStylePreset {
 /** The shipped catalogue the settings picker renders - every preset (`universe_id IS
  * NULL`), ordered by `sort_order`. `locale`'s translation (`narration_style_label`) wins
  * when one exists, the row's own English text otherwise - same coalesce idiom
- * `listImageStylePresets` uses. */
+ * `listImageStylePresets` uses, now applied to `example_sentence` too (issue #796) so the
+ * picker card reads in the universe's own language instead of always in English. */
 export async function listNarrationStylePresets(
 	db: Db,
 	locale: string
@@ -34,7 +35,9 @@ export async function listNarrationStylePresets(
 			name: sql<string>`coalesce(${narrationStyleLabel.name}, ${narrationStyle.name})`,
 			description: sql<string>`coalesce(${narrationStyleLabel.description}, ${narrationStyle.description})`,
 			promptClause: narrationStyle.promptClause,
-			exampleSentence: narrationStyle.exampleSentence,
+			exampleSentence: sql<
+				string | null
+			>`coalesce(${narrationStyleLabel.exampleSentence}, ${narrationStyle.exampleSentence})`,
 			sortOrder: narrationStyle.sortOrder
 		})
 		.from(narrationStyle)

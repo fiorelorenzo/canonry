@@ -121,7 +121,12 @@ function devMockTextStream(text: string): ReadableStream {
  * and the `premium` structured calls in both shapes they come in: `{ summary, after }` for
  * `diffs.ts`, `complete.ts` and `ask-propose.ts`'s edit drafting, and `newEntitySchema` for
  * its new-entry drafting. `usedSources` is empty on both, since a mock has drawn on nothing;
- * the two schemas that do not declare it drop it.
+ * the two schemas that do not declare it drop it. The `cheap` branch also answers
+ * `warm-generator.ts`'s `npcDraftSchema` (issue #793: the table's "+ NPC here" quick
+ * action resolves a `cheap` model and used to build its own `createLanguageModel` call
+ * outside this seam entirely, so this env var never reached it before) - see the
+ * dedicated branch below for how that shape is told apart from the two `cheap` calls
+ * above.
  *
  * `doStream` is Ask. `runAsk` calls `streamText`, so a mock with only a `doGenerate` failed
  * the one surface it was most wanted for. A question that reads like a request to write canon
@@ -197,14 +202,13 @@ function devMockModel(purpose: string): LanguageModel {
 		},
 		doGenerate: async (options) => {
 			const promptText = JSON.stringify(options.prompt);
+			const wantsAliasesShape = JSON.stringify(options.responseFormat ?? '').includes('"aliases"');
 			if (purpose === 'premium') {
 				// `aliases` is in `newEntitySchema` and in none of the other premium schemas, so
 				// the requested response format is what tells the two shapes apart. The prompt's
 				// own wording is the fallback, for the same reason the cheap branch below reads
 				// the prompt at all: it is the one thing a mock is always handed.
-				const wantsNewEntity =
-					JSON.stringify(options.responseFormat ?? '').includes('"aliases"') ||
-					promptText.includes('brand new wiki entry');
+				const wantsNewEntity = wantsAliasesShape || promptText.includes('brand new wiki entry');
 				const object = wantsNewEntity
 					? {
 							type: 'character',
@@ -223,6 +227,27 @@ function devMockModel(purpose: string): LanguageModel {
 					content: [{ type: 'text', text: JSON.stringify(object) }],
 					finishReason: { unified: 'stop', raw: undefined },
 					usage: devMockUsage(300, 200),
+					warnings: []
+				};
+			}
+			if (wantsAliasesShape) {
+				// Issue #793: the table's "+ NPC here" quick action (`quick-actions.ts`'s
+				// `fireNpcHere`) resolves the `cheap` purpose and asks for
+				// `warm-generator.ts`'s `npcDraftSchema` - `name`, `aliases`, `body` - a strict
+				// subset of `newEntitySchema`'s fields above, so the same `"aliases"` signal
+				// picks it out here too, just on the branch this purpose actually resolves to.
+				// Zod strips the extra fields a real object schema does not declare, so this
+				// stays a plain object rather than a second shape to keep in sync.
+				const place = /Place: ([^"\\\n.]+)/.exec(promptText)?.[1]?.trim() ?? 'this place';
+				const object = {
+					name: 'A face the dev mock invented',
+					aliases: [],
+					body: `Drafted by the dev mock model, sketched at ${place}. No model call left this process.`
+				};
+				return {
+					content: [{ type: 'text', text: JSON.stringify(object) }],
+					finishReason: { unified: 'stop', raw: undefined },
+					usage: devMockUsage(120, 60),
 					warnings: []
 				};
 			}

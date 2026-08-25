@@ -186,7 +186,6 @@ describe('aria-current says only what is true (#724)', () => {
 			'lib/components/entries/TypeFilterRow.svelte',
 			'lib/components/proposals/InlineProposalReview.svelte',
 			'lib/components/proposals/TypeFilterChips.svelte',
-			'lib/components/settings/UniverseSettingsRail.svelte',
 			'lib/components/shell/PhoneNav.svelte',
 			'lib/components/shell/ShellUserRow.svelte',
 			'lib/components/shell/Sidebar.svelte',

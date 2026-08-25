@@ -17,6 +17,9 @@
  *
  * Every case fails on 9a8a4f8: neither the action nor the load's fork parameters exist
  * there.
+ *
+ * Issue #795 (DECISIONS.md "Round twenty-one"): moved here from
+ * `settings/relations/relations.test.ts` alongside the route it tests.
  */
 import { randomUUID } from 'node:crypto';
 import { and, closeDb, createDb, eq, isNull, type Db } from '@canonry/db';
@@ -42,7 +45,7 @@ function failureData(result: unknown): { action: string; typeId: string; error?:
 	throw new Error('expected an ActionFailure');
 }
 
-describe('/w/[universe]/settings/relations: a universe gets its own version of a shipped type (#648)', () => {
+describe('/w/[universe]/relations: a universe gets its own version of a shipped type (#648)', () => {
 	let db: Db;
 	let ownerId: string;
 	let universeId: string;
@@ -92,7 +95,7 @@ describe('/w/[universe]/settings/relations: a universe gets its own version of a
 		const formData = new FormData();
 		for (const [key, value] of fields) formData.append(key, value);
 		return {
-			request: new Request(`http://localhost/w/${universeSlug}/settings/relations`, {
+			request: new Request(`http://localhost/w/${universeSlug}/relations`, {
 				method: 'POST',
 				body: formData
 			}),
@@ -104,7 +107,7 @@ describe('/w/[universe]/settings/relations: a universe gets its own version of a
 	function loadEvent(query: string) {
 		return {
 			params: { universe: universeSlug },
-			url: new URL(`http://localhost/w/${universeSlug}/settings/relations${query}`),
+			url: new URL(`http://localhost/w/${universeSlug}/relations${query}`),
 			locals: { user: { id: ownerId }, locale: 'en' }
 		};
 	}

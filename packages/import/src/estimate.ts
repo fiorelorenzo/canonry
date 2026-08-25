@@ -299,6 +299,15 @@ function checkpointedDocuments(checkpoint: unknown): { ran: number; skipped: num
 	return { ran, skipped };
 }
 
+/** Issue #790: how many of a job's documents the checkpoint already accounts for,
+ * settled or skipped, as one number a live progress display can show without decoding
+ * checkpoint's shape itself - it stays this package's own, per `checkpointedDocuments`'
+ * own doc comment above. */
+export function importJobDocumentsSettled(checkpoint: unknown): number {
+	const { ran, skipped } = checkpointedDocuments(checkpoint);
+	return ran + skipped;
+}
+
 /**
  * `job-runner.ts`'s `EstimateImportJobInput` doc comment: "historical average, supplied
  * by the caller... never invented here." A cold start (nobody has run this playbook on

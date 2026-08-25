@@ -9,13 +9,8 @@
  * G7/E5's live path), so it writes directly through `revealEntityLive`.
  */
 import { randomUUID } from 'node:crypto';
-import {
-	chargeFor,
-	createLanguageModel,
-	ModelNotConfiguredError,
-	resolveModel,
-	type GatewayCredentials
-} from '@canonry/ai';
+import { chargeFor, ModelNotConfiguredError, resolveModel } from '@canonry/ai';
+import type { GatewayWrapper, ModelFactory } from '@canonry/copilot';
 import {
 	createProposalPlan,
 	recordProposalDiff,
@@ -49,13 +44,21 @@ export interface QuickActionContext {
 	placeLanguage: string | null;
 	placeBody: string;
 	sessionEntityId: string | null;
-	/** A thunk, not an already-resolved value: reading gateway credentials from the
-	 * environment can itself throw (`MissingGatewayEnvError`, unset on this box), and that
-	 * has to land inside `fireNpcHere`'s own try/catch alongside `ModelNotConfiguredError`
-	 * rather than crash the request before the scaffold fallback ever gets a chance to run.
-	 * `fireCreateChildLocation` and `fireMarkAsRevealed` never call it at all - neither one
-	 * touches a model - so an unset gateway must never stop either of them either. */
-	gatewayCredentials: () => GatewayCredentials;
+	/** The same injected seam every other AI-consuming route in `apps/web` takes
+	 * ($lib/server/copilot.ts's composition root: real in production, a
+	 * `MockLanguageModelV4` when `COPILOT_DEV_MOCK_MODEL=1`) - issue #793 found this
+	 * module building its own `createLanguageModel` call straight from `@canonry/ai`
+	 * instead, which meant the dev-mock env var did nothing for "+ NPC here" and the
+	 * scaffold fallback was the only path this action could ever take on a dev box.
+	 * Calling `modelFactory` can itself throw (a real, unmocked `createLanguageModel`
+	 * reads gateway credentials lazily and throws `MissingGatewayEnvError` when they are
+	 * unset), so that call has to land inside `fireNpcHere`'s own try/catch alongside
+	 * `ModelNotConfiguredError` rather than crash the request before the scaffold
+	 * fallback ever gets a chance to run. `fireCreateChildLocation` and
+	 * `fireMarkAsRevealed` never call either seam - neither one touches a model - so an
+	 * unset gateway must never stop either of them either. */
+	modelFactory: ModelFactory;
+	gateway: GatewayWrapper;
 }
 
 export interface NpcHereResult {
@@ -163,11 +166,7 @@ export async function fireNpcHere(ctx: QuickActionContext): Promise<NpcHereResul
 	};
 
 	try {
-		const languageModel = createLanguageModel(
-			resolved.provider,
-			resolved.modelId,
-			ctx.gatewayCredentials()
-		);
+		const languageModel = ctx.gateway(ctx.modelFactory(resolved));
 		const generator = buildNpcDraftGenerator({
 			db: ctx.db,
 			userId: ctx.userId,

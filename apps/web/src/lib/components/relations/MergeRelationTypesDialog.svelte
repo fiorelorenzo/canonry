@@ -49,7 +49,7 @@
 		own: RelationTypeCatalogueRow[];
 		/** Either side of the merge may be the target: shipped or the universe's own. */
 		allTypes: RelationTypeCatalogueRow[];
-		t: Messages['universe']['settings']['relations'];
+		t: Messages['universe']['relations'];
 		relationTypeLabel: Messages['relationTypeLabel'];
 		locale: Locale;
 		form?: MergeActionResult | undefined;

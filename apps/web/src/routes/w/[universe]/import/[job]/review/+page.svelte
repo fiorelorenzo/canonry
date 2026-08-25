@@ -39,6 +39,15 @@
 	let switchingFilter = $state(false);
 
 	let isRunning = $derived(RUNNING_STATUSES.has(data.job.status));
+	// Issue #790: the running banner's progress bar - `documentsSettled` is the
+	// checkpoint's own count (`$lib/server/proposals.ts`'s load, via
+	// `importJobDocumentsSettled`), never guessed from the proposal list, since a
+	// document can finish with zero proposals.
+	let progressPercent = $derived(
+		data.job.documentCount > 0
+			? Math.min(100, Math.round((data.job.documentsSettled / data.job.documentCount) * 100))
+			: 0
+	);
 	let filteredCandidates = $derived(
 		selectedType === null
 			? data.candidates
@@ -82,7 +91,10 @@
 	// the browser's reload button.
 	$effect(() => {
 		if (!isRunning) return;
-		const interval = setInterval(() => void invalidateAll(), 4000);
+		// Issue #790: tightened from 4s to 1.5s - the progress bar and the per-document
+		// count only read as live at an interval short enough that the GM never has to
+		// wonder whether the page is still polling at all.
+		const interval = setInterval(() => void invalidateAll(), 1500);
 		return () => clearInterval(interval);
 	});
 </script>
@@ -102,27 +114,53 @@
 			<!-- Round eleven P2 (#344): a job still running is furniture, not a word a model
 		     wrote, so it wears the theme's own panel and line rather than the copilot's
 		     hue, and the refresh control wears the accent because that is what interactive
-		     means here. -->
+		     means here. Issue #790 added the bar and the per-document line underneath -
+		     the same "live feed" the proposal queue below already is, one number wider. -->
 			<div
-				class="mb-4 flex items-center justify-between gap-3 rounded-md border border-line bg-panel-2 px-4 py-3 text-body text-ink"
+				class="mb-4 flex flex-col gap-2 rounded-md border border-line bg-panel-2 px-4 py-3 text-body text-ink"
 			>
-				<span>
-					{t.stillImporting(data.job.proposalsEmitted)}
-				</span>
-				<Button
-					type="button"
-					variant="link"
-					size="sm"
-					class="h-auto p-0 text-accent"
-					onclick={refreshNow}
+				<div class="flex items-center justify-between gap-3">
+					<span class="flex items-center gap-2">
+						<span class="h-2 w-2 flex-none animate-pulse rounded-full bg-accent" aria-hidden="true"
+						></span>
+						{t.stillImporting(data.job.proposalsEmitted)}
+					</span>
+					<Button
+						type="button"
+						variant="link"
+						size="sm"
+						class="h-auto p-0 text-accent"
+						onclick={refreshNow}
+					>
+						{t.refresh}
+					</Button>
+				</div>
+				<div
+					class="h-1.5 w-full overflow-hidden rounded-full bg-line-2"
+					role="progressbar"
+					aria-valuenow={progressPercent}
+					aria-valuemin="0"
+					aria-valuemax="100"
 				>
-					{t.refresh}
-				</Button>
+					<div
+						class="h-full rounded-full bg-accent transition-all"
+						style="width: {progressPercent}%"
+					></div>
+				</div>
+				<p class="text-label text-muted">
+					{t.documentsProgress(data.job.documentsSettled, data.job.documentCount)}
+				</p>
 			</div>
 		{:else if issueNote}
-			<p class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-body text-muted">
-				{issueNote}
-			</p>
+			{#if data.job.status === 'failed'}
+				<p class="mb-4 rounded-md bg-danger-bg px-4 py-3 text-body text-danger">
+					{issueNote}
+				</p>
+			{:else}
+				<p class="mb-4 rounded-md border border-line bg-panel-2 px-4 py-3 text-body text-muted">
+					{issueNote}
+				</p>
+			{/if}
 		{/if}
 
 		{#if data.missingFromSource.length > 0}

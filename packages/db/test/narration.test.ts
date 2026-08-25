@@ -45,7 +45,7 @@ describe('listNarrationStylePresets (queries/narration.ts, issue #451, decision 
 		expect(sortOrders).toEqual([...sortOrders].sort((a, b) => a - b));
 	});
 
-	it('returns the Italian translation when asked for it, but never translates the prompt clause', async () => {
+	it('returns the Italian translation when asked for it, but never translates the prompt clause, and translates the example sentence too (issue #796)', async () => {
 		const presets = await listNarrationStylePresets(db, 'it');
 		const warm = presets.find((p) => p.slug === 'warm-companion');
 		expect(warm?.name).toBe('Compagno Caloroso');
@@ -54,12 +54,17 @@ describe('listNarrationStylePresets (queries/narration.ts, issue #451, decision 
 		const english = await listNarrationStylePresets(db, 'en');
 		const warmEnglish = english.find((p) => p.slug === 'warm-companion');
 		expect(warm?.promptClause).toBe(warmEnglish?.promptClause);
+		expect(warm?.exampleSentence.length).toBeGreaterThan(0);
+		expect(warm?.exampleSentence).not.toBe(warmEnglish?.exampleSentence);
 	});
 
-	it('falls back to the English row for a locale with no translation', async () => {
+	it('falls back to the English row, example sentence included, for a locale with no translation', async () => {
 		const presets = await listNarrationStylePresets(db, 'fr');
 		const warm = presets.find((p) => p.slug === 'warm-companion');
 		expect(warm?.name).toBe('Warm Companion');
+		const english = await listNarrationStylePresets(db, 'en');
+		const warmEnglish = english.find((p) => p.slug === 'warm-companion');
+		expect(warm?.exampleSentence).toBe(warmEnglish?.exampleSentence);
 	});
 
 	it('never includes a universe-owned custom row', async () => {

@@ -146,7 +146,25 @@
 
 	<nav class="flex-1 overflow-y-auto p-2" aria-label={t.sidebar.primaryNavAriaLabel}>
 		{#if mode === 'universe' && universeSlug}
+			{@const homeHref = resolve(`/w/${universeSlug}`)}
+			{@const homeActive = page.url.pathname === homeHref}
 			<ul class="flex flex-col gap-0.5">
+				<!-- #788: the world home's own row, pinned above `nav.ts`'s seven the way the
+				     switcher is - A2's cap counts the seven places, not this. It replaces the
+				     entries page's back link, which was the only page-level way home and made
+				     the home read as a feature of that one page. -->
+				<li>
+					<a
+						href={homeHref}
+						class="flex items-center justify-between rounded-md px-2.5 py-1.5 text-body transition-colors hover:bg-panel-2"
+						class:text-ink={homeActive}
+						class:font-semibold={homeActive}
+						class:text-ink-2={!homeActive}
+						aria-current={homeActive ? 'page' : undefined}
+					>
+						<span>{t.nav.home}</span>
+					</a>
+				</li>
 				{#each NAV_ITEMS as item (item.id)}
 					{@const href = resolve(item.href(universeSlug))}
 					{@const active = page.url.pathname === href}

@@ -31,8 +31,9 @@ import { isActionFailure } from '@sveltejs/kit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { actions } from './+page.server.js';
 // Issue #648: the route the shipped refusal points at is a different route's action, and
-// the last case below walks the whole of it, so this file drives both.
-import { actions as settingsActions } from '../../../settings/relations/+page.server.js';
+// the last case below walks the whole of it, so this file drives both. #795 moved that
+// route from `settings/relations` to `relations`.
+import { actions as relationsActions } from '../../../relations/+page.server.js';
 
 const DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
@@ -325,13 +326,13 @@ describe('/w/[universe]/import/[job]/review actions (#628): the accept-time admi
 		};
 	}
 
-	/** The same shape one route over: `settings/relations`'s actions take only the universe
+	/** The same shape one route over: `relations`'s actions take only the universe
 	 * param, and its own `requireManager` reads the role off the same signed-in owner. */
-	function settingsPostEvent(fields: Record<string, string>) {
+	function relationsPostEvent(fields: Record<string, string>) {
 		const formData = new FormData();
 		for (const [key, value] of Object.entries(fields)) formData.set(key, value);
 		return {
-			request: new Request(`http://localhost/w/${universeSlug}/settings/relations`, {
+			request: new Request(`http://localhost/w/${universeSlug}/relations`, {
 				method: 'POST',
 				body: formData
 			}),
@@ -509,13 +510,13 @@ describe('/w/[universe]/import/[job]/review actions (#628): the accept-time admi
 
 	it('accepts the same link once the GM has their own version of the shipped type (#648)', async () => {
 		// The route the refusal points at, end to end through the two real actions: the
-		// settings page's fork, then the accept that failed before it.
-		const forked = await settingsActions.forkShippedRelationType(
-			settingsPostEvent({
+		// relations route's fork, then the accept that failed before it.
+		const forked = await relationsActions.forkShippedRelationType(
+			relationsPostEvent({
 				typeId: shippedTypeId,
 				addFrom: 'faction',
 				addTo: 'character'
-			}) as Parameters<typeof settingsActions.forkShippedRelationType>[0]
+			}) as Parameters<typeof relationsActions.forkShippedRelationType>[0]
 		);
 		expect(isActionFailure(forked)).toBe(false);
 

@@ -104,7 +104,7 @@ const SHELL_ROUTES = [
 	'./w/[universe]/ask/+page.svelte',
 	'./w/[universe]/ask/[conversationId]/+page.svelte',
 	'./w/[universe]/settings/+page.svelte',
-	'./w/[universe]/settings/relations/+page.svelte',
+	'./w/[universe]/relations/+page.svelte',
 	'./w/[universe]/works/+page.svelte',
 	'./w/[universe]/works/[work]/+page.svelte',
 	'./w/[universe]/works/[work]/[node]/+page.svelte',

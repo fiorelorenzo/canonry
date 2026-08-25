@@ -14,7 +14,6 @@
 
 	let {
 		context,
-		universeName,
 		pinnedElapsedMs,
 		proposalCount,
 		locale,
@@ -22,7 +21,6 @@
 		onExit
 	}: {
 		context: TableContext | null;
-		universeName: string;
 		pinnedElapsedMs: number | null;
 		proposalCount: number;
 		locale: Locale;
@@ -36,9 +34,9 @@
 <div
 	class="flex flex-wrap items-center gap-3 border-b border-line bg-panel px-4 py-2.5 text-body text-ink-2"
 >
-	<span class="font-semibold text-ink">{t.modeOn}</span>
-	<span aria-hidden="true">&middot;</span>
 	{#if context?.placeName}
+		<span class="font-semibold text-ink">{t.modeOn}</span>
+		<span aria-hidden="true">&middot;</span>
 		<span>{context.placeName}</span>
 		{#if context.sessionName}
 			<span class="text-muted">, {context.sessionName}</span>
@@ -48,23 +46,30 @@
 				{t.pinnedIn(pinnedElapsedMs)}
 			</Badge>
 		{/if}
+		<span class="flex-1"></span>
+		<!-- #792: the one way to change the declared place afterwards - `+page.svelte`
+			opens the same `DeclareContext` form this button opened the session with. -->
+		<Button type="button" variant="secondary" size="sm" onclick={onChangeContext}>
+			{t.change}
+		</Button>
+		<!-- #792: only reachable once a session is actually running - `title` states
+			`table/end/+server.ts`'s real consequence rather than leaving "exit" to guess. -->
+		<Button type="button" variant="secondary" size="sm" onclick={onExit} title={t.exitTooltip}>
+			{t.exit}
+			{#if proposalCount > 0}
+				<!-- Round eleven P2 (#344): the count pill, on the accent's tint, matching the
+					proposals inbox. -->
+				<span
+					class="ml-1 rounded-full bg-accent-bg px-1.5 py-0.5 font-mono text-label text-accent-ink"
+				>
+					{proposalCount}
+				</span>
+			{/if}
+		</Button>
 	{:else}
-		<span class="text-muted">{t.noPlaceDeclared(universeName)}</span>
+		<!-- #792: the not-started chip is the whole strip - no change/exit control, since
+			there is nothing yet to change or leave. `+page.svelte`'s cold `EmptyState`
+			carries the one control that begins a session. -->
+		<span class="text-ink-2">{t.notStarted}</span>
 	{/if}
-	<span class="flex-1"></span>
-	<Button type="button" variant="secondary" size="sm" onclick={onChangeContext}>
-		{context?.placeName ? t.change : t.declare}
-	</Button>
-	<Button type="button" variant="secondary" size="sm" onclick={onExit}>
-		{t.exit}
-		{#if proposalCount > 0}
-			<!-- Round eleven P2 (#344): the count pill, on the accent's tint, matching the
-				proposals inbox. -->
-			<span
-				class="ml-1 rounded-full bg-accent-bg px-1.5 py-0.5 font-mono text-label text-accent-ink"
-			>
-				{proposalCount}
-			</span>
-		{/if}
-	</Button>
 </div>

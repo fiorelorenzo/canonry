@@ -15,6 +15,12 @@
 	 * `MergeRelationTypesDialog`, unpre-filled, because that dialog's own contract
 	 * (fresh `fromTypeId`/`intoTypeId` state on every open) is exactly what this issue
 	 * keeps unchanged - see `RelationTypeTable`'s own comment on `onMerge`.
+	 *
+	 * Issue #795 (DECISIONS.md "Round twenty-one", amends U1): this component itself is
+	 * unmoved and unchanged in shape - what moved is the route around it, from
+	 * `/w/[universe]/settings/relations` to `/w/[universe]/relations`, and what changed
+	 * inside `RelationTypeTable` is the markup each section renders (a real `<table>`
+	 * now, not a `<ul>`), not this file's own section/dialog wiring.
 	 */
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import RelationTypeTable from './RelationTypeTable.svelte';
@@ -40,7 +46,7 @@
 		forkAddTo = []
 	}: {
 		types: RelationTypeCatalogueRow[];
-		t: Messages['universe']['settings']['relations'];
+		t: Messages['universe']['relations'];
 		relationTypeLabel: Messages['relationTypeLabel'];
 		locale: Locale;
 		canManage: boolean;

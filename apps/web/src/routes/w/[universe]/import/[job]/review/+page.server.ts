@@ -29,7 +29,11 @@ import {
 	RelationTypeNotAdmittedError,
 	RelationTypeNotOwnedError
 } from '@canonry/db';
-import { acceptAnyImportProposal, type AcceptImportProposalInput } from '@canonry/import';
+import {
+	acceptAnyImportProposal,
+	importJobDocumentsSettled,
+	type AcceptImportProposalInput
+} from '@canonry/import';
 import { messages, type Locale } from '$lib/i18n';
 import { db } from '$lib/server/db';
 import { scheduleIndexAfterAccept } from '$lib/server/jobs';
@@ -150,7 +154,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			status: detail.job.status,
 			outcomeNote: detail.job.outcomeNote,
 			proposalsEmitted: detail.job.proposalsEmitted,
-			documentCount: detail.job.documentCount
+			documentCount: detail.job.documentCount,
+			// Issue #790: the live status line's per-document number - `checkpoint`'s shape
+			// stays `@canonry/import`'s own, read narrowly through its own public helper
+			// rather than decoded here.
+			documentsSettled: importJobDocumentsSettled(detail.job.checkpoint)
 		},
 		candidates: enrichCandidates(detail.candidates),
 		filterTypeById: Object.fromEntries(detail.candidates.map((c) => [c.proposal.id, c.filterType])),

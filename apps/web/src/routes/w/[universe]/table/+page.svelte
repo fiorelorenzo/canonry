@@ -24,7 +24,6 @@
 	import InstantSearch from '$lib/components/table/InstantSearch.svelte';
 	import TableDeck from '$lib/components/table/TableDeck.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Combobox } from '$lib/components/ui/combobox';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { connectTableStream, type TableStreamMessage } from '$lib/components/table/stream-client';
 	import { messages } from '$lib/i18n';
@@ -34,7 +33,6 @@
 	let { data }: { data: PageData } = $props();
 
 	const t = $derived(messages(data.locale).table);
-	const tControls = $derived(messages(data.locale).controls);
 
 	let context = $state(data.context);
 	let pins = $state(data.pins);
@@ -71,7 +69,6 @@
 	let toast = $state<string | null>(null);
 	let proposals = $state<ProposalSummary[]>([]);
 	let sessionEndedBanner = $state<string | null>(null);
-	let quickPlaceId = $state<string | null>(null);
 
 	interface Arrival {
 		id: number;
@@ -219,14 +216,6 @@
 		}
 	}
 
-	// #470's empty-state combobox: session stays whatever it already was (null on a
-	// fresh table, since this only runs before any place exists) - the full
-	// `DeclareContext` form is still where a GM sets both together.
-	function handleQuickDeclare(placeEntityId: string | null) {
-		if (!placeEntityId) return;
-		void declareContext({ placeEntityId, sessionEntityId: null });
-	}
-
 	async function fireAction(kind: 'npc' | 'location' | 'reveal', label?: string) {
 		if (!context?.placeEntityId) return;
 		if (kind === 'npc') npcPending = true;
@@ -293,13 +282,6 @@
 		document.getElementById('table-instant-search')?.focus();
 	}
 
-	// The empty state's own quick-declare `Combobox` (#470, O4 = B): the same place
-	// list `DeclareContext` already receives, shaped into the control layer's option
-	// type.
-	const placeOptions = $derived(
-		data.places.map((place) => ({ value: place.id, label: place.name }))
-	);
-
 	const noteTargets = $derived(
 		pins
 			.map((pin) => ({ id: pin.entityId, name: pin.name, slug: pin.slug }))
@@ -321,7 +303,6 @@
 <Page width="wide" title={t.title}>
 	<ContextStrip
 		{context}
-		universeName={data.universeName}
 		{pinnedElapsedMs}
 		proposalCount={proposals.length}
 		locale={data.locale}
@@ -382,27 +363,15 @@
 		{/if}
 
 		{#if !context?.placeEntityId}
-			<EmptyState kind="cold" message={t.home.noContextDeclared}>
-				{#snippet action()}
-					<div class="flex w-full max-w-xs flex-col gap-1">
-						<label
-							for="table-quick-place"
-							class="font-mono text-label tracking-wide text-muted uppercase"
-						>
-							{t.declareContext.whereArePlayers}
-						</label>
-						<Combobox
-							id="table-quick-place"
-							bind:value={quickPlaceId}
-							options={placeOptions}
-							placeholder={t.home.choosePlace}
-							searchPlaceholder={tControls.search}
-							emptyText={tControls.noMatch}
-							onchange={handleQuickDeclare}
-						/>
-					</div>
-				{/snippet}
-			</EmptyState>
+			{#if !showDeclareForm}
+				<EmptyState kind="cold" message={t.home.noContextDeclared}>
+					{#snippet action()}
+						<Button type="button" onclick={() => (showDeclareForm = true)}>
+							{t.home.beginTableMode}
+						</Button>
+					{/snippet}
+				</EmptyState>
+			{/if}
 		{:else}
 			<!-- #529: the action bar, the ambient mood control and search are persistent
 			     chrome - "a persistent action bar, not a dock" - so all three render once,
