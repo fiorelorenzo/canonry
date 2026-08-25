@@ -65,7 +65,12 @@ import {
 	type IndexOutcome
 } from './canon-save.js';
 import { entitiesSkippedForNoEmbeddingModel } from './store.js';
-import { resumeIndexBackfill, type UniverseIndexBackfillRow } from './backfill-store.js';
+import {
+	enqueueRetriesForDeadLetteredBackfills,
+	RETRY_AFTER_DEAD_LETTER_REASON,
+	resumeIndexBackfill,
+	type UniverseIndexBackfillRow
+} from './backfill-store.js';
 
 const DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
@@ -2020,7 +2025,308 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 		expect(failed?.leaseHolder).toBeNull();
 		expect(failed?.lastError).toMatch(/gave up after 2 pass\(es\) that reduced nothing: 3 entity/);
 		// Terminal releases the partial unique index, so a genuinely new skip can enqueue a fresh
-		// backfill later. Nothing retries this one, which is #761.
+		// backfill later, and since #761 the sweep also offers this universe another go once its
+		// cooldown is up. The row itself stays `failed`: what recovers is the universe.
 		expect(failed?.entitiesMissing).toBe(3);
+	}, 45_000);
+
+	// #761: the way back. These drive `enqueueRetriesForDeadLetteredBackfills` directly for the
+	// same reason the two above drive `resumeIndexBackfill` directly, and with one extra care.
+	// The function is global over the table by design, so it can and will return universes other
+	// tests dead-lettered; every assertion here is therefore membership of a universe this test
+	// created rather than a count of what came back, which is the rule from #658, #682, #691 and
+	// #737. The cooldowns are an hour and up so that another test's row, dead-lettered seconds
+	// ago, cannot qualify and change what this one sees.
+	const HOUR_MS = 3600_000;
+
+	async function deadLetteredBackfill(
+		worldId: string,
+		ago: { requestedMs: number; finishedMs: number }
+	) {
+		const now = Date.now();
+		const [row] = await db
+			.insert(universeIndexBackfill)
+			.values({
+				universeId: worldId,
+				reason: 'no-embedding-model',
+				status: 'failed',
+				requestedAt: new Date(now - ago.requestedMs),
+				finishedAt: new Date(now - ago.finishedMs),
+				attemptCount: 2,
+				entitiesMissing: 3,
+				lastError: 'gave up after 2 pass(es) that reduced nothing: 3 entity/entities'
+			})
+			.returning();
+		if (!row) throw new Error('backfill insert returned no row');
+		return row;
+	}
+
+	function backfillsFor(worldId: string) {
+		return db
+			.select()
+			.from(universeIndexBackfill)
+			.where(eq(universeIndexBackfill.universeId, worldId))
+			.orderBy(desc(universeIndexBackfill.requestedAt));
+	}
+
+	function retry(baseCooldownMs: number, maxCooldownMs = 7 * 24 * HOUR_MS) {
+		return enqueueRetriesForDeadLetteredBackfills(db, { baseCooldownMs, maxCooldownMs });
+	}
+
+	it('gives a dead-lettered backfill another go once its cooldown is up (issue #761)', async () => {
+		// Before this, a universe that gave up had no way back that was not a hand-written
+		// `INSERT`: `enqueueDueIndexBackfills` only fires on a `no-embedding-model` job finishing
+		// after the newest backfill's watermark, and once a model is configured there are no new
+		// skips. #709 established there is no admin surface to put a button on, so the trigger is
+		// the sweep, which already runs on a timer.
+		const { world } = await fixture();
+		await deadLetteredBackfill(world.id, { requestedMs: 3 * HOUR_MS, finishedMs: 2 * HOUR_MS });
+
+		expect(await retry(HOUR_MS)).toContain(world.id);
+
+		const rows = await backfillsFor(world.id);
+		const fresh = rows[0];
+		expect(fresh?.reason).toBe(RETRY_AFTER_DEAD_LETTER_REASON);
+		expect(fresh?.status).toBe('pending');
+		// A new row, so the shortfall history is reset by construction: a full attempt budget and
+		// a first pass with nothing to compare against. Carrying the old numbers forward would
+		// dead-letter it immediately and make the retry a no-op.
+		expect(fresh?.attemptCount).toBe(0);
+		expect(fresh?.entitiesMissing).toBeNull();
+		expect(fresh?.finishedAt).toBeNull();
+		// The dead letter is kept rather than rewritten: it is the record of what happened.
+		expect(rows[1]?.status).toBe('failed');
+
+		// Self-limiting without a watermark of its own. The universe's newest row is `pending`
+		// now, so the next sweep sees that instead of the `failed` one and writes nothing, which
+		// is what stops this becoming #745's unbounded poll with extra rows in the table.
+		expect(await retry(HOUR_MS)).not.toContain(world.id);
+		expect(await backfillsFor(world.id)).toHaveLength(2);
+	}, 45_000);
+
+	it('leaves a dead-lettered backfill alone until its cooldown has elapsed (issue #761)', async () => {
+		// The cooldown is the whole design. A retry that starts immediately re-verifies the same
+		// unfixable entity and spends another `maxAttempts` passes proving it, which is the loop
+		// #745 removed.
+		const { world } = await fixture();
+		await deadLetteredBackfill(world.id, { requestedMs: HOUR_MS, finishedMs: 60_000 });
+
+		expect(await retry(HOUR_MS)).not.toContain(world.id);
+		expect(await backfillsFor(world.id)).toHaveLength(1);
+	}, 45_000);
+
+	it('doubles the cooldown per dead letter, and a finished catch-up ends the episode (issue #761)', async () => {
+		// A universe on its second dead letter waits twice as long, so one that nobody fixes
+		// converges on a scroll a week rather than one every verify delay.
+		const { world } = await fixture();
+		await deadLetteredBackfill(world.id, { requestedMs: 9 * HOUR_MS, finishedMs: 8 * HOUR_MS });
+		const second = await deadLetteredBackfill(world.id, {
+			requestedMs: 7 * HOUR_MS,
+			finishedMs: 90 * 60_000
+		});
+
+		// 90 minutes is past one hour and short of two, so the first cooldown would have fired
+		// and the second does not.
+		expect(await retry(HOUR_MS)).not.toContain(world.id);
+		// Clamped by the ceiling, the doubling stops mattering.
+		expect(await retry(HOUR_MS, HOUR_MS)).toContain(world.id);
+
+		// Undo that retry so the row this test owns is the newest again, then move the second
+		// dead letter far enough back that two hours have genuinely passed.
+		await db
+			.delete(universeIndexBackfill)
+			.where(
+				and(
+					eq(universeIndexBackfill.universeId, world.id),
+					eq(universeIndexBackfill.reason, RETRY_AFTER_DEAD_LETTER_REASON)
+				)
+			);
+		await db
+			.update(universeIndexBackfill)
+			.set({ finishedAt: new Date(Date.now() - 3 * HOUR_MS) })
+			.where(eq(universeIndexBackfill.id, second.id));
+		expect(await retry(HOUR_MS)).toContain(world.id);
+	}, 45_000);
+
+	it('counts failures from the last finished catch-up, not from the beginning of time (issue #761)', async () => {
+		// A universe that dead-lettered, was retried and finished has had its cause fixed. If it
+		// ever fails again that is a new problem, and it starts at the base cooldown instead of
+		// inheriting a week-long interval from history nobody remembers.
+		const { world } = await fixture();
+		await deadLetteredBackfill(world.id, { requestedMs: 9 * HOUR_MS, finishedMs: 9 * HOUR_MS });
+		await db.insert(universeIndexBackfill).values({
+			universeId: world.id,
+			reason: RETRY_AFTER_DEAD_LETTER_REASON,
+			status: 'done',
+			requestedAt: new Date(Date.now() - 8 * HOUR_MS),
+			finishedAt: new Date(Date.now() - 8 * HOUR_MS)
+		});
+		await deadLetteredBackfill(world.id, {
+			requestedMs: 7 * HOUR_MS,
+			finishedMs: 90 * 60_000
+		});
+
+		// Two `failed` rows in the table and one in the episode, so 90 minutes is enough. Counting
+		// every failure ever would have made this wait two hours.
+		expect(await retry(HOUR_MS)).toContain(world.id);
+	}, 45_000);
+
+	it('retries nothing for a universe whose catch-up finished or is still running (issue #761)', async () => {
+		const { world: finished } = await fixture();
+		await db.insert(universeIndexBackfill).values({
+			universeId: finished.id,
+			reason: 'no-embedding-model',
+			status: 'done',
+			requestedAt: new Date(Date.now() - 9 * HOUR_MS),
+			finishedAt: new Date(Date.now() - 9 * HOUR_MS)
+		});
+
+		// A universe still working through a catch-up, whose previous one gave up long ago. The
+		// `failed` row is old enough to qualify on its own, and must not, or a retry would be
+		// enqueued alongside work already in flight.
+		const { world: running } = await fixture();
+		await deadLetteredBackfill(running.id, {
+			requestedMs: 9 * HOUR_MS,
+			finishedMs: 9 * HOUR_MS
+		});
+		await db.insert(universeIndexBackfill).values({
+			universeId: running.id,
+			reason: RETRY_AFTER_DEAD_LETTER_REASON,
+			status: 'claimed',
+			requestedAt: new Date(Date.now() - 8 * HOUR_MS)
+		});
+
+		const retried = await retry(HOUR_MS);
+		expect(retried).not.toContain(finished.id);
+		expect(retried).not.toContain(running.id);
+		expect(await backfillsFor(finished.id)).toHaveLength(1);
+		expect(await backfillsFor(running.id)).toHaveLength(2);
+	}, 45_000);
+
+	it("the worker's own sweep is what offers the retry, with no admin surface (issue #761)", async () => {
+		// The wiring, not the query: everything above drives the store directly, so it would all
+		// pass with `enqueueRetriesForDeadLetteredBackfills` never called from anywhere. What makes
+		// this a way back rather than a function nobody runs is that the sweep the worker already
+		// fires on its own timer performs it, so a dead-lettered universe recovers with nobody
+		// pressing anything. #709 established there is no surface to press.
+		//
+		// **The queue is stopped before the row exists, and that is the test working rather than
+		// the test cheating.** `createCanonSaveJobQueue` starts its pollers, and `lastSweepAt`
+		// begins at zero on purpose (a process that boots with a backfill already owed should not
+		// sit on it), so the first backfill poll sweeps within a poll interval of construction
+		// however long `backfillSweepIntervalMs` is. Written the obvious way round, this test
+		// failed with an empty result and a retry row already `claimed`: the poller had swept
+		// first and the explicit call then correctly found nothing left to do. Stopping the queue
+		// leaves `sweepIndexBackfills()` callable with nothing racing it.
+		const { world } = await fixture();
+		const queue = testQueue({ backfillRetryCooldownMs: HOUR_MS });
+		await queue.stop();
+		await deadLetteredBackfill(world.id, { requestedMs: 3 * HOUR_MS, finishedMs: 2 * HOUR_MS });
+
+		expect(await queue.sweepIndexBackfills()).toContain(world.id);
+		const rows = await backfillsFor(world.id);
+		expect(rows[0]?.reason).toBe(RETRY_AFTER_DEAD_LETTER_REASON);
+		expect(rows[0]?.status).toBe('pending');
+	}, 45_000);
+
+	it('a real dead letter comes back on the cooldown, spends its own budget and gives up again (issues #762, #766, #761)', async () => {
+		// The three changes this mechanism took today have to compose, and every other test here
+		// asserts one of them in isolation: the ones above hand `enqueueRetriesForDeadLettered-
+		// Backfills` a row inserted as `failed`, which proves the query and proves nothing about
+		// how a row gets there. This one takes the long way round and never writes a status.
+		//
+		// The stuck shape is #745's: the entry has a `pending` job of its own parked an hour out,
+		// so the fan-out writes nothing for it and the point never appears. #762's own end-to-end
+		// test already covers that shape reaching `failed`, and it did so before #766, so the
+		// claim here is not that #766 made the bound fireable. It is narrower and it is about
+		// #766's two halves being coupled: once `pass` is sliced from `schedulable` rather than
+		// from `missing`, `capped` has to be measured against `schedulable` too. Measured against
+		// `missing` it reads 1 > 0 on this shape, which reports progress, resets the attempts and
+		// makes the bound unreachable on exactly the universe it exists for. I checked that by
+		// mutation rather than by reasoning: with `capped` left on `missing` and `pass` on
+		// `schedulable`, the first phase below never gets a `failed` row and times out with
+		// `status claimed, attempts 1`. What this test adds over the three separately is that the
+		// `failed` row it retries is one the product produced, not one inserted as `failed`.
+		const { owner, world } = await fixture();
+		const embeddingModel = await resolveModel(db, 'embedding');
+		const collectionName = loreCollectionNameForModel(embeddingModel, world.id);
+		const vector = createVectorClient();
+		const queue = testQueue({
+			maxAttempts: 2,
+			backfillRetryCooldownMs: HOUR_MS,
+			vectorClient: vector,
+			embeddingModelFactory: fakeEmbeddingModelFactory()
+		});
+		try {
+			const skipped = await insertEntry(world.id, 'Returning Hold', 'Recorded, never indexed.');
+			await withoutEmbeddingModel(async () => {
+				queue.scheduleIndexOnly({
+					universeId: world.id,
+					entityId: skipped.id,
+					entityName: skipped.name,
+					userId: owner.id,
+					locale: 'en'
+				});
+				await waitForEntityRow(db, world.id, skipped.id, (r) => r.status === 'done');
+			});
+			await db.insert(canonSaveJob).values({
+				universeId: world.id,
+				entityId: skipped.id,
+				entityName: skipped.name,
+				userId: owner.id,
+				oldBody: 'before',
+				newBody: 'after',
+				locale: 'en',
+				status: 'pending',
+				runAfter: new Date(Date.now() + 3_600_000)
+			});
+
+			const settle = async (label: string): Promise<UniverseIndexBackfillRow> => {
+				const deadline = Date.now() + 30_000;
+				for (;;) {
+					const [row] = await queue.recentBackfills(world.id);
+					if (row && row.status === 'failed') return row;
+					if (Date.now() > deadline) {
+						throw new Error(`${label}: status ${row?.status}, attempts ${row?.attemptCount}`);
+					}
+					await delay(25);
+				}
+			};
+
+			await queue.sweepIndexBackfills();
+			const first = await settle('the first backfill never gave up');
+			expect(first.reason).toBe('no-embedding-model');
+			expect(first.attemptCount).toBe(2);
+			expect(first.entitiesMissing).toBe(1);
+
+			// Only the clock is moved, never a status: the row above is a real dead letter and the
+			// row below will be a real one. An hour of cooldown is not worth spending in real
+			// seconds, and backdating this one rather than shortening the cooldown keeps the sweep
+			// from also retrying whatever another test in this file dead-lettered a moment ago.
+			await db
+				.update(universeIndexBackfill)
+				.set({ finishedAt: new Date(Date.now() - 2 * HOUR_MS) })
+				.where(eq(universeIndexBackfill.id, first.id));
+
+			expect(await queue.sweepIndexBackfills()).toContain(world.id);
+			const retried = await settle('the retried backfill never gave up');
+			expect(retried.id, 'a new row, not the old one reopened').not.toBe(first.id);
+			expect(retried.reason).toBe(RETRY_AFTER_DEAD_LETTER_REASON);
+			// Its own full budget, spent on its own passes. The history reset is the point of it
+			// being a new row: had it inherited the shortfall it would have had nothing to reduce
+			// and no attempts left to reduce it in.
+			expect(retried.attemptCount).toBe(2);
+			expect(retried.entitiesMissing).toBe(1);
+			expect(retried.lastError).toMatch(/gave up after 2 pass\(es\) that reduced nothing: 1 /);
+
+			// And it converges rather than spinning: two rows for this universe, both terminal, and
+			// the next cooldown is twice as long because the episode now has two failures in it.
+			const all = await backfillsFor(world.id);
+			expect(all.map((r) => r.status)).toEqual(['failed', 'failed']);
+			expect(await queue.sweepIndexBackfills()).not.toContain(world.id);
+		} finally {
+			await queue.stop();
+			await dropCollection(vector, collectionName).catch(() => undefined);
+		}
 	}, 45_000);
 });

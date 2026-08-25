@@ -119,8 +119,11 @@ import {
 	claimNextIndexBackfill,
 	completeIndexBackfill,
 	enqueueDueIndexBackfills,
+	enqueueRetriesForDeadLetteredBackfills,
 	entitiesWithIndexJobInFlight,
+	NO_EMBEDDING_MODEL_REASON,
 	recentIndexBackfills,
+	RETRY_AFTER_DEAD_LETTER_REASON,
 	requeueIndexBackfill,
 	resumeIndexBackfill,
 	scheduleBackfillIndexJobRows,
@@ -438,6 +441,15 @@ const BACKFILL_RETRY_MS = 30_000;
  * this backfill and the worker claiming it. Not an error: there is nothing to index against,
  * and the row correctly stays owed. */
 const BACKFILL_NO_MODEL_RETRY_MS = 60_000;
+/** #761: how long a dead-lettered backfill is left alone before the sweep offers it another
+ * go, doubling per dead letter in the episode up to the ceiling below. An hour is chosen
+ * against what actually fixes one: a deploy or a change to `model_config`, neither of which
+ * happens in seconds, and a retry sooner than that just re-verifies the same unfixable entity
+ * and spends another `maxAttempts` passes proving it. A week is where the doubling stops,
+ * which is the point at which a universe nobody has fixed costs one enumeration a week rather
+ * than one every verify delay, and still is not silently abandoned. */
+const DEFAULT_BACKFILL_RETRY_COOLDOWN_MS = 60 * 60_000;
+const DEFAULT_BACKFILL_RETRY_COOLDOWN_MAX_MS = 7 * 24 * 60 * 60_000;
 const RECENT_BACKFILLS_LIMIT = 50;
 
 export interface JobQueueOptions {
@@ -475,6 +487,10 @@ export interface CanonSaveJobQueueOptions extends JobQueueOptions {
 	backfillLeaseMs?: number;
 	backfillStaggerMs?: number;
 	backfillVerifyDelayMs?: number;
+	/** #761's two, same reason: a test proving the cooldown is applied cannot wait an hour for
+	 * it, and one proving the doubling cannot wait two. */
+	backfillRetryCooldownMs?: number;
+	backfillRetryCooldownMaxMs?: number;
 }
 
 /** One durable queue's whole public surface: schedule a save, start/stop its worker, and
@@ -540,6 +556,10 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 		options.backfillSweepIntervalMs ?? DEFAULT_BACKFILL_SWEEP_INTERVAL_MS;
 	const backfillStaggerMs = options.backfillStaggerMs ?? DEFAULT_BACKFILL_STAGGER_MS;
 	const backfillVerifyDelayMs = options.backfillVerifyDelayMs ?? DEFAULT_BACKFILL_VERIFY_DELAY_MS;
+	const backfillRetryCooldownMs =
+		options.backfillRetryCooldownMs ?? DEFAULT_BACKFILL_RETRY_COOLDOWN_MS;
+	const backfillRetryCooldownMaxMs =
+		options.backfillRetryCooldownMaxMs ?? DEFAULT_BACKFILL_RETRY_COOLDOWN_MAX_MS;
 	// Zero rather than "now", so the first idle poll after start sweeps instead of waiting out
 	// a whole interval: a process that boots with a backfill already owed should not sit on it.
 	let lastSweepAt = 0;
@@ -636,6 +656,13 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 	 * When no row is configured this does nothing at all - not even the enqueue read. That is
 	 * the state the whole feature is about, and it is also the state in which enqueuing a
 	 * backfill would be a row that can only be requeued until a model appears.
+	 *
+	 * **Two writes now, not one (#761).** The trigger above enqueues a universe that has newly
+	 * skipped; the second enqueues one whose last catch-up gave up and whose cooldown has since
+	 * elapsed. They are separate because their conditions are unrelated, and they are in the
+	 * same sweep because a dead-lettered backfill needs a trigger that already happens and this
+	 * is the only one there is. Answering the union means `sweepIndexBackfills()`'s contract is
+	 * unchanged: the universes this sweep enqueued a backfill for, whichever reason it was.
 	 */
 	async function sweepIndexBackfills(): Promise<string[]> {
 		lastSweepAt = Date.now();
@@ -650,12 +677,32 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 			console.warn(
 				JSON.stringify({
 					event: 'universe_index_backfill_enqueued',
-					reason: 'no-embedding-model',
+					reason: NO_EMBEDDING_MODEL_REASON,
 					universeId
 				})
 			);
 		}
-		return enqueued;
+		// #761: and the same sweep is the way back for a universe that gave up. It is a trigger
+		// that already exists and already runs on this timer, which is what made it the answer:
+		// the alternative was an admin surface, and there is none (#709).
+		const retried = await enqueueRetriesForDeadLetteredBackfills(conn, {
+			baseCooldownMs: backfillRetryCooldownMs,
+			maxCooldownMs: backfillRetryCooldownMaxMs
+		});
+		for (const universeId of retried) {
+			// `error`, unlike the enqueue above. A universe reaching this line has already been
+			// dead-lettered at least once, so the fact worth telling somebody is not "a catch-up
+			// started" but "this one has needed a second chance", and the count of these lines per
+			// universe is how far the cooldown has doubled.
+			console.error(
+				JSON.stringify({
+					event: 'universe_index_backfill_retry_enqueued',
+					reason: RETRY_AFTER_DEAD_LETTER_REASON,
+					universeId
+				})
+			);
+		}
+		return [...enqueued, ...retried];
 	}
 
 	/**
@@ -670,6 +717,14 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 	 * is reclaimed and re-enumerates, and the entries the dead pass already scheduled either
 	 * have their point by then (so they are not missing any more) or still have a pending row
 	 * (so `on conflict do nothing` skips them).
+	 *
+	 * **The invariant this pass has to hold is stated once, at the top of `backfill-store.ts`,
+	 * and it is worth reading before changing anything here.** Five changes to this mechanism in
+	 * one day each restored one clause of it, and the reason each had to be found the hard way is
+	 * that the clause was nowhere written. The two that bear on this function directly: only the
+	 * index counts, so nothing below may treat a row it wrote as work done; and this pass may
+	 * write only what one observation justifies, which is why the in-flight read comes before the
+	 * collection read and why `capped` is measured against what this pass could actually schedule.
 	 */
 	async function runBackfill(row: UniverseIndexBackfillRow): Promise<void> {
 		let embeddingModel;

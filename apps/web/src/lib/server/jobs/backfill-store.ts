@@ -4,6 +4,66 @@
  *
  * Same split as `store.ts`, for the same reason: the SQL lives here and `canon-save.ts` owns
  * the loop, so the queries are testable against a real database without starting a worker.
+ *
+ * ---
+ *
+ * **The invariant, and it is written here because five separate fixes have each had to
+ * rediscover it.** A backfill's whole job is to make one sentence true: every indexable entity
+ * in the universe has an entity-level point in its own collection. Every rule in this file and
+ * in `runBackfill` is a consequence of that sentence plus two restrictions on how a pass is
+ * allowed to reason towards it, and every defect this mechanism has had was one of those two
+ * restrictions being broken somewhere. The first is that **only the index counts**: a backfill
+ * is finished when an enumeration finds nothing missing, never when a pass has written the rows
+ * it believes are enough, because a row is an intention and a point is a fact. The second is
+ * that **a pass may write only what an observation it still owns justifies**: it reads the
+ * queue before it reads the collection, so that anything absent from the in-flight set has
+ * already made every point it ever will visible to the read that follows; it schedules only
+ * what that single observation says is both missing and unclaimed; and it may not conclude
+ * anything at all about a row whose lease it has lost. The rest of the lifecycle follows from
+ * the two together. A pass that cannot reduce the shortfall is not making the sentence truer,
+ * so it has to be bounded rather than repeated forever; the bound is about the attempt and
+ * never about the universe, because a bounded attempt leaves the sentence exactly as false and
+ * exactly as owed as it found it; so giving up ends a row, and the sweep, on a widening
+ * cooldown, keeps the universe on the hook.
+ *
+ * The one-sentence version, for a reader who needs only that: **a backfill converges the
+ * universe's index to its canon, concluding only from points that exist and writing only from
+ * an observation it still holds, and it may give up on an attempt but never on the universe.**
+ *
+ * Every change this has taken restored one clause rather than adding a feature, which is the
+ * evidence that the invariant and not the code is what was missing:
+ *
+ * - **#709/#715 built it**, and got "only the index counts" right on the second try: the first
+ *   end-to-end run reported `done` from a pass that had merely *scheduled* six entries, two of
+ *   which then lost their points to a Qdrant `409`, and the sweep's watermark meant nothing
+ *   would ever look at that universe again. Hence `completeIndexBackfill` only on an empty
+ *   enumeration.
+ * - **#746** restored the second clause at write time: the fan-out's `on conflict do nothing`
+ *   could not see an entity whose row had been *claimed*, because the partial unique index
+ *   constrains `pending` alone, so a verification pass re-scheduled everything still draining.
+ *   The anti-join inside the insert is that half.
+ * - **#762** restored the bound: `resumeIndexBackfill` promised in a comment that `maxAttempts`
+ *   would dead-letter a pass that got nowhere, and nothing read the attempts at all, so a
+ *   universe that could not be finished re-scrolled itself every verify delay forever.
+ * - **#766** restored the second clause at observation time, which is the half #746 missed: the
+ *   anti-join answers for the moment of the *insert*, and the pass had decided at the *earlier*
+ *   read of the collection, so a job that finished in between was invisible to both. Reading
+ *   the in-flight set first, and filtering `missing` through it, is what makes the write a
+ *   function of one observation. It also had to stop counting "deferred because something else
+ *   is indexing it" as progress, since that reset the attempts of exactly the stuck universe
+ *   the bound exists to catch.
+ * - **#767, still open**, is the same clause one actor further out: two passes over one universe
+ *   can overlap if a pass outlives its lease, and each then holds its own observation. Nothing
+ *   fences a reclaimed pass, so it can also resume, complete or dead-letter a row a live worker
+ *   now owns. That is the "an observation it still owns" phrase not yet being enforced.
+ * - **#761** is the last clause: a dead letter had no way back, so the bound was in practice a
+ *   bound on the universe. `enqueueRetriesForDeadLetteredBackfills` puts the universe back on
+ *   the hook on a widening cooldown.
+ *
+ * The reason to write this down rather than fix the sixth thing: every one of those was found
+ * by a flake or by a reader noticing a comment that was not true, and each was correct in
+ * isolation. A change that cannot be expressed as restoring one of these clauses is probably
+ * changing what a backfill means, which is a bigger decision than it will look like in a diff.
  */
 import { and, desc, eq, inArray, sql, type Db } from '@canonry/db';
 import {
@@ -16,14 +76,16 @@ import type { Locale } from '@canonry/lang';
 
 export type UniverseIndexBackfillRow = typeof universeIndexBackfill.$inferSelect;
 
-/** The only reason a backfill is owed today. A text column rather than an enum on purpose
- * (see the table's own comment), so this is a named constant rather than a schema value. */
+/** Why a universe is owed a catch-up. A text column rather than an enum on purpose (see the
+ * table's own comment), so these are named constants rather than schema values. */
 export const NO_EMBEDDING_MODEL_REASON = 'no-embedding-model';
+/** #761: the sweep offering a dead-lettered universe another go once its cooldown is up. */
+export const RETRY_AFTER_DEAD_LETTER_REASON = 'retry-after-dead-letter';
 
 /**
- * The sweep's whole write: one statement that enqueues a backfill for every universe with a
- * skipped index run more recent than its last backfill request, and enqueues nothing for
- * every other universe.
+ * The first of the sweep's two writes (`enqueueRetriesForDeadLetteredBackfills` is the other):
+ * one statement that enqueues a backfill for every universe with a skipped index run more
+ * recent than its last backfill request, and enqueues nothing for every other universe.
  *
  * **The watermark is what stops this looping.** `requested_at` on the newest backfill row for
  * a universe is the line: a skipped job that finished before it is already accounted for by
@@ -52,6 +114,88 @@ export async function enqueueDueIndexBackfills(db: Db): Promise<string[]> {
 					where b.universe_id = j.universe_id),
 				'-infinity'::timestamptz)
 		group by j.universe_id
+		on conflict do nothing
+		returning universe_id
+	`);
+	return rows.map((row) => row.universe_id);
+}
+
+export interface BackfillRetryOptions {
+	/** Cooldown after the first dead letter of an episode. Doubles per further dead letter. */
+	baseCooldownMs: number;
+	/** Ceiling the doubling stops at. */
+	maxCooldownMs: number;
+}
+
+/**
+ * The other half of the sweep's write, and the answer to #761: a universe whose newest backfill
+ * gave up gets a fresh one once it has been left alone long enough.
+ *
+ * **Why this is here and not behind a button.** #745 made the `maxAttempts` cap reachable, which
+ * was right, and left a universe that hit it partly unindexed with nothing that would ever look
+ * at it again: `enqueueDueIndexBackfills` above only fires on a `no-embedding-model` job
+ * finishing after the newest backfill's `requested_at`, and once a model is configured there are
+ * no new skips. The only ways back were a hand-written `INSERT` or deactivating the `embedding`
+ * row to manufacture a skip, and there is no admin surface to put a retry button on (#709). The
+ * sweep, though, already runs on a timer and already asks whether any universe is owed a
+ * catch-up, so it is a trigger that exists rather than one that has to be built. Nothing about
+ * this needed a schema change.
+ *
+ * **The cooldown is the whole design, because an unbounded retry is what #745 removed.** A
+ * dead letter means the shortfall did not shrink for `maxAttempts` passes running, and a retry
+ * that starts immediately re-verifies the same unfixable entity and dead-letters again after
+ * `maxAttempts` more, which is #745's forever-loop with extra rows in the table. So the interval
+ * doubles per dead letter in the episode, from `baseCooldownMs` up to `maxCooldownMs`: a
+ * transient cause (a gateway timeout, a Qdrant blip) is retried soon enough to matter, and a
+ * permanent one converges on a scroll a week instead of one every verify delay. A retry is only
+ * *useful* once whatever broke the entity is fixed, and since the thing that usually fixes it is
+ * a deploy or a model-config change, hours is the right order of magnitude rather than seconds.
+ *
+ * **"Episode" rather than "ever", which is why the count is not just `count(*)`.** Failures are
+ * counted from the newest `done` row forward. A universe that dead-lettered, was retried and
+ * finished has had its cause fixed, so if it ever dead-letters again months later that is a new
+ * problem and it starts at `baseCooldownMs` rather than inheriting a week-long interval from
+ * history nobody remembers.
+ *
+ * The retry deliberately resets the shortfall history, because it is a new row: `attempt_count`
+ * is 0 and `entities_missing` is null, so it gets a full budget and its first pass has nothing
+ * to compare against. That is the point. Carrying the old numbers forward would dead-letter it
+ * on its first pass and make the retry a no-op.
+ *
+ * Self-limiting without a watermark of its own: the row this inserts is the universe's newest,
+ * and it is `pending`, so the next sweep's `distinct on` sees `pending` rather than `failed` and
+ * writes nothing. `on conflict do nothing` is the same concurrency answer as above, for two
+ * replicas sweeping in the same instant.
+ */
+export async function enqueueRetriesForDeadLetteredBackfills(
+	db: Db,
+	opts: BackfillRetryOptions
+): Promise<string[]> {
+	const baseSeconds = opts.baseCooldownMs / 1000;
+	const maxSeconds = opts.maxCooldownMs / 1000;
+	const rows = await db.execute<{ universe_id: string }>(sql`
+		insert into ${universeIndexBackfill} (universe_id, reason)
+		select e.universe_id, ${RETRY_AFTER_DEAD_LETTER_REASON}
+		from (
+			select distinct on (b.universe_id)
+				b.universe_id,
+				b.status,
+				b.finished_at,
+				(select count(*) from ${universeIndexBackfill} f
+					where f.universe_id = b.universe_id
+						and f.status = 'failed'
+						and f.requested_at > coalesce(
+							(select max(d.requested_at) from ${universeIndexBackfill} d
+								where d.universe_id = b.universe_id and d.status = 'done'),
+							'-infinity'::timestamptz)) as episode_failures
+			from ${universeIndexBackfill} b
+			order by b.universe_id, b.requested_at desc
+		) e
+		where e.status = 'failed'
+			and e.finished_at is not null
+			and e.finished_at + make_interval(secs => least(
+				${baseSeconds}::double precision * power(2, e.episode_failures - 1),
+				${maxSeconds}::double precision)) <= now()
 		on conflict do nothing
 		returning universe_id
 	`);
@@ -332,16 +476,19 @@ export interface ResumeIndexBackfillResult {
  * fails every time from #745's own body: the job row reaches `done`, the point never appears,
  * and no number of further passes will change that.
  *
- * **Giving up is terminal, and the honest cost is that nothing retries it.** The row goes
+ * **Giving up ends this row, and it is no longer the end of the universe (#761).** The row goes
  * `failed` with `finished_at` and a `last_error` naming the attempts and the shortfall, which
  * is what `recentIndexBackfills` reads and the caller logs at `error`. It also releases the
- * partial unique index, so the sweep *may* enqueue a fresh backfill, but only on a
+ * partial unique index, and this used to be as far as it went: the only other way in was a
  * `no-embedding-model` job finishing after this row's `requested_at` watermark, and once a
- * model is configured there are no new skips. So a dead-lettered universe stays unindexed
- * until an operator does something about it, and there is nothing to do it with today (#709
- * established there is no admin surface, and this change deliberately does not add one).
- * That gap is filed as #761 rather than left implied by a loop that never ends: an unbounded
- * poll is not a retry policy, it is the same universe unindexed with a busier log.
+ * model is configured there are no new skips, so a dead-lettered universe stayed unindexed
+ * until somebody wrote an `INSERT` by hand. `enqueueRetriesForDeadLetteredBackfills` closes
+ * that: the sweep gives this universe a fresh row once the cooldown on its episode has
+ * elapsed, doubling per dead letter, so the shape is "give up on this attempt" rather than
+ * either "give up on the world" or #745's unbounded poll. What is still true is that nothing
+ * *shows* it to a GM, only the log and this table (#709 is still the surface that does not
+ * exist), and that a retry is only useful once whatever broke the entity is fixed: it will
+ * dead-letter again after `maxAttempts` passes otherwise, on a longer cooldown each time.
  *
  * The original note on the second case is still the reason any of this is careful. The first
  * end-to-end run of this backfill lost two of six entries to a Qdrant `409 Conflict` from
