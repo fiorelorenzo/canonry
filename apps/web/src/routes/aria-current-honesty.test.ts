@@ -255,3 +255,130 @@ describe('aria-current says only what is true (#724)', () => {
 		expect(chips.map((use) => use.values)).toEqual([['true'], ['true']]);
 	});
 });
+
+/**
+ * #750's rule, which is this file's subject in a second attribute: **a table announces which
+ * column it is sorted by and in which direction, and the direction is the one it is sorted
+ * in.** `aria-current` and `aria-sort` are the same kind of promise, a control telling an
+ * assistive technology which member of a set is in force, and they fail the same way, by
+ * being spelled with a value that is not true.
+ *
+ * The specific untruth this guards is narrower than a missing attribute, and it is the one
+ * that gets shipped: the entries table's header link flips the direction, because clicking
+ * the sorted column reverses it, so `?sort=name&dir=desc` is the href of a table sorted
+ * *ascending*. An `aria-sort` built from that href's direction announces the inverse of the
+ * row order the reader is about to hear. `browse-params.ts` keeps the two facts in two
+ * functions for that reason, `ariaSortFor` for the state and `nextDirectionFor` for the
+ * action, and `browse-params.test.ts` pins them as opposites on the sorted column.
+ *
+ * So this half asserts the wiring and that file asserts the values: every `aria-sort` in the
+ * tree sits on a `<th>`, which is the element that maps to `columnheader` and therefore the
+ * only one the attribute is defined on, and it is valued by a call to `ariaSortFor` rather
+ * than by an inline ternary, which would be a second untested copy of the direction rule.
+ *
+ * Measured out of Chrome's AT-SPI2 tree rather than off the DOM, for the reason #733 wrote
+ * down: the DOM carrying the right string proves nothing about what is announced, and CDP's
+ * accessibility tree is blind to this whole class. `aria-sort` arrives as the `sort` object
+ * attribute on the node AT-SPI reports as `column header`. Own database
+ * (`canonry_w745_demo`), own loopback (`127.0.0.37:5245`), signed-in session, 17 entries
+ * given spread `updated_at` values so the row order actually moves. Before, on `origin/main`,
+ * all five headers read `sort=-` (no attribute) on every route, which is the defect.
+ * After, with the row order the direction is a claim about:
+ *
+ * | document                          | painted     | sorted header      | other four |
+ * | --------------------------------- | ----------- | ------------------ | ---------- |
+ * | `/entries`                        | `Changed ▾` | `sort=descending`  | no `sort`  |
+ * | `/entries?sort=changed&dir=asc`   | `Changed ▴` | `sort=ascending`   | no `sort`  |
+ * | `/entries?sort=name`              | `Name ▴`    | `sort=ascending`   | no `sort`  |
+ * | `/entries?sort=name&dir=desc`     | `Name ▾`    | `sort=descending`  | no `sort`  |
+ *
+ * The third row is the whole point: on `?sort=name` the header's own link points at
+ * `?sort=name&dir=desc`, and the announcement is `ascending`, matching the rows the reader
+ * then hears (`Aldric Vane | Cairnmouth | Corvin Ashe`, against `Valdoria | The Valdoria
+ * Watch | The Smugglers' Ledger` on the descending route).
+ *
+ * The three channels stay separate, which answers the open question in #750's body about the
+ * link's accessible name: measured in the same tree, the link is `name='NAME'` with
+ * `description='Sort by Name'`, so the name is the column, the description is the action, and
+ * the header's `sort` is the state. Putting the state in the name would rename a control as
+ * you use it, and the arrow stays `aria-hidden` because the attribute now carries it.
+ *
+ * What the gate does and does not see, measured with axe-core through `uishot --axe` on that
+ * same route rather than assumed, which sharpens what #733 recorded for `aria-current`:
+ *
+ * | injected into the DOM                          | axe                          |
+ * | ---------------------------------------------- | ---------------------------- |
+ * | the correct value                              | no violations                |
+ * | `descending` on a table sorted ascending       | no violations                |
+ * | `ascending` on all five headers at once        | no violations                |
+ * | the attribute moved onto the `<a>` inside      | `aria-allowed-attr` critical |
+ *
+ * So a wrong *value* is invisible, exactly as #733 found for `aria-current`, and a wrong
+ * *element* is not: the placement assertion below duplicates a gate that already fails at
+ * critical, and the value-source assertion is the one nothing else can make. #730 holds the
+ * standing record of what that gate reaches.
+ */
+const ARIA_SORT = /aria-sort\s*=\s*(?:"([^"]*)"|'([^']*)'|\{([^{}]*)\})/g;
+
+interface SortUse {
+	file: string;
+	line: number;
+	tag: string;
+	value: string;
+}
+
+/** Every `aria-sort` in one file, with the element it is an attribute of. Inside an opening
+ * tag there is no other `<`, so the nearest one behind the match opens the element. */
+function sortUses(source: string, file: string): SortUse[] {
+	const out: SortUse[] = [];
+	for (const match of source.matchAll(ARIA_SORT)) {
+		const open = source.lastIndexOf('<', match.index);
+		out.push({
+			file,
+			line: source.slice(0, match.index).split('\n').length,
+			tag: /^<([a-zA-Z][\w-]*)/.exec(source.slice(open))?.[1] ?? '',
+			value: (match[1] ?? match[2] ?? match[3] ?? '').trim()
+		});
+	}
+	return out;
+}
+
+const ALL_SORTS = ALL.filter((file) => file !== SELF).flatMap((file) =>
+	sortUses(markup(file), file)
+);
+
+describe('a sorted column announces the direction it is sorted in (#750)', () => {
+	it('reads the element and the value out of every shape', () => {
+		// A broken walk would empty the inventory and make the assertions below pass by
+		// finding nothing, which is the failure mode this whole file is built against.
+		expect(sortUses(`<th scope="col" aria-sort="ascending">x</th>`, 'f')).toEqual([
+			{ file: 'f', line: 1, tag: 'th', value: 'ascending' }
+		]);
+		expect(sortUses(`<th aria-sort={ariaSortFor(params, column.sort)}>x</th>`, 'f')).toEqual([
+			{ file: 'f', line: 1, tag: 'th', value: 'ariaSortFor(params, column.sort)' }
+		]);
+		// The misplacement the issue names: on the link inside the header rather than on the
+		// header. Read as an `<a>`, so the assertion below fails rather than passing blind.
+		expect(sortUses(`<th><a href="/a" aria-sort="ascending">x</a></th>`, 'f')[0]?.tag).toBe('a');
+		expect(sortUses(`<th scope="col">x</th>`, 'f')).toEqual([]);
+	});
+
+	it('puts it on the header cell and nowhere else', () => {
+		// `aria-sort` is defined on `columnheader`/`rowheader`, which is what a `<th>` maps to,
+		// and the header is also what an assistive technology reports the sort state of. This
+		// one overlaps a real gate rather than standing alone: axe fires `aria-allowed-attr`
+		// at critical for the attribute on the `<a>`, measured above. Kept because it names
+		// the file and the line, and because it fails in a unit run rather than in a browser.
+		expect(ALL_SORTS.filter((use) => use.tag !== 'th')).toEqual([]);
+	});
+
+	it('values it from the state function rather than a second copy of the rule', () => {
+		// The whole defect is a direction computed twice and disagreeing with itself, so the
+		// attribute takes the tested function's answer and nothing else. An inline
+		// `params.direction === 'asc' ? ...` here would pass every other assertion in this
+		// file and still be able to announce the flip.
+		expect(ALL_SORTS.map((use) => `${use.file} ${use.tag} ${use.value}`)).toEqual([
+			'lib/components/entries/EntryTable.svelte th ariaSortFor(params, column.sort)'
+		]);
+	});
+});

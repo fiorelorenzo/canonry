@@ -1,8 +1,18 @@
-// O1 = C (#283). Two contracts here, and both are the difference between a table and a table
-// with a decorative footer: a page number means a real window over a counted total, and a
-// filter, a sort and a search compose in the URL instead of resetting each other.
+// O1 = C (#283). Three contracts here, and the first two are the difference between a table
+// and a table with a decorative footer: a page number means a real window over a counted
+// total, and a filter, a sort and a search compose in the URL instead of resetting each
+// other. The third is #750's: a column header holds two facts about direction, the order the
+// table is in and the order clicking would produce, and they are opposites on the sorted
+// column, so each has its own function and this file pins them apart.
 import { describe, expect, it } from 'vitest';
-import { browseQuery, pageWindow, parseBrowseParams, type BrowseParams } from './browse-params';
+import {
+	ariaSortFor,
+	browseQuery,
+	nextDirectionFor,
+	pageWindow,
+	parseBrowseParams,
+	type BrowseParams
+} from './browse-params';
 
 function parse(search: string): BrowseParams {
 	return parseBrowseParams(new URLSearchParams(search));
@@ -101,5 +111,61 @@ describe('browseQuery', () => {
 		expect(
 			browseQuery(current, { type: null, query: '', sort: 'name', direction: 'asc', page: 1 })
 		).toBe('?sort=name');
+	});
+});
+
+describe('a column header names the order it is in, and the one clicking it produces (#750)', () => {
+	const sortedByNameAsc: BrowseParams = {
+		type: null,
+		query: '',
+		sort: 'name',
+		direction: 'asc',
+		page: 1
+	};
+
+	it('announces the direction the table is actually ordered in', () => {
+		expect(ariaSortFor(sortedByNameAsc, 'name')).toBe('ascending');
+		expect(ariaSortFor({ ...sortedByNameAsc, direction: 'desc' }, 'name')).toBe('descending');
+	});
+
+	it('spells nothing at all on every column the table is not ordered by', () => {
+		// Not `none`: Chrome maps that to no AT-SPI `sort` attribute at all, since it is the
+		// property's default, so it is indistinguishable from absent to a screen reader and
+		// only the markup would carry it. Measured, and the reason this returns undefined.
+		for (const column of ['type', 'relations', 'facts', 'changed'] as const) {
+			expect(ariaSortFor(sortedByNameAsc, column)).toBeUndefined();
+		}
+		expect(
+			ariaSortFor({ ...sortedByNameAsc, sort: 'changed', direction: 'desc' }, 'name')
+		).toBeUndefined();
+	});
+
+	// The defect #750 was filed for, and the one this pair of functions exists to keep apart.
+	// The sorted header's own link asks for the opposite direction, because clicking the column
+	// already sorted flips it. A single function serving both channels would make a table
+	// sorted ascending announce itself as descending, which is a screen reader being told the
+	// inverse of the row order it is about to read.
+	it('announces the state even though its own link asks for the opposite', () => {
+		expect(ariaSortFor(sortedByNameAsc, 'name')).toBe('ascending');
+		expect(nextDirectionFor(sortedByNameAsc, 'name')).toBe('desc');
+		expect(
+			browseQuery(sortedByNameAsc, {
+				sort: 'name',
+				direction: nextDirectionFor(sortedByNameAsc, 'name'),
+				page: 1
+			})
+		).toBe('?sort=name&dir=desc');
+
+		const descending: BrowseParams = { ...sortedByNameAsc, direction: 'desc' };
+		expect(ariaSortFor(descending, 'name')).toBe('descending');
+		expect(nextDirectionFor(descending, 'name')).toBe('asc');
+	});
+
+	it('offers an unsorted column its natural order rather than a flip', () => {
+		// Nothing to flip: the column is not the one in force, so the click starts from what
+		// reads naturally there, which is what `defaultDirectionFor` already decided.
+		expect(nextDirectionFor(sortedByNameAsc, 'changed')).toBe('desc');
+		expect(nextDirectionFor(sortedByNameAsc, 'type')).toBe('asc');
+		expect(nextDirectionFor(sortedByNameAsc, 'relations')).toBe('desc');
 	});
 });

@@ -615,6 +615,54 @@ function paintsAState(attrs: string): boolean {
 
 const ANNOUNCES = /(?<![\w-])aria-(?:current|pressed|selected|sort)\s*=/;
 
+/** Elements with no children, so they never open a scope the stack below has to close. */
+const VOID_TAGS: Record<string, true> = {
+	area: true,
+	base: true,
+	br: true,
+	col: true,
+	embed: true,
+	hr: true,
+	img: true,
+	input: true,
+	link: true,
+	meta: true,
+	source: true,
+	track: true,
+	wbr: true
+};
+
+/**
+ * Whether the control at `index` sits inside a table header cell that carries `aria-sort`.
+ *
+ * This is the one place the rule below has to look past the control itself, and #750 is where
+ * it came up. `aria-sort` is defined on `columnheader`/`rowheader`, which is what a `<th>`
+ * maps to, so on a sortable table it belongs on the header and is genuinely invalid on the
+ * link inside it: axe fires `aria-allowed-attr` at critical for that placement, measured on
+ * `/entries` with the attribute moved onto the `<a>`. So the sorted column *is* announced,
+ * and a walk reading only the control's own attributes calls it silent.
+ *
+ * Deliberately this narrow rather than "any ancestor announces". The comment in `silences` is
+ * right for the other three attributes: a `<li>` or a `<span>` wrapping a link is not the
+ * element an assistive technology reports, so `aria-current` on the wrapper is a defect and
+ * not an announcement. `aria-sort` is the exception because ARIA puts it on the ancestor by
+ * definition rather than by accident.
+ */
+function announcedByHeaderCell(source: string, index: number): boolean {
+	const open: { tag: string; attrs: string }[] = [];
+	for (const match of source.matchAll(TAG)) {
+		if (match.index >= index) break;
+		const [, closing, tag, attrs, selfClosing] = match;
+		if (closing) open.pop();
+		else if (!selfClosing && !VOID_TAGS[tag.toLowerCase()]) open.push({ tag, attrs });
+	}
+	return open.some(
+		(element) =>
+			(element.tag === 'th' || element.tag === 'td') &&
+			/(?<![\w-])aria-sort\s*=/.test(element.attrs)
+	);
+}
+
 interface Silence {
 	file: string;
 	line: number;
@@ -632,6 +680,7 @@ function silences(source: string, file: string): Silence[] {
 		if (closing || !(tag === 'button' || (tag === 'a' && /(?<![\w-])href/.test(attrs)))) continue;
 		if (!spans.some(([from, to]) => match.index > from && match.index < to)) continue;
 		if (!paintsAState(attrs) || ANNOUNCES.test(attrs)) continue;
+		if (announcedByHeaderCell(source, match.index)) continue;
 		found.push({ file, line: source.slice(0, match.index).split('\n').length, tag });
 	}
 	return found;
@@ -640,22 +689,31 @@ function silences(source: string, file: string): Silence[] {
 const ALL_SILENCES = ALL.flatMap((file) => silences(markup(file), file));
 
 /**
- * The inventory, one entry, spelled out so the failure names the element. The entries table's
- * sort headers paint the sorted column (`class:text-ink={active}`) and add an `aria-hidden`
- * direction arrow, so neither the column nor the direction reaches a screen reader. It is
- * filed rather than fixed because the fix is a different attribute in a different place:
- * `aria-sort` belongs on the `<th>` ancestor and not on the link this walk found, and it has
- * to carry ascending/descending rather than a boolean, which is a change to what the header
- * renders and not one line on a control.
+ * The inventory, and it is empty, which is the assertion: every repeated control in the tree
+ * that paints a state announces one. It held one entry when #732 added it, the entries
+ * table's sort headers, which painted the sorted column with `class:text-ink={active}` and an
+ * `aria-hidden` arrow and announced nothing at all. #750 fixed that with `aria-sort` on the
+ * `<th>`, so the entry is gone rather than reworded: leaving a fixed defect in an inventory
+ * of open ones is the stale entry this file's other two lists already fail on, and this one
+ * carried a line number that drifted the moment the file was edited (`:182` became `:192`).
+ *
+ * The slot stays, because the next case wants a home that carries an issue number rather
+ * than a shrug.
  */
-const KNOWN_SILENT = ['lib/components/entries/EntryTable.svelte:182 <a> (#750, wants aria-sort)'];
+const KNOWN_SILENT: string[] = [];
 
 /** The shape the detector must catch. */
 const SILENT_SHAPES = [
 	`{#each xs as x}<a href="/a" class:text-ink={x.id === cur}>x</a>{/each}`,
 	`{#each xs as x}<a href="/a" class:bg-accent-bg={x.on} class:bg-panel={!x.on}>x</a>{/each}`,
 	`{#each xs as x}<button class={cn('px-2', x.id === cur && 'bg-accent-bg')}>x</button>{/each}`,
-	`{#each xs as x}<button class={cn(x.id === cur ? 'bg-accent-bg' : 'hover:bg-panel-2')}>x</button>{/each}`
+	`{#each xs as x}<button class={cn(x.id === cur ? 'bg-accent-bg' : 'hover:bg-panel-2')}>x</button>{/each}`,
+	// #750: a header cell is only an announcement when it actually carries the attribute. The
+	// wrapper being a `<th>` is not itself a claim about anything.
+	`{#each xs as x}<th scope="col"><a href="/a" class:text-ink={x.on}>x</a></th>{/each}`,
+	// And a `<th>` that announces elsewhere in the row does not cover this link: the stack has
+	// to be the link's own ancestors, not every `<th>` in the file.
+	`{#each xs as x}<th aria-sort="ascending">y</th><th><a href="/a" class:text-ink={x.on}>x</a></th>{/each}`
 ];
 
 /** Shapes that look like it and are not, each for a different reason. */
@@ -674,7 +732,15 @@ const ANNOUNCED_SHAPES = [
 	// An anchor with no href is not a control either.
 	`{#each xs as x}<a class:text-ink={x.on}>x</a>{/each}`,
 	// Outside any {#each}: the blind spot this walk accepts, asserted so it stays known.
-	`<a href="/a" class:text-ink={isAll}>All</a>`
+	`<a href="/a" class:text-ink={isAll}>All</a>`,
+	// #750, the entries table's real shape: `aria-sort` is defined on `columnheader`, so it
+	// belongs on the `<th>` and is invalid on the link inside it. The sorted column is
+	// announced, by the one attribute of the four that ARIA puts on the ancestor.
+	`{#each xs as x}<th scope="col" aria-sort={ariaSortFor(p, x.sort)}><a href="/a" class:text-ink={x.on}>x</a></th>{/each}`,
+	// Nested a level deeper, since a header's content is not always a bare link.
+	`{#each xs as x}<th aria-sort="descending"><span><a href="/a" class:text-ink={x.on}>x</a></span></th>{/each}`,
+	// A void element between the two must not unbalance the stack and lose the header.
+	`{#each xs as x}<th aria-sort="ascending"><img src="/i.png"><a href="/a" class:text-ink={x.on}>x</a></th>{/each}`
 ];
 
 function silencesIn(fragment: string): number {

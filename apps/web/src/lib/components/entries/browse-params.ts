@@ -48,6 +48,42 @@ export function defaultDirectionFor(sort: EntityBrowserSort): 'asc' | 'desc' {
 	return sort === 'name' || sort === 'type' ? 'asc' : 'desc';
 }
 
+/** The direction the *header link* points at: clicking the column already sorted flips it,
+ * clicking any other starts from that column's natural order. This is the action, and it is
+ * deliberately a different function from `ariaSortFor` below, because the two answers are
+ * opposites on the sorted column and conflating them is the defect #750 was filed for. */
+export function nextDirectionFor(current: BrowseParams, column: EntityBrowserSort): 'asc' | 'desc' {
+	if (current.sort !== column) return defaultDirectionFor(column);
+	return current.direction === 'asc' ? 'desc' : 'asc';
+}
+
+/**
+ * What `aria-sort` says on a column header (#750): the order the table **is in**, which is
+ * the fact a screen reader announces, and never the order clicking would produce. "Sort by
+ * Name" and "currently sorted by name, ascending" are two different sentences, and the
+ * header carries both: the link's description is the action, this attribute is the state.
+ * Reusing `nextDirectionFor` here would announce `descending` on a table sorted ascending.
+ *
+ * Nothing rather than `none` on the other four columns, and that is measured rather than
+ * preferred. I wrote `none` first, on the reasoning that it tells a reader the other four
+ * are sortable candidates rather than dead headings, and the AT-SPI2 tree says it does not:
+ * Chrome maps `aria-sort="none"` to no `sort` object attribute at all, because `none` is the
+ * property's default, so `none` and absent are byte-identical to a Linux screen reader.
+ * With that channel empty either way, what is left argues for absent. Sortability is already
+ * carried per header by the link inside it, whose description is "Sort by <column>", so
+ * `none` could at best duplicate that; and on a platform that does surface the default it
+ * would spend an announcement on four of five headers to say "not sorted", which is the row
+ * order the reader is about to hear anyway. An attribute whose only reachable effect is
+ * redundancy is not worth spelling.
+ */
+export function ariaSortFor(
+	current: BrowseParams,
+	column: EntityBrowserSort
+): 'ascending' | 'descending' | undefined {
+	if (current.sort !== column) return undefined;
+	return current.direction === 'asc' ? 'ascending' : 'descending';
+}
+
 export function parseBrowseParams(params: URLSearchParams): BrowseParams {
 	const typeParam = params.get('type');
 	const sortParam = params.get('sort');
