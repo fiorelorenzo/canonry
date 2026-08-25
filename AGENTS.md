@@ -456,6 +456,15 @@ that dies four issues in. Check `gh api rate_limit --jq '.resources.graphql'` be
 starting, not after, and note that the reset is a hard hour: there is nothing to do but
 wait, so do the REST half (issue and PR creation, comments, merges) while it refills.
 
+One trap in measuring any of this, which cost me a wrong number tonight: a call that is
+refused for rate limiting still returns, and the counter moves by one, so probing the cost
+of `item-list` while the budget is already gone reports 1 point for something that costs
+hundreds. Measure just after a reset, never near the floor. And the cost is per node rather
+than per call, so `--limit` is load-bearing: `--limit 900` against a 400-item board pages
+five times and pays for every field of every item each time, which is why the same command
+with `--limit 30` is cheap and why calling it inside a per-issue loop is what actually
+empties the budget.
+
 **Far more of `gh` is GraphQL than the name suggests, and each one has a REST twin.** A wave on
 2026-08-23 hit the wall four times and re-derived the workaround each time, so here is the whole
 set. `gh pr create`, `gh pr merge`, `gh pr edit`, `gh issue create`, `gh issue comment` and every
