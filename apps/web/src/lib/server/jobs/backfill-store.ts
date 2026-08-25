@@ -72,25 +72,42 @@
  *   `observeIndexJobs` now reads `now()` in the same statement as the in-flight set, and the
  *   fan-out excludes an entity whose job finished after it, which is what "somebody has
  *   indexed this since I looked" actually says. It is also the bullet that says where the
- *   clause **stops**, and that is the part worth keeping: because `indexEntity` has exactly
- *   one production caller, every entity point is written by a `canon_save_job` run, and one
- *   such row's life falls in exactly one of five positions relative to that interval - before
- *   it, overlapping its start, inside it, overlapping its end, after it - each answered by the
- *   collection read, #766, #770, #746 and #709's conflict branch respectively. Five cases
- *   partition an interval, so there is no sixth fix of this kind waiting. What the argument
- *   rests on is `indexEntity` keeping one caller; a second one would reopen all five silently.
+ *   clause **stops**, and that is the part worth keeping - as long as it says what it is a
+ *   partition *of*, which is one `canon_save_job` row's life, and therefore only ever the
+ *   question "has somebody indexed this entry since I looked". Because `indexEntity` has
+ *   exactly one production caller, every entity point is written by a `canon_save_job` run,
+ *   and one such row's life falls in exactly one of five positions relative to that interval -
+ *   before it, overlapping its start, inside it, overlapping its end, after it - each answered
+ *   by the collection read, #766, #770, #746 and #709's conflict branch respectively. Five
+ *   cases partition an interval, so there is no sixth fix of *that* kind waiting. What the
+ *   argument rests on is `indexEntity` keeping one caller; a second one would reopen all five
+ *   silently. What the partition is silent about is a question no job can answer, which is
+ *   whether the entry exists at all: see #774 below.
+ * - **#774** is the same clause as the four above, reached through a read none of them looked
+ *   at. "An observation it still owns" covers three reads, not two: the queue
+ *   (`observeIndexJobs`), the collection (`unindexedEntities`), and the **work list**
+ *   (`entityIndexCandidatesForUniverse`), which is taken before both and which nothing ever
+ *   re-checked. An entry deleted after it made the fan-out's insert raise 23503 on
+ *   `canon_save_job.entity_id`, and a foreign key fails the statement, so one dead row took
+ *   every good row of the pass with it. It is not a sixth cell of #770's partition, because
+ *   that partition is over jobs and a deletion is not a job; it is the third read of the same
+ *   clause going stale. The fix is the shape the fan-out already used for its other two
+ *   parents: `join entity e` beside `join universe u`, so a precondition that has stopped
+ *   holding costs its own row and nothing else. `scheduleBackfillIndexJobRows` carries what
+ *   that does and does not absorb.
  *
- * The reason to write this down rather than fix the seventh thing: every one of those was
- * found by a flake or by a reader noticing a comment that was not true, and each was correct
- * in isolation. A change that cannot be expressed as restoring one of these clauses is
- * probably changing what a backfill means, which is a bigger decision than it will look like
- * in a diff.
+ * The reason to write this down rather than fix the ninth thing: every one of those was found
+ * by a flake or by a reader noticing a comment that was not true, and each was correct in
+ * isolation. A change that cannot be expressed as restoring one of these clauses is probably
+ * changing what a backfill means, which is a bigger decision than it will look like in a diff.
+ * #774 is the worked example of that test passing: it looked like a new kind of bug, and it was
+ * the second clause reaching a third read.
  *
- * **The eighth is not one of those clauses, and saying so is the point of it (#773).** All
- * seven above are about the queue side of the observation; this one is the Qdrant side, where
- * the pass has no snapshot at all. The collection a pass enumerates is named after the active
- * `embedding` model (`loreCollectionNameForModel`), so changing that row replaces the
- * collection the whole product reads, and neither of the two triggers could see it, because
+ * **One entry on this list is not one of those clauses, and saying so is the point of it
+ * (#773).** Every other one is about the queue side of the observation; that one is the Qdrant
+ * side, where the pass has no snapshot at all. The collection a pass enumerates is named after
+ * the active `embedding` model (`loreCollectionNameForModel`), so changing that row replaces
+ * the collection the whole product reads, and neither of the two triggers could see it, because
  * both fire on evidence a pass left behind and a swap leaves none: every save before it
  * succeeded and every `index_outcome` says `ok`. So it is a missed schedule rather than a
  * duplicated one, and the mirror of #709 rather than an instance of it - worse than the state
@@ -99,13 +116,14 @@
  * out of `model_config`'s own history rather than being told about it, because the swap has
  * more than one writer and one of them is `psql`.
  *
- * **What none of them touches, which is the honest end of this list.** Both sides of the
- * observation are now covered for one entity, and neither is covered for the *set*. A pass
- * enumerates whatever `entityIndexCandidatesForUniverse` returned, and an entry can stop
- * existing between that read and the fan-out's insert; the invariant says a pass may write
- * only what an observation it still owns justifies, and it does not say what a pass owes the
- * rest of its work list when one row of it has become impossible. Filed separately rather
- * than folded in here.
+ * **What none of them touches, which is the honest end of this list.** All three of a pass's
+ * reads are now re-checked where it writes, and the trigger side is covered for a model change.
+ * What is not covered anywhere is the *content* of an entry against the point that stands for
+ * it: the enumeration asks whether an entity-level point exists and never whether it is the
+ * current body, so an entry whose save indexed a stale revision is indistinguishable here from
+ * one that is up to date, and no clause in this file will ever notice. That is a different
+ * sentence from the one at the top of this comment, and changing it would be changing what a
+ * backfill means.
  */
 import { and, desc, eq, inArray, sql, type Db } from '@canonry/db';
 import {
@@ -516,6 +534,12 @@ export interface BackfillFanOutResult {
 	 * zero inserted is a pass that found everything already in flight and should carry on to
 	 * record its numbers, fenced is a pass that must record nothing at all. */
 	fenced: boolean;
+	/** How many rows of the work list named an entity that no longer existed when the insert ran
+	 * (#774). Zero on every ordinary pass. Non-zero says the pass's work list had gone stale
+	 * under it, which is a fact worth a number on the pass's log line rather than a silent skip:
+	 * it is the one per-row failure this statement absorbs, and something that absorbs a failure
+	 * without counting it is indistinguishable from something that had nothing to absorb. */
+	vanished: number;
 }
 
 /** What one pass saw of the queue when it looked, which is one row of one statement so that
@@ -672,6 +696,50 @@ export async function observeIndexJobs(db: Db, universeId: string): Promise<Inde
  * held for one insert rather than for a pass, which is the whole reason this is cheaper than
  * serialising the passes.
  *
+ * **And the entity itself, which is issue #774 and the one precondition this statement used to
+ * assume.** Everything above is about whether the entry needs a job. None of it asks whether
+ * the entry still exists. The work list comes from `entityIndexCandidatesForUniverse`, read
+ * before the collection scroll, and `canon_save_job.entity_id` is `not null references
+ * entity(id)`, so an entry deleted in between made this insert raise 23503 - and a foreign key
+ * fails the *statement*, so a pass with fifty good entries and one deleted entry wrote none of
+ * them. The pass then threw, requeued, and spent one of #762's attempts on a `last_error`
+ * carrying a Postgres constraint name, which reads like a schema problem rather than a race.
+ *
+ * **The fix is a level up from "skip a missing entity", and the asymmetry is the argument.**
+ * This statement already verified two of its three foreign-key parents where the write happens:
+ * `join universe u` is why a universe deleted mid-pass costs one row rather than the pass, and
+ * it is also where `owner_user_id` comes from, so the `user_id` parent is verified in the same
+ * breath. The entity, which is the row's whole subject, was the only one taken on trust from a
+ * read taken seconds earlier. So the rule this restores is not "tolerate a missing entity", it
+ * is the one the other joins already followed: **a fan-out inserts one row per member of its
+ * work list that still satisfies every precondition of that row, checked where the write
+ * happens.** That is generic over preconditions rather than over error codes, which is what
+ * makes it safe.
+ *
+ * **What it therefore tolerates, and what it deliberately still does not.** After this join,
+ * every per-row failure mode of this insert that is a fact *about the row* is a parent that has
+ * stopped existing, and all three parents are now handled the same way. Nothing else is
+ * absorbed: a `23502` not-null, a `23514` check violation or a `22P02` cast failure would be a
+ * bug in how the caller built its values list, and a `40001` or `40P01` is a real database
+ * condition, and every one of those still aborts the pass and requeues it, which is what
+ * `requeueIndexBackfill` and #762's bound exist for. A blanket "insert each row in its own
+ * savepoint and log whatever fails" would have swallowed those four too, and a fan-out that
+ * reports a `scheduled` count with a silently dropped row behind it is worse than one that
+ * stops.
+ *
+ * **It does not lock the entity, and that is a decision rather than an omission.** A row lock
+ * would close the microseconds between this statement's snapshot and its foreign-key trigger,
+ * which is where a 23503 is still reachable, and it would do it by making the delete wait.
+ * `enqueueBackfillsForEmbeddingModelChange` does take that lock, because there losing the
+ * statement loses one global event's whole fan-out and a universe delete can afford to queue
+ * behind one insert. Here the priority is the other way round: the entry is being deleted by a
+ * GM undoing an accept, the row this would have written is worthless the moment that happens,
+ * and the honest answer is to let the delete win. What is left is a window inside one statement
+ * rather than across a whole pass, and the requeue it costs is what a requeue is for.
+ *
+ * `vanished` is counted rather than inferred from `inserted`, because the anti-joins and the
+ * conflict clause also reduce `inserted` and a reader cannot tell those apart from a stale work
+ * list. It is the number that says the work list had gone stale under this pass.
  * Bodies are empty for the same structural reason `EntityIndexJobInput` has no body fields: an
  * empty `semanticDiff` is what makes propagation and audit no-ops without a flag, so a
  * backfill cannot make the copilot write anything. `trigger_revision_id` is null, and
@@ -686,7 +754,7 @@ export async function scheduleBackfillIndexJobRows(
 	observation: IndexJobObservation,
 	rows: readonly BackfillIndexJobRow[]
 ): Promise<BackfillFanOutResult> {
-	if (rows.length === 0) return { inserted: 0, fenced: false };
+	if (rows.length === 0) return { inserted: 0, fenced: false, vanished: 0 };
 	const values = rows.map(
 		(row) =>
 			sql`(${universeId}::uuid, ${row.entityId}::uuid, ${row.entityName}, ${locale},
@@ -696,7 +764,11 @@ export async function scheduleBackfillIndexJobRows(
 	// separated by anything. `held` is scanned because the insert's own `exists` needs it, and
 	// a `for update` CTE is never inlined, so it is evaluated exactly once and the count the
 	// outer select reads is the same evaluation the insert was gated on.
-	const [result] = await db.execute<{ lease_held: number; inserted: number }>(sql`
+	const [result] = await db.execute<{
+		lease_held: number;
+		inserted: number;
+		vanished: number;
+	}>(sql`
 		with held as (
 			select id from ${universeIndexBackfill}
 			where id = ${lease.id}::uuid and ${stillHeldBy(lease)}
@@ -709,6 +781,7 @@ export async function scheduleBackfillIndexJobRows(
 				v.locale, v.run_after
 			from (values ${sql.join(values, sql`, `)})
 				as v(universe_id, entity_id, entity_name, locale, run_after)
+			join ${entity} e on e.id = v.entity_id and e.universe_id = v.universe_id
 			join ${universe} u on u.id = v.universe_id
 			where exists (select 1 from held)
 				and not exists (
@@ -726,13 +799,23 @@ export async function scheduleBackfillIndexJobRows(
 				)
 			on conflict do nothing
 			returning id
+		), work_list as (
+			select v.entity_id, v.universe_id
+			from (values ${sql.join(values, sql`, `)})
+				as v(universe_id, entity_id, entity_name, locale, run_after)
 		)
 		select (select count(*) from held)::int as lease_held,
-			(select count(*) from fanned_out)::int as inserted
+			(select count(*) from fanned_out)::int as inserted,
+			(select count(*) from work_list w
+				where not exists (
+					select 1 from ${entity} e
+					where e.id = w.entity_id and e.universe_id = w.universe_id
+				))::int as vanished
 	`);
 	return {
 		inserted: Number(result?.inserted ?? 0),
-		fenced: Number(result?.lease_held ?? 0) === 0
+		fenced: Number(result?.lease_held ?? 0) === 0,
+		vanished: Number(result?.vanished ?? 0)
 	};
 }
 
