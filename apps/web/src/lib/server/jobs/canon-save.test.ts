@@ -1356,6 +1356,23 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 		return counts;
 	}
 
+	/** `entitiesVanishedThisPass` off every pass line, in the shape `refusedWrites` reads
+	 * `refused`: what the pass *said* about the work list it had, rather than what the database
+	 * looks like afterwards. Only this distinguishes a statement that absorbed a per-row failure
+	 * from one that never had a stale row to absorb (#774). */
+	function vanishedOnPassLines(calls: readonly unknown[][]): number[] {
+		const counts: number[] = [];
+		for (const [first] of calls) {
+			if (typeof first !== 'string') continue;
+			if (!first.includes('universe_index_backfill_scheduled')) continue;
+			const line: unknown = JSON.parse(first);
+			if (line && typeof line === 'object' && 'entitiesVanishedThisPass' in line) {
+				counts.push(Number(line.entitiesVanishedThisPass));
+			}
+		}
+		return counts;
+	}
+
 	it('enqueues no backfill while there is no embedding model, and one for the skipped universe once there is (issue #709)', async () => {
 		const { owner, world } = await fixture();
 		const created = await insertEntry(world.id, 'Unreachable Hold');
@@ -2184,6 +2201,178 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 		}
 	}, 60_000);
 
+	/**
+	 * Issue #774, and it is the same clause as #770's reached through a different read. #770 is
+	 * the pass's queue observation going stale; this is its **work list** going stale, which is
+	 * the one of the three reads nothing ever re-checked:
+	 *
+	 *   T0  `entityIndexCandidatesForUniverse` returns both shortfall entries;
+	 *   T1  the pass reads the collection. Neither has a point, so both are schedulable;
+	 *   T2  a GM undoes the accept that created one of them, and the entity row is deleted;
+	 *   T3  the pass runs its fan-out. `canon_save_job.entity_id` is `not null references
+	 *       entity(id)`, so the insert raises 23503 - and a foreign key fails the *statement*,
+	 *       so the good entry gets no row either and the whole pass throws.
+	 *
+	 * What that costs is not the missing row, which the next pass re-enumerates without. It is
+	 * that the pass burns one of #762's attempts and leaves a `last_error` carrying a Postgres
+	 * constraint name, which reads like a schema problem rather than a race.
+	 *
+	 * Forced at a named point rather than raced, on the shape #766, #767 and #770 established:
+	 * the pass is held inside the vector client's `scroll`, and the delete happens in the hook.
+	 * #775's trap applies here too, so one entry is indexed up front to make the collection
+	 * exist (`unindexedEntities` returns early without calling `scroll` at all when it does
+	 * not), the hook is armed explicitly, and the assertions name what was refused rather than
+	 * only that no damage happened: `entitiesVanishedThisPass` says the statement absorbed
+	 * exactly one row, and the surviving entry's row says the other forty-nine would have
+	 * landed.
+	 */
+	it('loses only the row whose entry was deleted mid-pass, not the whole fan-out (issue #774)', async () => {
+		const { owner, world } = await fixture();
+		const embeddingModel = await resolveModel(db, 'embedding');
+		const collectionName = loreCollectionNameForModel(embeddingModel, world.id);
+		const vector = createVectorClient();
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+		let armed = false;
+		let heldPageUrls: string[] = [];
+		let deletedInHook = 0;
+		let doomedId = '';
+
+		const interleavingVector = new Proxy(vector, {
+			get(target, prop, receiver) {
+				const value = Reflect.get(target, prop, receiver);
+				if (typeof value !== 'function') return value;
+				const method = value.bind(target) as (...args: never[]) => unknown;
+				if (prop !== 'scroll') return method;
+				return async (...args: never[]) => {
+					const page = (await method(...args)) as {
+						points: { payload?: Record<string, unknown> | null }[];
+					};
+					if (!armed || args[0] !== collectionName) return page;
+					armed = false;
+					heldPageUrls = page.points.map((point) => String(point.payload?.url ?? ''));
+					// The product's only entity delete today is `undoAcceptedProposal`'s, which ends
+					// in exactly this row disappearing; the row is what the fan-out's foreign key
+					// looks for, so deleting it directly is the same fact with no proposal fixture.
+					const gone = await db
+						.delete(entity)
+						.where(eq(entity.id, doomedId))
+						.returning({ id: entity.id });
+					deletedInHook = gone.length;
+					return page;
+				};
+			}
+		}) as typeof vector;
+
+		const queue = testQueue({
+			vectorClient: interleavingVector,
+			embeddingModelFactory: fakeEmbeddingModelFactory()
+		});
+		try {
+			// Indexed up front purely so the collection exists and the enumeration really scrolls.
+			const indexed = await insertEntry(world.id, 'Standing Hold', 'Indexed before any of this.');
+			queue.scheduleIndexOnly({
+				universeId: world.id,
+				entityId: indexed.id,
+				entityName: indexed.name,
+				userId: owner.id,
+				locale: 'en'
+			});
+			await waitForEntityRow(db, world.id, indexed.id, (r) => r.status === 'done');
+
+			// Two entries in the shortfall: one about to be deleted under the pass, one that has
+			// to survive it. The second is the whole point - "one row's death costs one row" is
+			// only observable when there is another row to lose.
+			const [doomed, survivor] = await withoutEmbeddingModel(async () => {
+				const created = [];
+				for (const name of ['Undone Hold', 'Surviving Hold']) {
+					const row = await insertEntry(world.id, name, `${name} is somewhere in the marsh.`);
+					created.push(row);
+					queue.scheduleIndexOnly({
+						universeId: world.id,
+						entityId: row.id,
+						entityName: row.name,
+						userId: owner.id,
+						locale: 'en'
+					});
+					await waitForEntityRow(db, world.id, row.id, (r) => r.status === 'done');
+				}
+				return created;
+			});
+			if (!doomed || !survivor) throw new Error('fixture did not create both shortfall entries');
+			doomedId = doomed.id;
+
+			const before = await backfillJobRowsFor(world.id);
+			armed = true;
+			await queue.sweepIndexBackfills();
+			// Settle on either terminal state rather than only on idle, and this is about the
+			// failure message rather than the pass. Without the fix the pass throws on the foreign
+			// key and requeues forever, so waiting for idle times out after thirty seconds and the
+			// test reports a timeout, which is the one failure that reads like flakiness. Waiting
+			// for `done` *or* a `last_error` comes back in about a second either way, and the
+			// assertions below then fail naming the constraint that failed.
+			const deadline = Date.now() + 30_000;
+			for (;;) {
+				const current = await newestBackfillFor(world.id);
+				if (current?.status === 'done' || current?.lastError !== null) break;
+				if (Date.now() > deadline) throw new Error('the backfill neither finished nor failed');
+				await delay(25);
+			}
+			// No `waitForBackfillIdle` after that: `done` is terminal and only happens on an empty
+			// enumeration, so reaching it means the survivor's own index job has already written
+			// its point. Waiting for idle as well would spend the full thirty seconds on the arm
+			// where the pass never finishes, which is the arm whose message matters.
+
+			// The window, as the facts that make this a stale work list rather than a clean pass:
+			// the pass's own observation had neither shortfall indexed, and the delete really did
+			// happen while it was holding that observation.
+			expect(heldPageUrls, "the pass's observation did not include the doomed entry").not.toContain(
+				entityLoreUrl(doomed.id)
+			);
+			expect(deletedInHook, 'and the entry was really deleted inside that window').toBe(1);
+
+			const fannedOut = (await backfillJobRowsFor(world.id)).filter(
+				(row) => !before.some((old) => old.id === row.id)
+			);
+			// The claim, as a multiset rather than a count (#737, #764): one row, for the entry
+			// that still exists. Before the fix this is empty, because the deleted entry's foreign
+			// key failed the statement and took the survivor's row with it.
+			expect(rowsPerEntity(fannedOut)).toEqual(new Map([[survivor.id, 1]]));
+
+			const [backfill] = await queue.recentBackfills(world.id);
+			// And the pass finished rather than throwing. Before the fix the row comes back
+			// `pending` with a `last_error` naming
+			// `canon_save_job_entity_id_entity_id_fk`, and its attempt count has gone up for
+			// nothing.
+			expect(backfill?.status).toBe('done');
+			expect(backfill?.lastError).toBeNull();
+			expect(backfill?.entitiesMissing).toBe(0);
+
+			// The survivor really got indexed, which is the deliverable: a deleted sibling cost it
+			// nothing.
+			const done = await waitForEntityRow(
+				db,
+				world.id,
+				survivor.id,
+				(row) => row.status === 'done' && (row.indexOutcome as IndexOutcome).status === 'ok',
+				20_000
+			);
+			expect((done.indexOutcome as IndexOutcome).status).toBe('ok');
+
+			// And the pass said so, which is the difference between absorbing a failure and hiding
+			// one. A statement that skips a row silently is indistinguishable from a statement that
+			// had nothing to skip, so the tolerance has to be visible where somebody greps.
+			expect(
+				vanishedOnPassLines(warn.mock.calls),
+				'the pass line names how many entries had gone, not just that it succeeded'
+			).toContain(1);
+		} finally {
+			warn.mockRestore();
+			await queue.stop();
+			await dropCollection(vector, collectionName).catch(() => undefined);
+		}
+	}, 60_000);
+
 	it('a backfill never touches an entry that already has a pending job of its own (issue #709)', async () => {
 		// The one thing a catch-up must never do. `scheduleEntityIndexJobRow`'s conflict branch
 		// moves `run_after`, which is right for a fresh accept and would be catastrophic here: a
@@ -2856,7 +3045,11 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			await scheduleBackfillIndexJobRows(db, stale, world.id, 'en', observation, jobRows)
 		).toEqual({
 			inserted: 0,
-			fenced: true
+			fenced: true,
+			// #774: the work list is intact, so nothing was absorbed. This field has to be zero on
+			// a refusal, or "the pass was fenced" and "the pass's entries had gone" would read the
+			// same in a log.
+			vanished: 0
 		});
 		expect(await backfillJobRowsFor(world.id), 'no fan-out from a stale pass').toEqual([]);
 		expect(await pass(stale, 3)).toEqual({
@@ -2889,7 +3082,8 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			await scheduleBackfillIndexJobRows(db, live, world.id, 'en', observation, jobRows)
 		).toEqual({
 			inserted: 1,
-			fenced: false
+			fenced: false,
+			vanished: 0
 		});
 		expect(rowsPerEntity(await backfillJobRowsFor(world.id))).toEqual(new Map([[created.id, 1]]));
 		expect((await pass(live, 3)).applied).toBe(true);
@@ -2930,6 +3124,43 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 		expect(await requeueIndexBackfill(db, expired, { message: 'expired', retryMs: 1000 })).toBe(
 			false
 		);
+	}, 45_000);
+
+	it('schedules only work-list rows whose entity still exists in that universe (issue #774)', async () => {
+		// The clauses the end-to-end test above cannot reach, driven straight at the statement.
+		// Both are about the same thing: `canon_save_job` has no constraint tying `entity_id` to
+		// `universe_id`, and this fan-out is the one writer that builds that pair out of two
+		// separate reads, so the join is where the pair is asserted rather than assumed.
+		const { world } = await fixture();
+		const { world: elsewhere } = await fixture();
+		const mine = await insertEntry(world.id, 'Present Hold');
+		const stranger = await insertEntry(elsewhere.id, "Another World's Hold");
+		const deleted = await insertEntry(world.id, 'Already Gone');
+		await db.delete(entity).where(eq(entity.id, deleted.id));
+
+		const row = await backfillRowFor(world.id);
+		const lease = await claimLike(row.id);
+		const observation = await observeIndexJobs(db, world.id);
+
+		expect(
+			await scheduleBackfillIndexJobRows(db, lease, world.id, 'en', observation, [
+				{ entityId: mine.id, entityName: mine.name, delayMs: 0 },
+				// An entity that exists, in the wrong universe. Not schedulable here, and counted
+				// as gone, because from this statement's point of view the row's subject does not
+				// exist: an `entity_id` whose universe is not `v.universe_id` would write a job
+				// whose two columns disagree, which nothing downstream could make sense of.
+				{ entityId: stranger.id, entityName: stranger.name, delayMs: 0 },
+				{ entityId: deleted.id, entityName: deleted.name, delayMs: 0 }
+			])
+		).toEqual({ inserted: 1, fenced: false, vanished: 2 });
+
+		// One row, for the one entry that is really this universe's and really still there. The
+		// two bad rows cost themselves and nothing else, which is the whole claim of #774.
+		expect(rowsPerEntity(await backfillJobRowsFor(world.id))).toEqual(new Map([[mine.id, 1]]));
+		expect(
+			await backfillJobRowsFor(elsewhere.id),
+			'and nothing was written into the other universe either'
+		).toEqual([]);
 	}, 45_000);
 
 	/** Which writes a pass was refused, read off the log line rather than inferred. "The damage

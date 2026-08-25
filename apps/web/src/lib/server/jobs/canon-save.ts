@@ -888,6 +888,13 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 					// Non-zero means an entity was deleted without `deleteEntityLoreChunks` running
 					// for it. Nothing here repairs that; it is reported so that it is not invisible.
 					orphanedEntityPoints: orphanedPoints,
+					// #774: entries this pass had on its work list and that had been deleted by the
+					// time the fan-out ran, so the insert skipped them rather than failing on their
+					// foreign key and taking every good row with them. Non-zero means the work list
+					// went stale under this pass, which is a fact about timing rather than a defect,
+					// and it is here because a failure a statement absorbs without counting it looks
+					// exactly like a statement that had nothing to absorb.
+					entitiesVanishedThisPass: fanOut.vanished,
 					staggerSpanSeconds: Math.round(spanMs / 1000),
 					outcome
 				})
