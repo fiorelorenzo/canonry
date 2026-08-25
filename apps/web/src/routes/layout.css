@@ -49,14 +49,58 @@
  * on both, so the variant adds no specificity of its own in either branch and a
  * `dark:` utility keeps beating its unprefixed sibling on source order alone, exactly
  * as the attribute branch already did. The media branch's selector mirrors the token
- * block's `html:not([data-theme])` rather than inventing a second spelling. */
+ * block's `html:not([data-theme])` rather than inventing a second spelling.
+ *
+ * #743: each branch also excludes the light islands *underneath its own dark root*,
+ * because a variant has to mean "this element is in dark" and the two conditions above
+ * only say "this document is in dark". The tokens have never had this problem: a custom
+ * property is declared on the element, so `[data-theme='light']` further down re-declares
+ * the palette and inheritance resolves the nearest scope for free. A variant is a
+ * selector about a different element, so nothing about `<html>` being dark stops matching
+ * when a light island sits in between, and `/dev/ui` drew `dark:bg-field` inside the very
+ * column that exists to show what light looks like.
+ *
+ * The obvious exclusion is flat, and it is wrong. #743 and #749 both proposed
+ * `:not([data-theme='light'], [data-theme='light'] *)` appended to each branch, on the
+ * grounds that no dark island is nested inside a light one. `<html data-theme='light'>`
+ * *is* a light scope, and the gallery's dark column is inside it whenever the GM has
+ * chosen Light, so the flat form fixes the light column by breaking the dark one:
+ * measured, the dark pane's first input went from `#110e08` to no fill at all in both
+ * `cookie=light` rows. Anchoring each exclusion to the same root its own branch is
+ * anchored to is what keeps the two independent - "a light scope that has a dark scope
+ * above it" on the attribute branch, "a light scope under an attribute-less html" on the
+ * media branch - and it is why the two branches cannot share one exclusion even though
+ * they share a shape.
+ *
+ * What it costs. `:not()` takes the specificity of its most specific argument, so the
+ * exclusion is wrapped in its own `:where()` to keep the variant at zero, which is the
+ * property `dark-mechanism-parity.test.ts` asserts and the reason the flat proposal's
+ * bare `:not()` would have been wrong even where it matched correctly. And it is
+ * depth-limited: CSS has no way to quantify over the path between two ancestors, so
+ * "nearest scope wins" is only expressible one level at a time, and a third level
+ * (dark > light > dark) would read the wrong scope again. Two is every level the app
+ * has, `<html>` plus one `<section data-theme>` in the two dev galleries, and a third
+ * would need a new route to exist at all. The depth-free spelling is a style query,
+ * `@container style(--theme-dark: 1)`, which piggybacks on the same custom-property
+ * inheritance that makes the token half correct; it is not written here because style
+ * queries for custom properties only reached Baseline in May 2026 with Firefox 151, and
+ * an unsupported at-rule drops its whole block, which would make all 20 `dark:`
+ * utilities inert on any older Firefox. That is #727 again, for a subset of users,
+ * traded against a fidelity defect on a dev-only route. Not worth it yet. */
 @custom-variant dark {
-	&:where([data-theme='dark'], [data-theme='dark'] *) {
+	&:where([data-theme='dark'], [data-theme='dark'] *):where(
+			:not([data-theme='dark'] [data-theme='light'], [data-theme='dark'] [data-theme='light'] *)
+		) {
 		@slot;
 	}
 
 	@media (prefers-color-scheme: dark) {
-		&:where(html:not([data-theme]), html:not([data-theme]) *) {
+		&:where(html:not([data-theme]), html:not([data-theme]) *):where(
+				:not(
+					html:not([data-theme]) [data-theme='light'],
+					html:not([data-theme]) [data-theme='light'] *
+				)
+			) {
 			@slot;
 		}
 	}
