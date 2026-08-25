@@ -3,6 +3,11 @@ import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
+// `.ts` spelled out, unlike every other relative import in this app: Vite's coming `native`
+// config loader is node's own TypeScript support, which will not resolve an extensionless
+// specifier in this file. `rewriteRelativeImportExtensions` in tsconfig.json is what lets tsc
+// accept it.
+import { testDatabaseUrl } from './src/test-database-url.ts';
 
 // `.env` lives at the workspace root (this app has none of its own), but SvelteKit's
 // `kit.env.dir` defaults to `process.cwd()`, and `pnpm --filter web dev` (like every pnpm
@@ -40,11 +45,12 @@ const workspaceRoot = path.resolve(import.meta.dirname, '..', '..');
 // unless the session's email is on this allowlist).
 export default defineConfig(() => {
 	if (process.env.VITEST === 'true') {
-		process.env.DATABASE_URL ??=
-			process.env.TEST_DATABASE_URL ??
-			(process.env.TEST_DB_SUFFIX
-				? `postgres://canonry:canonry@127.0.0.1:55432/canonry_test_${process.env.TEST_DB_SUFFIX}`
-				: 'postgres://canonry:canonry@127.0.0.1:55432/canonry');
+		// Assigned, not `??=`. The helper's own last rung is `DATABASE_URL`, so this is a no-op
+		// when nothing test-specific is set, and `??=` here was issue #759: an inherited
+		// `DATABASE_URL` discarded the right-hand side entirely, which meant the workers ignored
+		// `TEST_DB_SUFFIX` and `TEST_DATABASE_URL` while global setup honoured both. Three of the
+		// eight combinations migrated one database and queried another, and all three ran green.
+		process.env.DATABASE_URL = testDatabaseUrl();
 		process.env.BETTER_AUTH_SECRET ??= 'vitest-throwaway-secret-not-a-real-deployment';
 		process.env.STAFF_EMAILS ??= 'admin-models-test@canonry.invalid';
 	}
