@@ -2401,6 +2401,8 @@ export const it: Messages = {
 					'Immagine (scopo testuale; vedi Modelli immagine più sotto per il generatore vero e proprio)'
 			},
 			saved: 'Salvato. Ha effetto immediatamente.',
+			indexingIntroPre:
+				'Cambiare lo scopo embedding sostituisce la collezione che tutto il prodotto legge, e il worker se ne accorge da solo: da quel momento ogni universo ha in sospeso un recupero. Con quale frequenza rinunciano, e quanta parte torna a posto senza che nessuno chieda nulla, sta in',
 			imageHeading: 'Modelli immagine',
 			imageIntro1:
 				'Il modello attivo per ciascuna funzione vive qui, non nel codice, e una modifica qui ha effetto dalla prossima richiesta di "Genera immagine" - senza deploy né riavvio.',
@@ -2540,6 +2542,74 @@ export const it: Messages = {
 				invalidCredits: 'Inserisci un numero non negativo, con al massimo 4 cifre decimali.',
 				unknownOperation: (operation) => `"${operation}" non è un'operazione nota.`
 			}
+		},
+
+		indexing: {
+			browserTitle: 'Recuperi di indicizzazione, amministrazione Canonry',
+			title: 'Recuperi di indicizzazione',
+			intro1:
+				'Un universo le cui voci non hanno un punto nella propria collezione ha in sospeso un recupero: il worker elenca ciò che manca e programma un lavoro di sola indicizzazione per ogni voce. Tre situazioni lo richiedono: voci salvate mentre <code class="text-label">model_config</code> non aveva una riga <b class="text-ink">embedding</b> attiva, la sostituzione di quella riga, e un recupero che ha rinunciato e a cui la scansione offre un altro tentativo.',
+			intro2:
+				"Un recupero che non riduce l'arretrato rinuncia dopo qualche passaggio, poi la scansione offre a quell'universo un altro tentativo a un intervallo che raddoppia ogni volta, da un'ora fino a una settimana: qui nulla aspetta che qualcuno prema un pulsante. Un nuovo tentativo serve solo dopo che qualcuno ha risolto la causa: fino a quel momento rinuncia di nuovo, ogni volta più tardi. Questa pagina mostra ciò che il meccanismo ha registrato su di sé, mai che l'indice di un universo corrisponda al suo canone.",
+			noneYet:
+				"Nessun recupero registrato. Un universo compare qui la prima volta che il worker trova sue voci senza punto nell'indice, cosa che in un'installazione con un modello di embedding sempre configurato può non succedere mai.",
+			now: {
+				heading: 'In questo momento',
+				universesGivenUp: 'Universi che hanno rinunciato',
+				entriesMissing: "Voci senza punto nell'indice",
+				entriesMissingNote:
+					'Questa cifra è quella che ciascuno di quegli universi ha registrato nel momento in cui ha rinunciato, non una nuova lettura della collezione. Cambia al recupero successivo, non quando una voce viene indicizzata.',
+				inFlight: 'Recuperi in coda o in corso',
+				universesEver: 'Universi che ne hanno avuto uno'
+			},
+			frequency: {
+				heading: 'Con quale frequenza succede',
+				intro:
+					"La domanda per cui questa pagina esiste. Una finestra conta un recupero dove è finito e un nuovo tentativo dove è stato offerto, quindi l'ultima colonna è la parte dei problemi che si è risolta da sola.",
+				window: 'Periodo',
+				windowLabel: (days) => `Ultimi ${days} giorni`,
+				allTime: 'Da sempre',
+				deadLetters: 'Hanno rinunciato',
+				universesAffected: 'Universi coinvolti',
+				retries: 'Tentativi offerti',
+				recoveries: 'Risolti da soli'
+			},
+			byUniverse: {
+				heading: 'Per universo',
+				intro:
+					'Una riga per ogni universo che ha avuto un recupero in sospeso, con lo stato del più recente. Un universo che ha rinunciato compare in cima.',
+				universe: 'Universo',
+				state: 'Stato più recente',
+				lastActivity: 'Ultima attività',
+				shortfall: 'Arretrato',
+				passes: 'Passaggi',
+				deadLetters: 'Rinunce',
+				inEpisode: "Dall'ultimo recupero completato",
+				recoveries: 'Risolti'
+			},
+			attempts: {
+				heading: 'Tutti i recuperi',
+				intro: (shown, total) =>
+					`Qui i ${shown} più recenti, su ${total} in tutto, dal più recente.`,
+				reason: 'Motivo',
+				requested: 'Richiesto',
+				finished: 'Concluso',
+				entries: 'Voci: totali / mancanti / programmate',
+				lastError: 'Ultimo errore'
+			},
+			statusLabel: {
+				pending: 'In coda',
+				claimed: 'In corso',
+				done: 'Completato',
+				failed: 'Ha rinunciato'
+			},
+			reasonLabel: {
+				noEmbeddingModel: 'Nessun modello di embedding attivo allora',
+				retryAfterDeadLetter: 'Altro tentativo dopo una rinuncia',
+				embeddingModelChanged: 'Modello di embedding cambiato'
+			},
+			shortfallValue: (missing, total) => `${missing} su ${total}`,
+			unknownValue: 'ancora nessuna osservazione'
 		}
 	},
 

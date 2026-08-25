@@ -139,6 +139,12 @@ const ALLOWED: { file: string; util: string; count: number; reason: string }[] =
 		reason: 'the accept rate and its three counts, display numbers rather than titles'
 	},
 	{
+		file: 'routes/admin/indexing/+page.svelte',
+		util: 'text-2xl',
+		count: 4,
+		reason: "#768's four figures, the same display numbers the metrics band draws"
+	},
+	{
 		file: 'routes/settings/billing/+page.svelte',
 		util: 'text-lg',
 		count: 3,
