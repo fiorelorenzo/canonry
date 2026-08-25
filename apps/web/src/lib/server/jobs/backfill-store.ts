@@ -7,7 +7,7 @@
  *
  * ---
  *
- * **The invariant, and it is written here because five separate fixes have each had to
+ * **The invariant, and it is written here because every fix this mechanism has taken has had to
  * rediscover it.** A backfill's whole job is to make one sentence true: every indexable entity
  * in the universe has an entity-level point in its own collection. Every rule in this file and
  * in `runBackfill` is a consequence of that sentence plus two restrictions on how a pass is
@@ -30,9 +30,9 @@
  * universe's index to its canon, concluding only from points that exist and writing only from
  * an observation it still holds, and it may give up on an attempt but never on the universe.**
  *
- * Every change this has taken restored one clause rather than adding a feature, which is the
- * evidence that the invariant and not the code is what was missing. One bullet each, naming
- * the clause and not the feature:
+ * Every change this has taken restored one clause rather than adding a feature, except the last,
+ * which restored a sentence in this comment. That is the evidence that the invariant and not the
+ * code is what was missing. One bullet each, naming the clause and not the feature:
  *
  * - **#709/#715 built it**, and got "only the index counts" right on the second try: the first
  *   end-to-end run reported `done` from a pass that had merely *scheduled* six entries, two of
@@ -82,7 +82,10 @@
  *   cases partition an interval, so there is no sixth fix of *that* kind waiting. What the
  *   argument rests on is `indexEntity` keeping one caller; a second one would reopen all five
  *   silently. What the partition is silent about is a question no job can answer, which is
- *   whether the entry exists at all: see #774 below.
+ *   whether the entry exists at all: see #774 below. And what it must not be read as saying is
+ *   that an entry can only ever have one row: see #777 below, which is the one entry on this
+ *   list that went looking for a sixth cell, failed to find one, and is here because failing
+ *   is the result.
  * - **#774** is the same clause as the four above, reached through a read none of them looked
  *   at. "An observation it still owns" covers three reads, not two: the queue
  *   (`observeIndexJobs`), the collection (`unindexedEntities`), and the **work list**
@@ -95,13 +98,62 @@
  *   parents: `join entity e` beside `join universe u`, so a precondition that has stopped
  *   holding costs its own row and nothing else. `scheduleBackfillIndexJobRows` carries what
  *   that does and does not absorb.
+ * - **#777 changed no clause, and is the most useful entry here for that reason.** It was filed
+ *   as a sixth cell: `canon-save.test.ts`'s #709 case failed on `main` with one entry holding
+ *   two `canon_save_job` rows, which is exactly the shape #737, #764, #770 and #775 each turned
+ *   out to be. It is not one. The first of that entry's two jobs completed `done` carrying
+ *   `{"status":"error","message":"Internal Server Error"}` from Qdrant under concurrent load, so
+ *   it **wrote no point**, and the verification pass then found the entry missing and scheduled
+ *   it again. That is the *first* restriction doing its job rather than anything failing: only
+ *   the index counts, a row is an intention and a point is a fact, so an entry whose job ended
+ *   without producing a point is still owed one (#715). Cell one of the partition says exactly
+ *   that in its own parenthesis, and the partition is over row *lifetimes*, which bounds nothing
+ *   about how many rows an entry gets.
+ *
+ *   So the rule a reader needs, stated once rather than left to be inferred from five cells:
+ *   **a second row for one entry is a defect only when the earlier row wrote its point.** A
+ *   second row after one that wrote nothing is the invariant holding. What was wrong was the
+ *   assertion: `rowsPerEntity` was a plain count, could not tell those two apart, and therefore
+ *   failed on correct behaviour. It is `rowsPerEntityIgnoringRetries` now, which folds a retry
+ *   of a write that produced nothing into the schedule it retries and still fails a second row
+ *   after a successful one, which is the distinction the map was standing in for all along.
+ *
+ *   The partition claim above stays, and it is better evidence than when it was written, because
+ *   this is what testing it looked like. Both assertions were scored on the same samples, so the
+ *   two arms are one experiment rather than two: **480 scenarios, 7 failures of the old
+ *   assertion, 0 of the new**, and all seven the same shape, an errored first job beside the
+ *   entry that got the second row.
+ *
+ *   What took three attempts to measure is that the load is **sustained concurrency against the
+ *   shared dev Qdrant**, and nothing about the test itself. An arm that starts a fresh process
+ *   per scenario never builds that load: the single test, eight times, came back 0 for 8, and
+ *   then 0 for 600 across parallel processes, which reads as "this does not reproduce" and means
+ *   "I ran it wrong" - the third reproduction in this chain unable to reach its own window.
+ *   Forty scenarios inside one process with six processes at once reproduces it, alone or beside
+ *   the sibling tests. That Qdrant is shared by every worktree, so a wave running next to you is
+ *   load you did not add and cannot see, which is how #777 was found on a busier box than the
+ *   one that then could not reproduce it.
+ *
+ *   One thing was considered and rejected, and it is written down because the cheap version of
+ *   it looks obviously right: making the *indexing* idempotent, so that a second job finding the
+ *   point already there returns without embedding. There is nothing on the row to key that on.
+ *   `scheduleEntityIndexJobRow`, which is the **accept** path (#703), writes a row byte-identical
+ *   to this fan-out's: empty bodies, null `trigger_revision_id`, owner as `user_id`. So a skip
+ *   keyed on "this entity already has a point" would fire on an accept, whose point exists and
+ *   is *stale*, and a proposal the GM had accepted would never reach retrieval. That is guardrail
+ *   1 territory rather than a performance trade, and it is why the redundant embedding call of a
+ *   legitimate retry is the right thing to pay.
  *
  * The reason to write this down rather than fix the ninth thing: every one of those was found
  * by a flake or by a reader noticing a comment that was not true, and each was correct in
  * isolation. A change that cannot be expressed as restoring one of these clauses is probably
  * changing what a backfill means, which is a bigger decision than it will look like in a diff.
  * #774 is the worked example of that test passing: it looked like a new kind of bug, and it was
- * the second clause reaching a third read.
+ * the second clause reaching a third read. #777 is the worked example of it failing, which is
+ * the more valuable half: the proposed change could not be expressed as restoring a clause
+ * because no clause was broken, and the thing that was actually wrong was an assertion and this
+ * comment. Nine entries and one of them is a correction to the prose is roughly the ratio to
+ * expect from here, so read the ledger before believing a duplicate row is a defect.
  *
  * **One entry on this list is not one of those clauses, and saying so is the point of it
  * (#773).** Every other one is about the queue side of the observation; that one is the Qdrant
@@ -674,6 +726,14 @@ export async function observeIndexJobs(db: Db, universeId: string): Promise<Inde
  * row is `pending`, so `scheduleEntityIndexJobRow`'s conflict branch absorbs it, #709). Five
  * cases partition the interval, so there is no sixth clause of this kind to find. What that
  * argument rests on, and what would silently break it, is `indexEntity` keeping one caller.
+ *
+ * **What that does not say, and #777 is the cost of leaving it unsaid.** The partition is over
+ * one row's lifetime, so it bounds nothing about how many rows an entry gets. The first cell
+ * hands one out on purpose: a job that finished before `observedAt` having written no point
+ * leaves its entry owed, and this insert writes a second row for it, which is #715 rather than
+ * a duplicate. Reachable in production and reached here, by a Qdrant 500 recorded as
+ * `{"status":"error"}` on a `done` row. So a second row for one entry is a defect only when the
+ * earlier row wrote its point, and that is the comparison a test of this statement has to make.
  *
  * `settled` is deliberately `done` and not also `failed`: `completeCanonSaveJob` is the only
  * writer of `index_outcome` and a dead-lettered row never reaches it, so a `failed` job wrote

@@ -1345,14 +1345,51 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			.then((rows) => rows[0]);
 	}
 
-	/** How many job rows each entity got, which is the assertion a count cannot make. A
-	 * double-schedule moves this map and moves no set: `new Set(rows.map(r => r.entityId))` is
-	 * blind to a duplicate by construction, and `entities_scheduled` sees one only if you
-	 * already know what the right number is. This says which entries were scheduled *and* that
-	 * each was scheduled once, which is the whole claim (#737, #764). */
-	function rowsPerEntity(rows: readonly CanonSaveJobRow[]): Map<string, number> {
+	/** Whether this job's index engine actually put an entity-level point in the collection,
+	 * which is the only thing that makes a later row for the same entry redundant rather than
+	 * owed. `entityPointWritten` rather than `status === 'ok'` alone, because `indexEntity`
+	 * reports `ok` with no point for a blank match text; null rather than an outcome at all is
+	 * a row that never reached the engine (a dead letter), which wrote nothing either. */
+	function wroteEntityPoint(row: CanonSaveJobRow): boolean {
+		const outcome = row.indexOutcome as IndexOutcome | null;
+		return outcome?.status === 'ok' && outcome.entityPointWritten;
+	}
+
+	/**
+	 * How many times each entity was scheduled, counting a retry of a job that produced nothing
+	 * as the schedule it retries. The assertion a count cannot make on its own: a
+	 * double-schedule moves this map and moves no set, since `new Set(rows.map(r => r.entityId))`
+	 * is blind to a duplicate by construction and `entities_scheduled` sees one only if you
+	 * already know what the right number is. So the map stays the shape, and says which entries
+	 * were scheduled as well as how many times (#737, #764).
+	 *
+	 * **The retry clause is issue #777, and it is the difference between asserting the invariant
+	 * and asserting something stronger than it.** A plain count said an entry can only ever have
+	 * one row. `backfill-store.ts`'s first restriction says the opposite: only the index counts,
+	 * a row is an intention and a point is a fact, so an entry whose job completed *without*
+	 * writing its point is still owed one and the next pass is right to schedule it again
+	 * (#715). That happens for real: a Qdrant `Internal Server Error` under sustained concurrent
+	 * load on the shared dev instance, recorded as `{"status":"error"}` on a `done` row. Measured
+	 * with both counts scored on the same samples, 480 scenarios came back 7 failures of the
+	 * plain count and 0 of this one, so every assertion in this file built on a plain count was
+	 * failing on correct behaviour rather than catching anything.
+	 *
+	 * A row is therefore counted unless the previous row for the same entity finished without
+	 * writing a point. A second row after one that *did* write its point is still counted, and
+	 * still fails, because that is the redundant embedding call #737, #764, #770 and #775 each
+	 * closed a window on. Ordered by `created_at` rather than by the caller's ordering, since
+	 * "the previous row" is the only thing that makes the two tellable apart.
+	 */
+	function rowsPerEntityIgnoringRetries(rows: readonly CanonSaveJobRow[]): Map<string, number> {
 		const counts = new Map<string, number>();
-		for (const row of rows) counts.set(row.entityId, (counts.get(row.entityId) ?? 0) + 1);
+		const previousForEntity = new Map<string, CanonSaveJobRow>();
+		const inOrder = [...rows].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+		for (const row of inOrder) {
+			const previous = previousForEntity.get(row.entityId);
+			previousForEntity.set(row.entityId, row);
+			if (previous && !wroteEntityPoint(previous)) continue;
+			counts.set(row.entityId, (counts.get(row.entityId) ?? 0) + 1);
+		}
 		return counts;
 	}
 
@@ -1543,7 +1580,7 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 					const fannedOut = (await backfillJobRowsFor(world.id)).filter(
 						(row) => !jobsBefore.some((old) => old.id === row.id)
 					);
-					expect(rowsPerEntity(fannedOut)).toEqual(new Map([[entry.id, 1]]));
+					expect(rowsPerEntityIgnoringRetries(fannedOut)).toEqual(new Map([[entry.id, 1]]));
 
 					expect(
 						[
@@ -1713,7 +1750,9 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			// had been scheduled twice, and a set of ids cannot see a duplicate at all. This says
 			// which entries and how many rows each, which is the claim both of those stood in for
 			// (#737, #764).
-			expect(rowsPerEntity(fannedOut)).toEqual(new Map(skippedEntries.map((row) => [row.id, 1])));
+			expect(rowsPerEntityIgnoringRetries(fannedOut)).toEqual(
+				new Map(skippedEntries.map((row) => [row.id, 1]))
+			);
 			// And the counter agrees with the rows that exist, rather than with a literal somebody
 			// would have to keep in step with the fixture.
 			expect(backfill?.entitiesScheduled).toBe(fannedOut.length);
@@ -1865,11 +1904,19 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			// enough: the count knew a duplicate had happened without saying which entry, and the
 			// set could not see one at all. The map says both. `entities_scheduled` is then checked
 			// against the rows that exist rather than against a literal, so the counter is asserted
-			// to agree with reality instead of being a second, independent guess at it.
+			// to agree with reality instead of being a second, independent guess at it - which is
+			// also why it stays `fannedOut.length` rather than 3, since a retry of a job that wrote
+			// no point is a fourth row and a fourth `scheduled`, and the counter is right to say so.
+			//
+			// This is the assertion #777 was filed against, and it is where the retry clause earns
+			// its keep: with the shared Qdrant under load, one of these three jobs completes `done`
+			// with an `Internal Server Error`, writes no point, and is correctly scheduled a
+			// second time. That is #715 rather than a duplicate, so the map folds it back into the
+			// schedule it retries. A second row after one that wrote its point is still a failure.
 			const fannedOut = (await backfillJobRowsFor(world.id)).filter(
 				(row) => !before.some((old) => old.id === row.id)
 			);
-			expect(rowsPerEntity(fannedOut)).toEqual(
+			expect(rowsPerEntityIgnoringRetries(fannedOut)).toEqual(
 				new Map([
 					[neverScheduled.id, 1],
 					[deadLettered.id, 1],
@@ -1911,6 +1958,79 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			await dropCollection(vector, collectionName).catch(() => undefined);
 		}
 	}, 45_000);
+
+	it('tells a retry of a job that wrote no point apart from a second row after one that did (issue #777)', async () => {
+		// The test that stops the fix above from being a way of not seeing duplicates any more.
+		// `rowsPerEntityIgnoringRetries` exists because a plain count failed on correct behaviour,
+		// and the obvious way to get that wrong is to fold *every* second row into the first,
+		// which would make every #737, #764, #770 and #775 assertion in this file unfalsifiable in
+		// one edit. So both directions are asserted here, against real rows through the real jsonb
+		// round trip rather than object literals, because `entityPointWritten` surviving the
+		// column is half of what the helper reads.
+		const { owner, world } = await fixture();
+		const owed = await insertEntry(world.id, 'Owed Hold');
+		const alreadyIndexed = await insertEntry(world.id, 'Indexed Hold');
+		const deadLettered = await insertEntry(world.id, 'Abandoned Hold');
+		const indexed: IndexOutcome = { status: 'ok', chunkCount: 1, entityPointWritten: true };
+		const wroteNothing: IndexOutcome = {
+			status: 'error',
+			errorName: 'Error',
+			message: 'Internal Server Error'
+		};
+		const row = (
+			entityId: string,
+			at: string,
+			status: 'done' | 'failed',
+			outcome: IndexOutcome | null
+		) => ({
+			universeId: world.id,
+			entityId,
+			entityName: 'whatever',
+			userId: owner.id,
+			oldBody: '',
+			newBody: '',
+			locale: 'en',
+			status,
+			createdAt: new Date(at),
+			finishedAt: new Date(at),
+			indexOutcome: outcome
+		});
+		await db.insert(canonSaveJob).values([
+			// The #777 shape: the pass scheduled it, the job completed without a point, the next
+			// pass scheduled it again. One schedule, twice attempted.
+			row(owed.id, '2026-08-25T10:00:00Z', 'done', wroteNothing),
+			row(owed.id, '2026-08-25T10:00:01Z', 'done', indexed),
+			// The #764 shape, which is the one that must still fail: the first job put the point in
+			// the collection and a second row was written for it anyway.
+			row(alreadyIndexed.id, '2026-08-25T10:00:00Z', 'done', indexed),
+			row(alreadyIndexed.id, '2026-08-25T10:00:01Z', 'done', indexed),
+			// A dead letter never reaches `completeCanonSaveJob`, so it has no outcome at all and
+			// certainly no point: the row after it is owed, exactly like the errored one.
+			row(deadLettered.id, '2026-08-25T10:00:00Z', 'failed', null),
+			row(deadLettered.id, '2026-08-25T10:00:01Z', 'done', indexed)
+		]);
+
+		expect(rowsPerEntityIgnoringRetries(await backfillJobRowsFor(world.id))).toEqual(
+			new Map([
+				[owed.id, 1],
+				[alreadyIndexed.id, 2],
+				[deadLettered.id, 1]
+			])
+		);
+
+		// And the ordering is read off `created_at` rather than off the caller's, so a caller that
+		// hands the rows over newest-first gets the same answer. `backfillJobRowsFor` orders by
+		// `run_after`, which these rows do not set, so without the sort inside the helper this is
+		// whatever Postgres felt like returning.
+		const reversed = [...(await backfillJobRowsFor(world.id))].reverse();
+		expect(rowsPerEntityIgnoringRetries(reversed)).toEqual(
+			new Map([
+				[owed.id, 1],
+				[alreadyIndexed.id, 2],
+				[deadLettered.id, 1]
+			])
+		);
+	});
 
 	it('schedules nothing for an entry whose job finishes between the enumeration and the fan-out (issue #764)', async () => {
 		// #746 stopped the fan-out re-scheduling an entry whose job was still `pending` or
@@ -2034,7 +2154,7 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			// One row, for that entry, and the counter agreeing with it. Before the fix this is two
 			// rows for one entity and `entities_scheduled` 2, which is #764's `expected 4 to be 3`
 			// with the load taken out of it.
-			expect(rowsPerEntity(fannedOut)).toEqual(new Map([[skipped.id, 1]]));
+			expect(rowsPerEntityIgnoringRetries(fannedOut)).toEqual(new Map([[skipped.id, 1]]));
 			expect(
 				fannedOut.map((row) => row.id),
 				'the surviving row is the one that did the work, not a replacement for it'
@@ -2187,7 +2307,7 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			);
 			// One row for that entry, and it is the save's own. Before the fix this is two rows for
 			// one entity: the save's, plus the backfill's redundant one.
-			expect(rowsPerEntity(fannedOut)).toEqual(new Map([[shortfall.id, 1]]));
+			expect(rowsPerEntityIgnoringRetries(fannedOut)).toEqual(new Map([[shortfall.id, 1]]));
 			expect(
 				fannedOut.map((row) => row.id),
 				'the surviving row is the save that did the work, not a duplicate of it'
@@ -2337,7 +2457,7 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			// The claim, as a multiset rather than a count (#737, #764): one row, for the entry
 			// that still exists. Before the fix this is empty, because the deleted entry's foreign
 			// key failed the statement and took the survivor's row with it.
-			expect(rowsPerEntity(fannedOut)).toEqual(new Map([[survivor.id, 1]]));
+			expect(rowsPerEntityIgnoringRetries(fannedOut)).toEqual(new Map([[survivor.id, 1]]));
 
 			const [backfill] = await queue.recentBackfills(world.id);
 			// And the pass finished rather than throwing. Before the fix the row comes back
@@ -3085,7 +3205,9 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			fenced: false,
 			vanished: 0
 		});
-		expect(rowsPerEntity(await backfillJobRowsFor(world.id))).toEqual(new Map([[created.id, 1]]));
+		expect(rowsPerEntityIgnoringRetries(await backfillJobRowsFor(world.id))).toEqual(
+			new Map([[created.id, 1]])
+		);
 		expect((await pass(live, 3)).applied).toBe(true);
 		expect((await backfillById(row.id))?.entitiesMissing).toBe(3);
 
@@ -3156,7 +3278,9 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 
 		// One row, for the one entry that is really this universe's and really still there. The
 		// two bad rows cost themselves and nothing else, which is the whole claim of #774.
-		expect(rowsPerEntity(await backfillJobRowsFor(world.id))).toEqual(new Map([[mine.id, 1]]));
+		expect(rowsPerEntityIgnoringRetries(await backfillJobRowsFor(world.id))).toEqual(
+			new Map([[mine.id, 1]])
+		);
 		expect(
 			await backfillJobRowsFor(elsewhere.id),
 			'and nothing was written into the other universe either'
@@ -3317,7 +3441,7 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			// One row for that entry, not two. Which rows and how many of each, never a bare
 			// count: a set cannot see a duplicate and a count cannot say which entry moved it
 			// (#737, #764).
-			expect(rowsPerEntity(fannedOut)).toEqual(new Map([[shortfall.id, 1]]));
+			expect(rowsPerEntityIgnoringRetries(fannedOut)).toEqual(new Map([[shortfall.id, 1]]));
 
 			const settled = await newestBackfillFor(world.id);
 			expect(settled?.status).toBe('done');
@@ -3421,7 +3545,7 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			const fannedOut = (await backfillJobRowsFor(world.id)).filter(
 				(job) => !before.some((old) => old.id === job.id)
 			);
-			expect(rowsPerEntity(fannedOut)).toEqual(new Map([[skipped.id, 1]]));
+			expect(rowsPerEntityIgnoringRetries(fannedOut)).toEqual(new Map([[skipped.id, 1]]));
 		} finally {
 			warn.mockRestore();
 			entered.resolve();
