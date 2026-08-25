@@ -192,7 +192,12 @@ describe('POST .../media/generate (#408)', () => {
 			slug: styledEntitySlug,
 			body: 'Retired duelist, silver-haired, keeps to the harbour district.'
 		});
-	});
+		// 120s rather than vitest's default 10s `hookTimeout`: `params-merge.test.ts` takes this
+		// same lock in a `beforeAll` that now has a 120s budget of its own, because
+		// `canon-save.test.ts` holds `model_config` for about 13.5s, so this hook can genuinely
+		// wait longer than ten seconds. A hook that waits past the timeout fails this whole file
+		// with `Hook timed out in 10000ms` instead of queueing the way the lock intends.
+	}, 120_000);
 
 	afterAll(async () => {
 		await rm(path.join(MEDIA_ROOT, noStyleUniverseId), { recursive: true, force: true });

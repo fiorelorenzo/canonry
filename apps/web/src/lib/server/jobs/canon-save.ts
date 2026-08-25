@@ -118,6 +118,8 @@ import type {
 import {
 	claimNextIndexBackfill,
 	completeIndexBackfill,
+	EMBEDDING_MODEL_CHANGED_REASON,
+	enqueueBackfillsForEmbeddingModelChange,
 	enqueueDueIndexBackfills,
 	enqueueRetriesForDeadLetteredBackfills,
 	NO_EMBEDDING_MODEL_REASON,
@@ -657,11 +659,12 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 	 * the state the whole feature is about, and it is also the state in which enqueuing a
 	 * backfill would be a row that can only be requeued until a model appears.
 	 *
-	 * **Two writes now, not one (#761).** The trigger above enqueues a universe that has newly
-	 * skipped; the second enqueues one whose last catch-up gave up and whose cooldown has since
-	 * elapsed. They are separate because their conditions are unrelated, and they are in the
-	 * same sweep because a dead-lettered backfill needs a trigger that already happens and this
-	 * is the only one there is. Answering the union means `sweepIndexBackfills()`'s contract is
+	 * **Three writes now, not one (#761, #773).** The trigger above enqueues a universe that has
+	 * newly skipped; the second enqueues every universe whose collection the active `embedding`
+	 * row has just stopped naming; the third enqueues one whose last catch-up gave up and whose
+	 * cooldown has since elapsed. They are separate because their conditions are unrelated, and
+	 * they are in the same sweep because each needs a trigger that already happens and this is
+	 * the only one there is. Answering the union means `sweepIndexBackfills()`'s contract is
 	 * unchanged: the universes this sweep enqueued a backfill for, whichever reason it was.
 	 */
 	async function sweepIndexBackfills(): Promise<string[]> {
@@ -678,6 +681,19 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 				JSON.stringify({
 					event: 'universe_index_backfill_enqueued',
 					reason: NO_EMBEDDING_MODEL_REASON,
+					universeId
+				})
+			);
+		}
+		// #773: and the same sweep is the only thing that can notice that the collection the
+		// product reads has changed identity. Detected rather than notified, out of
+		// `model_config`'s own history: the enqueue function carries why.
+		const swapped = await enqueueBackfillsForEmbeddingModelChange(conn);
+		for (const universeId of swapped) {
+			console.warn(
+				JSON.stringify({
+					event: 'universe_index_backfill_enqueued',
+					reason: EMBEDDING_MODEL_CHANGED_REASON,
 					universeId
 				})
 			);
@@ -702,7 +718,7 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 				})
 			);
 		}
-		return [...enqueued, ...retried];
+		return [...enqueued, ...swapped, ...retried];
 	}
 
 	/** One line per pass that found itself fenced out (#767), naming the write that was refused

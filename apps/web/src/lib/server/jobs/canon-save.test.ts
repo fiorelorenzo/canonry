@@ -32,6 +32,7 @@ import {
 	eq,
 	recordProposalDiff,
 	sql,
+	upsertTextModel,
 	type Db
 } from '@canonry/db';
 import { clearModelCache, resolveModel } from '@canonry/ai';
@@ -54,10 +55,17 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
 	embeddingDimensionsFor,
 	entityLoreUrl,
+	resolveOwnCanonCollection,
 	retrieveForUniverse,
 	type EmbeddingModelFactory
 } from '@canonry/indexing';
-import { createVectorClient, dropCollection, loreCollectionNameForModel } from '@canonry/vector';
+import {
+	collectionExists,
+	createVectorClient,
+	dropCollection,
+	indexedEntityUrls,
+	loreCollectionNameForModel
+} from '@canonry/vector';
 import {
 	createCanonSaveJobQueue,
 	type CanonSaveJobQueue,
@@ -68,6 +76,8 @@ import {
 import { entitiesSkippedForNoEmbeddingModel, scheduleEntityIndexJobRow } from './store.js';
 import {
 	completeIndexBackfill,
+	EMBEDDING_MODEL_CHANGED_REASON,
+	enqueueBackfillsForEmbeddingModelChange,
 	enqueueRetriesForDeadLetteredBackfills,
 	observeIndexJobs,
 	requeueIndexBackfill,
@@ -260,6 +270,31 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 
 	beforeAll(async () => {
 		db = createDb(DATABASE_URL, { max: 1 });
+		// #193's convention, for `model_config` rather than `image_model_config`: this file is
+		// the one that deactivates and swaps the shared active `embedding` row, and it is not
+		// alone in `apps/web` in reading it. `relation-label-embedder.test.ts` and
+		// `import-similarity.test.ts` both resolve the `embedding` purpose through
+		// `onboarding.ts`, and while this file has the row deactivated that resolution throws,
+		// falls back to the network-free stand-in and records no `createGatewayEmbedder` call,
+		// so their which-embedder and billing assertions read `[]` and fail. Measured rather
+		// than guessed, twice: deactivating the row in the first file's own `beforeAll` fails
+		// exactly the two assertions that failed in a real run of the whole suite, and running
+		// the whole suite with the lock removed from both fails the third file's #309 billing
+		// assertion, which is how that one was found at all. `params-merge.test.ts` already
+		// takes this lock for the same table, so the four queue rather than race. Each of the
+		// files taking it holds a single connection (`max: 1`), which is what makes a
+		// session-scoped lock mean anything.
+		//
+		// **The explicit hook timeout below is part of the lock, not decoration.** This file
+		// holds the lock for about 13.5 seconds of its run (measured), and vitest's default
+		// `hookTimeout` is 10 seconds, so a file whose `beforeAll` waits for it fails the whole
+		// *file* with `Hook timed out in 10000ms` and reports its tests skipped rather than
+		// waiting its turn. Forced and observed rather than reasoned about: holding this lock for
+		// 12s here and running `params-merge.test.ts` alongside kills one of the two files
+		// outright, which is exactly the shape of the intermittent "1 file failed, 3 skipped" run
+		// that first showed up. Every `beforeAll` that takes this lock carries a timeout longer
+		// than the longest holder's run.
+		await db.execute(sql`select pg_advisory_lock(hashtext('model_config'), 0)`);
 		// One active model_config row for 'cheap', shared with whichever other suite in this
 		// same test run claims it first - see packages/copilot/src/audit.test.ts's own
 		// comment: the unique index is on (purpose) where active, and racing to create it is
@@ -275,9 +310,11 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 		} catch {
 			// Another suite already provided one.
 		}
-	});
+		// Long enough to outwait any other holder of the lock above; see that comment.
+	}, 120_000);
 
 	afterAll(async () => {
+		await db.execute(sql`select pg_advisory_unlock(hashtext('model_config'), 0)`);
 		await closeDb(db);
 	});
 
@@ -1153,10 +1190,12 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 		// `resolveModel` is process-wide and caches for 30 seconds, so reaching the state a
 		// fresh deployment is in takes both halves: deactivate the row migration 0025 seeds,
 		// and clear that cache, or the engine answers from a resolution taken before this test
-		// ran. Restored in the `finally` below, and safe to do here because no other test file
-		// in `apps/web` resolves the `embedding` purpose, directly or through a route it calls -
-		// a file that starts to will need this one to hold an advisory lock instead (the shape
-		// `packages/media`'s `lockImageModelConfigForFile` already has).
+		// ran. Restored in the `finally` below, and safe to do here because this file holds the
+		// `model_config` advisory lock for its whole run (see `beforeAll`). That sentence used to
+		// read "safe because no other test file in `apps/web` resolves the `embedding` purpose",
+		// and it was false: `relation-label-embedder.test.ts` resolves it through
+		// `startImportRun`, and this window is what made two of its assertions fail in a real
+		// run. The remedy the old comment named is the one now in place.
 		const active = await db
 			.update(modelConfig)
 			.set({ active: false })
@@ -1214,6 +1253,58 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			for (const row of active) {
 				await db.update(modelConfig).set({ active: true }).where(eq(modelConfig.id, row.id));
 			}
+			clearModelCache();
+		}
+	}
+
+	/**
+	 * The other half of #773's fixture: a real swap of the active `embedding` row, through the
+	 * product's own writer rather than by hand, so what this exercises is what `/admin/models`'
+	 * text panel does when an admin points the `embedding` purpose at a different model.
+	 *
+	 * **The restore is not symmetric with the swap, and it has to not be.** `upsertTextModel`
+	 * never updates in place: it deactivates the current row and inserts a fresh one, and that
+	 * trail is exactly what `enqueueBackfillsForEmbeddingModelChange` detects a swap from. So
+	 * restoring by calling it a second time would be a second real swap, and every universe in
+	 * this shared test database older than it would be owed a catch-up for the rest of the run,
+	 * which is a trap for whichever later test next calls `sweepIndexBackfills()`. This puts
+	 * `model_config` back exactly as it was found instead: the inserted row is deleted and the
+	 * original is reactivated with the `updated_at` it had before, so the table cannot be told
+	 * apart from the one this started with.
+	 *
+	 * One transaction for the restore, and not two statements, because the gap between them is a
+	 * state no reader of `model_config` should ever see: with the inserted row deleted and the
+	 * original not yet reactivated there is no active `embedding` row at all, and a `resolveModel`
+	 * landing in that window gets `ModelNotConfiguredError` and silently degrades. That is not
+	 * hypothetical - it is the same shape as the flake this file's advisory lock exists for.
+	 */
+	async function withSwappedEmbeddingModel<T>(
+		next: { provider: string; modelId: string },
+		body: () => Promise<T>
+	): Promise<T> {
+		const [before] = await db
+			.select()
+			.from(modelConfig)
+			.where(and(eq(modelConfig.purpose, 'embedding'), eq(modelConfig.active, true)));
+		if (!before) throw new Error('no active embedding row to swap');
+		const inserted = await upsertTextModel(db, {
+			purpose: 'embedding',
+			provider: next.provider,
+			modelId: next.modelId,
+			paramKeys: [],
+			params: {}
+		});
+		clearModelCache();
+		try {
+			return await body();
+		} finally {
+			await db.transaction(async (tx) => {
+				await tx.delete(modelConfig).where(eq(modelConfig.id, inserted.id));
+				await tx
+					.update(modelConfig)
+					.set({ active: true, updatedAt: before.updatedAt })
+					.where(eq(modelConfig.id, before.id));
+			});
 			clearModelCache();
 		}
 	}
@@ -1308,6 +1399,228 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 		// Longer than vitest's 5s default, and the only tests in this file that need it: each one
 		// drives several real debounce windows, a real Qdrant scroll and a real fan-out that then
 		// has to drain through the worker. Real timers, on purpose, like everything else here.
+	}, 45_000);
+
+	it('enqueues a catch-up for a universe the active embedding model has just orphaned (issue #773)', async () => {
+		// The mirror of the test above, and the reason it needed its own trigger. #709's trigger
+		// fires on a *skip*: this universe could not be indexed, so come back for it. A swap of
+		// the active `embedding` row produces no skip at all - every save before it succeeded,
+		// against a collection whose name is keyed on the model, so the product now reads a
+		// different collection and the old one's contents are unreachable rather than stale.
+		//
+		// Measured rather than argued about (#773, against real Qdrant): the old collection is
+		// left in place, its points survive at their original width, and the new one does not
+		// exist yet. Both readers guard on `collectionExists` first, so nothing throws and
+		// nothing logs: `searchIndexed` returns no indexed sources and this enumeration reports
+		// every entry missing. That is worse than the state #709 fixed, because a universe whose
+		// index is empty at least looks empty, and this one looks fully indexed.
+		const { owner, world } = await fixture();
+		const before = await resolveModel(db, 'embedding');
+		const collectionBefore = loreCollectionNameForModel(before, world.id);
+		const vector = createVectorClient();
+		// Cleanup registers rather than `let ... = null`: the drainer and the second collection
+		// are created inside a callback, which control-flow analysis cannot see reaching the
+		// `finally`, so a nullable local narrows to `never` there and `svelte-check` rejects the
+		// cleanup outright. Pushing onto an array is not narrowed.
+		const queues: CanonSaveJobQueue[] = [];
+		const collections: string[] = [collectionBefore];
+		queues.push(
+			testQueue({
+				vectorClient: vector,
+				embeddingModelFactory: fakeEmbeddingModelFactory()
+			})
+		);
+		const queue = queues[0]!;
+		try {
+			const entry = await insertEntry(
+				world.id,
+				'The Sunken Bell',
+				'A bell that rings under the tide at Cairnmouth.'
+			);
+			queue.scheduleIndexOnly({
+				universeId: world.id,
+				entityId: entry.id,
+				entityName: entry.name,
+				userId: owner.id,
+				locale: 'en'
+			});
+			const indexed = await waitForEntityRow(db, world.id, entry.id, (r) => r.status === 'done');
+			expect((indexed.indexOutcome as IndexOutcome).status).toBe('ok');
+
+			const { dataSourceId } = await resolveOwnCanonCollection(db, world.id, before);
+			expect([
+				...(await indexedEntityUrls(vector, collectionBefore, {
+					universeId: world.id,
+					dataSourceId
+				}))
+			]).toContain(entityLoreUrl(entry.id));
+
+			// Nothing is owed, and this is the precondition that makes the swap the only cause of
+			// anything below: the entry indexed cleanly, so neither older trigger has evidence.
+			expect(await queue.sweepIndexBackfills()).not.toContain(world.id);
+
+			// The poller goes off before the swap, and that is not tidiness. A swap invalidates
+			// every universe's index, and a shared test database is a whole install, so a 10ms
+			// poller here would claim and drain a catch-up for every universe every earlier test
+			// in this file created, writing a collection per universe under the swapped model.
+			await queue.stop();
+
+			const jobsBefore = await backfillJobRowsFor(world.id);
+			await withSwappedEmbeddingModel(
+				// Not hardcoded against migration 0025's seed: whichever of these two is not the
+				// active row, so the swap is always real and always a different vector width.
+				[
+					{ provider: 'alibaba', modelId: 'qwen3-embedding-0.6b' },
+					{ provider: 'openai', modelId: 'text-embedding-3-small' }
+				].find((row) => row.provider !== before.provider || row.modelId !== before.modelId)!,
+				async () => {
+					const after = await resolveModel(db, 'embedding');
+					const collectionAfter = loreCollectionNameForModel(after, world.id);
+					collections.push(collectionAfter);
+					expect(collectionAfter).not.toBe(collectionBefore);
+					// The two halves of "looks indexed, answers nothing": the collection the product
+					// now reads does not exist, and the one holding the entry is still there.
+					expect(await collectionExists(vector, collectionAfter)).toBe(false);
+					expect(await collectionExists(vector, collectionBefore)).toBe(true);
+
+					// The trigger. This is the assertion that fails on `main`.
+					expect(await queue.sweepIndexBackfills()).toContain(world.id);
+					const owed = await newestBackfillFor(world.id);
+					expect(owed?.reason).toBe(EMBEDDING_MODEL_CHANGED_REASON);
+					expect(owed?.status).toBe('pending');
+
+					// A second sweep before the first catch-up has finished writes no second row. That
+					// is the partial unique index and not the watermark, which is a different claim
+					// and is asserted where it can actually be measured (the test below).
+					expect(await queue.sweepIndexBackfills()).not.toContain(world.id);
+					expect(await queue.recentBackfills(world.id)).toHaveLength(1);
+
+					// Every other universe this same swap owes a catch-up is settled rather than
+					// drained, for the reason the `stop()` above exists. Marked `done` and not
+					// deleted, because deleting would take their watermark with them and the
+					// drainer's own first sweep would enqueue them all over again.
+					await db
+						.update(universeIndexBackfill)
+						.set({ status: 'done', finishedAt: new Date() })
+						.where(
+							and(
+								eq(universeIndexBackfill.reason, EMBEDDING_MODEL_CHANGED_REASON),
+								sql`${universeIndexBackfill.universeId} <> ${world.id}::uuid`
+							)
+						);
+
+					const drainer = testQueue({
+						vectorClient: vector,
+						embeddingModelFactory: fakeEmbeddingModelFactory()
+					});
+					queues.push(drainer);
+					await drainer.waitForBackfillIdle(world.id, 30_000);
+
+					// `done` on an empty enumeration against the *new* collection, which is #715's
+					// rule doing the work: only the index counts, so this says the point is there
+					// rather than that a row was written.
+					const settled = await newestBackfillFor(world.id);
+					expect(settled?.status).toBe('done');
+					expect(settled?.entitiesMissing).toBe(0);
+
+					const fannedOut = (await backfillJobRowsFor(world.id)).filter(
+						(row) => !jobsBefore.some((old) => old.id === row.id)
+					);
+					expect(rowsPerEntity(fannedOut)).toEqual(new Map([[entry.id, 1]]));
+
+					expect(
+						[
+							...(await indexedEntityUrls(vector, collectionAfter, {
+								universeId: world.id,
+								dataSourceId
+							}))
+						],
+						'the catch-up puts the entry into the collection the product now reads'
+					).toContain(entityLoreUrl(entry.id));
+				}
+			);
+		} finally {
+			for (const instance of queues) await instance.stop();
+			for (const name of collections) {
+				await dropCollection(vector, name).catch(() => undefined);
+			}
+		}
+	}, 60_000);
+
+	it('owes a model-swap catch-up only to a universe the swap can have orphaned (issue #773)', async () => {
+		// The five clauses of `enqueueBackfillsForEmbeddingModelChange`, one named assertion each,
+		// so that a mutation of any one of them kills the assertion that names it rather than
+		// being absorbed by the end-to-end test above. Driven directly rather than through a
+		// queue: these are predicates on one statement, and no pass has to run for them to be
+		// wrong. All five were checked by mutation, one at a time, and the fifth is here because
+		// the first version of it was decorative (see the comment on the watermark below).
+		const before = await resolveModel(db, 'embedding');
+		const { world: owed } = await fixture();
+		await insertEntry(owed.id, 'Owed Hold', 'It has an entry, so it has an index to orphan.');
+		// Nothing has ever been written for this one, so a swap orphans nothing.
+		const { world: empty } = await fixture();
+		try {
+			await withSwappedEmbeddingModel(
+				[
+					{ provider: 'alibaba', modelId: 'qwen3-embedding-0.6b' },
+					{ provider: 'openai', modelId: 'text-embedding-3-small' }
+				].find((row) => row.provider !== before.provider || row.modelId !== before.modelId)!,
+				async () => {
+					// Created after the swap, so it has only ever been indexed under the row that is
+					// active now. Owed nothing, and this is the clause that stops every universe
+					// created from here on being enqueued once, forever.
+					const { world: fresh } = await fixture();
+					await insertEntry(fresh.id, 'Fresh Hold', 'Born under the new model.');
+
+					const enqueued = await enqueueBackfillsForEmbeddingModelChange(db);
+					expect(enqueued).toContain(owed.id);
+					expect(enqueued, 'a universe with no entries has no index to orphan').not.toContain(
+						empty.id
+					);
+					expect(
+						enqueued,
+						'a universe created after the swap has only ever been indexed under the current row'
+					).not.toContain(fresh.id);
+
+					// The watermark, and this has to be asked *after* the row it just wrote has
+					// finished. While that row is `pending` the partial unique index refuses a second
+					// one anyway, so asking here measures the index and not the watermark: deleting
+					// the watermark clause left the first version of this assertion green, which is
+					// the only reason it is written this way.
+					await db
+						.update(universeIndexBackfill)
+						.set({ status: 'done', finishedAt: new Date() })
+						.where(eq(universeIndexBackfill.reason, EMBEDDING_MODEL_CHANGED_REASON));
+					expect(
+						await enqueueBackfillsForEmbeddingModelChange(db),
+						'the row already written is later than the swap, so the same question answers no'
+					).not.toContain(owed.id);
+				}
+			);
+
+			// And the clause that is about identity rather than about time. Saving the same model
+			// again is what an admin does by clicking Save twice, and `upsertTextModel` answers it
+			// with a brand new active row, so a check on "has the row changed" alone would fan out
+			// over the whole install for a no-op.
+			await db
+				.update(universeIndexBackfill)
+				.set({ status: 'done', finishedAt: new Date() })
+				.where(eq(universeIndexBackfill.reason, EMBEDDING_MODEL_CHANGED_REASON));
+			await withSwappedEmbeddingModel({ ...before }, async () => {
+				expect(
+					await enqueueBackfillsForEmbeddingModelChange(db),
+					're-saving the same provider and model id is not a swap'
+				).not.toContain(owed.id);
+			});
+		} finally {
+			// Nothing polls in this test, so these rows never became work; settling them keeps a
+			// later test's queue from claiming one, and keeps the watermark that suppresses a
+			// second enqueue for the same swap.
+			await db
+				.update(universeIndexBackfill)
+				.set({ status: 'done', finishedAt: new Date() })
+				.where(eq(universeIndexBackfill.reason, EMBEDDING_MODEL_CHANGED_REASON));
+		}
 	}, 45_000);
 
 	it('a backfill schedules one index job per unindexed entry, staggered, and none for an entry already indexed (issue #709)', async () => {

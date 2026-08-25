@@ -57,7 +57,12 @@ describe('/admin/models save actions merge params (issue #235)', () => {
 		await db.execute(sql`select pg_advisory_lock(hashtext('model_config'), 0)`);
 		await db.delete(imageModelConfig).where(eq(imageModelConfig.feature, IMAGE_FEATURE));
 		await db.delete(modelConfig).where(eq(modelConfig.purpose, TEXT_PURPOSE));
-	});
+		// 120s rather than vitest's default 10s `hookTimeout`. Both locks above are now contended
+		// by files that hold them for far longer than ten seconds - `canon-save.test.ts` holds
+		// `model_config` for about 13.5s of its run - and a hook that waits past the timeout
+		// fails this whole file with `Hook timed out in 10000ms`, reporting its three tests
+		// skipped, rather than queueing the way the lock intends.
+	}, 120_000);
 
 	// Every test seeds its own active row, and image_model_config's partial unique
 	// index allows only one active row per feature - clear both target rows before

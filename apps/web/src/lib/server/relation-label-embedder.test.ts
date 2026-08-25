@@ -18,7 +18,7 @@
  * gateway: `ImportJobRunner.run` is spied out, so nothing the resolved embedder is handed to
  * ever calls it.
  */
-import { closeDb, createDb, type Db } from '@canonry/db';
+import { closeDb, createDb, sql, type Db } from '@canonry/db';
 import { clearModelCache } from '@canonry/ai';
 import type * as Indexing from '@canonry/indexing';
 import type { GatewayEmbedderDeps } from '@canonry/indexing';
@@ -64,11 +64,24 @@ const DATABASE_URL =
 
 let db: Db;
 
-beforeAll(() => {
-	db = createDb(DATABASE_URL);
-});
+beforeAll(async () => {
+	// `max: 1`, and the lock, because both assertions below that expect a real gateway embedder
+	// depend on `model_config` having an active `embedding` row: `resolveRelationLabelEmbedder`
+	// and `resolveImportSimilarity` both catch `ModelNotConfiguredError` and fall back to the
+	// network-free stand-in, which records no `createGatewayEmbedder` call, so the absence of
+	// that row reads here as "the production path handed the runner the wrong embedder". It is
+	// `canon-save.test.ts` that deactivates and swaps that row, for its own #709/#773 tests, and
+	// that file takes the same lock (as does `params-merge.test.ts`); a pooled connection would
+	// make a session-scoped lock meaningless, hence the single connection.
+	db = createDb(DATABASE_URL, { max: 1 });
+	// 120s rather than vitest's default 10s `hookTimeout`: `canon-save.test.ts` holds this lock
+	// for about 13.5s of its run, and a hook that waits past the timeout fails this whole file
+	// with `Hook timed out in 10000ms` instead of waiting its turn.
+	await db.execute(sql`select pg_advisory_lock(hashtext('model_config'), 0)`);
+}, 120_000);
 
 afterAll(async () => {
+	await db.execute(sql`select pg_advisory_unlock(hashtext('model_config'), 0)`);
 	await closeDb(db);
 });
 
