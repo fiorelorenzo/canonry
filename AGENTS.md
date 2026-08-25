@@ -140,6 +140,37 @@ the same test failed again the only assertion that noticed was the count, which 
 moved and never which entry moved it. One row per id and how many of them is the assertion both
 of those were standing in for, and it is the one to write first.
 
+**A test that forces a race has two failure modes of its own, and #767 hit both in one evening.**
+The technique this repo has settled on is to hold one actor at a seam, usually by proxying the
+vector client's `scroll`, and drive the other one past it from inside the hook; #764, #766 and
+#767 all do it. The first trap is that the seam is not always reached. `unindexedEntities`
+returns early, with every entry missing and **without calling `scroll` at all**, when the
+collection does not exist, which is the ordinary state of a universe that has never indexed
+anything. So on a single-entry universe the first backfill pass never touches the seam and what
+gets held is the _verification_ pass, whose observation is `missing: 0`: a test written to
+reproduce a double-schedule reproduced a completely different write, passed, reported its own
+"did we really interleave" flag as true, and still passed with the fence deleted from the code
+it was meant to be testing. Index one entry up front so the collection exists, make a second
+entry the actual shortfall, arm the hook explicitly rather than holding the first scroll that
+comes along, and assert on the log line naming what was refused rather than only on the damage
+not happening. "A scroll was held" is not the same claim as "the held observation was the one
+that mattered", and only the second one is worth a test.
+
+The second trap is the wall clock, and it is the one CI finds rather than this box. #767's fence
+compares a lease's exact `lease_expires_at`, and the test that justifies comparing it rather than
+the holder alone took two claims of one row back to back. Both compute `new Date(Date.now() +
+60_000)`, CI's runner does both inside the same millisecond, and two identical timestamps mean
+the second claim supersedes nothing: three green runs here, red on CI's first, on an assertion
+that had nothing to do with the code under test. Anything that hangs off two timestamps taken in
+quick succession has to make them differ by construction and then assert that they did, because
+the degenerate case is a silent pass and this box is too slow to ever show it to you.
+
+The rule that comes out of both, and #765 arrived at it independently: **prove a race test
+discriminates by mutating the implementation, one clause at a time, and check each mutation kills
+the test that names it.** Five mutations of #767's fence killed five different assertions, and
+the first of those five is what exposed the test above as decorative. A green race test is
+evidence of nothing until it has been seen to fail.
+
 **`.env` is the compose stack's environment, not the test suite's.** Its `DATABASE_URL` and
 `QDRANT_URL` name the compose services (`postgres:5432`, `qdrant:6333`), which is correct
 inside that network and wrong from the host, so the tests bypass it and default to loopback.
