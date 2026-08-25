@@ -133,7 +133,12 @@ since #658, #682, #691 and #737 were all found by a flake rather than by looking
 that counts rows the suite shares is a race, so scope it to something the test owns or lock it,
 and prefer one that says which rows it found over one that says how many. #737 is the reminder
 that owning the rows is not sufficient on its own, because its count was correctly scoped to
-its own universe and still wrong, the product having scheduled those rows twice.
+its own universe and still wrong, the product having scheduled those rows twice. And #764 is
+the reminder that "which rows" has to mean the multiset: the fix for #737 put a set of entity
+ids next to the count it had just made exact, and a set cannot see a duplicate at all, so when
+the same test failed again the only assertion that noticed was the count, which says a total
+moved and never which entry moved it. One row per id and how many of them is the assertion both
+of those were standing in for, and it is the one to write first.
 
 **`.env` is the compose stack's environment, not the test suite's.** Its `DATABASE_URL` and
 `QDRANT_URL` name the compose services (`postgres:5432`, `qdrant:6333`), which is correct

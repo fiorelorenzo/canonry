@@ -1231,6 +1231,17 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			.orderBy(canonSaveJob.runAfter);
 	}
 
+	/** How many job rows each entity got, which is the assertion a count cannot make. A
+	 * double-schedule moves this map and moves no set: `new Set(rows.map(r => r.entityId))` is
+	 * blind to a duplicate by construction, and `entities_scheduled` sees one only if you
+	 * already know what the right number is. This says which entries were scheduled *and* that
+	 * each was scheduled once, which is the whole claim (#737, #764). */
+	function rowsPerEntity(rows: readonly CanonSaveJobRow[]): Map<string, number> {
+		const counts = new Map<string, number>();
+		for (const row of rows) counts.set(row.entityId, (counts.get(row.entityId) ?? 0) + 1);
+		return counts;
+	}
+
 	it('enqueues no backfill while there is no embedding model, and one for the skipped universe once there is (issue #709)', async () => {
 		const { owner, world } = await fixture();
 		const created = await insertEntry(world.id, 'Unreachable Hold');
@@ -1340,17 +1351,19 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			expect(backfill?.status).toBe('done');
 			expect(backfill?.entitiesTotal).toBe(4);
 			expect(backfill?.entitiesMissing).toBe(0);
-			// Three, not four: the entry that already had its point was never missing, so nothing
-			// was scheduled for it. Exact rather than "at least three" because the fan-out skips an
-			// entity that already has an in-flight row, so a verification pass cannot schedule the
-			// same entry twice however long the queue takes to drain (issue #737).
-			expect(backfill?.entitiesScheduled).toBe(3);
 
 			const after = await backfillJobRowsFor(world.id);
 			const fannedOut = after.filter((row) => !before.some((old) => old.id === row.id));
-			expect(new Set(fannedOut.map((row) => row.entityId))).toEqual(
-				new Set(skippedEntries.map((row) => row.id))
-			);
+			// Three rows, one per skipped entry, and none for the entry that already had its point.
+			// A map rather than the count that used to be here (`entities_scheduled` toBe(3)) or the
+			// set that used to sit beside it: the count moved under load without saying which entry
+			// had been scheduled twice, and a set of ids cannot see a duplicate at all. This says
+			// which entries and how many rows each, which is the claim both of those stood in for
+			// (#737, #764).
+			expect(rowsPerEntity(fannedOut)).toEqual(new Map(skippedEntries.map((row) => [row.id, 1])));
+			// And the counter agrees with the rows that exist, rather than with a literal somebody
+			// would have to keep in step with the fixture.
+			expect(backfill?.entitiesScheduled).toBe(fannedOut.length);
 			// The shape that makes propagation and audit structurally impossible for these rows, the
 			// same guard `scheduleEntityIndexJob` relies on: no diff to name, no revision to blame.
 			for (const row of fannedOut) {
@@ -1365,7 +1378,10 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			// Three entries is one batch, so they share a `run_after` - the stagger is per batch of
 			// `BACKFILL_SCHEDULE_BATCH`, and what matters here is that a backfill row is never due
 			// *before* a save made at the same moment, which is what keeps a GM's propagation ahead
-			// of a catch-up they did not ask for.
+			// of a catch-up they did not ask for. Still a count, and no longer a race detector: the
+			// assertion above pins exactly which rows `fannedOut` holds, so a duplicate pass cannot
+			// reach this line to add its later `run_after` to the set (which is what made it fail
+			// as a second-order symptom in #737).
 			const dueTimes = new Set(fannedOut.map((row) => row.runAfter.getTime()));
 			expect(dueTimes.size).toBe(1);
 
@@ -1490,17 +1506,24 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			// All three, not the one the job rows can name.
 			expect(backfill?.entitiesTotal).toBe(3);
 			expect(backfill?.entitiesMissing).toBe(0);
-			expect(backfill?.entitiesScheduled).toBe(3);
 
-			// And which three, which is the claim the count only stands in for: a count can be
-			// right for the wrong reason, and this one was wrong under load until #737 stopped the
-			// fan-out re-scheduling an entry whose row was already claimed.
+			// Which three, and how many rows each, which is the claim `entities_scheduled` only
+			// stands in for. #737 made this a count beside a set of ids and #764 is why neither was
+			// enough: the count knew a duplicate had happened without saying which entry, and the
+			// set could not see one at all. The map says both. `entities_scheduled` is then checked
+			// against the rows that exist rather than against a literal, so the counter is asserted
+			// to agree with reality instead of being a second, independent guess at it.
 			const fannedOut = (await backfillJobRowsFor(world.id)).filter(
 				(row) => !before.some((old) => old.id === row.id)
 			);
-			expect(new Set(fannedOut.map((row) => row.entityId))).toEqual(
-				new Set([neverScheduled.id, deadLettered.id, skipped.id])
+			expect(rowsPerEntity(fannedOut)).toEqual(
+				new Map([
+					[neverScheduled.id, 1],
+					[deadLettered.id, 1],
+					[skipped.id, 1]
+				])
 			);
+			expect(backfill?.entitiesScheduled).toBe(fannedOut.length);
 
 			for (const entry of [neverScheduled, deadLettered, skipped]) {
 				const done = await waitForEntityRow(
@@ -1531,6 +1554,144 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 				'an entry that never had a job row at all is retrievable after the backfill'
 			).toBe(true);
 		} finally {
+			await queue.stop();
+			await dropCollection(vector, collectionName).catch(() => undefined);
+		}
+	}, 45_000);
+
+	it('schedules nothing for an entry whose job finishes between the enumeration and the fan-out (issue #764)', async () => {
+		// #746 stopped the fan-out re-scheduling an entry whose job was still `pending` or
+		// `claimed` by reading the in-flight set inside the insert's own statement. #764 is the
+		// window that anti-join cannot see, because it is not inside the statement at all:
+		//
+		//   T0  the pass reads the collection and finds this entry missing, because the job that
+		//       is about to index it is still `claimed`;
+		//   T1  that job upserts the entity point (`wait: true`, so it is visible to every read
+		//       after this) and `completeCanonSaveJob` marks the row `done`;
+		//   T2  the pass runs its insert. The anti-join sees a `done` row, which is deliberately
+		//       not in-flight (#715: an entry whose job ended without writing its point still
+		//       needs one), and `canon_save_job_pending_key` constrains `pending` only, so a
+		//       second job row is written for work that has already finished.
+		//
+		// Widening the partial unique index would not have closed this: at T2 the row is `done`,
+		// and an index that also blocked `done` and `failed` would break both #715 and #762's
+		// give-up path. What closes it is that the pass fixes its work list at T0 - the in-flight
+		// set is read *before* the collection, so an entry that was in flight when we looked is
+		// never scheduled on the strength of that look.
+		//
+		// Forced rather than raced, which is the whole point: the embedder holds until the
+		// verification pass has read the collection, and that read then holds until the job it
+		// was racing is `done`. Both halves of the interleaving are ours, so this fails on every
+		// run against the code before the fix rather than one run in a hundred under CI load.
+		const { owner, world } = await fixture();
+		const embeddingModel = await resolveModel(db, 'embedding');
+		const collectionName = loreCollectionNameForModel(embeddingModel, world.id);
+		const vector = createVectorClient();
+
+		// The embedder the fan-out's own job will reach, held shut until the pass has looked.
+		const held = Promise.withResolvers<void>();
+		const holdingEmbeddingFactory: EmbeddingModelFactory = (resolved) => {
+			const dims = embeddingDimensionsFor(resolved.provider, resolved.modelId);
+			return new MockEmbeddingModelV4({
+				doEmbed: async (options) => {
+					await held.promise;
+					return {
+						embeddings: options.values.map((text) => fakeEmbedVector(text, dims)),
+						usage: { tokens: options.values.join(' ').length },
+						warnings: []
+					};
+				}
+			}) as unknown as EmbeddingModel;
+		};
+
+		let entryId = '';
+		let interleaved = false;
+		let interleavedJobId = '';
+		// The seam is `scroll`, because that is the enumeration's own read of the collection
+		// (`indexedEntityUrls` -> `scrollPointsPage` -> `client.scroll`). The page it returns is
+		// the real, unmodified answer from before the point landed; all this wrapper does is
+		// hold the pass there until the job that answer is stale about has finished, which is
+		// exactly what a loaded box does to it for free.
+		const interleavingVector = new Proxy(vector, {
+			get(target, prop, receiver) {
+				const value = Reflect.get(target, prop, receiver);
+				if (typeof value !== 'function') return value;
+				const method = value.bind(target) as (...args: never[]) => unknown;
+				if (prop !== 'scroll') return method;
+				return async (...args: never[]) => {
+					const page = await method(...args);
+					const [inFlight] = await db
+						.select({ id: canonSaveJob.id })
+						.from(canonSaveJob)
+						.where(
+							and(
+								eq(canonSaveJob.universeId, world.id),
+								eq(canonSaveJob.entityId, entryId),
+								sql`${canonSaveJob.status} in ('pending', 'claimed')`
+							)
+						);
+					if (!interleaved && inFlight) {
+						interleaved = true;
+						held.resolve();
+						// That row, by id: `waitForEntityRow` would match the `no-embedding-model` job
+						// this entry already has, which is `done` before the sweep even starts, and the
+						// wait would return without waiting for anything at all.
+						interleavedJobId = inFlight.id;
+						await waitForRow(db, inFlight.id, (row) => row.status === 'done', 20_000);
+					}
+					return page;
+				};
+			}
+		}) as typeof vector;
+
+		const queue = testQueue({
+			vectorClient: interleavingVector,
+			embeddingModelFactory: holdingEmbeddingFactory
+		});
+		try {
+			const skipped = await withoutEmbeddingModel(async () => {
+				const row = await insertEntry(world.id, 'Held Hold', 'Indexed while a pass watches.');
+				queue.scheduleIndexOnly({
+					universeId: world.id,
+					entityId: row.id,
+					entityName: row.name,
+					userId: owner.id,
+					locale: 'en'
+				});
+				// This one records `no-embedding-model` without reaching the embedder at all, so
+				// the held promise above does not block it.
+				await waitForEntityRow(db, world.id, row.id, (r) => r.status === 'done');
+				return row;
+			});
+			entryId = skipped.id;
+
+			const before = await backfillJobRowsFor(world.id);
+			await queue.sweepIndexBackfills();
+			await queue.waitForBackfillIdle(world.id, 30_000);
+
+			// Without this the test can pass by never reaching the window it exists for, which is
+			// the failure mode of every race test that only asserts the good outcome: the pass has
+			// to have read the collection while that job was in flight, and the job has to have
+			// reached `done` before the pass got to its insert.
+			expect(interleaved, 'the enumeration really did overlap an in-flight job').toBe(true);
+
+			const fannedOut = (await backfillJobRowsFor(world.id)).filter(
+				(row) => !before.some((old) => old.id === row.id)
+			);
+			// One row, for that entry, and the counter agreeing with it. Before the fix this is two
+			// rows for one entity and `entities_scheduled` 2, which is #764's `expected 4 to be 3`
+			// with the load taken out of it.
+			expect(rowsPerEntity(fannedOut)).toEqual(new Map([[skipped.id, 1]]));
+			expect(
+				fannedOut.map((row) => row.id),
+				'the surviving row is the one that did the work, not a replacement for it'
+			).toEqual([interleavedJobId]);
+			const [backfill] = await queue.recentBackfills(world.id);
+			expect(backfill?.status).toBe('done');
+			expect(backfill?.entitiesMissing).toBe(0);
+			expect(backfill?.entitiesScheduled).toBe(fannedOut.length);
+		} finally {
+			held.resolve();
 			await queue.stop();
 			await dropCollection(vector, collectionName).catch(() => undefined);
 		}
