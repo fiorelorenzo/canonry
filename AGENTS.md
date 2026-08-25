@@ -171,6 +171,32 @@ the test that names it.** Five mutations of #767's fence killed five different a
 the first of those five is what exposed the test above as decorative. A green race test is
 evidence of nothing until it has been seen to fail.
 
+**Two more from #777, and the first one is why three agents in a row have now mis-measured a
+flake in this area.** The load that produces it is **sustained concurrency against the shared dev
+Qdrant**, not anything about the test, and an arm that starts a fresh process per scenario never
+builds it: the single test run eight times came back 0 for 8, and 0 for 600 across parallel
+single-scenario processes, both of which read as "this does not reproduce" and mean "I ran it
+wrong". Forty scenarios inside one process with six processes at once reproduced it in a minute.
+That Qdrant is one container for the whole box, so a wave running beside you is load you did not
+add and cannot see, which is why the same command can be 1 in 8 for the agent who files an issue
+and 0 in 600 for the agent who picks it up. Loop the scenario inside one process before
+concluding anything, and when two arms disagree, **score both arms on the same samples**: the
+before/after that settled #777 ran the old assertion and the new one over one set of 480
+scenarios, which removed arm-to-arm variance from the comparison entirely.
+
+And the other one, which is a whole class rather than a trap: **a flake can be the assertion
+failing on correct behaviour, so check what the invariant actually promises before hunting the
+tenth race.** #777 was filed as a sixth cell of #770's partition and was not one. `rowsPerEntity`
+asserted that an entry gets at most one `canon_save_job` row; `backfill-store.ts`'s own first
+restriction says an entry whose job completed without writing its point is still owed one, so a
+second row there is the invariant holding. Nine fixes in this mechanism were real and the tenth
+report was a comment and an assertion claiming more than the code ever did. The tell is a failure
+whose captured state is _legal_ under the rules written down: dump the rows and read them against
+the invariant before writing a fix, because a fix here would have been a guardrail 1 defect. The
+cheap idempotency it suggested (skip the embed when the point already exists) would have fired on
+the accept path, whose row is byte-identical to the backfill fan-out's, and dropped an accepted
+proposal out of retrieval for good.
+
 **`.env` is the compose stack's environment, not the test suite's.** Its `DATABASE_URL` and
 `QDRANT_URL` name the compose services (`postgres:5432`, `qdrant:6333`), which is correct
 inside that network and wrong from the host, so the tests bypass it and default to loopback.
