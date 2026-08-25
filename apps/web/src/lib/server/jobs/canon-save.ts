@@ -705,6 +705,24 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 		return [...enqueued, ...retried];
 	}
 
+	/** One line per pass that found itself fenced out (#767), naming the write that was refused
+	 * so that "this pass was reclaimed" and "this pass had nothing to do" are never the same
+	 * entry in a log. `warn` rather than `error`: it is the designed outcome for a stale
+	 * worker, and the universe is being caught up by whoever holds the row now. */
+	function logPassAbandoned(row: UniverseIndexBackfillRow, refused: string): void {
+		console.warn(
+			JSON.stringify({
+				event: 'universe_index_backfill_pass_abandoned',
+				backfillId: row.id,
+				universeId: row.universeId,
+				attemptCount: row.attemptCount,
+				// The lease this pass was holding, which some other worker has since replaced.
+				leaseHolder: row.leaseHolder,
+				refused
+			})
+		);
+	}
+
 	/**
 	 * One backfill pass: enumerate what this universe is missing from its own collection, then
 	 * schedule an index-only job per missing entry with the stagger `BACKFILL_*` describes.
@@ -721,10 +739,21 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 	 * **The invariant this pass has to hold is stated once, at the top of `backfill-store.ts`,
 	 * and it is worth reading before changing anything here.** Five changes to this mechanism in
 	 * one day each restored one clause of it, and the reason each had to be found the hard way is
-	 * that the clause was nowhere written. The two that bear on this function directly: only the
-	 * index counts, so nothing below may treat a row it wrote as work done; and this pass may
+	 * that the clause was nowhere written. The three that bear on this function directly: only
+	 * the index counts, so nothing below may treat a row it wrote as work done; this pass may
 	 * write only what one observation justifies, which is why the in-flight read comes before the
-	 * collection read and why `capped` is measured against what this pass could actually schedule.
+	 * collection read and why `capped` is measured against what this pass could actually schedule;
+	 * and that observation has to be one this pass still owns, which is the paragraph below.
+	 *
+	 * **A pass that does not die is the harder case, and it is issue #767.** One held long
+	 * enough to lose its lease is reclaimed underneath itself, and then two passes over one
+	 * universe each hold their own observation of what is missing. Nothing here can detect that
+	 * by looking, so every write below instead presents the row it was handed and is refused
+	 * unless the `(lease_holder, lease_expires_at)` on that row is still the one it claimed
+	 * (`BackfillLease` in `backfill-store.ts` carries the argument). A refusal is not an error:
+	 * it is a stale worker doing exactly what a stale worker should, so the pass logs one line
+	 * naming the write that was refused and returns, leaving the row entirely to whoever holds
+	 * it now.
 	 */
 	async function runBackfill(row: UniverseIndexBackfillRow): Promise<void> {
 		let embeddingModel;
@@ -734,10 +763,11 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 			if (!(err instanceof ModelNotConfiguredError)) throw err;
 			// The row was deactivated again between the sweep and this claim. The catch-up is
 			// still owed, so the row stays owed too.
-			await requeueIndexBackfill(conn, row.id, {
+			const requeued = await requeueIndexBackfill(conn, row, {
 				message: 'no active embedding model at claim time',
 				retryMs: BACKFILL_NO_MODEL_RETRY_MS
 			});
+			if (!requeued) logPassAbandoned(row, 'requeue-no-model');
 			return;
 		}
 
@@ -781,12 +811,22 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 		// The locale of a backfill is nobody's: there is no actor and nothing it schedules will
 		// ever produce speech, because propagation and audit return on the empty diff these rows
 		// carry. Default rather than invented.
-		const scheduled = await scheduleBackfillIndexJobRows(
+		const fanOut = await scheduleBackfillIndexJobRows(
 			conn,
+			row,
 			row.universeId,
 			DEFAULT_LOCALE,
 			jobRows
 		);
+		// The first place a reclaimed pass finds out, and the last thing it does. Returning here
+		// rather than falling through to `resumeIndexBackfill` matters: that write is fenced too
+		// and would refuse as well, but a pass that has been told the row is not its own has no
+		// business making a second attempt on it.
+		if (fanOut.fenced) {
+			logPassAbandoned(row, 'fan-out');
+			return;
+		}
+		const scheduled = fanOut.inserted;
 		// How far past "now" the last batch comes due, plus a margin for the last job to actually
 		// run - which is how long a resumed pass has to wait before re-enumerating usefully.
 		const spanMs =
@@ -834,11 +874,16 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 		};
 
 		if (missing.length === 0) {
-			await completeIndexBackfill(conn, row.id, counts);
+			// `logPass` is after the write in both branches for the same reason #745 moved it: the
+			// line reports a decision, and a fenced pass decided nothing.
+			if (!(await completeIndexBackfill(conn, row, counts))) {
+				logPassAbandoned(row, 'complete');
+				return;
+			}
 			logPass('done');
 			return;
 		}
-		const resumed = await resumeIndexBackfill(conn, row.id, {
+		const resumed = await resumeIndexBackfill(conn, row, {
 			...counts,
 			nextRunAfterMs: spanMs + backfillVerifyDelayMs,
 			// A capped pass has different work waiting, and a pass that reduced the shortfall is
@@ -847,6 +892,10 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 			capped,
 			maxAttempts
 		});
+		if (!resumed.applied) {
+			logPassAbandoned(row, 'resume');
+			return;
+		}
 		logPass(resumed.deadLettered ? 'gave-up' : capped ? 'capped' : 'verifying');
 		if (resumed.deadLettered) {
 			// Same event as the claim path's lease dead-letter, because it is the same fact for
@@ -900,10 +949,16 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 				);
 				// Recorded on the row and left `claimed` with a short lease, so the claim above
 				// reclaims it and the attempt cap eventually dead-letters it - the same handling a
-				// crashed pass gets, rather than a second failure path.
-				await requeueIndexBackfill(conn, row.id, { message, retryMs: BACKFILL_RETRY_MS }).catch(
-					() => undefined
-				);
+				// crashed pass gets, rather than a second failure path. Fenced like every other
+				// write (#767): a pass reclaimed while it was failing leaves the row's story to
+				// its new owner, and the message above is what survives instead.
+				const requeued = await requeueIndexBackfill(conn, row, {
+					message,
+					retryMs: BACKFILL_RETRY_MS
+				}).catch(() => null);
+				// `false` is the fence; `null` is this write itself failing, which the line above
+				// has already reported and which is not a pass being reclaimed.
+				if (requeued === false) logPassAbandoned(row, 'requeue-failed');
 			})
 	};
 

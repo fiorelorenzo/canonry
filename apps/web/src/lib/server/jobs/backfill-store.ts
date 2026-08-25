@@ -52,10 +52,15 @@
  *   function of one observation. It also had to stop counting "deferred because something else
  *   is indexing it" as progress, since that reset the attempts of exactly the stuck universe
  *   the bound exists to catch.
- * - **#767, still open**, is the same clause one actor further out: two passes over one universe
- *   can overlap if a pass outlives its lease, and each then holds its own observation. Nothing
- *   fences a reclaimed pass, so it can also resume, complete or dead-letter a row a live worker
- *   now owns. That is the "an observation it still owns" phrase not yet being enforced.
+ * - **#767** closed the same clause one actor further out: two passes over one universe overlap
+ *   when a pass outlives its lease, and each then holds its own observation, so the second could
+ *   write from one the first had already invalidated. The lease was this mechanism's only
+ *   coordination primitive and nothing checked it where a write happens, which is also why a
+ *   reclaimed pass could resume, complete or dead-letter a row a live worker owned. Every write
+ *   now presents the `(lease_holder, lease_expires_at)` it was claimed under and is refused
+ *   otherwise, so "an observation it still owns" is enforced rather than assumed. Which is also
+ *   the short answer to why there were five: the four above are a pass acting on a stale read of
+ *   the world, and this one is a pass acting on a stale read of the lease itself.
  * - **#761** is the last clause: a dead letter had no way back, so the bound was in practice a
  *   bound on the universe. `enqueueRetriesForDeadLetteredBackfills` puts the universe back on
  *   the hook on a widening cooldown.
@@ -75,6 +80,60 @@ import {
 import type { Locale } from '@canonry/lang';
 
 export type UniverseIndexBackfillRow = typeof universeIndexBackfill.$inferSelect;
+
+/**
+ * The token a pass presents with every write it makes, which is the claimed row itself: its
+ * id, and the `(lease_holder, lease_expires_at)` pair the claim stamped on it.
+ *
+ * **Why a token and not a check (issue #767).** `claimNextIndexBackfill` hands the row to one
+ * worker at a time and reclaims it when the lease expires, so the lease is this mechanism's
+ * only coordination primitive - and until #767 nothing enforced it at the moment of a write.
+ * A pass that hung for longer than `DEFAULT_BACKFILL_LEASE_MS` was reclaimed underneath
+ * itself and then carried on: it inserted its fan-out from an observation the live pass had
+ * already invalidated (a second embedding call and a second upsert for work that was
+ * finished), and it called `resumeIndexBackfill` or `completeIndexBackfill` on a row another
+ * worker now owned, so it could move `run_after`, zero the attempt count that #762's give-up
+ * rule counts, or mark `done` a backfill still being worked on. A lease that is not checked
+ * where the write happens is not a lease, it is a hint.
+ *
+ * So every write in this file is fenced on this triple, and the three parts each earn their
+ * place. `lease_holder` alone is not enough, because a poller's holder is one
+ * `randomUUID()` for the life of the instance and the same instance reclaiming its own row
+ * would leave it identical; `lease_expires_at` is what always moves, since a claim sets it
+ * to `now() + leaseMs` and `resumeIndexBackfill`/`completeIndexBackfill` set it to null.
+ * Comparing it for equality is therefore the fencing token proper, and it costs one
+ * dependency worth writing down: the claim stamps that column from a JS `Date`, at
+ * millisecond precision, and the value round-trips through postgres.js unchanged. Setting it
+ * from `now() + interval` in SQL instead would give it microseconds the token cannot match,
+ * and the fence would start refusing the live holder. And `lease_expires_at > now()`, on the
+ * database's clock rather than a worker's, is what bounds how stale a write may be: no write
+ * is ever made from an observation older than one lease.
+ *
+ * Nullable on purpose, so that this is total rather than an assertion. A row with no lease
+ * satisfies no fence: `lease_holder = null` is NULL rather than true, so a pass holding such
+ * a row writes nothing, which is the answer we would want anyway.
+ */
+export interface BackfillLease {
+	id: string;
+	leaseHolder: string | null;
+	leaseExpiresAt: Date | null;
+}
+
+/**
+ * The predicate every write below carries, in one place: four call sites each spelling out
+ * the same three clauses is four places for one of them to drift, and a fence that is right
+ * in three of them is not a fence.
+ *
+ * Columns are deliberately unqualified. Every statement that uses this either updates
+ * `universe_index_backfill` directly or selects from it under an alias, and in both cases an
+ * unqualified column resolves to that table and to nothing else, so this composes with the
+ * aliased `update ... as b` in `resumeIndexBackfill` and with the plain builder updates alike.
+ */
+function stillHeldBy(lease: BackfillLease) {
+	return sql`lease_holder = ${lease.leaseHolder}
+		and lease_expires_at = ${lease.leaseExpiresAt?.toISOString() ?? null}::timestamptz
+		and lease_expires_at > now()`;
+}
 
 /** Why a universe is owed a catch-up. A text column rather than an enum on purpose (see the
  * table's own comment), so these are named constants rather than schema values. */
@@ -290,6 +349,16 @@ export interface BackfillIndexJobRow {
 	delayMs: number;
 }
 
+export interface BackfillFanOutResult {
+	/** How many job rows this pass actually wrote. */
+	inserted: number;
+	/** True when the insert was refused because this pass no longer holds the lease, which is
+	 * a different fact from `inserted === 0` and the caller has to be able to tell them apart:
+	 * zero inserted is a pass that found everything already in flight and should carry on to
+	 * record its numbers, fenced is a pass that must record nothing at all. */
+	fenced: boolean;
+}
+
 /**
  * Which entities of this universe already have an index job in flight, read as one set so
  * that a pass can fix its work list at the moment it looks rather than at the moment it
@@ -370,6 +439,18 @@ export async function entitiesWithIndexJobInFlight(
  * joined it - a GM saving that entry, or a second replica's pass - because a set read a
  * moment ago cannot know about those.
  *
+ * **And the third half, which is issue #767.** Both of the above are about the entity's index
+ * state, and neither is about who is entitled to act on it. Two passes over one universe each
+ * hold their own observation, so the second can write from one the first has already
+ * invalidated: a `done` row is not in-flight and is not constrained by the partial index, so
+ * the two mechanisms above see nothing wrong with it. What excludes it is that only one pass
+ * holds the lease, which is what `held` below checks and what `BackfillLease` is for. It is
+ * checked inside this statement rather than before it, and with `for update`, because the
+ * claim path takes the same row `for update skip locked`: while this insert holds that lock
+ * the row cannot be reclaimed, and once it is reclaimed this insert cannot fire. The lock is
+ * held for one insert rather than for a pass, which is the whole reason this is cheaper than
+ * serialising the passes.
+ *
  * Bodies are empty for the same structural reason `EntityIndexJobInput` has no body fields: an
  * empty `semanticDiff` is what makes propagation and audit no-ops without a flag, so a
  * backfill cannot make the copilot write anything. `trigger_revision_id` is null, and
@@ -378,46 +459,68 @@ export async function entitiesWithIndexJobInFlight(
  */
 export async function scheduleBackfillIndexJobRows(
 	db: Db,
+	lease: BackfillLease,
 	universeId: string,
 	locale: Locale,
 	rows: readonly BackfillIndexJobRow[]
-): Promise<number> {
-	if (rows.length === 0) return 0;
+): Promise<BackfillFanOutResult> {
+	if (rows.length === 0) return { inserted: 0, fenced: false };
 	const values = rows.map(
 		(row) =>
 			sql`(${universeId}::uuid, ${row.entityId}::uuid, ${row.entityName}, ${locale},
 				now() + make_interval(secs => ${row.delayMs / 1000}))`
 	);
-	const inserted = await db.execute<{ id: string }>(sql`
-		insert into ${canonSaveJob}
-			(universe_id, entity_id, entity_name, user_id, old_body, new_body, trigger_revision_id,
-				locale, run_after)
-		select v.universe_id, v.entity_id, v.entity_name, u.owner_user_id, '', '', null,
-			v.locale, v.run_after
-		from (values ${sql.join(values, sql`, `)})
-			as v(universe_id, entity_id, entity_name, locale, run_after)
-		join ${universe} u on u.id = v.universe_id
-		where not exists (
-			select 1 from ${canonSaveJob} inflight
-			where inflight.universe_id = v.universe_id
-				and inflight.entity_id = v.entity_id
-				and inflight.status in ('pending', 'claimed')
+	// One statement, so that "am I still the holder" and "insert these rows" cannot be
+	// separated by anything. `held` is scanned because the insert's own `exists` needs it, and
+	// a `for update` CTE is never inlined, so it is evaluated exactly once and the count the
+	// outer select reads is the same evaluation the insert was gated on.
+	const [result] = await db.execute<{ lease_held: number; inserted: number }>(sql`
+		with held as (
+			select id from ${universeIndexBackfill}
+			where id = ${lease.id}::uuid and ${stillHeldBy(lease)}
+			for update
+		), fanned_out as (
+			insert into ${canonSaveJob}
+				(universe_id, entity_id, entity_name, user_id, old_body, new_body, trigger_revision_id,
+					locale, run_after)
+			select v.universe_id, v.entity_id, v.entity_name, u.owner_user_id, '', '', null,
+				v.locale, v.run_after
+			from (values ${sql.join(values, sql`, `)})
+				as v(universe_id, entity_id, entity_name, locale, run_after)
+			join ${universe} u on u.id = v.universe_id
+			where exists (select 1 from held)
+				and not exists (
+					select 1 from ${canonSaveJob} inflight
+					where inflight.universe_id = v.universe_id
+						and inflight.entity_id = v.entity_id
+						and inflight.status in ('pending', 'claimed')
+				)
+			on conflict do nothing
+			returning id
 		)
-		on conflict do nothing
-		returning id
+		select (select count(*) from held)::int as lease_held,
+			(select count(*) from fanned_out)::int as inserted
 	`);
-	return inserted.length;
+	return {
+		inserted: Number(result?.inserted ?? 0),
+		fenced: Number(result?.lease_held ?? 0) === 0
+	};
 }
 
 /** A pass that scheduled everything it found. Terminal: the unique index stops holding the
- * universe, so a later skip can enqueue a fresh backfill. */
+ * universe, so a later skip can enqueue a fresh backfill.
+ *
+ * Fenced on the lease (#767), and this is the write where a reclaimed pass did the most
+ * damage: it marked `done` a backfill a live worker was still working on, which released the
+ * partial unique index and set `finished_at` from a pass that had no business finishing
+ * anything. Answers false when the write was refused for that reason. */
 export async function completeIndexBackfill(
 	db: Db,
-	id: string,
+	lease: BackfillLease,
 	counts: { entitiesTotal: number; entitiesMissing: number; scheduled: number }
-): Promise<void> {
+): Promise<boolean> {
 	const now = new Date();
-	await db
+	const applied = await db
 		.update(universeIndexBackfill)
 		.set({
 			status: 'done',
@@ -429,12 +532,17 @@ export async function completeIndexBackfill(
 			finishedAt: now,
 			updatedAt: now
 		})
-		.where(eq(universeIndexBackfill.id, id));
+		.where(and(eq(universeIndexBackfill.id, lease.id), stillHeldBy(lease)))
+		.returning({ id: universeIndexBackfill.id });
+	return applied.length > 0;
 }
 
 /** What one resumed pass did to the row, so the caller can log a dead-letter at `error`
  * without reading the row back. */
 export interface ResumeIndexBackfillResult {
+	/** False when the write was refused because this pass no longer holds the lease (#767), in
+	 * which case the other two fields describe nothing and the pass must stop. */
+	applied: boolean;
 	/** True when this pass ended the backfill instead of queueing another one. */
 	deadLettered: boolean;
 	/** The attempt count the decision was taken on. */
@@ -500,7 +608,7 @@ export interface ResumeIndexBackfillResult {
  */
 export async function resumeIndexBackfill(
 	db: Db,
-	id: string,
+	lease: BackfillLease,
 	counts: {
 		entitiesTotal: number;
 		entitiesMissing: number;
@@ -549,15 +657,16 @@ export async function resumeIndexBackfill(
 							or entities_missing is null
 							or ${counts.entitiesMissing} < entities_missing) as progressed
 					from ${universeIndexBackfill}
-					where id = ${id}
+					where id = ${lease.id}
 				) p
 			) d
-			where b.id = ${id}
+			where b.id = ${lease.id} and ${stillHeldBy(lease)}
 			returning b.status, b.attempt_count
 		`
 	);
 	const row = rows[0];
 	return {
+		applied: row !== undefined,
 		deadLettered: row?.status === 'failed',
 		attemptCount: Number(row?.attempt_count ?? 0)
 	};
@@ -570,21 +679,32 @@ export async function resumeIndexBackfill(
  * Deliberately not a status of its own. Reusing the lease is what makes the attempt cap and
  * the dead-letter path apply to a thrown error for free, and it keeps a failing backfill
  * retrying on the order of seconds instead of the ten minutes a real lease runs for.
+ *
+ * Fenced like the rest (#767), and the one place where the fence costs something worth naming:
+ * a pass reclaimed while it was failing cannot record its own message, so the row keeps the
+ * claim path's `lease expired after N attempt(s)` instead. That is the honest version of
+ * events - the row belongs to somebody else and its story is theirs - and the message is not
+ * lost, because `universe_index_backfill_failed` is logged before this is called. The
+ * alternative, fencing on identity alone so that a stale-but-unreclaimed pass could still
+ * write, would buy that one string at the cost of the "no write from an observation older than
+ * one lease" clause, which is worth more.
  */
 export async function requeueIndexBackfill(
 	db: Db,
-	id: string,
+	lease: BackfillLease,
 	failure: { message: string; retryMs: number }
-): Promise<void> {
+): Promise<boolean> {
 	const now = new Date();
-	await db
+	const applied = await db
 		.update(universeIndexBackfill)
 		.set({
 			lastError: failure.message,
 			leaseExpiresAt: new Date(now.getTime() + failure.retryMs),
 			updatedAt: now
 		})
-		.where(eq(universeIndexBackfill.id, id));
+		.where(and(eq(universeIndexBackfill.id, lease.id), stillHeldBy(lease)))
+		.returning({ id: universeIndexBackfill.id });
+	return applied.length > 0;
 }
 
 /** Newest first. Introspection for the tests and for whoever is looking at why a universe is
