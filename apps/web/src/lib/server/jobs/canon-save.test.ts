@@ -45,6 +45,7 @@ import {
 	proposalPlan,
 	revision,
 	universe,
+	universeIndexBackfill,
 	user
 } from '@canonry/db/schema';
 import { MockEmbeddingModelV4, MockLanguageModelV4 } from 'ai/test';
@@ -64,6 +65,7 @@ import {
 	type IndexOutcome
 } from './canon-save.js';
 import { entitiesSkippedForNoEmbeddingModel } from './store.js';
+import { resumeIndexBackfill, type UniverseIndexBackfillRow } from './backfill-store.js';
 
 const DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
@@ -1665,5 +1667,199 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			await queue.stop();
 			await dropCollection(vector, collectionName).catch(() => undefined);
 		}
+	}, 45_000);
+
+	it('gives up on a backfill that cannot make progress, rather than verifying it forever (issue #745)', async () => {
+		// #745: `resumeIndexBackfill` documented a dead-letter that could not happen.
+		// `claimNextIndexBackfill` consults `maxAttempts` in exactly one place, gated on
+		// `status = 'claimed' and lease_expires_at <= now()`, and a pass that finishes cleanly
+		// goes back to `pending` with the lease cleared, so the row is never in the state the cap
+		// is checked in. The attempts climbed and nothing read them: #737 saw one reach 69 in
+		// about thirteen seconds.
+		//
+		// The stuck shape, which is that issue's own example made reachable: the entry already
+		// has a `pending` job of its own parked an hour out, so the fan-out's `on conflict do
+		// nothing` writes nothing for it, the point never appears, and every pass re-finds
+		// exactly the same shortfall. No pass is ever capped and the missing count never falls,
+		// so nothing here is progress and the cap is the only thing that can end it.
+		const { owner, world } = await fixture();
+		const embeddingModel = await resolveModel(db, 'embedding');
+		const collectionName = loreCollectionNameForModel(embeddingModel, world.id);
+		const vector = createVectorClient();
+		const queue = testQueue({
+			maxAttempts: 2,
+			vectorClient: vector,
+			embeddingModelFactory: fakeEmbeddingModelFactory()
+		});
+		try {
+			const skipped = await insertEntry(world.id, 'Stuck Hold', 'Recorded, never indexed.');
+			await withoutEmbeddingModel(async () => {
+				queue.scheduleIndexOnly({
+					universeId: world.id,
+					entityId: skipped.id,
+					entityName: skipped.name,
+					userId: owner.id,
+					locale: 'en'
+				});
+				await waitForEntityRow(db, world.id, skipped.id, (r) => r.status === 'done');
+			});
+
+			// Parked far enough out that it is unambiguously still `pending` on every pass, which
+			// is what the fan-out's partial unique index keys on.
+			await db.insert(canonSaveJob).values({
+				universeId: world.id,
+				entityId: skipped.id,
+				entityName: skipped.name,
+				userId: owner.id,
+				oldBody: 'before',
+				newBody: 'after',
+				locale: 'en',
+				status: 'pending',
+				runAfter: new Date(Date.now() + 3_600_000)
+			});
+
+			await queue.sweepIndexBackfills();
+
+			const deadline = Date.now() + 30_000;
+			let final: UniverseIndexBackfillRow;
+			for (;;) {
+				const [row] = await queue.recentBackfills(world.id);
+				if (row && row.status === 'failed') {
+					final = row;
+					break;
+				}
+				if (Date.now() > deadline) {
+					throw new Error(
+						`the backfill never gave up (status ${row?.status}, attempts ${row?.attemptCount})`
+					);
+				}
+				await delay(25);
+			}
+
+			expect(final.attemptCount, 'gave up at the cap, not before or after it').toBe(2);
+			expect(final.entitiesMissing).toBe(1);
+			expect(final.finishedAt).not.toBeNull();
+			// The record a human reads, since there is no admin surface for this (#709, #761).
+			expect(final.lastError).toMatch(
+				/gave up after 2 pass\(es\) that reduced nothing: 1 entity\/entities still have no index point/
+			);
+
+			// And it stays given up, which is the whole point: the polling stops. Several verify
+			// delays (100ms here) pass without the attempts moving or the status changing back.
+			await delay(800);
+			const [after] = await queue.recentBackfills(world.id);
+			expect(after?.status, 'a dead-lettered backfill is not reclaimed').toBe('failed');
+			expect(after?.attemptCount, 'and it stops counting').toBe(2);
+		} finally {
+			await queue.stop();
+			await dropCollection(vector, collectionName).catch(() => undefined);
+		}
+	}, 45_000);
+
+	// The two halves of "what counts as progress", driven against the store directly. These
+	// deliberately do not call `claimNextIndexBackfill`: it claims the oldest *due* row in the
+	// whole table, so in this file's shared database it would claim whatever backfill another
+	// test just enqueued. Bumping the attempt count on a row this test created is the same
+	// write the claim makes, scoped to a row it owns, which is the rule this repo learned from
+	// #658, #682, #691 and #737.
+	async function backfillRowFor(worldId: string) {
+		const [row] = await db
+			.insert(universeIndexBackfill)
+			.values({ universeId: worldId, reason: 'no-embedding-model' })
+			.returning();
+		if (!row) throw new Error('backfill insert returned no row');
+		return row;
+	}
+
+	function bumpAttempt(id: string) {
+		// Exactly what claiming the row does to it.
+		return db
+			.update(universeIndexBackfill)
+			.set({ attemptCount: sql`${universeIndexBackfill.attemptCount} + 1` })
+			.where(eq(universeIndexBackfill.id, id));
+	}
+
+	function pass(id: string, entitiesMissing: number, capped = false) {
+		return resumeIndexBackfill(db, id, {
+			entitiesTotal: 10,
+			entitiesMissing,
+			scheduled: 0,
+			nextRunAfterMs: 0,
+			capped,
+			maxAttempts: 2
+		});
+	}
+
+	function backfillById(id: string) {
+		return db
+			.select()
+			.from(universeIndexBackfill)
+			.where(eq(universeIndexBackfill.id, id))
+			.then((rows) => rows[0]);
+	}
+
+	it('counts only the passes that reduced nothing, so a slow backfill is never given up on (issue #745)', async () => {
+		// The reason the cap is safe to enforce at all. Before #745 the only thing that reset the
+		// attempts was a *capped* pass, and a universe under the per-pass cap whose index jobs
+		// simply drain more slowly than one verify delay produces no capped pass at all: it would
+		// have spent its attempts while perfectly healthy and been dead-lettered mid-catch-up.
+		const { world } = await fixture();
+		const row = await backfillRowFor(world.id);
+
+		// First pass has nothing to compare against, so it cannot be a pass that reduced nothing.
+		await bumpAttempt(row.id);
+		expect((await pass(row.id, 5)).deadLettered).toBe(false);
+		expect((await backfillById(row.id))?.attemptCount).toBe(0);
+
+		// The shortfall keeps shrinking: points are landing and the queue is draining, so the
+		// attempts keep resetting however many passes it takes.
+		for (const missing of [4, 3, 2, 1]) {
+			await bumpAttempt(row.id);
+			expect((await pass(row.id, missing)).deadLettered, `missing ${missing}`).toBe(false);
+			const current = await backfillById(row.id);
+			expect(current?.attemptCount, `missing ${missing}`).toBe(0);
+			expect(current?.status).toBe('pending');
+		}
+
+		// A flat count still resets when the pass was capped, because there is different work
+		// waiting and the next pass is not a repeat.
+		for (let i = 0; i < 4; i++) {
+			await bumpAttempt(row.id);
+			expect((await pass(row.id, 1, true)).deadLettered).toBe(false);
+			expect((await backfillById(row.id))?.attemptCount).toBe(0);
+		}
+	}, 45_000);
+
+	it('gives up once the attempts are spent on passes that reduced nothing (issue #745)', async () => {
+		const { world } = await fixture();
+		const row = await backfillRowFor(world.id);
+
+		// Establish a shortfall to compare against.
+		await bumpAttempt(row.id);
+		await pass(row.id, 3);
+		expect((await backfillById(row.id))?.attemptCount).toBe(0);
+
+		// Two passes that reduce nothing. The first is under the cap and resumes.
+		await bumpAttempt(row.id);
+		expect((await pass(row.id, 3)).deadLettered).toBe(false);
+		const midway = await backfillById(row.id);
+		expect(midway?.attemptCount, 'the attempts are kept rather than reset').toBe(1);
+		expect(midway?.status).toBe('pending');
+
+		// The second reaches `maxAttempts`, and this is where the promise in the comment is now
+		// actually kept.
+		await bumpAttempt(row.id);
+		const gaveUp = await pass(row.id, 3);
+		expect(gaveUp.deadLettered).toBe(true);
+		expect(gaveUp.attemptCount).toBe(2);
+
+		const failed = await backfillById(row.id);
+		expect(failed?.status).toBe('failed');
+		expect(failed?.finishedAt).not.toBeNull();
+		expect(failed?.leaseHolder).toBeNull();
+		expect(failed?.lastError).toMatch(/gave up after 2 pass\(es\) that reduced nothing: 3 entity/);
+		// Terminal releases the partial unique index, so a genuinely new skip can enqueue a fresh
+		// backfill later. Nothing retries this one, which is #761.
+		expect(failed?.entitiesMissing).toBe(3);
 	}, 45_000);
 });

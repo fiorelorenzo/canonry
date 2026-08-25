@@ -728,42 +728,66 @@ export function createCanonSaveJobQueue(options: CanonSaveJobQueueOptions): Cano
 			scheduled
 		};
 
-		console.warn(
-			JSON.stringify({
-				event: 'universe_index_backfill_scheduled',
-				backfillId: row.id,
-				universeId: row.universeId,
-				attemptCount: row.attemptCount,
-				entitiesTotal: candidates.length,
-				entitiesIndexed: indexed,
-				entitiesMissing: missing.length,
-				entitiesScheduledThisPass: scheduled,
-				// Non-zero means an entity was deleted without `deleteEntityLoreChunks` running for
-				// it. Nothing here repairs that; it is reported so that it is not invisible.
-				orphanedEntityPoints: orphanedPoints,
-				staggerSpanSeconds: Math.round(spanMs / 1000),
-				outcome: missing.length === 0 ? 'done' : capped ? 'capped' : 'verifying'
-			})
-		);
-
 		// **A backfill is done when the enumeration comes back empty, never when a pass has
 		// scheduled everything it found.** Scheduling is not indexing: a job can still fail, and
 		// because the sweep's watermark has already moved past this universe's skips, a backfill
 		// that reported `done` on a pass whose jobs then failed would leave those entries out of
 		// retrieval permanently - which is the bug this whole feature exists to fix, one level
 		// down. It is not hypothetical either: see `resumeIndexBackfill`'s own comment.
+		//
+		// The pass line is logged after the decision rather than before it (#745), because
+		// `outcome` is the decision: a pass that ends the backfill used to report `verifying`,
+		// which was the one thing it was not doing.
+		const logPass = (outcome: 'done' | 'capped' | 'verifying' | 'gave-up'): void => {
+			console.warn(
+				JSON.stringify({
+					event: 'universe_index_backfill_scheduled',
+					backfillId: row.id,
+					universeId: row.universeId,
+					attemptCount: row.attemptCount,
+					entitiesTotal: candidates.length,
+					entitiesIndexed: indexed,
+					entitiesMissing: missing.length,
+					entitiesScheduledThisPass: scheduled,
+					// Non-zero means an entity was deleted without `deleteEntityLoreChunks` running
+					// for it. Nothing here repairs that; it is reported so that it is not invisible.
+					orphanedEntityPoints: orphanedPoints,
+					staggerSpanSeconds: Math.round(spanMs / 1000),
+					outcome
+				})
+			);
+		};
+
 		if (missing.length === 0) {
 			await completeIndexBackfill(conn, row.id, counts);
+			logPass('done');
 			return;
 		}
-		await resumeIndexBackfill(conn, row.id, {
+		const resumed = await resumeIndexBackfill(conn, row.id, {
 			...counts,
 			nextRunAfterMs: spanMs + backfillVerifyDelayMs,
-			// A capped pass made progress and the next pass has different work, so its attempts
-			// reset. A pass that scheduled everything and is only coming back to check has made no
-			// progress if it finds the same entries again, so its attempts climb and the cap ends it.
-			resetAttempts: capped
+			// A capped pass has different work waiting, and a pass that reduced the shortfall is
+			// draining even if it is not finished. `resumeIndexBackfill` owns that second half,
+			// because only it can see what the previous pass recorded.
+			capped,
+			maxAttempts
 		});
+		logPass(resumed.deadLettered ? 'gave-up' : capped ? 'capped' : 'verifying');
+		if (resumed.deadLettered) {
+			// Same event as the claim path's lease dead-letter, because it is the same fact for
+			// whoever is grepping: this universe is not going to be indexed without a human. The
+			// two are told apart by `last_error` on the row.
+			console.error(
+				JSON.stringify({
+					event: 'universe_index_backfill_dead_lettered',
+					backfillId: row.id,
+					universeId: row.universeId,
+					attemptCount: resumed.attemptCount,
+					entitiesMissing: missing.length,
+					cause: 'no-progress'
+				})
+			);
+		}
 	}
 
 	const backfillHandlers: DurableQueueHandlers<UniverseIndexBackfillRow> = {
