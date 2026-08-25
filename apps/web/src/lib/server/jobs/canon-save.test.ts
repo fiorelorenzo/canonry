@@ -50,9 +50,10 @@ import {
 } from '@canonry/db/schema';
 import { MockEmbeddingModelV4, MockLanguageModelV4 } from 'ai/test';
 import type { EmbeddingModel, LanguageModel } from 'ai';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
 	embeddingDimensionsFor,
+	entityLoreUrl,
 	retrieveForUniverse,
 	type EmbeddingModelFactory
 } from '@canonry/indexing';
@@ -2399,9 +2400,7 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 				scheduled: 0
 			})
 		).toBe(false);
-		expect(await requeueIndexBackfill(db, stale, { message: 'stale', retryMs: 1000 })).toBe(
-			false
-		);
+		expect(await requeueIndexBackfill(db, stale, { message: 'stale', retryMs: 1000 })).toBe(false);
 
 		// Nothing of the live pass's row moved: not the status, not the lease, not the attempt
 		// count #762's give-up rule reads, not the shortfall it compares against.
@@ -2419,9 +2418,7 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 			inserted: 1,
 			fenced: false
 		});
-		expect(rowsPerEntity(await backfillJobRowsFor(world.id))).toEqual(
-			new Map([[created.id, 1]])
-		);
+		expect(rowsPerEntity(await backfillJobRowsFor(world.id))).toEqual(new Map([[created.id, 1]]));
 		expect((await pass(live, 3)).applied).toBe(true);
 		expect((await backfillById(row.id))?.entitiesMissing).toBe(3);
 
@@ -2448,34 +2445,68 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 		);
 	}, 45_000);
 
-	it('a pass reclaimed while it was looking writes nothing, and the live pass keeps the row (issue #767)', async () => {
-		// The wiring half, forced rather than raced. #764's test held one pass at the vector
-		// client's `scroll` until the job it was racing had finished; the analogue for two passes
-		// is to hold one there until a *second worker* has reclaimed the row and run the whole
-		// catch-up to `done` underneath it, which a lease of 250ms and a held scroll make
-		// deterministic:
-		//
-		//   T0  pass A claims the row, reads the in-flight set (empty) and the collection (this
-		//       entry has no point), and stops inside `scroll`;
+	/** Which writes a pass was refused, read off the log line rather than inferred. "The damage
+	 * did not happen" and "the fence is what stopped it" are two different claims, and only the
+	 * second one distinguishes a working fence from a test that never entered the window. */
+	function refusedWrites(calls: readonly unknown[][]): string[] {
+		const refused: string[] = [];
+		for (const [first] of calls) {
+			if (typeof first !== 'string') continue;
+			if (!first.includes('universe_index_backfill_pass_abandoned')) continue;
+			const line: unknown = JSON.parse(first);
+			if (line && typeof line === 'object' && 'refused' in line) {
+				refused.push(String(line.refused));
+			}
+		}
+		return refused;
+	}
+
+	/**
+	 * The wiring half of #767, and the two interleavings that matter are separate tests because
+	 * a reclaimed pass has two different writes to be refused and whichever fires first hides
+	 * the other.
+	 *
+	 * Both are forced rather than raced, the way #766's was: hold one pass inside the vector
+	 * client's `scroll`, which is the enumeration's own read of the collection, until a second
+	 * worker has reclaimed the row and run the whole catch-up underneath it. A 250ms lease is
+	 * the issue's two-minute hang with the waiting taken out.
+	 *
+	 * **The `armed` flag below is not tidiness, and the first version of this test was wrong
+	 * without it.** `unindexedEntities` returns early, with every entry missing and *without
+	 * calling `scroll` at all*, when the collection does not exist, which is the ordinary state
+	 * of a universe that has never indexed anything. So on a one-entry universe the first pass
+	 * never reaches the seam, and what got held was the *verification* pass, whose observation
+	 * is `missing: 0`: that reproduces the `complete` refusal and never the fan-out one. The
+	 * test passed, its own "did we really interleave" flag was true, and deleting the fence from
+	 * the fan-out did not fail it. A race test that only asserts the good outcome can pass by
+	 * never entering the window, and "a scroll was held" is not the same claim as "the held
+	 * observation was the one that mattered". Hence one entry indexed up front to create the
+	 * collection, a second entry that is the actual shortfall, an explicit arming point, and an
+	 * assertion on the refusal itself rather than only on the damage not happening.
+	 */
+	it('a reclaimed pass schedules nothing, though its own observation still says it should (issue #767)', async () => {
+		//   T0  pass A claims the row, reads the in-flight set (empty) and the collection (the
+		//       second entry has no point), and stops inside `scroll`;
 		//   T1  A's lease expires. Worker B reclaims the row, enumerates the same universe,
-		//       schedules the entry, its job indexes it, and B's verification pass finds nothing
+		//       schedules that entry, its job indexes it, and B's verification pass finds nothing
 		//       missing and marks the backfill `done`;
-		//   T2  A wakes up holding an observation of T0 and a lease that is now B's.
+		//   T2  A wakes holding T0's observation and a lease that is now B's, and its work list
+		//       still names an entry that has been indexed since.
 		//
-		// Before the fence, T2 is two writes that should not happen: a second `canon_save_job`
-		// row for an entry that has been indexed (the anti-join sees a `done` row, which is not
-		// in-flight by design (#715), and `canon_save_job_pending_key` constrains `pending`
-		// only), and a `resumeIndexBackfill` that flips B's finished row back to `pending` with
-		// `run_after` moved, resurrecting a backfill nobody is owed.
+		// Unfenced, T2 writes a second `canon_save_job` row for that entry: the anti-join sees a
+		// `done` row, which is not in-flight by design (#715), and `canon_save_job_pending_key`
+		// constrains `pending` only. That is a second embedding call and a second upsert for work
+		// that is finished, which is #766's cost one actor further out.
 		const { owner, world } = await fixture();
 		const embeddingModel = await resolveModel(db, 'embedding');
 		const collectionName = loreCollectionNameForModel(embeddingModel, world.id);
 		const vector = createVectorClient();
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-		const entered = Promise.withResolvers<void>();
+		let armed = false;
 		let queueB: CanonSaveJobQueue | undefined;
-		let interleaved = false;
-		let rowWhenReleased: UniverseIndexBackfillRow | undefined;
+		let heldPageUrls: string[] = [];
+		const entered = Promise.withResolvers<void>();
 
 		const interleavingVector = new Proxy(vector, {
 			get(target, prop, receiver) {
@@ -2484,16 +2515,135 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 				const method = value.bind(target) as (...args: never[]) => unknown;
 				if (prop !== 'scroll') return method;
 				return async (...args: never[]) => {
-					const page = await method(...args);
-					// Scoped to this universe's own collection, because this queue's backfill poller
-					// is global over a shared table and may well run a pass for a row some earlier
-					// test left behind. Holding *that* pass would prove nothing and hang this one.
-					if (interleaved || args[0] !== collectionName) return page;
-					interleaved = true;
+					const page = (await method(...args)) as {
+						points: { payload?: Record<string, unknown> | null }[];
+					};
+					// Scoped to this universe's collection and to the moment the test says it is
+					// ready: this queue's pollers are global over a shared table, and before the
+					// arming point they are also indexing the entry that creates the collection.
+					if (!armed || args[0] !== collectionName) return page;
+					armed = false;
+					heldPageUrls = page.points.map((point) => String(point.payload?.url ?? ''));
 					entered.resolve();
-					// Created here rather than up front so that the first claim is certainly A's:
-					// `createCanonSaveJobQueue` starts polling immediately, and two queues racing
-					// for the row would sometimes give this pass away to the wrong worker.
+					queueB = testQueue({
+						vectorClient: createVectorClient(),
+						embeddingModelFactory: fakeEmbeddingModelFactory()
+					});
+					await queueB.waitForBackfillIdle(world.id, 30_000);
+					return page;
+				};
+			}
+		}) as typeof vector;
+
+		const queueA = testQueue({
+			backfillLeaseMs: 250,
+			vectorClient: interleavingVector,
+			embeddingModelFactory: fakeEmbeddingModelFactory()
+		});
+		try {
+			// One entry indexed the ordinary way, purely so that the collection exists and the
+			// enumeration below actually scrolls it.
+			const indexed = await insertEntry(world.id, 'Standing Hold', 'Indexed before any of this.');
+			queueA.scheduleIndexOnly({
+				universeId: world.id,
+				entityId: indexed.id,
+				entityName: indexed.name,
+				userId: owner.id,
+				locale: 'en'
+			});
+			await waitForEntityRow(db, world.id, indexed.id, (r) => r.status === 'done');
+
+			// And the entry that is the real shortfall: recorded while there is no embedding
+			// model, which is what makes the sweep owe this universe a catch-up.
+			const shortfall = await withoutEmbeddingModel(async () => {
+				const created = await insertEntry(world.id, 'Reclaimed Hold', 'Indexed by the other pass.');
+				queueA.scheduleIndexOnly({
+					universeId: world.id,
+					entityId: created.id,
+					entityName: created.name,
+					userId: owner.id,
+					locale: 'en'
+				});
+				await waitForEntityRow(db, world.id, created.id, (r) => r.status === 'done');
+				return created;
+			});
+			const shortfallUrl = entityLoreUrl(shortfall.id);
+
+			const before = await backfillJobRowsFor(world.id);
+			armed = true;
+			await queueA.sweepIndexBackfills();
+			// A is inside the hook by the time this resolves, and `stop()` settles only once its
+			// pass has returned, so the assertions read a finished state rather than a moment in one.
+			await entered.promise;
+			await queueA.stop();
+
+			// The window, stated as the two facts that make T2 a stale write rather than a fresh
+			// one: A's own observation said this entry had no point, and by the time A resumed it
+			// had one and its job was `done`.
+			expect(heldPageUrls, "A's observation did not include the shortfall").not.toContain(
+				shortfallUrl
+			);
+			expect(
+				await backfillJobRowsFor(world.id).then((rows) =>
+					rows.filter((job) => job.entityId === shortfall.id && job.status === 'done')
+				),
+				'and the other worker had finished indexing it'
+			).not.toEqual([]);
+			expect(refusedWrites(warn.mock.calls), 'the fan-out is the write that was refused').toContain(
+				'fan-out'
+			);
+
+			const fannedOut = (await backfillJobRowsFor(world.id)).filter(
+				(job) => !before.some((old) => old.id === job.id)
+			);
+			// One row for that entry, not two. Which rows and how many of each, never a bare
+			// count: a set cannot see a duplicate and a count cannot say which entry moved it
+			// (#737, #764).
+			expect(rowsPerEntity(fannedOut)).toEqual(new Map([[shortfall.id, 1]]));
+
+			const settled = await newestBackfillFor(world.id);
+			expect(settled?.status).toBe('done');
+			expect(settled?.entitiesMissing).toBe(0);
+			expect(settled?.entitiesScheduled).toBe(1);
+		} finally {
+			warn.mockRestore();
+			entered.resolve();
+			await queueA.stop();
+			await queueB?.stop();
+			await dropCollection(vector, collectionName).catch(() => undefined);
+		}
+	}, 60_000);
+
+	it('a reclaimed pass does not finish a backfill the live worker still owns (issue #767)', async () => {
+		// The other write, and the more expensive one when it lands: A's held pass is the
+		// *verification* pass, so its observation is `missing: 0` and what it wants to write is
+		// `completeIndexBackfill`. Unfenced that marks `done` a row B owns, sets `finished_at`
+		// from a pass with no business finishing anything, and releases the partial unique index
+		// that holds the universe. It is also the shape a one-entry universe produces by itself,
+		// because the first pass never reaches the seam (see the note above), so this one needs
+		// no arming: the only scroll on this collection is the verification pass's.
+		const { owner, world } = await fixture();
+		const embeddingModel = await resolveModel(db, 'embedding');
+		const collectionName = loreCollectionNameForModel(embeddingModel, world.id);
+		const vector = createVectorClient();
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+		let queueB: CanonSaveJobQueue | undefined;
+		let rowWhenReleased: UniverseIndexBackfillRow | undefined;
+		const entered = Promise.withResolvers<void>();
+
+		const interleavingVector = new Proxy(vector, {
+			get(target, prop, receiver) {
+				const value = Reflect.get(target, prop, receiver);
+				if (typeof value !== 'function') return value;
+				const method = value.bind(target) as (...args: never[]) => unknown;
+				if (prop !== 'scroll') return method;
+				let held = false;
+				return async (...args: never[]) => {
+					const page = await method(...args);
+					if (held || args[0] !== collectionName) return page;
+					held = true;
+					entered.resolve();
 					queueB = testQueue({
 						vectorClient: createVectorClient(),
 						embeddingModelFactory: fakeEmbeddingModelFactory()
@@ -2509,16 +2659,13 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 		}) as typeof vector;
 
 		const queueA = testQueue({
-			// Short enough that B can reclaim the row while this pass is standing still, which is
-			// the two-minute hang of the issue with the waiting taken out of it.
 			backfillLeaseMs: 250,
 			vectorClient: interleavingVector,
 			embeddingModelFactory: fakeEmbeddingModelFactory()
 		});
-
 		try {
 			const skipped = await withoutEmbeddingModel(async () => {
-				const created = await insertEntry(world.id, 'Reclaimed Hold', 'Indexed by the other pass.');
+				const created = await insertEntry(world.id, 'Finished Hold', 'Finished by somebody else.');
 				queueA.scheduleIndexOnly({
 					universeId: world.id,
 					entityId: created.id,
@@ -2532,38 +2679,33 @@ describe('createCanonSaveJobQueue (SPEC.md §5.1/§5.2: propagation and audit on
 
 			const before = await backfillJobRowsFor(world.id);
 			await queueA.sweepIndexBackfills();
-
-			// A is inside the hook by the time this resolves, and `stop()` settles only once its
-			// pass has actually returned, which is what makes the assertions below read a finished
-			// state rather than a moment in one.
 			await entered.promise;
 			await queueA.stop();
 
-			expect(interleaved, 'pass A really did stop inside the enumeration').toBe(true);
 			expect(
 				rowWhenReleased?.status,
 				'the other worker had finished the backfill before A resumed'
 			).toBe('done');
 			expect(rowWhenReleased?.leaseHolder, 'and A no longer held the lease').toBeNull();
+			expect(
+				refusedWrites(warn.mock.calls),
+				'the completion is the write that was refused'
+			).toContain('complete');
 
+			// B's row, exactly as B left it. `finished_at` is the assertion that says A did not
+			// rewrite it: a second `completeIndexBackfill` would move that timestamp while leaving
+			// every other column looking correct.
+			const settled = await newestBackfillFor(world.id);
+			expect(settled?.id).toBe(rowWhenReleased?.id);
+			expect(settled?.status).toBe('done');
+			expect(settled?.finishedAt).toEqual(rowWhenReleased?.finishedAt);
+			expect(settled?.entitiesScheduled).toBe(1);
 			const fannedOut = (await backfillJobRowsFor(world.id)).filter(
 				(job) => !before.some((old) => old.id === job.id)
 			);
-			// One row for that entry, not two. Which rows and how many of each, never a bare
-			// count: a set cannot see a duplicate and a count cannot say which entry moved it
-			// (#737, #764).
 			expect(rowsPerEntity(fannedOut)).toEqual(new Map([[skipped.id, 1]]));
-
-			// And the row is still the one B finished. `entities_scheduled` is the durable half of
-			// this: it accumulates and never decreases, so it stays 1 even if something later
-			// re-verifies the universe, where `status` would not.
-			const settled = await newestBackfillFor(world.id);
-			expect(settled?.id, 'and it is the same row, not a fresh one').toBe(rowWhenReleased?.id);
-			expect(settled?.status).toBe('done');
-			expect(settled?.entitiesMissing).toBe(0);
-			expect(settled?.entitiesScheduled).toBe(1);
-			expect(settled?.finishedAt).toEqual(rowWhenReleased?.finishedAt);
 		} finally {
+			warn.mockRestore();
 			entered.resolve();
 			await queueA.stop();
 			await queueB?.stop();
