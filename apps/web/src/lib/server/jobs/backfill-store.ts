@@ -236,25 +236,68 @@ export async function completeIndexBackfill(
 		.where(eq(universeIndexBackfill.id, id));
 }
 
+/** What one resumed pass did to the row, so the caller can log a dead-letter at `error`
+ * without reading the row back. */
+export interface ResumeIndexBackfillResult {
+	/** True when this pass ended the backfill instead of queueing another one. */
+	deadLettered: boolean;
+	/** The attempt count the decision was taken on. */
+	attemptCount: number;
+}
+
 /**
  * Back to `pending`, due once the rows this pass wrote have drained, with `entities_scheduled`
  * accumulated rather than replaced. A backfill is not terminal until an enumeration comes back
  * empty, so this is the ordinary end of a pass and `completeIndexBackfill` is the exception.
  *
- * **`resetAttempts` is what makes this terminate, and it is the difference between the two
- * reasons a pass comes back.** A pass that hit its per-pass cap made real progress and the next
- * pass has different work to do, so its attempts go back to zero: leaving them climbing would
- * dead-letter a large universe's catch-up on its fifth healthy pass. A pass that scheduled
- * everything it found and is only coming back to check that the queue actually landed it has
- * made no progress by definition if it finds the same entries missing again, so its attempts
- * climb and the `maxAttempts` cap eventually dead-letters it with its last error visible.
+ * **This is also the only place a backfill that is getting nowhere can be stopped, and #745 is
+ * why it says so here.** `claimNextIndexBackfill` checks `maxAttempts` in exactly one place,
+ * the dead-letter update, and that update is gated on `status = 'claimed' and
+ * lease_expires_at <= now()`. A pass that finishes cleanly comes back through this function,
+ * which sets `pending` and clears the lease, so the row is never in the state the cap is
+ * checked in. Only a pass that throws (`requeueIndexBackfill`) could ever be dead-lettered.
+ * This comment used to promise that "the `maxAttempts` cap eventually dead-letters it", and
+ * for as long as it did, nothing read the attempts at all: #737 watched one reach 69 in about
+ * thirteen seconds. So the cap is consulted here now, and the promise is kept rather than
+ * dropped, because the alternative is a universe that cannot be finished re-scrolling itself
+ * every verify delay for the life of the deployment.
  *
- * That second case is not hypothetical. The first end-to-end run of this backfill lost two of
- * six entries to a Qdrant `409 Conflict` from concurrent `ensureCollection` calls (fixed in
- * `@canonry/vector` in the same change), and the pass that scheduled them had already reported
- * `done`: the watermark then meant no later sweep would ever look at that universe again, so
- * two entries were out of retrieval permanently. A catch-up that declares success on
- * "scheduled" rather than on "indexed" reintroduces the exact bug it exists to fix.
+ * **What counts as progress, which is what makes the cap both reachable and safe.** The
+ * counter has to mean "consecutive passes that got nowhere", or the bound punishes a slow
+ * universe instead of a stuck one. Two things count as getting somewhere:
+ *
+ * - `capped`: the pass hit `BACKFILL_MAX_PER_PASS` and there is different work waiting, so
+ *   the next pass is not a repeat. This was the only signal before, and on its own it is not
+ *   enough: a universe under the cap whose index jobs simply drain more slowly than one
+ *   verify delay produces no capped pass at all, and would have burnt its attempts while
+ *   perfectly healthy.
+ * - `entities_missing` fell since the pass before. Points are landing, the queue is draining,
+ *   and the backfill is working even though it is not finished. Measured against the value
+ *   this same statement is about to overwrite, so it is the previous pass's number.
+ *
+ * Either resets the attempts to zero. Neither, `maxAttempts` times running, is a backfill
+ * that has verified the same shortfall over and over, which is the entity whose embedding
+ * fails every time from #745's own body: the job row reaches `done`, the point never appears,
+ * and no number of further passes will change that.
+ *
+ * **Giving up is terminal, and the honest cost is that nothing retries it.** The row goes
+ * `failed` with `finished_at` and a `last_error` naming the attempts and the shortfall, which
+ * is what `recentIndexBackfills` reads and the caller logs at `error`. It also releases the
+ * partial unique index, so the sweep *may* enqueue a fresh backfill, but only on a
+ * `no-embedding-model` job finishing after this row's `requested_at` watermark, and once a
+ * model is configured there are no new skips. So a dead-lettered universe stays unindexed
+ * until an operator does something about it, and there is nothing to do it with today (#709
+ * established there is no admin surface, and this change deliberately does not add one).
+ * That gap is filed as #761 rather than left implied by a loop that never ends: an unbounded
+ * poll is not a retry policy, it is the same universe unindexed with a busier log.
+ *
+ * The original note on the second case is still the reason any of this is careful. The first
+ * end-to-end run of this backfill lost two of six entries to a Qdrant `409 Conflict` from
+ * concurrent `ensureCollection` calls (fixed in `@canonry/vector` in the same change), and
+ * the pass that scheduled them had already reported `done`: the watermark then meant no later
+ * sweep would ever look at that universe again, so two entries were out of retrieval
+ * permanently. A catch-up that declares success on "scheduled" rather than on "indexed"
+ * reintroduces the exact bug it exists to fix.
  */
 export async function resumeIndexBackfill(
 	db: Db,
@@ -264,24 +307,61 @@ export async function resumeIndexBackfill(
 		entitiesMissing: number;
 		scheduled: number;
 		nextRunAfterMs: number;
-		resetAttempts: boolean;
+		/** This pass hit its per-pass cap, so the next one has different work to do. */
+		capped: boolean;
+		maxAttempts: number;
 	}
-): Promise<void> {
+): Promise<ResumeIndexBackfillResult> {
 	const now = new Date();
-	await db
-		.update(universeIndexBackfill)
-		.set({
-			status: 'pending',
-			entitiesTotal: counts.entitiesTotal,
-			entitiesMissing: counts.entitiesMissing,
-			entitiesScheduled: sql`${universeIndexBackfill.entitiesScheduled} + ${counts.scheduled}`,
-			...(counts.resetAttempts ? { attemptCount: 0 } : {}),
-			leaseHolder: null,
-			leaseExpiresAt: null,
-			runAfter: new Date(now.getTime() + counts.nextRunAfterMs),
-			updatedAt: now
-		})
-		.where(eq(universeIndexBackfill.id, id));
+	const runAfter = new Date(now.getTime() + counts.nextRunAfterMs);
+	// One statement, so the decision is taken against the row's own previous numbers rather
+	// than a value read a moment earlier: `d` is evaluated on the pre-update snapshot, which is
+	// what makes "fewer missing than last time" mean the last pass and not this one.
+	const rows = await db.execute<{ status: UniverseIndexBackfillStatus; attempt_count: number }>(
+		sql`
+			update ${universeIndexBackfill} as b set
+				status = (case when d.giving_up then 'failed' else 'pending' end)::universe_index_backfill_status,
+				entities_total = ${counts.entitiesTotal},
+				entities_missing = ${counts.entitiesMissing},
+				entities_scheduled = b.entities_scheduled + ${counts.scheduled},
+				attempt_count = case when d.progressed then 0 else b.attempt_count end,
+				lease_holder = null,
+				lease_expires_at = null,
+				run_after = case
+					when d.giving_up then b.run_after
+					else ${runAfter.toISOString()}::timestamptz end,
+				finished_at = case
+					when d.giving_up then ${now.toISOString()}::timestamptz
+					else b.finished_at end,
+				last_error = case
+					when d.giving_up then 'gave up after ' || b.attempt_count
+						|| ' pass(es) that reduced nothing: ' || ${counts.entitiesMissing}
+						|| ' entity/entities still have no index point'
+					else b.last_error end,
+				updated_at = ${now.toISOString()}::timestamptz
+			from (
+				select
+					p.progressed,
+					(not p.progressed and p.attempt_count >= ${counts.maxAttempts}) as giving_up
+				from (
+					select
+						attempt_count,
+						(${counts.capped}::boolean
+							or entities_missing is null
+							or ${counts.entitiesMissing} < entities_missing) as progressed
+					from ${universeIndexBackfill}
+					where id = ${id}
+				) p
+			) d
+			where b.id = ${id}
+			returning b.status, b.attempt_count
+		`
+	);
+	const row = rows[0];
+	return {
+		deadLettered: row?.status === 'failed',
+		attemptCount: Number(row?.attempt_count ?? 0)
+	};
 }
 
 /**
