@@ -19,7 +19,7 @@
 		"@canonry/indexing": "workspace:*",
 		"@canonry/lang": "workspace:*",
 		"@canonry/vector": "workspace:*",
-		"ai": "^7.0.73",
+		"ai": "^7.0.83",
 		"zod": "^4.1.13"
 	},
 	"devDependencies": {
