@@ -48,8 +48,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/warm
       '@lucide/svelte':
-        specifier: ^1.33.0
-        version: 1.33.0(svelte@5.56.10(@typescript-eslint/types@8.67.0))
+        specifier: ^1.35.0
+        version: 1.35.0(svelte@5.56.10(@typescript-eslint/types@8.67.0))
       ai:
         specifier: ^7.0.73
         version: 7.0.77(zod@4.4.3)
@@ -1210,8 +1210,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@lucide/svelte@1.33.0':
-    resolution: {integrity: sha512-b+osTYG2V4dge5Lr7tnaTaahhy/4vH7Xb8zcqVjmctjwgkpXS0NNOJPkGzHHZoxtw/OO+2YAU28omeMfYCaawg==}
+  '@lucide/svelte@1.35.0':
+    resolution: {integrity: sha512-1I5WeiEFc21HOLv/GR11vuN3MqN/k/mhCEMW7nEtwSAGOcZ0C5ZgI1Y2Rvs/egfKTUiOTw+R9Ys9BJ+GwAKSWw==}
     peerDependencies:
       svelte: ^5
 
@@ -2888,8 +2888,8 @@ packages:
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
 
-  node-abi@3.94.0:
-    resolution: {integrity: sha512-W5ZNO5KRPB5TkYmGVD9F6YqhsglXJzE6etpbmT+f6EQElhiX/UTG551cnsRGvLG3fyZEg9HwaDmNmj5nwJ4z9g==}
+  node-abi@3.95.0:
+    resolution: {integrity: sha512-T9iGctuocf0qIWFFOTxPzjT5q0SILqaBYXt272tlBHvTKC5+3JnkMirLxNJNkXHtFyBjU2Jx+NL4Zipr0B/c6Q==}
     engines: {node: '>=10'}
 
   node-fetch-native@1.6.7:
@@ -3955,7 +3955,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@lucide/svelte@1.33.0(svelte@5.56.10(@typescript-eslint/types@8.67.0))':
+  '@lucide/svelte@1.35.0(svelte@5.56.10(@typescript-eslint/types@8.67.0))':
     dependencies:
       svelte: 5.56.10(@typescript-eslint/types@8.67.0)
 
@@ -5357,7 +5357,7 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
-  node-abi@3.94.0:
+  node-abi@3.95.0:
     dependencies:
       semver: 7.8.5
     optional: true
@@ -5509,7 +5509,7 @@ snapshots:
       minimist: 1.2.8
       mkdirp-classic: 0.5.3
       napi-build-utils: 2.0.0
-      node-abi: 3.94.0
+      node-abi: 3.95.0
       pump: 3.0.4
       rc: 1.2.8
       simple-get: 4.0.1
