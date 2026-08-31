@@ -24,7 +24,7 @@
 		"@types/node": "^22",
 		"prettier": "^3.8.3",
 		"typescript": "^7.0.2",
-		"vitest": "^4.1.10",
+		"vitest": "^4.1.11",
 		"postgres": "^3.4.9"
 	}
 }
