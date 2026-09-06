@@ -126,13 +126,21 @@ jobs:
   gate:
     name: Lint, typecheck, unit tests
     needs: changes
+    # `!cancelled() &&` is load-bearing. A job that needs a skipped job is skipped too,
+    # whatever its own condition says, unless the condition contains a status-check
+    # function. `changes` is PR-only, so it is skipped on every push, so without this
+    # the whole suite skipped on main and `ci` went green anyway, because skipped counts
+    # as passing. That is the tier meant to catch what the PR path no longer runs.
+    # `!cancelled()` rather than `always()`: both defeat the cascade, but `always()`
+    # keeps jobs running after a cancellation and wastes the runner slot.
     if: >-
+      ${{ !cancelled() && (
       github.event_name != 'pull_request' ||
       needs.changes.outputs.app == 'true' ||
       needs.changes.outputs.db == 'true' ||
       needs.changes.outputs.vector == 'true' ||
       needs.changes.outputs.import == 'true' ||
-      needs.changes.outputs.deps == 'true'
+      needs.changes.outputs.deps == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -285,7 +293,10 @@ jobs:
   wasm:
     name: Committed wasm reader matches its source
     needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.onestore == 'true'
+    # See the gate job's comment for why `!cancelled()` is not optional here.
+    if: >-
+      ${{ !cancelled() && (github.event_name != 'pull_request' ||
+      needs.changes.outputs.onestore == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -320,7 +331,10 @@ jobs:
   deploy-scripts:
     name: Shellcheck and test the shell scripts
     needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.scripts == 'true'
+    # See the gate job's comment for why `!cancelled()` is not optional here.
+    if: >-
+      ${{ !cancelled() && (github.event_name != 'pull_request' ||
+      needs.changes.outputs.scripts == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
