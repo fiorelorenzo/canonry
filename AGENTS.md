@@ -261,19 +261,41 @@ arbitrary finish reason or a malformed tool call with nothing in the app mocked 
 the real gateway client gets exercised on the way in. #678 and #698 both needed exactly that
 and both re-derived it.
 
+**CI is three tiers now (2026-09-06).** `preflight` (on PATH, manifest at
+`.github/preflight.json`) runs the expensive stuff locally before a push happens: lint,
+typecheck, the full test suite against real Postgres and Qdrant, the production build, the
+docker image boot, the wasm reproducibility check and the four deploy-script checks, each
+scoped by `preflight`'s own diff against `origin/main` so only what your branch can have
+broken actually runs. `preflight --list` shows what would run and why before you trust it,
+and `preflight --install-hook` wires it into `pre-push`, so a push right after a green run
+costs nothing. On GitHub, a `pull_request` gets one cheap job (`gate`: lint, typecheck and
+the unit tests, `pnpm --filter`-scoped to whichever of `apps/web`, `packages/db`,
+`packages/vector` or `packages/import` the PR's `changes` job saw touched, or unscoped if
+the lockfile or a root config did), plus `wasm`/`deploy-scripts` when their own paths moved.
+`docker-boot` never runs on a PR at all any more. `push: main` runs every job unconditionally
+-- no path filtering there, because that push is what gates the preview deploy in `deploy.yml`
+and nobody is waiting on it the way a PR is. The one required status check is now the context
+`ci`, an aggregate job that passes when every job it depends on either passed or was skipped:
+a docs-only PR that skips every job above is exactly as green as one that ran all of them,
+because `preflight` is what verified the real change before it was ever pushed.
+
 **Regenerate the playbooks, or CI will.** `packages/import/src/playbooks.generated.ts` is
 committed because the Docker image builds `apps/web` directly and never runs that package's
-build. Its own `build`, `check` and `test` scripts regenerate it first, and CI runs the
-generator and then `git diff --exit-code` on it, so an edited `playbooks/*.md` with a stale
-generated file is a red PR by itself.
+build. Its own `build`, `check` and `test` scripts regenerate it first; `gate`'s own
+playbooks step (full-suite runs only) and `preflight`'s `playbooks` check both regenerate it
+and then `git diff --exit-code` on it, so an edited `playbooks/*.md` with a stale generated
+file is a red run either way.
 
 **Scoping a check.** The root scripts are `pnpm -r --sequential`, so they cover every
 package; scope with `pnpm --filter @canonry/<pkg> <script>`, because `pnpm test -- <path>`
 does not scope (the root has no vitest config). `check` is `tsc` and `svelte-check`, which
 read the whole graph and are whole-project by nature. A package whose tests need Postgres
-pays the drop-create-migrate cost even for one test file. CI runs lint, typecheck, tests and
-build, plus a docker-boot job that builds the image and requests every major surface:
-nothing local reproduces that job, so do not report it as verified.
+pays the drop-create-migrate cost even for one test file. `gate` on a PR runs a `--filter`-
+scoped lint, typecheck and test only; `push: main`, `preflight` and a PR that touched the
+lockfile run the unscoped version of all three, plus build. `docker-boot` builds the image
+and requests every major surface: nothing but `preflight`'s own `docker-boot` check and the
+main-only CI job of the same name reproduce it, so do not report either as verified from a
+`gate` run.
 
 **The root `typescript` is 6.x on purpose, and it is what makes `lsp` work at all.** The
 eleven `packages/*` that typecheck are on `^7.0.2`, the native port, and stay there: that is
@@ -330,10 +352,16 @@ Do not turn strict on; instead, after the last merge of a wave, check the run on
 commit rather than on any branch, and treat a rename or an i18n key removal as a conflict
 magnet even when git reports no conflict, because the collision is by name and not by line.
 
-**Nothing guards `main`, but only one merge method is allowed.** There is no branch
-protection and no ruleset, so a red PR can be merged and the gate is you. What is not open
-is how: `allow_squash_merge` is the only one true, and both `allow_merge_commit` and
-`allow_rebase_merge` are false, so `gh pr merge --rebase` and `--merge` are refused with
+**`main` is guarded by one required status check, and only one merge method is allowed.**
+The `protect-default-branch` ruleset's `required_status_checks` used to name two job
+contexts directly (`Lint, typecheck, test, build` and `Build image and verify served
+health`), which meant renaming or resharding either job meant editing the ruleset too.
+Since the three-tier CI rewrite (2026-09-06) it names exactly one context, `ci`
+(`strict_required_status_checks_policy: false`, deliberately, see the wave note above), and
+every job upstream of it can be renamed, split or made conditional forever without a
+ruleset ever changing again. `gh api repos/fiorelorenzo/canonry/rules/branches/main` reads
+it back. What is not open is how a PR merges: `allow_squash_merge` is the only one true, and
+both `allow_merge_commit` and `allow_rebase_merge` are false, so `gh pr merge --rebase` and
 "Rebase merges are not allowed on this repository" and every commit on `main` is a squash
 carrying its PR number. Write the PR body as the durable record, because a wave's individual
 commit messages do not survive the merge. `delete_branch_on_merge` is on, so the remote
