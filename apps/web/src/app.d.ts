@@ -28,5 +28,3 @@ declare global {
 }
 
 export {};
-
-// preflight demo touch (reverted before commit)
