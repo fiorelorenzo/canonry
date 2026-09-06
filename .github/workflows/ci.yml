@@ -5,8 +5,10 @@ name: CI
 
 on:
   pull_request:
+    branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 # One run per commit per event, and it is insurance rather than a fix, because the
 # thing it guards against is not in this file (issue #712). On 2026-08-24 the push
@@ -24,30 +26,113 @@ on:
 # `before` and `after`. It is the only sha out of 305 that has ever had two, so it
 # is a duplicated internal delivery and not a shape of ours to correct.
 #
-# So this group makes "one run per (event, sha)" hold whatever GitHub delivers.
 # `cancel-in-progress` is deliberate and it is what stops the doubled bill: a
 # duplicate cancels the twelve seconds the first run got through rather than
-# queueing behind eight more minutes of it. Two different commits are two
-# different groups and can never cancel each other, and neither can a pull_request
-# run and a push run, so nothing outside the duplicate case changes. It leaves a
-# `cancelled` run next to the green one for that sha, which is why
-# scripts/deploy/verify-ci.sh treats a cancelled run as evidence of nothing.
+# queueing behind eight more minutes of it. It leaves a `cancelled` run next to
+# the green one for that sha, which is why scripts/deploy/verify-ci.sh treats a
+# cancelled run as evidence of nothing.
+#
+# The group key moved from the commit sha to `github.ref` (2026-09-06) to match the
+# estate-wide CI shape: every repo now keys concurrency on event+ref rather than
+# event+sha. The duplicate-delivery case above still cancels correctly, since both
+# deliveries of the same push share the same ref too. What is new is that a later
+# push to main now also cancels an earlier one still running -- deliberately:
+# deploy.yml already treats an in-flight preview deploy the same way (issue #222,
+# "only the last one matters"), and a cancelled run is exactly the "evidence of
+# nothing" verify-ci.sh already handles, so a commit superseded before its own CI
+# finished just never gets its own preview deploy, and the next green commit's does.
 concurrency:
-  group: ci-${{ github.event_name }}-${{ github.sha }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 # Node version pinned here must track .node-version; pnpm/setup has no
 # node-version-file input.
 env:
   NODE_VERSION: 22.22.3
 
+# Three tiers (see AGENTS.md): `preflight` runs the expensive stuff locally before a push
+# ever happens; a pull_request gets one cheap gate scoped to whatever `changes` below says
+# actually moved; push: main gets the full suite unconditionally, because that is the deploy
+# gate and path filters do not apply to it. `ci` at the bottom is the one required status
+# check -- everything above it can be renamed or resharded without touching branch
+# protection again.
 jobs:
-  test:
-    name: Lint, typecheck, test, build
+  # PR-only. `dorny/paths-filter` answers from the API on a pull_request, so this job needs
+  # no checkout and costs a few seconds. Not used on push: main always runs everything below
+  # regardless of these outputs, which also spares us the fetch-depth: 0 a push comparison
+  # would need.
+  changes:
+    name: changes
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      db: ${{ steps.filter.outputs.db }}
+      vector: ${{ steps.filter.outputs.vector }}
+      import: ${{ steps.filter.outputs.import }}
+      onestore: ${{ steps.filter.outputs.onestore }}
+      scripts: ${{ steps.filter.outputs.scripts }}
+      deps: ${{ steps.filter.outputs.deps }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'apps/web/**'
+            db:
+              - 'packages/db/**'
+            vector:
+              - 'packages/vector/**'
+            import:
+              - 'packages/import/**'
+            onestore:
+              - 'packages/import/onestore/**'
+            scripts:
+              - 'scripts/**'
+              - 'docker/deploy/compose.deploy.yml'
+              - '.env.example'
+            deps:
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'package.json'
+              - 'tsconfig.base.json'
+              - '.node-version'
+              - '.npmrc'
+              - '.github/workflows/ci.yml'
+
+  # Tier 2: the one cheap gate a PR waits on, scoped to whatever `changes` marked via pnpm's
+  # own `--filter` rather than a second copy of those path lists, so the two can never
+  # disagree. On any event other than `pull_request` there is no scoping at all -- that is
+  # the tier-3 full suite -- and `deps == 'true'` widens a PR to the same thing, because a
+  # lockfile or root config change can break a package that never touched a line of its own
+  # source.
+  #
+  # Lint and format caused 16 of ~41 real CI failures in this workflow's history, so lint
+  # runs before typecheck and typecheck before the unit tests: a formatter fixes in seconds
+  # what a rerun costs in minutes, and there is no reason to boot Postgres and Qdrant for a
+  # package that fails prettier.
+  gate:
+    name: Lint, typecheck, unit tests
+    needs: changes
+    if: >-
+      github.event_name != 'pull_request' ||
+      needs.changes.outputs.app == 'true' ||
+      needs.changes.outputs.db == 'true' ||
+      needs.changes.outputs.vector == 'true' ||
+      needs.changes.outputs.import == 'true' ||
+      needs.changes.outputs.deps == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
-      # Real Postgres so packages/db's tests exercise real queries and
-      # migrations instead of a mock.
+      # Real Postgres so packages/db's tests exercise real queries and migrations instead of
+      # a mock. This is a job-level service, not a step, so it starts (and costs its usual
+      # few seconds) whether or not this run's scope actually touches @canonry/db -- cheaper
+      # than a second job carrying its own checkout and install just to skip it.
       postgres:
         image: postgres:16
         env:
@@ -83,34 +168,69 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Scope this run to what changed
+        id: scope
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ] || [ "${{ needs.changes.outputs.deps }}" = "true" ]; then
+            echo "filter=" >> "$GITHUB_OUTPUT"
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          filter=""
+          [ "${{ needs.changes.outputs.app }}" = "true" ] && filter="$filter --filter web"
+          [ "${{ needs.changes.outputs.db }}" = "true" ] && filter="$filter --filter @canonry/db"
+          [ "${{ needs.changes.outputs.vector }}" = "true" ] && filter="$filter --filter @canonry/vector"
+          [ "${{ needs.changes.outputs.import }}" = "true" ] && filter="$filter --filter @canonry/import"
+          echo "filter=$filter" >> "$GITHUB_OUTPUT"
+          echo "full=false" >> "$GITHUB_OUTPUT"
+          echo "scoped to:$filter"
+
+      # `src/playbooks.generated.ts` is committed so that every build path has it, including
+      # the Docker image (which builds apps/web directly and never runs this package's own
+      # build) and a bare `pnpm dev`. Committed codegen can go stale, so this is the guard:
+      # regenerate and fail if anything moved. The alternative, generating it everywhere, is
+      # how production ended up shipping without the playbooks at all.
+      #
+      # Full-suite only: a PR that never touched packages/import cannot have made this
+      # stale, and `preflight` runs the same check locally whenever it does.
       - name: Generated playbooks are current
-        # `src/playbooks.generated.ts` is committed so that every build path has it, including the
-        # Docker image (which builds apps/web directly and never runs this package's own build) and
-        # a bare `pnpm dev`. Committed codegen can go stale, so this is the guard: regenerate and
-        # fail if anything moved. The alternative, generating it everywhere, is how production
-        # ended up shipping without the playbooks at all.
+        if: steps.scope.outputs.full == 'true'
         run: |
           pnpm --filter @canonry/import playbooks
           git diff --exit-code -- packages/import/src/playbooks.generated.ts
 
       - name: Lint
-        run: pnpm lint
+        run: pnpm ${{ steps.scope.outputs.filter }} lint
 
       - name: Typecheck
-        run: pnpm check
+        run: pnpm ${{ steps.scope.outputs.filter }} check
 
       - name: Unit tests
-        run: pnpm test
+        run: pnpm ${{ steps.scope.outputs.filter }} test
         env:
           TEST_DATABASE_URL: postgres://canonry:canonry@localhost:5432/canonry_test
           QDRANT_URL: http://localhost:6333
 
+      # Full-suite only, same reasoning as the playbooks check above: `docker-boot` below
+      # already proves apps/web and @canonry/db build, since building them is what the
+      # Docker image does. The only thing this step catches beyond that is one of the other
+      # nine packages failing to build, which `preflight`'s own `build` check gives a
+      # developer before the push happens.
       - name: Build
+        if: steps.scope.outputs.full == 'true'
         run: pnpm build
 
+  # Tier 3, main-only (2026-09-06): this job used to run on every PR too, at 2.4 of the old
+  # job's 6.2-minute median, for a check a PR-scoped gate cannot meaningfully shrink -- it
+  # proves the whole image, not one package. `preflight`'s own `docker-boot` check gives a
+  # developer the same answer before the push happens; this is the same script
+  # (scripts/ci-image-boot.sh) run against the service container below instead of a
+  # docker-compose one, so the two can never quietly diverge.
   docker-boot:
     name: Build image and verify served health
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16
@@ -129,142 +249,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Compute build identifiers
-        id: version
-        run: |
-          echo "version=0.0.0-ci.${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-          echo "commit=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-
-      # The image boots a canon-save worker (issue #115), which queries `canon_save_job` on
-      # its first poll, so this check needs a migrated database rather than an empty one. That
-      # is also what a real deployment does: migrations run explicitly, before the new release
-      # serves traffic, never implicitly from inside the app.
-      #
-      # Applied with psql rather than `pnpm --filter @canonry/db migrate` because this job has
-      # no node toolchain and does not need one: what the boot check wants is the schema, and
-      # drizzle's own runner is already exercised by every integration test in the job above.
-      # ON_ERROR_STOP is what makes a broken migration fail here instead of surfacing as a
-      # confusing 500 from the container three steps later.
-      - name: Apply migrations to the boot-check database
-        run: |
-          for f in $(ls packages/db/migrations/*.sql | sort); do
-            echo "applying $f"
-            docker run --rm --network host -v "$PWD:/repo" -e PGPASSWORD=canonry postgres:16 \
-              psql -h 127.0.0.1 -U canonry -d canonry -v ON_ERROR_STOP=1 -q -f "/repo/$f"
-          done
-
-      - name: Build runtime image
-        run: |
-          docker build -f docker/Dockerfile \
-            --build-arg APP_VERSION=${{ steps.version.outputs.version }} \
-            --build-arg APP_COMMIT=${{ steps.version.outputs.commit }} \
-            -t canonry-web:ci .
-
-      # --network host: the simplest way for the freshly built container to
-      # reach the postgres service container, which GitHub-hosted runners
-      # publish to the runner's own loopback interface, not a shared docker
-      # network. QDRANT_URL is left pointing nowhere on purpose: /healthz must
-      # degrade rather than fail when only Qdrant is unreachable.
-      # BETTER_AUTH_SECRET is required because the app refuses to boot without one rather
-      # than falling back to Better Auth's insecure default (issue #86). The value here is
-      # throwaway and signs nothing that outlives this job: the point of this step is that
-      # the image starts and serves the version it was built with, not that anybody can sign
-      # in. ORIGIN matters for the same reason it matters in production: adapter-node only
-      # ever sees plain HTTP from a proxy, so a missing ORIGIN answers 403 to every form POST
-      # while the build stays green. RESEND_API_KEY and MAIL_FROM are throwaway values that
-      # never send anything (no route requested below sends a mail): they are here so the
-      # /healthz check below can see the image report a configured mail transport, which is
-      # what the prodbox health gate refuses a release for (#277).
-      - name: Boot the image against Postgres
-        run: |
-          docker run -d --name canonry-web-ci \
-            --network host \
-            -e DATABASE_URL=postgres://canonry:canonry@127.0.0.1:5432/canonry \
-            -e QDRANT_URL=http://127.0.0.1:1 \
-            -e ORIGIN=http://127.0.0.1:5196 \
-            -e BETTER_AUTH_SECRET=ci-boot-check-secret-not-used-for-anything \
-            -e RESEND_API_KEY=re_ci_boot_check_never_sends \
-            -e 'MAIL_FROM=Canonry CI <noreply@canonry.invalid>' \
-            canonry-web:ci
-
-      # SPEC.md #12: a green curl has served a stale build on this box
-      # before. Comparing the served version against the version this exact
-      # build was tagged with is the check that catches that.
-      - name: Wait for /healthz and verify the served version
-        run: |
-          body=""
-          for _ in $(seq 1 30); do
-            if body=$(curl -sf http://127.0.0.1:5196/healthz); then
-              break
-            fi
-            sleep 1
-          done
-          if [ -z "$body" ]; then
-            echo "::error::web container never answered /healthz"
-            exit 1
-          fi
-          echo "$body" | jq .
-
-          served_version=$(echo "$body" | jq -r '.version')
-          served_db=$(echo "$body" | jq -r '.db')
-          served_mail=$(echo "$body" | jq -r '.mail')
-
-          if [ "$served_version" != "${{ steps.version.outputs.version }}" ]; then
-            echo "::error::served version '$served_version' does not match the built artifact '${{ steps.version.outputs.version }}' -- stale image"
-            exit 1
-          fi
-          if [ "$served_db" != "true" ]; then
-            echo "::error::/healthz reports db=false while booted against a healthy Postgres"
-            exit 1
-          fi
-          if [ "$served_mail" != "true" ]; then
-            echo "::error::/healthz reports mail=$served_mail while booted with RESEND_API_KEY and MAIL_FROM set"
-            exit 1
-          fi
-
-      # /healthz alone proves the process booted, not that the app can render anything: it
-      # touches no route module, so a page whose server module crashes on import stays
-      # invisible. That is not hypothetical. `pdfjs-dist` loads browser globals at module
-      # top level, so every route that transitively imported the import engine answered 500
-      # in production while this job stayed green. One request per surface closes that hole
-      # for a couple of seconds of CI.
-      #
-      # `/u/new` and `/u/valdoria-reach` sat in this list until #251 and checked nothing: that
-      # namespace is `/w/` (decision J1), so both were 404 on every run whatever the route
-      # modules did. The two `/p/` paths are the published players' wiki (#251), the one surface
-      # here a signed-out stranger is actually meant to read, and this empty database has no
-      # world in it, so what they prove is that those route modules import and render rather
-      # than that the world exists.
-      - name: Every real surface renders, none of them 500
-        run: |
-          fail=0
-          for path in / /auth/sign-in /auth/sign-up /privacy /docs /docs/import /onboarding /w/valdoria-reach /p/valdoria-reach /p/valdoria-reach/aldric-vane; do
-            code=$(curl -s -o /tmp/body.html -w '%{http_code}' "http://127.0.0.1:5196$path")
-            printf '%-34s %s\n' "$path" "$code"
-            # 2xx, a redirect to sign-in, or an honest 404 for a universe this empty
-            # database does not have are all fine. A 5xx never is.
-            case "$code" in
-              5*) echo "::error::$path answered $code"; head -c 400 /tmp/body.html; fail=1 ;;
-            esac
-          done
-          [ "$fail" -eq 0 ]
-
-      - name: No unhandled exception reached the log
-        run: |
-          # A route can answer 500 from a caught error, and it can also log an uncaught
-          # rejection while answering 200 from a fallback. Both matter, so the log is
-          # checked separately from the status codes above.
-          if docker logs canonry-web-ci 2>&1 | grep -nE 'ReferenceError|TypeError: Cannot|UnhandledPromiseRejection|Cannot find module'; then
-            echo "::error::the container logged an unhandled error while serving those routes"
-            exit 1
-          fi
-      - name: Container logs
-        if: always()
-        run: docker logs canonry-web-ci || true
-
-      - name: Stop container
-        if: always()
-        run: docker rm -f canonry-web-ci || true
+      - name: Build, boot and sweep the image
+        run: scripts/ci-image-boot.sh
 
   # The committed wasm reader still matches its source (issue #603).
   #
@@ -274,13 +260,15 @@ jobs:
   # apps/web directly and its runtime stage carries only Vite's output, into which a
   # source-exported workspace package is inlined, so a loose `.wasm` file would reach
   # neither the image nor a `pnpm dev`. Committed codegen goes stale, so this regenerates
-  # it and fails on a diff, exactly as the `test` job does for the playbooks.
+  # it and fails on a diff, exactly as the `gate` job does for the playbooks.
   #
   # This is the only job that needs a Rust toolchain, and that is the whole point: Rust is
   # a verification dependency here and never a build dependency, so `pnpm build`, the
-  # Docker image and a fresh clone all work without it. Independent of `test` so it never
+  # Docker image and a fresh clone all work without it. Independent of `gate` so it never
   # blocks the main pipeline, and deliberately **not** a required status check: a required
-  # check that installs a second toolchain is a slow gate on every unrelated PR.
+  # check that installs a second toolchain is a slow gate on every unrelated PR. Scoped to
+  # `packages/import/onestore/**` on a PR (2026-09-06): every other event runs it
+  # unconditionally, same as every other tier-3 job.
   #
   # Reproducibility is what makes the diff meaningful. `rust-toolchain.toml` pins the
   # compiler, `Cargo.lock` pins the tree, and `build.sh` passes `--remap-path-prefix` for
@@ -289,7 +277,10 @@ jobs:
   # home directory.
   wasm:
     name: Committed wasm reader matches its source
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.onestore == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -313,12 +304,18 @@ jobs:
 
   # No node toolchain needed here: scripts/deploy/*.sh and the top-level scripts/*.sh
   # are plain bash with no pnpm package of their own, so `pnpm lint` never reaches
-  # them and this is the only place that does. Independent of the `test` job on
+  # them and this is the only place that does. Independent of the `gate` job on
   # purpose, so a shell issue here never blocks or waits on the node/postgres/qdrant
-  # setup above.
+  # setup above. Cheap enough (0.2m median) and load-bearing enough for the deploy
+  # gate that it stays on the PR path too, scoped (2026-09-06) to scripts/** plus the
+  # compose/env files test-deploy-env.sh reads; every other event runs it
+  # unconditionally.
   deploy-scripts:
     name: Shellcheck and test the shell scripts
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.scripts == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -333,11 +330,13 @@ jobs:
       # scripts/deploy, because it is not a deploy script. Checked separately, and not
       # folded into the glob above, so a future non-bash file at the top of scripts/
       # (there is already build-demo-corpus.mjs) never breaks this step by accident.
+      # ci-image-boot.sh joined this list on 2026-09-06, when it was extracted out of the
+      # docker-boot job below so `preflight` can run the exact same script.
       - name: Shellcheck top-level scripts
         run: |
           cd scripts
-          bash -n demo-reset.sh test-db-janitor.sh
-          shellcheck -x demo-reset.sh test-db-janitor.sh
+          bash -n demo-reset.sh test-db-janitor.sh ci-image-boot.sh
+          shellcheck -x demo-reset.sh test-db-janitor.sh ci-image-boot.sh
 
       # Issue #228: the supersede gate that keeps a superseded CI run from
       # deploying backwards. Builds its own throwaway git repo and stack
@@ -364,3 +363,24 @@ jobs:
       # Compares two lists of names, so it needs no docker, no secrets and no network.
       - name: Check the deployed environment carries what .env.example promises
         run: scripts/deploy/test-deploy-env.sh
+
+  # The single required status check. Never rename it: it is the one context in the
+  # protect-default-branch ruleset, so every job name above it can change forever without
+  # touching a ruleset again. `skipped` counts as passing -- that is the whole point: a PR
+  # that only touched, say, docs/ skips every job above and `ci` still goes green, because
+  # nothing here could have broken and `preflight` is what verified the actual change
+  # before it was ever pushed.
+  ci:
+    name: ci
+    if: always()
+    needs: [changes, gate, docker-boot, wasm, deploy-scripts]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: A needed job failed or was cancelled
+        run: |
+          printf '%s\n' '${{ toJSON(needs) }}'
+          printf '%s' '${{ toJSON(needs) }}' | jq -e '
+            to_entries
+            | map(select(.value.result == "failure" or .value.result == "cancelled"))
+            | length == 0'

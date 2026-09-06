@@ -1,0 +1,104 @@
+{
+	"base": "origin/main",
+	"jobs": 4,
+	"checks": [
+		{
+			"id": "playbooks",
+			"run": "pnpm --filter @canonry/import playbooks && git diff --exit-code -- packages/import/src/playbooks.generated.ts",
+			"when": [
+				"packages/import/playbooks/**",
+				"packages/import/src/playbook.ts",
+				"packages/import/scripts/generate-playbooks.mjs"
+			],
+			"why": "committed codegen (issue #603's sibling): regenerate and fail on a diff, same reasoning as wasm below"
+		},
+		{
+			"id": "lint",
+			"run": "pnpm lint",
+			"serial": true,
+			"why": "prettier + eslint across every workspace package; whole-repo because the workspace has no per-package lint config worth scoping; serial (default 'heavy' lock) because it is a full-workspace lint pass, not because it touches a shared resource"
+		},
+		{
+			"id": "typecheck",
+			"run": "pnpm check",
+			"serial": true,
+			"why": "svelte-check / tsc across every workspace package; a change in one package's exported types can break another's typecheck, which a path-scoped run would miss; serial for the same reason as lint above"
+		},
+		{
+			"id": "test",
+			"run": "TEST_DATABASE_URL=postgres://canonry:canonry@127.0.0.1:15432/canonry_test QDRANT_URL=http://127.0.0.1:16333 pnpm test",
+			"when": [
+				"packages/**/src/**",
+				"packages/**/*.test.ts",
+				"apps/web/src/**",
+				"pnpm-lock.yaml"
+			],
+			"setup": "docker compose -f docker/compose.preflight.yml up -d --wait",
+			"teardown": "docker compose -f docker/compose.preflight.yml down -v",
+			"serial": true,
+			"lock": "postgres",
+			"why": "real Postgres and Qdrant, same as ci.yml's gate job; serial because it binds fixed host ports (15432, 16333) -- named 'postgres' so it queues only behind other Postgres-bound checks on this box, not every heavy one"
+		},
+		{
+			"id": "build",
+			"run": "pnpm build",
+			"serial": true,
+			"why": "docker-boot only builds apps/web and @canonry/db; this is what catches one of the other nine packages failing to build; serial (default 'heavy' lock) since a full-workspace production build is CPU-heavy"
+		},
+		{
+			"id": "docker-boot",
+			"run": "PGHOST=127.0.0.1 PGPORT=15432 scripts/ci-image-boot.sh",
+			"when": [
+				"docker/Dockerfile",
+				"apps/web/**",
+				"packages/db/**",
+				"packages/ai/**",
+				"packages/copilot/**",
+				"packages/eval/**",
+				"packages/import/**",
+				"packages/indexing/**",
+				"packages/lang/**",
+				"packages/media/**",
+				"packages/vector/**",
+				"packages/warm/**",
+				"pnpm-lock.yaml"
+			],
+			"setup": "docker compose -f docker/compose.preflight.yml up -d postgres --wait",
+			"teardown": "docker compose -f docker/compose.preflight.yml down -v",
+			"serial": true,
+			"lock": "postgres",
+			"why": "builds and boots the real runtime image against Postgres (SPEC.md #12); serial because it binds Postgres's 15432 and the app's own 5196, and shares the 'postgres' lock with the test check above so the two never fight over 15432 either"
+		},
+		{
+			"id": "wasm",
+			"run": "packages/import/onestore/build.sh && git diff --exit-code -- packages/import/src/onestore-wasm.generated.ts",
+			"when": ["packages/import/onestore/**"],
+			"serial": true,
+			"why": "issue #603: the committed wasm reader must still match its Rust source; needs a Rust toolchain, which is why it is not in ci.yml's required gate either; serial (default 'heavy' lock) since a cold cargo build is CPU-heavy"
+		},
+		{
+			"id": "shellcheck",
+			"run": "cd scripts/deploy && bash -n *.sh && shellcheck -x *.sh && cd ../.. && cd scripts && bash -n demo-reset.sh test-db-janitor.sh ci-image-boot.sh && shellcheck -x demo-reset.sh test-db-janitor.sh ci-image-boot.sh",
+			"when": ["scripts/**/*.sh"],
+			"why": "no pnpm package covers scripts/, so this is the only lint they get"
+		},
+		{
+			"id": "deploy-test-supersede",
+			"run": "scripts/deploy/test-release-supersede.sh",
+			"when": ["scripts/deploy/**"],
+			"why": "issue #228: the supersede gate that keeps a superseded CI run from deploying backwards"
+		},
+		{
+			"id": "deploy-test-verify-ci",
+			"run": "scripts/deploy/test-verify-ci.sh",
+			"when": ["scripts/deploy/verify-ci.sh", "scripts/deploy/test-verify-ci.sh", "scripts/deploy/fixtures/**"],
+			"why": "issue #712: the deploy workflow's CI gate must give the same verdict whenever it is asked"
+		},
+		{
+			"id": "deploy-test-env",
+			"run": "scripts/deploy/test-deploy-env.sh",
+			"when": ["scripts/deploy/test-deploy-env.sh", ".env.example", "docker/deploy/compose.deploy.yml"],
+			"why": "issues #247, #250: every credential .env.example documents has to reach the deployed web container"
+		}
+	]
+}
