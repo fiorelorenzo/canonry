@@ -111,7 +111,6 @@ jobs:
               - 'tsconfig.base.json'
               - '.node-version'
               - '.npmrc'
-              - '.github/workflows/ci.yml'
 
   # Tier 2: the one cheap gate a PR waits on, scoped to whatever `changes` marked via pnpm's
   # own `--filter` rather than a second copy of those path lists, so the two can never
