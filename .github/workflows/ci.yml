@@ -68,6 +68,14 @@ jobs:
     name: changes
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    # Job-level permissions replace the workflow-level block above rather than merging with
+    # it, so contents: read has to be repeated here. dorny/paths-filter has no checkout on a
+    # pull_request (it lists the PR's changed files from the API instead), and that call
+    # needs pull-requests: read or it fails "Resource not accessible by integration" on every
+    # real PR -- found the hard way across the estate's first rollout of this skeleton.
+    permissions:
+      contents: read
+      pull-requests: read
     timeout-minutes: 5
     outputs:
       app: ${{ steps.filter.outputs.app }}
