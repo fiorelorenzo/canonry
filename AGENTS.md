@@ -1,10 +1,9 @@
 # AGENTS.md — building Canonry
 
 Orientation for AI coding agents and human contributors. `SPEC.md` is the source of
-truth for **what Canonry is**; the GitHub Project is the source of truth for **where
-it stands**. Read the spec fully before implementing anything: it is long because
-the product's guarantees live in the details, and most of the traps are written
-down there already.
+truth for **what Canonry is**; Linear is the source of truth for **where it stands**.
+Read the spec fully before implementing anything: it is long because the product's
+guarantees live in the details, and most of the traps are written down there already.
 
 ## What Canonry is, in one paragraph
 
@@ -509,52 +508,26 @@ same graph at once pushed one run past seven minutes and another past a 300s too
 which reads like a hang and is contention. Scope eslint to your own files while you work and
 let CI run the package.
 
-**The board's own API is a shared quota.** Projects v2 fields are GraphQL-only, and GraphQL is
-5000 points an hour **per account**, not per repo. Setting four fields on thirteen issues plus
-`gh pr create` (also GraphQL) exhausted it in one wave and every later call failed with "API
-rate limit already exceeded" while REST still had its full 5000. `gh api rate_limit` says which
-budget is gone, and it is worth checking before a long board pass rather than after.
-
-**And the per-call cost is nowhere near one point, which is what makes the budget vanish
-without warning.** Measured on 2026-08-24: a board pass over five new issues, each one
-`item-add`, then `item-list` to find its id, then four `item-edit`s, then `issue view` and
-`addSubIssue`, is about 40 calls, and it burned roughly 4,400 points in 100 seconds. That is
-~110 points a call, not 1, and `gh project item-list --limit 600` is the expensive one
-because it pages the whole board every time. So **list the board once, cache the item ids,
-and read the field and option ids once into a file** rather than calling `field-list` per
-edit; that alone is the difference between a pass that fits in one hour's budget and one
-that dies four issues in. Check `gh api rate_limit --jq '.resources.graphql'` before
-starting, not after, and note that the reset is a hard hour: there is nothing to do but
-wait, so do the REST half (issue and PR creation, comments, merges) while it refills.
-
-One trap in measuring any of this, which cost me a wrong number tonight: a call that is
-refused for rate limiting still returns, and the counter moves by one, so probing the cost
-of `item-list` while the budget is already gone reports 1 point for something that costs
-hundreds. Measure just after a reset, never near the floor. And the cost is per node rather
-than per call, so `--limit` is load-bearing: `--limit 900` against a 400-item board pages
-five times and pays for every field of every item each time, which is why the same command
-with `--limit 30` is cheap and why calling it inside a per-issue loop is what actually
-empties the budget.
-
-**Far more of `gh` is GraphQL than the name suggests, and each one has a REST twin.** A wave on
-2026-08-23 hit the wall four times and re-derived the workaround each time, so here is the whole
-set. `gh pr create`, `gh pr merge`, `gh pr edit`, `gh issue create`, `gh issue comment` and every
-`gh project` subcommand are GraphQL. The equivalents that keep working:
+**`gh`'s PR and issue-comment commands are GraphQL, and GraphQL is a shared quota.**
+`gh pr create`, `gh pr merge`, `gh pr edit` and `gh issue comment` are all GraphQL,
+and the account-wide budget is 5000 points an hour, not per repo. A wave that mixes
+those with other GraphQL calls can exhaust it, and every later call then fails with
+"API rate limit already exceeded" while REST still has its full 5000. `gh api
+rate_limit` says which budget is gone, and it is worth checking before a long PR
+pass rather than after. The REST equivalents keep working when the GraphQL budget
+is empty:
 
 ```bash
 gh api repos/$OWNER/$REPO/pulls -f head=BRANCH -f base=main -f title='...' -F body=@body.md
 gh api --method PUT repos/$OWNER/$REPO/pulls/N/merge -f merge_method=squash
 gh api --method PATCH repos/$OWNER/$REPO/pulls/N -f body="$(cat body.md)"
-gh api --method POST repos/$OWNER/$REPO/issues --input issue.json      # milestone is a NUMBER
 gh api --method POST repos/$OWNER/$REPO/issues/N/comments --input comment.json
-gh api --method PATCH repos/$OWNER/$REPO/issues/N -f state=closed -f state_reason=completed
 ```
 
-Two traps in there. `--input` wants a JSON file, and `milestone` in it is the milestone's **number**,
-not its title, which `gh api repos/$OWNER/$REPO/milestones` gives you. And the board fields have no
-REST twin at all: `updateProjectV2ItemFieldValue` is GraphQL only, so a `Status` flip genuinely has
-to wait for the reset. Do the merges over REST meanwhile and catch the board up afterwards, rather
-than stalling a wave on a field.
+`--input` wants a JSON file. Note that one trap in measuring any of this: a call
+refused for rate limiting still returns, and the counter moves by one, so probing
+a call's cost while the budget is already gone reports 1 point for something that
+normally costs far more. Measure just after a reset, never near the floor.
 
 ## The UX decisions live in `docs/ux/`
 
@@ -752,33 +725,50 @@ holding in mind:
 - Do not add a dependency whose licence is incompatible with AGPL-3.0
   distribution.
 
-## The GitHub Project is the source of truth
+## Linear is the source of truth for where the work stands
 
-Current state and future roadmap live on **Project #9 "Canonry roadmap"** (owner
-`fiorelorenzo`), not in this file, not in the spec, and not in a chat transcript.
-`SPEC.md` says what Canonry is, the board says where it stands. Keeping the board
-current is part of doing the work, not paperwork at the end: it is how Lorenzo sees
-state without reading session logs, so a board that lags reality is worse than no
-board.
+Current state and future roadmap live in **Linear** (`linear.app/fiorelorenzo`,
+team `Lorenzo Fiore`, identifier prefix `LOR`, so an issue is `LOR-<n>`), not in
+this file, not in the spec, and not in a chat transcript. `SPEC.md` says what
+Canonry is, Linear says where it stands. Keeping it current is part of doing the
+work, not paperwork at the end: it is how Lorenzo sees state without reading
+session logs, so a tracker that lags reality is worse than no tracker.
+
+The repo is the Linear **initiative** `canonry`: permanent, the product's
+standing view. Under it, a **project** is a release or a body of work with an
+end, closed when it ships. Two exist right now: `canonry v0 - The engine is
+real` and `canonry v1 - The product is sellable`. What used to be an epic issue
+is now a **project milestone**: it is not an issue, costs no issue slot, and
+shows progress natively. Some of the epics that became milestones were already
+closed on GitHub while still parenting open work; those became milestones the
+same as the open ones. A parent issue stays only for a deliverable that
+genuinely splits into sub-deliverables within a single agent run's reach.
+
+**An issue is one agent run, one PR, one worktree.** That equivalence is
+load-bearing: it is what makes the worktree removable at the end of a run and
+the PR reviewable.
 
 **Status is a claim about reality, keep it true.**
 
 - Before you write code for an issue, move it to `In Progress`. If what you are
   about to do has no issue, create one first, then start.
-- Move it to `Done` only when the change is merged and verified, not when the code
-  is written. Merged but something is still open? Say so in a comment and leave it
-  `In Progress`.
-- Board fields, the same four on every one of Lorenzo's roadmap boards on purpose:
-  `Status` (`Todo` / `In Progress` / `Done`), `Priority` (P0-P3), `Effort`
-  (S/M/L/XL) and `Parallel` (Yes/No, whether a parallel agent can take the issue
-  without colliding). Set all four on anything you file. Never write a value that
-  is not already an option, read the schema instead of guessing, and never add,
-  rename or drop a field on this board alone: the convention is shared.
+- Move it to `Done` only when the change is merged and verified, not when the
+  code is written. Merged but something is still open? Say so in a comment and
+  leave it `In Progress`.
+- The team's statuses are `Backlog`, `Todo`, `In Progress`, `In Review`, `Done`,
+  `Canceled`. `In Review` is where an issue sits while its PR is open on GitHub:
+  PRs stay on GitHub, Linear links them through the branch name rather than
+  hosting review itself.
+- Priority (`Urgent` / `High` / `Medium` / `Low`) and estimated effort are
+  Linear's own native fields on the issue, not labels. Set both on anything you
+  file, and never invent a value that is not already an option.
 
 **Comment when a reader would want to know.** A decision taken, an approach tried
 and abandoned, a blocker hit, a surprise in the code, a finding that invalidates
 the issue as written. One comment per meaningful turn in the work, not one per
-commit, and no routine progress narration.
+commit, and no routine progress narration. A project status update, not a
+comment, is for something a reader could not infer from the issue list: a
+milestone slipped, a health change, a decision taken.
 
 **File the work you discover.** When something real surfaces mid-task, open an
 issue for it instead of silently widening the current change. Then say in the
@@ -787,78 +777,29 @@ current issue that you split it out, with a link.
 **Conventions for a new issue.**
 
 - Title follows **conventional-commit form**: `feat(import): ...`, `fix(canon):
-...`, `test(copilot): ...`. Same scopes as the `area:*` labels.
-- Labels: exactly one `type:*` (`feature`, `fix`, `refactor`, `test`, `chore`,
-  `ci`, `docs`, `design`, `security`, `spike`), exactly one of
-  `priority:P0`-`priority:P3`, and one or more `area:*`. `epic` and `flagship` are
-  the only unprefixed labels. Priority is deliberately in two places, the board
-  field and the label, so set both.
+...`, `test(copilot): ...`. PR titles keep the same convention. Same scopes as
+the `area:*` labels.
+- Labels: the workspace has two mutually exclusive label groups, `repo` (children
+  `pitchbox`, `sazio`, `canonry`, exactly one per issue, and everything filed here
+  carries `canonry`) and `type` (children `feature`, `fix`, `refactor`, `test`,
+  `chore`, `ci`, `docs`, `design`, `security`, `spike`, exactly one per issue,
+  Linear enforces one label per group). `area:*` stays a set of flat labels
+  rather than a group precisely because this is a pnpm monorepo with several
+  surfaces and one issue often needs more than one area at once. `flagship` and
+  `parallel` are the only other flat labels; `parallel` marks whether a parallel
+  agent can take the issue without colliding.
 - `area:*` values here: `canon`, `copilot`, `import`, `index`, `media`, `table`,
   `players`, `web`, `billing`, `deploy`, `docs`. Add one only when the surface
   really is new.
-- Milestone: `v0` (the engine), `v1` (the sellable product), `v2` (distribution).
-- **Every issue hangs off an epic, with no exceptions, and this is checkable rather
-  than aspirational.** Epics are titled `[Epic] Name` and carry the `epic` label; an
-  epic itself has no parent. If none of the existing ones fits, create a new epic and
-  parent the issue to it. An issue with no parent is a defect in the board, and it is
-  a defect that accumulates in exactly one way: an agent files a real finding
-  mid-wave, sets its labels and its four fields, and forgets the one step that is a
-  separate GraphQL mutation. On 2026-08-22 an audit of all 392 issues across this repo
-  and `canonry-landing` found 22 of them orphaned, every one a mid-wave split-out.
-  **So parent it in the same turn you create it**, and when a subagent files something
-  on your behalf, parenting it is yours rather than theirs.
+- **Every issue belongs to a project milestone**, unless it genuinely belongs to
+  no body of work, in which case it carries no project at all. `save_issue`
+  takes the project, the milestone, the labels and the priority in the same
+  call, so leaving one out is a mistake and not an accident of a second call
+  being skipped.
 
-  Which epic, when it is not obvious: an item about a **surface** goes to the round
-  epic it was found in, because that is where a reader looks for what the round cost;
-  an item about the **engine** goes to its durable subject epic, because a round is
-  over and `[Epic] Media` is not. A closed epic still accepts children, so a defect
-  found today whose home is round seventeen goes there rather than to the newest round.
-
-  The audit, which is worth running at the end of any wave that filed issues:
-
-  ```bash
-  gh api graphql -f query='query($c:String){repository(owner:"fiorelorenzo",name:"canonry"){
-    issues(first:100,after:$c,states:[OPEN,CLOSED]){pageInfo{hasNextPage endCursor}
-    nodes{number parent{number} labels(first:20){nodes{name}}}}}}' \
-    --jq '.data.repository.issues.nodes[] | select(.parent==null)
-          | select([.labels.nodes[].name] | index("epic") | not) | .number'
-  ```
-
-  It pages 100 at a time, so re-run it with `-f c=<endCursor>` until `hasNextPage` is
-  false. Empty output on every page is the passing state.
-
-```bash
-# Read the schema, never guess an option value
-gh project field-list 9 --owner fiorelorenzo --format json
-gh label list -R fiorelorenzo/canonry --limit 100
-
-# Fill these three in; everything below runs as written, no placeholders to edit
-ISSUE=123                 # the issue you are working on
-EPIC=1                    # its parent epic
-STATUS="In Progress"      # Todo | In Progress | Done
-
-PROJECT_ID=$(gh project view 9 --owner fiorelorenzo --format json --jq '.id')
-STATUS_FIELD=$(gh project field-list 9 --owner fiorelorenzo --format json \
-  --jq '.fields[] | select(.name=="Status") | .id')
-OPTION_ID=$(gh project field-list 9 --owner fiorelorenzo --format json \
-  --jq ".fields[] | select(.name==\"Status\") | .options[] | select(.name==\"$STATUS\") | .id")
-ITEM_ID=$(gh project item-list 9 --owner fiorelorenzo --format json --limit 500 \
-  --jq ".items[] | select(.content.number==$ISSUE) | .id")
-gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" \
-  --field-id "$STATUS_FIELD" --single-select-option-id "$OPTION_ID"
-
-# New issue: create it, put it on the board, hang it off its epic
-ISSUE_URL=$(gh issue create -R fiorelorenzo/canonry --title "feat(canon): ..." \
-  --body "..." --milestone "v0" --label "type:feature,priority:P1,area:canon")
-gh project item-add 9 --owner fiorelorenzo --url "$ISSUE_URL"
-gh api graphql -f query='mutation($p:ID!,$c:ID!){addSubIssue(input:{issueId:$p,subIssueId:$c}){subIssue{number}}}' \
-  -f p="$(gh issue view $EPIC -R fiorelorenzo/canonry --json id --jq '.id')" \
-  -f c="$(gh issue view "$ISSUE_URL" --json id --jq '.id')"
-```
-
-`item-edit` is idempotent, so re-setting a value that is already correct is a fine
-way to make sure the board is right. An issue can have only one parent: to move it,
-pass `replaceParent: true` in the same mutation.
+The old GitHub Project board and every closed GitHub issue stay where they are
+as a read-only archive. Nothing syncs between it and Linear in either direction,
+and a two-way sync must never be added.
 
 ## Two metrics decide whether this product works
 
