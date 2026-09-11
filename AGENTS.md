@@ -785,9 +785,11 @@ the `area:*` labels.
   `chore`, `ci`, `docs`, `design`, `security`, `spike`, exactly one per issue,
   Linear enforces one label per group). `area:*` stays a set of flat labels
   rather than a group precisely because this is a pnpm monorepo with several
-  surfaces and one issue often needs more than one area at once. `flagship` and
-  `parallel` are the only other flat labels; `parallel` marks whether a parallel
-  agent can take the issue without colliding.
+  surfaces and one issue often needs more than one area at once. `flagship` is
+  the only other flat label; parallel safety is two labels, `parallel:yes` and
+  `parallel:no`, never a bare `parallel`: one label would conflate "must not
+  run concurrently" with "never assessed", and the absence of both is that
+  third state, assessed at wave time rather than assumed safe.
 - `area:*` values here: `canon`, `copilot`, `import`, `index`, `media`, `table`,
   `players`, `web`, `billing`, `deploy`, `docs`. Add one only when the surface
   really is new.
