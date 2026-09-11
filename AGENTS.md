@@ -791,11 +791,12 @@ the `area:*` labels.
 - `area:*` values here: `canon`, `copilot`, `import`, `index`, `media`, `table`,
   `players`, `web`, `billing`, `deploy`, `docs`. Add one only when the surface
   really is new.
-- **Every issue belongs to a project milestone**, unless it genuinely belongs to
-  no body of work, in which case it carries no project at all. `save_issue`
-  takes the project, the milestone, the labels and the priority in the same
-  call, so leaving one out is a mistake and not an accident of a second call
-  being skipped.
+- **Every issue sits in a project and in a milestone, with no exceptions**, and
+  an issue filed in the middle of another issue's run is not exempt. `save_issue`
+  takes the project, the milestone, the labels and the priority in the same call,
+  so leaving one out is a mistake and not an accident of a second call being
+  skipped. If no milestone fits, create one in the project that owns the work
+  rather than leaving the issue loose.
 
 The old GitHub Project board and every closed GitHub issue stay where they are
 as a read-only archive. Nothing syncs between it and Linear in either direction,
