@@ -804,6 +804,28 @@ The old GitHub Project board and every closed GitHub issue stay where they are
 as a read-only archive. Nothing syncs between it and Linear in either direction,
 and a two-way sync must never be added.
 
+## Pull requests
+
+One shape for every repo of mine: `skill://opening-a-pull-request`. The issue and its
+neighbours before the branch, the branch name Linear renders on the issue, Conventional
+Commits in the first person, the body's four sections from
+`.github/PULL_REQUEST_TEMPLATE.md` (Screenshots is never deleted), an independent review
+applied in a second commit, and the card closed only against evidence. What the section
+above already says about labels, projects and milestones is not repeated here; what
+follows is only what is true of pull requests specifically:
+
+- **Scopes** for the subject are the `area:*` labels already named above (`canon`,
+  `copilot`, `import`, `index`, `media`, `table`, `players`, `web`, `billing`, `deploy`,
+  `docs`), plus `agents` for this file, `db` for `packages/db`, and `ci` for the
+  workflows themselves, none of which has its own `area:*` label.
+- **Required check**: the aggregate `ci` context, enforced by the
+  `protect-default-branch` ruleset's `required_status_checks` rule.
+- **Merge**: `gh pr merge <n> --squash --delete-branch`, the only method
+  `require-pull-request` allows. `allow_auto_merge` is on, so
+  `gh pr merge <n> --auto --squash --delete-branch` right after opening works as well.
+  Either way, local `main` has to be reset afterwards (`git checkout main && git reset
+  --hard origin/main`), because it diverges on every squash.
+
 ## Two metrics decide whether this product works
 
 Instrument them from the first commit that touches their subject, because neither
