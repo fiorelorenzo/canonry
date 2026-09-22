@@ -736,13 +736,25 @@ session logs, so a tracker that lags reality is worse than no tracker.
 
 The repo is the Linear **initiative** `canonry`: permanent, the product's
 standing view. Under it, a **project** is a release or a body of work with an
-end, closed when it ships. Two exist right now: `canonry v0 - The engine is
-real` and `canonry v1 - The product is sellable`. What used to be an epic issue
-is now a **project milestone**: it is not an issue, costs no issue slot, and
-shows progress natively. Some of the epics that became milestones were already
+end, closed when it ships, named for the work it does: `Make the engine real`
+and `Make the product sellable`. What used to be an epic issue is now a
+**project milestone**: it is not an issue, costs no issue slot, and shows
+progress natively. Some of the epics that became milestones were already
 closed on GitHub while still parenting open work; those became milestones the
 same as the open ones. A parent issue stays only for a deliverable that
 genuinely splits into sub-deliverables within a single agent run's reach.
+
+**Naming, on the board.** Every name starts with a verb and names the work,
+under 80 characters: an issue title, a project, a milestone. One clause, or two
+when the second only names what makes the first visible. No `type(scope):`
+prefix on a Linear title (commits and PR titles keep Conventional Commits, with
+the `area:*` scopes), no product prefix or `vN` on a project name, no state
+word anywhere. An end-state clause reads as a riddle to whoever did not write
+it. The body fits one screen: at most four bold lead words (`**Observed.**`,
+`**Needed.**`, and `**Done when.**` as one line, `**Not here.**`,
+`**Adjacent.**` when they speak), two or three sentences each. A comment is two
+or three sentences plus the closing evidence bullets; a project update is three
+sentences.
 
 **An issue is one agent run, one PR, one worktree.** That equivalence is
 load-bearing: it is what makes the worktree removable at the end of a run and
@@ -776,9 +788,8 @@ current issue that you split it out, with a link.
 
 **Conventions for a new issue.**
 
-- Title follows **conventional-commit form**: `feat(import): ...`, `fix(canon):
-...`, `test(copilot): ...`. PR titles keep the same convention. Same scopes as
-the `area:*` labels.
+- Title: a verb and the work it does, under 80 characters (§ Naming above). The
+  conventional-commit form belongs to commits and PR titles, not to the card.
 - Labels: the workspace has two mutually exclusive label groups, `repo` (children
   `pitchbox`, `sazio`, `canonry`, exactly one per issue, and everything filed here
   carries `canonry`) and `type` (children `feature`, `fix`, `refactor`, `test`,
