@@ -64,6 +64,18 @@ jobs:
   # no checkout and costs a few seconds. Not used on push: main always runs everything below
   # regardless of these outputs, which also spares us the fetch-depth: 0 a push comparison
   # would need.
+  #
+  # `code` is the gate's only guard now (2026-09-07, issue: post-restructure audit). It used
+  # to be four hand-picked filters (`app`, `db`, `vector`, `import`) plus `deps`, one per
+  # package that had ever needed the gate -- which meant the other eight packages under
+  # packages/* (ai, bench, copilot, eval, indexing, lang, media, warm) matched no filter at
+  # all, so a PR touching only packages/lang/** skipped the gate outright and `ci` went green
+  # having verified nothing. `code` covers the whole surface the gate can ever need to run
+  # for -- apps/**, packages/**, scripts/**, and the root config files that used to live under
+  # `deps` -- once, so a new package under packages/* is in scope the day it is added instead
+  # of the day someone remembers to add a filter for it. Which package(s) actually get linted
+  # and tested is decided inside the gate job itself, by pnpm's own dependency graph, not by
+  # this list.
   changes:
     name: changes
     if: github.event_name == 'pull_request'
@@ -78,46 +90,41 @@ jobs:
       pull-requests: read
     timeout-minutes: 5
     outputs:
-      app: ${{ steps.filter.outputs.app }}
-      db: ${{ steps.filter.outputs.db }}
-      vector: ${{ steps.filter.outputs.vector }}
-      import: ${{ steps.filter.outputs.import }}
+      code: ${{ steps.filter.outputs.code }}
       onestore: ${{ steps.filter.outputs.onestore }}
       scripts: ${{ steps.filter.outputs.scripts }}
-      deps: ${{ steps.filter.outputs.deps }}
     steps:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
-            app:
-              - 'apps/web/**'
-            db:
-              - 'packages/db/**'
-            vector:
-              - 'packages/vector/**'
-            import:
-              - 'packages/import/**'
-            onestore:
-              - 'packages/import/onestore/**'
-            scripts:
+            code:
+              - 'apps/**'
+              - 'packages/**'
               - 'scripts/**'
-              - 'docker/deploy/compose.deploy.yml'
-              - '.env.example'
-            deps:
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - 'package.json'
               - 'tsconfig.base.json'
               - '.node-version'
               - '.npmrc'
+            onestore:
+              - 'packages/import/onestore/**'
+            scripts:
+              - 'scripts/**'
+              - 'docker/deploy/compose.deploy.yml'
+              - '.env.example'
 
-  # Tier 2: the one cheap gate a PR waits on, scoped to whatever `changes` marked via pnpm's
-  # own `--filter` rather than a second copy of those path lists, so the two can never
-  # disagree. On any event other than `pull_request` there is no scoping at all -- that is
-  # the tier-3 full suite -- and `deps == 'true'` widens a PR to the same thing, because a
-  # lockfile or root config change can break a package that never touched a line of its own
-  # source.
+  # Tier 2: the one cheap gate a PR waits on. `code` above only decides whether the gate runs
+  # at all; which packages it actually lints/typechecks/tests is decided in this job by pnpm's
+  # own `--filter "...[base]"` -- "everything changed since base, plus everything that depends
+  # on it" -- read straight from git history instead of a second, hand-maintained copy of the
+  # `changes` path lists that could (and did) drift out of sync with the workspace. The old
+  # per-package filters here only ever ran the changed package's own lint/check/test, so a
+  # type change in packages/db that broke apps/web's build passed the PR and broke main; the
+  # `...` prefix is what pulls web (and everything else standing on packages/db) into the same
+  # run. On any event other than `pull_request` there is no scoping at all -- that is the
+  # tier-3 full suite.
   #
   # Lint and format caused 16 of ~41 real CI failures in this workflow's history, so lint
   # runs before typecheck and typecheck before the unit tests: a formatter fixes in seconds
@@ -136,11 +143,7 @@ jobs:
     if: >-
       ${{ !cancelled() && (
       github.event_name != 'pull_request' ||
-      needs.changes.outputs.app == 'true' ||
-      needs.changes.outputs.db == 'true' ||
-      needs.changes.outputs.vector == 'true' ||
-      needs.changes.outputs.import == 'true' ||
-      needs.changes.outputs.deps == 'true') }}
+      needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -170,8 +173,22 @@ jobs:
         ports:
           - 6333:6333
     steps:
+      # `fetch-depth: 0` only on the PR path: pnpm's `...[ref]` answers "what changed since
+      # this ref" from git history, and a shallow clone gives it nothing to diff against, so
+      # it silently matches zero projects and every step below goes green having tested
+      # nothing. Push already runs unscoped (see `full` below), so it keeps the default
+      # shallow checkout.
+      #
+      # `fromJSON(cond && '0' || '1')`, not `cond && 0 || 1`: GitHub Actions expressions
+      # treat the number `0` as falsy, so `cond && 0 || 1` discards the `0` through `||`
+      # and evaluates to `1` even when `cond` is true -- caught by reading this step's own
+      # run log, where fetch-depth showed as 1 on a pull_request event. The string `'0'` is
+      # truthy (non-empty), so the short-circuit works, and `fromJSON` converts the chosen
+      # string back to the number `actions/checkout` expects.
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: ${{ fromJSON(github.event_name == 'pull_request' && '0' || '1') }}
 
       - name: Setup pnpm and Node
         uses: pnpm/setup@v2
@@ -183,22 +200,42 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # `fetch-depth: 0` above gives full history for this PR's own ref, not necessarily a
+      # local `origin/<base>` -- so the base branch is fetched by name, never with `--depth`,
+      # or pnpm has no commit to diff against and matches nothing.
+      #
+      # `--filter "...[origin/$base]"` is pnpm's own change detection: everything changed
+      # since the base ref, plus everything in the workspace that depends on it, so a type
+      # change in packages/db pulls apps/web into the same run without this file having to
+      # know that. The workspace root (`canonry`) is itself a pnpm project with no package
+      # directory of its own, so pnpm attributes any changed file outside apps/* and
+      # packages/* to it; `--changed-files-ignore-pattern` is what keeps a
+      # .github/workflows or docs-only diff from being attributed to root and selecting
+      # everything. A lockfile or root package.json change is deliberately not in that
+      # ignore list: it still gets attributed to root, and root's own lint/check/test/build
+      # scripts are `pnpm -r --sequential ...`, so selecting root still means a full run --
+      # which is correct, since a dependency bump can break a package that touched no source.
       - name: Scope this run to what changed
         id: scope
         run: |
-          if [ "${{ github.event_name }}" != "pull_request" ] || [ "${{ needs.changes.outputs.deps }}" = "true" ]; then
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
             echo "filter=" >> "$GITHUB_OUTPUT"
             echo "full=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          filter=""
-          [ "${{ needs.changes.outputs.app }}" = "true" ] && filter="$filter --filter web"
-          [ "${{ needs.changes.outputs.db }}" = "true" ] && filter="$filter --filter @canonry/db"
-          [ "${{ needs.changes.outputs.vector }}" = "true" ] && filter="$filter --filter @canonry/vector"
-          [ "${{ needs.changes.outputs.import }}" = "true" ] && filter="$filter --filter @canonry/import"
+          base="${{ github.base_ref }}"
+          git fetch --no-tags origin "$base:refs/remotes/origin/$base"
+          filter="--filter \"...[origin/$base]\" --changed-files-ignore-pattern=\"{.github/**,docs/**,**/*.md}\""
           echo "filter=$filter" >> "$GITHUB_OUTPUT"
           echo "full=false" >> "$GITHUB_OUTPUT"
           echo "scoped to:$filter"
+
+      # Cheap and purely diagnostic: proves in the run log which projects `...[base]` picked
+      # up, which is the only way to see a dependent (e.g. web, pulled in by a packages/db
+      # change) getting swept into a run that only touched one package's own directory.
+      - name: Show what this run selected
+        if: steps.scope.outputs.full == 'false'
+        run: pnpm ${{ steps.scope.outputs.filter }} list --depth -1
 
       # `src/playbooks.generated.ts` is committed so that every build path has it, including
       # the Docker image (which builds apps/web directly and never runs this package's own
@@ -220,8 +257,23 @@ jobs:
       - name: Typecheck
         run: pnpm ${{ steps.scope.outputs.filter }} check
 
+      # `--sequential`: every package under packages/* that touches Postgres reads
+      # `TEST_DATABASE_URL` before its own per-run `TEST_DB_SUFFIX`-suffixed default (see
+      # e.g. packages/db/src/index.ts and its siblings), and this step sets one literal
+      # `TEST_DATABASE_URL` for the whole job, on purpose: apps/web's own tests key off that
+      # same variable and isolate by inserting uniquely-slugged rows rather than owning a
+      # whole database. That single shared name is safe with one db-touching package at a
+      # time, which is all the old hand-mapped filters ever selected together, but the
+      # native `...[base]` filter can now select several in the same run (a packages/db
+      # change alone pulls in eight others), and running their suites in parallel means two
+      # of them race to create or drop that same database -- caught the hard way with
+      # `PostgresError: duplicate key value violates unique constraint
+      # "pg_database_datname_index"` the first time a diff touched two db-backed packages at
+      # once. `--sequential` is exactly what root's own `test` script already does
+      # (`pnpm -r --sequential test`) for the unscoped full run on push, so this only makes
+      # the PR path match a safety property push already had.
       - name: Unit tests
-        run: pnpm ${{ steps.scope.outputs.filter }} test
+        run: pnpm ${{ steps.scope.outputs.filter }} --sequential test
         env:
           TEST_DATABASE_URL: postgres://canonry:canonry@localhost:5432/canonry_test
           QDRANT_URL: http://localhost:6333
