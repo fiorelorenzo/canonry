@@ -20,7 +20,7 @@
 		"@canonry/copilot": "workspace:*",
 		"@canonry/db": "workspace:*",
 		"@canonry/lang": "workspace:*",
-		"ai": "^7.0.73",
+		"ai": "^7.0.83",
 		"fflate": "^0.8.3",
 		"mammoth": "^1.12.1",
 		"pdfjs-dist": "^6.2.108",
