@@ -539,36 +539,33 @@ question through round eighteen, and once it had, it was deleted rather than kep
 `docs/ux/SURFACES.md` and `docs/ux/RUBRIC.md` now carry the surface inventory and the
 review rubric the guardrails turn into, the two pieces of `index.html` that were still
 live rather than historical. A new UX question is not built by hand here any more: it is
-drawn in Claude Design.
+shown as an artifact.
 
-**Two kinds of Claude Design project, and only two.** A disposable one per surface, named
-`canonry · <surface>`, regenerated from the repo with "Start from code" whenever it goes
-stale rather than hand-maintained. And one durable project, **`Canonry Design System`**
-(`https://claude.ai/design/p/c00e5984-8a90-4ece-82cb-8bc387b46aa1`, built 2026-08-23 from
-this repo's `main`), which is where the tokens, the fonts and the component guidance the
-design agent reads live. Attach it to every surface project; its own readme records what it
-was built from and what it deliberately did not recreate (table mode, Works, Import,
-Settings, Ask and the admin surfaces), so check that list before trusting it on a surface.
-Neither is version-controlled: a project's menu is exactly Rename, Duplicate project,
-Delete project, no history and no restore, it is Beta, and it sits behind one personal
-`claude.ai` account that omp cannot read. A canvas is a drawing tool. It is never the source
-of truth, and it never holds anything client-confidential.
+**An artifact is how Lorenzo sees an option, and it is never kept.** The agent draws the
+options as one self-contained HTML page on Canonry's own tokens, publishes it with
+`agent-artifact publish` (`skill://publishing-artifacts`), and sends him the link he opens
+on the Artifacts page in Vera. Both options have to be defensible, and the question has to
+be answerable with one letter. When he answers, the decision is written where it belongs
+(for a Canonry UI question, a row in `docs/design/DECISIONS.md`) and the artifact is closed
+with `agent-artifact close <slug>`, which deletes it; one nobody closes is deleted after 14
+days. Claude Design was retired on 2026-10-19 (LOR-619): do not open or regenerate a project
+there. The `canonry · <surface>` projects and the `Canonry Design System` project that
+exist are left alone, and nothing new is drawn in them.
 
-**The answer still lives here, not on a canvas.** `docs/design/DECISIONS.md` opens with a table,
+**The answer lives here, never in a drawing.** `docs/design/DECISIONS.md` opens with a table,
 one row per decision (`ID`, `Round`, `Question`, `Answer`, `Rule it creates`), and that table
 is where a decision lives now. Moving one means editing that row and saying so on the issues
 it blocks. `docs/ux/assets/ux.js`'s register, which used to drive the 59 artifacts' head,
 breadcrumb and prev/next, was deleted with them on 2026-08-23 (#633); nothing in the tree
 depends on it any more.
 
-**An implementation starts from the export's map, never from its CSS.** Claude Design's
-"Project archive" export is a zip: the canvas, a `github.md` screen map naming the repo files
-behind each artboard, and the copied assets. Read that map and the decision row it points at.
-Two exports measured on 2026-08-23 carried 163 and 168 raw hex literals between them and zero
+**An implementation starts from the decision row and the token layer, never from the
+artifact's CSS.** An artifact is a drawing, and its stylesheet is not the product: two canvases
+measured on 2026-08-23 carried 163 and 168 raw hex literals between them and zero
 `var(--token)`, every one of them a colour the repo already had a token for and none invented,
 which is exactly why the values transfer and the token layer does not. #621 is the standing
 cost of pasting one in anyway. `uishot --axe --fail-on serious` and `uislop` still gate the
-result, because the canvas was never the product.
+result, because an artifact was never the product.
 
 **`docs/ux/REFERENCES.md` is the other input**, added 2026-08-22: eleven files under
 `docs/ux/references/`, one per cluster of surfaces, each a list of named mechanics from real
