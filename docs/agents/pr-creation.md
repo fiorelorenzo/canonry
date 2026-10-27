@@ -4,6 +4,10 @@ The workflow kit's `pr-creation` skill (`.agents/skills/pr-creation/SKILL.md`) i
 procedure; this file is the part only this repository does. Read the skill first, then
 this. Where the two disagree, this file is the more specific one and wins.
 
+A PR title is at most 72 characters (`pr.title_max` in `.github/workflow.json`; `pr_lint`
+fails on a longer one), shorter than this repo's earlier habit: name the change, leave
+the mechanism for the body.
+
 ## Before the PR
 
 - Run `python3 .github/kit/bin/preflight` (`--list` first to see what your diff would

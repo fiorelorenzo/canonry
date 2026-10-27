@@ -764,6 +764,17 @@ omp before it is sent. Do not edit the kit's files here; they come from
   sellable`. What used to be an epic issue is a **project milestone**, not an issue.
   A parent issue stays only for a deliverable that splits into sub-deliverables within a
   single agent run's reach.
+- Statuses are `Backlog`, `Todo`, `In Progress`, `In Review`, `Done`, `Canceled`.
+  PR automation is not configured: set `In Review` by hand when the PR opens (Linear
+  links PRs through the branch name and hosts no review itself) and `Done` only when
+  the change is merged and verified, not when the code is written. Merged but something
+  still open: say so in a comment and leave it `In Progress`.
+- Priority (`Urgent` / `High` / `Medium` / `Low`) and estimate are Linear's own fields,
+  not labels. Set both on anything you file, and never invent a value that is not
+  already an option.
+- **File the work you discover.** When something real surfaces mid-task, open an issue
+  for it instead of silently widening the current change, and say in the current issue
+  that you split it out, with a link.
 - **An issue is one agent run, one PR, one worktree.** That equivalence is load-bearing:
   it is what makes the worktree removable at the end of a run and the PR reviewable.
 - Labels: the `repo` group's child is `canonry` on everything filed here (siblings:
