@@ -260,17 +260,20 @@ arbitrary finish reason or a malformed tool call with nothing in the app mocked 
 the real gateway client gets exercised on the way in. #678 and #698 both needed exactly that
 and both re-derived it.
 
-**CI is three tiers now (2026-09-06).** `preflight` (on PATH, manifest at
-`.github/preflight.json`) runs the expensive stuff locally before a push happens: lint,
+**CI is three tiers now (2026-09-06).** `python3 .github/kit/bin/preflight` (the workflow
+kit's copy, so it works on any checkout; manifest at `.github/preflight.json`) runs the
+expensive stuff locally before a push happens: lint,
 typecheck, the full test suite against real Postgres and Qdrant, the production build, the
 docker image boot, the wasm reproducibility check and the four deploy-script checks, each
 scoped by `preflight`'s own diff against `origin/main` so only what your branch can have
-broken actually runs. `preflight --list` shows what would run and why before you trust it,
-and `preflight --install-hook` wires it into `pre-push`, so a push right after a green run
+broken actually runs. `python3 .github/kit/bin/preflight --list` shows what would run and
+why before you trust it, and `python3 .github/kit/bin/preflight --install-hook` wires it
+into `pre-push`, so a push right after a green run
 costs nothing. On GitHub, a `pull_request` gets one cheap job (`gate`: lint, typecheck and
 the unit tests, `pnpm --filter`-scoped to whichever of `apps/web`, `packages/db`,
 `packages/vector` or `packages/import` the PR's `changes` job saw touched, or unscoped if
-the lockfile or a root config did), plus `wasm`/`deploy-scripts` when their own paths moved.
+the lockfile or a root config did), plus `wasm`/`deploy-scripts` when their own paths moved,
+plus `kit` (the kit's `kit.py check` and `pr_lint.py` on the PR's title and body) always.
 `docker-boot` never runs on a PR at all any more. `push: main` runs every job unconditionally
 -- no path filtering there, because that push is what gates the preview deploy in `deploy.yml`
 and nobody is waiting on it the way a PR is. The one required status check is now the context
@@ -728,111 +731,69 @@ Current state and future roadmap live in **Linear** (`linear.app/fiorelorenzo`,
 team `Lorenzo Fiore`, identifier prefix `LOR`, so an issue is `LOR-<n>`), not in
 this file, not in the spec, and not in a chat transcript. `SPEC.md` says what
 Canonry is, Linear says where it stands. Keeping it current is part of doing the
-work, not paperwork at the end: it is how Lorenzo sees state without reading
-session logs, so a tracker that lags reality is worse than no tracker.
+work, not paperwork at the end.
 
-The repo is the Linear **initiative** `canonry`: permanent, the product's
-standing view. Under it, a **project** is a release or a body of work with an
-end, closed when it ships, named for the work it does: `Make the engine real`
-and `Make the product sellable`. What used to be an epic issue is now a
-**project milestone**: it is not an issue, costs no issue slot, and shows
-progress natively. Some of the epics that became milestones were already
-closed on GitHub while still parenting open work; those became milestones the
-same as the open ones. A parent issue stays only for a deliverable that
-genuinely splits into sub-deliverables within a single agent run's reach.
+**The procedure is the workflow kit's.** How a card is filed, moved and written, how a
+branch, a commit and a pull request are made, and the independent review before merge are
+the skills `linear-ticket`, `linear-content` and `pr-creation` in `.agents/skills/` (a
+copy for Claude Code is in `.claude/skills/`). Their data (tracker, commit types and
+scopes, PR sections, merge method, required check) is `.github/workflow.json`. `ci` checks
+it: `kit.py check` for the copies, `pr_lint.py` for a PR's title and body. A gate
+(`.github/kit/bin/linear_gate.py`) refuses a malformed Linear write in Claude Code and in
+omp before it is sent. Do not edit the kit's files here; they come from
+`tooling/workflow-kit/` in letsrebase/rebase and are replaced by a sync
+(`.github/kit/README.md`). This repo's own steps for a PR are in
+`docs/agents/pr-creation.md`.
 
-**Naming, on the board.** Every name starts with a verb and names the work,
-under 80 characters: an issue title, a project, a milestone. One clause, or two
-when the second only names what makes the first visible. No `type(scope):`
-prefix on a Linear title (commits and PR titles keep Conventional Commits, with
-the `area:*` scopes), no product prefix or `vN` on a project name, no state
-word anywhere. An end-state clause reads as a riddle to whoever did not write
-it. The body fits one screen: at most four bold lead words (`**Observed.**`,
-`**Needed.**`, and `**Done when.**` as one line, `**Not here.**`,
-`**Adjacent.**` when they speak), two or three sentences each. A comment is two
-or three sentences plus the closing evidence bullets; a project update is three
-sentences.
+**If you have no skills loaded, the rules in five lines:**
 
-**An issue is one agent run, one PR, one worktree.** That equivalence is
-load-bearing: it is what makes the worktree removable at the end of a run and
-the PR reviewable.
+1. A Linear card exists, in a project and a milestone, before the branch does; move it to
+   `In Progress` before writing code.
+2. One card is one agent run, one worktree, one PR.
+3. Conventional Commits in the first person, English, no em dash; the last line of the
+   commit body is the card, `LOR-<n>.`.
+4. The PR body keeps the four sections of `.github/PULL_REQUEST_TEMPLATE.md` (Screenshots
+   is never deleted) and ends with `Linear: LOR-<n>.`.
+5. Squash merge once `ci` is green; the card moves to `Done` only against evidence.
 
-**Status is a claim about reality, keep it true.**
+**What is true of this repo's board.**
 
-- Before you write code for an issue, move it to `In Progress`. If what you are
-  about to do has no issue, create one first, then start.
-- Move it to `Done` only when the change is merged and verified, not when the
-  code is written. Merged but something is still open? Say so in a comment and
-  leave it `In Progress`.
-- The team's statuses are `Backlog`, `Todo`, `In Progress`, `In Review`, `Done`,
-  `Canceled`. `In Review` is where an issue sits while its PR is open on GitHub:
-  PRs stay on GitHub, Linear links them through the branch name rather than
-  hosting review itself.
-- Priority (`Urgent` / `High` / `Medium` / `Low`) and estimated effort are
-  Linear's own native fields on the issue, not labels. Set both on anything you
-  file, and never invent a value that is not already an option.
-
-**Comment when a reader would want to know.** A decision taken, an approach tried
-and abandoned, a blocker hit, a surprise in the code, a finding that invalidates
-the issue as written. One comment per meaningful turn in the work, not one per
-commit, and no routine progress narration. A project status update, not a
-comment, is for something a reader could not infer from the issue list: a
-milestone slipped, a health change, a decision taken.
-
-**File the work you discover.** When something real surfaces mid-task, open an
-issue for it instead of silently widening the current change. Then say in the
-current issue that you split it out, with a link.
-
-**Conventions for a new issue.**
-
-- Title: a verb and the work it does, under 80 characters (§ Naming above). The
-  conventional-commit form belongs to commits and PR titles, not to the card.
-- Labels: the workspace has two mutually exclusive label groups, `repo` (children
-  `pitchbox`, `sazio`, `canonry`, exactly one per issue, and everything filed here
-  carries `canonry`) and `type` (children `feature`, `fix`, `refactor`, `test`,
-  `chore`, `ci`, `docs`, `design`, `security`, `spike`, exactly one per issue,
-  Linear enforces one label per group). `area:*` stays a set of flat labels
-  rather than a group precisely because this is a pnpm monorepo with several
-  surfaces and one issue often needs more than one area at once. `flagship` is
-  the only other flat label; parallel safety is two labels, `parallel:yes` and
-  `parallel:no`, never a bare `parallel`: one label would conflate "must not
-  run concurrently" with "never assessed", and the absence of both is that
-  third state, assessed at wave time rather than assumed safe.
+- The repo is the Linear **initiative** `canonry`: permanent, the product's standing
+  view. Under it, a **project** is a release or a body of work with an end, closed when
+  it ships, named for the work it does: `Make the engine real` and `Make the product
+  sellable`. What used to be an epic issue is a **project milestone**, not an issue.
+  A parent issue stays only for a deliverable that splits into sub-deliverables within a
+  single agent run's reach.
+- **An issue is one agent run, one PR, one worktree.** That equivalence is load-bearing:
+  it is what makes the worktree removable at the end of a run and the PR reviewable.
+- Labels: the `repo` group's child is `canonry` on everything filed here (siblings:
+  `pitchbox`, `sazio`); exactly one `type` label (`feature`, `fix`, `refactor`, `test`,
+  `chore`, `ci`, `docs`, `design`, `security`, `spike`). `area:*` stays a set of flat
+  labels rather than a group because this is a pnpm monorepo and one issue often needs
+  more than one area. `flagship` is the only other flat label; parallel safety is two
+  labels, `parallel:yes` and `parallel:no`, never a bare `parallel`: one label would
+  conflate "must not run concurrently" with "never assessed", and the absence of both
+  is that third state, assessed at wave time rather than assumed safe.
 - `area:*` values here: `canon`, `copilot`, `import`, `index`, `media`, `table`,
-  `players`, `web`, `billing`, `deploy`, `docs`. Add one only when the surface
-  really is new.
-- **Every issue sits in a project and in a milestone, with no exceptions**, and
-  an issue filed in the middle of another issue's run is not exempt. `save_issue`
-  takes the project, the milestone, the labels and the priority in the same call,
-  so leaving one out is a mistake and not an accident of a second call being
-  skipped. If no milestone fits, create one in the project that owns the work
-  rather than leaving the issue loose.
+  `players`, `web`, `billing`, `deploy`, `docs`. Add one only when the surface really is
+  new (and add it to `.github/workflow.json` in the same change).
+- **Every issue sits in a project and in a milestone, with no exceptions**, and an issue
+  filed in the middle of another issue's run is not exempt. If no milestone fits, create
+  one in the project that owns the work rather than leaving the issue loose.
+- The old GitHub Project board and every closed GitHub issue stay where they are as a
+  read-only archive. Nothing syncs between it and Linear in either direction, and a
+  two-way sync must never be added.
 
-The old GitHub Project board and every closed GitHub issue stay where they are
-as a read-only archive. Nothing syncs between it and Linear in either direction,
-and a two-way sync must never be added.
+**Pull requests, what is specific here.**
 
-## Pull requests
-
-One shape for every repo of mine: `skill://opening-a-pull-request`. The issue and its
-neighbours before the branch, the branch name Linear renders on the issue, Conventional
-Commits in the first person, the body's four sections from
-`.github/PULL_REQUEST_TEMPLATE.md` (Screenshots is never deleted), an independent review
-applied in a second commit, and the card closed only against evidence. What the section
-above already says about labels, projects and milestones is not repeated here; what
-follows is only what is true of pull requests specifically:
-
-- **Scopes** for the subject are the `area:*` labels already named above (`canon`,
-  `copilot`, `import`, `index`, `media`, `table`, `players`, `web`, `billing`, `deploy`,
-  `docs`), plus `agents` for this file, `db` for `packages/db`, and `ci` for the
-  workflows themselves, none of which has its own `area:*` label.
-- **Required check**: the aggregate `ci` context, enforced by the
-  `protect-default-branch` ruleset's `required_status_checks` rule.
+- **Scopes** for a commit or PR subject are the `area:*` labels above, plus `agents` for
+  this file, `db` for `packages/db`, `ci` for the workflows, and the other package names
+  and tiers listed in `commits.scopes` of `.github/workflow.json`. Scope is optional.
+- **Required check**: the aggregate `ci` context, enforced by the `protect-default-branch`
+  ruleset's `required_status_checks` rule; `kit` is one of its needs.
 - **Merge**: `gh pr merge <n> --squash --delete-branch`, the only method
-  `require-pull-request` allows. `allow_auto_merge` is on, so
-  `gh pr merge <n> --auto --squash --delete-branch` right after opening works as well.
-  Either way, local `main` has to be reset afterwards (`git checkout main && git reset
-  --hard origin/main`), because it diverges on every squash.
+  `require-pull-request` allows (`--auto` works too, `allow_auto_merge` is on). Local
+  `main` has to be reset afterwards; see `docs/agents/pr-creation.md`.
 
 ## Two metrics decide whether this product works
 

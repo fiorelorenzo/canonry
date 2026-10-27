@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "tracker": {
+    "kind": "linear",
+    "workspace": "fiorelorenzo",
+    "team": "Lorenzo Fiore",
+    "prefix": "LOR",
+    "language": "English",
+    "contract": "AGENTS.md",
+    "labels": {
+      "type": ["feature", "fix", "refactor", "chore", "docs", "test", "ci", "design", "security", "spike"],
+      "area": ["area:canon", "area:copilot", "area:import", "area:index", "area:media", "area:table", "area:players", "area:web", "area:billing", "area:deploy", "area:docs"]
+    }
+  },
+  "github": {
+    "merge": "squash",
+    "required_check": "ci",
+    "review_bots": []
+  },
+  "commits": {
+    "types": ["feat", "fix", "refactor", "perf", "test", "docs", "ci", "chore", "design", "spike"],
+    "scope_required": false,
+    "scopes": ["canon", "copilot", "import", "index", "media", "table", "players", "web", "billing", "deploy", "docs", "agents", "db", "ci", "deps", "deps-dev", "ai", "bench", "eval", "lang", "ux", "vector", "test"]
+  },
+  "pr": {
+    "title_max": 72,
+    "card_line": true,
+    "milestone_card_line": true,
+    "exempt_authors": ["dependabot[bot]", "app/dependabot"],
+    "sections": [
+      {"title": "What this changes", "required": true},
+      {"title": "How I verified it", "required": true},
+      {"title": "Anything a reviewer should look at twice"},
+      {"title": "Screenshots", "required": true, "hint": "For anything a person could see: one before-and-after pair per change, composed into a\nsingle side-by-side image and attached with `gh pr edit <n> --attach`. If nothing\nvisible changed, or a pair cannot be captured, say so and why. Keep this section\neither way."}
+    ]
+  },
+  "extras": "docs/agents"
+}
