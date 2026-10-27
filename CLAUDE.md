@@ -8,8 +8,9 @@ Everything in `AGENTS.md` applies. What follows is specific to Claude Code.
 
 - Read `SPEC.md` in full once per session. It is the contract; the guardrails in
   §3 are not negotiable and several of them are easy to violate by accident.
-- Check the board before starting: `gh project item-list 9 --owner fiorelorenzo`.
-  Move the issue to `In Progress` before writing code, not after.
+- Find your card in Linear (`linear-ticket` skill, board `linear.app/fiorelorenzo`, team
+  `LOR`). Move it to `In Progress` before writing code, not after. The GitHub Project
+  board is a read-only archive.
 
 ## Hard rules
 

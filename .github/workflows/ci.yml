@@ -385,6 +385,30 @@ jobs:
       - name: Check the deployed environment carries what .env.example promises
         run: scripts/deploy/test-deploy-env.sh
 
+  # The workflow kit's copy here matches its manifest, and a pull request's title and body
+  # follow .github/workflow.json (LOR-740). pr_lint reads the PR from the API, not from the
+  # event, so after `gh pr edit` a re-run of the failed jobs checks the new text without a
+  # push. Seconds, no setup: python3 is on the runner and both scripts use only the
+  # standard library. Unconditional on purpose: a skipped run would let a hand-edited kit
+  # file through.
+  kit:
+    name: kit · check and PR lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # A job-level block replaces the workflow-level one, so `contents: read` is restated.
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: The kit's copy is intact
+        run: python3 .github/kit/bin/kit.py check
+      - name: The PR's title and body follow .github/workflow.json
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 .github/kit/bin/pr_lint.py --github
+
   # The single required status check. Never rename it: it is the one context in the
   # protect-default-branch ruleset, so every job name above it can change forever without
   # touching a ruleset again. `skipped` counts as passing -- that is the whole point: a PR
@@ -394,7 +418,7 @@ jobs:
   ci:
     name: ci
     if: always()
-    needs: [changes, gate, docker-boot, wasm, deploy-scripts]
+    needs: [changes, gate, docker-boot, wasm, deploy-scripts, kit]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
